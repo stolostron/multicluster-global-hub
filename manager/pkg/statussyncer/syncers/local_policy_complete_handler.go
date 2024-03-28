@@ -100,6 +100,20 @@ func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudev
 			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
 		}
 
+		// pending: go over the pending clusters from event
+		for _, eventCluster := range eventCompliance.PendingComplianceClusters {
+			if !nonComplianceClusterSetsFromDB.GetClusters(database.Pending).Contains(eventCluster) {
+				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
+					PolicyID:    policyID,
+					LeafHubName: leafHub,
+					ClusterName: eventCluster,
+					Compliance:  database.Pending,
+					Error:       database.ErrorNone,
+				})
+			}
+			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
+		}
+
 		// unknown: go over the unknown clusters from event
 		for _, eventCluster := range eventCompliance.UnknownComplianceClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(eventCluster) {

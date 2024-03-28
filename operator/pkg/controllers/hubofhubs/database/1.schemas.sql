@@ -13,6 +13,7 @@ DO $$ BEGIN
   CREATE TYPE local_status.compliance_type AS ENUM (
     'compliant',
     'non_compliant',
+    'pending',
     'unknown'
 	);
 EXCEPTION
@@ -23,6 +24,7 @@ DO $$ BEGIN
   CREATE TYPE status.compliance_type AS ENUM (
     'compliant',
     'non_compliant',
+    'pending',
     'unknown'
 	);
 EXCEPTION

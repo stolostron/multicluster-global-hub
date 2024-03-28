@@ -9,3 +9,7 @@ CREATE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_status_idx ON status.lea
 
 ALTER TABLE history.local_compliance DROP CONSTRAINT IF EXISTS local_policies_unique_constraint;
 ALTER TABLE history.local_compliance ADD CONSTRAINT local_policies_unique_constraint UNIQUE (leaf_hub_name, policy_id, cluster_id, compliance_date);
+
+---- Handle Upgrade from 1.1 to 1.2
+ALTER TYPE status.compliance_type ADD VALUE IF NOT EXISTS 'pending';
+ALTER TYPE local_status.compliance_type ADD VALUE IF NOT EXISTS 'pending';

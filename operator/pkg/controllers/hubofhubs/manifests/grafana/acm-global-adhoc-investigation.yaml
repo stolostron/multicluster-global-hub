@@ -98,13 +98,14 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
+            "w": 4,
             "x": 0,
             "y": 1
           },
@@ -121,10 +122,12 @@ data:
               "fields": "/^count$/",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -180,7 +183,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "The distinct number of managed clusters that were \"compliant\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
@@ -199,14 +202,15 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
-            "x": 6,
+            "w": 4,
+            "x": 4,
             "y": 1
           },
           "id": 48,
@@ -222,10 +226,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -237,7 +243,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0\nAND \n  pending = 0",
               "refId": "A",
               "select": [
                 [
@@ -281,7 +287,118 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "The distinct number of managed clusters that were \"pending\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "links": [
+                {
+                  "targetBlank": true,
+                  "title": "View all clusters for policy  \"${policy}\" on hub cluster \"${hub}\"",
+                  "url": "${hubConsoleURL}/multicloud/governance/policies/details/${namespace}/${policy}/results?perspective=acm\n"
+                }
+              ],
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "yellow",
+                    "value": null
+                  }
+                ]
+              },
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 4,
+            "x": 8,
+            "y": 1
+          },
+          "id": 57,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "text": {},
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  pending > 0\nAND\n  non_compliant = 0",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Pending Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "The distinct number of managed clusters that were \"unknown\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
@@ -307,17 +424,18 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
+            "w": 4,
             "x": 12,
             "y": 1
           },
-          "id": 57,
+          "id": 67,
           "options": {
             "colorMode": "value",
             "graphMode": "area",
@@ -330,10 +448,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -345,7 +465,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0\nAND\n  pending = 0",
               "refId": "A",
               "select": [
                 [
@@ -389,7 +509,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "The distinct number of managed clusters that were in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
@@ -415,14 +535,15 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
-            "x": 18,
+            "w": 8,
+            "x": 16,
             "y": 1
           },
           "id": 47,
@@ -438,10 +559,12 @@ data:
               "fields": "/^count$/",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -453,7 +576,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.policy_id ${policy_id_query:raw}\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res",
               "refId": "A",
               "select": [
                 [
@@ -523,7 +646,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "List of offending managed clusters count for one policy based on non compliant message.(If a policy has multiple templates, only show one failed message)",
@@ -553,7 +676,8 @@ data:
                   }
                 ]
               },
-              "unit": "string"
+              "unit": "string",
+              "unitScale": true
             },
             "overrides": [
               {
@@ -622,7 +746,7 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -634,7 +758,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH eventdata AS (\n   WITH alleventdata AS(\n      SELECT \n        policy_id,\n        cluster_id,\n        leaf_hub_name,\n        message,\n        reason,\n        compliance,\n        ROW_NUMBER() OVER(\n          PARTITION BY policy_id,cluster_id \n          ORDER BY created_at DESC\n          ) row_num\n      FROM\n        event.local_policies\n      WHERE\n        compliance = 'non_compliant'\n      AND \n        policy_id IN (\n          SELECT DISTINCT policy_id \n          FROM local_spec.policies\n          WHERE leaf_hub_name  IN ( $all_hubs ) AND payload -> 'metadata' ->> 'namespace' = '$namespace' AND policy_name = '$policy' AND policy_id ${policy_id_query:raw}\n        )\n    )\n  SELECT * FROM\n  alleventdata\n  WHERE row_num = 1\n),\nmessagedata as(\n  SELECT\n    p.policy_name as \"policy\",\n    replace(message,mc.cluster_name,'<Cluster Name>') as \"groupmessage\",\n    mc.cluster_id,\n    reason\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  LEFT OUTER JOIN\n    eventdata ed ON ed.policy_id = p.policy_id  AND ed.cluster_id = mc.cluster_id AND ed.compliance = ch.compliance\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND \n    ed.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND\n    ch.compliance = 'non_compliant'\n)\nSELECT \n  policy,\n  groupmessage,\n  COUNT(DISTINCT cluster_id) as \"clustercount\"\nFROM\n  messagedata\nGROUP BY(policy,groupmessage)\nORDER BY clustercount DESC",
+              "rawSql": "WITH eventdata AS (\n   WITH alleventdata AS(\n      SELECT \n        policy_id,\n        cluster_id,\n        leaf_hub_name,\n        message,\n        reason,\n        compliance,\n        ROW_NUMBER() OVER(\n          PARTITION BY policy_id,cluster_id \n          ORDER BY created_at DESC\n          ) row_num\n      FROM\n        event.local_policies\n      WHERE\n        (compliance = 'non_compliant' OR compliance = 'pending')\n      AND \n        policy_id IN (\n          SELECT DISTINCT policy_id \n          FROM local_spec.policies\n          WHERE leaf_hub_name  IN ( $all_hubs ) AND payload -> 'metadata' ->> 'namespace' = '$namespace' AND policy_name = '$policy' AND policy_id ${policy_id_query:raw}\n        )\n    )\n  SELECT * FROM\n  alleventdata\n  WHERE row_num = 1\n),\nmessagedata as(\n  SELECT\n    p.policy_name as \"policy\",\n    replace(message,mc.cluster_name,'<Cluster Name>') as \"groupmessage\",\n    mc.cluster_id,\n    reason\n  FROM\n    history.local_compliance ch\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  LEFT OUTER JOIN\n    eventdata ed ON ed.policy_id = p.policy_id  AND ed.cluster_id = mc.cluster_id AND ed.compliance = ch.compliance\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.leaf_hub_name IN ( $all_hubs )\n  AND \n    mc.leaf_hub_name  IN ( $all_hubs )\n  AND \n    p.leaf_hub_name  IN ( $all_hubs )\n  AND \n    ed.leaf_hub_name  IN ( $all_hubs )\n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    p.policy_name = '$policy'\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND\n    (ch.compliance = 'non_compliant' OR ch.compliance = 'pending')\n)\nSELECT \n  policy,\n  groupmessage,\n  COUNT(DISTINCT cluster_id) as \"clustercount\"\nFROM\n  messagedata\nGROUP BY(policy,groupmessage)\nORDER BY clustercount DESC",
               "refId": "A",
               "select": [
                 [
@@ -703,7 +827,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "List of offending managed clusters(If a policy has multiple templates, only show one failed message)",
@@ -733,7 +857,8 @@ data:
                   }
                 ]
               },
-              "unit": "string"
+              "unit": "string",
+              "unitScale": true
             },
             "overrides": [
               {
@@ -857,7 +982,7 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -869,7 +994,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH eventdata AS (\n   WITH alleventdata AS(\n      SELECT \n        policy_id,\n        cluster_id,\n        leaf_hub_name,\n        message,\n        reason,\n        compliance,\n        ROW_NUMBER() OVER(\n          PARTITION BY policy_id,cluster_id \n          ORDER BY created_at DESC\n          ) row_num\n      FROM\n        event.local_policies\n      WHERE\n        compliance = 'non_compliant'\n      AND \n        policy_id IN (\n          SELECT DISTINCT policy_id \n          FROM local_spec.policies\n          WHERE leaf_hub_name IN ( $all_hubs ) AND payload -> 'metadata' ->> 'namespace' = '$namespace' AND policy_name = '$policy' AND policy_id ${policy_id_query:raw}\n        )\n    )\n  SELECT * FROM\n  alleventdata\n  WHERE row_num = 1\n)\nSELECT\n  ch.compliance_date as \"time\",\n  mc.cluster_name as \"cluster\",\n  p.policy_name as \"policy\",\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n  message,\n  reason\nFROM\n  history.local_compliance ch\nJOIN\n  local_spec.policies p ON ch.policy_id = p.policy_id \nJOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \nLEFT OUTER JOIN\n  eventdata ed ON ed.policy_id = p.policy_id  AND ed.cluster_id = mc.cluster_id AND ed.compliance = ch.compliance\nWHERE\n  $__timeFilter(ch.compliance_date)\nAND\n  ch.leaf_hub_name IN ( $all_hubs )\nAND \n  mc.leaf_hub_name  IN ( $all_hubs )\nAND \n  p.leaf_hub_name  IN ( $all_hubs )\nAND \n  ed.leaf_hub_name  IN ( $all_hubs )\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\n  p.policy_name = '$policy'\nAND\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nAND\n  ch.compliance = 'non_compliant'\nORDER BY (ch.compliance_date) DESC\n",
+              "rawSql": "WITH eventdata AS (\n   WITH alleventdata AS(\n      SELECT \n        policy_id,\n        cluster_id,\n        leaf_hub_name,\n        message,\n        reason,\n        compliance,\n        ROW_NUMBER() OVER(\n          PARTITION BY policy_id,cluster_id \n          ORDER BY created_at DESC\n          ) row_num\n      FROM\n        event.local_policies\n      WHERE\n        (compliance = 'non_compliant' OR compliance = 'pending')\n      AND \n        policy_id IN (\n          SELECT DISTINCT policy_id \n          FROM local_spec.policies\n          WHERE leaf_hub_name IN ( $all_hubs ) AND payload -> 'metadata' ->> 'namespace' = '$namespace' AND policy_name = '$policy' AND policy_id ${policy_id_query:raw}\n        )\n    )\n  SELECT * FROM\n  alleventdata\n  WHERE row_num = 1\n)\nSELECT\n  ch.compliance_date as \"time\",\n  mc.cluster_name as \"cluster\",\n  p.policy_name as \"policy\",\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n  message,\n  reason\nFROM\n  history.local_compliance ch\nJOIN\n  local_spec.policies p ON ch.policy_id = p.policy_id \nJOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \nLEFT OUTER JOIN\n  eventdata ed ON ed.policy_id = p.policy_id  AND ed.cluster_id = mc.cluster_id AND ed.compliance = ch.compliance\nWHERE\n  $__timeFilter(ch.compliance_date)\nAND\n  ch.leaf_hub_name IN ( $all_hubs )\nAND \n  mc.leaf_hub_name  IN ( $all_hubs )\nAND \n  p.leaf_hub_name  IN ( $all_hubs )\nAND \n  ed.leaf_hub_name  IN ( $all_hubs )\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\n  p.policy_name = '$policy'\nAND\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nAND\n  (ch.compliance = 'non_compliant' OR ch.compliance = 'pending')\nORDER BY (ch.compliance_date) DESC\n",
               "refId": "A",
               "select": [
                 [
@@ -936,8 +1061,7 @@ data:
         }
       ],
       "refresh": "",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": [
@@ -945,7 +1069,7 @@ data:
             "current": {
               "selected": false,
               "text": "Global-Hub-DataSource",
-              "value": "Global-Hub-DataSource"
+              "value": "P244538DD76A4C61D"
             },
             "hide": 2,
             "includeAll": false,
@@ -962,8 +1086,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "mc1",
+              "value": "mc1"
             },
             "datasource": {
               "type": "postgres",
@@ -1015,8 +1139,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "open-cluster-management-global-set",
+              "value": "open-cluster-management-global-set"
             },
             "datasource": {
               "type": "postgres",
@@ -1040,8 +1164,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "po-pending",
+              "value": "po-pending"
             },
             "datasource": {
               "type": "postgres",
@@ -1093,8 +1217,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "cloud",
+              "value": "cloud"
             },
             "datasource": {
               "type": "postgres",
@@ -1147,8 +1271,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('Amazon') ",
+              "value": " in ('Amazon') "
             },
             "datasource": {
               "type": "postgres",
@@ -1170,8 +1294,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "https://console-openshift-console.apps.obs-hub-of-hubs-aws-414-sno-t55kq.scale.red-chesterfield.com",
+              "value": "https://console-openshift-console.apps.obs-hub-of-hubs-aws-414-sno-t55kq.scale.red-chesterfield.com"
             },
             "datasource": {
               "type": "postgres",
@@ -1193,8 +1317,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('27fbdf48-f5c2-4715-9b01-6692dadaad18') ",
+              "value": " in ('27fbdf48-f5c2-4715-9b01-6692dadaad18') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${policy_id}$$)>0 then $$ in ($policy_id) $$ else ' is null ' end",
             "hide": 2,
@@ -1212,7 +1340,7 @@ data:
         ]
       },
       "time": {
-        "from": "now-24h",
+        "from": "now-30d",
         "to": "now"
       },
       "timepicker": {},

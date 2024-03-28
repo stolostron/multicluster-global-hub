@@ -63,6 +63,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"}, // generate record: createdPolicyId hub1-cluster1 compliant
 			NonCompliantClusters:      []string{"cluster2"}, // generate record: createdPolicyId hub1-cluster2 non_compliant
+			PendingComplianceClusters: []string{"cluster4"}, // generate record: createdPolicyId hub1-cluster4 pending
 			UnknownComplianceClusters: []string{},
 		})
 
@@ -86,13 +87,13 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 				if c.PolicyID == expiredPolicyID && c.ClusterName == "cluster1" {
 					expiredCount++
 				}
-				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" {
+				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster4" {
 					addedCount++
 				}
 
 				fmt.Printf("Compliance: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
 			}
-			if expiredCount == 0 && addedCount == 2 && len(compliances) == 2 {
+			if expiredCount == 0 && addedCount == 3 && len(compliances) == 3 {
 				return nil
 			}
 			return fmt.Errorf("failed to sync compliance")
@@ -163,6 +164,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 			PolicyID:                  createdPolicyId,
 			NonCompliantClusters:      []string{"cluster1"},
 			UnknownComplianceClusters: []string{"cluster3"},
+			PendingComplianceClusters: []string{"cluster4"},
 		})
 
 		evt := ToCloudEvent(leafHubName, string(enum.CompleteComplianceType), completeVersion, data)
@@ -191,13 +193,16 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 					if c.ClusterName == "cluster2" && c.Compliance == database.Compliant {
 						success++
 					}
+					if c.ClusterName == "cluster4" && c.Compliance == database.Pending {
+						success++
+					}
 					if c.ClusterName == "cluster3" {
 						return fmt.Errorf("the cluster3 shouldn't synced by the compliance bundle")
 					}
 				}
 			}
 
-			if len(compliances) == 2 && success == 2 {
+			if len(compliances) == 3 && success == 3 {
 				return nil
 			}
 			return fmt.Errorf("failed to sync complete compliance")

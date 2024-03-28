@@ -6,6 +6,7 @@ type Compliance struct {
 	CompliantClusters         []string `json:"compliantClusters"`
 	NonCompliantClusters      []string `json:"nonCompliantClusters"`
 	UnknownComplianceClusters []string `json:"unknownComplianceClusters"`
+	PendingComplianceClusters []string `json:"pendingComplianceClusters"`
 }
 
 type ComplianceBundle []Compliance

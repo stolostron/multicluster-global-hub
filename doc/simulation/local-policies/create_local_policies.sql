@@ -14,7 +14,7 @@ declare
     policy_control_random_index int;
     all_policy_severities text[] := '{"low","high"}';
     policy_severity_random_index int;
-    all_compliances local_status.compliance_type[] := '{"compliant","non_compliant"}';
+    all_compliances local_status.compliance_type[] := '{"compliant","unknown","pending","non_compliant"}';
     compliance_random_index int;
     managed_cluster text;
     policy text;

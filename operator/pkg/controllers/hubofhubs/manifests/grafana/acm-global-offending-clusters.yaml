@@ -27,6 +27,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
+      "id": 2,
       "links": [
         {
           "asDropdown": false,
@@ -100,13 +101,14 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
+            "w": 4,
             "x": 0,
             "y": 1
           },
@@ -123,10 +125,12 @@ data:
               "fields": "/^count$/",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -182,7 +186,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "The distinct number of managed clusters that were \"compliant\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
@@ -201,14 +205,15 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
-            "x": 6,
+            "w": 4,
+            "x": 4,
             "y": 1
           },
           "id": 48,
@@ -224,10 +229,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -239,7 +246,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0\nAND \n  pending = 0",
               "refId": "A",
               "select": [
                 [
@@ -283,7 +290,111 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "The distinct number of managed clusters that were \"pending\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "yellow",
+                    "value": null
+                  }
+                ]
+              },
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 4,
+            "x": 8,
+            "y": 1
+          },
+          "id": 57,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "text": {},
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  pending > 0\nAND\n  non_compliant = 0",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Pending Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "The distinct number of managed clusters that were \"unknown\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
@@ -302,17 +413,18 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
+            "w": 4,
             "x": 12,
             "y": 1
           },
-          "id": 57,
+          "id": 62,
           "options": {
             "colorMode": "value",
             "graphMode": "area",
@@ -325,10 +437,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -340,7 +454,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0\nAND \n  pending = 0",
               "refId": "A",
               "select": [
                 [
@@ -384,7 +498,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "The distinct number of managed clusters that were in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
@@ -403,14 +517,15 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
-            "x": 18,
+            "w": 8,
+            "x": 16,
             "y": 1
           },
           "id": 47,
@@ -426,10 +541,12 @@ data:
               "fields": "/^count$/",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -441,7 +558,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_id,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n  JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  GROUP BY (ch.compliance_date, mc.cluster_id)\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    cluster_id,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (cluster_id)\n)\nSELECT\n  COUNT(DISTINCT cluster_id)\nFROM\n  res",
               "refId": "A",
               "select": [
                 [
@@ -511,7 +628,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "description": "List of offending managed clusters by label: $label.",
@@ -540,7 +657,8 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "percentunit",
+              "unitScale": true
             },
             "overrides": [
               {
@@ -598,18 +716,19 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
                 "type": "postgres",
                 "uid": "P244538DD76A4C61D"
               },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC",
               "refId": "A",
               "select": [
                 [
@@ -621,6 +740,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -654,6 +790,181 @@ data:
         },
         {
           "collapsed": true,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 17
+          },
+          "id": 64,
+          "panels": [
+            {
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "P244538DD76A4C61D"
+              },
+              "description": "List of pending managed clusters by label: $label.",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": true,
+                    "inspect": false
+                  },
+                  "links": [],
+                  "mappings": [],
+                  "noValue": "No data in response",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "yellow",
+                        "value": null
+                      }
+                    ]
+                  },
+                  "unit": "percentunit",
+                  "unitScale": true
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Cluster"
+                    },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "targetBlank": true,
+                            "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
+                            "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "value"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "color-background"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 18
+              },
+              "id": 56,
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true,
+                "sortBy": []
+              },
+              "pluginVersion": "10.3.3",
+              "targets": [
+                {
+                  "datasource": {
+                    "type": "postgres",
+                    "uid": "P244538DD76A4C61D"
+                  },
+                  "editorMode": "code",
+                  "format": "table",
+                  "group": [],
+                  "metricColumn": "none",
+                  "rawQuery": true,
+                  "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    pending::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND\n    pending > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
+                  "refId": "A",
+                  "select": [
+                    [
+                      {
+                        "params": [
+                          "value"
+                        ],
+                        "type": "column"
+                      }
+                    ]
+                  ],
+                  "sql": {
+                    "columns": [
+                      {
+                        "parameters": [],
+                        "type": "function"
+                      }
+                    ],
+                    "groupBy": [
+                      {
+                        "property": {
+                          "type": "string"
+                        },
+                        "type": "groupBy"
+                      }
+                    ],
+                    "limit": 50
+                  },
+                  "timeColumn": "time",
+                  "where": [
+                    {
+                      "name": "$__timeFilter",
+                      "params": [],
+                      "type": "macro"
+                    }
+                  ]
+                }
+              ],
+              "title": "Pending Clusters (By $label)",
+              "transformations": [
+                {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {},
+                    "indexByName": {},
+                    "renameByName": {
+                      "cluster": "Cluster",
+                      "hub": "Hub",
+                      "name": "Name",
+                      "time": "Time",
+                      "value": "Pending",
+                      "vendor": "Vendor"
+                    }
+                  }
+                }
+              ],
+              "type": "table"
+            }
+          ],
+          "title": "Cluster Status > Pending",
+          "type": "row"
+        },
+        {
+          "collapsed": true,
           "datasource": {
             "type": "postgres",
             "uid": "P244538DD76A4C61D"
@@ -662,13 +973,13 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 17
+            "y": 18
           },
           "id": 55,
           "panels": [
             {
               "datasource": {
-                "type": "postgres",
+                "type": "grafana-postgresql-datasource",
                 "uid": "P244538DD76A4C61D"
               },
               "description": "List of unknown managed clusters by label: $label.",
@@ -682,7 +993,8 @@ data:
                     "cellOptions": {
                       "type": "auto"
                     },
-                    "filterable": true
+                    "filterable": true,
+                    "inspect": false
                   },
                   "links": [],
                   "mappings": [],
@@ -691,11 +1003,13 @@ data:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "yellow"
+                        "color": "yellow",
+                        "value": null
                       }
                     ]
                   },
-                  "unit": "percentunit"
+                  "unit": "percentunit",
+                  "unitScale": true
                 },
                 "overrides": [
                   {
@@ -753,25 +1067,35 @@ data:
                 "h": 8,
                 "w": 24,
                 "x": 0,
-                "y": 18
+                "y": 27
               },
-              "id": 56,
+              "id": 63,
               "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
                 "showHeader": true,
                 "sortBy": []
               },
-              "pluginVersion": "8.5.20",
+              "pluginVersion": "10.3.3",
               "targets": [
                 {
                   "datasource": {
                     "type": "postgres",
                     "uid": "P244538DD76A4C61D"
                   },
+                  "editorMode": "code",
                   "format": "table",
                   "group": [],
                   "metricColumn": "none",
                   "rawQuery": true,
-                  "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
+                  "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND \n    pending = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
                   "refId": "A",
                   "select": [
                     [
@@ -783,6 +1107,23 @@ data:
                       }
                     ]
                   ],
+                  "sql": {
+                    "columns": [
+                      {
+                        "parameters": [],
+                        "type": "function"
+                      }
+                    ],
+                    "groupBy": [
+                      {
+                        "property": {
+                          "type": "string"
+                        },
+                        "type": "groupBy"
+                      }
+                    ],
+                    "limit": 50
+                  },
                   "timeColumn": "time",
                   "where": [
                     {
@@ -805,7 +1146,7 @@ data:
                       "hub": "Hub",
                       "name": "Name",
                       "time": "Time",
-                      "value": "Status",
+                      "value": "Unknown",
                       "vendor": "Vendor"
                     }
                   }
@@ -828,8 +1169,7 @@ data:
         }
       ],
       "refresh": "",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": [
@@ -837,7 +1177,7 @@ data:
             "current": {
               "selected": false,
               "text": "Global-Hub-DataSource",
-              "value": "Global-Hub-DataSource"
+              "value": "P244538DD76A4C61D"
             },
             "hide": 2,
             "includeAll": false,
@@ -995,8 +1335,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('OpenShift') ",
+              "value": " in ('OpenShift') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
             "hide": 2,
@@ -1014,8 +1358,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('NIST SP 800-53') ",
+              "value": " in ('NIST SP 800-53') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
             "hide": 2,
@@ -1033,8 +1381,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('CM Configuration Management') ",
+              "value": " in ('CM Configuration Management') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
             "hide": 2,
@@ -1052,8 +1404,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') ",
+              "value": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
             "hide": 2,
@@ -1071,7 +1427,7 @@ data:
         ]
       },
       "time": {
-        "from": "now-7d",
+        "from": "now-30d",
         "to": "now"
       },
       "timepicker": {},

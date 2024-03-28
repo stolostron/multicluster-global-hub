@@ -22,7 +22,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 3,
+      "id": 4,
       "links": [
         {
           "asDropdown": false,
@@ -70,7 +70,8 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
@@ -93,9 +94,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -131,7 +134,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "fieldConfig": {
@@ -157,7 +160,8 @@ data:
                   }
                 ]
               },
-              "unit": "string"
+              "unit": "string",
+              "unitScale": true
             },
             "overrides": [
               {
@@ -255,6 +259,11 @@ data:
                             "index": 1,
                             "text": "Not Compliant"
                           },
+                          "pending": {
+                            "color": "yellow",
+                            "index": 3,
+                            "text": "Pending"
+                          },
                           "unknown": {
                             "color": "yellow",
                             "index": 2,
@@ -315,7 +324,7 @@ data:
               }
             ]
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -325,7 +334,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\nCASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\nEND AS hub_obs_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL AND lh.deleted_at IS NULL",
+              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND pending > 0 THEN 'pending'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\nCASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\nEND AS hub_obs_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL AND lh.deleted_at IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -385,7 +394,8 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
@@ -408,9 +418,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -446,7 +458,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "fieldConfig": {
@@ -475,7 +487,8 @@ data:
                     "value": 80
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": [
               {
@@ -562,6 +575,11 @@ data:
                             "index": 1,
                             "text": "Not Compliant"
                           },
+                          "pending": {
+                            "color": "yellow",
+                            "index": 3,
+                            "text": "Pending"
+                          },
                           "unknown": {
                             "color": "yellow",
                             "index": 2,
@@ -617,7 +635,7 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -627,7 +645,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (policy_id)\n),\ncompliance_data AS(\nSELECT policy_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \np.leaf_hub_name,\np.payload -> 'metadata' ->> 'namespace' as \"namespace\",\nconsole_url as \"hub_console_url\",\npolicy_name,\ncompliance\nFROM local_spec.policies p\nLEFT JOIN status.leaf_hubs lh\nON p.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON p.policy_id = cd.policy_id\nwhere p.deleted_at IS NULL AND lh.deleted_at IS NULL",
+              "rawSql": "WITH data AS (\nSELECT\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (policy_id)\n),\ncompliance_data AS(\nSELECT policy_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND pending > 0 THEN 'pending'\n    WHEN non_compliant = 0 AND pending=0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \np.leaf_hub_name,\np.payload -> 'metadata' ->> 'namespace' as \"namespace\",\nconsole_url as \"hub_console_url\",\npolicy_name,\ncompliance\nFROM local_spec.policies p\nLEFT JOIN status.leaf_hubs lh\nON p.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON p.policy_id = cd.policy_id\nwhere p.deleted_at IS NULL AND lh.deleted_at IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -683,7 +701,8 @@ data:
                   "viz": false
                 }
               },
-              "mappings": []
+              "mappings": [],
+              "unitScale": true
             },
             "overrides": [
               {
@@ -795,7 +814,8 @@ data:
                   "viz": false
                 }
               },
-              "mappings": []
+              "mappings": [],
+              "unitScale": true
             },
             "overrides": [
               {
@@ -889,7 +909,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "fieldConfig": {
@@ -916,7 +936,8 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "percentunit",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -929,8 +950,10 @@ data:
           "id": 9,
           "options": {
             "displayMode": "basic",
+            "maxVizHeight": 300,
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [],
@@ -938,13 +961,14 @@ data:
               "values": true
             },
             "showUnfilled": true,
+            "sizing": "auto",
             "text": {
               "titleSize": 14,
               "valueSize": 18
             },
             "valueMode": "color"
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -954,7 +978,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, cluster_id)\n),\ncluster_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  cluster_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"cluster_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(cluster_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\ncluster_compliant_data\nGROUP BY leaf_hub_name",
+              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, cluster_id)\n),\ncluster_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  cluster_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND pending=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"cluster_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(cluster_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\ncluster_compliant_data\nGROUP BY leaf_hub_name",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -980,7 +1004,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "fieldConfig": {
@@ -1007,7 +1031,8 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "percentunit",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -1020,8 +1045,10 @@ data:
           "id": 10,
           "options": {
             "displayMode": "basic",
+            "maxVizHeight": 300,
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [],
@@ -1029,13 +1056,14 @@ data:
               "values": true
             },
             "showUnfilled": true,
+            "sizing": "auto",
             "text": {
               "titleSize": 14,
               "valueSize": 18
             },
             "valueMode": "color"
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -1045,7 +1073,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, policy_id)\n),\npolicy_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  policy_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"policy_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(policy_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\npolicy_compliant_data\nGROUP BY leaf_hub_name",
+              "rawSql": "WITH data AS (\nSELECT\n  lc.leaf_hub_name,\n  policy_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (lc.leaf_hub_name, policy_id)\n),\npolicy_compliant_data AS(\nSELECT \n  leaf_hub_name,\n  policy_id,\n  CASE WHEN compliant > 0 AND unknown=0 AND pending=0 AND non_compliant=0 THEN 1  ELSE 0 END AS \"policy_compliant\"\nFROM data\n)\nSELECT \n leaf_hub_name,\n SUM(policy_compliant)::float/COUNT(*) AS \"compliant_percentage\"\nFROM\npolicy_compliant_data\nGROUP BY leaf_hub_name",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -1071,8 +1099,7 @@ data:
         }
       ],
       "refresh": "",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": []

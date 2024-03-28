@@ -27,7 +27,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 9,
+      "id": 7,
       "links": [
         {
           "asDropdown": false,
@@ -46,7 +46,7 @@ data:
       "panels": [
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
           "fieldConfig": {
@@ -56,6 +56,12 @@ data:
               },
               "custom": {
                 "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
                 "lineWidth": 0,
                 "spanNulls": false
               },
@@ -98,12 +104,17 @@ data:
                     "value": 1
                   },
                   {
-                    "color": "red",
+                    "color": "orange",
                     "value": 2
+                  },
+                  {
+                    "color": "red",
+                    "value": 3
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -140,7 +151,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    CASE WHEN ch.compliance = 'non_compliant' THEN 2\n         WHEN ch.compliance = 'unknown' THEN 1\n         WHEN ch.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  AND \n    ch.leaf_hub_name IN ( $all_hubs ) \n  AND \n    p.leaf_hub_name IN ( $all_hubs ) \n  AND \n    mc.leaf_hub_name IN ( $all_hubs )  \n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    mc.cluster_name ${cluster_query:raw}\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
+              "rawSql": "WITH data as (\n  SELECT \n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name,\n    CASE WHEN ch.compliance = 'non_compliant' THEN 3\n         WHEN ch.compliance = 'pending' THEN 2\n         WHEN ch.compliance = 'unknown' THEN 1\n         WHEN ch.compliance = 'compliant' THEN 0\n    END AS \"compliance\"\n  FROM\n    history.local_compliance ch\n  INNER JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id \n  INNER JOIN\n    status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    policy_name = '$policy'\n  AND \n    ch.leaf_hub_name IN ( $all_hubs ) \n  AND \n    p.leaf_hub_name IN ( $all_hubs ) \n  AND \n    mc.leaf_hub_name IN ( $all_hubs )  \n  AND\n    p.payload -> 'metadata' ->> 'namespace' = '$namespace'\n  AND\n    mc.cluster_name ${cluster_query:raw}\n),\norderclusters as (\n  SELECT\n    cluster_name,\n    ROW_NUMBER () OVER (ORDER BY SUM(compliance) DESC) as row_number\n  FROM\n    data\n  GROUP BY(cluster_name)\n)\nSELECT\n  time,\n  dc.cluster_name as \"metric\",\n  compliance as \"value\"\nFROM\n  orderclusters tc\nJOIN\n  data dc on dc.cluster_name = tc.cluster_name\nWHERE\n  tc.row_number >= $topleft AND tc.row_number <= $topright\nORDER BY (time)",
               "refId": "A",
               "select": [
                 [
@@ -234,7 +245,8 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": [
               {
@@ -317,7 +329,7 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -440,7 +452,8 @@ data:
                     "value": 80
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": [
               {
@@ -579,7 +592,7 @@ data:
               }
             ]
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -662,8 +675,7 @@ data:
         }
       ],
       "refresh": "",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": [
@@ -671,7 +683,7 @@ data:
             "current": {
               "selected": false,
               "text": "Global-Hub-DataSource",
-              "value": "Global-Hub-DataSource"
+              "value": "P244538DD76A4C61D"
             },
             "hide": 2,
             "includeAll": false,
@@ -688,8 +700,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "mc1",
+              "value": "mc1"
             },
             "datasource": {
               "type": "postgres",
@@ -766,8 +778,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "po-4",
+              "value": "po-4"
             },
             "datasource": {
               "type": "postgres",
@@ -789,7 +801,7 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "1:10",
               "value": "1:10"
             },
@@ -861,8 +873,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "1",
+              "value": "1"
             },
             "datasource": {
               "type": "postgres",
@@ -884,8 +896,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "-8",
+              "value": "-8"
             },
             "datasource": {
               "type": "postgres",
@@ -907,8 +919,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "",
-              "value": ""
+              "text": "https://console-openshift-console.apps.obs-hub-of-hubs-aws-414-sno-t55kq.scale.red-chesterfield.com",
+              "value": "https://console-openshift-console.apps.obs-hub-of-hubs-aws-414-sno-t55kq.scale.red-chesterfield.com"
             },
             "datasource": {
               "type": "postgres",
@@ -958,8 +970,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('managed-c1') ",
+              "value": " in ('managed-c1') "
             },
             "datasource": {
               "type": "postgres",

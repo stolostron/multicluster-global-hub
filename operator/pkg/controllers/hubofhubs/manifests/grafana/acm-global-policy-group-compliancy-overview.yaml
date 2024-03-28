@@ -6,7 +6,10 @@ data:
         "list": [
           {
             "builtIn": 1,
-            "datasource": "-- Grafana --",
+            "datasource": {
+              "type": "datasource",
+              "uid": "grafana"
+            },
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -22,10 +25,9 @@ data:
         ]
       },
       "editable": true,
-      "gnetId": null,
+      "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 2,
-      "iteration": 1687542417113,
+      "id": 5,
       "links": [
         {
           "asDropdown": false,
@@ -40,9 +42,13 @@ data:
           "url": "d/b67e0727891f4121ae2dde09671520ae/global-hub-offending-policies?orgId=1"
         }
       ],
+      "liveNow": false,
       "panels": [
         {
-          "datasource": "${datasource}",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
           "description": "Aggregated policy group trend by standard, category, and control (Data updated once a day).",
           "fieldConfig": {
             "defaults": {
@@ -50,6 +56,9 @@ data:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "barAlignment": 0,
@@ -61,6 +70,7 @@ data:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
@@ -100,7 +110,8 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "percentunit",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -115,20 +126,26 @@ data:
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "bottom"
+              "placement": "bottom",
+              "showLegend": true
             },
             "tooltip": {
-              "mode": "single"
+              "mode": "single",
+              "sort": "none"
             }
           },
           "pluginVersion": "8.5.20",
           "targets": [
             {
+              "datasource": {
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
               "format": "time_series",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data as(\n  WITH renamedata as (\n      SELECT\n        ch.compliance_date AS \"time\",\n        p.policy_standard AS \"standard\",\n        p.policy_category AS \"category\",\n        p.policy_control AS \"control\",\n        ch.compliance\n      FROM\n        local_spec.policies p\n      INNER JOIN\n        history.local_compliance ch ON p.policy_id = ch.policy_id\n      WHERE\n        $__timeFilter(ch.compliance_date)\n      AND\n        p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n      AND\n        ch.cluster_id IS NOT NULL\n  )\n  SELECT \n    time,\n    $group,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    renamedata\n  GROUP BY (time, $group)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
+              "rawSql": "WITH data as(\n  WITH renamedata as (\n      SELECT\n        ch.compliance_date AS \"time\",\n        p.policy_standard AS \"standard\",\n        p.policy_category AS \"category\",\n        p.policy_control AS \"control\",\n        ch.compliance\n      FROM\n        local_spec.policies p\n      INNER JOIN\n        history.local_compliance ch ON p.policy_id = ch.policy_id\n      WHERE\n        $__timeFilter(ch.compliance_date)\n      AND\n        p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n      AND\n        ch.cluster_id IS NOT NULL\n  )\n  SELECT \n    time,\n    $group,\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    renamedata\n  GROUP BY (time, $group)\n)\nSELECT\n  time,\n  $group as \"metric\",\n  compliant::float / NULLIF((compliant::float + non_compliant + unknown + pending), 0) as \"value\"\nFROM\n  data\nORDER BY\n  time",
               "refId": "A",
               "select": [
                 [
@@ -140,6 +157,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -155,8 +189,7 @@ data:
         }
       ],
       "refresh": "",
-      "schemaVersion": 30,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": [
@@ -164,13 +197,10 @@ data:
             "current": {
               "selected": false,
               "text": "Global-Hub-DataSource",
-              "value": "Global-Hub-DataSource"
+              "value": "P244538DD76A4C61D"
             },
-            "description": null,
-            "error": null,
             "hide": 2,
             "includeAll": false,
-            "label": null,
             "multi": false,
             "name": "datasource",
             "options": [],
@@ -182,7 +212,6 @@ data:
             "type": "datasource"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -192,10 +221,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "${datasource}"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_standard\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\npolicy_standard IS NOT NULL;",
             "description": "Cluster policy standards",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Standard",
@@ -210,7 +241,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -220,10 +250,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "${datasource}"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_category\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard) \nAND\n  policy_category IS NOT NULL",
             "description": "Cluster policy categories",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Category",
@@ -238,7 +270,6 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
               "selected": true,
               "text": [
@@ -248,10 +279,12 @@ data:
                 "$__all"
               ]
             },
-            "datasource": "${datasource}",
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "${datasource}"
+            },
             "definition": "WITH compcluster as(\n  SELECT DISTINCT policy_id\n  FROM\n  history.local_compliance ch\n  WHERE\n  $__timeFilter(ch.compliance_date)\n)\nSELECT\n  DISTINCT policy_control\nFROM\n  local_spec.policies p\nJOIN\n  compcluster ch \nON\n p.policy_id = ch.policy_id\nWHERE\n  policy_standard IN ($standard)\nAND\n  policy_category IN ($category)\nAND\n  policy_control IS NOT NULL",
             "description": "Cluster policy controls",
-            "error": null,
             "hide": 0,
             "includeAll": true,
             "label": "Control",
@@ -266,14 +299,12 @@ data:
             "type": "query"
           },
           {
-            "allValue": null,
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "standard",
               "value": "standard"
             },
             "description": "Filter priority for policy grouping on the x-axis.",
-            "error": null,
             "hide": 0,
             "includeAll": false,
             "label": "x-axis Group",
@@ -281,7 +312,7 @@ data:
             "name": "group",
             "options": [
               {
-                "selected": true,
+                "selected": false,
                 "text": "category",
                 "value": "category"
               },
@@ -291,7 +322,7 @@ data:
                 "value": "control"
               },
               {
-                "selected": false,
+                "selected": true,
                 "text": "standard",
                 "value": "standard"
               }
@@ -304,8 +335,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('NIST SP 800-53') ",
+              "value": " in ('NIST SP 800-53') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
             "hide": 2,
@@ -323,8 +358,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('CM Configuration Management') ",
+              "value": " in ('CM Configuration Management') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
             "hide": 2,
@@ -342,8 +381,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') ",
+              "value": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
             "hide": 2,
@@ -368,7 +411,8 @@ data:
       "timezone": "utc",
       "title": "Global Hub - Policy Group Compliancy Overview",
       "uid": "9bb3bee6a17e47f9a231f6d77f2408fa",
-      "version": 1
+      "version": 1,
+      "weekStart": ""
     }
 kind: ConfigMap
 metadata:

@@ -97,10 +97,15 @@ func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudeve
 		unknownCompliances := newCompliances(leafHubName, policyID, database.Unknown,
 			eventCompliance.UnknownComplianceClusters, allClustersOnDB)
 
+		// handle pending compliance clusters of the policy
+		pendingCompliances := newCompliances(leafHubName, policyID, database.Pending,
+			eventCompliance.PendingComplianceClusters, allClustersOnDB)
+
 		batchCompliances := []models.StatusCompliance{}
 		batchCompliances = append(batchCompliances, compliantCompliances...)
 		batchCompliances = append(batchCompliances, nonCompliantCompliances...)
 		batchCompliances = append(batchCompliances, unknownCompliances...)
+		batchCompliances = append(batchCompliances, pendingCompliances...)
 
 		// batch upsert
 		err = db.Clauses(clause.OnConflict{
@@ -199,6 +204,7 @@ func NewPolicyClusterSets() *PolicyClustersSets {
 			database.Compliant:    set.NewSet(),
 			database.NonCompliant: set.NewSet(),
 			database.Unknown:      set.NewSet(),
+			database.Pending:      set.NewSet(),
 		},
 	}
 }
@@ -217,6 +223,7 @@ func (sets *PolicyClustersSets) AddCluster(clusterName string, complianceStatus 
 func (sets *PolicyClustersSets) GetAllClusters() set.Set {
 	return sets.complianceToSetMap[database.Compliant].
 		Union(sets.complianceToSetMap[database.NonCompliant].
+			Union(sets.complianceToSetMap[database.Pending]).
 			Union(sets.complianceToSetMap[database.Unknown]))
 }
 

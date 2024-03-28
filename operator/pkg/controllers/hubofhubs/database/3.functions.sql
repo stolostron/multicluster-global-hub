@@ -77,6 +77,8 @@ BEGIN
             SELECT cluster_id, policy_id, leaf_hub_name,
                 CASE
                     WHEN bool_and(compliance = ''compliant'') THEN ''compliant''
+                    WHEN bool_and(compliance = ''pending'') THEN ''pending''
+                    WHEN bool_and(compliance = ''unknown'') THEN ''unknown''
                     ELSE ''non_compliant''
                 END::local_status.compliance_type AS aggregated_compliance
             FROM event.local_policies
