@@ -90,9 +90,62 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 				fmt.Printf("LocalCompliance: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
 			}
 			if expiredCount == 0 && addedCount == 2 && len(localCompliances) == 2 {
+				fmt.Println("LocalCompliance ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local compliance")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("shouldn't update the by the local complete compliance event", func() {
+		db := database.GetGorm()
+		By("Create a complete compliance bundle")
+		version := eventversion.NewVersion()
+		version.Incr() // first generation -> reset
+
+		// hub1-cluster1 compliant
+		// hub1-cluster2 non_compliant
+		data := grc.CompleteComplianceBundle{}
+		data = append(data, grc.CompleteCompliance{
+			PolicyID:             createdPolicyId,
+			NonCompliantClusters: []string{"cluster2"},
+		})
+
+		evt := ToCloudEvent(leafHubName, string(enum.LocalCompleteComplianceType), version, data)
+		evt.SetExtension(eventversion.ExtDependencyVersion, complianceVersion.String())
+
+		By("Sync message with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
+
+		time.Sleep(5 * time.Second)
+
+		By("Check the complete bundle updated all the policy status in the database")
+		Eventually(func() error {
+			var localCompliances []models.LocalStatusCompliance
+			err = db.Where("leaf_hub_name = ?", leafHubName).Find(&localCompliances).Error
+			if err != nil {
+				return err
+			}
+
+			success := 0
+			for _, c := range localCompliances {
+				fmt.Printf("LocalComplete: id(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
+				if c.PolicyID == createdPolicyId {
+					if c.ClusterName == "cluster1" && c.Compliance == database.Compliant {
+						success++
+					}
+					if c.ClusterName == "cluster2" && c.Compliance == database.NonCompliant {
+						success++
+					}
+				}
+			}
+
+			if success == 2 {
+				fmt.Println("LocalComplete same ========================================================== ")
+				return nil
+			}
+			return fmt.Errorf("failed to sync local complete compliance")
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
@@ -100,7 +153,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		db := database.GetGorm()
 		By("Create a complete compliance bundle")
 		version := eventversion.NewVersion()
-		version.Incr()
+		version.Incr() // first generation -> reset
 
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
 		// hub1-cluster2 non_compliant => hub1-cluster2 compliant
@@ -143,6 +196,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			}
 
 			if len(localCompliances) == 2 && success == 2 {
+				fmt.Println("LocalComplete update ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local complete compliance")
