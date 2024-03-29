@@ -23,9 +23,9 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-03-05T02:13:54Z"
+    createdAt: "2024-03-29T03:41:34Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
-    olm.skipRange: '>=1.0.0 <1.1.0'
+    olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
       "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
       "spec": {}}'
@@ -34,7 +34,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
-  name: multicluster-global-hub-operator.v1.1.0-dev
+  name: multicluster-global-hub-operator.v1.2.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -558,6 +558,7 @@ spec:
           - monitoring.coreos.com
           resources:
           - podmonitors
+          - prometheusrules
           - servicemonitors
           verbs:
           - create
@@ -890,8 +891,8 @@ spec:
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
-  maturity: release-1.1
+  maturity: release-1.2
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.1.0-dev
+  version: 1.2.0-dev
