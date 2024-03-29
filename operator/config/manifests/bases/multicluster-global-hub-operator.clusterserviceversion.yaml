@@ -121,7 +121,7 @@ spec:
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
-  maturity: release-1.1
+  maturity: release-1.2
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
