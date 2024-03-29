@@ -45,9 +45,9 @@ function update_cluster_policies() {
     fi
 
     if [ $j == 1 ];then
-      status="{clustername: managedcluster-${j}, clusternamespace: managedcluster-${j}, compliant: $3}"
+      status="{clustername: managedcluster-${j}, clusternamespace: managedcluster-${j}, compliant: $root_policy_status}"
     else
-      status="${status}, {clustername: managedcluster-${j}, clusternamespace: managedcluster-${j}, compliant: $3}"
+      status="${status}, {clustername: managedcluster-${j}, clusternamespace: managedcluster-${j}, compliant: $root_policy_status}"
     fi
 
     count=$(( $count + 1 ))
