@@ -99,9 +99,61 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
-	It("should handle the complete compliance event", func() {
+	It("shouldn't update the by the complete compliance event", func() {
+		db := database.GetGorm()
 		By("Create a complete compliance bundle")
 		completeVersion = eventversion.NewVersion()
+		completeVersion.Incr() // first generation -> reset
+
+		// hub1-cluster1 compliant
+		// hub1-cluster2 non_compliant
+		data := grc.CompleteComplianceBundle{}
+		data = append(data, grc.CompleteCompliance{
+			PolicyID:             createdPolicyId,
+			NonCompliantClusters: []string{"cluster2"},
+		})
+
+		evt := ToCloudEvent(leafHubName, string(enum.CompleteComplianceType), completeVersion, data)
+		evt.SetExtension(eventversion.ExtDependencyVersion, complianceVersion.String())
+
+		By("Sync message with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
+		completeVersion.Next()
+
+		time.Sleep(5 * time.Second)
+
+		By("Check the complete bundle updated all the policy status in the database")
+		Eventually(func() error {
+			var compliances []models.StatusCompliance
+			err = db.Where("leaf_hub_name = ?", leafHubName).Find(&compliances).Error
+			if err != nil {
+				return err
+			}
+
+			success := 0
+			for _, c := range compliances {
+				fmt.Printf("Complete(Same): id(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
+				if c.PolicyID == createdPolicyId {
+					if c.ClusterName == "cluster1" && c.Compliance == database.Compliant {
+						success++
+					}
+					if c.ClusterName == "cluster2" && c.Compliance == database.NonCompliant {
+						success++
+					}
+				}
+			}
+
+			if success == 2 {
+				fmt.Println("Complete(Same) ========================================================== ")
+				return nil
+			}
+			return fmt.Errorf("failed to sync complete compliance")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should handle the complete compliance event", func() {
+		By("Create a complete compliance bundle")
 		completeVersion.Incr()
 
 		// hub1-cluster1 compliant => hub1-cluster1 non_compliant
@@ -119,6 +171,7 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 		By("Sync message with transport")
 		err := producer.SendEvent(ctx, *evt)
 		Expect(err).Should(Succeed())
+		completeVersion.Next()
 
 		By("Check the complete bundle updated all the policy status in the database")
 		Eventually(func() error {

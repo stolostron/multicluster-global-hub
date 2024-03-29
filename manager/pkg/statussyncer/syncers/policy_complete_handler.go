@@ -78,26 +78,39 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 			nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
 		}
 
-		// nonCompliant
-		nonCompliantCompliances := newCompliances(leafHub, policyID, database.NonCompliant,
-			eventCompliance.NonCompliantClusters, nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant))
-
-		// unknown
-		unknownCompliances := newCompliances(leafHub, policyID, database.Unknown,
-			eventCompliance.UnknownComplianceClusters, nonComplianceClusterSetsFromDB.GetClusters(database.Unknown))
-
+		allNonComplianceCluster := nonComplianceClusterSetsFromDB.GetAllClusters()
 		batchCompliance := []models.StatusCompliance{}
-		batchCompliance = append(batchCompliance, nonCompliantCompliances...)
-		batchCompliance = append(batchCompliance, unknownCompliances...)
 
-		// remove the cluster need to be update to nonCompliant or unknown
-		allNonComplianceClustersOnDB := nonComplianceClusterSetsFromDB.GetAllClusters()
-		for _, nonComplianceCluster := range batchCompliance {
-			allNonComplianceClustersOnDB.Remove(nonComplianceCluster)
+		// nonCompliant: go over the non compliant clusters from event
+		for _, eventCluster := range eventCompliance.NonCompliantClusters {
+			if !nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant).Contains(eventCluster) {
+				batchCompliance = append(batchCompliance, models.StatusCompliance{
+					PolicyID:    policyID,
+					LeafHubName: leafHub,
+					ClusterName: eventCluster,
+					Compliance:  database.NonCompliant,
+					Error:       database.ErrorNone,
+				})
+			}
+			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
+		}
+
+		// unknown: go over the unknown clusters from event
+		for _, eventCluster := range eventCompliance.UnknownComplianceClusters {
+			if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(eventCluster) {
+				batchCompliance = append(batchCompliance, models.StatusCompliance{
+					PolicyID:    policyID,
+					LeafHubName: leafHub,
+					ClusterName: eventCluster,
+					Compliance:  database.Unknown,
+					Error:       database.ErrorNone,
+				})
+			}
+			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
 		}
 
 		// compliant
-		for _, name := range allNonComplianceClustersOnDB.ToSlice() {
+		for _, name := range allNonComplianceCluster.ToSlice() {
 			clusterName, ok := name.(string)
 			if !ok {
 				continue

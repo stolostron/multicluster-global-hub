@@ -83,31 +83,44 @@ func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudev
 			nonComplianceClusterSetsFromDB = NewPolicyClusterSets()
 		}
 
-		// nonCompliant
-		nonCompliantCompliances := newLocalCompliances(leafHub, policyID, database.NonCompliant,
-			eventCompliance.NonCompliantClusters, nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant))
+		allNonComplianceCluster := nonComplianceClusterSetsFromDB.GetAllClusters()
+		batchLocalCompliance := []models.LocalStatusCompliance{}
 
-		// unknown
-		unknownCompliances := newLocalCompliances(leafHub, policyID, database.Unknown,
-			eventCompliance.UnknownComplianceClusters, nonComplianceClusterSetsFromDB.GetClusters(database.Unknown))
+		// nonCompliant: go over the non compliant clusters from event
+		for _, eventCluster := range eventCompliance.NonCompliantClusters {
+			if !nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant).Contains(eventCluster) {
+				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
+					PolicyID:    policyID,
+					LeafHubName: leafHub,
+					ClusterName: eventCluster,
+					Compliance:  database.NonCompliant,
+					Error:       database.ErrorNone,
+				})
+			}
+			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
+		}
 
-		batchLocalCompliances := []models.LocalStatusCompliance{}
-		batchLocalCompliances = append(batchLocalCompliances, nonCompliantCompliances...)
-		batchLocalCompliances = append(batchLocalCompliances, unknownCompliances...)
-
-		// remove the cluster need to be update to nonCompliant or unknown
-		allNonComplianceClustersOnDB := nonComplianceClusterSetsFromDB.GetAllClusters()
-		for _, nonComplianceCluster := range batchLocalCompliances {
-			allNonComplianceClustersOnDB.Remove(nonComplianceCluster)
+		// unknown: go over the unknown clusters from event
+		for _, eventCluster := range eventCompliance.UnknownComplianceClusters {
+			if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(eventCluster) {
+				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
+					PolicyID:    policyID,
+					LeafHubName: leafHub,
+					ClusterName: eventCluster,
+					Compliance:  database.Unknown,
+					Error:       database.ErrorNone,
+				})
+			}
+			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
 		}
 
 		// compliant
-		for _, name := range allNonComplianceClustersOnDB.ToSlice() {
+		for _, name := range allNonComplianceCluster.ToSlice() {
 			clusterName, ok := name.(string)
 			if !ok {
 				continue
 			}
-			batchLocalCompliances = append(batchLocalCompliances, models.LocalStatusCompliance{
+			batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
 				PolicyID:    policyID,
 				LeafHubName: leafHub,
 				ClusterName: clusterName,
@@ -117,7 +130,7 @@ func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudev
 		}
 
 		err = db.Transaction(func(tx *gorm.DB) error {
-			for _, compliance := range batchLocalCompliances {
+			for _, compliance := range batchLocalCompliance {
 				e := tx.Updates(compliance).Error
 				if e != nil {
 					return e
