@@ -32,7 +32,7 @@ func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *c
 		},
 		func(obj client.Object) {
 			obj.SetManagedFields(nil)
-		},
+		}, false,
 	)
 
 	// syncer

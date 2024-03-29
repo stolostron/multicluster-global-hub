@@ -9,11 +9,13 @@ import (
 
 type genericObjectHandler struct {
 	eventData *genericpayload.GenericObjectBundle
+	onlySpec  bool
 }
 
-func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle) Handler {
+func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle, onlySpec bool) Handler {
 	return &genericObjectHandler{
 		eventData: eventData,
+		onlySpec:  onlySpec,
 	}
 }
 
@@ -22,6 +24,11 @@ func (h *genericObjectHandler) Update(obj client.Object) bool {
 	if index == -1 { // object not found, need to add it to the bundle
 		(*h.eventData) = append((*h.eventData), obj)
 		return true
+	}
+
+	old := (*h.eventData)[index]
+	if h.onlySpec && old.GetGeneration() == obj.GetGeneration() {
+		return false
 	}
 
 	// if we reached here, object already exists in the bundle. check if we need to update the object

@@ -33,14 +33,14 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 		func(obj client.Object) bool {
 			return agentConfig.EnableGlobalResource &&
 				utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
-		}, tweakFunc)
+		}, tweakFunc, false)
 
 	localPlacementRuleEmitter := generic.ObjectEmitterWrapper(enum.LocalPlacementRuleSpecType,
 		func(obj client.Object) bool {
 			// return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue &&
 			// 	!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // local resource
 			return false // disable the placementrule now
-		}, tweakFunc)
+		}, tweakFunc, false)
 
 	// syncer
 	name := "status.placement_decision"

@@ -34,12 +34,13 @@ func (e *genericObjectEmitter) Delete(object client.Object) bool {
 func ObjectEmitterWrapper(eventType enum.EventType,
 	shouldUpdate func(client.Object) bool,
 	tweakFunc func(client.Object),
+	specUpdate bool,
 ) ObjectEmitter {
 	eventData := genericpayload.GenericObjectBundle{}
 	return NewGenericObjectEmitter(
 		eventType,
 		&eventData,
-		NewGenericObjectHandler(&eventData),
+		NewGenericObjectHandler(&eventData, specUpdate),
 		WithShouldUpdate(shouldUpdate),
 		WithTweakFunc(tweakFunc),
 	)
