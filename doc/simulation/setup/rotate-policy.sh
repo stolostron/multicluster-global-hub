@@ -5,7 +5,7 @@
 set -eo pipefail
 
 # Check if the script is provided with the correct number of positional parameters
-if [ $# -ne 2 ]; then
+if [ $# -ne 3 ]; then
     echo "Usage: $0 <hub_start:hub_end> <policy_start:policy_end> <Compliant/NonCompliant>"
     exit 1
 fi

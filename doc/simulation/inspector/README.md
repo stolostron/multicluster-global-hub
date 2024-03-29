@@ -57,10 +57,11 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
     ```
   
   - Stop the backend process
- 
+  
     ```bash
     ./doc/simulation/inspector/cmd/counter.sh stop
     ```
+
 ### Get CPU and Memory information
 
   ```bash
