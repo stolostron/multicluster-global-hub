@@ -9,6 +9,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -20,10 +21,10 @@ var errNoReadyBundle = errors.New("no bundle is ready to be processed")
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	log                 logr.Logger
-	priorityQueue       []*conflationElement
-	eventTypeToPriority map[string]ConflationPriority
-	readyQueue          *ConflationReadyQueue
+	log                  logr.Logger
+	ElementPriorityQueue []*conflationElement
+	eventTypeToPriority  map[string]ConflationPriority
+	readyQueue           *ConflationReadyQueue
 	// requireInitialDependencyChecks bool
 	isInReadyQueue bool
 	lock           sync.Mutex
@@ -33,11 +34,20 @@ type ConflationUnit struct {
 func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 	registrations map[string]*ConflationRegistration, statistics *statistics.Statistics,
 ) *ConflationUnit {
-	priorityQueue := make([]*conflationElement, len(registrations))
-	eventTypeToPriority := make(map[string]ConflationPriority)
+	conflationUnit := &ConflationUnit{
+		log:                  log,
+		ElementPriorityQueue: make([]*conflationElement, len(registrations)),
+		eventTypeToPriority:  make(map[string]ConflationPriority),
+		readyQueue:           readyQueue,
+		// requireInitialDependencyChecks: requireInitialDependencyChecks,
+		isInReadyQueue: false,
+		lock:           sync.Mutex{},
+		statistics:     statistics,
+	}
 
 	for _, registration := range registrations {
-		priorityQueue[registration.priority] = &conflationElement{
+		conflationUnit.ElementPriorityQueue[registration.priority] = &conflationElement{
+			conflationUnit:       conflationUnit,
 			eventType:            registration.eventType,
 			syncMode:             registration.syncMode,
 			handlerFunction:      registration.handleFunc,
@@ -46,19 +56,10 @@ func newConflationUnit(log logr.Logger, readyQueue *ConflationReadyQueue,
 			lastProcessedVersion: version.NewVersion(),
 		}
 
-		eventTypeToPriority[registration.eventType] = registration.priority
+		conflationUnit.eventTypeToPriority[registration.eventType] = registration.priority
 	}
 
-	return &ConflationUnit{
-		log:                 log,
-		priorityQueue:       priorityQueue,
-		eventTypeToPriority: eventTypeToPriority,
-		readyQueue:          readyQueue,
-		// requireInitialDependencyChecks: requireInitialDependencyChecks,
-		isInReadyQueue: false,
-		lock:           sync.Mutex{},
-		statistics:     statistics,
-	}
+	return conflationUnit
 }
 
 // insert is an internal function, new bundles are inserted only via conflation manager.
@@ -67,7 +68,7 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	defer cu.lock.Unlock()
 
 	priority := cu.eventTypeToPriority[event.Type()]
-	conflationElement := cu.priorityQueue[priority]
+	conflationElement := cu.ElementPriorityQueue[priority]
 	if conflationElement == nil {
 		cu.log.Info("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
 		return
@@ -101,25 +102,22 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 
 	// if we got here, we got bundle with newer version
 	// update the bundle in the priority queue.
-	if err := conflationElement.update(event, eventMetadata); err != nil {
-		cu.log.Error(err, "failed to insert cloudEvent")
-		return
-	}
+	conflationElement.update(event, eventMetadata)
 
 	cu.addCUToReadyQueueIfNeeded()
 }
 
 // GetNext returns the next ready to be processed bundle and its transport metadata.
-func (cu *ConflationUnit) GetNext() (*cloudevents.Event, ConflationMetadata, EventHandleFunc, error) {
+func (cu *ConflationUnit) GetNext() (*ConflationJob, error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
 	nextElementPriority := cu.getNextReadyBundlePriority()
 	if nextElementPriority == invalidPriority { // CU adds itself to RQ only when it has ready to process bundle
-		return nil, nil, nil, errNoReadyBundle // therefore this shouldn't happen
+		return nil, errNoReadyBundle // therefore this shouldn't happen
 	}
 
-	conflationElement := cu.priorityQueue[nextElementPriority]
+	conflationElement := cu.ElementPriorityQueue[nextElementPriority]
 
 	cu.isInReadyQueue = false
 	conflationElement.isInProcess = true
@@ -129,7 +127,7 @@ func (cu *ConflationUnit) GetNext() (*cloudevents.Event, ConflationMetadata, Eve
 
 	event, eventMetadata := conflationElement.getEventForProcessing()
 
-	return event, eventMetadata, conflationElement.handlerFunction, nil
+	return NewConflationJob(event, eventMetadata, conflationElement.handlerFunction, cu), nil
 }
 
 // ReportResult is used to report the result of bundle handling job.
@@ -138,7 +136,7 @@ func (cu *ConflationUnit) ReportResult(metadata ConflationMetadata, err error) {
 	defer cu.lock.Unlock()
 
 	priority := cu.eventTypeToPriority[metadata.EventType()] // priority of the bundle that was processed
-	conflationElement := cu.priorityQueue[priority]
+	conflationElement := cu.ElementPriorityQueue[priority]
 	conflationElement.isInProcess = false // finished processing bundle
 
 	defer func() {
@@ -150,17 +148,24 @@ func (cu *ConflationUnit) ReportResult(metadata ConflationMetadata, err error) {
 
 	if err != nil {
 		cu.log.Error(err, "report error for the event", "type", metadata.EventType(), "version", metadata.Version())
-	} else {
+		return
+	}
+
+	if conflationElement.syncMode == enum.CompleteStateMode {
 		// if this is the same event that was processed then release bundle pointer, otherwise leave
 		// the current (newer one) as pending.
 		if metadata.Version().Equals(conflationElement.metadata.Version()) {
 			conflationElement.event = nil
 		}
 	}
+
+	if conflationElement.syncMode == enum.DeltaStateMode {
+		conflationElement.metadata = metadata // indicate the metada has been processed
+	}
 }
 
 func (cu *ConflationUnit) isInProcess() bool {
-	for _, conflationElement := range cu.priorityQueue {
+	for _, conflationElement := range cu.ElementPriorityQueue {
 		if conflationElement.isInProcess {
 			return true // if any bundle is in process than conflation unit is in process
 		}
@@ -175,14 +180,15 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 	// if we reached here, CU is not in RQ nor during processing
 	nextReadyElementPriority := cu.getNextReadyBundlePriority()
 	if nextReadyElementPriority != invalidPriority { // there is a ready to be processed bundle
-		cu.readyQueue.Enqueue(cu) // let the dispatcher know this CU has a ready to be processed bundle
+		cu.readyQueue.ConflationUnitChan <- cu // let the dispatcher know this CU has a ready to be processed bundle
 		cu.isInReadyQueue = true
 	}
 }
 
 // returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
 func (cu *ConflationUnit) getNextReadyBundlePriority() int {
-	for priority, conflationElement := range cu.priorityQueue { // going over priority queue according to priorities.
+	// going over priority queue according to priorities.
+	for priority, conflationElement := range cu.ElementPriorityQueue {
 		if conflationElement.event != nil && conflationElement.metadata != nil &&
 			!cu.isProcessed(conflationElement) &&
 			!cu.isCurrentOrAnyDependencyInProcess(conflationElement) &&
@@ -213,7 +219,7 @@ func (cu *ConflationUnit) isCurrentOrAnyDependencyInProcess(conflationElement *c
 
 	dependencyIndex := cu.eventTypeToPriority[conflationElement.dependency.EventType]
 
-	return cu.isCurrentOrAnyDependencyInProcess(cu.priorityQueue[dependencyIndex])
+	return cu.isCurrentOrAnyDependencyInProcess(cu.ElementPriorityQueue[dependencyIndex])
 }
 
 // dependencies are organized in a chain.
@@ -225,7 +231,7 @@ func (cu *ConflationUnit) checkDependency(conflationElement *conflationElement) 
 	}
 
 	dependentIndex := cu.eventTypeToPriority[conflationElement.dependency.EventType]
-	dependentElement := cu.priorityQueue[dependentIndex]
+	dependentElement := cu.ElementPriorityQueue[dependentIndex]
 
 	switch conflationElement.dependency.DependencyType {
 	case dependency.ExactMatch:
@@ -244,9 +250,9 @@ func (cu *ConflationUnit) getMetadatas() []ConflationMetadata {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
-	metadatas := make([]ConflationMetadata, 0, len(cu.priorityQueue))
+	metadatas := make([]ConflationMetadata, 0, len(cu.ElementPriorityQueue))
 
-	for _, element := range cu.priorityQueue {
+	for _, element := range cu.ElementPriorityQueue {
 		if element.metadata == nil {
 			continue
 		}
