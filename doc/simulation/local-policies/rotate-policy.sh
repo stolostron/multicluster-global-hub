@@ -60,7 +60,7 @@ function update_cluster_policies() {
   wait
 
   # patch root policy status
-  kubectl patch policy $root_policy_name -n $root_policy_namespace --type=merge --subresource status --patch "status: {compliant: $3, placement: [{placement: placement-$root_policy_name, placementBinding: binding-${root_policy_name}}], status: [${status}]}"
+  kubectl patch policy $root_policy_name -n $root_policy_namespace --type=merge --subresource status --patch "status: {compliant: $root_policy_status, placement: [{placement: placement-$root_policy_name, placementBinding: binding-${root_policy_name}}], status: [${status}]}"
 } 
 
 for i in $(seq $policy_start $policy_end)
