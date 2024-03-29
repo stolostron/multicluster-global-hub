@@ -25,6 +25,8 @@ cluster_end=$(echo "$sorted_clusters" | tail -n 1)
 echo ">> KUBECONFIG=$KUBECONFIG"
 echo ">> Rotating Policy $policy_start~$policy_end to $compliance_state on cluster $cluster_start~$cluster_end"
 
+random_number=$(shuf -i 10000-99999 -n 1)
+
 function update_cluster_policies() {
   root_policy_namespace=default
   root_policy_name=$1
@@ -37,11 +39,12 @@ function update_cluster_policies() {
   for j in $(seq $cluster_start $cluster_end); do
 
     cluster_name=managedcluster-${j}
+    event_name=$root_policy_namespace.$root_policy_name.$cluster_name.$random_number
     if [[ $root_policy_status == "Compliant" ]]; then 
       # patch replicas policy status to compliant
-      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: Compliant, details: [{compliant: Compliant, history: [{eventName: $root_policy_namespace.$root_policy_name.$cluster_name, message: Compliant; notification - limitranges container-mem-limit-range found as specified in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
+      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: Compliant, details: [{compliant: Compliant, history: [{eventName: $event_name, message: Compliant; notification - limitranges container-mem-limit-range found as specified in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
     else 
-      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: NonCompliant, details: [{compliant: NonCompliant, history: [{eventName: $root_policy_namespace.$root_policy_name.$cluster_name, message: NonCompliant; violation - limitranges container-mem-limit-range not found in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
+      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: NonCompliant, details: [{compliant: NonCompliant, history: [{eventName: $event_name, message: NonCompliant; violation - limitranges container-mem-limit-range not found in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
     fi
 
     if [ $j == 1 ];then
