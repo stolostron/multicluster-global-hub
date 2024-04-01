@@ -48,7 +48,6 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 	BUNDLE_GEN_FLAGS += --use-image-digests
 endif
 
-
 # Set the Operator SDK version to use. By default, what is installed on the system is used.
 # This is useful for CI or a project to utilize a specific version of the operator-sdk toolkit.
 OPERATOR_SDK_VERSION ?= v1.34.1
@@ -70,6 +69,12 @@ endif
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
+
+# Define sed command
+SED_COMMAND=sed -i -e
+ifeq ($(shell uname), Darwin)
+  SED_COMMAND=sed -i '' -e
+endif
 
 .PHONY: all
 all: build
@@ -221,7 +226,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 	# ignore relatedImages
-	sed -i '' -e '/relatedImage/,+10d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
+	$(SED_COMMAND) '/relatedImage/,+10d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
 	# remove bundle.Dockerfile
 	rm -rf bundle.Dockerfile
 	git diff -I"createdAt" --exit-code
