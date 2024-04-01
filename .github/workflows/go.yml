@@ -32,3 +32,12 @@ jobs:
 
       - name: format
         run: make strict-fmt
+  verify-bundle:
+    name: verify bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v3
+
+      - name: bundle
+        run: cd operator && make bundle
