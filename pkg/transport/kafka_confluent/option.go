@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 

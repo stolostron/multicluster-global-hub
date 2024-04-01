@@ -133,7 +133,8 @@ func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, default
 }
 
 func getConfluentSenderProtocol(transportConfig *transport.TransportConfig,
-	defaultTopic string) (interface{}, error) {
+	defaultTopic string,
+) (interface{}, error) {
 	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, true)
 	if err != nil {
 		return nil, err

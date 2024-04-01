@@ -6,8 +6,10 @@ import (
 	"strings"
 )
 
-const ExtVersion = "extversion"
-const ExtDependencyVersion = "extdependencyversion"
+const (
+	ExtVersion           = "extversion"
+	ExtDependencyVersion = "extdependencyversion"
+)
 
 // NewVersion returns a new instance of BundleVersion.
 func NewVersion() *Version {
@@ -34,7 +36,6 @@ func VersionFrom(strVersion string) (*Version, error) {
 		Generation: generation,
 		Value:      val,
 	}, nil
-
 }
 
 // Version holds the information necessary for the consumers of status bundles to compare versions correctly.

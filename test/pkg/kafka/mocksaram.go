@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/Shopify/sarama"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // the default offset range is 0 ~ 100, topic is "my-topic", partition is 0

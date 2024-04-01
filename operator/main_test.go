@@ -13,20 +13,20 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/pflag"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var testEnv *envtest.Environment
 
 var _ = Describe("Start Operator Test", Ordered, func() {
-
 	// Initialize the client
 	BeforeEach(func() {
 		testEnv = &envtest.Environment{
@@ -79,7 +79,6 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 
 			operatorConfig := parseFlags()
 			Expect(operatorConfig.LeaderElection).To(BeFalse())
-
 		})
 	})
 
