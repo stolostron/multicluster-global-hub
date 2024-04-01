@@ -116,7 +116,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		}
 		c.log.Info("init consumer", "offsets", offsets)
 		if len(offsets) > 0 {
-			receiveContext = kafka_confluent.CommitOffsetCtx(ctx, offsets)
+			receiveContext = kafka_confluent.WithTopicPartitionOffsets(ctx, offsets)
 		}
 	}
 

@@ -1,7 +1,13 @@
+/*
+ Copyright 2023 The CloudEvents Authors
+ SPDX-License-Identifier: Apache-2.0
+*/
+
 package kafka_confluent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -22,50 +28,71 @@ var (
 type Protocol struct {
 	kafkaConfigMap *kafka.ConfigMap
 
-	consumer            *kafka.Consumer
-	consumerTopics      []string
-	consumerRebalanceCb kafka.RebalanceCb // optional
-	consumerPollTimeout int               // optional
-	consumerMux         sync.Mutex
+	consumer             *kafka.Consumer
+	consumerTopics       []string
+	consumerRebalanceCb  kafka.RebalanceCb                          // optional
+	consumerPollTimeout  int                                        // optional
+	consumerErrorHandler func(ctx context.Context, err kafka.Error) // optional
+	consumerMux          sync.Mutex
+	consumerIncoming     chan *kafka.Message
+	consumerCtx          context.Context
+	consumerCancel       context.CancelFunc
 
-	producer                 *kafka.Producer
-	producerDeliveryChan     chan kafka.Event // optional
-	producerDefaultTopic     string           // optional
-	producerDefaultPartition int32            // optional
+	producer             *kafka.Producer
+	producerDeliveryChan chan kafka.Event // optional
+	producerDefaultTopic string           // optional
+	producerCtx          context.Context
+	producerCancel       context.CancelFunc
+	producerEventHandler func(ctx context.Context, err kafka.Event) // optional
 
-	// receiver
-	incoming chan *kafka.Message
+	closerMux sync.Mutex
 }
 
 func New(opts ...Option) (*Protocol, error) {
 	p := &Protocol{
-		producerDefaultPartition: kafka.PartitionAny,
-		consumerPollTimeout:      100,
-		incoming:                 make(chan *kafka.Message),
+		consumerPollTimeout: 100,
+		consumerIncoming:    make(chan *kafka.Message),
 	}
 	if err := p.applyOptions(opts...); err != nil {
 		return nil, err
 	}
 
-	if p.consumerTopics != nil && p.consumer == nil && p.kafkaConfigMap != nil {
-		consumer, err := kafka.NewConsumer(p.kafkaConfigMap)
-		if err != nil {
-			return nil, err
+	if p.kafkaConfigMap != nil {
+		if p.consumerTopics != nil && p.consumer == nil {
+			consumer, err := kafka.NewConsumer(p.kafkaConfigMap)
+			if err != nil {
+				return nil, err
+			}
+			p.consumer = consumer
 		}
-		p.consumer = consumer
-	} else if p.producer == nil && p.kafkaConfigMap != nil {
-		producer, err := kafka.NewProducer(p.kafkaConfigMap)
-		if err != nil {
-			return nil, err
+		if p.producerDefaultTopic != "" && p.producer == nil {
+			producer, err := kafka.NewProducer(p.kafkaConfigMap)
+			if err != nil {
+				return nil, err
+			}
+			p.producer = producer
 		}
-		p.producer = producer
-		p.producerDeliveryChan = make(chan kafka.Event)
+		if p.producer == nil && p.consumer == nil {
+			return nil, errors.New("at least receiver or sender topic must be set")
+		}
+	}
+	if p.producerDefaultTopic != "" && p.producer == nil {
+		return nil, fmt.Errorf("at least configmap or producer must be set for the sender topic: %s", p.producerDefaultTopic)
+	}
+
+	if len(p.consumerTopics) > 0 && p.consumer == nil {
+		return nil, fmt.Errorf("at least configmap or consumer must be set for the receiver topics: %s", p.consumerTopics)
 	}
 
 	if p.kafkaConfigMap == nil && p.producer == nil && p.consumer == nil {
-		return nil, fmt.Errorf("At least one of the following to initialize the protocol: config, producer, or consumer.")
+		return nil, errors.New("at least one of the following to initialize the protocol must be set: config, producer, or consumer")
 	}
-
+	if p.producer != nil {
+		p.producerDeliveryChan = make(chan kafka.Event)
+		if p.producerEventHandler == nil {
+			p.producerEventHandler = func(ctx context.Context, err kafka.Event) {}
+		}
+	}
 	return p, nil
 }
 
@@ -79,34 +106,54 @@ func (p *Protocol) applyOptions(opts ...Option) error {
 }
 
 func (p *Protocol) Send(ctx context.Context, in binding.Message, transformers ...binding.Transformer) (err error) {
-	// support the commit offset from the context
-	offsets := CommitOffsetFrom(ctx)
-	if offsets != nil {
-		if p.consumer == nil {
-			return fmt.Errorf("the consumer client must not be nil")
-		}
-		_, err = p.consumer.CommitOffsets(offsets)
-		return err
+	if p.producer == nil {
+		return errors.New("producer client must be set")
 	}
 
-	if p.producer == nil {
-		return fmt.Errorf("the producer client must not be nil")
+	p.closerMux.Lock()
+	defer p.closerMux.Unlock()
+	if p.producer.IsClosed() {
+		return errors.New("producer is closed")
 	}
+
+	// Listen to all the client instance-level events in a different goroutine
+	// It's important to read these events, otherwise the events channel will eventually fill up
+	if p.producerCtx == nil {
+		p.producerCtx, p.producerCancel = context.WithCancel(ctx)
+		go func() {
+			// clean up the resources
+			defer func() {
+				logger := cecontext.LoggerFrom(ctx)
+				if !p.producer.IsClosed() {
+					logger.Info("Closing producer")
+					p.producer.Close()
+					close(p.producerDeliveryChan)
+				}
+			}()
+
+			for {
+				select {
+				case <-p.producerCtx.Done():
+					return
+				default:
+					ev := <-p.producer.Events()
+					p.producerEventHandler(ctx, ev)
+				}
+			}
+		}()
+	}
+
 	defer in.Finish(err)
 
 	kafkaMsg := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{
 			Topic:     &p.producerDefaultTopic,
-			Partition: p.producerDefaultPartition,
+			Partition: kafka.PartitionAny,
 		},
 	}
 
 	if topic := cecontext.TopicFrom(ctx); topic != "" {
 		kafkaMsg.TopicPartition.Topic = &topic
-	}
-
-	if partition := TopicPartitionFrom(ctx); partition != -1 {
-		kafkaMsg.TopicPartition.Partition = partition
 	}
 
 	if messageKey := MessageKeyFrom(ctx); messageKey != "" {
@@ -132,10 +179,10 @@ func (p *Protocol) Send(ctx context.Context, in binding.Message, transformers ..
 
 func (p *Protocol) OpenInbound(ctx context.Context) error {
 	if p.consumer == nil {
-		return fmt.Errorf("the consumer client must not be nil")
+		return errors.New("the consumer client must be set")
 	}
 	if p.consumerTopics == nil {
-		return fmt.Errorf("the consumer topics must not be nil")
+		return errors.New("the consumer topics must be set")
 	}
 
 	p.consumerMux.Lock()
@@ -143,7 +190,7 @@ func (p *Protocol) OpenInbound(ctx context.Context) error {
 	logger := cecontext.LoggerFrom(ctx)
 
 	// Query committed offsets for each partition
-	if positions := CommitOffsetFrom(ctx); positions != nil {
+	if positions := TopicPartitionOffsetsFrom(ctx); positions != nil {
 		if err := p.consumer.Assign(positions); err != nil {
 			return err
 		}
@@ -155,11 +202,25 @@ func (p *Protocol) OpenInbound(ctx context.Context) error {
 		return err
 	}
 
-	run := true
-	for run {
+	p.closerMux.Lock()
+	p.consumerCtx, p.consumerCancel = context.WithCancel(ctx)
+	defer p.consumerCancel()
+	p.closerMux.Unlock()
+
+	defer func() {
+		if !p.consumer.IsClosed() {
+			logger.Infof("Closing consumer %v", p.consumerTopics)
+			if err = p.consumer.Close(); err != nil {
+				logger.Errorf("failed to close the consumer: %v", err)
+			}
+		}
+		close(p.consumerIncoming)
+	}()
+
+	for {
 		select {
-		case <-ctx.Done():
-			run = false
+		case <-p.consumerCtx.Done():
+			return p.consumerCtx.Err()
 		default:
 			ev := p.consumer.Poll(p.consumerPollTimeout)
 			if ev == nil {
@@ -167,25 +228,27 @@ func (p *Protocol) OpenInbound(ctx context.Context) error {
 			}
 			switch e := ev.(type) {
 			case *kafka.Message:
-				p.incoming <- e
+				p.consumerIncoming <- e
 			case kafka.Error:
-				// Errors should generally be considered informational, the client
-				// will try to automatically recover.
-				// logger.Warnf("Consumer get a kafka error %v: %v\n", e.Code(), e)
-			default:
-				// logger.Infof("Ignored %v\n", e)
+				// Errors should generally be considered informational, the client will try to automatically recover.
+				// But in here, we choose to terminate the application if all brokers are down.
+				logger.Infof("Error %v: %v", e.Code(), e)
+				if p.consumerErrorHandler != nil {
+					p.consumerErrorHandler(ctx, e)
+				}
+				if e.Code() == kafka.ErrAllBrokersDown {
+					logger.Error("All broker connections are down")
+					return e
+				}
 			}
 		}
 	}
-
-	logger.Infof("Closing consumer %v", p.consumerTopics)
-	return p.consumer.Close()
 }
 
 // Receive implements Receiver.Receive
 func (p *Protocol) Receive(ctx context.Context) (binding.Message, error) {
 	select {
-	case m, ok := <-p.incoming:
+	case m, ok := <-p.consumerIncoming:
 		if !ok {
 			return nil, io.EOF
 		}
@@ -196,14 +259,17 @@ func (p *Protocol) Receive(ctx context.Context) (binding.Message, error) {
 	}
 }
 
+// Close cleans up resources after use. Must be called to properly close underlying Kafka resources and avoid resource leaks
 func (p *Protocol) Close(ctx context.Context) error {
-	if p.consumer != nil {
-		return p.consumer.Close()
+	p.closerMux.Lock()
+	defer p.closerMux.Unlock()
+
+	if p.consumerCancel != nil {
+		p.consumerCancel()
 	}
-	if p.producer != nil {
-		p.producer.Close()
+
+	if p.producerCancel != nil {
+		p.producerCancel()
 	}
-	close(p.producerDeliveryChan)
-	close(p.incoming)
 	return nil
 }
