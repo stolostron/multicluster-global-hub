@@ -9,13 +9,15 @@ import (
 
 type genericObjectHandler struct {
 	eventData *genericpayload.GenericObjectBundle
-	onlySpec  bool
+	// isSpec is to let the handler only update the event when spec is changed, that means whether it is a specHandler.
+	isSpec bool
 }
 
-func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle, onlySpec bool) Handler {
+// TODO: isSpec is true for policy, haven't handle the other object spec like placement, appsub...
+func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle, isSpec bool) Handler {
 	return &genericObjectHandler{
 		eventData: eventData,
-		onlySpec:  onlySpec,
+		isSpec:    isSpec,
 	}
 }
 
@@ -27,7 +29,7 @@ func (h *genericObjectHandler) Update(obj client.Object) bool {
 	}
 
 	old := (*h.eventData)[index]
-	if h.onlySpec && old.GetGeneration() == obj.GetGeneration() {
+	if h.isSpec && old.GetGeneration() == obj.GetGeneration() {
 		return false
 	}
 
