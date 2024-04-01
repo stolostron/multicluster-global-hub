@@ -67,6 +67,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 		},
 		cleanPolicy,
+		true,
 	)
 
 	// global policy emitters

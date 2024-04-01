@@ -9,11 +9,15 @@ import (
 
 type genericObjectHandler struct {
 	eventData *genericpayload.GenericObjectBundle
+	// isSpec is to let the handler only update the event when spec is changed, that means whether it is a specHandler.
+	isSpec bool
 }
 
-func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle) Handler {
+// TODO: isSpec is true for policy, haven't handle the other object spec like placement, appsub...
+func NewGenericObjectHandler(eventData *genericpayload.GenericObjectBundle, isSpec bool) Handler {
 	return &genericObjectHandler{
 		eventData: eventData,
+		isSpec:    isSpec,
 	}
 }
 
@@ -22,6 +26,11 @@ func (h *genericObjectHandler) Update(obj client.Object) bool {
 	if index == -1 { // object not found, need to add it to the bundle
 		(*h.eventData) = append((*h.eventData), obj)
 		return true
+	}
+
+	old := (*h.eventData)[index]
+	if h.isSpec && old.GetGeneration() == obj.GetGeneration() {
+		return false
 	}
 
 	// if we reached here, object already exists in the bundle. check if we need to update the object

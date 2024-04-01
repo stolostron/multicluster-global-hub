@@ -23,7 +23,7 @@ func LaunchSubscriptionReportSyncer(ctx context.Context, mgr ctrl.Manager, agent
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
 
 	// emitter config
-	emitter := generic.ObjectEmitterWrapper(enum.SubscriptionReportType, nil, nil)
+	emitter := generic.ObjectEmitterWrapper(enum.SubscriptionReportType, nil, nil, false)
 
 	// syncer
 	name := "status.subscription_report"

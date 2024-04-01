@@ -28,7 +28,7 @@ func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentC
 			return true // resource
 		}, func(obj client.Object) {
 			obj.SetManagedFields(nil)
-		})
+		}, false)
 
 	// syncer
 	name := "status.placement_decision"
