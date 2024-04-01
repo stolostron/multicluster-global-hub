@@ -84,17 +84,18 @@ func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudeve
 			complianceClustersFromDB = NewPolicyClusterSets()
 		}
 
+		allClustersOnDB := complianceClustersFromDB.GetAllClusters()
 		// handle compliant clusters of the policy
 		compliantCompliances := newCompliances(leafHubName, policyID, database.Compliant,
-			eventCompliance.CompliantClusters, complianceClustersFromDB.GetClusters(database.Compliant))
+			eventCompliance.CompliantClusters, allClustersOnDB)
 
 		// handle non compliant clusters of the policy
 		nonCompliantCompliances := newCompliances(leafHubName, policyID, database.NonCompliant,
-			eventCompliance.NonCompliantClusters, complianceClustersFromDB.GetClusters(database.NonCompliant))
+			eventCompliance.NonCompliantClusters, allClustersOnDB)
 
 		// handle unknown compliance clusters of the policy
 		unknownCompliances := newCompliances(leafHubName, policyID, database.Unknown,
-			eventCompliance.UnknownComplianceClusters, complianceClustersFromDB.GetClusters(database.Unknown))
+			eventCompliance.UnknownComplianceClusters, allClustersOnDB)
 
 		batchCompliances := []models.StatusCompliance{}
 		batchCompliances = append(batchCompliances, compliantCompliances...)
@@ -109,11 +110,7 @@ func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudeve
 			return err
 		}
 
-		// delete compliance status rows in the db that were not sent in the bundle (leaf hub sends only living resources)
-		allClustersOnDB := complianceClustersFromDB.GetAllClusters()
-		for _, compliance := range batchCompliances {
-			allClustersOnDB.Remove(compliance.ClusterName)
-		}
+		// delete
 		err = db.Transaction(func(tx *gorm.DB) error {
 			for _, name := range allClustersOnDB.ToSlice() {
 				clusterName, ok := name.(string)
@@ -159,12 +156,10 @@ func (h *policyComplianceHandler) handleEvent(ctx context.Context, evt *cloudeve
 }
 
 func newCompliances(leafHub, policyID string, compliance database.ComplianceStatus,
-	eventComplianceClusters []string, complianceClustersOnDB set.Set,
+	eventComplianceClusters []string, allClusterOnDB set.Set,
 ) []models.StatusCompliance {
-	clusters := newComplianceClusters(eventComplianceClusters, complianceClustersOnDB)
-
 	compliances := make([]models.StatusCompliance, 0)
-	for _, cluster := range clusters {
+	for _, cluster := range eventComplianceClusters {
 		compliances = append(compliances, models.StatusCompliance{
 			LeafHubName: leafHub,
 			PolicyID:    policyID,
@@ -172,6 +167,7 @@ func newCompliances(leafHub, policyID string, compliance database.ComplianceStat
 			Error:       database.ErrorNone,
 			Compliance:  compliance,
 		})
+		allClusterOnDB.Remove(cluster)
 	}
 	return compliances
 }
