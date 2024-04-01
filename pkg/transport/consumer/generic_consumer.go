@@ -23,9 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
-var (
-	transportID string
-)
+var transportID string
 
 type GenericConsumer struct {
 	log                  logr.Logger
@@ -47,7 +45,8 @@ func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 }
 
 func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
-	opts ...GenericConsumeOption) (*GenericConsumer, error) {
+	opts ...GenericConsumeOption,
+) (*GenericConsumer, error) {
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType))
 	var receiver interface{}
 	var err error

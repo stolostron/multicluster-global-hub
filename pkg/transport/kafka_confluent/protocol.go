@@ -7,10 +7,9 @@ import (
 	"sync"
 
 	"github.com/cloudevents/sdk-go/v2/binding"
+	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-
-	cecontext "github.com/cloudevents/sdk-go/v2/context"
 )
 
 var (

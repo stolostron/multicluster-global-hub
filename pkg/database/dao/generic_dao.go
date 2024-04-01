@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"gorm.io/gorm"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 type GenericDao struct {

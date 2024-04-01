@@ -11,10 +11,6 @@ on:
       - main
       - release-*
 
-defaults:
-  run:
-    working-directory: go/src/github.com/stolostron/multicluster-global-hub
-
 jobs:
   format:
     name: format

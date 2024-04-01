@@ -28,7 +28,8 @@ type saramaConsumer struct {
 }
 
 func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
-	topics []string) (SaramaConsumer, error) {
+	topics []string,
+) (SaramaConsumer, error) {
 	log := ctrl.Log.WithName("sarama-consumer")
 	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {

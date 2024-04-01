@@ -9,17 +9,17 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	uberzap "go.uber.org/zap"
 	uberzapcore "go.uber.org/zap/zapcore"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func PrintVersion(log logr.Logger) {

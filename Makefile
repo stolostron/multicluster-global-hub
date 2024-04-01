@@ -102,6 +102,7 @@ fmt:
 strict-fmt:
 	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
 	gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	git diff --exit-code
 
 install-kafka: # install kafka on the ocp
 	./operator/config/samples/transport/deploy_kafka.sh

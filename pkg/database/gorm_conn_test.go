@@ -6,13 +6,16 @@ import (
 	"testing"
 
 	_ "github.com/lib/pq"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
-	"github.com/stretchr/testify/assert"
 )
 
-var testPostgres *testpostgres.TestPostgres
-var databaseConfig *database.DatabaseConfig
+var (
+	testPostgres   *testpostgres.TestPostgres
+	databaseConfig *database.DatabaseConfig
+)
 
 func TestConnectionPool(t *testing.T) {
 	var err error
