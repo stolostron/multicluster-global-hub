@@ -32,7 +32,7 @@ type Protocol struct {
 	consumerTopics       []string
 	consumerRebalanceCb  kafka.RebalanceCb                          // optional
 	consumerPollTimeout  int                                        // optional
-	consumerErrorHandler func(ctx context.Context, err kafka.Error) //optional
+	consumerErrorHandler func(ctx context.Context, err kafka.Error) // optional
 	consumerMux          sync.Mutex
 	consumerIncoming     chan *kafka.Message
 	consumerCtx          context.Context
@@ -43,7 +43,7 @@ type Protocol struct {
 	producerDefaultTopic string           // optional
 	producerCtx          context.Context
 	producerCancel       context.CancelFunc
-	producerEventHandler func(ctx context.Context, err kafka.Event) //optional
+	producerEventHandler func(ctx context.Context, err kafka.Event) // optional
 
 	closerMux sync.Mutex
 }
