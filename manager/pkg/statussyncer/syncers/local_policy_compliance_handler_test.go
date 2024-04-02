@@ -16,7 +16,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("Local StatusCompliances", Ordered, func() {
+// go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalStatusCompliances"
+var _ = Describe("LocalStatusCompliances", Ordered, func() {
 	const (
 		testSchema      = "local_status"
 		complianceTable = "compliance"
@@ -106,6 +107,96 @@ var _ = Describe("Local StatusCompliances", Ordered, func() {
 			}
 			return fmt.Errorf("failed to sync content of table %s.%s", testSchema, complianceTable)
 		}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("should handle the local compliance bundle with resync", func() {
+		By("Add an expired policy to the database")
+		db := database.GetGorm()
+		err := db.Create(&models.LocalStatusCompliance{
+			PolicyID:    createdPolicyId,
+			ClusterName: "cluster3",
+			LeafHubName: leafHubName,
+			Compliance:  database.Compliant,
+			Error:       "none",
+		}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check the expired policy is added in database")
+		Eventually(func() error {
+			var localCompliances []models.LocalStatusCompliance
+			err = db.Where("policy_id = ?", createdPolicyId).Find(&localCompliances).Error
+			if err != nil {
+				return err
+			}
+
+			for _, localCompliance := range localCompliances {
+				if localCompliance.ClusterName == "cluster3" &&
+					localCompliance.Compliance == database.Compliant {
+					return nil
+				}
+			}
+			return fmt.Errorf("failed to persist data to local compliance of table")
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		By("Build a new policy bundle in the managed hub")
+		// policy bundle
+		version := metadata.NewBundleVersion()
+		version.Incr()
+
+		clusterPerPolicyBundle := base.BaseComplianceBundle{
+			Objects:       make([]*base.GenericCompliance, 0),
+			LeafHubName:   leafHubName,
+			BundleVersion: version,
+		}
+		clusterPerPolicyBundle.Objects = append(clusterPerPolicyBundle.Objects, &base.GenericCompliance{
+			PolicyID:                  createdPolicyId,
+			CompliantClusters:         []string{"cluster1"},
+			NonCompliantClusters:      []string{"cluster2"},
+			UnknownComplianceClusters: make([]string, 0),
+		})
+
+		// transport bundle
+		clustersPerPolicyTransportKey := fmt.Sprintf("%s.%s", leafHubName, constants.LocalComplianceMsgKey)
+		payloadBytes, err := json.Marshal(clusterPerPolicyBundle)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Synchronize the latest ClustersPerPolicy bundle with transport")
+		transportMessage := &transport.Message{
+			Key:     clustersPerPolicyTransportKey,
+			MsgType: constants.StatusBundle,
+			Payload: payloadBytes,
+		}
+		By("Sync message with transport")
+		err = producer.Send(ctx, transportMessage)
+		Expect(err).Should(Succeed())
+
+		By("Wait the resync finished")
+		time.Sleep(5 * time.Second)
+
+		By("Check the local compliance is created and expired policy is deleted from database")
+		Eventually(func() error {
+			var localCompliances []models.LocalStatusCompliance
+			err = db.Where("leaf_hub_name = ?", leafHubName).Find(&localCompliances).Error
+			if err != nil {
+				return err
+			}
+
+			addedCount := 0
+			for _, c := range localCompliances {
+				fmt.Printf("LocalCompliance Resync: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
+				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" {
+					addedCount++
+				}
+				if c.ClusterName == "cluster3" {
+					return fmt.Errorf("the cluster3 should be removed from database")
+				}
+			}
+			if addedCount == 2 && len(localCompliances) == 2 {
+				fmt.Println("LocalCompliance(Resync) ========================================================== ")
+				return nil
+			}
+			return fmt.Errorf("failed to sync local compliance")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("LocalCompleteComplianceStatusBundle pass", func() {
