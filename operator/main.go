@@ -390,15 +390,6 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: labelSelector,
 		},
 		&subv1alpha1.Subscription{}: {},
-		&kafkav1beta2.Kafka{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
-		&kafkav1beta2.KafkaTopic{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
-		&kafkav1beta2.KafkaUser{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
 		&corev1.PersistentVolumeClaim{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
