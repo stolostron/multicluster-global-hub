@@ -187,7 +187,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 
 	// reconcile config: need to be done before the reconcilers start
 	// global image: annotation -> env -> default
-	err := r.reconcileSystemConfig(ctx, mgh)
+	err := r.reconcileSystemConfig(mgh)
 	if err != nil {
 		return ctrl.Result{Requeue: true}, err
 	}
@@ -228,7 +228,7 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 			if errors.IsConflict(err) {
 				r.Log.Info("conflict when adding finalizer to mgh instance")
 				return ctrl.Result{Requeue: true}, nil
-			} else if err != nil {
+			} else {
 				r.Log.Error(err, "failed to add finalizer to mgh instance")
 				conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
 				if conditionErr != nil {

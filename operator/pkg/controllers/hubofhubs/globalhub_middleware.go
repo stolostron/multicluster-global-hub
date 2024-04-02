@@ -57,16 +57,15 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		transProtocol, err := detectTransportProtocol(ctx, r.Client)
 		if err != nil {
 			errorChan <- err
-		}
-
-		if transProtocol == transport.SecretTransporter {
-			conn, e := r.ReconcileTransport(ctx, mgh, transProtocol)
-			if e != nil {
-				errorChan <- e
-			}
-			r.MiddlewareConfig.TransportConn = conn
 			return
 		}
+
+		conn, err := r.ReconcileTransport(ctx, mgh, transProtocol)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+		r.MiddlewareConfig.TransportConn = conn
 
 		// strimzi transporter -> use the kafka reconiler to get the connection
 		// wait until the kafka crd is ready, then start the kafka reconciler
@@ -236,7 +235,7 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 	if err == nil {
 		return transport.SecretTransporter, nil
 	}
-	if err != nil && !apierrors.IsNotFound(err) {
+	if !apierrors.IsNotFound(err) {
 		return transport.SecretTransporter, err
 	}
 
