@@ -29,6 +29,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -390,15 +391,6 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 			Label: labelSelector,
 		},
 		&subv1alpha1.Subscription{}: {},
-		&kafkav1beta2.Kafka{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
-		&kafkav1beta2.KafkaTopic{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
-		&kafkav1beta2.KafkaUser{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
 		&corev1.PersistentVolumeClaim{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
 		},
