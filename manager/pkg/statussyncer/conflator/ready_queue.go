@@ -6,7 +6,6 @@ import (
 
 // NewConflationReadyQueue creates a new instance of ConflationReadyQueue.
 func NewConflationReadyQueue(statistics *statistics.Statistics) *ConflationReadyQueue {
-
 	return &ConflationReadyQueue{
 		statistics:         statistics,
 		DeltaEventJobChan:  make(chan *ConflationJob, 1000),
