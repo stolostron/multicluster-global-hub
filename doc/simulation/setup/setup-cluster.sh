@@ -6,8 +6,8 @@
 ### Usage: ./setup-cluster.sh <hub-cluster-number> <managed-cluster-number-on-each-hub> 
 set -eo pipefail
 
-# Check if the script is provided with the correct number of positional parameters
-if [ $# -ne 2 ]; then
+# Check if the number of positional parameters is not equal to 1 or not equal to 2
+if [ $# -ne 1 ] || [ $# -ne 2 ]; then
     echo "Usage: $0 <hub_start:hub_end> <cluster_start:cluster_end>"
     exit 1
 fi
@@ -96,6 +96,16 @@ EOF
     kubectl apply --kubeconfig $kubeconfig -f $klusterlet_crd
     kubectl apply --kubeconfig $kubeconfig -f $imports
 done
+
+if [ $# -eq 1 ]; then
+    echo "Access the clusters:"
+    for i in $(seq $hub_start $hub_end); do
+        hub_cluster=hub${i}
+        kubeconfig="${cluster_dir}/${hub_cluster}"
+        echo "export KUBECONFIG=${kubeconfig}"
+    done
+    exit 0
+fi
 
 function create_managed_cluster() {
     cluster_id=$1
