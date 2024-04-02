@@ -7,7 +7,7 @@
 set -eo pipefail
 
 # Check if the number of positional parameters is not equal to 1 or not equal to 2
-if [ $# -ne 1 ] || [ $# -ne 2 ]; then
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then
     echo "Usage: $0 <hub_start:hub_end> <cluster_start:cluster_end>"
     exit 1
 fi
