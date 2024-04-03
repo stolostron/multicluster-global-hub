@@ -1,8 +1,6 @@
 package hubofhubs
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -10,7 +8,7 @@ import (
 )
 
 // reconcileSystemConfig tries to create hoh resources if they don't exist
-func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(ctx context.Context,
+func (r *MulticlusterGlobalHubReconciler) reconcileSystemConfig(
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	log := r.Log.WithName("config")

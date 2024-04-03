@@ -19,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -28,8 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var kafkaController *KafkaController
-
+// KafkaController reconciles the kafka crd
 type KafkaController struct {
 	Log                 logr.Logger
 	mgr                 ctrl.Manager
@@ -100,7 +98,7 @@ func startKafkaController(ctx context.Context, mgr ctrl.Manager,
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics
-func (r *KafkaController) renderKafkaMetricsResources(mgh *v1alpha4.MulticlusterGlobalHub) error {
+func (r *KafkaController) renderKafkaMetricsResources(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	if mgh.Spec.EnableMetrics {
 		// render the kafka objects
 		kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.mgr.GetClient())
@@ -135,12 +133,12 @@ type kafkaCRDController struct {
 }
 
 func (c *kafkaCRDController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	if kafkaController == nil {
+	if c.globaHubReconciler.KafkaController == nil {
 		reconclier, err := startKafkaController(ctx, c.mgr, c.globaHubReconciler)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		kafkaController = reconclier
+		c.globaHubReconciler.KafkaController = reconclier
 	}
 	return ctrl.Result{}, nil
 }

@@ -57,6 +57,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 		transProtocol, err := detectTransportProtocol(ctx, r.Client)
 		if err != nil {
 			errorChan <- err
+			return
 		}
 
 		if transProtocol == transport.SecretTransporter {
@@ -70,18 +71,25 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 
 		// strimzi transporter -> use the kafka reconiler to get the connection
 		// wait until the kafka crd is ready, then start the kafka reconciler
-		if kafkaController == nil {
+		if !r.KafkaInit {
+			_, e := r.ReconcileTransport(ctx, mgh, transProtocol)
+			if e != nil {
+				errorChan <- e
+				return
+			}
+
 			err = addKafkaCRDController(r.Manager, r)
 			if err != nil {
 				errorChan <- err
 				return
 			}
-			if kafkaController == nil || kafkaController.conn == nil {
-				errorChan <- errors.New("the kafka controller is not ready")
-				return
-			}
+			r.KafkaInit = true
 		}
-		r.MiddlewareConfig.TransportConn = kafkaController.conn
+		if r.KafkaController == nil || r.KafkaController.conn == nil {
+			errorChan <- errors.New("the kafka controller is not ready")
+			return
+		}
+		r.MiddlewareConfig.TransportConn = r.KafkaController.conn
 	}()
 
 	// initialize storage
@@ -236,7 +244,7 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 	if err == nil {
 		return transport.SecretTransporter, nil
 	}
-	if err != nil && !apierrors.IsNotFound(err) {
+	if !apierrors.IsNotFound(err) {
 		return transport.SecretTransporter, err
 	}
 
