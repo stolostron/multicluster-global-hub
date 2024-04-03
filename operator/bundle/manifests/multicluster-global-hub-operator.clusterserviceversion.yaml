@@ -23,7 +23,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-04-01T07:48:13Z"
+    createdAt: "2024-04-03T09:39:54Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -52,23 +52,33 @@ spec:
       specDescriptors:
       - description: 'Specifies deployment replication for improved availability.
           Options are: Basic and High (default)'
-        displayName: Availability Config
+        displayName: Availability Configuration
         path: availabilityConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:High
+        - urn:alm:descriptor:com.tectonic.ui:select:Basic
       - description: DataLayer can be configured to use a different data layer.
         displayName: Data Layer
         path: dataLayer
       - description: Pull policy of the multicluster global hub images
         displayName: Image Pull Policy
         path: imagePullPolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
       - description: Pull secret of the multicluster global hub images
         displayName: Image Pull Secret
         path: imagePullSecret
-      - description: Spec of NodeSelector
-        displayName: Node Selector
-        path: nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: Tolerations causes all components to tolerate any taints.
         displayName: Tolerations
         path: tolerations
+      - description: EnableMetrics is to enable collecting the metrics for the global
+          hub kafka and postgres.
+        displayName: Enable Metrics Collecting
+        path: enableMetrics
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       statusDescriptors:
       - description: MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
         displayName: Conditions
