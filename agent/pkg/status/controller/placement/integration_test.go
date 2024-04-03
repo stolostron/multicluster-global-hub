@@ -60,10 +60,14 @@ var _ = Describe("Placement integration test", Ordered, func() {
 
 	It("should be able to sync placement decision", func() {
 		By("Create placementdecision")
+		testGlobalPlacementDecisionOriginUID := "test-globalplacement-decision-uid"
 		testPlacementDecision := &clusterv1beta1.PlacementDecision{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-placementdecision-1",
 				Namespace: "default",
+				Annotations: map[string]string{
+					constants.OriginOwnerReferenceAnnotation: testGlobalPlacementDecisionOriginUID,
+				},
 			},
 			Status: clusterv1beta1.PlacementDecisionStatus{},
 		}
