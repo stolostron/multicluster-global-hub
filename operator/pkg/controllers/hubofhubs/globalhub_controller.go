@@ -95,6 +95,8 @@ type MulticlusterGlobalHubReconciler struct {
 	MiddlewareConfig     *MiddlewareConfig
 	EnableGlobalResource bool
 	upgradeOnce          sync.Once
+	KafkaInit            bool
+	KafkaController      *KafkaController
 }
 
 // MiddlewareConfig defines the configuration for middleware and shared in opearator

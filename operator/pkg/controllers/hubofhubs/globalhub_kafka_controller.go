@@ -27,8 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var kafkaController *KafkaController
-
+// KafkaController reconciles the kafka crd
 type KafkaController struct {
 	Log                 logr.Logger
 	mgr                 ctrl.Manager
@@ -134,12 +133,12 @@ type kafkaCRDController struct {
 }
 
 func (c *kafkaCRDController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	if kafkaController == nil {
+	if c.globaHubReconciler.KafkaController == nil {
 		reconclier, err := startKafkaController(ctx, c.mgr, c.globaHubReconciler)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		kafkaController = reconclier
+		c.globaHubReconciler.KafkaController = reconclier
 	}
 	return ctrl.Result{}, nil
 }
