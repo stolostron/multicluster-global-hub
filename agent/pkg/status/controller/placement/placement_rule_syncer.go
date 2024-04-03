@@ -31,8 +31,7 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 	}
 	globalPlacementRuleEmitter := generic.ObjectEmitterWrapper(enum.PlacementRuleSpecType,
 		func(obj client.Object) bool {
-			return agentConfig.EnableGlobalResource &&
-				utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
+			return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // global resource
 		}, tweakFunc, false)
 
 	localPlacementRuleEmitter := generic.ObjectEmitterWrapper(enum.LocalPlacementRuleSpecType,
@@ -43,7 +42,7 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 		}, tweakFunc, false)
 
 	// syncer
-	name := "status.placement_decision"
+	name := "status.placement_rule"
 	syncInterval := statusconfig.GetPolicyDuration
 
 	return generic.LaunchGenericObjectSyncer(

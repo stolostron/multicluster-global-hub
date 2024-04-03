@@ -27,8 +27,7 @@ func LaunchPlacementSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *c
 	// emitter config
 	globalPlacementEmitter := generic.ObjectEmitterWrapper(enum.PlacementSpecType,
 		func(obj client.Object) bool {
-			return agentConfig.EnableGlobalResource &&
-				utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
+			return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // global resource
 		},
 		func(obj client.Object) {
 			obj.SetManagedFields(nil)
