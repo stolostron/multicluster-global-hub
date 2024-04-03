@@ -11,8 +11,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testPostgres *testpostgres.TestPostgres
-var databaseConfig *database.DatabaseConfig
+var (
+	testPostgres   *testpostgres.TestPostgres
+	databaseConfig *database.DatabaseConfig
+)
 
 func TestConnectionPool(t *testing.T) {
 	var err error

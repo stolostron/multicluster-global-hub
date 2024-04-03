@@ -187,7 +187,7 @@ var mchPred = predicate.Funcs{
 
 var pvcPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		//only watch postgres pvc
+		// only watch postgres pvc
 		return utils.HasItem(e.Object.GetLabels(), postgresPvcLabelKey, postgresPvcLabelValue)
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {

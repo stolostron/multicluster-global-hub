@@ -6,8 +6,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/metadata"
 )
 
-var _ bundle.ManagerBundle = (*HubClusterHeartbeatBundle)(nil)
-var _ bundle.BaseAgentBundle = (*HubClusterHeartbeatBundle)(nil)
+var (
+	_ bundle.ManagerBundle   = (*HubClusterHeartbeatBundle)(nil)
+	_ bundle.BaseAgentBundle = (*HubClusterHeartbeatBundle)(nil)
+)
 
 // LocalPolicyBundle abstracts management of local policies spec bundle.
 type HubClusterHeartbeatBundle struct {

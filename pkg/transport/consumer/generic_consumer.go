@@ -54,7 +54,8 @@ func EnableEventChan(enableEvent bool) GenericConsumeOption {
 }
 
 func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
-	opts ...GenericConsumeOption) (*GenericConsumer, error) {
+	opts ...GenericConsumeOption,
+) (*GenericConsumer, error) {
 	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType))
 	var receiver interface{}
 	var err error

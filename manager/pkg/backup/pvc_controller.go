@@ -36,9 +36,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var (
-	backupLog = ctrl.Log.WithName("backup pvc")
-)
+var backupLog = ctrl.Log.WithName("backup pvc")
 
 // BackupReconciler reconciles a MulticlusterGlobalHub object
 type BackupPVCReconciler struct {
@@ -76,17 +74,17 @@ var pvcPred = predicate.Funcs{
 }
 
 func IfPvcNeedBackup(pvc client.Object) bool {
-	//Only watch pvcs which need backup
+	// Only watch pvcs which need backup
 	if !utils.HasItem(pvc.GetLabels(), constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
 		return false
 	}
-	//Only run backup when volsync is waiting for trigger
+	// Only run backup when volsync is waiting for trigger
 	if !utils.HasItem(pvc.GetAnnotations(), constants.BackupPvcLatestCopyStatus, constants.BackupPvcWaitingForTrigger) {
 		return false
 	}
-	//If volsync is in progress, just wait volsync finish
+	// If volsync is in progress, just wait volsync finish
 	if utils.HasItemKey(pvc.GetAnnotations(), constants.BackupPvcLatestCopyTrigger) {
-		//Wait volsync process
+		// Wait volsync process
 		if pvc.GetAnnotations()[constants.BackupPvcLatestCopyTrigger] !=
 			pvc.GetAnnotations()[constants.BackupPvcCopyTrigger] {
 			return false
