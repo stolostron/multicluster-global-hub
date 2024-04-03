@@ -24,23 +24,25 @@ const (
 	pvcName      = "postpvc"
 )
 
-var pvcNamespace = constants.GHDefaultNamespace
-var mchObj = &mchv1.MultiClusterHub{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      mchName,
-		Namespace: mchNamespace,
-	},
-	Spec: mchv1.MultiClusterHubSpec{
-		Overrides: &mchv1.Overrides{
-			Components: []mchv1.ComponentConfig{
-				{
-					Name:    "cluster-backup",
-					Enabled: true,
+var (
+	pvcNamespace = constants.GHDefaultNamespace
+	mchObj       = &mchv1.MultiClusterHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      mchName,
+			Namespace: mchNamespace,
+		},
+		Spec: mchv1.MultiClusterHubSpec{
+			Overrides: &mchv1.Overrides{
+				Components: []mchv1.ComponentConfig{
+					{
+						Name:    "cluster-backup",
+						Enabled: true,
+					},
 				},
 			},
 		},
-	},
-}
+	}
+)
 
 var postgresPvc = &corev1.PersistentVolumeClaim{
 	ObjectMeta: v1.ObjectMeta{
@@ -167,7 +169,8 @@ var _ = Describe("backup pvc", Ordered, func() {
 			NamespacedName: types.NamespacedName{
 				Namespace: pvcNamespace,
 				Name:      pvcName,
-			}})
+			},
+		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -195,7 +198,8 @@ var _ = Describe("backup pvc", Ordered, func() {
 			NamespacedName: types.NamespacedName{
 				Namespace: pvcNamespace,
 				Name:      pvcName,
-			}})
+			},
+		})
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

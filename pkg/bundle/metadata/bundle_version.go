@@ -33,7 +33,6 @@ func BundleVersionFrom(strVersion string) (*BundleVersion, error) {
 		Generation: generation,
 		Value:      val,
 	}, nil
-
 }
 
 // BundleVersion holds the information necessary for the consumers of status bundles to compare versions correctly.

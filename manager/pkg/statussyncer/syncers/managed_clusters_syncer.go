@@ -143,7 +143,6 @@ func (syncer *ManagedClustersDBSyncer) handleManagedClustersBundle(ctx context.C
 		}
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed deleting managed clusters - %w", err)
 	}

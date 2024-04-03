@@ -39,7 +39,7 @@ const (
 	PostgresPvcLabelKey   = "component"
 	PostgresPvcLabelValue = "multicluster-global-hub-operator"
 
-	//These annotation used to do prehook when backup pvc, which is provided by volsync
+	// These annotation used to do prehook when backup pvc, which is provided by volsync
 	BackupPvcCopyTrigger       = "volsync.backube/copy-trigger"
 	BackupPvcUserCopyTrigger   = "volsync.backube/use-copy-trigger"
 	BackupPvcLatestCopyStatus  = "volsync.backube/latest-copy-status"
@@ -49,7 +49,7 @@ const (
 )
 
 const (
-	//lock the database
+	// lock the database
 	LockId = "1"
 )
 

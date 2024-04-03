@@ -26,7 +26,6 @@ import (
 var testEnv *envtest.Environment
 
 var _ = Describe("Start Operator Test", Ordered, func() {
-
 	// Initialize the client
 	BeforeEach(func() {
 		testEnv = &envtest.Environment{

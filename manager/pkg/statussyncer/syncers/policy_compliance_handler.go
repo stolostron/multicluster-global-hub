@@ -246,7 +246,6 @@ func (syncer *CompliancesDBSyncer) handleCompleteComplianceBundle(ctx context.Co
 		// return nil will commit the whole transaction
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("failed to handle complete compliance bundle - %w", err)
 	}
