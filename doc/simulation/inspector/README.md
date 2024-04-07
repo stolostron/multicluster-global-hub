@@ -23,14 +23,12 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
       selector:
         name: multicluster-global-hub-postgres
       type: LoadBalancer
-    status:
-      loadBalancer: {}
     EOF
     ```
 
-3. The `python3` and the tool `pip3` have been installed on your environment.
+3. The `python` and the tool `pip` have been installed on your environment.
 4. Enable the `Prometheus` on your global hub.
-5. Running the `pip3 install -r ./doc/simulation/inspector/requirements.txt` to install dependencies.
+5. Running the `pip install -r ./doc/simulation/inspector/requirements.txt` to install dependencies.
 
 ## Running the inspector
 
@@ -59,10 +57,11 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
     ```
   
   - Stop the backend process
- 
+  
     ```bash
     ./doc/simulation/inspector/cmd/counter.sh stop
     ```
+
 ### Get CPU and Memory information
 
   ```bash

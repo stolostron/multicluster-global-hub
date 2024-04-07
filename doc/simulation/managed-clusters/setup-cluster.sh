@@ -7,11 +7,17 @@
 
 set -eo pipefail
 
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
+REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
+
 if [ $# -lt 2 ]; then
   cluster_id_prefix="1"  # Set a default value of "1" if $2 is not provided
 else
   cluster_id_prefix="$2"  # Use the provided value of $2
 fi
+
+# create the mcl crd
+kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
 
 # creating the simulated managedcluster
 for i in $(seq 1 $1)

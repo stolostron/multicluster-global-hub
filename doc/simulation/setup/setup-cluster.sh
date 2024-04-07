@@ -6,21 +6,32 @@
 ### Usage: ./setup-cluster.sh <hub-cluster-number> <managed-cluster-number-on-each-hub> 
 set -eo pipefail
 
+# Check if the number of positional parameters is not equal to 1 or not equal to 2
+if [ $# -ne 1 ] && [ $# -ne 2 ]; then
+    echo "Usage: $0 <hub_start:hub_end> <cluster_start:cluster_end>"
+    exit 1
+fi
+
+# Parse the parameter using the delimiter ":"
+IFS=':' read -r hub_start hub_end <<< "$1"
+IFS=':' read -r cluster_start cluster_end <<< "$2"
+
+echo ">> Generate cluster ${cluster_start}~${cluster_end} on hub ${hub_start}~${hub_end}"
+
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}
-
 cluster_dir="${REPO_DIR}/doc/simulation/kubeconfig"
 mkdir -p ${cluster_dir}
 
 # creating the simulated hub clusters
-for i in $(seq 1 $1); do
+for i in $(seq $hub_start $hub_end); do
     cluster=hub${i}
     if ! kind get clusters | grep -q "$cluster"; then
-        echo "Creating: $cluster..."
+        echo ">> Creating KinD cluster: $cluster..."
         kubeconfig="${cluster_dir}/${cluster}"
         kind create cluster --kubeconfig $kubeconfig --name ${cluster} &
     else
-        echo "Kind cluster '$cluster' already exists. Skipping creation."
+        echo ">> KinD cluster '$cluster' already exists. Skipping..."
     fi
 done
 
@@ -28,7 +39,7 @@ wait
 
 # join the kind cluster to global hub
 # 1. create cluster on global hub
-for i in $(seq 1 $1); do
+for i in $(seq $hub_start $hub_end); do
     cluster="hub${i}"
 
     # on global hub: create cluster namespace, cluster, and KlusterletAddonConfig
@@ -86,6 +97,16 @@ EOF
     kubectl apply --kubeconfig $kubeconfig -f $imports
 done
 
+if [ $# -eq 1 ]; then
+    echo "Access the clusters:"
+    for i in $(seq $hub_start $hub_end); do
+        hub_cluster=hub${i}
+        kubeconfig="${cluster_dir}/${hub_cluster}"
+        echo "export KUBECONFIG=${kubeconfig}"
+    done
+    exit 0
+fi
+
 function create_managed_cluster() {
     cluster_id=$1
     cluster_name=$2
@@ -107,22 +128,21 @@ EOF
 }
 
 
-start_index=${3:=1}
-for j in $(seq $start_index $2); do # for each managed cluster on the hub
-  for i in $(seq 1 $1); do # for each hub cluster
+for j in $(seq $cluster_start $cluster_end); do # for each managed cluster on the hub
+  for i in $(seq $hub_start $hub_end); do # for each hub cluster
       hub_cluster=hub${i}
-      name=managedcluster-${j}
+      cluster_name=managedcluster-${j}
       id=$(printf "%08d-0000-0000-0000-%012d" "${i}" "${j}") # "00000000-0000-0000-0000-000000000000"
       kubeconfig="${cluster_dir}/${hub_cluster}"
-      echo "Creating ${cluster}: $name..."
-      create_managed_cluster ${id} ${name} ${kubeconfig} &
+      echo ">> Creating ${hub_cluster}: ${cluster_name}..."
+      create_managed_cluster ${id} ${cluster_name} ${kubeconfig} &
   done
   wait # waitting create the cluster on each hub
 done
 
 # printing the clusters
 echo "Access the clusters:"
-for i in $(seq 1 $1); do
+for i in $(seq $hub_start $hub_end); do
     hub_cluster=hub${i}
     kubeconfig="${cluster_dir}/${hub_cluster}"
     echo "export KUBECONFIG=${kubeconfig}"
