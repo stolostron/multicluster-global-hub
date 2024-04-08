@@ -1,4 +1,4 @@
-# Scenario 2: Manage 1500 clusters and 150 policies(75k replicated policies)
+# Scenario 2: Manage 1500 clusters and 150 policies(75,000 replicated policies)
 
 ## Scale
 
@@ -75,11 +75,9 @@ The global hub counters are used to count the managed clusters, compliances and 
 - CPU and Memory Summary
 
   ---
-  | Type | Manager | Agent | Operator | Grafana | Postgres | Kafka Broker | Kafka Zookeeper |
+  | Type               | Manager | Agent | Operator | Grafana | Postgres | Kafka Broker | Kafka Zookeeper |
   |---|---|---|---|---|---|---|---|
-  | Max CPU(m)         | 400 | 35    | 25  | 30   | 4000   | 90     | 18  |
-  | Request CPU(m)     | 100 | 10    | 1   | 5    | 4000   | 4      | 10  |
-  | Limit CPU(m)       | 500 | 50    | 50  | 50   | 4000   | 200    | 30  |
-  | Max Memory(Mi)     | 160 | 800   | 80  | 500  | 3.5 Gi | 2.4 Gi | 700 |
-  | Request Memory(Mi) | 100 | 200   | 60  | 150  | 4000   | 1.5 Gi | 800 |
-  | Limit Memory(Mi)   | 300 | 1000  | 200 | 800  | 4000   | 5 Gi   | 2 Gi|
+  | Request CPU(m)     | 100     | 10    | 1   | 5    | 4000   | 4      | 10  |
+  | Limit CPU(m)       | 500     | 50    | 50  | 50   | 4000   | 200    | 30  |
+  | Request Memory(Mi) | 100     | 300   | 60  | 150  | 4000   | 1.5 Gi | 800 |
+  | Limit Memory(Mi)   | 300     | 1000  | 200 | 800  | 4000   | 5 Gi   | 2 Gi|

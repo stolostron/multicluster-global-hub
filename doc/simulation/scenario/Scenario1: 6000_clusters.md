@@ -1,9 +1,10 @@
-# Scenario 1: Initialize 6k clusters to Global Hub
+# Scenario 1: Initialize 6,000 clusters to Global Hub
 
 ## Scale
 
-- 2 Managed Hubs, Each with 3k Managed Clusters
-- 6k Managed Clusters
+- 2 Managed Hubs, Each with 3,000 Managed Clusters
+- 6,000 Managed Clusters
+- 0 policies
 
 ## Step
 

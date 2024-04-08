@@ -29,8 +29,9 @@ Through the above steps, we can see the changing trends of the global hub metric
 
 ## Scenario
 
-- [Initialize 6k clusters to Global Hub](./scenario/Scenario1:%206k_clusters.md)
-- [Manage 1500 clusters and 150 policies(75k replicated policies)](./scenario/Scenario2:%201500_clusters_150_policies.md)
+- [Initialize 6,000 clusters to Global Hub](./scenario/Scenario1:%206k_clusters.md)
+- [Manage 1,500 clusters and 150 policies(75,000 replicated policies)](./scenario/Scenario2:%201500_clusters_150_policies.md)
+- [Manage 3,000 clusters and 500 policies(150,000 replicated policies)](./scenario/Scenario3:%203000_clusters_500_policies.md)
 
 ## Related Material
 
