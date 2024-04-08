@@ -83,9 +83,9 @@ cat /sys/fs/cgroup/memory.current
 - CPU and Memory Summary
 
   ---
-  | Type              | Manager | Agent | Operator | Grafana | Postgres | Kafka Broker | Kafka Zookeeper |
-  |---|---|---|---|---|---|---|---|
-  | Request CPU(m)     | 5      | 10    | 2        | 5       | 100      | 20           | 10  |
-  <!-- | Limit CPU(m)       | 500 | 50    | 100  | 50   | 4000   | 200    | 30  | -->
-  | Request Memory(Mi) | 60     | 300   | 70       | 150     | 60       | 1800         | 800 |
-  <!-- | Limit Memory(Mi)   | 300 | 1000  | 200 | 800  | 4000   | 5 Gi   | 2 Gi| -->
+  | Type               | Manager | Agent | Operator | Grafana | Postgres | Kafka Broker | Kafka Zookeeper |
+  |---                 |---      |---    |---       |---      |---       |---           |---              |
+  | Request CPU(m)     | 5       | 10    | 2        | 5       | 100      | 20           | 10              |
+  | Limit CPU(m)       | 500     | 50    | 100      | 50      | 8000     | 200          | 50              |
+  | Request Memory(Mi) | 60      | 300   | 70       | 150     | 60       | 1.5 Gi       | 800             |
+  | Limit Memory(Mi)   | 500     | 1200  | 200      | 800     | 1000     | 5   Gi       | 2   Gi          | 
