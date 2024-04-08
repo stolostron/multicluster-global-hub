@@ -4,7 +4,7 @@
 
 - 10 Managed Hubs, Each with 300 Managed Clusters, 50 Policies
 - 3,000 Managed Clusters
-- 500 Policies, 15,000 Replicated Policies
+- 500 Policies, 150,000 Replicated Policies
 
 ## Step
 
