@@ -27,12 +27,18 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -83,6 +89,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 				errorChan <- err
 				return
 			}
+
 			r.KafkaInit = true
 		}
 		if r.KafkaController == nil || r.KafkaController.conn == nil {
@@ -121,9 +128,14 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 	transProtocol transport.TransportProtocol,
 ) (*transport.ConnCredential, error) {
+	// apply kafka metric resources
+	err := r.renderKafkaMetricsResources(mgh)
+	if err != nil {
+		return nil, err
+	}
+
 	// create the transport instance
 	var trans transport.Transporter
-	var err error
 	switch transProtocol {
 	case transport.StrimziTransporter:
 		trans, err = transportprotocol.NewStrimziTransporter(
@@ -250,4 +262,36 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 
 	// the transport secret is not found
 	return transport.StrimziTransporter, nil
+}
+
+// renderKafkaMetricsResources renders the kafka podmonitor and metrics
+func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
+	if mgh.Spec.EnableMetrics {
+		// render the kafka objects
+		kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
+		kafkaObjects, err := kafkaRenderer.Render("manifests/kafka", "",
+			func(profile string) (interface{}, error) {
+				return struct {
+					Namespace string
+				}{
+					Namespace: utils.GetDefaultNamespace(),
+				}, nil
+			})
+		if err != nil {
+			return fmt.Errorf("failed to render kafka manifests: %w", err)
+		}
+		// create restmapper for deployer to find GVR
+		dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+		if err != nil {
+			return err
+		}
+		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+
+		if err = manipulateObj(kafkaObjects, mgh, kafkaDeployer, mapper, r.Manager.GetScheme()); err != nil {
+			return fmt.Errorf("failed to create/update kafka objects: %w", err)
+		}
+	}
+	return nil
 }

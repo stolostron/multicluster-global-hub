@@ -5,14 +5,10 @@ package hubofhubs
 
 import (
 	"context"
-	"fmt"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -21,8 +17,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -43,10 +37,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		r.Log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-	err = r.renderKafkaMetricsResources(mgh)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+
 	r.conn, err = r.globalHubReconciler.ReconcileTransport(ctx, mgh, transport.StrimziTransporter)
 	if err != nil {
 		r.Log.Error(err, "failed to get connection from kafka reconciler")
@@ -95,36 +86,6 @@ func startKafkaController(ctx context.Context, mgr ctrl.Manager,
 	}
 	r.Log.Info("kafka controller is started")
 	return r, nil
-}
-
-// renderKafkaMetricsResources renders the kafka podmonitor and metrics
-func (r *KafkaController) renderKafkaMetricsResources(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
-	if mgh.Spec.EnableMetrics {
-		// render the kafka objects
-		kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.mgr.GetClient())
-		kafkaObjects, err := kafkaRenderer.Render("manifests/kafka", "",
-			func(profile string) (interface{}, error) {
-				return struct {
-					Namespace string
-				}{
-					Namespace: utils.GetDefaultNamespace(),
-				}, nil
-			})
-		if err != nil {
-			return fmt.Errorf("failed to render kafka manifests: %w", err)
-		}
-		// create restmapper for deployer to find GVR
-		dc, err := discovery.NewDiscoveryClientForConfig(r.mgr.GetConfig())
-		if err != nil {
-			return err
-		}
-		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
-		if err = manipulateObj(kafkaObjects, mgh, kafkaDeployer, mapper, r.mgr.GetScheme()); err != nil {
-			return fmt.Errorf("failed to create/update kafka objects: %w", err)
-		}
-	}
-	return nil
 }
 
 type kafkaCRDController struct {

@@ -924,7 +924,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 						operatorconstants.AnnotationMGHInstallCrunchyOperator: "true",
 					},
 				},
-				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+					EnableMetrics: true,
+				},
 			}
 			Expect(k8sClient.Create(ctx, mcgh)).Should(Succeed())
 		})
