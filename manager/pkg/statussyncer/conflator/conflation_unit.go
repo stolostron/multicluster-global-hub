@@ -136,8 +136,8 @@ func (cu *ConflationUnit) getNextReadyCompleteElement() *completeElement {
 			continue
 		}
 		complete, ok := conflationElement.(*completeElement)
-		if ok {
-			cu.log.Info("cannot process the complete element", "type", conflationElement.Metadata())
+		if !ok {
+			cu.log.Info("cannot process the element", "type", conflationElement.Metadata())
 			continue
 		}
 		if complete.IsReadyToProcess(cu) {
