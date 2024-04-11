@@ -28,6 +28,7 @@ import (
 	"github.com/kylelemons/godebug/diff"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"gopkg.in/yaml.v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -941,6 +942,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				err := kafka.UpdateKafkaClusterReady(k8sClient, mcgh.Namespace)
 				if err != nil {
 					return err
+				}
+
+				// should have kafka subscription created
+				existingSub := &subv1alpha1.Subscription{}
+				err = k8sClient.Get(ctx, types.NamespacedName{
+					Name:      transportprotocol.DefaultKafkaSubName,
+					Namespace: commonutils.GetDefaultNamespace(),
+				}, existingSub)
+				if err != nil && !errors.IsNotFound(err) {
+					return fmt.Errorf("subscription %s is not created due to %v", transportprotocol.DefaultKafkaSubName, err)
 				}
 
 				// postgres should be ready in envtest
