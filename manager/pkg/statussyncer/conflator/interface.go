@@ -1,7 +1,10 @@
 package conflator
 
 import (
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -37,4 +40,19 @@ type ResultReporter interface {
 type Handler interface {
 	// RegisterHandler registers event handler functions within the conflation manager.
 	RegisterHandler(conflationManager *ConflationManager)
+}
+
+type ConflationElement interface {
+	Name() string
+	Metadata() ConflationMetadata
+	SyncMode() enum.EventSyncMode
+
+	// Predicate assert the received eventMetdata should be processed based on the current state
+	Predicate(eventVersion *version.Version) bool
+
+	// Update is to update element payload
+	AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit)
+
+	// PostProcess is to update the conflation element state after processing the event
+	PostProcess(metadata ConflationMetadata, err error)
 }

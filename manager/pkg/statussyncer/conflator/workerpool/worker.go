@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
@@ -21,7 +22,7 @@ func NewWorker(log logr.Logger, workerID int32, dbWorkersPool chan *Worker,
 		log:        log,
 		workerID:   workerID,
 		workers:    dbWorkersPool,
-		jobsQueue:  make(chan *DBJob, 1),
+		jobsQueue:  make(chan *conflator.ConflationJob, 1),
 		statistics: statistics,
 	}
 }
@@ -31,13 +32,13 @@ type Worker struct {
 	log        logr.Logger
 	workerID   int32
 	workers    chan *Worker
-	jobsQueue  chan *DBJob
+	jobsQueue  chan *conflator.ConflationJob
 	statistics *statistics.Statistics
 }
 
 // RunAsync runs DBJob and reports status to the given CU. once the job processing is finished worker returns to the
 // worker pool in order to run more jobs.
-func (worker *Worker) RunAsync(job *DBJob) {
+func (worker *Worker) RunAsync(job *conflator.ConflationJob) {
 	worker.jobsQueue <- job
 }
 
@@ -61,7 +62,7 @@ func (worker *Worker) start(ctx context.Context) {
 	}
 }
 
-func (worker *Worker) handleJob(ctx context.Context, job *DBJob) {
+func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJob) {
 	startTime := time.Now()
 	conn := database.GetConn()
 
@@ -77,33 +78,34 @@ func (worker *Worker) handleJob(ctx context.Context, job *DBJob) {
 	// handle the event until it's metadata is marked as processed
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
-			err = job.handleFunc(ctx, job.event) // db connection released to pool when done
+			err = job.Handle(ctx, job.Event) // db connection released to pool when done
 			if err != nil {
-				job.eventMetadata.MarkAsUnprocessed()
-				worker.log.Error(err, "failed to handle event", "type", job.event.Type())
+				job.Metadata.MarkAsUnprocessed()
+				worker.log.Error(err, "failed to handle event", "type", job.Event.Type())
 			} else {
-				job.eventMetadata.MarkAsProcessed()
+				job.Metadata.MarkAsProcessed()
 			}
 			// retrying
-			if !job.eventMetadata.Processed() {
+			if !job.Metadata.Processed() {
 				return false, nil
 			}
 			// success or up to retry threshold
-			return job.eventMetadata.Processed(), err
+			return job.Metadata.Processed(), err
 		})
 
-	worker.statistics.AddDatabaseMetrics(job.event, time.Since(startTime), err)
-	job.conflationUnitResultReporter.ReportResult(job.eventMetadata, err)
+	worker.statistics.AddDatabaseMetrics(job.Event, time.Since(startTime), err)
+
+	job.Reporter.ReportResult(job.Metadata, err)
 
 	if err != nil {
-		worker.log.Error(err, "fails to process the DB job", "LF", job.event.Source(),
+		worker.log.Error(err, "fails to process the DB job", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
-			"type", job.event.Type(),
-			"version", job.eventMetadata.Version())
+			"type", job.Event.Type(),
+			"version", job.Metadata.Version())
 	} else {
-		worker.log.V(2).Info("handle the DB job successfully", "LF", job.event.Source(),
+		worker.log.V(2).Info("handle the DB job successfully", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
-			"type", job.event.Type(),
-			"version", job.eventMetadata.Version())
+			"type", job.Event.Type(),
+			"version", job.Metadata.Version())
 	}
 }

@@ -32,7 +32,7 @@ func NewLocalPolicyEventHandler() conflator.Handler {
 	return &localPolicyEventHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
-		eventSyncMode: enum.CompleteStateMode,
+		eventSyncMode: enum.DeltaStateMode,
 		eventPriority: conflator.LocalReplicatedPolicyEventPriority,
 	}
 }

@@ -3,8 +3,10 @@ package dispatcher
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
@@ -69,31 +71,34 @@ func (dispatcher *ConflationDispatcher) Start(ctx context.Context) error {
 }
 
 func (dispatcher *ConflationDispatcher) dispatch(ctx context.Context) {
-	var conflationUnit *conflator.ConflationUnit
 	for {
 		select {
 		case <-ctx.Done(): // if dispatcher was stopped do not process more bundles
 			return
 
-		default: // as long as context wasn't cancelled, continue and try to read bundles to process
-			if conflationUnit == nil {
-				conflationUnit = dispatcher.conflationReadyQueue.BlockingDequeue() // blocking if no CU has ready bundle
-			}
-			dbWorker, err := dispatcher.dbWorkerPool.Acquire()
-			if err != nil {
-				dispatcher.log.Error(err, "failed to get worker")
-				continue
-			}
-
-			event, eventMetadata, handleFunc, err := conflationUnit.GetNext()
+		case deltaEventJob := <-dispatcher.conflationReadyQueue.DeltaEventJobChan:
+			worker := dispatcher.getBlockingWorker(ctx)
+			worker.RunAsync(deltaEventJob)
+		case conflationUnit := <-dispatcher.conflationReadyQueue.ConflationUnitChan:
+			eventJob, err := conflationUnit.GetNext()
 			if err != nil {
 				dispatcher.log.Info(err.Error()) // don't need to throw the error when bundle is not ready
-				conflationUnit = nil
 				continue
 			}
-
-			dbWorker.RunAsync(workerpool.NewDBJob(event, eventMetadata, handleFunc, conflationUnit))
-			conflationUnit = nil
+			worker := dispatcher.getBlockingWorker(ctx)
+			worker.RunAsync(eventJob)
 		}
 	}
+}
+
+func (dispatcher *ConflationDispatcher) getBlockingWorker(ctx context.Context) (worker *workerpool.Worker) {
+	_ = wait.PollUntilContextCancel(ctx, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
+		worker, err = dispatcher.dbWorkerPool.Acquire()
+		if err != nil {
+			dispatcher.log.Info("retrying to acquire db worker", "error", err)
+			return false, nil
+		}
+		return true, nil
+	})
+	return worker
 }
