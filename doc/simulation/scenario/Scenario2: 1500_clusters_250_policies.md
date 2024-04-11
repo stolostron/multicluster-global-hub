@@ -1,4 +1,4 @@
-# Scenario 2: Manage 1500 clusters and 150 policies(75,000 replicated policies)
+# Scenario 2: Manage 1500 clusters and 250 policies(75,000 replicated policies)
 
 ## Scale
 
