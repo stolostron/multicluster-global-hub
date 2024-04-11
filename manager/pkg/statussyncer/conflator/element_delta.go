@@ -22,9 +22,6 @@ type deltaElement struct {
 	dependency           *dependency.Dependency
 	isInProcess          bool
 	lastProcessedVersion *version.Version
-
-	// payload
-	job *ConflationJob
 }
 
 func NewDeltaElement(leafHubName string, registration *ConflationRegistration) *deltaElement {
@@ -76,10 +73,5 @@ func (e *deltaElement) PostProcess(metadata ConflationMetadata, err error) {
 	// update state: lastProcessedVersion
 	if metadata.Processed() && metadata.Version().NewerThan(e.lastProcessedVersion) {
 		e.lastProcessedVersion = metadata.Version()
-	}
-
-	// update state: update the payload
-	if metadata.Version().Equals(e.job.Metadata.Version()) {
-		e.job = nil
 	}
 }
