@@ -12,12 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
-const (
-	invalidPriority = -1
-)
-
-var errNoReadyBundle = errors.New("no bundle is ready to be processed")
-
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
 	log                  logr.Logger
@@ -81,14 +75,7 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 
 	// if we got here, we got bundle with newer version
 	// update the bundle in the priority queue.
-	conflationElement.Update(event, eventMetadata)
-
-	if conflationElement.SyncMode() == enum.CompleteStateMode {
-		cu.addCUToReadyQueueIfNeeded()
-	}
-	if conflationElement.SyncMode() == enum.DeltaStateMode {
-		cu.readyQueue.DeltaEventJobChan <- conflationElement.GetProcessJob(cu)
-	}
+	conflationElement.AddToReadyQueue(event, eventMetadata, cu)
 }
 
 // GetNext returns the next ready to be processed bundle and its transport metadata.
@@ -96,16 +83,17 @@ func (cu *ConflationUnit) GetNext() (*ConflationJob, error) {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()
 
-	nextElementPriority := cu.getNextReadyBundlePriority()
-	if nextElementPriority == invalidPriority { // CU adds itself to RQ only when it has ready to process bundle
-		return nil, errNoReadyBundle // therefore this shouldn't happen
+	element := cu.getNextReadyCompleteElement()
+	if element == nil { // CU adds itself to RQ only when it has ready to process bundle
+		return nil, errors.New("no event(element) is ready to be processed")
 	}
 
-	conflationElement := cu.ElementPriorityQueue[nextElementPriority]
-
 	cu.isInReadyQueue = false
-	job := conflationElement.GetProcessJob(cu)
 
+	job := element.ProcessJob(cu)
+	if job == nil {
+		return nil, errors.New("no job is ready to be processed")
+	}
 	// stop conflation unit metric for specific bundle type - evaluated once bundle is fetched from the priority queue
 	// cu.statistics.StopConflationUnitMetrics(job.Event, nil)
 
@@ -132,22 +120,31 @@ func (cu *ConflationUnit) addCUToReadyQueueIfNeeded() {
 		return // allow CU to appear only once in RQ/processing
 	}
 	// if we reached here, CU is not in RQ, then get next element(isn't processing)
-	nextReadyElementPriority := cu.getNextReadyBundlePriority()
-	if nextReadyElementPriority != invalidPriority { // there is a ready to be processed bundle
+	element := cu.getNextReadyCompleteElement()
+	if element != nil { // there is a ready to be processed bundle
 		cu.readyQueue.ConflationUnitChan <- cu // let the dispatcher know this CU has a ready to be processed bundle
 		cu.isInReadyQueue = true
 	}
 }
 
 // returns next ready priority or invalidPriority (-1) in case no priority has a ready to be processed bundle.
-func (cu *ConflationUnit) getNextReadyBundlePriority() int {
+func (cu *ConflationUnit) getNextReadyCompleteElement() *completeElement {
 	// going over priority queue according to priorities.
-	for priority, conflationElement := range cu.ElementPriorityQueue {
-		if conflationElement.IsReadyToProcess(cu) {
-			return priority
+	for _, conflationElement := range cu.ElementPriorityQueue {
+		// skip the delta element
+		if conflationElement.SyncMode() == enum.DeltaStateMode {
+			continue
+		}
+		complete, ok := conflationElement.(*completeElement)
+		if ok {
+			cu.log.Info("cannot process the complete element", "type", conflationElement.Metadata().EventType())
+			continue
+		}
+		if complete.IsReadyToProcess(cu) {
+			return complete
 		}
 	}
-	return invalidPriority
+	return nil
 }
 
 // getBundleStatues provides collections of the CU's bundle transport-metadata.

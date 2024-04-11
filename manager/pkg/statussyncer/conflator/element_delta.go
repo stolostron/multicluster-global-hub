@@ -62,19 +62,8 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 	return eventVersion.NewerThan(e.lastProcessedVersion)
 }
 
-// Update is to update element payload
-func (e *deltaElement) Update(event *cloudevents.Event, metadata ConflationMetadata) {
-	e.job = NewConflationJob(event, metadata, e.handlerFunction, nil)
-}
-
-// the delta element will be delivered to job chan directly
-func (e *deltaElement) IsReadyToProcess(cu *ConflationUnit) bool {
-	return false
-}
-
-func (e *deltaElement) GetProcessJob(cu *ConflationUnit) *ConflationJob {
-	e.job.Reporter = cu
-	return e.job
+func (e *deltaElement) AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit) {
+	cu.readyQueue.DeltaEventJobChan <- NewConflationJob(event, metadata, e.handlerFunction, cu)
 }
 
 // Success is to update the conflation element state after processing the event

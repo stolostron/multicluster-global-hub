@@ -80,10 +80,11 @@ func (e *completeElement) Predicate(eventVersion *version.Version) bool {
 	return true
 }
 
-// Update is to update element payload
-func (e *completeElement) Update(event *cloudevents.Event, metadata ConflationMetadata) {
+func (e *completeElement) AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit) {
 	e.event = event
 	e.metadata = metadata
+
+	cu.addCUToReadyQueueIfNeeded()
 }
 
 func (e *completeElement) IsReadyToProcess(cu *ConflationUnit) bool {
@@ -94,7 +95,7 @@ func (e *completeElement) IsReadyToProcess(cu *ConflationUnit) bool {
 		e.matchDependency(cu)
 }
 
-func (e *completeElement) GetProcessJob(cu *ConflationUnit) *ConflationJob {
+func (e *completeElement) ProcessJob(cu *ConflationUnit) *ConflationJob {
 	if e.event == nil || e.metadata == nil {
 		return nil
 	}

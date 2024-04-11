@@ -51,13 +51,7 @@ type ConflationElement interface {
 	Predicate(eventVersion *version.Version) bool
 
 	// Update is to update element payload
-	Update(event *cloudevents.Event, metadata ConflationMetadata)
-
-	// IsReadyToProcess indacates the element is ready to be process by the worker, only for complete mode
-	IsReadyToProcess(cu *ConflationUnit) bool
-
-	// GetProcessJob will get a job from the element payload and state, once it's ready
-	GetProcessJob(cu *ConflationUnit) *ConflationJob
+	AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit)
 
 	// PostProcess is to update the conflation element state after processing the event
 	PostProcess(metadata ConflationMetadata, err error)
