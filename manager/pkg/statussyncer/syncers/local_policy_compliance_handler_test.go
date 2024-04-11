@@ -59,6 +59,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster2"},
+			PendingComplianceClusters: []string{"cluster4"},
 			UnknownComplianceClusters: []string{},
 		})
 
@@ -83,13 +84,13 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 				if c.PolicyID == expiredPolicyID && c.ClusterName == "cluster1" {
 					expiredCount++
 				}
-				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" {
+				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster4" {
 					addedCount++
 				}
 
 				fmt.Printf("LocalCompliance: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
 			}
-			if expiredCount == 0 && addedCount == 2 && len(localCompliances) == 2 {
+			if expiredCount == 0 && addedCount == 3 && len(localCompliances) == 3 {
 				fmt.Println("LocalCompliance ========================================================== ")
 				return nil
 			}
@@ -132,6 +133,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			PolicyID:                  createdPolicyId,
 			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster2"},
+			PendingComplianceClusters: []string{"cluster5"},
 			UnknownComplianceClusters: []string{},
 		})
 		complianceVersion.Incr()
@@ -157,19 +159,19 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			addedCount := 0
 			for _, c := range localCompliances {
 				fmt.Printf("LocalCompliance Resync: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
-				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" {
+				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster5" {
 					addedCount++
 				}
 				if c.ClusterName == "cluster3" {
 					return fmt.Errorf("the cluster3 should be removed from database")
 				}
 			}
-			if addedCount == 2 && len(localCompliances) == 2 {
+			if addedCount == 3 && len(localCompliances) == 3 {
 				fmt.Println("LocalCompliance(Resync) ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local compliance")
-		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 3*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("shouldn't update the by the local complete compliance event", func() {
@@ -237,6 +239,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			PolicyID:                  createdPolicyId,
 			NonCompliantClusters:      []string{"cluster1"},
 			UnknownComplianceClusters: []string{"cluster3"},
+			PendingComplianceClusters: []string{"cluster5"},
 		})
 
 		evt := ToCloudEvent(leafHubName, string(enum.LocalCompleteComplianceType), version, data)
@@ -264,13 +267,16 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 					if c.ClusterName == "cluster2" && c.Compliance == database.Compliant {
 						success++
 					}
+					if c.ClusterName == "cluster5" && c.Compliance == database.Pending {
+						success++
+					}
 					if c.ClusterName == "cluster3" {
 						return fmt.Errorf("the cluster3 shouldn't synced by the local compliance bundle")
 					}
 				}
 			}
 
-			if len(localCompliances) == 2 && success == 2 {
+			if len(localCompliances) == 3 && success == 3 {
 				fmt.Println("LocalComplete update ========================================================== ")
 				return nil
 			}

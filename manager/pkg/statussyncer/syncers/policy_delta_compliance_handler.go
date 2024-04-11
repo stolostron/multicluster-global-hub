@@ -85,6 +85,13 @@ func (h *policyDeltaComplianceHandler) handleEvent(ctx context.Context, evt *clo
 					return err
 				}
 			}
+
+			for _, cluster := range eventCompliance.PendingComplianceClusters {
+				err := updateCompliance(tx, eventCompliance.PolicyID, leafHub, cluster, database.Pending)
+				if err != nil {
+					return err
+				}
+			}
 		}
 
 		// return nil will commit the whole transaction

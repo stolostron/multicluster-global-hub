@@ -16,6 +16,8 @@ func GetDatabaseCompliance(PolicyCompliance string) database.ComplianceStatus {
 		status = database.Compliant
 	case string(policyv1.NonCompliant):
 		status = database.NonCompliant
+	case string(policyv1.Pending):
+		status = database.Pending
 	default:
 		log.Printf("unknown compliance status: %s", PolicyCompliance)
 	}

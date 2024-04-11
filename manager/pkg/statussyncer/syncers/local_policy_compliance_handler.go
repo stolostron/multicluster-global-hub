@@ -90,10 +90,15 @@ func handleCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Eve
 		unknownCompliances := newLocalCompliances(leafHub, policyID, database.Unknown,
 			eventCompliance.UnknownComplianceClusters, allClustersOnDB)
 
+		// handle pending compliance clusters of the policy
+		pendingCompliances := newLocalCompliances(leafHub, policyID, database.Pending,
+			eventCompliance.PendingComplianceClusters, complianceClustersFromDB.GetClusters(database.Pending))
+
 		batchLocalCompliances := []models.LocalStatusCompliance{}
 		batchLocalCompliances = append(batchLocalCompliances, compliantCompliances...)
 		batchLocalCompliances = append(batchLocalCompliances, nonCompliantCompliances...)
 		batchLocalCompliances = append(batchLocalCompliances, unknownCompliances...)
+		batchLocalCompliances = append(batchLocalCompliances, pendingCompliances...)
 
 		// batch upsert
 		err = db.Clauses(clause.OnConflict{

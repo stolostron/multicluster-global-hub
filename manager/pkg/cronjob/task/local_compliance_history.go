@@ -171,10 +171,10 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 				do
 				$$
 				declare
-					all_compliances local_status.compliance_type[] := '{"compliant","non_compliant"}';
+					all_compliances local_status.compliance_type[] := '{"compliant","non_compliant","unknown","pending"}';
 					compliance_random_index int;
 				begin
-					SELECT floor(random() * 2 + 1)::int into compliance_random_index;
+					SELECT floor(random() * 4 + 1)::int into compliance_random_index;
 					INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
 						(
 							SELECT policy_id,cluster_id,leaf_hub_name,all_compliances[compliance_random_index],
@@ -251,6 +251,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount
 							CASE
 									WHEN bool_or(compliance = 'non_compliant') THEN 'non_compliant'
 									WHEN bool_or(compliance = 'unknown') THEN 'unknown'
+									WHEN bool_or(compliance = 'pending') THEN 'pending'
 									ELSE 'compliant'
 							END::local_status.compliance_type AS aggregated_compliance
 					FROM event.local_policies

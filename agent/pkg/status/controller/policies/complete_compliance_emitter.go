@@ -53,7 +53,8 @@ func (h *completeComplianceHandler) Update(obj client.Object) bool {
 	index := getPayloadIndexByUID(originPolicyID, *(h.eventData))
 	if index == -1 { // object not found, need to add it to the bundle (only in case it contains non-compliant/unknown)
 		// don't send in the bundle a policy where all clusters are compliant
-		if len(newComplete.UnknownComplianceClusters) == 0 && len(newComplete.NonCompliantClusters) == 0 {
+		if len(newComplete.UnknownComplianceClusters) == 0 && len(newComplete.NonCompliantClusters) == 0 &&
+			len(newComplete.PendingComplianceClusters) == 0 {
 			return false
 		}
 
@@ -64,6 +65,7 @@ func (h *completeComplianceHandler) Update(obj client.Object) bool {
 	// if we reached here, policy already exists in the bundle with at least one non compliant or unknown cluster.
 	oldComplete := (*h.eventData)[index]
 	if utils.Equal(oldComplete.NonCompliantClusters, newComplete.NonCompliantClusters) &&
+		utils.Equal(oldComplete.PendingComplianceClusters, newComplete.PendingComplianceClusters) &&
 		utils.Equal(oldComplete.UnknownComplianceClusters, newComplete.UnknownComplianceClusters) {
 		return false
 	}
@@ -71,9 +73,11 @@ func (h *completeComplianceHandler) Update(obj client.Object) bool {
 	// the payload is updated
 	(*h.eventData)[index].NonCompliantClusters = newComplete.NonCompliantClusters
 	(*h.eventData)[index].UnknownComplianceClusters = newComplete.UnknownComplianceClusters
+	(*h.eventData)[index].PendingComplianceClusters = newComplete.PendingComplianceClusters
 
 	// don't send in the bundle a policy where all clusters are compliant
-	if len((*h.eventData)[index].NonCompliantClusters) == 0 && len((*h.eventData)[index].UnknownComplianceClusters) == 0 {
+	if len((*h.eventData)[index].NonCompliantClusters) == 0 && len((*h.eventData)[index].UnknownComplianceClusters) == 0 &&
+		len((*h.eventData)[index].PendingComplianceClusters) == 0 {
 		(*h.eventData) = append((*h.eventData)[:index], (*h.eventData)[index+1:]...) // remove from objects
 	}
 	return true
@@ -98,6 +102,7 @@ func (h *completeComplianceHandler) Delete(obj client.Object) bool {
 func newCompleteCompliance(originPolicyID string, policy *policiesv1.Policy) *grc.CompleteCompliance {
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
+	pendingComplianceClusters := make([]string, 0)
 
 	for _, clusterCompliance := range policy.Status.Status {
 		if clusterCompliance.ComplianceState == policiesv1.Compliant {
@@ -105,6 +110,8 @@ func newCompleteCompliance(originPolicyID string, policy *policiesv1.Policy) *gr
 		}
 		if clusterCompliance.ComplianceState == policiesv1.NonCompliant {
 			nonCompliantClusters = append(nonCompliantClusters, clusterCompliance.ClusterName)
+		} else if clusterCompliance.ComplianceState == policiesv1.Pending {
+			pendingComplianceClusters = append(pendingComplianceClusters, clusterCompliance.ClusterName)
 		} else { // not compliant not non compliant -> means unknown
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterCompliance.ClusterName)
 		}
@@ -115,6 +122,7 @@ func newCompleteCompliance(originPolicyID string, policy *policiesv1.Policy) *gr
 		NamespacedName:            policy.Namespace + "/" + policy.Name,
 		NonCompliantClusters:      nonCompliantClusters,
 		UnknownComplianceClusters: unknownComplianceClusters,
+		PendingComplianceClusters: pendingComplianceClusters,
 	}
 }
 

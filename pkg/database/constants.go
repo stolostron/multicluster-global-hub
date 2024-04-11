@@ -64,6 +64,8 @@ const (
 	Compliant ComplianceStatus = "compliant"
 	// Unknown unknown compliance state.
 	Unknown ComplianceStatus = "unknown"
+	// Pending state
+	Pending ComplianceStatus = "pending"
 )
 
 // unique db types.

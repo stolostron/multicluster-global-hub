@@ -50,7 +50,7 @@ func (h *complianceHandler) Update(obj client.Object) bool {
 	if index == -1 { // object not found, need to add it to the bundle
 		compliance := getNewCompliance(policyID, policy)
 		if len(compliance.CompliantClusters) == 0 && len(compliance.NonCompliantClusters) == 0 &&
-			len(compliance.UnknownComplianceClusters) == 0 {
+			len(compliance.UnknownComplianceClusters) == 0 && len(compliance.PendingComplianceClusters) == 0 {
 			return false
 		}
 		*h.eventData = append(*h.eventData, *compliance)
@@ -70,18 +70,19 @@ func (h *complianceHandler) Update(obj client.Object) bool {
 
 // returns true if cluster list has changed(added/removed), otherwise returns false (even if cluster statuses changed).
 func (h *complianceHandler) updatePayloadIfChanged(objectIndex int, policy *policiesv1.Policy) bool {
-	newCompliantClusters, newNonCompliantClusters, newUnknownClusters := getClusterStatus(policy)
-	allClusters := utils.Merge(newCompliantClusters, newNonCompliantClusters, newUnknownClusters)
+	newCompliantClusters, newNonCompliantClusters, newUnknownClusters, newPendingClusters := getClusterStatus(policy)
+	allClusters := utils.Merge(newCompliantClusters, newNonCompliantClusters, newUnknownClusters, newPendingClusters)
 
 	cachedCompliance := (*h.eventData)[objectIndex]
 	clusterListChanged := false
 
 	// check if any cluster was added or removed
 	if len(cachedCompliance.CompliantClusters)+len(cachedCompliance.NonCompliantClusters)+
-		len(cachedCompliance.UnknownComplianceClusters) != len(allClusters) ||
+		len(cachedCompliance.UnknownComplianceClusters)+len(cachedCompliance.PendingComplianceClusters) != len(allClusters) ||
 		!utils.ContainSubStrings(allClusters, cachedCompliance.CompliantClusters) ||
 		!utils.ContainSubStrings(allClusters, cachedCompliance.NonCompliantClusters) ||
-		!utils.ContainSubStrings(allClusters, cachedCompliance.UnknownComplianceClusters) {
+		!utils.ContainSubStrings(allClusters, cachedCompliance.UnknownComplianceClusters) ||
+		!utils.ContainSubStrings(allClusters, cachedCompliance.PendingComplianceClusters) {
 		clusterListChanged = true // at least one cluster was added/removed
 	}
 
@@ -89,6 +90,8 @@ func (h *complianceHandler) updatePayloadIfChanged(objectIndex int, policy *poli
 	cachedCompliance.CompliantClusters = newCompliantClusters
 	cachedCompliance.NonCompliantClusters = newNonCompliantClusters
 	cachedCompliance.UnknownComplianceClusters = newUnknownClusters
+	cachedCompliance.PendingComplianceClusters = newPendingClusters
+
 	(*h.eventData)[objectIndex] = cachedCompliance
 	return clusterListChanged
 }
@@ -140,29 +143,34 @@ func getIndexByPolicyID(uid string, compliances []grc.Compliance) int {
 }
 
 func getNewCompliance(originPolicyID string, policy *policiesv1.Policy) *grc.Compliance {
-	compliantClusters, nonCompliantClusters, unknownComplianceClusters := getClusterStatus(policy)
+	compClusters, nonCompClusters, unknownCompClusters, pendingCompClusters := getClusterStatus(policy)
 	return &grc.Compliance{
 		PolicyID:                  originPolicyID,
 		NamespacedName:            fmt.Sprintf("%s/%s", policy.GetNamespace(), policy.GetName()),
-		CompliantClusters:         compliantClusters,
-		NonCompliantClusters:      nonCompliantClusters,
-		UnknownComplianceClusters: unknownComplianceClusters,
+		CompliantClusters:         compClusters,
+		NonCompliantClusters:      nonCompClusters,
+		UnknownComplianceClusters: unknownCompClusters,
+		PendingComplianceClusters: pendingCompClusters,
 	}
 }
 
 // getClusterStatus returns (list of compliant clusters, list of nonCompliant clusters, list of unknown clusters.
-func getClusterStatus(policy *policiesv1.Policy) ([]string, []string, []string) {
+func getClusterStatus(policy *policiesv1.Policy) ([]string, []string, []string, []string) {
 	compliantClusters := make([]string, 0)
 	nonCompliantClusters := make([]string, 0)
 	unknownComplianceClusters := make([]string, 0)
+	pendingComplianceClusters := make([]string, 0)
+
 	for _, clusterStatus := range policy.Status.Status {
 		if clusterStatus.ComplianceState == policiesv1.Compliant {
 			compliantClusters = append(compliantClusters, clusterStatus.ClusterName)
 		} else if clusterStatus.ComplianceState == policiesv1.NonCompliant {
 			nonCompliantClusters = append(nonCompliantClusters, clusterStatus.ClusterName)
+		} else if clusterStatus.ComplianceState == policiesv1.Pending {
+			pendingComplianceClusters = append(pendingComplianceClusters, clusterStatus.ClusterName)
 		} else {
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterStatus.ClusterName)
 		}
 	}
-	return compliantClusters, nonCompliantClusters, unknownComplianceClusters
+	return compliantClusters, nonCompliantClusters, unknownComplianceClusters, pendingComplianceClusters
 }

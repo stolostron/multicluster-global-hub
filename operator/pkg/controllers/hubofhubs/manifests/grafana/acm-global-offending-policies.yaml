@@ -27,6 +27,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
+      "id": 3,
       "links": [
         {
           "asDropdown": false,
@@ -83,7 +84,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
           "description": "The distinct number of policies that were \"non compliant\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
@@ -102,13 +103,14 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
+            "w": 4,
             "x": 0,
             "y": 1
           },
@@ -125,10 +127,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -183,7 +187,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
           "description": "The distinct number of policies that were \"compliant\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
@@ -202,14 +206,15 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
-            "x": 6,
+            "w": 4,
+            "x": 4,
             "y": 1
           },
           "id": 48,
@@ -225,10 +230,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -239,7 +246,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n     JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n     JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res\nWHERE\n  compliant > 0\nAND\n  non_compliant = 0\nAND\n  unknown = 0\nAND\n  pending = 0",
               "refId": "A",
               "select": [
                 [
@@ -283,7 +290,110 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
+            "uid": "${datasource}"
+          },
+          "description": "The distinct number of policies that were \"pending\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "noValue": "0",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "yellow",
+                    "value": null
+                  }
+                ]
+              },
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 4,
+            "x": 8,
+            "y": 1
+          },
+          "id": 58,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showPercentChange": false,
+            "text": {},
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\"\n  FROM\n    history.local_compliance ch\n   JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date,  p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res\nWHERE\n  pending > 0\nAND\n  non_compliant = 0",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Number of Pending Policies",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
           "description": "The distinct number of policies that were \"unknown\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
@@ -302,17 +412,18 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
+            "w": 4,
             "x": 12,
             "y": 1
           },
-          "id": 58,
+          "id": 65,
           "options": {
             "colorMode": "value",
             "graphMode": "area",
@@ -325,10 +436,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -339,7 +452,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n   JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date,  p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n   JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date,  p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res\nWHERE\n  unknown > 0\nAND\n  non_compliant = 0\nAND\n  pending = 0",
               "refId": "A",
               "select": [
                 [
@@ -383,7 +496,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
           "description": "The distinct number of policies in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
@@ -402,14 +515,15 @@ data:
                     "value": null
                   }
                 ]
-              }
+              },
+              "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 6,
-            "w": 6,
-            "x": 18,
+            "w": 8,
+            "x": 16,
             "y": 1
           },
           "id": 47,
@@ -425,10 +539,12 @@ data:
               "fields": "",
               "values": false
             },
+            "showPercentChange": false,
             "text": {},
-            "textMode": "auto"
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -439,7 +555,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res",
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    p.policy_id,\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    COUNT(CASE WHEN compliance = 'compliant' THEN 1 END) AS \"compliant\",\n    COUNT(CASE WHEN compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN compliance = 'unknown' THEN 1 END) AS \"unknown\"\n  FROM\n    history.local_compliance ch\n JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_id, p.payload -> 'metadata' ->> 'namespace')\n  ORDER BY (ch.compliance_date) DESC\n),\nres as (\n  SELECT\n    policy_id,\n    namespace,\n    SUM(compliant) as \"compliant\",\n    SUM(non_compliant) as \"non_compliant\",\n    SUM(pending) as \"pending\",\n    SUM(unknown) as \"unknown\"\n  FROM\n    data\n  GROUP BY (policy_id,namespace)\n)\nSELECT\n  COUNT(*)\nFROM\n  res",
               "refId": "A",
               "select": [
                 [
@@ -509,6 +625,7 @@ data:
         },
         {
           "datasource": {
+            "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
           "description": "List of offending managed cluster policies by standard, category, and control.",
@@ -537,7 +654,8 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit"
+              "unit": "percentunit",
+              "unitScale": true
             },
             "overrides": [
               {
@@ -681,17 +799,18 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
                 "uid": "${datasource}"
               },
+              "editorMode": "code",
               "format": "table",
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
+              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
               "refId": "A",
               "select": [
                 [
@@ -703,6 +822,23 @@ data:
                   }
                 ]
               ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
               "timeColumn": "time",
               "where": [
                 {
@@ -739,23 +875,20 @@ data:
         },
         {
           "collapsed": true,
-          "datasource": {
-            "type": "postgres",
-            "uid": "P244538DD76A4C61D"
-          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
             "y": 16
           },
-          "id": 56,
+          "id": 67,
           "panels": [
             {
               "datasource": {
+                "type": "grafana-postgresql-datasource",
                 "uid": "${datasource}"
               },
-              "description": "List of unknown managed cluster policies by standard, category, and control.",
+              "description": "List of pending managed cluster policies by standard, category, and control.",
               "fieldConfig": {
                 "defaults": {
                   "color": {
@@ -766,7 +899,8 @@ data:
                     "cellOptions": {
                       "type": "auto"
                     },
-                    "filterable": true
+                    "filterable": true,
+                    "inspect": false
                   },
                   "links": [],
                   "mappings": [],
@@ -775,11 +909,13 @@ data:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "yellow"
+                        "color": "yellow",
+                        "value": null
                       }
                     ]
                   },
-                  "unit": "percentunit"
+                  "unit": "percentunit",
+                  "unitScale": true
                 },
                 "overrides": [
                   {
@@ -923,23 +1059,33 @@ data:
                 "h": 8,
                 "w": 24,
                 "x": 0,
-                "y": 17
+                "y": 9
               },
               "id": 57,
               "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
                 "showHeader": true
               },
-              "pluginVersion": "8.5.20",
+              "pluginVersion": "10.3.3",
               "targets": [
                 {
                   "datasource": {
                     "uid": "${datasource}"
                   },
+                  "editorMode": "code",
                   "format": "table",
                   "group": [],
                   "metricColumn": "none",
                   "rawQuery": true,
-                  "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
+                  "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    pending::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    pending > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
                   "refId": "A",
                   "select": [
                     [
@@ -951,6 +1097,306 @@ data:
                       }
                     ]
                   ],
+                  "sql": {
+                    "columns": [
+                      {
+                        "parameters": [],
+                        "type": "function"
+                      }
+                    ],
+                    "groupBy": [
+                      {
+                        "property": {
+                          "type": "string"
+                        },
+                        "type": "groupBy"
+                      }
+                    ],
+                    "limit": 50
+                  },
+                  "timeColumn": "time",
+                  "where": [
+                    {
+                      "name": "$__timeFilter",
+                      "params": [],
+                      "type": "macro"
+                    }
+                  ]
+                }
+              ],
+              "title": "Pending Policies",
+              "transformations": [
+                {
+                  "id": "organize",
+                  "options": {
+                    "excludeByName": {},
+                    "includeByName": {},
+                    "indexByName": {},
+                    "renameByName": {
+                      "category": "Category",
+                      "control": "Control",
+                      "hub": "Hub",
+                      "namespace": "Namespace",
+                      "policy": "Name",
+                      "severity": "Severity",
+                      "standard": "Standard",
+                      "time": "Time",
+                      "value": "Pending"
+                    }
+                  }
+                }
+              ],
+              "type": "table"
+            }
+          ],
+          "title": "Policy Status > Pending",
+          "type": "row"
+        },
+        {
+          "collapsed": true,
+          "datasource": {
+            "type": "postgres",
+            "uid": "P244538DD76A4C61D"
+          },
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 17
+          },
+          "id": 56,
+          "panels": [
+            {
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "${datasource}"
+              },
+              "description": "List of unknown managed cluster policies by standard, category, and control.",
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "filterable": true,
+                    "inspect": false
+                  },
+                  "links": [],
+                  "mappings": [],
+                  "noValue": "No data in response",
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "yellow",
+                        "value": null
+                      }
+                    ]
+                  },
+                  "unit": "percentunit",
+                  "unitScale": true
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Name"
+                    },
+                    "properties": [
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "targetBlank": true,
+                            "title": "View What's Changed dashboard for policy \"${__value.text}\"",
+                            "url": "d/5a3a577af7894943aa6e7ca8408502fa/global-hub-whats-changed-policies?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-namespace=${__data.fields.Namespace}&var-policy=${__value.text}"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "custom.width",
+                        "value": 142
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "value"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "mode": "gradient",
+                          "type": "color-background"
+                        }
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "options": {
+                              "match": "null+nan",
+                              "result": {
+                                "color": "yellow",
+                                "index": 0,
+                                "text": "Unknown"
+                              }
+                            },
+                            "type": "special"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Time"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 195
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Namespace"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 216
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Hub"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 115
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Standard"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 187
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Category"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 356
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Unknown"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 150
+                      },
+                      {
+                        "id": "links",
+                        "value": [
+                          {
+                            "targetBlank": true,
+                            "title": "Investigate policy ${__data.fields.Name}",
+                            "url": "d/pAqtIGj4k/global-hub-investigation-help??orgId=1&from=${__value.time}&to=${__value.time}&var-hub=${__data.fields.Hub}&var-namespace=${__data.fields.Namespace}&var-policy=${__data.fields.Name}"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              "gridPos": {
+                "h": 8,
+                "w": 24,
+                "x": 0,
+                "y": 10
+              },
+              "id": 66,
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true
+              },
+              "pluginVersion": "10.3.3",
+              "targets": [
+                {
+                  "datasource": {
+                    "uid": "${datasource}"
+                  },
+                  "editorMode": "code",
+                  "format": "table",
+                  "group": [],
+                  "metricColumn": "none",
+                  "rawQuery": true,
+                  "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    pending = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
+                  "refId": "A",
+                  "select": [
+                    [
+                      {
+                        "params": [
+                          "value"
+                        ],
+                        "type": "column"
+                      }
+                    ]
+                  ],
+                  "sql": {
+                    "columns": [
+                      {
+                        "parameters": [],
+                        "type": "function"
+                      }
+                    ],
+                    "groupBy": [
+                      {
+                        "property": {
+                          "type": "string"
+                        },
+                        "type": "groupBy"
+                      }
+                    ],
+                    "limit": 50
+                  },
                   "timeColumn": "time",
                   "where": [
                     {
@@ -999,8 +1445,7 @@ data:
         }
       ],
       "refresh": "",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": [
@@ -1008,7 +1453,7 @@ data:
             "current": {
               "selected": false,
               "text": "Global-Hub-DataSource",
-              "value": "Global-Hub-DataSource"
+              "value": "P244538DD76A4C61D"
             },
             "hide": 2,
             "includeAll": false,
@@ -1112,8 +1557,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('NIST SP 800-53') ",
+              "value": " in ('NIST SP 800-53') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${standard}$$)>0 then $$ in ($standard) $$ else ' is null ' end",
             "hide": 2,
@@ -1131,8 +1580,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('CM Configuration Management') ",
+              "value": " in ('CM Configuration Management') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${category}$$)>0 then $$ in ($category) $$ else ' is null ' end",
             "hide": 2,
@@ -1150,8 +1603,12 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " is null ",
-              "value": " is null "
+              "text": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') ",
+              "value": " in ('CM-2 Baseline Configuration','CM-2 Baseline Configuration, CM-6 Configuration Settings') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
             },
             "definition": "select case when length($$${control}$$)>0 then $$ in ($control) $$ else ' is null ' end",
             "hide": 2,
