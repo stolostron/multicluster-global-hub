@@ -81,7 +81,6 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 			fmt.Println("============================ update policy -> policy spec event")
 			return nil
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
-
 	})
 
 	It("be able to sync local policy compliance", func() {
