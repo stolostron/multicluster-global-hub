@@ -937,6 +937,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				if mghReconciler.MiddlewareConfig == nil {
 					mghReconciler.MiddlewareConfig = &hubofhubs.MiddlewareConfig{}
 				}
+				mghReconciler.KafkaInit = false
 				mghReconciler.MiddlewareConfig.StorageConn = nil
 				mghReconciler.MiddlewareConfig.TransportConn = nil
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
