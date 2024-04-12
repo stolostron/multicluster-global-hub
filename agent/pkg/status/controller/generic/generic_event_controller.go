@@ -119,7 +119,6 @@ func enableCleanUpFinalizer(obj client.Object) bool {
 func cleanObject(object client.Object) {
 	object.SetManagedFields(nil)
 	object.SetFinalizers(nil)
-	object.SetGeneration(0)
 	object.SetOwnerReferences(nil)
 	object.SetSelfLink("")
 	// object.SetClusterName("")

@@ -41,8 +41,44 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 			evt := <-consumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.LocalPolicySpecType) {
+				policy := &policyv1.Policy{}
+				err := evt.DataAs(policy)
+				if err != nil {
+					return err
+				}
+				if !policy.Spec.Disabled {
+					return fmt.Errorf("policy should be disabled")
+				}
 				return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
 			}
+			fmt.Println("============================ create policy -> policy spec event")
+			return nil
+		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
+
+		By("Update the root policy")
+		err := kubeClient.Get(ctx, client.ObjectKeyFromObject(localRootPolicy), localRootPolicy)
+		Expect(err).Should(Succeed())
+
+		localRootPolicy.Spec.Disabled = false
+		err = kubeClient.Update(ctx, localRootPolicy)
+		Expect(err).Should(Succeed())
+
+		By("Check the local policy spec can be read from cloudevents consumer")
+		Eventually(func() error {
+			evt := <-consumer.EventChan()
+			fmt.Println(evt)
+			if evt.Type() != string(enum.LocalPolicySpecType) {
+				policy := &policyv1.Policy{}
+				err := evt.DataAs(policy)
+				if err != nil {
+					return err
+				}
+				if policy.Spec.Disabled {
+					return fmt.Errorf("policy should be enabled")
+				}
+				return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
+			}
+			fmt.Println("============================ update policy -> policy spec event")
 			return nil
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
