@@ -11,8 +11,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig,
@@ -25,7 +27,7 @@ func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentC
 	// emitter config
 	placementDecisionEmitter := generic.ObjectEmitterWrapper(enum.PlacementDecisionType,
 		func(obj client.Object) bool {
-			return true // resource
+			return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // global resource
 		}, func(obj client.Object) {
 			obj.SetManagedFields(nil)
 		}, false)
