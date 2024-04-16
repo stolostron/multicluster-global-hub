@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -29,6 +30,8 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -46,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -135,6 +139,11 @@ func main() {
 func doMain(ctx context.Context, cfg *rest.Config) int {
 	operatorConfig := parseFlags()
 	utils.PrintVersion(setupLog)
+
+	if err := ResourceReady(ctx, cfg); err != nil {
+		setupLog.Error(err, "the resource is not ready for the operator")
+		return 1
+	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -239,6 +248,37 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	return 0
+}
+
+func ResourceReady(ctx context.Context, cfg *rest.Config) error {
+	crdClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	crds := map[string]bool{
+		"multiclusterhubs.operator.open-cluster-management.io":     false,
+		"managedclusters.cluster.open-cluster-management.io":       false,
+		"manifestworks.work.open-cluster-management.io":            false,
+		"clustermanagementaddons.addon.open-cluster-management.io": false,
+		"managedclusteraddons.addon.open-cluster-management.io":    false,
+	}
+
+	return wait.PollUntilContextCancel(ctx, 10*time.Second, true, func(ctx context.Context) (bool, error) {
+		for crd, ok := range crds {
+			if !ok {
+				_, err := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crd, metav1.GetOptions{})
+				if err != nil {
+					return false, nil
+				}
+				// ready
+				crds[crd] = true
+				setupLog.Info("resource is ready", "name", crd)
+				fmt.Println("resourde is ready", crd)
+			}
+		}
+		return true, nil
+	})
 }
 
 func parseFlags() *operatorConfig {

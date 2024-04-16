@@ -62,6 +62,15 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 		Expect(testEnv.Stop()).To(Succeed())
 	})
 
+	Context("Test Operator: resources is ready", func() {
+		It("start operator with resource ready", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			err := ResourceReady(ctx, cfg)
+			Expect(err).Should(Succeed())
+		})
+	})
+
 	Context("Test Operator: leader-election disabled", func() {
 		It("start operator with leader-election disabled", func() {
 			// this call is required because otherwise flags panics, if args are set between flag.Parse call
