@@ -130,6 +130,7 @@ The global hub counters are used to count the managed clusters, compliances and 
 
 ### Other Metrics
 
-![Broker Dashboard](./images/4-kafka-broker-dashboard-1.gif)
+![Broker Dashboard1](./images/4-kafka-broker-dashboard-1.1.png)
+![Broker Dashboard2](./images/4-kafka-broker-dashboard-1.2.png)
 ![Zookeeper Dashboard](./images/4-kafka-zookeeper-dashboard-0.png)
 ![Kafka PVC Usage](./images/4-global-hub-kafka-pvc-usage.png)
