@@ -1,4 +1,4 @@
-# Scenario 4: Manage 1500 clusters and 250 policies(75,000 replicated policies)
+# Scenario 4: Kafka Metrics
 
 ## Scale
 
