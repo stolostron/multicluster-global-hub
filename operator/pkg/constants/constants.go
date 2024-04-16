@@ -144,13 +144,13 @@ const (
 
 	// default resources for manager
 	Manager              = "manager"
-	ManagerMemoryLimit   = "300Mi"
+	ManagerMemoryLimit   = "600Mi"
 	ManagerMemoryRequest = "100Mi"
 	ManagerCPURequest    = "100m"
 
 	// default resources for agent
 	Agent              = "agent"
-	AgentMemoryLimit   = "1000Mi"
+	AgentMemoryLimit   = "1200Mi"
 	AgentMemoryRequest = "200Mi"
 	AgentCPURequest    = "10m"
 
