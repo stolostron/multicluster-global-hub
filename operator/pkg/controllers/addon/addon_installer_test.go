@@ -293,7 +293,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			}, k8sClient)
 			config.SetTransporter(transporter)
 
-			r := &hubofhubsaddon.HoHAddonInstaller{
+			r := &hubofhubsaddon.AddonInstaller{
 				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
 				Log:    ctrl.Log.WithName("test"),
 			}

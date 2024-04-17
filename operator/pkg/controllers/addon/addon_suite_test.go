@@ -145,7 +145,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon installer to the manager")
-	err = (&addon.HoHAddonInstaller{
+	err = (&addon.AddonInstaller{
 		Client: k8sClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
 	}).SetupWithManager(ctx, k8sManager)
@@ -165,8 +165,8 @@ var _ = BeforeSuite(func() {
 			ClientKey:       kafka.KafkaClientKey,
 		},
 	}
-	addonController, err := addon.NewHoHAddonController(k8sManager.GetConfig(), k8sClient,
-		electionConfig, middlewareCfg, true, &corev1.ConfigMap{}, "info")
+	addonController, err := addon.NewAddonController(k8sManager.GetConfig(), k8sClient,
+		electionConfig, true, &corev1.ConfigMap{}, "info")
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())

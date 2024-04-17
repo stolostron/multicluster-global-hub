@@ -109,7 +109,6 @@ func (r *GlobalHubConditionReconciler) SetupWithManager(mgr manager.Manager) err
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Watches(&appsv1.Deployment{},
-			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(),
-				&globalhubv1alpha4.MulticlusterGlobalHub{})).
+			handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), &globalhubv1alpha4.MulticlusterGlobalHub{})).
 		Complete(r)
 }

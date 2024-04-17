@@ -23,10 +23,8 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -87,11 +85,8 @@ type HohAgentAddon struct {
 	client               client.Client
 	kubeClient           kubernetes.Interface
 	dynamicClient        dynamic.Interface
-	leaderElectionConfig *commonobjects.LeaderElectionConfig
 	log                  logr.Logger
-	MiddlewareConfig     *hubofhubscontroller.MiddlewareConfig
 	EnableGlobalResource bool
-	ControllerConfig     *corev1.ConfigMap
 	LogLevel             string
 }
 
@@ -183,7 +178,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
-	agentQPS, agentBurst := a.getAgentRestConfig(a.ControllerConfig)
+	agentQPS, agentBurst := config.GetAgentRestConfig()
 
 	err = utils.WaitTransporterReady(a.ctx, 10*time.Minute)
 	if err != nil {
@@ -209,6 +204,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		log.Error(err, "failed to unmarshal to agent resources")
 	}
 
+	electionConfig, err := config.GetElectionConfig()
+	if err != nil {
+		log.Error(err, "failed to get election config")
+	}
+
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
@@ -222,9 +222,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaEventTopic:        clusterTopic.EventTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
-		LeaseDuration:          strconv.Itoa(a.leaderElectionConfig.LeaseDuration),
-		RenewDeadline:          strconv.Itoa(a.leaderElectionConfig.RenewDeadline),
-		RetryPeriod:            strconv.Itoa(a.leaderElectionConfig.RetryPeriod),
+		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
+		RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
+		RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
 		KlusterletNamespace:    "open-cluster-management-agent",
 		KlusterletWorkSA:       "klusterlet-work-sa",
 		EnableGlobalResource:   a.EnableGlobalResource,
@@ -257,35 +257,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
-}
-
-// getAgentRestConfig return the agent qps and burst, if not set, use default QPS and Burst
-func (a *HohAgentAddon) getAgentRestConfig(configMap *corev1.ConfigMap) (float32, int) {
-	if configMap == nil {
-		a.log.V(4).Info("controller configmap is nil, Use default agentQPS", fmt.Sprintf("%f", constants.DefaultAgentQPS),
-			"AgentBurst:", fmt.Sprintf("%v", constants.DefaultAgentBurst))
-		return constants.DefaultAgentQPS, constants.DefaultAgentBurst
-	}
-	agentQPS := constants.DefaultAgentQPS
-	_, agentQPSExist := configMap.Data["agentQPS"]
-	if agentQPSExist {
-		agentQPSInt, err := strconv.Atoi(configMap.Data["agentQPS"])
-		if err == nil {
-			agentQPS = float32(agentQPSInt)
-		}
-	}
-
-	agentBurst := constants.DefaultAgentBurst
-	_, agentBurstExist := configMap.Data["agentBurst"]
-	if agentBurstExist {
-		agentBurstAtoi, err := strconv.Atoi(configMap.Data["agentBurst"])
-		if err == nil {
-			agentBurst = agentBurstAtoi
-		}
-	}
-	a.log.V(4).Info("AgentQPS:", fmt.Sprintf("%f", agentQPS), "AgentBurst:", fmt.Sprintf("%v", agentBurst))
-
-	return agentQPS, agentBurst
 }
 
 // GetImagePullSecret returns the image pull secret name and data

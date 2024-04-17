@@ -19,9 +19,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -30,6 +28,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -39,16 +38,10 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -72,12 +65,9 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	backupcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
-	hubofhubscontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -90,7 +80,6 @@ var (
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 		},
 	)
-	namespacePath = "metadata.namespace"
 )
 
 func init() {
@@ -122,15 +111,6 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-type operatorConfig struct {
-	MetricsAddress        string
-	ProbeAddress          string
-	PodNamespace          string
-	LeaderElection        bool
-	GlobalResourceEnabled bool
-	LogLevel              string
-}
-
 func main() {
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
 }
@@ -139,97 +119,88 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	operatorConfig := parseFlags()
 	utils.PrintVersion(setupLog)
 
-	if err := ResourceReady(ctx, cfg); err != nil {
-		setupLog.Error(err, "the resource is not ready for the operator")
-		return 1
-	}
-
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		setupLog.Error(err, "failed to create kube client")
 		return 1
 	}
 
-	controllerConfigMap, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
-		ctx, operatorconstants.ControllerConfig, metav1.GetOptions{})
+	err = config.LoadControllerConfig(ctx, kubeClient)
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			setupLog.Error(err, "failed to get controller config")
-			return 1
-		}
-		controllerConfigMap = nil
-	}
-
-	electionConfig, err := getElectionConfig(controllerConfigMap)
-	if err != nil {
-		setupLog.Error(err, "failed to get election config")
+		setupLog.Error(err, "failed to load controller config")
 		return 1
 	}
 
-	mgr, err := getManager(cfg, electionConfig, operatorConfig)
+	mgr, err := getManager(cfg, operatorConfig)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		return 1
 	}
 
-	// middlewareCfg is shared between all controllers
-	middlewareCfg := &hubofhubscontrollers.MiddlewareConfig{}
-
-	// start addon controller
-	if err = (&hubofhubsaddon.HoHAddonInstaller{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("addon-reconciler"),
-	}).SetupWithManager(ctx, mgr); err != nil {
-		setupLog.Error(err, "unable to create addon reconciler")
-		return 1
-	}
-
-	addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
-		electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap, operatorConfig.LogLevel)
+	_, err = crd.AddCRDController(mgr)
 	if err != nil {
-		setupLog.Error(err, "unable to create addon controller")
-		return 1
-	}
-	if err = mgr.Add(addonController); err != nil {
-		setupLog.Error(err, "unable to add addon controller to manager")
+		setupLog.Error(err, "unable to create crd controller")
 		return 1
 	}
 
-	if err = (&hubofhubscontrollers.GlobalHubConditionReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("condition-reconciler"),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create GlobalHubStatusReconciler")
-		return 1
-	}
+	// // middlewareCfg is shared between all controllers
+	// middlewareCfg := &hubofhubscontrollers.MiddlewareConfig{}
 
-	r := &hubofhubscontrollers.MulticlusterGlobalHubReconciler{
-		Manager:              mgr,
-		Client:               mgr.GetClient(),
-		AddonManager:         addonController.AddonManager(),
-		KubeClient:           kubeClient,
-		Scheme:               mgr.GetScheme(),
-		LeaderElection:       electionConfig,
-		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
-		MiddlewareConfig:     middlewareCfg,
-		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
-		LogLevel:             operatorConfig.LogLevel,
-	}
+	// // start addon controller
+	// if err = (&hubofhubsaddon.HoHAddonInstaller{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("addon-reconciler"),
+	// }).SetupWithManager(ctx, mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create addon reconciler")
+	// 	return 1
+	// }
 
-	if err = r.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
-		return 1
-	}
+	// addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
+	// 	electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap, operatorConfig.LogLevel)
+	// if err != nil {
+	// 	setupLog.Error(err, "unable to create addon controller")
+	// 	return 1
+	// }
+	// if err = mgr.Add(addonController); err != nil {
+	// 	setupLog.Error(err, "unable to add addon controller to manager")
+	// 	return 1
+	// }
 
-	backupController := backupcontrollers.NewBackupReconciler(
-		mgr,
-		ctrl.Log.WithName("backup-reconciler"),
-	)
+	// if err = (&hubofhubscontrollers.GlobalHubConditionReconciler{
+	// 	Client: mgr.GetClient(),
+	// 	Log:    ctrl.Log.WithName("condition-reconciler"),
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create GlobalHubStatusReconciler")
+	// 	return 1
+	// }
 
-	if err = mgr.Add(backupController); err != nil {
-		setupLog.Error(err, "unable to bakcup controller to manager")
-		return 1
-	}
+	// r := &hubofhubscontrollers.MulticlusterGlobalHubReconciler{
+	// 	Manager:              mgr,
+	// 	Client:               mgr.GetClient(),
+	// 	AddonManager:         addonController.AddonManager(),
+	// 	KubeClient:           kubeClient,
+	// 	Scheme:               mgr.GetScheme(),
+	// 	LeaderElection:       electionConfig,
+	// 	Log:                  ctrl.Log.WithName("global-hub-reconciler"),
+	// 	MiddlewareConfig:     middlewareCfg,
+	// 	EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
+	// 	LogLevel:             operatorConfig.LogLevel,
+	// }
+
+	// if err = r.SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
+	// 	return 1
+	// }
+
+	// backupController := backupcontrollers.NewBackupReconciler(
+	// 	mgr,
+	// 	ctrl.Log.WithName("backup-reconciler"),
+	// )
+
+	// if err = mgr.Add(backupController); err != nil {
+	// 	setupLog.Error(err, "unable to bakcup controller to manager")
+	// 	return 1
+	// }
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
@@ -249,39 +220,8 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	return 0
 }
 
-func ResourceReady(ctx context.Context, cfg *rest.Config) error {
-	crdClient, err := clientset.NewForConfig(cfg)
-	if err != nil {
-		return err
-	}
-
-	crds := map[string]bool{
-		"multiclusterhubs.operator.open-cluster-management.io":     false,
-		"managedclusters.cluster.open-cluster-management.io":       false,
-		"manifestworks.work.open-cluster-management.io":            false,
-		"clustermanagementaddons.addon.open-cluster-management.io": false,
-		"managedclusteraddons.addon.open-cluster-management.io":    false,
-	}
-
-	return wait.PollUntilContextCancel(ctx, 10*time.Second, true, func(ctx context.Context) (bool, error) {
-		for crd, ok := range crds {
-			if !ok {
-				_, err := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crd, metav1.GetOptions{})
-				if err != nil {
-					return false, nil
-				}
-				// ready
-				crds[crd] = true
-				setupLog.Info("resource is ready", "name", crd)
-				fmt.Println("resourde is ready", crd)
-			}
-		}
-		return true, nil
-	})
-}
-
-func parseFlags() *operatorConfig {
-	config := &operatorConfig{
+func parseFlags() *config.OperatorConfig {
+	config := &config.OperatorConfig{
 		PodNamespace: utils.GetDefaultNamespace(),
 	}
 
@@ -310,9 +250,11 @@ func parseFlags() *operatorConfig {
 	return config
 }
 
-func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderElectionConfig,
-	operatorConfig *operatorConfig,
-) (ctrl.Manager, error) {
+func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) (ctrl.Manager, error) {
+	electionConfig, err := config.GetElectionConfig()
+	if err != nil {
+		return nil, err
+	}
 	leaseDuration := time.Duration(electionConfig.LeaseDuration) * time.Second
 	renewDeadline := time.Duration(electionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(electionConfig.RetryPeriod) * time.Second
@@ -335,107 +277,107 @@ func getManager(restConfig *rest.Config, electionConfig *commonobjects.LeaderEle
 	return mgr, err
 }
 
-func getElectionConfig(configMap *corev1.ConfigMap) (*commonobjects.LeaderElectionConfig, error) {
-	config := &commonobjects.LeaderElectionConfig{
-		LeaseDuration: 137,
-		RenewDeadline: 107,
-		RetryPeriod:   26,
-	}
-	if configMap == nil {
-		return config, nil
-	}
-	val, leaseDurationExist := configMap.Data["leaseDuration"]
-	if leaseDurationExist {
-		leaseDurationSec, err := strconv.Atoi(val)
-		if err != nil {
-			return nil, err
-		}
-		config.LeaseDuration = leaseDurationSec
-	}
-
-	val, renewDeadlineExist := configMap.Data["renewDeadline"]
-	if renewDeadlineExist {
-		renewDeadlineSec, err := strconv.Atoi(val)
-		if err != nil {
-			return nil, err
-		}
-		config.RenewDeadline = renewDeadlineSec
-	}
-
-	val, retryPeriodExist := configMap.Data["retryPeriod"]
-	if retryPeriodExist {
-		retryPeriodSec, err := strconv.Atoi(val)
-		if err != nil {
-			return nil, err
-		}
-		config.RetryPeriod = retryPeriodSec
-	}
-
-	return config, nil
-}
-
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
+		// addon installer: transport credentials and image pull secret
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {},
+			},
 		},
-		&corev1.ConfigMap{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
-		&corev1.ServiceAccount{}: {
-			Label: labelSelector,
-		},
-		&corev1.Service{}: {
-			Label: labelSelector,
-		},
-		&corev1.Namespace{}: {},
+		// global hub condition controller
 		&appsv1.Deployment{}: {
-			Label: labelSelector,
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
 		},
-		&appsv1.StatefulSet{}: {
-			Label: labelSelector,
-		},
-		&rbacv1.Role{}: {
-			Label: labelSelector,
-		},
-		&rbacv1.RoleBinding{}: {
-			Label: labelSelector,
-		},
-		&rbacv1.ClusterRole{}: {
-			Label: labelSelector,
-		},
-		&rbacv1.ClusterRoleBinding{}: {
-			Label: labelSelector,
-		},
-		&routev1.Route{}: {
-			Label: labelSelector,
-		},
-		&clusterv1.ManagedCluster{}: {
-			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-		},
-		&workv1.ManifestWork{}: {
-			Label: labelSelector,
-		},
-		&addonv1alpha1.ClusterManagementAddOn{}: {
-			Label: labelSelector,
-		},
-		&addonv1alpha1.ManagedClusterAddOn{}: {
-			Label: labelSelector,
-		},
-		&admissionregistrationv1.MutatingWebhookConfiguration{}: {
-			Label: labelSelector,
-		},
-		&promv1.ServiceMonitor{}: {
-			Label: labelSelector,
-		},
-		&subv1alpha1.Subscription{}: {},
-		&corev1.PersistentVolumeClaim{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, utils.GetDefaultNamespace()),
-		},
-		&mchv1.MultiClusterHub{}: {},
-		&apiextensionsv1.CustomResourceDefinition{}: {
-			Field: fields.SelectorFromSet(fields.Set{"metadata.name": "kafkas.kafka.strimzi.io"}),
-		},
+		// &corev1.ConfigMap{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		utils.GetDefaultNamespace(): {},
+		// 	},
+		// },
+		// &corev1.ServiceAccount{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &corev1.Service{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &appsv1.Deployment{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &appsv1.StatefulSet{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &rbacv1.Role{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &rbacv1.RoleBinding{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &rbacv1.ClusterRole{}: {
+		// 	Label: labelSelector,
+		// },
+		// &rbacv1.ClusterRoleBinding{}: {
+		// 	Label: labelSelector,
+		// },
+		// &routev1.Route{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &corev1.PersistentVolumeClaim{}: {
+		// 	Namespaces: map[string]cache.Config{
+		// 		utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+		// 	},
+		// },
+		// &admissionregistrationv1.MutatingWebhookConfiguration{}: {
+		// 	Label: labelSelector,
+		// },
+
+		&apiextensionsv1.CustomResourceDefinition{}: {},
+
+		// &clusterv1.ManagedCluster{}: {
+		// 	Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
+		// },
+		// &workv1.ManifestWork{}: {
+		// 	Label: labelSelector,
+		// },
+		// &addonv1alpha1.ClusterManagementAddOn{}: {
+		// 	Label: labelSelector,
+		// },
+		// &addonv1alpha1.ManagedClusterAddOn{}: {
+		// 	Label: labelSelector,
+		// },
+
+		// &promv1.ServiceMonitor{}: {
+		// 	Label: labelSelector,
+		// },
+		// &subv1alpha1.Subscription{}: {},
+
+		// &mchv1.MultiClusterHub{}: {},
+		// &apiextensionsv1.CustomResourceDefinition{}: {
+		// 	Field: fields.SelectorFromSet(
+		// 		fields.Set{
+		// 			"metadata.name": "kafkas.kafka.strimzi.io",
+		// 		},
+		// 	),
+		// },
 	}
+
+	// cacheOpts.DefaultNamespaces = map[string]cache.Config{
+	// 	utils.GetDefaultNamespace(): {},
+	// }
 	return cache.New(config, cacheOpts)
 }

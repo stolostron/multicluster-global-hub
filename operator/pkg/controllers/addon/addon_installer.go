@@ -11,16 +11,21 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"open-cluster-management.io/api/addon/v1alpha1"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -29,12 +34,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-type HoHAddonInstaller struct {
+type AddonInstaller struct {
 	client.Client
 	Log logr.Logger
 }
 
-func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -86,14 +91,13 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
 		}
-		config.DeleteManagedCluster(cluster.Name)
 		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, r.reconclieAddonAndResources(ctx, cluster)
 }
 
-func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
@@ -110,7 +114,6 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-			config.AppendManagedCluster(cluster.Name)
 			return r.createResourcesAndAddon(ctx, cluster)
 		} else {
 			return fmt.Errorf("failed to get the addon: %v", err)
@@ -120,7 +123,6 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 	// delete
 	if !existingAddon.DeletionTimestamp.IsZero() {
 		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-		config.DeleteManagedCluster(cluster.Name)
 		return r.removeResourcesAndAddon(ctx, cluster)
 	}
 
@@ -140,7 +142,7 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 	return nil
 }
 
-func (r *HoHAddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) error {
 	transporter := config.GetTransporter()
 	clusterUser := transporter.GenerateUserName(cluster.Name)
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
@@ -165,7 +167,7 @@ func (r *HoHAddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluste
 	return nil
 }
 
-func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster)
 	if err != nil {
 		return err
@@ -177,7 +179,7 @@ func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster
 	return nil
 }
 
-func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -197,7 +199,7 @@ func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster
 	return nil
 }
 
-func (r *HoHAddonInstaller) removeResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) removeResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	transporter := config.GetTransporter()
 	clusterUser := transporter.GenerateUserName(cluster.Name)
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
@@ -247,7 +249,7 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return !filterManagedCluster(e.Object)
@@ -323,11 +325,18 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		},
 	}
 
+	installerCache, err := addonInstallerCache(mgr.GetConfig())
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
-		// primary watch for managedcluster
-		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
+		Named("addonInstaller").
+		// primary watch for managedcluster, replace For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred))
+		WatchesRawSource(source.Kind(installerCache, &clusterv1.ManagedCluster{}),
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&v1alpha1.ManagedClusterAddOn{},
+		WatchesRawSource(source.Kind(installerCache, &v1alpha1.ManagedClusterAddOn{}),
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// only trigger the addon reconcile when addon is updated/deleted
@@ -337,16 +346,42 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 				}
 			}), builder.WithPredicates(addonPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&v1alpha1.ClusterManagementAddOn{},
+		WatchesRawSource(source.Kind(installerCache, &v1alpha1.ClusterManagementAddOn{}),
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
-		Watches(&corev1.Secret{},
+		// secondary watch for transport credentials or image pull secret
+		Watches(&corev1.Secret{}, // the cache is set in manager
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(secretPred)).
 		Complete(r)
 }
 
-func (r *HoHAddonInstaller) renderAllManifestsHandler(
+func addonInstallerCache(cfg *rest.Config) (cache.Cache, error) {
+	operatorLabelSelector := labels.SelectorFromSet(
+		labels.Set{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		},
+	)
+	cacheOptions := cache.Options{}
+	cacheOptions.ByObject = map[client.Object]cache.ByObject{
+		&clusterv1.ManagedCluster{}: {
+			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
+		},
+		&addonv1alpha1.ClusterManagementAddOn{}: {
+			Label: operatorLabelSelector,
+		},
+		&addonv1alpha1.ManagedClusterAddOn{}: {
+			Label: operatorLabelSelector,
+		},
+	}
+	addonInstallerCache, err := cache.New(cfg, cacheOptions)
+	if err != nil {
+		return nil, err
+	}
+	return addonInstallerCache, err
+}
+
+func (r *AddonInstaller) renderAllManifestsHandler(
 	ctx context.Context, obj client.Object,
 ) []reconcile.Request {
 	requests := []reconcile.Request{}

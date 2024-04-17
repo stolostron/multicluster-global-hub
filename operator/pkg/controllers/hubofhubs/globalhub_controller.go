@@ -99,11 +99,6 @@ type MulticlusterGlobalHubReconciler struct {
 	KafkaController      *KafkaController
 }
 
-// MiddlewareConfig defines the configuration for middleware and shared in opearator
-type MiddlewareConfig struct {
-	StorageConn   *postgres.PostgresConnection
-	TransportConn *transport.ConnCredential
-}
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch

@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -108,7 +109,7 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 			operatorConfig := parseFlags()
 			Expect(operatorConfig.LeaderElection).To(BeTrue())
 
-			electionConfig, err := getElectionConfig(nil)
+			electionConfig, err := config.GetElectionConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(electionConfig.LeaseDuration).To(Equal(137))

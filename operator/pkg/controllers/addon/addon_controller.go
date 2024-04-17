@@ -8,7 +8,6 @@ import (
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -21,10 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubs "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 )
 
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
@@ -42,43 +40,35 @@ import (
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
-type HoHAddonController struct {
+type AddonController struct {
+	addonManager         addonmanager.AddonManager
 	kubeConfig           *rest.Config
 	client               client.Client
-	leaderElection       *commonobjects.LeaderElectionConfig
 	log                  logr.Logger
-	addonManager         addonmanager.AddonManager
-	MiddlewareConfig     *hubofhubs.MiddlewareConfig
 	EnableGlobalResource bool
-	ControllerConfig     *corev1.ConfigMap
 	LogLevel             string
 }
 
 // used to create addon manager
-func NewHoHAddonController(kubeConfig *rest.Config, client client.Client,
-	leaderElection *commonobjects.LeaderElectionConfig, middlewareCfg *hubofhubs.MiddlewareConfig,
-	enableGlobalResource bool, controllerConfig *corev1.ConfigMap, logLevel string,
-) (*HoHAddonController, error) {
+func NewAddonController(kubeConfig *rest.Config, client client.Client, operatorConfig *config.OperatorConfig,
+) (*AddonController, error) {
 	log := ctrl.Log.WithName("addon-controller")
 	addonMgr, err := addonmanager.New(kubeConfig)
 	if err != nil {
 		log.Error(err, "failed to create addon manager")
 		return nil, err
 	}
-	return &HoHAddonController{
+	return &AddonController{
 		kubeConfig:           kubeConfig,
 		client:               client,
-		leaderElection:       leaderElection,
 		log:                  log,
 		addonManager:         addonMgr,
-		MiddlewareConfig:     middlewareCfg,
-		EnableGlobalResource: enableGlobalResource,
-		ControllerConfig:     controllerConfig,
-		LogLevel:             logLevel,
+		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
+		LogLevel:             operatorConfig.LogLevel,
 	}, nil
 }
 
-func (a *HoHAddonController) Start(ctx context.Context) error {
+func (a *AddonController) Start(ctx context.Context) error {
 	addonScheme := runtime.NewScheme()
 	utilruntime.Must(mchv1.AddToScheme(addonScheme))
 	utilruntime.Must(globalhubv1alpha4.AddToScheme(addonScheme))
@@ -107,11 +97,8 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 		kubeClient:           kubeClient,
 		client:               a.client,
 		dynamicClient:        dynamicClient,
-		leaderElectionConfig: a.leaderElection,
 		log:                  a.log.WithName("values"),
-		MiddlewareConfig:     a.MiddlewareConfig,
 		EnableGlobalResource: a.EnableGlobalResource,
-		ControllerConfig:     a.ControllerConfig,
 		LogLevel:             a.LogLevel,
 	}
 	_, err = utils.WaitGlobalHubReady(ctx, a.client, 5*time.Second)
@@ -145,6 +132,6 @@ func (a *HoHAddonController) Start(ctx context.Context) error {
 	return a.addonManager.Start(ctx)
 }
 
-func (a *HoHAddonController) AddonManager() addonmanager.AddonManager {
+func (a *AddonController) AddonManager() addonmanager.AddonManager {
 	return a.addonManager
 }

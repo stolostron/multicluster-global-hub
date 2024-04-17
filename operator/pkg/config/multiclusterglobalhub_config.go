@@ -51,6 +51,8 @@ type ManifestImage struct {
 	ImageTag string `json:"image-tag"`
 }
 
+
+
 const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
 	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
@@ -66,7 +68,6 @@ const (
 )
 
 var (
-	managedClusters    = []string{}
 	mghNamespacedName  = types.NamespacedName{}
 	oauthSessionSecret = ""
 	imageOverrides     = map[string]string{
@@ -181,29 +182,6 @@ func SetImageOverrides(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 // GetImage is used to retrieve image for given component
 func GetImage(componentName string) string {
 	return imageOverrides[componentName]
-}
-
-// cache the managed clusters
-func AppendManagedCluster(name string) {
-	for index := range managedClusters {
-		if managedClusters[index] == name {
-			return
-		}
-	}
-	managedClusters = append(managedClusters, name)
-}
-
-func DeleteManagedCluster(name string) {
-	for index := range managedClusters {
-		if managedClusters[index] == name {
-			managedClusters = append(managedClusters[:index], managedClusters[index+1:]...)
-			return
-		}
-	}
-}
-
-func GetManagedClusters() []string {
-	return managedClusters
 }
 
 func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
