@@ -19,7 +19,6 @@ package backup
 import (
 	"context"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
@@ -36,7 +35,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -61,24 +59,10 @@ func NewBackupReconciler(mgr manager.Manager, log logr.Logger) *BackupReconciler
 	}
 }
 
-func (r *BackupReconciler) Start(ctx context.Context) error {
-	// Only when global hub started, then start the backup controller
-	_, err := operatorutils.WaitGlobalHubReady(ctx, r.Client, 5*time.Second)
-	if err != nil {
-		return err
-	}
-
-	if err = r.SetupWithManager(r.Manager); err != nil {
-		return err
-	}
-	return nil
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("backupController").
-		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
-			objEventHandler,
+		For(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(mghPred)).
 		Watches(&corev1.Secret{},
 			objEventHandler,
@@ -150,18 +134,6 @@ var configmapPred = predicate.Funcs{
 		if !configmapList.Has(e.ObjectNew.GetName()) {
 			return false
 		}
-		return !utils.HasItem(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var commonPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return !utils.HasItem(e.Object.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
 		return !utils.HasItem(e.ObjectNew.GetLabels(), constants.BackupKey, constants.BackupActivationValue)
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {

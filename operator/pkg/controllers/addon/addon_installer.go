@@ -11,21 +11,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"open-cluster-management.io/api/addon/v1alpha1"
-	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -325,18 +320,12 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		},
 	}
 
-	installerCache, err := addonInstallerCache(mgr.GetConfig())
-	if err != nil {
-		return err
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("addonInstaller").
-		// primary watch for managedcluster, replace For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred))
-		WatchesRawSource(source.Kind(installerCache, &clusterv1.ManagedCluster{}),
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
+		// primary watch for managedcluster
+		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
-		WatchesRawSource(source.Kind(installerCache, &v1alpha1.ManagedClusterAddOn{}),
+		Watches(&v1alpha1.ManagedClusterAddOn{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// only trigger the addon reconcile when addon is updated/deleted
@@ -346,7 +335,7 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 				}
 			}), builder.WithPredicates(addonPred)).
 		// secondary watch for managedclusteraddon
-		WatchesRawSource(source.Kind(installerCache, &v1alpha1.ClusterManagementAddOn{}),
+		Watches(&v1alpha1.ClusterManagementAddOn{},
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
 		// secondary watch for transport credentials or image pull secret
@@ -354,31 +343,6 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(secretPred)).
 		Complete(r)
-}
-
-func addonInstallerCache(cfg *rest.Config) (cache.Cache, error) {
-	operatorLabelSelector := labels.SelectorFromSet(
-		labels.Set{
-			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-		},
-	)
-	cacheOptions := cache.Options{}
-	cacheOptions.ByObject = map[client.Object]cache.ByObject{
-		&clusterv1.ManagedCluster{}: {
-			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-		},
-		&addonv1alpha1.ClusterManagementAddOn{}: {
-			Label: operatorLabelSelector,
-		},
-		&addonv1alpha1.ManagedClusterAddOn{}: {
-			Label: operatorLabelSelector,
-		},
-	}
-	addonInstallerCache, err := cache.New(cfg, cacheOptions)
-	if err != nil {
-		return nil, err
-	}
-	return addonInstallerCache, err
 }
 
 func (r *AddonInstaller) renderAllManifestsHandler(

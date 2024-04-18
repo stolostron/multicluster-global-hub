@@ -108,7 +108,6 @@ func init() {
 
 	// add Kafka scheme
 	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))
-
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -291,7 +290,28 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&admissionregistrationv1.MutatingWebhookConfiguration{}: {
 			Label: labelSelector,
 		},
-		&apiextensionsv1.CustomResourceDefinition{}: {},
+		&globalhubv1alpha4.MulticlusterGlobalHub{}: {},
+
+		// addon installer, global hub controller
+		&clusterv1.ManagedCluster{}: {
+			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
+		},
+		// addon installer, global hub controller
+		&addonv1alpha1.ClusterManagementAddOn{}: {
+			Label: labelSelector,
+		},
+		// addon installer
+		&addonv1alpha1.ManagedClusterAddOn{}: {
+			Label: labelSelector,
+		},
+		// global hub controller
+		&promv1.ServiceMonitor{}: {
+			Label: labelSelector,
+		},
+		// global hub controller
+		&subv1alpha1.Subscription{}: {},
+		// backup controller
+		&mchv1.MultiClusterHub{}: {},
 	}
 	return cache.New(config, cacheOpts)
 }
