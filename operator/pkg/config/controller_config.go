@@ -4,19 +4,20 @@ import (
 	"context"
 	"strconv"
 
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var controllerConfigMap *corev1.ConfigMap
 
-func LoadControllerConfig(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+func LoadControllerConfig(ctx context.Context, kubeClient kubernetes.Interface) error {
 	config, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
 		ctx, operatorconstants.ControllerConfig, metav1.GetOptions{})
 	if err != nil && !errors.IsNotFound(err) {
@@ -26,8 +27,8 @@ func LoadControllerConfig(ctx context.Context, kubeClient *kubernetes.Clientset)
 	return nil
 }
 
-func SetControllerConfig(controllerConfigMap *corev1.ConfigMap) {
-	controllerConfigMap = controllerConfigMap
+func SetControllerConfig(configMap *corev1.ConfigMap) {
+	controllerConfigMap = configMap
 }
 
 func GetElectionConfig() (*commonobjects.LeaderElectionConfig, error) {

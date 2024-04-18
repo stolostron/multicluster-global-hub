@@ -385,16 +385,32 @@ func (r *AddonInstaller) renderAllManifestsHandler(
 	ctx context.Context, obj client.Object,
 ) []reconcile.Request {
 	requests := []reconcile.Request{}
-	// list all the managedCluster
-	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := r.List(ctx, managedClusterList)
+
+	hubNames, err := GetAllManagedHubNames(ctx, r.Client)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			r.Log.Info("no managed cluster found to trigger addoninstall reconciler")
-			return requests
-		}
 		r.Log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
 		return requests
+	}
+	for _, name := range hubNames {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: name,
+			},
+		})
+	}
+	r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
+	return requests
+}
+
+func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, error) {
+	names := []string{}
+	managedClusterList := &clusterv1.ManagedClusterList{}
+	err := c.List(ctx, managedClusterList)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return names, nil
+		}
+		return nil, err
 	}
 
 	for i := range managedClusterList.Items {
@@ -402,14 +418,9 @@ func (r *AddonInstaller) renderAllManifestsHandler(
 		if filterManagedCluster(&managedCluster) {
 			continue
 		}
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name: managedCluster.GetName(),
-			},
-		})
+		names = append(names, managedCluster.GetName())
 	}
-	r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
-	return requests
+	return names, nil
 }
 
 func filterManagedCluster(obj client.Object) bool {

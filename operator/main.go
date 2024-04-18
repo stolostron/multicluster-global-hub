@@ -28,7 +28,6 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -38,7 +37,9 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -137,70 +138,11 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
-	_, err = crd.AddCRDController(mgr)
+	_, err = crd.AddCRDController(mgr, operatorConfig, kubeClient)
 	if err != nil {
 		setupLog.Error(err, "unable to create crd controller")
 		return 1
 	}
-
-	// // middlewareCfg is shared between all controllers
-	// middlewareCfg := &hubofhubscontrollers.MiddlewareConfig{}
-
-	// // start addon controller
-	// if err = (&hubofhubsaddon.HoHAddonInstaller{
-	// 	Client: mgr.GetClient(),
-	// 	Log:    ctrl.Log.WithName("addon-reconciler"),
-	// }).SetupWithManager(ctx, mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create addon reconciler")
-	// 	return 1
-	// }
-
-	// addonController, err := hubofhubsaddon.NewHoHAddonController(mgr.GetConfig(), mgr.GetClient(),
-	// 	electionConfig, middlewareCfg, operatorConfig.GlobalResourceEnabled, controllerConfigMap, operatorConfig.LogLevel)
-	// if err != nil {
-	// 	setupLog.Error(err, "unable to create addon controller")
-	// 	return 1
-	// }
-	// if err = mgr.Add(addonController); err != nil {
-	// 	setupLog.Error(err, "unable to add addon controller to manager")
-	// 	return 1
-	// }
-
-	// if err = (&hubofhubscontrollers.GlobalHubConditionReconciler{
-	// 	Client: mgr.GetClient(),
-	// 	Log:    ctrl.Log.WithName("condition-reconciler"),
-	// }).SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create GlobalHubStatusReconciler")
-	// 	return 1
-	// }
-
-	// r := &hubofhubscontrollers.MulticlusterGlobalHubReconciler{
-	// 	Manager:              mgr,
-	// 	Client:               mgr.GetClient(),
-	// 	AddonManager:         addonController.AddonManager(),
-	// 	KubeClient:           kubeClient,
-	// 	Scheme:               mgr.GetScheme(),
-	// 	LeaderElection:       electionConfig,
-	// 	Log:                  ctrl.Log.WithName("global-hub-reconciler"),
-	// 	MiddlewareConfig:     middlewareCfg,
-	// 	EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
-	// 	LogLevel:             operatorConfig.LogLevel,
-	// }
-
-	// if err = r.SetupWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create MulticlusterGlobalHubReconciler")
-	// 	return 1
-	// }
-
-	// backupController := backupcontrollers.NewBackupReconciler(
-	// 	mgr,
-	// 	ctrl.Log.WithName("backup-reconciler"),
-	// )
-
-	// if err = mgr.Add(backupController); err != nil {
-	// 	setupLog.Error(err, "unable to bakcup controller to manager")
-	// 	return 1
-	// }
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
@@ -280,104 +222,76 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		// addon installer: transport credentials and image pull secret
+		// global hub controller
 		&corev1.Secret{}: {
 			Namespaces: map[string]cache.Config{
 				utils.GetDefaultNamespace(): {},
 			},
 		},
-		// global hub condition controller
+		// global hub condition controller(status changed)
+		// global hub controller(spec changed)
 		&appsv1.Deployment{}: {
 			Namespaces: map[string]cache.Config{
 				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
 			},
 		},
-		// &corev1.ConfigMap{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		utils.GetDefaultNamespace(): {},
-		// 	},
-		// },
-		// &corev1.ServiceAccount{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &corev1.Service{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &appsv1.Deployment{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &appsv1.StatefulSet{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &rbacv1.Role{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &rbacv1.RoleBinding{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &rbacv1.ClusterRole{}: {
-		// 	Label: labelSelector,
-		// },
-		// &rbacv1.ClusterRoleBinding{}: {
-		// 	Label: labelSelector,
-		// },
-		// &routev1.Route{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		cache.AllNamespaces: {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &corev1.PersistentVolumeClaim{}: {
-		// 	Namespaces: map[string]cache.Config{
-		// 		utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-		// 	},
-		// },
-		// &admissionregistrationv1.MutatingWebhookConfiguration{}: {
-		// 	Label: labelSelector,
-		// },
-
+		// global hub controller - postgres
+		&appsv1.StatefulSet{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
+		},
+		// global hub controller
+		&corev1.Service{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
+		},
+		// global hub controller
+		&corev1.ServiceAccount{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
+		},
+		// global hub controller: postgresCA and custom alert
+		&corev1.ConfigMap{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {},
+			},
+		},
+		// global hub controller
+		&rbacv1.Role{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
+		},
+		&rbacv1.RoleBinding{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
+		},
+		&rbacv1.ClusterRole{}: {
+			Label: labelSelector,
+		},
+		&rbacv1.ClusterRoleBinding{}: {
+			Label: labelSelector,
+		},
+		&corev1.Namespace{}: {
+			Field: fields.SelectorFromSet(
+				fields.Set{
+					"metadata.name": utils.GetDefaultNamespace(),
+				},
+			),
+		},
+		&corev1.PersistentVolumeClaim{}: {
+			Namespaces: map[string]cache.Config{
+				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+			},
+		},
+		&admissionregistrationv1.MutatingWebhookConfiguration{}: {
+			Label: labelSelector,
+		},
 		&apiextensionsv1.CustomResourceDefinition{}: {},
-
-		// &clusterv1.ManagedCluster{}: {
-		// 	Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-		// },
-		// &workv1.ManifestWork{}: {
-		// 	Label: labelSelector,
-		// },
-		// &addonv1alpha1.ClusterManagementAddOn{}: {
-		// 	Label: labelSelector,
-		// },
-		// &addonv1alpha1.ManagedClusterAddOn{}: {
-		// 	Label: labelSelector,
-		// },
-
-		// &promv1.ServiceMonitor{}: {
-		// 	Label: labelSelector,
-		// },
-		// &subv1alpha1.Subscription{}: {},
-
-		// &mchv1.MultiClusterHub{}: {},
-		// &apiextensionsv1.CustomResourceDefinition{}: {
-		// 	Field: fields.SelectorFromSet(
-		// 		fields.Set{
-		// 			"metadata.name": "kafkas.kafka.strimzi.io",
-		// 		},
-		// 	),
-		// },
 	}
-
-	// cacheOpts.DefaultNamespaces = map[string]cache.Config{
-	// 	utils.GetDefaultNamespace(): {},
-	// }
 	return cache.New(config, cacheOpts)
 }

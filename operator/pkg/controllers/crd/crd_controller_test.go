@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 var (
@@ -92,7 +93,7 @@ func TestCRDCtr(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	controller, err := AddCRDController(mgr, &config.OperatorConfig{})
+	controller, err := AddCRDController(mgr, &config.OperatorConfig{}, nil)
 	assert.Nil(t, err)
 
 	go func() {

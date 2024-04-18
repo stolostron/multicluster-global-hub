@@ -19,9 +19,8 @@ package crd
 import (
 	"context"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -29,6 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	globalhubcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 )
 
@@ -52,18 +54,25 @@ var KafkaCrds = []string{
 // https://github.com/kubernetes-sigs/controller-runtime/pull/2159
 type CrdController struct {
 	manager.Manager
+	kubeClient                        *kubernetes.Clientset
 	operatorConfig                    *config.OperatorConfig
 	resources                         map[string]bool
 	addonInstallerReady               bool
-	addonControllerReady              bool
+	addonController                   *addon.AddonController
 	globalHubConditionControllerReady bool
 	globalHubControllerReady          bool
+	backupControllerReady             bool
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.resources[req.Name] = true
 	if !r.readyToWatchACMResources() {
 		return ctrl.Result{}, nil
+	}
+
+	// mark the states of kafka crd
+	if r.readyToWatchKafkaResources() {
+		config.SetKafkaResourceReady(true)
 	}
 
 	// start addon installer
@@ -78,32 +87,49 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon controller
-	if !r.addonControllerReady {
+	if r.addonController == nil {
 		addonController, err := addon.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
 		err = r.Manager.Add(addonController)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		r.addonControllerReady = true
+		r.addonController = addonController
 	}
 
+	// global hub condition controller
 	if !r.globalHubConditionControllerReady {
 		if err := (&globalhubcontrollers.GlobalHubConditionReconciler{
 			Client: r.Manager.GetClient(),
 			Log:    ctrl.Log.WithName("condition-reconciler"),
 		}).SetupWithManager(r.Manager); err != nil {
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, err
 		}
 		r.globalHubConditionControllerReady = true
 	}
 
-	// TODO
+	// global hub controller
 	if !r.globalHubControllerReady {
+		err := globalhubcontrollers.NewMulticlusterGlobalHubReconciler(
+			r.Manager,
+			r.addonController.AddonManager(),
+			r.kubeClient,
+			r.operatorConfig).SetupWithManager(r.Manager)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		r.globalHubControllerReady = true
+	}
+
+	// backup controller
+	if !r.backupControllerReady {
+		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).Add(r.Manager)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		r.backupControllerReady = true
 	}
 
 	return ctrl.Result{}, nil
@@ -118,7 +144,7 @@ func (r *CrdController) readyToWatchACMResources() bool {
 	return true
 }
 
-func (r *CrdController) ReadyToWatchKafkaResources() bool {
+func (r *CrdController) readyToWatchKafkaResources() bool {
 	for _, val := range KafkaCrds {
 		if ready := r.resources[val]; !ready {
 			return false
@@ -127,7 +153,9 @@ func (r *CrdController) ReadyToWatchKafkaResources() bool {
 	return true
 }
 
-func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig) (*CrdController, error) {
+func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
+	kubeClient *kubernetes.Clientset,
+) (*CrdController, error) {
 	allCrds := map[string]bool{}
 	for _, val := range ACMCrds {
 		allCrds[val] = false
@@ -138,6 +166,7 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig) (
 
 	controller := &CrdController{
 		Manager:        mgr,
+		kubeClient:     kubeClient,
 		operatorConfig: operatorConfig,
 		resources:      allCrds,
 	}

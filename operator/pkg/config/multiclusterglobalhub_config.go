@@ -34,7 +34,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -50,8 +49,6 @@ type ManifestImage struct {
 	// image tag, exclude with image digest
 	ImageTag string `json:"image-tag"`
 }
-
-
 
 const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
@@ -80,7 +77,6 @@ var (
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
-	transporter           transport.Transporter
 )
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
@@ -217,14 +213,6 @@ func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string
 	return GHPostgresDefaultStorageSize
 }
 
-func GetKafkaStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
-	defaultKafkaStorageSize := "10Gi"
-	if mgh.Spec.DataLayer.Kafka.StorageSize != "" {
-		return mgh.Spec.DataLayer.Kafka.StorageSize
-	}
-	return defaultKafkaStorageSize
-}
-
 func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
 	if mgh.Spec.ImagePullSecret != imagePullSecretName {
 		imagePullSecretName = mgh.Spec.ImagePullSecret
@@ -233,14 +221,6 @@ func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
 
 func GetImagePullSecretName() string {
 	return imagePullSecretName
-}
-
-func SetTransporter(p transport.Transporter) {
-	transporter = p
-}
-
-func GetTransporter() transport.Transporter {
-	return transporter
 }
 
 // GeneratePGConnectionFromGHStorageSecret returns a postgres connection from the GH storage secret

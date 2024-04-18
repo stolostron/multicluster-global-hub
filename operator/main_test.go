@@ -63,15 +63,6 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 		Expect(testEnv.Stop()).To(Succeed())
 	})
 
-	Context("Test Operator: resources is ready", func() {
-		It("start operator with resource ready", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			err := ResourceReady(ctx, cfg)
-			Expect(err).Should(Succeed())
-		})
-	})
-
 	Context("Test Operator: leader-election disabled", func() {
 		It("start operator with leader-election disabled", func() {
 			// this call is required because otherwise flags panics, if args are set between flag.Parse call
@@ -138,7 +129,7 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			configMap, err := kubeClient.CoreV1().ConfigMaps(
+			_, err := kubeClient.CoreV1().ConfigMaps(
 				utils.GetDefaultNamespace()).Create(ctx,
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
@@ -148,7 +139,10 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 					Data: map[string]string{"leaseDuration": "10", "renewDeadline": "8", "retryPeriod": "2"},
 				}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			electionConfig, err := getElectionConfig(configMap)
+			err = config.LoadControllerConfig(ctx, kubeClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			electionConfig, err := config.GetElectionConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(electionConfig.LeaseDuration).To(Equal(10))

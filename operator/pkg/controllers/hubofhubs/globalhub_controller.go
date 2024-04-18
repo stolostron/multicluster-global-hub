@@ -34,33 +34,37 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests
@@ -86,10 +90,9 @@ var watchedConfigmap = sets.NewString(
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	AddonManager         addonmanager.AddonManager
-	KubeClient           kubernetes.Interface
 	Scheme               *runtime.Scheme
-	LeaderElection       *commonobjects.LeaderElectionConfig
+	addonMgr             addonmanager.AddonManager
+	KubeClient           kubernetes.Interface
 	Log                  logr.Logger
 	LogLevel             string
 	MiddlewareConfig     *MiddlewareConfig
@@ -99,6 +102,21 @@ type MulticlusterGlobalHubReconciler struct {
 	KafkaController      *KafkaController
 }
 
+func NewMulticlusterGlobalHubReconciler(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
+	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
+) *MulticlusterGlobalHubReconciler {
+	return &MulticlusterGlobalHubReconciler{
+		Manager:              mgr,
+		Client:               mgr.GetClient(),
+		addonMgr:             addonMgr,
+		KubeClient:           kubeClient,
+		Scheme:               mgr.GetScheme(),
+		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
+		MiddlewareConfig:     &MiddlewareConfig{},
+		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
+		LogLevel:             operatorConfig.LogLevel,
+	}
+}
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
@@ -295,9 +313,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	}
 
 	// reconcile addon
-	r.Log.Info("trigger addon on managed clusters", "size", len(config.GetManagedClusters()))
-	for _, clusterName := range config.GetManagedClusters() {
-		r.AddonManager.Trigger(clusterName, operatorconstants.GHClusterManagementAddonName)
+	managedHubs, err := addon.GetAllManagedHubNames(ctx, r.Client)
+	if err != nil {
+		return err
+	}
+	r.Log.Info("trigger addon on managed clusters", "size", len(managedHubs))
+	for _, clusterName := range managedHubs {
+		r.addonMgr.Trigger(clusterName, operatorconstants.GHClusterManagementAddonName)
 	}
 
 	return nil
@@ -470,6 +492,10 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	controllerCache, err := globalHubControllerCache(mgr.GetConfig())
+	if err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
@@ -494,16 +520,53 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		// secondary watch for clusterrolebinding
 		Watches(&rbacv1.ClusterRoleBinding{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
-		// secondary watch for clustermanagementaddon
-		Watches(&addonv1alpha1.ClusterManagementAddOn{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
+		// secondary watch for Secret
 		Watches(&corev1.Secret{},
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
-		Watches(&promv1.ServiceMonitor{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
+		// secondary watch for clustermanagementaddon
+		WatchesRawSource(source.Kind(controllerCache, &v1alpha1.ClusterManagementAddOn{}),
+			handler.EnqueueRequestsFromMapFunc(enqueueReqeust),
+			builder.WithPredicates(resPred)).
+		WatchesRawSource(source.Kind(controllerCache, &promv1.ServiceMonitor{}),
+			handler.EnqueueRequestsFromMapFunc(enqueueReqeust),
+			builder.WithPredicates(resPred)).
+		WatchesRawSource(source.Kind(controllerCache, &clusterv1.ManagedCluster{}),
+			handler.EnqueueRequestsFromMapFunc(enqueueReqeust),
+			builder.WithPredicates(mhPred)).
 		Watches(&subv1alpha1.Subscription{},
 			globalHubEventHandler, builder.WithPredicates(deletePred)).
-		Watches(&clusterv1.ManagedCluster{},
-			globalHubEventHandler, builder.WithPredicates(mhPred)).
 		Complete(r)
+}
+
+func enqueueReqeust(ctx context.Context, obj client.Object) []reconcile.Request {
+	return []reconcile.Request{
+		{
+			NamespacedName: config.GetMGHNamespacedName(),
+		},
+	}
+}
+
+func globalHubControllerCache(cfg *rest.Config) (cache.Cache, error) {
+	operatorLabelSelector := labels.SelectorFromSet(
+		labels.Set{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		},
+	)
+	cacheOptions := cache.Options{}
+	cacheOptions.ByObject = map[client.Object]cache.ByObject{
+		&clusterv1.ManagedCluster{}: {
+			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
+		},
+		&addonv1alpha1.ClusterManagementAddOn{}: {
+			Label: operatorLabelSelector,
+		},
+		&promv1.ServiceMonitor{}: {
+			Label: operatorLabelSelector,
+		},
+	}
+	controllerCache, err := cache.New(cfg, cacheOptions)
+	if err != nil {
+		return nil, err
+	}
+	return controllerCache, err
 }

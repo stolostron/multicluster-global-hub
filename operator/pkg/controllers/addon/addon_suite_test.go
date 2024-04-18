@@ -15,10 +15,8 @@ package addon_test
 
 import (
 	"context"
-	"encoding/base64"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -28,7 +26,6 @@ import (
 	agentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -53,13 +50,9 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
@@ -153,20 +146,14 @@ var _ = BeforeSuite(func() {
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
-	electionConfig, err := getElectionConfig(kubeClient)
+	err = config.LoadControllerConfig(ctx, kubeClient)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	middlewareCfg := &hubofhubscontroller.MiddlewareConfig{
-		TransportConn: &transport.ConnCredential{
-			BootstrapServer: kafka.KafkaBootstrapServer,
-			CACert:          base64.StdEncoding.EncodeToString([]byte(kafka.KafkaCA)),
-			ClientCert:      kafka.KafkaClientCert,
-			ClientKey:       kafka.KafkaClientKey,
-		},
-	}
-	addonController, err := addon.NewAddonController(k8sManager.GetConfig(), k8sClient,
-		electionConfig, true, &corev1.ConfigMap{}, "info")
+	addonController, err := addon.NewAddonController(k8sManager.GetConfig(), k8sClient, &config.OperatorConfig{
+		GlobalResourceEnabled: true,
+		LogLevel:              "info",
+	})
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
@@ -282,41 +269,4 @@ func prepareBeforeTest() {
 		Name:      constants.GHTransportSecretName,
 	}, k8sClient)
 	config.SetTransporter(transporter)
-}
-
-func getElectionConfig(kubeClient *kubernetes.Clientset) (*commonobjects.LeaderElectionConfig, error) {
-	cfg := &commonobjects.LeaderElectionConfig{
-		LeaseDuration: 137,
-		RenewDeadline: 107,
-		RetryPeriod:   26,
-	}
-
-	configMap, err := kubeClient.CoreV1().ConfigMaps(utils.GetDefaultNamespace()).Get(
-		context.TODO(), operatorconstants.ControllerConfig, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		return cfg, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	leaseDurationSec, err := strconv.Atoi(configMap.Data["leaseDuration"])
-	if err != nil {
-		return nil, err
-	}
-
-	renewDeadlineSec, err := strconv.Atoi(configMap.Data["renewDeadline"])
-	if err != nil {
-		return nil, err
-	}
-
-	retryPeriodSec, err := strconv.Atoi(configMap.Data["retryPeriod"])
-	if err != nil {
-		return nil, err
-	}
-
-	cfg.LeaseDuration = leaseDurationSec
-	cfg.RenewDeadline = renewDeadlineSec
-	cfg.RetryPeriod = retryPeriodSec
-	return cfg, nil
 }

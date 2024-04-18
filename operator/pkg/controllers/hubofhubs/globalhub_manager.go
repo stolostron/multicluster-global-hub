@@ -91,7 +91,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	transportTopic := trans.GenerateClusterTopic(transportprotocol.GlobalHubClusterName)
 	transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
 	if err != nil {
-		return fmt.Errorf("failed to get global hub transport connection: %v", err)
+		return fmt.Errorf("failed to get global hub transport connection: %w", err)
 	}
 
 	if r.MiddlewareConfig.StorageConn == nil {
@@ -100,9 +100,14 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if isMiddlewareUpdated(r.MiddlewareConfig) {
 		err = commonutils.RestartPod(ctx, r.KubeClient, commonutils.GetDefaultNamespace(), constants.ManagerDeploymentName)
 		if err != nil {
-			return fmt.Errorf("failed to restart manager pod: %v", err)
+			return fmt.Errorf("failed to restart manager pod: %w", err)
 		}
 	}
+	electionConfig, err := config.GetElectionConfig()
+	if err != nil {
+		return fmt.Errorf("failed to get the electionConfig %w", err)
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
@@ -125,9 +130,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			Namespace:              commonutils.GetDefaultNamespace(),
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
-			LeaseDuration:          strconv.Itoa(r.LeaderElection.LeaseDuration),
-			RenewDeadline:          strconv.Itoa(r.LeaderElection.RenewDeadline),
-			RetryPeriod:            strconv.Itoa(r.LeaderElection.RetryPeriod),
+			LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
+			RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
+			RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
 			SchedulerInterval:      config.GetSchedulerInterval(mgh),
 			SkipAuth:               config.SkipAuth(mgh),
 			LaunchJobNames:         config.GetLaunchJobNames(mgh),
