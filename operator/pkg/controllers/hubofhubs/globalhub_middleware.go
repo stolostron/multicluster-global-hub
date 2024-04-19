@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
@@ -266,7 +265,7 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics
 func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	if mgh.Spec.EnableMetrics {
 		// render the kafka objects
