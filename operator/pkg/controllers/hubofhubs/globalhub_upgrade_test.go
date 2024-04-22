@@ -23,13 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -59,13 +58,24 @@ var _ = Describe("MulticlusterGlobalHub upgrade", Ordered, func() {
 		}
 		Expect(k8sClient.Create(ctx, testMangedCluster)).Should(Succeed())
 
-		By("Create the reconciler")
-		mghReconciler = &hubofhubscontroller.MulticlusterGlobalHubReconciler{
-			Client: k8sClient,
-			Log:    ctrl.Log.WithName("multicluster-global-hub-reconciler"),
-		}
-		err := mghReconciler.Upgrade(ctx)
-		Expect(err).Should(Succeed())
+		// ensure the cluster is created successfully
+		Eventually(func() error {
+			cluster := &clusterv1.ManagedCluster{}
+			if err := k8sClient.Get(ctx, types.NamespacedName{
+				Name: "test-managed-hub",
+			}, cluster, &client.GetOptions{}); err != nil {
+				return err
+			}
+			return nil
+		}, 1*time.Second, 100*time.Millisecond).Should(Succeed())
+
+		Eventually(func() error {
+			err := mghReconciler.Upgrade(ctx)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 1*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("Check the finalizer should be removed from the managed hub cluster")
 		Eventually(func() error {
@@ -80,7 +90,7 @@ var _ = Describe("MulticlusterGlobalHub upgrade", Ordered, func() {
 					continue
 				}
 
-				ok := controllerutil.RemoveFinalizer(managedHub, commonconstants.GlobalHubCleanupFinalizer)
+				ok := controllerutil.ContainsFinalizer(managedHub, commonconstants.GlobalHubCleanupFinalizer)
 				if ok {
 					return fmt.Errorf("the finalizer should be removed from cluster %s", managedHub.GetName())
 				}
