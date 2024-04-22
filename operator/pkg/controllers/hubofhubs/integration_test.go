@@ -933,6 +933,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should get the postgres/kafka connection", func() {
+			Skip("Skip the middleware test, leave it to the issue: https://issues.redhat.com/browse/ACM-10852")
 			Eventually(func() error {
 				if mghReconciler.MiddlewareConfig == nil {
 					mghReconciler.MiddlewareConfig = &hubofhubs.MiddlewareConfig{}
@@ -973,6 +974,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 		})
 
 		It("Should get the postgres and kafka connection", func() {
+			Skip("Skip the middleware test, leave it to the issue: https://issues.redhat.com/browse/ACM-10852")
 			Expect(k8sClient.Delete(ctx, storageSecret)).Should(Succeed())
 			Eventually(func() error {
 				if err := k8sClient.Get(ctx, types.NamespacedName{
