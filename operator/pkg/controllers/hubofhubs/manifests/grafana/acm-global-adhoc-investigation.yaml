@@ -309,7 +309,7 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "yellow",
+                    "color": "orange",
                     "value": null
                   }
                 ]

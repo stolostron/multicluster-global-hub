@@ -70,15 +70,20 @@ data:
                   "options": {
                     "0": {
                       "color": "green",
-                      "index": 2,
+                      "index": 3,
                       "text": "Compliant"
                     },
                     "1": {
                       "color": "yellow",
-                      "index": 1,
+                      "index": 2,
                       "text": "Unknown"
                     },
                     "2": {
+                      "color": "orange",
+                      "index": 1,
+                      "text": "Pending"
+                    },
+                    "3": {
                       "color": "red",
                       "index": 0,
                       "text": "NonCompliant"
@@ -436,6 +441,11 @@ data:
                       "color": "red",
                       "index": 1,
                       "text": "false"
+                    },
+                    "pending": {
+                      "color": "orange",
+                      "index": 2,
+                      "text": "pending"
                     }
                   },
                   "type": "value"
@@ -750,9 +760,10 @@ data:
           },
           {
             "current": {
+              "isNone": true,
               "selected": false,
-              "text": "managed-c1",
-              "value": "managed-c1"
+              "text": "None",
+              "value": ""
             },
             "datasource": {
               "type": "postgres",
@@ -846,8 +857,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "5",
-              "value": "5"
+              "text": "0",
+              "value": "0"
             },
             "datasource": {
               "type": "postgres",
@@ -870,8 +881,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "1",
-              "value": "1"
+              "text": "-4",
+              "value": "-4"
             },
             "datasource": {
               "type": "postgres",
@@ -892,9 +903,10 @@ data:
           },
           {
             "current": {
+              "isNone": true,
               "selected": false,
-              "text": "https://console-openshift-console.apps.obs-hub-of-hubs-aws-414-sno-t55kq.scale.red-chesterfield.com",
-              "value": "https://console-openshift-console.apps.obs-hub-of-hubs-aws-414-sno-t55kq.scale.red-chesterfield.com"
+              "text": "None",
+              "value": ""
             },
             "datasource": {
               "type": "postgres",
@@ -972,8 +984,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " in ('policy-1','te-un1','po-pending','po-pending-1','po-4') ",
-              "value": " in ('policy-1','te-un1','po-pending','po-pending-1','po-4') "
+              "text": " is null ",
+              "value": " is null "
             },
             "datasource": {
               "type": "postgres",
@@ -995,8 +1007,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": " in ('open-cluster-management-global-set') ",
-              "value": " in ('open-cluster-management-global-set') "
+              "text": " is null ",
+              "value": " is null "
             },
             "datasource": {
               "type": "postgres",
