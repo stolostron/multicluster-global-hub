@@ -70,16 +70,21 @@ data:
                   "options": {
                     "0": {
                       "color": "green",
-                      "index": 2,
+                      "index": 3,
                       "text": "Compliant"
                     },
                     "1": {
                       "color": "yellow",
-                      "index": 1,
+                      "index": 2,
                       "text": "Unknown"
                     },
                     "2": {
-                      "color": "semi-dark-red",
+                      "color": "orange",
+                      "index": 1,
+                      "text": "Pending"
+                    },
+                    "3": {
+                      "color": "red",
                       "index": 0,
                       "text": "NonCompliant"
                     }
@@ -434,6 +439,11 @@ data:
                       "color": "red",
                       "index": 1,
                       "text": "false"
+                    },
+                    "pending": {
+                      "color": "orange",
+                      "index": 2,
+                      "text": "pending"
                     }
                   },
                   "type": "value"

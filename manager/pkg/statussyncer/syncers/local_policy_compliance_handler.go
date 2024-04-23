@@ -92,7 +92,7 @@ func handleCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Eve
 
 		// handle pending compliance clusters of the policy
 		pendingCompliances := newLocalCompliances(leafHub, policyID, database.Pending,
-			eventCompliance.PendingComplianceClusters, complianceClustersFromDB.GetClusters(database.Pending))
+			eventCompliance.PendingComplianceClusters, allClustersOnDB)
 
 		batchLocalCompliances := []models.LocalStatusCompliance{}
 		batchLocalCompliances = append(batchLocalCompliances, compliantCompliances...)

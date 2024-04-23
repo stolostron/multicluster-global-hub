@@ -305,7 +305,7 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "yellow",
+                    "color": "orange",
                     "value": null
                   }
                 ]
@@ -789,7 +789,7 @@ data:
           "type": "table"
         },
         {
-          "collapsed": true,
+          "collapsed": false,
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -797,174 +797,173 @@ data:
             "y": 17
           },
           "id": 64,
-          "panels": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "P244538DD76A4C61D"
+          "panels": [],
+          "title": "Cluster Status > Pending",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "List of pending managed clusters by label: $label.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
               },
-              "description": "List of pending managed clusters by label: $label.",
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "thresholds"
-                  },
-                  "custom": {
-                    "align": "auto",
-                    "cellOptions": {
-                      "type": "auto"
-                    },
-                    "filterable": true,
-                    "inspect": false
-                  },
-                  "links": [],
-                  "mappings": [],
-                  "noValue": "No data in response",
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "yellow",
-                        "value": null
-                      }
-                    ]
-                  },
-                  "unit": "percentunit",
-                  "unitScale": true
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
                 },
-                "overrides": [
+                "filterable": true,
+                "inspect": false
+              },
+              "links": [],
+              "mappings": [],
+              "noValue": "No data in response",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
                   {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Cluster"
-                    },
-                    "properties": [
-                      {
-                        "id": "links",
-                        "value": [
-                          {
-                            "targetBlank": true,
-                            "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
-                            "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
-                          }
-                        ]
-                      }
-                    ]
-                  },
+                    "color": "orange",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "percentunit",
+              "unitScale": true
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
                   {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "value"
-                    },
-                    "properties": [
+                    "id": "links",
+                    "value": [
                       {
-                        "id": "custom.cellOptions",
-                        "value": {
-                          "mode": "gradient",
-                          "type": "color-background"
-                        }
+                        "targetBlank": true,
+                        "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
+                        "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
                       }
                     ]
                   }
                 ]
               },
-              "gridPos": {
-                "h": 8,
-                "w": 24,
-                "x": 0,
-                "y": 18
-              },
-              "id": 56,
-              "options": {
-                "cellHeight": "sm",
-                "footer": {
-                  "countRows": false,
-                  "fields": "",
-                  "reducer": [
-                    "sum"
-                  ],
-                  "show": false
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "value"
                 },
-                "showHeader": true,
-                "sortBy": []
-              },
-              "pluginVersion": "10.3.3",
-              "targets": [
-                {
-                  "datasource": {
-                    "type": "postgres",
-                    "uid": "P244538DD76A4C61D"
-                  },
-                  "editorMode": "code",
-                  "format": "table",
-                  "group": [],
-                  "metricColumn": "none",
-                  "rawQuery": true,
-                  "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    pending::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND\n    pending > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
-                  "refId": "A",
-                  "select": [
-                    [
-                      {
-                        "params": [
-                          "value"
-                        ],
-                        "type": "column"
-                      }
-                    ]
-                  ],
-                  "sql": {
-                    "columns": [
-                      {
-                        "parameters": [],
-                        "type": "function"
-                      }
-                    ],
-                    "groupBy": [
-                      {
-                        "property": {
-                          "type": "string"
-                        },
-                        "type": "groupBy"
-                      }
-                    ],
-                    "limit": 50
-                  },
-                  "timeColumn": "time",
-                  "where": [
-                    {
-                      "name": "$__timeFilter",
-                      "params": [],
-                      "type": "macro"
-                    }
-                  ]
-                }
-              ],
-              "title": "Pending Clusters (By $label)",
-              "transformations": [
-                {
-                  "id": "organize",
-                  "options": {
-                    "excludeByName": {},
-                    "indexByName": {},
-                    "renameByName": {
-                      "cluster": "Cluster",
-                      "hub": "Hub",
-                      "name": "Name",
-                      "time": "Time",
-                      "value": "Pending",
-                      "vendor": "Vendor"
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
                     }
                   }
-                }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 18
+          },
+          "id": 56,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
               ],
-              "type": "table"
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    pending::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND\n    pending > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
             }
           ],
-          "title": "Cluster Status > Pending",
-          "type": "row"
+          "title": "Pending Clusters (By $label)",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "cluster": "Cluster",
+                  "hub": "Hub",
+                  "name": "Name",
+                  "time": "Time",
+                  "value": "Pending",
+                  "vendor": "Vendor"
+                }
+              }
+            }
+          ],
+          "type": "table"
         },
         {
-          "collapsed": true,
+          "collapsed": false,
           "datasource": {
             "type": "postgres",
             "uid": "P244538DD76A4C61D"
@@ -973,188 +972,10 @@ data:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 18
+            "y": 26
           },
           "id": 55,
-          "panels": [
-            {
-              "datasource": {
-                "type": "grafana-postgresql-datasource",
-                "uid": "P244538DD76A4C61D"
-              },
-              "description": "List of unknown managed clusters by label: $label.",
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "thresholds"
-                  },
-                  "custom": {
-                    "align": "auto",
-                    "cellOptions": {
-                      "type": "auto"
-                    },
-                    "filterable": true,
-                    "inspect": false
-                  },
-                  "links": [],
-                  "mappings": [],
-                  "noValue": "No data in response",
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "yellow",
-                        "value": null
-                      }
-                    ]
-                  },
-                  "unit": "percentunit",
-                  "unitScale": true
-                },
-                "overrides": [
-                  {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Cluster"
-                    },
-                    "properties": [
-                      {
-                        "id": "links",
-                        "value": [
-                          {
-                            "targetBlank": true,
-                            "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
-                            "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
-                          }
-                        ]
-                      }
-                    ]
-                  },
-                  {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "value"
-                    },
-                    "properties": [
-                      {
-                        "id": "custom.cellOptions",
-                        "value": {
-                          "mode": "gradient",
-                          "type": "color-background"
-                        }
-                      },
-                      {
-                        "id": "mappings",
-                        "value": [
-                          {
-                            "options": {
-                              "match": "null+nan",
-                              "result": {
-                                "color": "yellow",
-                                "index": 0,
-                                "text": "Unknown"
-                              }
-                            },
-                            "type": "special"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              },
-              "gridPos": {
-                "h": 8,
-                "w": 24,
-                "x": 0,
-                "y": 27
-              },
-              "id": 63,
-              "options": {
-                "cellHeight": "sm",
-                "footer": {
-                  "countRows": false,
-                  "fields": "",
-                  "reducer": [
-                    "sum"
-                  ],
-                  "show": false
-                },
-                "showHeader": true,
-                "sortBy": []
-              },
-              "pluginVersion": "10.3.3",
-              "targets": [
-                {
-                  "datasource": {
-                    "type": "postgres",
-                    "uid": "P244538DD76A4C61D"
-                  },
-                  "editorMode": "code",
-                  "format": "table",
-                  "group": [],
-                  "metricColumn": "none",
-                  "rawQuery": true,
-                  "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND \n    pending = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
-                  "refId": "A",
-                  "select": [
-                    [
-                      {
-                        "params": [
-                          "value"
-                        ],
-                        "type": "column"
-                      }
-                    ]
-                  ],
-                  "sql": {
-                    "columns": [
-                      {
-                        "parameters": [],
-                        "type": "function"
-                      }
-                    ],
-                    "groupBy": [
-                      {
-                        "property": {
-                          "type": "string"
-                        },
-                        "type": "groupBy"
-                      }
-                    ],
-                    "limit": 50
-                  },
-                  "timeColumn": "time",
-                  "where": [
-                    {
-                      "name": "$__timeFilter",
-                      "params": [],
-                      "type": "macro"
-                    }
-                  ]
-                }
-              ],
-              "title": "Unknown Clusters (By $label)",
-              "transformations": [
-                {
-                  "id": "organize",
-                  "options": {
-                    "excludeByName": {},
-                    "indexByName": {},
-                    "renameByName": {
-                      "cluster": "Cluster",
-                      "hub": "Hub",
-                      "name": "Name",
-                      "time": "Time",
-                      "value": "Unknown",
-                      "vendor": "Vendor"
-                    }
-                  }
-                }
-              ],
-              "type": "table"
-            }
-          ],
+          "panels": [],
           "targets": [
             {
               "datasource": {
@@ -1166,6 +987,183 @@ data:
           ],
           "title": "Cluster Status > Unknown",
           "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "List of unknown managed clusters by label: $label.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
+              },
+              "links": [],
+              "mappings": [],
+              "noValue": "No data in response",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "yellow",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "percentunit",
+              "unitScale": true
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View What's Changed dashboard for cluster \"${__value.text}\"",
+                        "url": "d/5a3a577af7894943aa6e7ca8408502fb/global-hub-whats-changed-clusters?orgId=1&from=${__value.time}&var-hub=${__data.fields.Hub}&var-cluster=${__value.text}"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "value"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "match": "null+nan",
+                          "result": {
+                            "color": "yellow",
+                            "index": 0,
+                            "text": "Unknown"
+                          }
+                        },
+                        "type": "special"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 27
+          },
+          "id": 63,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "group": [],
+              "metricColumn": "none",
+              "rawQuery": true,
+              "rawSql": "WITH data AS (\n  SELECT\n    $__timeGroupAlias(ch.compliance_date, $__interval),\n    mc.cluster_name as \"cluster\",\n    mc.leaf_hub_name as \"hub\",\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    status.managed_clusters mc\n  JOIN\n    history.local_compliance ch ON mc.cluster_id = ch.cluster_id\n  JOIN\n    local_spec.policies p ON ch.policy_id = p.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw} \n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  GROUP BY (ch.compliance_date, mc.cluster_name, mc.cluster_id, mc.leaf_hub_name, mc.payload)\n  ORDER BY (ch.compliance_date) DESC\n),\nres AS (\n  SELECT\n    time,\n    cluster,\n    hub,\n    label,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\" \n  FROM\n    data\n  WHERE\n    non_compliant = 0\n  AND \n    pending = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (value) DESC",
+              "refId": "A",
+              "select": [
+                [
+                  {
+                    "params": [
+                      "value"
+                    ],
+                    "type": "column"
+                  }
+                ]
+              ],
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              },
+              "timeColumn": "time",
+              "where": [
+                {
+                  "name": "$__timeFilter",
+                  "params": [],
+                  "type": "macro"
+                }
+              ]
+            }
+          ],
+          "title": "Unknown Clusters (By $label)",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "cluster": "Cluster",
+                  "hub": "Hub",
+                  "name": "Name",
+                  "time": "Time",
+                  "value": "Unknown",
+                  "vendor": "Vendor"
+                }
+              }
+            }
+          ],
+          "type": "table"
         }
       ],
       "refresh": "",
