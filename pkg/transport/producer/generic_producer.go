@@ -7,15 +7,16 @@ import (
 	"context"
 	"fmt"
 
+	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 const (
@@ -33,16 +34,24 @@ func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic
 	var sender interface{}
 	var err error
 	messageSize := DefaultMessageKBSize * 1000
+	log := ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType))
 
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
 			messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
 		}
-		sender, err = getConfluentSenderProtocol(transportConfig, defaultTopic)
+		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig, defaultTopic)
 		if err != nil {
 			return nil, err
 		}
+
+		eventChan, err := kafkaProtocol.Events()
+		if err != nil {
+			return nil, err
+		}
+		handleProducerEvents(log, eventChan)
+		sender = kafkaProtocol
 	case string(transport.Chan): // this go chan protocol is only use for test
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -61,7 +70,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic
 	}
 
 	return &GenericProducer{
-		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		log:              log,
 		client:           client,
 		messageSizeLimit: messageSize,
 	}, nil
@@ -134,10 +143,14 @@ func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, default
 
 func getConfluentSenderProtocol(transportConfig *transport.TransportConfig,
 	defaultTopic string,
-) (interface{}, error) {
+) (*kafka_confluent.Protocol, error) {
 	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, true)
 	if err != nil {
 		return nil, err
 	}
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap), kafka_confluent.WithSenderTopic(defaultTopic))
+}
+
+func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
+	// TODO: add filter logic
 }
