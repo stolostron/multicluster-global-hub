@@ -23,7 +23,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-04-03T09:39:54Z"
+    createdAt: "2024-04-23T08:11:09Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -577,6 +577,16 @@ spec:
           - list
           - update
           - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resourceNames:
+          - k8s
+          resources:
+          - prometheuses/api
+          verbs:
+          - create
+          - get
+          - update
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
