@@ -152,33 +152,5 @@ func getConfluentSenderProtocol(transportConfig *transport.TransportConfig,
 }
 
 func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
-	go func() {
-		for e := range eventChan {
-			switch ev := e.(type) {
-			case *kafka.Message:
-				// The message delivery report, indicating success or
-				// permanent failure after retries have been exhausted.
-				// Application level retries won't help since the client
-				// is already configured to do that.
-				m := ev
-				if m.TopicPartition.Error != nil {
-					log.Error(m.TopicPartition.Error, "failed to delivery message")
-				} else {
-					// TODO: add callback for the sending messages
-					// log.Printf("Delivered message %v\n", string(m.Value))
-					// log.Printf("Delivered message to topic %s [%d] at offset %v\n",
-					// 	*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
-				}
-			case kafka.Error:
-				// Generic client instance-level errors, such as
-				// broker connection failures, authentication issues, etc.
-				//
-				// These errors should generally be considered informational
-				// as the underlying client will automatically try to
-				// recover from any errors encountered, the application
-				// does not need to take action on them.
-				log.Error(ev, "producer client failed")
-			}
-		}
-	}()
+	// TODO: add filter logic
 }
