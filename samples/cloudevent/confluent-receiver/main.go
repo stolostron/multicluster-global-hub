@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 
+	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -32,11 +32,14 @@ func main() {
 
 	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configmap),
 		kafka_confluent.WithReceiverTopics([]string{topic}))
+	if err != nil {
+		log.Fatalf("failed to subscribe topic: %v", err)
+	}
 
 	defer receiver.Close(ctx)
 
 	c, err := cloudevents.NewClient(receiver, cloudevents.WithTimeNow(), cloudevents.WithUUIDs(),
-		client.WithPollGoroutines(1))
+		client.WithPollGoroutines(1), client.WithBlockingCallback())
 	if err != nil {
 		log.Fatalf("failed to create client, %v", err)
 	}

@@ -6,7 +6,8 @@ require (
 	github.com/RedHatInsights/strimzi-client-go v0.34.2
 	github.com/Shopify/sarama v1.38.1
 	github.com/cenkalti/backoff/v4 v4.2.1
-	github.com/cloudevents/sdk-go/v2 v2.15.2
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240413090539-7fef29478991
+	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240422145248-9a61fcad9967
 	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0

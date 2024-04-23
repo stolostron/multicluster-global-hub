@@ -16,11 +16,11 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 var transportID string

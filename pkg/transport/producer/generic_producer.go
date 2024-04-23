@@ -10,12 +10,13 @@ import (
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/kafka_confluent"
 )
 
 const (
@@ -33,16 +34,24 @@ func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic
 	var sender interface{}
 	var err error
 	messageSize := DefaultMessageKBSize * 1000
+	log := ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType))
 
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
 			messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
 		}
-		sender, err = getConfluentSenderProtocol(transportConfig, defaultTopic)
+		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig, defaultTopic)
 		if err != nil {
 			return nil, err
 		}
+
+		eventChan, err := kafkaProtocol.Events()
+		if err != nil {
+			return nil, err
+		}
+		handleProducerEvents(log, eventChan)
+		sender = kafkaProtocol
 	case string(transport.Chan): // this go chan protocol is only use for test
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -61,7 +70,7 @@ func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic
 	}
 
 	return &GenericProducer{
-		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		log:              log,
 		client:           client,
 		messageSizeLimit: messageSize,
 	}, nil
@@ -134,10 +143,42 @@ func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, default
 
 func getConfluentSenderProtocol(transportConfig *transport.TransportConfig,
 	defaultTopic string,
-) (interface{}, error) {
+) (*kafka_confluent.Protocol, error) {
 	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, true)
 	if err != nil {
 		return nil, err
 	}
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap), kafka_confluent.WithSenderTopic(defaultTopic))
+}
+
+func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
+	go func() {
+		for e := range eventChan {
+			switch ev := e.(type) {
+			case *kafka.Message:
+				// The message delivery report, indicating success or
+				// permanent failure after retries have been exhausted.
+				// Application level retries won't help since the client
+				// is already configured to do that.
+				m := ev
+				if m.TopicPartition.Error != nil {
+					log.Error(m.TopicPartition.Error, "failed to delivery message")
+				} else {
+					// TODO: add callback for the sending messages
+					// log.Printf("Delivered message %v\n", string(m.Value))
+					// log.Printf("Delivered message to topic %s [%d] at offset %v\n",
+					// 	*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset)
+				}
+			case kafka.Error:
+				// Generic client instance-level errors, such as
+				// broker connection failures, authentication issues, etc.
+				//
+				// These errors should generally be considered informational
+				// as the underlying client will automatically try to
+				// recover from any errors encountered, the application
+				// does not need to take action on them.
+				log.Error(ev, "producer client failed")
+			}
+		}
+	}()
 }
