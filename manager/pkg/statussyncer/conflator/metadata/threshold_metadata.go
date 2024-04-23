@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strconv"
 
+	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )

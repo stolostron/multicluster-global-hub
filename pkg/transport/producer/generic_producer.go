@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
@@ -14,7 +15,6 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
