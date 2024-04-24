@@ -329,6 +329,16 @@ rules:
   - update
   - watch
 - apiGroups:
+  - monitoring.coreos.com
+  resourceNames:
+  - k8s
+  resources:
+  - prometheuses/api
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
   - operator.open-cluster-management.io
   resources:
   - multiclusterglobalhubs
