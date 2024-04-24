@@ -3,10 +3,10 @@ package event
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
-	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -27,27 +28,28 @@ var _ generic.ObjectEmitter = &localRootPolicyEmitter{}
 
 type localRootPolicyEmitter struct {
 	ctx             context.Context
+	name            string
 	log             logr.Logger
 	runtimeClient   client.Client
 	eventType       string
 	topic           string
 	currentVersion  *version.Version
 	lastSentVersion version.Version
-	cache           *lru.Cache
 	payload         event.RootPolicyEventBundle
 }
 
 func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic string) *localRootPolicyEmitter {
-	cache, _ := lru.New(20)
+	name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
+	filter.RegisterTimeFilter(name)
 	return &localRootPolicyEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("policy-event-sycner/local-root-policy"),
+		name:            name,
+		log:             ctrl.Log.WithName(name),
 		eventType:       string(enum.LocalRootPolicyEventType),
 		topic:           transport.GenericEventTopic,
 		runtimeClient:   c,
 		currentVersion:  version.NewVersion(),
 		lastSentVersion: *version.NewVersion(),
-		cache:           cache,
 		payload:         make([]event.RootPolicyEvent, 0),
 	}
 }
@@ -93,9 +95,8 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 	if !ok {
 		return false
 	}
-	// if exist, then return
-	evtKey := getEventKey(evt)
-	if ok = h.cache.Contains(evtKey); ok {
+	// if it's a older event, then return false
+	if !filter.Newer(h.name, evt.LastTimestamp.Time) {
 		return false
 	}
 
@@ -116,14 +117,12 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 			Reason:         evt.Reason,
 			Count:          evt.Count,
 			Source:         evt.Source,
-			CreatedAt:      evt.CreationTimestamp,
+			CreatedAt:      evt.LastTimestamp,
 		},
 		PolicyID:   string(policy.GetUID()),
 		Compliance: policyCompliance(policy, evt),
 	}
-	// cache to events and update version
 	h.payload = append(h.payload, rootPolicyEvent)
-	h.cache.Add(evtKey, nil)
 	return true
 }
 
@@ -154,6 +153,10 @@ func (h *localRootPolicyEmitter) Topic() string {
 }
 
 func (h *localRootPolicyEmitter) PostSend() {
+	// update the time filter: with latest event
+	for _, evt := range h.payload {
+		filter.CacheTime(h.name, evt.CreatedAt.Time)
+	}
 	// update version and clean the cache
 	h.payload = make([]event.RootPolicyEvent, 0)
 	// 1. the version get into the next generation

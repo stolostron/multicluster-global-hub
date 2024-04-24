@@ -3,22 +3,23 @@ package event
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("test the policy emitter", Ordered, func() {
+// go test ./agent/pkg/status/controller/event -v -ginkgo.focus "LocalRootPolicyEventEmitter"
+var _ = Describe("LocalRootPolicyEventEmitter", Ordered, func() {
+	eventTime := time.Now()
 	It("should pass the root policy event", func() {
 		By("Creating a root policy")
 		rootPolicy := &policyv1.Policy{
@@ -52,11 +53,12 @@ var _ = Describe("test the policy emitter", Ordered, func() {
 			Source: corev1.EventSource{
 				Component: "policy-propagator",
 			},
+			LastTimestamp: metav1.Time{Time: eventTime},
 		}
 		Expect(kubeClient.Create(ctx, evt)).NotTo(HaveOccurred())
 
 		receivedEvent := <-consumer.EventChan()
-		fmt.Sprintln(receivedEvent)
+		fmt.Println(">>>>>>>>>>>>>>>>>>> create event1", receivedEvent)
 		Expect(string(enum.LocalRootPolicyEventType)).To(Equal(receivedEvent.Type()))
 
 		rootPolicyEvents := []event.RootPolicyEvent{}
@@ -65,75 +67,58 @@ var _ = Describe("test the policy emitter", Ordered, func() {
 		Expect(rootPolicyEvents[0].EventName).To(Equal(evt.Name))
 	})
 
-	It("should pass the replicated policy event", func() {
-		By("Create namespace and cluster for the replicated policy")
-		err := kubeClient.Create(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cluster1",
-			},
-		}, &client.CreateOptions{})
-		Expect(err).Should(Succeed())
-
-		By("Create the cluster")
-		cluster := &clusterv1.ManagedCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cluster1",
-			},
-		}
-		Expect(kubeClient.Create(ctx, cluster, &client.CreateOptions{})).Should(Succeed())
-		cluster.Status = clusterv1.ManagedClusterStatus{
-			ClusterClaims: []clusterv1.ManagedClusterClaim{
-				{
-					Name:  "id.k8s.io",
-					Value: "3f406177-34b2-4852-88dd-ff2809680336",
-				},
-			},
-		}
-		Expect(kubeClient.Status().Update(ctx, cluster)).Should(Succeed())
-
-		By("Create the replicated policy")
-		replicatedPolicy := &policyv1.Policy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "default.policy1",
-				Namespace: "cluster1",
-				Labels: map[string]string{
-					constants.PolicyEventRootPolicyNameLabelKey: fmt.Sprintf("%s.%s", "default", "policy1"),
-					constants.PolicyEventClusterNameLabelKey:    "cluster1",
-				},
-			},
-			Spec: policyv1.PolicySpec{
-				Disabled:        false,
-				PolicyTemplates: []*policyv1.PolicyTemplate{},
-			},
-		}
-		Expect(kubeClient.Create(ctx, replicatedPolicy)).ToNot(HaveOccurred())
-
-		By("Create the replicated policy event")
+	It("should skip the older root policy event", func() {
+		By("Create a expired event")
+		expiredEventName := "policy1.expired.123r543243333"
 		evt := &corev1.Event{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "default.policy1.17af98f19c06811e",
-				Namespace: "cluster1",
+				Name:      expiredEventName,
+				Namespace: "default",
 			},
 			InvolvedObject: v1.ObjectReference{
 				Kind:      string(policyv1.Kind),
-				Namespace: "cluster1",
-				Name:      "default.policy1",
+				Namespace: "default",
+				Name:      "policy1",
 			},
-			Reason:  "PolicyStatusSync",
-			Message: "Policy default.policy1 status was updated in cluster",
+			Reason:  "PolicyPropagation",
+			Message: "Policy default/policy1 was propagated to cluster2",
 			Source: corev1.EventSource{
-				Component: "policy-status-sync",
+				Component: "policy-propagator",
 			},
+			LastTimestamp: metav1.Time{Time: eventTime.Add(-5 * time.Second)},
+		}
+		Expect(kubeClient.Create(ctx, evt)).NotTo(HaveOccurred())
+
+		By("Create a new event")
+		newerEventName := "policy1.newer.123r543245555"
+		evt = &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      newerEventName,
+				Namespace: "default",
+			},
+			InvolvedObject: v1.ObjectReference{
+				Kind:      string(policyv1.Kind),
+				Namespace: "default",
+				Name:      "policy1",
+			},
+			Reason:  "PolicyPropagation",
+			Message: "Policy default/policy1 was propagated to cluster3",
+			Source: corev1.EventSource{
+				Component: "policy-propagator",
+			},
+			LastTimestamp: metav1.Time{Time: eventTime.Add(10 * time.Second)},
 		}
 		Expect(kubeClient.Create(ctx, evt)).NotTo(HaveOccurred())
 
 		receivedEvent := <-consumer.EventChan()
-		fmt.Sprintln(receivedEvent)
-		Expect(string(enum.LocalReplicatedPolicyEventType)).To(Equal(receivedEvent.Type()))
+		fmt.Println(">>>>>>>>>>>>>>>>>>> create event2", receivedEvent)
+		Expect(string(enum.LocalRootPolicyEventType)).To(Equal(receivedEvent.Type()))
 
-		replicatedPolicyEvents := []event.ReplicatedPolicyEvent{}
-		err = json.Unmarshal(receivedEvent.Data(), &replicatedPolicyEvents)
+		rootPolicyEvents := []event.RootPolicyEvent{}
+		err := json.Unmarshal(receivedEvent.Data(), &rootPolicyEvents)
 		Expect(err).Should(Succeed())
-		Expect(replicatedPolicyEvents[0].EventName).To(Equal(evt.Name))
+		Expect(len(rootPolicyEvents)).To(Equal(1))
+		Expect(rootPolicyEvents[0].EventName).NotTo(Equal(expiredEventName))
+		Expect(rootPolicyEvents[0].EventName).To(Equal(newerEventName))
 	})
 })
