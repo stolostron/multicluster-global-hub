@@ -19,6 +19,24 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
+  name: entity-operator-metrics
+  namespace: {{.Namespace}}
+  labels:
+    app: strimzi
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: entity-operator
+  namespaceSelector:
+    matchNames:
+      - {{.Namespace}}
+  podMetricsEndpoints:
+  - path: /metrics
+    port: healthcheck
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
   name: kafka-resources-metrics
   namespace: {{.Namespace}}
   labels:
