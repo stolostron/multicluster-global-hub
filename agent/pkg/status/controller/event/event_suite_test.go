@@ -3,7 +3,6 @@ package event
 import (
 	"context"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -41,7 +40,6 @@ var (
 	consumer    transport.Consumer
 	producer    transport.Producer
 	kubeClient  client.Client
-	lock        sync.Mutex
 )
 
 func TestControllers(t *testing.T) {

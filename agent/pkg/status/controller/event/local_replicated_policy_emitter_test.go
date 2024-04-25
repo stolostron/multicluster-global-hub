@@ -19,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("Replicated Policy event emitter", Ordered, func() {
+func localReplicatedPolicyEventTestSpecs() {
 	It("should pass the replicated policy event", func() {
 		By("Create namespace and cluster for the replicated policy")
 		err := kubeClient.Create(ctx, &corev1.Namespace{
@@ -92,4 +92,4 @@ var _ = Describe("Replicated Policy event emitter", Ordered, func() {
 		Expect(err).Should(Succeed())
 		Expect(replicatedPolicyEvents[0].EventName).To(Equal(evt.Name))
 	})
-})
+}

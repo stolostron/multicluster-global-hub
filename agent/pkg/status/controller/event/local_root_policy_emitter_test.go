@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("Policy event emitters", Ordered, func() {
+func localRootPolicyEventTestSpecs() {
 	eventTime := time.Now()
 	It("should pass the root policy event", func() {
 		By("Creating a root policy")
@@ -120,4 +120,4 @@ var _ = Describe("Policy event emitters", Ordered, func() {
 		Expect(rootPolicyEvents[0].EventName).NotTo(Equal(expiredEventName))
 		Expect(rootPolicyEvents[0].EventName).To(Equal(newerEventName))
 	})
-})
+}
