@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -62,11 +61,6 @@ func NewBackupReconciler(mgr manager.Manager, log logr.Logger) *BackupReconciler
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	backupCache, err := config.BackupCache(mgr)
-	if err != nil {
-		return err
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).Named("backupController").
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(mghPred)).
@@ -79,7 +73,7 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.PersistentVolumeClaim{},
 			objEventHandler,
 			builder.WithPredicates(pvcPred)).
-		WatchesRawSource(source.Kind(backupCache, &mchv1.MultiClusterHub{}),
+		Watches(&mchv1.MultiClusterHub{},
 			mchEventHandler,
 			builder.WithPredicates(mchPred)).
 		Complete(r)

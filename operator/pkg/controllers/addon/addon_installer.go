@@ -21,7 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -36,6 +35,7 @@ type AddonInstaller struct {
 }
 
 func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>> reconciling addon installer................")
 	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -94,6 +94,7 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>> reconciling managed cluster addon", "clusterName", cluster.Name)
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
@@ -169,6 +170,7 @@ func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *c
 		return err
 	}
 
+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>. creating managed cluster addon", "clusterName", cluster.Name)
 	if err := r.Create(ctx, expectedAddon); err != nil {
 		return fmt.Errorf("failed to create the managedclusteraddon: %v", err)
 	}
@@ -246,11 +248,14 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	fmt.Println(">>>>>>>>>>>>>>>>> add addon installer")
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>>> creating cluster", !filterManagedCluster(e.Object))
 			return !filterManagedCluster(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>>> updating cluster")
 			if filterManagedCluster(e.ObjectNew) {
 				return false
 			}
@@ -321,18 +326,20 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		},
 	}
 
-	acmCache, err := config.ACMCache(mgr)
-	if err != nil {
-		return err
-	}
+	// TODO: investgate why the dynamic cache cannot work
+	// acmCache, err := config.ACMCache(mgr)
+	// if err != nil {
+	// 	return err
+	// }
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("addonInstaller").
 		// primary watch for managedcluster
-		WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
+		Watches(&clusterv1.ManagedCluster{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
+		// WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
+		// 	&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
-		WatchesRawSource(source.Kind(acmCache, &v1alpha1.ManagedClusterAddOn{}),
+		Watches(&v1alpha1.ManagedClusterAddOn{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// only trigger the addon reconcile when addon is updated/deleted
@@ -340,10 +347,9 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 						Name: obj.GetNamespace(),
 					}},
 				}
-			}),
-			builder.WithPredicates(addonPred)).
+			}), builder.WithPredicates(addonPred)).
 		// secondary watch for managedclusteraddon
-		WatchesRawSource(source.Kind(acmCache, &v1alpha1.ClusterManagementAddOn{}),
+		Watches(&v1alpha1.ClusterManagementAddOn{},
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
 		// secondary watch for transport credentials or image pull secret
