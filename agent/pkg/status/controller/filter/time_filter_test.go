@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +17,8 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
