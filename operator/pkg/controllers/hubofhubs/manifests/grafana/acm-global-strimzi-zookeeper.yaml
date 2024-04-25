@@ -92,7 +92,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -117,9 +118,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -172,7 +175,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -197,9 +201,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -223,6 +229,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Number of queued requests in the server. This goes up when the server receives more requests than it can process",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -250,7 +262,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -310,6 +322,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Amount of time (in ms) it takes for the server to respond to a client request",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -337,7 +355,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -425,7 +443,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -450,9 +469,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -505,7 +526,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -530,9 +552,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -556,6 +580,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "ZooKeeper pods memory usage",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -583,7 +613,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -642,6 +672,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Aggregated ZooKeeper pods CPU usage",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -669,7 +705,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -728,6 +764,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Kafka broker pods disk usage",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -755,7 +797,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -814,6 +856,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Open File Descriptors",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -842,7 +890,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -901,6 +949,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -928,7 +982,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -986,6 +1040,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1013,7 +1073,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1071,6 +1131,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1098,7 +1164,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1157,6 +1223,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "JVM thread count",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1185,7 +1257,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1237,8 +1309,7 @@ data:
         }
       ],
       "refresh": "30s",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [
         "Strimzi",
         "Kafka",
@@ -1250,9 +1321,9 @@ data:
             "current": {
               "selected": false,
               "text": "Prometheus",
-              "value": "Prometheus"
+              "value": "PBFA97CFB590B2093"
             },
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "label": "datasource",
             "multi": false,
@@ -1266,16 +1337,15 @@ data:
           },
           {
             "current": {
-              "isNone": true,
               "selected": false,
-              "text": "None",
-              "value": ""
+              "text": "multicluster-global-hub",
+              "value": "multicluster-global-hub"
             },
             "datasource": {
               "uid": "${DS_PROMETHEUS}"
             },
             "definition": "",
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "label": "Namespace",
             "multi": false,
@@ -1293,16 +1363,15 @@ data:
           },
           {
             "current": {
-              "isNone": true,
               "selected": false,
-              "text": "None",
-              "value": ""
+              "text": "kafka",
+              "value": "kafka"
             },
             "datasource": {
               "uid": "${DS_PROMETHEUS}"
             },
             "definition": "",
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "label": "Cluster Name",
             "multi": false,
@@ -1321,7 +1390,7 @@ data:
           {
             "allValue": ".*",
             "current": {
-              "selected": false,
+              "selected": true,
               "text": "All",
               "value": "$__all"
             },
