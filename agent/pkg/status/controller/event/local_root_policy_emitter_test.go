@@ -17,8 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-// go test ./agent/pkg/status/controller/event -v -ginkgo.focus "LocalRootPolicyEventEmitter"
-var _ = Describe("LocalRootPolicyEventEmitter", Ordered, func() {
+var _ = Describe("Policy event emitters", Ordered, func() {
 	eventTime := time.Now()
 	It("should pass the root policy event", func() {
 		By("Creating a root policy")

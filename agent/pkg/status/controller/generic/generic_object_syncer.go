@@ -124,6 +124,7 @@ func (c *genericObjectSyncer) deleteObject(object client.Object) {
 func (c *genericObjectSyncer) periodicSync() {
 	currentSyncInterval := c.syncIntervalFunc()
 	ticker := time.NewTicker(currentSyncInterval)
+	defer ticker.Stop()
 
 	for {
 		<-ticker.C // wait for next time interval

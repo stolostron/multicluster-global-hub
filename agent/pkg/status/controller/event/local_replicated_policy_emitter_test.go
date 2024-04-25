@@ -3,6 +3,7 @@ package event
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -18,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-var _ = Describe("test the replicated policy emitter", Ordered, func() {
+var _ = Describe("Replicated Policy event emitter", Ordered, func() {
 	It("should pass the replicated policy event", func() {
 		By("Create namespace and cluster for the replicated policy")
 		err := kubeClient.Create(ctx, &corev1.Namespace{
@@ -78,11 +79,12 @@ var _ = Describe("test the replicated policy emitter", Ordered, func() {
 			Source: corev1.EventSource{
 				Component: "policy-status-sync",
 			},
+			LastTimestamp: metav1.Time{Time: time.Now()},
 		}
 		Expect(kubeClient.Create(ctx, evt)).NotTo(HaveOccurred())
 
 		receivedEvent := <-consumer.EventChan()
-		fmt.Sprintln(receivedEvent)
+		fmt.Println(">>>>>>>>>>>>>>>>>>> replicated policy event", receivedEvent)
 		Expect(string(enum.LocalReplicatedPolicyEventType)).To(Equal(receivedEvent.Type()))
 
 		replicatedPolicyEvents := []event.ReplicatedPolicyEvent{}

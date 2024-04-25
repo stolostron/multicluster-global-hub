@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/apps"
 	agentstatusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/event"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/hubcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
@@ -76,6 +77,11 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	// app
 	if err := apps.LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, producer); err != nil {
 		return fmt.Errorf("failed to launch subscription report syncer: %w", err)
+	}
+
+	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
+	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNameSpace); err != nil {
+		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
 	return nil
 }

@@ -64,6 +64,7 @@ func (s *genericEventSyncer) periodicSync() {
 	currentSyncInterval := s.syncIntervalFunc()
 	s.log.Info(fmt.Sprintf("sync interval has been reset to %s", currentSyncInterval.String()))
 	ticker := time.NewTicker(currentSyncInterval)
+	defer ticker.Stop()
 
 	for {
 		<-ticker.C // wait for next time interval

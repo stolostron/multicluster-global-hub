@@ -13,19 +13,15 @@ import (
 )
 
 const (
-	CacheConfigMapName = "multicluster-global-hub-agent-sync-state"
-	CacheInterval      = 5 * time.Second
-	CacheTimeFormat    = "2006-01-02 15:04:05.000"
+	CACHE_CONFIG_NAME = "multicluster-global-hub-agent-sync-state"
+	CACHE_TIME_FORMAT = "2006-01-02 15:04:05.000000 -0700 MST m=+0.000000000"
 )
 
 var (
-	eventTimeCache     = make(map[string]time.Time)
-	lastEventTimeCache = make(map[string]time.Time)
+	eventTimeCache         = make(map[string]time.Time)
+	lastEventTimeCache     = make(map[string]time.Time)
+	eventTimeCacheInterval = 5 * time.Second
 )
-
-type timeFilter struct {
-	lastSentTime map[string]time.Time
-}
 
 // CacheTime cache the latest time
 func CacheTime(key string, new time.Time) {
@@ -49,7 +45,7 @@ func Newer(key string, val time.Time) bool {
 func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) error {
 	agentStateConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CacheConfigMapName,
+			Name:      CACHE_CONFIG_NAME,
 			Namespace: namespace,
 		},
 	}
@@ -69,8 +65,61 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) er
 		}
 	}
 
-	// TODO: start a goroutine to sync the event sync state periodically, update the lastEventTimeCache
+	go func() {
+		ticker := time.NewTicker(eventTimeCacheInterval)
+		defer ticker.Stop()
 
+		for {
+			select {
+			case <-ctx.Done():
+				klog.Info("cancel context")
+				return
+			case <-ticker.C:
+				err := periodicSync(ctx, c, namespace)
+				if err != nil {
+					klog.Errorf("failed to sync the configmap %v", err)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+func periodicSync(ctx context.Context, c client.Client, namespace string) error {
+	// update the lastSentCache
+	update := false
+	for key, currentTime := range eventTimeCache {
+		lastTime, found := lastEventTimeCache[key]
+		if !found {
+			update = true
+			lastEventTimeCache[key] = currentTime
+		}
+
+		if lastTime.Before(currentTime) {
+			update = true
+			lastEventTimeCache[key] = currentTime
+		}
+	}
+
+	// sync the lastSentCache to ConfigMap
+	if update {
+		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: CACHE_CONFIG_NAME, Namespace: namespace}}
+		err := c.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+		if err != nil {
+			return err
+		}
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
+		for key, val := range lastEventTimeCache {
+			cm.Data[key] = val.Format(CACHE_TIME_FORMAT)
+		}
+		err = c.Update(ctx, cm, &client.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -87,7 +136,7 @@ func loadTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
 		return nil
 	}
 
-	timeVal, err := time.Parse(CacheTimeFormat, val)
+	timeVal, err := time.Parse(CACHE_TIME_FORMAT, val)
 	if err != nil {
 		return err
 	}
