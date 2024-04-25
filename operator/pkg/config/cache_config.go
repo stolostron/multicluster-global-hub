@@ -1,22 +1,13 @@
 package config
 
 import (
-	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -126,50 +117,4 @@ func InitCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		// &mchv1.MultiClusterHub{}: {},
 	}
 	return cache.New(config, cacheOpts)
-}
-
-func ACMCache(mgr ctrl.Manager) (cache.Cache, error) {
-	cacheOptions := cache.Options{
-		Scheme: mgr.GetScheme(),
-		Mapper: mgr.GetRESTMapper(),
-	}
-	cacheOptions.ByObject = map[client.Object]cache.ByObject{
-		// addon installer, global hub controller
-		&clusterv1.ManagedCluster{}: {
-			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-		},
-		// addon installer, global hub controller
-		&addonv1alpha1.ClusterManagementAddOn{}: {
-			Label: labelSelector,
-		},
-		// addon installer
-		&addonv1alpha1.ManagedClusterAddOn{}: {
-			Label: labelSelector,
-		},
-		// global hub controller
-		&promv1.ServiceMonitor{}: {
-			Label: labelSelector,
-		},
-		// global hub controller
-		&subv1alpha1.Subscription{}: {},
-	}
-	extendCache, err := cache.New(mgr.GetConfig(), cacheOptions)
-	if err != nil {
-		return nil, err
-	}
-	return extendCache, err
-}
-
-func BackupCache(mgr ctrl.Manager) (cache.Cache, error) {
-	cacheOptions := cache.Options{
-		Scheme: mgr.GetScheme(),
-	}
-	cacheOptions.ByObject = map[client.Object]cache.ByObject{
-		&mchv1.MultiClusterHub{}: {},
-	}
-	extendCache, err := cache.New(mgr.GetConfig(), cacheOptions)
-	if err != nil {
-		return nil, err
-	}
-	return extendCache, err
 }
