@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -320,12 +321,18 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 		},
 	}
 
+	acmCache, err := config.ACMCache(mgr)
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("addonInstaller").
 		// primary watch for managedcluster
-		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
+		WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&v1alpha1.ManagedClusterAddOn{},
+		WatchesRawSource(source.Kind(acmCache, &v1alpha1.ManagedClusterAddOn{}),
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// only trigger the addon reconcile when addon is updated/deleted
@@ -333,9 +340,10 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 						Name: obj.GetNamespace(),
 					}},
 				}
-			}), builder.WithPredicates(addonPred)).
+			}),
+			builder.WithPredicates(addonPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&v1alpha1.ClusterManagementAddOn{},
+		WatchesRawSource(source.Kind(acmCache, &v1alpha1.ClusterManagementAddOn{}),
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
 		// secondary watch for transport credentials or image pull secret

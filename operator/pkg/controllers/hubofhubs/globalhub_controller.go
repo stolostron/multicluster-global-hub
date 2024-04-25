@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -487,6 +488,10 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	acmCache, err := config.ACMCache(mgr)
+	if err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
@@ -515,16 +520,17 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		Watches(&corev1.Secret{},
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
 		// secondary watch for clustermanagementaddon
-		Watches(&v1alpha1.ClusterManagementAddOn{},
+		WatchesRawSource(source.Kind(acmCache, &v1alpha1.ClusterManagementAddOn{}),
 			globalHubEventHandler,
 			builder.WithPredicates(resPred)).
-		Watches(&clusterv1.ManagedCluster{},
+		WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
 			globalHubEventHandler,
 			builder.WithPredicates(mhPred)).
-		Watches(&promv1.ServiceMonitor{},
+		WatchesRawSource(source.Kind(acmCache, &promv1.ServiceMonitor{}),
 			globalHubEventHandler,
 			builder.WithPredicates(resPred)).
-		Watches(&subv1alpha1.Subscription{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		WatchesRawSource(source.Kind(acmCache, &subv1alpha1.Subscription{}),
+			globalHubEventHandler,
+			builder.WithPredicates(deletePred)).
 		Complete(r)
 }

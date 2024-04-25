@@ -35,12 +35,7 @@ import (
 	agentv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -59,8 +54,6 @@ import (
 	appsubV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -68,19 +61,12 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-
-	labelSelector = labels.SelectorFromSet(
-		labels.Set{
-			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-		},
-	)
 )
 
 func init() {
@@ -212,106 +198,8 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
-		NewCache:                initCache,
+		NewCache:                config.InitCache,
 	})
 
 	return mgr, err
-}
-
-func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
-	cacheOpts.ByObject = map[client.Object]cache.ByObject{
-		// addon installer: transport credentials and image pull secret
-		// global hub controller
-		&corev1.Secret{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {},
-			},
-		},
-		// global hub condition controller(status changed)
-		// global hub controller(spec changed)
-		&appsv1.Deployment{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		// global hub controller - postgres
-		&appsv1.StatefulSet{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		// global hub controller
-		&corev1.Service{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		// global hub controller
-		&corev1.ServiceAccount{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		// global hub controller: postgresCA and custom alert
-		&corev1.ConfigMap{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {},
-			},
-		},
-		// global hub controller
-		&rbacv1.Role{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		&rbacv1.RoleBinding{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		&rbacv1.ClusterRole{}: {
-			Label: labelSelector,
-		},
-		&rbacv1.ClusterRoleBinding{}: {
-			Label: labelSelector,
-		},
-		&corev1.Namespace{}: {
-			Field: fields.SelectorFromSet(
-				fields.Set{
-					"metadata.name": utils.GetDefaultNamespace(),
-				},
-			),
-		},
-		&corev1.PersistentVolumeClaim{}: {
-			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
-			},
-		},
-		&admissionregistrationv1.MutatingWebhookConfiguration{}: {
-			Label: labelSelector,
-		},
-		&globalhubv1alpha4.MulticlusterGlobalHub{}: {},
-
-		// addon installer, global hub controller
-		&clusterv1.ManagedCluster{}: {
-			Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-		},
-		// addon installer, global hub controller
-		&addonv1alpha1.ClusterManagementAddOn{}: {
-			Label: labelSelector,
-		},
-		// addon installer
-		&addonv1alpha1.ManagedClusterAddOn{}: {
-			Label: labelSelector,
-		},
-		// global hub controller
-		&promv1.ServiceMonitor{}: {
-			Label: labelSelector,
-		},
-		// global hub controller
-		&subv1alpha1.Subscription{}: {},
-		// backup controller
-		&mchv1.MultiClusterHub{}: {},
-	}
-	return cache.New(config, cacheOpts)
 }
