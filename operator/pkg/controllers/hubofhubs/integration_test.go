@@ -940,6 +940,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				mghReconciler.KafkaInit = false
 				mghReconciler.MiddlewareConfig.StorageConn = nil
 				mghReconciler.MiddlewareConfig.TransportConn = nil
+				config.SetKafkaResourceReady(true)
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 
 				err := kafka.UpdateKafkaClusterReady(k8sClient, mcgh.Namespace)
@@ -989,7 +990,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				mghReconciler.MiddlewareConfig.StorageConn = nil
 				mghReconciler.MiddlewareConfig.TransportConn = nil
-
+				config.SetKafkaResourceReady(true)
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 				if mghReconciler.MiddlewareConfig.StorageConn == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.PgConnection should be nil")
@@ -1084,6 +1085,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 	Context("Test the middlewareController", Ordered, func() {
 		It("Should start the middlewareController", func() {
 			// create kafkacluster
+			config.SetKafkaResourceReady(true)
 			Expect(kafka.UpdateKafkaClusterReady(k8sClient, commonutils.GetDefaultNamespace())).ToNot(HaveOccurred())
 
 			mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{

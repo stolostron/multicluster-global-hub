@@ -35,7 +35,6 @@ type AddonInstaller struct {
 }
 
 func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>> reconciling addon installer................")
 	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -94,7 +93,6 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>> reconciling managed cluster addon", "clusterName", cluster.Name)
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
@@ -170,7 +168,6 @@ func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *c
 		return err
 	}
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>. creating managed cluster addon", "clusterName", cluster.Name)
 	if err := r.Create(ctx, expectedAddon); err != nil {
 		return fmt.Errorf("failed to create the managedclusteraddon: %v", err)
 	}
@@ -248,14 +245,11 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	fmt.Println(">>>>>>>>>>>>>>>>> add addon installer")
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			fmt.Println(">>>>>>>>>>>>>>>>>>>>>> creating cluster", !filterManagedCluster(e.Object))
 			return !filterManagedCluster(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			fmt.Println(">>>>>>>>>>>>>>>>>>>>>> updating cluster")
 			if filterManagedCluster(e.ObjectNew) {
 				return false
 			}

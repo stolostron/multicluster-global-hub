@@ -51,6 +51,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
@@ -92,6 +93,7 @@ var _ = BeforeSuite(func() {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
+	config.SetKafkaResourceReady(true)
 	testEnv.ControlPlane.GetAPIServer().Configure().Set("disable-admission-plugins",
 		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
 
