@@ -22,6 +22,8 @@ import (
 
 var errOptimisticConcurrencyUpdateFailed = errors.New("zero rows were affected by an optimistic concurrency update")
 
+const failedQueryMsg = "failed to query table spec.%s - %w"
+
 // PostgreSQL abstracts PostgreSQL client.
 type PostgreSQL struct {
 	conn *pgxpool.Pool
@@ -130,7 +132,7 @@ func (p *PostgreSQL) GetObjectsBundle(ctx context.Context, tableName string, cre
 		payload->'metadata'->'labels'->'global-hub.open-cluster-management.io/global-resource' IS NOT NULL`,
 		tableName))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table spec.%s - %w", tableName, err)
+		return nil, fmt.Errorf(failedQueryMsg, tableName, err)
 	}
 
 	defer rows.Close()
@@ -168,7 +170,7 @@ func (p *PostgreSQL) GetUpdatedManagedClusterLabelsBundles(ctx context.Context, 
 		from spec.%[1]s WHERE updated_at::timestamp > timestamp '%[2]s') AND leaf_hub_name <> ''`, tableName,
 		timestamp.Format(time.RFC3339Nano)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table spec.%s - %w", tableName, err)
+		return nil, fmt.Errorf(failedQueryMsg, tableName, err)
 	}
 
 	defer rows.Close()
@@ -215,7 +217,7 @@ func (p *PostgreSQL) GetEntriesWithDeletedLabels(ctx context.Context,
 	rows, err := p.conn.Query(ctx, fmt.Sprintf(`SELECT leaf_hub_name,managed_cluster_name,deleted_label_keys,version 
 		FROM spec.%s WHERE deleted_label_keys != '[]' AND leaf_hub_name <> ''`, tableName))
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table spec.%s - %w", tableName, err)
+		return nil, fmt.Errorf(failedQueryMsg, tableName, err)
 	}
 
 	defer rows.Close()

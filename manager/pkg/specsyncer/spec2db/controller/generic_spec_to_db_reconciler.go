@@ -52,8 +52,9 @@ const (
 func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	instanceUID, instance, err := r.processCR(ctx, request, reqLogger)
+	const failedMsg = "Reconciliation failed"
 	if err != nil {
-		reqLogger.Error(err, "Reconciliation failed")
+		reqLogger.Error(err, failedMsg)
 		return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
 	}
 
@@ -63,7 +64,7 @@ func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.
 
 	instanceInTheDatabase, err := r.processInstanceInTheDatabase(ctx, instance, instanceUID, reqLogger)
 	if err != nil {
-		reqLogger.Error(err, "Reconciliation failed")
+		reqLogger.Error(err, failedMsg)
 		return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
 	}
 
@@ -71,8 +72,7 @@ func (r *genericSpecToDBReconciler) Reconcile(ctx context.Context, request ctrl.
 		reqLogger.Info("Mismatch between hub and the database, updating the database")
 
 		if err := r.specDB.UpdateSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {
-			reqLogger.Error(err, "Reconciliation failed")
-
+			reqLogger.Error(err, failedMsg)
 			return ctrl.Result{}, err
 		}
 	}

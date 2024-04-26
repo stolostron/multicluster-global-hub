@@ -39,7 +39,7 @@ func GetPostgresConfig(URI string, cert []byte) (*pgx.ConnConfig, error) {
 		config.TLSConfig = &tls.Config{
 			RootCAs: caCertPool,
 			//nolint:gosec
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: true, // #nosec G402
 		}
 	}
 	return config, nil
