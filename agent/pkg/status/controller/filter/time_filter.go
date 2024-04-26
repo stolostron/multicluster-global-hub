@@ -58,7 +58,7 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) er
 	}
 
 	for key := range lastEventTimeCache {
-		err = loadTimeCacheFromConfigMap(agentStateConfigMap, key)
+		err = loadEventTimeCacheFromConfigMap(agentStateConfigMap, key)
 		if err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func RegisterTimeFilter(key string) {
 	lastEventTimeCache[key] = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func loadTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
+func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
 	val, found := cm.Data[key]
 	if !found {
 		klog.Info("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
