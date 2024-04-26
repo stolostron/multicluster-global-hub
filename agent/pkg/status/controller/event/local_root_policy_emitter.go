@@ -63,17 +63,22 @@ func (h *localRootPolicyEmitter) ShouldUpdate(obj client.Object) bool {
 		return false
 	}
 
-	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
+	policy, ok := policyEventPredicate(h.ctx, h.name, obj, h.runtimeClient, h.log)
 
 	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
 		!utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
 }
 
-func policyEventPredicate(ctx context.Context, obj client.Object, c client.Client, log logr.Logger) (
+func policyEventPredicate(ctx context.Context, name string, obj client.Object, c client.Client, log logr.Logger) (
 	*policiesv1.Policy, bool,
 ) {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
+		return nil, false
+	}
+
+	// if it's a older event, then return false
+	if !filter.Newer(name, evt.LastTimestamp.Time) {
 		return nil, false
 	}
 
@@ -93,10 +98,6 @@ func policyEventPredicate(ctx context.Context, obj client.Object, c client.Clien
 func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return false
-	}
-	// if it's a older event, then return false
-	if !filter.Newer(h.name, evt.LastTimestamp.Time) {
 		return false
 	}
 

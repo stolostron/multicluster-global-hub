@@ -98,7 +98,7 @@ func (h *localReplicatedPolicyEmitter) ShouldUpdate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
-	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
+	policy, ok := policyEventPredicate(h.ctx, h.name, obj, h.runtimeClient, h.log)
 
 	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
 		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
@@ -115,10 +115,6 @@ func (h *localReplicatedPolicyEmitter) Topic() string {
 func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return false
-	}
-	// if it's a older event, then return false
-	if !filter.Newer(h.name, evt.LastTimestamp.Time) {
 		return false
 	}
 
