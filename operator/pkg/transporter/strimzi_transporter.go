@@ -273,24 +273,23 @@ func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 }
 
 func (k *strimziTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
-	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
-		kafkaTopic := &kafkav1beta2.KafkaTopic{}
-		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
-			Name:      topicName,
-			Namespace: k.namespace,
-		}, kafkaTopic)
-		if errors.IsNotFound(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		err = k.runtimeClient.Delete(k.ctx, kafkaTopic)
-		if err != nil {
-			return err
-		}
+	// This topic is shared between different managed hub clusters
+	if StatusTopicPrefix == topic.StatusTopic {
+		return nil
 	}
-	return nil
+
+	// Only delete the specific cluster topic
+	kafkaTopic := &kafkav1beta2.KafkaTopic{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      topic.StatusTopic,
+		Namespace: k.namespace,
+	}, kafkaTopic)
+	if err != nil && errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return k.runtimeClient.Delete(k.ctx, kafkaTopic)
 }
 
 // authorize
