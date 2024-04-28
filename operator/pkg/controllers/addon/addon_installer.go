@@ -29,12 +29,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-type HoHAddonInstaller struct {
+type AddonInstaller struct {
 	client.Client
 	Log logr.Logger
 }
 
-func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -86,14 +86,13 @@ func (r *HoHAddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
 		}
-		config.DeleteManagedCluster(cluster.Name)
 		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, r.reconclieAddonAndResources(ctx, cluster)
 }
 
-func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
@@ -110,7 +109,6 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-			config.AppendManagedCluster(cluster.Name)
 			return r.createResourcesAndAddon(ctx, cluster)
 		} else {
 			return fmt.Errorf("failed to get the addon: %v", err)
@@ -120,7 +118,6 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 	// delete
 	if !existingAddon.DeletionTimestamp.IsZero() {
 		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-		config.DeleteManagedCluster(cluster.Name)
 		return r.removeResourcesAndAddon(ctx, cluster)
 	}
 
@@ -140,7 +137,7 @@ func (r *HoHAddonInstaller) reconclieAddonAndResources(ctx context.Context, clus
 	return nil
 }
 
-func (r *HoHAddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) error {
 	transporter := config.GetTransporter()
 	clusterUser := transporter.GenerateUserName(cluster.Name)
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
@@ -165,7 +162,7 @@ func (r *HoHAddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluste
 	return nil
 }
 
-func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster)
 	if err != nil {
 		return err
@@ -177,7 +174,7 @@ func (r *HoHAddonInstaller) createResourcesAndAddon(ctx context.Context, cluster
 	return nil
 }
 
-func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -197,7 +194,7 @@ func (r *HoHAddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster
 	return nil
 }
 
-func (r *HoHAddonInstaller) removeResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) removeResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	transporter := config.GetTransporter()
 	clusterUser := transporter.GenerateUserName(cluster.Name)
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
@@ -247,7 +244,7 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			return !filterManagedCluster(e.Object)
@@ -323,9 +320,18 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		},
 	}
 
+	// TODO: investgate why the dynamic cache cannot work
+	// acmCache, err := config.ACMCache(mgr)
+	// if err != nil {
+	// 	return err
+	// }
+
 	return ctrl.NewControllerManagedBy(mgr).
+		Named("addonInstaller").
 		// primary watch for managedcluster
-		For(&clusterv1.ManagedCluster{}, builder.WithPredicates(clusterPred)).
+		Watches(&clusterv1.ManagedCluster{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
+		// WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
+		// 	&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
 		Watches(&v1alpha1.ManagedClusterAddOn{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -340,26 +346,43 @@ func (r *HoHAddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		Watches(&v1alpha1.ClusterManagementAddOn{},
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
-		Watches(&corev1.Secret{},
+		// secondary watch for transport credentials or image pull secret
+		Watches(&corev1.Secret{}, // the cache is set in manager
 			handler.EnqueueRequestsFromMapFunc(r.renderAllManifestsHandler),
 			builder.WithPredicates(secretPred)).
 		Complete(r)
 }
 
-func (r *HoHAddonInstaller) renderAllManifestsHandler(
+func (r *AddonInstaller) renderAllManifestsHandler(
 	ctx context.Context, obj client.Object,
 ) []reconcile.Request {
 	requests := []reconcile.Request{}
-	// list all the managedCluster
-	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := r.List(ctx, managedClusterList)
+
+	hubNames, err := GetAllManagedHubNames(ctx, r.Client)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			r.Log.Info("no managed cluster found to trigger addoninstall reconciler")
-			return requests
-		}
 		r.Log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
 		return requests
+	}
+	for _, name := range hubNames {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: name,
+			},
+		})
+	}
+	r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
+	return requests
+}
+
+func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, error) {
+	names := []string{}
+	managedClusterList := &clusterv1.ManagedClusterList{}
+	err := c.List(ctx, managedClusterList)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return names, nil
+		}
+		return nil, err
 	}
 
 	for i := range managedClusterList.Items {
@@ -367,14 +390,9 @@ func (r *HoHAddonInstaller) renderAllManifestsHandler(
 		if filterManagedCluster(&managedCluster) {
 			continue
 		}
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name: managedCluster.GetName(),
-			},
-		})
+		names = append(names, managedCluster.GetName())
 	}
-	r.Log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
-	return requests
+	return names, nil
 }
 
 func filterManagedCluster(obj client.Object) bool {

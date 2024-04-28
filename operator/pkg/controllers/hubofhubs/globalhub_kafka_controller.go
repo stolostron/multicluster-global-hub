@@ -8,37 +8,31 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// kafkaReconcileHandler use to render all the kafka resources when its resources is changed, and also get the new conn.
+type kafkaReconcileHandler func() (*transport.ConnCredential, error)
+
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
-	Log                 logr.Logger
-	mgr                 ctrl.Manager
-	globalHubReconciler *MulticlusterGlobalHubReconciler
-	conn                *transport.ConnCredential
+	Log              logr.Logger
+	mgr              ctrl.Manager
+	reconcileHandler kafkaReconcileHandler
+	conn             *transport.ConnCredential
 }
 
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// get the mcgh cr name and then trigger the globalhub reconciler
-	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
-	err := r.mgr.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh)
-	if err != nil {
-		r.Log.Error(err, "failed to get MulticlusterGlobalHub")
-		return ctrl.Result{}, err
-	}
-
-	r.conn, err = r.globalHubReconciler.ReconcileTransport(ctx, mgh, transport.StrimziTransporter)
+	var err error
+	r.conn, err = r.reconcileHandler()
 	if err != nil {
 		r.Log.Error(err, "failed to get connection from kafka reconciler")
 		return ctrl.Result{}, err
@@ -60,12 +54,12 @@ var kafkaPred = predicate.Funcs{
 
 // initialize the kafka transporter and then start the kafka/user/topic controller
 func startKafkaController(ctx context.Context, mgr ctrl.Manager,
-	reconciler *MulticlusterGlobalHubReconciler,
+	getConnFunc kafkaReconcileHandler,
 ) (*KafkaController, error) {
 	r := &KafkaController{
-		Log:                 ctrl.Log.WithName("kafka-controller"),
-		mgr:                 mgr,
-		globalHubReconciler: reconciler,
+		Log:              ctrl.Log.WithName("kafka-controller"),
+		mgr:              mgr,
+		reconcileHandler: getConnFunc,
 	}
 	_, err := r.Reconcile(ctx, ctrl.Request{})
 	if err != nil {
@@ -86,45 +80,4 @@ func startKafkaController(ctx context.Context, mgr ctrl.Manager,
 	}
 	r.Log.Info("kafka controller is started")
 	return r, nil
-}
-
-type kafkaCRDController struct {
-	mgr                ctrl.Manager
-	globaHubReconciler *MulticlusterGlobalHubReconciler
-}
-
-func (c *kafkaCRDController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	if c.globaHubReconciler.KafkaController == nil {
-		reconclier, err := startKafkaController(ctx, c.mgr, c.globaHubReconciler)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		c.globaHubReconciler.KafkaController = reconclier
-	}
-	return ctrl.Result{}, nil
-}
-
-// this controller is used to watch the Kafka/KafkaTopic/KafkaUser crd
-// if the crd exists, then add controllers to the manager dynamically
-func addKafkaCRDController(mgr ctrl.Manager, reconciler *MulticlusterGlobalHubReconciler) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
-			// trigger the reconciler only if the crd is created
-			CreateFunc: func(e event.CreateEvent) bool {
-				return e.Object.GetName() == "kafkas.kafka.strimzi.io"
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return false
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		})).
-		Complete(&kafkaCRDController{
-			mgr:                mgr,
-			globaHubReconciler: reconciler,
-		})
 }

@@ -51,8 +51,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	hubofhubscontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
 )
@@ -93,6 +93,7 @@ var _ = BeforeSuite(func() {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
+	config.SetKafkaResourceReady(true)
 	testEnv.ControlPlane.GetAPIServer().Configure().Set("disable-admission-plugins",
 		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
 
@@ -155,19 +156,11 @@ var _ = BeforeSuite(func() {
 	err = kafka.CreateTestTransportSecret(k8sClient, testNamespace)
 	Expect(err).Should(Succeed())
 
-	// the leader election will be propagate to global hub manager
-	leaderElection := &commonobjects.LeaderElectionConfig{
-		LeaseDuration: 137,
-		RenewDeadline: 107,
-		RetryPeriod:   26,
-	}
-
 	mghReconciler = &hubofhubscontroller.MulticlusterGlobalHubReconciler{
 		Manager:              k8sManager,
 		Client:               k8sManager.GetClient(),
 		KubeClient:           kubeClient,
 		Scheme:               k8sManager.GetScheme(),
-		LeaderElection:       leaderElection,
 		Log:                  ctrl.Log.WithName("multicluster-global-hub-reconciler"),
 		LogLevel:             "info",
 		MiddlewareConfig:     &hubofhubscontroller.MiddlewareConfig{},

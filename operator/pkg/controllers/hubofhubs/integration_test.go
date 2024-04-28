@@ -989,7 +989,6 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Eventually(func() error {
 				mghReconciler.MiddlewareConfig.StorageConn = nil
 				mghReconciler.MiddlewareConfig.TransportConn = nil
-
 				mghReconciler.ReconcileMiddleware(ctx, mcgh)
 				if mghReconciler.MiddlewareConfig.StorageConn == nil {
 					return fmt.Errorf("mghReconciler.MiddlewareConfig.PgConnection should be nil")

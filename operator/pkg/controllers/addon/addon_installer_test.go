@@ -4,16 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	v1 "open-cluster-management.io/api/cluster/v1"
@@ -37,7 +35,13 @@ var kubeCfg *rest.Config
 
 func TestMain(m *testing.M) {
 	// start testEnv
-	testEnv := &envtest.Environment{}
+	testEnv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
+		},
+		ErrorIfCRDPathMissing: true,
+	}
 	var err error
 	kubeCfg, err = testEnv.Start()
 	if err != nil {
@@ -126,12 +130,6 @@ func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.M
 }
 
 func TestHoHAddonReconciler(t *testing.T) {
-	addonTestScheme := scheme.Scheme
-	utilruntime.Must(v1.AddToScheme(addonTestScheme))
-	utilruntime.Must(v1alpha1.AddToScheme(addonTestScheme))
-	utilruntime.Must(operatorv1alpha4.AddToScheme(addonTestScheme))
-	utilruntime.Must(kafkav1beta2.AddToScheme(addonTestScheme))
-
 	namespace := "default"
 	name := "test"
 	config.SetMGHNamespacedName(types.NamespacedName{
@@ -270,12 +268,17 @@ func TestHoHAddonReconciler(t *testing.T) {
 				config.SetMGHNamespacedName(types.NamespacedName{Namespace: "", Name: ""})
 			}
 			mgr, err := ctrl.NewManager(kubeCfg, ctrl.Options{
+				Scheme: config.GetRuntimeScheme(),
 				Metrics: metricsserver.Options{
 					BindAddress: "0", // disable the metrics serving
 				},
+				NewCache: config.InitCache,
 			})
 			if err != nil {
 				t.Errorf("failed to create manager: %v", err)
+			}
+			if mgr == nil {
+				t.Error("the mgr shouldn't be nil")
 			}
 			objects = append(objects, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -293,8 +296,8 @@ func TestHoHAddonReconciler(t *testing.T) {
 			}, k8sClient)
 			config.SetTransporter(transporter)
 
-			r := &hubofhubsaddon.HoHAddonInstaller{
-				Client: fake.NewClientBuilder().WithScheme(addonTestScheme).WithObjects(objects...).Build(),
+			r := &hubofhubsaddon.AddonInstaller{
+				Client: fake.NewClientBuilder().WithScheme(mgr.GetScheme()).WithObjects(objects...).Build(),
 				Log:    ctrl.Log.WithName("test"),
 			}
 			err = r.SetupWithManager(ctx, mgr)

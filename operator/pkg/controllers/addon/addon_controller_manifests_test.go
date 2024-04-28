@@ -1,12 +1,12 @@
 package addon
 
 import (
-	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
@@ -85,10 +85,8 @@ func TestHohAgentAddon_getAgentRestConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a := &HohAgentAddon{
-				ctx: context.Background(),
-			}
-			gotQPS, gotBurst := a.getAgentRestConfig(tt.configmap)
+			config.SetControllerConfig(tt.configmap)
+			gotQPS, gotBurst := config.GetAgentRestConfig()
 			if gotQPS != tt.wantQPS {
 				t.Errorf("HohAgentAddon.getAgentRestConfig() got = %v, want %v", gotQPS, tt.wantQPS)
 			}

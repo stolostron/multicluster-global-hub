@@ -39,7 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
-	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -55,12 +55,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests
@@ -86,10 +85,9 @@ var watchedConfigmap = sets.NewString(
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	AddonManager         addonmanager.AddonManager
-	KubeClient           kubernetes.Interface
 	Scheme               *runtime.Scheme
-	LeaderElection       *commonobjects.LeaderElectionConfig
+	addonMgr             addonmanager.AddonManager
+	KubeClient           kubernetes.Interface
 	Log                  logr.Logger
 	LogLevel             string
 	MiddlewareConfig     *MiddlewareConfig
@@ -99,10 +97,20 @@ type MulticlusterGlobalHubReconciler struct {
 	KafkaController      *KafkaController
 }
 
-// MiddlewareConfig defines the configuration for middleware and shared in opearator
-type MiddlewareConfig struct {
-	StorageConn   *postgres.PostgresConnection
-	TransportConn *transport.ConnCredential
+func NewMulticlusterGlobalHubReconciler(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
+	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
+) *MulticlusterGlobalHubReconciler {
+	return &MulticlusterGlobalHubReconciler{
+		Manager:              mgr,
+		Client:               mgr.GetClient(),
+		addonMgr:             addonMgr,
+		KubeClient:           kubeClient,
+		Scheme:               mgr.GetScheme(),
+		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
+		MiddlewareConfig:     &MiddlewareConfig{},
+		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
+		LogLevel:             operatorConfig.LogLevel,
+	}
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -301,9 +309,13 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context
 	}
 
 	// reconcile addon
-	r.Log.Info("trigger addon on managed clusters", "size", len(config.GetManagedClusters()))
-	for _, clusterName := range config.GetManagedClusters() {
-		r.AddonManager.Trigger(clusterName, operatorconstants.GHClusterManagementAddonName)
+	managedHubs, err := addon.GetAllManagedHubNames(ctx, r.Client)
+	if err != nil {
+		return err
+	}
+	r.Log.Info("trigger addon on managed clusters", "size", len(managedHubs))
+	for _, clusterName := range managedHubs {
+		r.addonMgr.Trigger(clusterName, operatorconstants.GHClusterManagementAddonName)
 	}
 
 	return nil
@@ -500,16 +512,21 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 		// secondary watch for clusterrolebinding
 		Watches(&rbacv1.ClusterRoleBinding{},
 			globalHubEventHandler, builder.WithPredicates(resPred)).
-		// secondary watch for clustermanagementaddon
-		Watches(&addonv1alpha1.ClusterManagementAddOn{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
+		// secondary watch for Secret
 		Watches(&corev1.Secret{},
 			globalHubEventHandler, builder.WithPredicates(secretPred)).
-		Watches(&promv1.ServiceMonitor{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
-		Watches(&subv1alpha1.Subscription{},
-			globalHubEventHandler, builder.WithPredicates(deletePred)).
+		// secondary watch for clustermanagementaddon
+		Watches(&v1alpha1.ClusterManagementAddOn{},
+			globalHubEventHandler,
+			builder.WithPredicates(resPred)).
 		Watches(&clusterv1.ManagedCluster{},
-			globalHubEventHandler, builder.WithPredicates(mhPred)).
+			globalHubEventHandler,
+			builder.WithPredicates(mhPred)).
+		Watches(&promv1.ServiceMonitor{},
+			globalHubEventHandler,
+			builder.WithPredicates(resPred)).
+		Watches(&subv1alpha1.Subscription{},
+			globalHubEventHandler,
+			builder.WithPredicates(deletePred)).
 		Complete(r)
 }

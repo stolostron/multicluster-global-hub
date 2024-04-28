@@ -131,7 +131,6 @@ var _ = Describe("Backup controller", Ordered, func() {
 				Namespace: mghNamespace,
 				Name:      mghName,
 			}, mgh, &client.GetOptions{})).Should(Succeed())
-			mgh.Labels = nil
 			Expect(k8sClient.Update(ctx, mgh, &client.UpdateOptions{}))
 
 			Eventually(func() bool {

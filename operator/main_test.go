@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -99,7 +100,7 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 			operatorConfig := parseFlags()
 			Expect(operatorConfig.LeaderElection).To(BeTrue())
 
-			electionConfig, err := getElectionConfig(nil)
+			electionConfig, err := config.GetElectionConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(electionConfig.LeaseDuration).To(Equal(137))
@@ -128,7 +129,7 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			configMap, err := kubeClient.CoreV1().ConfigMaps(
+			_, err := kubeClient.CoreV1().ConfigMaps(
 				utils.GetDefaultNamespace()).Create(ctx,
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
@@ -138,7 +139,10 @@ var _ = Describe("Start Operator Test", Ordered, func() {
 					Data: map[string]string{"leaseDuration": "10", "renewDeadline": "8", "retryPeriod": "2"},
 				}, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			electionConfig, err := getElectionConfig(configMap)
+			err = config.LoadControllerConfig(ctx, kubeClient)
+			Expect(err).NotTo(HaveOccurred())
+
+			electionConfig, err := config.GetElectionConfig()
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(electionConfig.LeaseDuration).To(Equal(10))

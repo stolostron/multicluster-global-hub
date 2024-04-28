@@ -45,6 +45,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+type MiddlewareConfig struct {
+	StorageConn   *postgres.PostgresConnection
+	TransportConn *transport.ConnCredential
+}
+
 // ReconcileMiddleware creates the kafka and postgres if needed.
 // 1. create the kafka and postgres subscription at the same time
 // 2. then create the kafka and postgres resources at the same time
@@ -83,10 +88,21 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 				return
 			}
 
-			err = addKafkaCRDController(r.Manager, r)
-			if err != nil {
-				errorChan <- err
+			if !config.GetKafkaResourceReady() {
+				errorChan <- errors.New("kafka resources is not ready")
 				return
+			}
+
+			// start the kafka controller
+			if r.KafkaController == nil {
+				kafkaController, err := startKafkaController(ctx, r.Manager, func() (*transport.ConnCredential, error) {
+					return r.ReconcileTransport(ctx, mgh, transport.StrimziTransporter)
+				})
+				if err != nil {
+					errorChan <- err
+					return
+				}
+				r.KafkaController = kafkaController
 			}
 
 			r.KafkaInit = true

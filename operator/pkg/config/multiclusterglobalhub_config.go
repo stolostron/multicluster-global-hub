@@ -34,7 +34,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -66,7 +65,6 @@ const (
 )
 
 var (
-	managedClusters    = []string{}
 	mghNamespacedName  = types.NamespacedName{}
 	oauthSessionSecret = ""
 	imageOverrides     = map[string]string{
@@ -79,7 +77,6 @@ var (
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
-	transporter           transport.Transporter
 )
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
@@ -183,29 +180,6 @@ func GetImage(componentName string) string {
 	return imageOverrides[componentName]
 }
 
-// cache the managed clusters
-func AppendManagedCluster(name string) {
-	for index := range managedClusters {
-		if managedClusters[index] == name {
-			return
-		}
-	}
-	managedClusters = append(managedClusters, name)
-}
-
-func DeleteManagedCluster(name string) {
-	for index := range managedClusters {
-		if managedClusters[index] == name {
-			managedClusters = append(managedClusters[:index], managedClusters[index+1:]...)
-			return
-		}
-	}
-}
-
-func GetManagedClusters() []string {
-	return managedClusters
-}
-
 func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	interval := getAnnotation(mgh, operatorconstants.AnnotationStatisticInterval)
 	if interval == "" {
@@ -239,14 +213,6 @@ func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string
 	return GHPostgresDefaultStorageSize
 }
 
-func GetKafkaStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
-	defaultKafkaStorageSize := "10Gi"
-	if mgh.Spec.DataLayer.Kafka.StorageSize != "" {
-		return mgh.Spec.DataLayer.Kafka.StorageSize
-	}
-	return defaultKafkaStorageSize
-}
-
 func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
 	if mgh.Spec.ImagePullSecret != imagePullSecretName {
 		imagePullSecretName = mgh.Spec.ImagePullSecret
@@ -255,14 +221,6 @@ func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
 
 func GetImagePullSecretName() string {
 	return imagePullSecretName
-}
-
-func SetTransporter(p transport.Transporter) {
-	transporter = p
-}
-
-func GetTransporter() transport.Transporter {
-	return transporter
 }
 
 // GeneratePGConnectionFromGHStorageSecret returns a postgres connection from the GH storage secret
