@@ -11,6 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const faildGetMsg = "Failed to get %v/%v, err:%v"
+
 // LabelsField presents a "f:labels" field subfield of metadataField.
 type LabelsField struct {
 	Labels map[string]struct{} `json:"f:labels"`
@@ -94,7 +96,7 @@ func AddAnnotation(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
+			klog.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 		if HasItem(obj.GetAnnotations(), key, value) {
@@ -130,7 +132,7 @@ func DeleteAnnotation(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
+			klog.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 		if !HasItemKey(obj.GetAnnotations(), key) {
@@ -162,7 +164,7 @@ func AddLabel(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
+			klog.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 		if HasItem(obj.GetLabels(), labelKey, labelValue) {
@@ -198,7 +200,7 @@ func DeleteLabel(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf("Failed to get %v/%v, err:%v", namespace, name, err)
+			klog.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 

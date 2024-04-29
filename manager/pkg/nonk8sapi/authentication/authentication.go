@@ -50,7 +50,7 @@ func createClient(clusterAPICABundle []byte) (*http.Client, error) {
 	/* #nosec G402*/
 	tlsConfig := &tls.Config{
 		//nolint:gosec
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: true, // #nosec G402
 	}
 
 	if clusterAPICABundle != nil {
