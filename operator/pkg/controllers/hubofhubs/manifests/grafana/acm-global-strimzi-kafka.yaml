@@ -64,7 +64,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -89,9 +90,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "repeatDirection": "h",
           "targets": [
             {
@@ -146,7 +149,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -171,9 +175,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -226,7 +232,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -251,9 +258,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -307,7 +316,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -332,9 +342,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -387,7 +399,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -412,9 +425,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -469,7 +484,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -494,9 +510,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -551,7 +569,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -576,9 +595,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -632,7 +653,8 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "none",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -657,9 +679,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
@@ -710,6 +734,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Kafka broker pods memory usage",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -738,7 +768,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -798,6 +828,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Aggregated Kafka broker pods CPU usage",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -826,7 +862,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -886,6 +922,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Kafka broker pods disk usage",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -914,7 +956,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -974,6 +1016,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Open File Descriptors",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1002,7 +1050,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1061,6 +1109,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1089,7 +1143,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1147,6 +1201,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1175,7 +1235,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1233,6 +1293,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1261,7 +1327,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1320,6 +1386,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "JVM thread count",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1348,7 +1420,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1437,7 +1509,8 @@ data:
                   }
                 ]
               },
-              "unit": "Bps"
+              "unit": "Bps",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -1462,9 +1535,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "repeatDirection": "h",
           "targets": [
             {
@@ -1521,7 +1596,8 @@ data:
                   }
                 ]
               },
-              "unit": "Bps"
+              "unit": "Bps",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -1546,9 +1622,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "repeatDirection": "h",
           "targets": [
             {
@@ -1605,7 +1683,8 @@ data:
                   }
                 ]
               },
-              "unit": "wps"
+              "unit": "wps",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -1630,9 +1709,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "repeatDirection": "h",
           "targets": [
             {
@@ -1689,7 +1770,8 @@ data:
                   }
                 ]
               },
-              "unit": "reqps"
+              "unit": "reqps",
+              "unitScale": true
             },
             "overrides": []
           },
@@ -1714,9 +1796,11 @@ data:
               "fields": "",
               "values": false
             },
-            "textMode": "auto"
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
           },
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "repeatDirection": "h",
           "targets": [
             {
@@ -1743,6 +1827,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Byte rate",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1775,7 +1865,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1848,6 +1938,12 @@ data:
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
           },
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1877,7 +1973,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -1936,6 +2032,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Produce request rate",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -1964,7 +2066,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2034,6 +2136,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Fetch request rate",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -2062,7 +2170,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2131,6 +2239,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Average percentage of time network processor is idle",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -2159,7 +2273,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2218,6 +2332,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Average percentage of time request handler threads are idle",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -2246,7 +2366,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2306,6 +2426,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Disk writes",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -2334,7 +2460,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2394,6 +2520,12 @@ data:
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Disk reads",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -2422,7 +2554,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2459,11 +2591,13 @@ data:
           },
           "yaxes": [
             {
+              "$$hashKey": "object:127",
               "format": "bytes",
               "logBase": 1,
               "show": true
             },
             {
+              "$$hashKey": "object:128",
               "format": "short",
               "logBase": 1,
               "show": true
@@ -2479,9 +2613,16 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "description": "Disk reads",
+          "description": "Top Connection Count for each listener",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "fill": 1,
           "fillGradient": 0,
           "gridPos": {
@@ -2510,7 +2651,7 @@ data:
           },
           "paceLength": 10,
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 5,
           "points": false,
           "renderer": "flot",
@@ -2523,17 +2664,19 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(kafka_server_socket_server_metrics_connection_count{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}) by (kubernetes_pod_name, listener)",
+              "editorMode": "code",
+              "expr": "topk(5,sum(kafka_server_socket_server_metrics_connection_count{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}) by (kubernetes_pod_name, listener))",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{listener}}` }}-{{ `{{kubernetes_pod_name}}` }}",
+              "legendFormat": "{{ `{{listener}}` }}:{{ `{{kubernetes_pod_name}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "Connection Count per Listener",
+          "title": "Top 5 Connection Count per Listener",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -2547,11 +2690,13 @@ data:
           },
           "yaxes": [
             {
+              "$$hashKey": "object:288",
               "format": "none",
               "logBase": 1,
               "show": true
             },
             {
+              "$$hashKey": "object:289",
               "format": "short",
               "logBase": 1,
               "show": true
@@ -2562,91 +2707,106 @@ data:
           }
         },
         {
-          "aliasColors": {},
-          "bars": false,
-          "dashLength": 10,
-          "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "fill": 1,
-          "fillGradient": 0,
+          "description": "Top 10 log size",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes",
+              "unitScale": true
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
             "y": 55
           },
-          "hiddenSeries": false,
           "id": 91,
-          "legend": {
-            "avg": false,
-            "current": false,
-            "max": false,
-            "min": false,
-            "show": true,
-            "total": false,
-            "values": false
-          },
-          "lines": true,
-          "linewidth": 1,
           "links": [],
-          "nullPointMode": "null",
           "options": {
-            "alertThreshold": true
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
           },
-          "paceLength": 10,
-          "percentage": false,
-          "pluginVersion": "9.5.6",
-          "pointradius": 5,
-          "points": false,
-          "renderer": "flot",
-          "seriesOverrides": [],
-          "spaceLength": 10,
-          "stack": false,
-          "steppedLine": false,
+          "pluginVersion": "10.3.3",
           "targets": [
             {
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "kafka_log_log_size{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",topic=~\"$kafka_topic\",partition=~\"$kafka_partition\"}",
+              "editorMode": "builder",
+              "exemplar": false,
+              "expr": "topk(10, kafka_log_log_size{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",topic=~\"$kafka_topic\",partition=~\"$kafka_partition\"})",
               "format": "time_series",
               "instant": false,
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{topic}}` }}:{{ `{{partition}}` }}",
+              "legendFormat": "{{ `{{pod}}` }}:{{ `{{topic}}` }}:{{ `{{partition}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
-          "thresholds": [],
-          "timeRegions": [],
-          "title": "Log Size",
-          "tooltip": {
-            "shared": true,
-            "sort": 0,
-            "value_type": "individual"
-          },
-          "type": "graph",
-          "xaxis": {
-            "mode": "time",
-            "show": true,
-            "values": []
-          },
-          "yaxes": [
-            {
-              "format": "bytes",
-              "logBase": 1,
-              "show": true
-            },
-            {
-              "format": "short",
-              "logBase": 1,
-              "show": true
-            }
-          ],
-          "yaxis": {
-            "align": false
-          }
+          "title": "Top 10 Log Size",
+          "type": "timeseries"
         },
         {
           "aliasColors": {},
@@ -2655,6 +2815,13 @@ data:
           "dashes": false,
           "datasource": {
             "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "Zookeeper request latency",
+          "fieldConfig": {
+            "defaults": {
+              "unitScale": true
+            },
+            "overrides": []
           },
           "fill": 1,
           "fillGradient": 0,
@@ -2682,7 +2849,7 @@ data:
             "alertThreshold": true
           },
           "percentage": false,
-          "pluginVersion": "9.5.6",
+          "pluginVersion": "10.3.3",
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
@@ -2705,7 +2872,7 @@ data:
           ],
           "thresholds": [],
           "timeRegions": [],
-          "title": "ZK request latecy",
+          "title": "ZK request latency",
           "tooltip": {
             "shared": true,
             "sort": 0,
@@ -2719,11 +2886,14 @@ data:
           },
           "yaxes": [
             {
-              "format": "short",
+              "$$hashKey": "object:450",
+              "format": "ms",
+              "label": "Request Latency (ms)",
               "logBase": 1,
               "show": true
             },
             {
+              "$$hashKey": "object:451",
               "format": "short",
               "logBase": 1,
               "show": true
@@ -2735,8 +2905,7 @@ data:
         }
       ],
       "refresh": "30s",
-      "schemaVersion": 38,
-      "style": "dark",
+      "schemaVersion": 39,
       "tags": [
         "Strimzi",
         "Kafka"
@@ -2747,9 +2916,9 @@ data:
             "current": {
               "selected": false,
               "text": "Prometheus",
-              "value": "Prometheus"
+              "value": "PBFA97CFB590B2093"
             },
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "label": "datasource",
             "multi": false,
@@ -2771,7 +2940,7 @@ data:
               "uid": "${DS_PROMETHEUS}"
             },
             "definition": "",
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "label": "Namespace",
             "multi": false,
@@ -2797,7 +2966,7 @@ data:
               "uid": "${DS_PROMETHEUS}"
             },
             "definition": "",
-            "hide": 0,
+            "hide": 2,
             "includeAll": false,
             "label": "Cluster Name",
             "multi": false,
@@ -2842,7 +3011,7 @@ data:
           {
             "allValue": ".*",
             "current": {
-              "selected": false,
+              "selected": true,
               "text": "All",
               "value": "$__all"
             },
