@@ -13,12 +13,12 @@ import (
 type Transporter interface {
 	// define the user for each hub clusters, user lifecycle is managed by the transporter
 	GenerateUserName(clusterIdentity string) string
-	CreateUser(name string) error
+	CreateAndUpdateUser(name string) error
 	DeleteUser(name string) error
 
 	// define the topic for each hub clusters(or shared topic), topic lifecycle is managed by the transporter
 	GenerateClusterTopic(clusterIdentity string) *ClusterTopic
-	CreateTopic(topic *ClusterTopic) error
+	CreateAndUpdateTopic(topic *ClusterTopic) error
 	DeleteTopic(topic *ClusterTopic) error
 
 	// authorize

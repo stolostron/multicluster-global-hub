@@ -66,7 +66,7 @@ var (
 	KafkaStorageDeleteClaim        = false
 	KafkaVersion                   = "3.6.0"
 	DefaultPartition         int32 = 1
-	DefaultPartitionReplicas int32 = 2
+	DefaultPartitionReplicas int32 = 3
 	// kafka metrics constants
 	KakfaMetricsConfigmapName       = "kafka-metrics"
 	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
@@ -206,16 +206,31 @@ func (k *strimziTransporter) GenerateUserName(clusterIdentity string) string {
 	return fmt.Sprintf("%s-kafka-user", clusterIdentity)
 }
 
-func (k *strimziTransporter) CreateUser(username string) error {
+func (k *strimziTransporter) CreateAndUpdateUser(username string) error {
 	kafkaUser := &kafkav1beta2.KafkaUser{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      username,
 		Namespace: k.namespace,
 	}, kafkaUser)
-	if err != nil && errors.IsNotFound(err) {
-		return k.runtimeClient.Create(k.ctx, k.newKafkaUser(username))
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return k.runtimeClient.Create(k.ctx, k.newKafkaUser(username))
+		}
+		return err
 	}
-	return err
+	desiredKafkaUser := k.newKafkaUser(username)
+
+	updatedKafkaUser := &kafkav1beta2.KafkaUser{}
+	err = mergeObjects(kafkaUser, desiredKafkaUser, updatedKafkaUser)
+	if err != nil {
+		return err
+	}
+
+	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
+		return k.runtimeClient.Update(k.ctx, updatedKafkaUser)
+	}
+
+	return nil
 }
 
 func (k *strimziTransporter) DeleteUser(topicName string) error {
@@ -250,7 +265,7 @@ func (k *strimziTransporter) GenerateClusterTopic(clusterIdentity string) *trans
 	return topic
 }
 
-func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
+func (k *strimziTransporter) CreateAndUpdateTopic(topic *transport.ClusterTopic) error {
 	for _, topicName := range []string{topic.SpecTopic, topic.StatusTopic, topic.EventTopic} {
 		// if the topicName = "^status.*", convert it to status.global for creating
 		if topicName == StatusTopicRegex {
@@ -261,10 +276,31 @@ func (k *strimziTransporter) CreateTopic(topic *transport.ClusterTopic) error {
 			Name:      topicName,
 			Namespace: k.namespace,
 		}, kafkaTopic)
-		if err != nil && errors.IsNotFound(err) {
-			if e := k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
-				return e
+		if err != nil {
+			if errors.IsNotFound(err) {
+				err = k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName))
+				if err != nil {
+					return err
+				}
+				continue
 			}
+			return err
+		}
+
+		desiredTopic := k.newKafkaTopic(topicName)
+
+		updatedKafkaTopic := &kafkav1beta2.KafkaTopic{}
+		err = mergeObjects(kafkaTopic, desiredTopic, updatedKafkaTopic)
+		if err != nil {
+			return err
+		}
+
+		if !equality.Semantic.DeepDerivative(updatedKafkaTopic.Spec, kafkaTopic.Spec) {
+			err = k.runtimeClient.Update(k.ctx, updatedKafkaTopic)
+			if err != nil {
+				return err
+			}
+			continue
 		}
 	}
 	return nil
@@ -588,10 +624,11 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		Name:      k.name,
 		Namespace: mgh.Namespace,
 	}, existingKafka)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)), true
+		}
 		return err, false
-	} else if errors.IsNotFound(err) {
-		return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)), true
 	}
 
 	// this is only for e2e test. patch the kafka needs more time to be ready
@@ -600,18 +637,9 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	}
 
 	desiredKafka := k.newKafkaCluster(mgh)
-	// marshal to json
-	existingKafkaJson, _ := json.Marshal(existingKafka)
-	desiredKafkaJson, _ := json.Marshal(desiredKafka)
-
-	// patch the desired kafka cluster to the existing kafka cluster
-	patchedData, err := jsonpatch.MergePatch(existingKafkaJson, desiredKafkaJson)
-	if err != nil {
-		return err, false
-	}
 
 	updatedKafka := &kafkav1beta2.Kafka{}
-	err = json.Unmarshal(patchedData, updatedKafka)
+	err = mergeObjects(existingKafka, desiredKafka, updatedKafka)
 	if err != nil {
 		return err, false
 	}
@@ -620,6 +648,23 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		return k.runtimeClient.Update(k.ctx, updatedKafka), true
 	}
 	return nil, false
+}
+
+// mergeObjects merge the desiredObj into the existingObj, then unmarshal to updatedObj
+func mergeObjects(existingObj, desiredObj, updatedObj client.Object) error {
+	existingJson, _ := json.Marshal(existingObj)
+	desiredJson, _ := json.Marshal(desiredObj)
+
+	// patch the desired json to the existing json
+	patchedData, err := jsonpatch.MergePatch(existingJson, desiredJson)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(patchedData, updatedObj)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (k *strimziTransporter) getKafkaResources(
