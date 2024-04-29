@@ -77,13 +77,20 @@ klusterlet-managed-hub-1-registration-agent-7c76688f4d-vfjg9   1/1     Running  
 klusterlet-managed-hub-1-work-agent-8576777749-2hf5v           1/1     Running   0             67m
 multicluster-global-hub-agent-65d8d4947-gftzj                  1/1     Running   0             62m
 ```
-### Enable Strimzi Metrics
-Collecting metrics is critical for understanding the health and performance of your Kafka deployment. By monitoring metrics, you can actively identify issues before they become critical and make informed decisions about resource allocation and capacity planning. Without metrics, you may be left with limited visibility into the behavior of your Kafka deployment, which can make troubleshooting more difficult and time-consuming.
+### Enable Strimzi and Postgres Metrics
+Collecting metrics is critical for understanding the health and performance of your Kafka deployment and postgres database. By monitoring metrics, you can actively identify issues before they become critical and make informed decisions about resource allocation and capacity planning. Without metrics, you may be left with limited visibility into the behavior of your Kafka deployment, which can make troubleshooting more difficult and time-consuming.
 
-You can enable collecting Strimzi metrics by modifying the global hub CR to add `enableMetrics: true` in the `spec` section. After the kafka operator reconciling is completed, you can check the dashboards in global hub grafana. You will see the following dashboards under Strimzi folder:
+Globalhub set `enableMetrics: true` in the `spec` section by default.
+After the kafka operator reconciling is completed, you can check the dashboards in global hub grafana. You will see the following dashboards under Strimzi folder:
 - Global Hub - Strimzi Operator
 ![Strimzi Operator](./images/global-hub-strimzi-operator.png)
 - Global Hub - Strimzi Kafka
 ![Strimzi Kafka](./images/global-hub-strimzi-kafka.png)
 - Global Hub - Strimzi Zookeeper
 ![Strimzi Zookeeper](./images/global-hub-strimzi-zookeeper.png)
+
+The following dashboards will be in Postgres folder:
+- Global Hub - PostgreSQL Database
+![PostgreSQL Database](./images/global-hub-postgres.png)
+
+

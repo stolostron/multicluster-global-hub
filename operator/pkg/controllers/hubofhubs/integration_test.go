@@ -412,19 +412,21 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 
 			grafanaObjects, err := hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
-					Namespace            string
-					Replicas             int32
-					SessionSecret        string
-					ProxyImage           string
-					GrafanaImage         string
-					DatasourceSecretName string
-					ImagePullPolicy      string
-					ImagePullSecret      string
-					NodeSelector         map[string]string
-					Tolerations          []corev1.Toleration
-					LogLevel             string
-					Resources            *corev1.ResourceRequirements
-					EnableMetrics        bool
+					Namespace             string
+					Replicas              int32
+					SessionSecret         string
+					ProxyImage            string
+					GrafanaImage          string
+					DatasourceSecretName  string
+					ImagePullPolicy       string
+					ImagePullSecret       string
+					NodeSelector          map[string]string
+					Tolerations           []corev1.Toleration
+					LogLevel              string
+					Resources             *corev1.ResourceRequirements
+					EnableMetrics         bool
+					EnablePostgresMetrics bool
+					EnableKafkaMetrics    bool
 				}{
 					Namespace:            commonutils.GetDefaultNamespace(),
 					Replicas:             2,
@@ -443,9 +445,11 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 							Value:    "infra",
 						},
 					},
-					EnableMetrics: false,
-					LogLevel:      "info",
-					Resources:     operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
+					EnableMetrics:         false,
+					EnablePostgresMetrics: false,
+					EnableKafkaMetrics:    false,
+					LogLevel:              "info",
+					Resources:             operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 				}, nil
 			})
 

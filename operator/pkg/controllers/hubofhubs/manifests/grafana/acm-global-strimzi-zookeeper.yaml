@@ -1,4 +1,4 @@
-{{- if .EnableMetrics }}
+{{- if .EnableKafkaMetrics }}
 apiVersion: v1
 data:
   global-hub-strimzi-zookeeper.json: |

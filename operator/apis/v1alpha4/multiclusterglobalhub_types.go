@@ -95,9 +95,10 @@ type MulticlusterGlobalHubSpec struct {
 	// AdvancedConfig specifies the advanced configurations for the multicluster global hub
 	// +optional
 	AdvancedConfig *AdvancedConfig `json:"advanced,omitempty"`
-	// EnableMetrics enables the metrics for the multicluster global hub components
+	// EnableMetrics enables the metrics for the global hub created kafka and postgres components.
+	// +kubebuilder:default=true
 	// +optional
-	EnableMetrics bool `json:"enableMetrics,omitempty"`
+	EnableMetrics bool `json:"enableMetrics"`
 }
 
 type AdvancedConfig struct {

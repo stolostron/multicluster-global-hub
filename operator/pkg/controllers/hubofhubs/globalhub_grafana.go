@@ -85,36 +85,39 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
 		replicas = 2
 	}
-
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 		return struct {
-			Namespace            string
-			Replicas             int32
-			SessionSecret        string
-			ProxyImage           string
-			GrafanaImage         string
-			ImagePullSecret      string
-			ImagePullPolicy      string
-			DatasourceSecretName string
-			NodeSelector         map[string]string
-			Tolerations          []corev1.Toleration
-			Resources            *corev1.ResourceRequirements
-			EnableMetrics        bool
+			Namespace             string
+			Replicas              int32
+			SessionSecret         string
+			ProxyImage            string
+			GrafanaImage          string
+			ImagePullSecret       string
+			ImagePullPolicy       string
+			DatasourceSecretName  string
+			NodeSelector          map[string]string
+			Tolerations           []corev1.Toleration
+			Resources             *corev1.ResourceRequirements
+			EnableKafkaMetrics    bool
+			EnablePostgresMetrics bool
+			EnableMetrics         bool
 		}{
-			Namespace:            utils.GetDefaultNamespace(),
-			Replicas:             replicas,
-			SessionSecret:        proxySessionSecret,
-			ProxyImage:           config.GetImage(config.OauthProxyImageKey),
-			GrafanaImage:         config.GetImage(config.GrafanaImageKey),
-			ImagePullSecret:      mgh.Spec.ImagePullSecret,
-			ImagePullPolicy:      string(imagePullPolicy),
-			DatasourceSecretName: datasourceName,
-			NodeSelector:         mgh.Spec.NodeSelector,
-			Tolerations:          mgh.Spec.Tolerations,
-			EnableMetrics:        mgh.Spec.EnableMetrics,
-			Resources:            operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
+			Namespace:             utils.GetDefaultNamespace(),
+			Replicas:              replicas,
+			SessionSecret:         proxySessionSecret,
+			ProxyImage:            config.GetImage(config.OauthProxyImageKey),
+			GrafanaImage:          config.GetImage(config.GrafanaImageKey),
+			ImagePullSecret:       mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:       string(imagePullPolicy),
+			DatasourceSecretName:  datasourceName,
+			NodeSelector:          mgh.Spec.NodeSelector,
+			Tolerations:           mgh.Spec.Tolerations,
+			EnableKafkaMetrics:    (!config.IsBYOKafka()) && mgh.Spec.EnableMetrics,
+			EnablePostgresMetrics: (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
+			EnableMetrics:         mgh.Spec.EnableMetrics,
+			Resources:             operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
 	if err != nil {
