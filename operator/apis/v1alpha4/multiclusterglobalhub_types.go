@@ -59,12 +59,14 @@ type MulticlusterGlobalHub struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// Specifies the desired state of multicluster global hub
 	// +kubebuilder:default={dataLayer: {postgres: {retention: "18m"}}}
-	Spec   MulticlusterGlobalHubSpec   `json:"spec,omitempty"`
+	Spec MulticlusterGlobalHubSpec `json:"spec,omitempty"`
+	// Specifies the observed state of multicluster global hub
 	Status MulticlusterGlobalHubStatus `json:"status,omitempty"`
 }
 
-// MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
+// MulticlusterGlobalHubSpec defines the desired state of multicluster global hub
 type MulticlusterGlobalHubSpec struct {
 	// Specifies deployment replication for improved availability. Options are: Basic and High (default)
 	// +kubebuilder:default:="High"
@@ -82,18 +84,18 @@ type MulticlusterGlobalHubSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-	// Tolerations causes all components to tolerate any taints.
+	// Tolerations causes all components to tolerate any taints
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// DataLayer can be configured to use a different data layer.
+	// DataLayer can be configured to use a different data layer
 	// +kubebuilder:default={postgres: {retention: "18m"}}
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	DataLayer DataLayerConfig `json:"dataLayer"`
-	// Advanced configurations for global hub
+	// Specifies the advanced configurations for global hub
 	// +optional
 	AdvancedConfig *AdvancedConfig `json:"advanced,omitempty"`
-	// EnableMetrics enables the metrics for the global hub kafka components
+	// EnableMetrics enables the metrics for the global hub components
 	// +optional
 	EnableMetrics bool `json:"enableMetrics,omitempty"`
 }
@@ -125,7 +127,7 @@ type AdvancedConfig struct {
 }
 
 type CommonSpec struct {
-	// Compute Resources required by this component.
+	// Compute Resources required by this component
 	// +optional
 	Resources *ResourceRequirements `json:"resources,omitempty"`
 }
@@ -133,53 +135,56 @@ type CommonSpec struct {
 // ResourceRequirements copied from corev1.ResourceRequirements
 // We do not need to support ResourceClaim
 type ResourceRequirements struct {
-	// Limits describes the maximum amount of compute resources allowed.
-	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// Limits describe the maximum amount of compute resources allowed.
+	// For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
 	Limits corev1.ResourceList `json:"limits,omitempty"`
 	// Requests describes the minimum amount of compute resources required.
-	// If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
-	// otherwise to an implementation-defined value.
-	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+	// If requests are omitted for a container, it defaults to the specified limits.
+	// If there are no specified limits, it defaults to an implementation-defined value.
+	// For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
 	Requests corev1.ResourceList `json:"requests,omitempty"`
 }
 
 // DataLayerConfig is a discriminated union of data layer specific configuration.
 type DataLayerConfig struct {
+	// Specifies the desired state of kafka
 	// +optional
 	Kafka KafkaConfig `json:"kafka,omitempty"`
+	// Specifies the desired state of postgres
 	// +kubebuilder:default={retention: "18m"}
 	Postgres PostgresConfig `json:"postgres,omitempty"`
-	// Specify the storageClass for storage.
+	// Specifies the storageClass for storage
 	// +optional
 	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // PostgresConfig defines the desired state of postgres
 type PostgresConfig struct {
-	// Retention is a duration string. Which defines how long to keep the data in the database.
-	// Recommended minimum value is 1 month, default value is 18 months.
-	// A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix,
-	// such as "1y6m". Valid time units are "m" and "y".
+	// Retention is a duration string, defining how long to keep the data in the database.
+	// The recommended minimum value is 1 month, and the default value is 18 months.
+	// A duration string is a signed sequence of decimal numbers,
+	// each with an optional fraction and a unit suffix, such as "1y6m".
+	// Valid time units are "m" and "y"
 	// +kubebuilder:default:="18m"
 	Retention string `json:"retention,omitempty"`
 
-	// Specify the size for storage.
+	// Specifies the size for storage
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
 }
 
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
-	// Specify the size for storage.
+	// Specifies the size for storage.
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
 }
 
-// MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+// MulticlusterGlobalHubStatus defines the observed state of multicluster global hub
 type MulticlusterGlobalHubStatus struct {
-	// MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+	// Represents the latest available observations of the current state
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

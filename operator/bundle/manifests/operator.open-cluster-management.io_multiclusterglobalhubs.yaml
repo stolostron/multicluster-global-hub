@@ -40,16 +40,16 @@ spec:
               dataLayer:
                 postgres:
                   retention: 18m
-            description: MulticlusterGlobalHubSpec defines the desired state of MulticlusterGlobalHub
+            description: Specifies the desired state of multicluster global hub
             properties:
               advanced:
-                description: Advanced configurations for global hub
+                description: Specifies the advanced configurations for global hub
                 properties:
                   agent:
                     description: The spec of global hub agent
                     properties:
                       resources:
-                        description: Compute Resources required by this component.
+                        description: Compute Resources required by this component
                         properties:
                           limits:
                             additionalProperties:
@@ -58,8 +58,8 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            description: 'Limits describe the maximum amount of compute
+                              resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -69,10 +69,11 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Requests describes the minimum amount of
-                              compute resources required. If Requests is omitted for
-                              a container, it defaults to Limits if that is explicitly
-                              specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              compute resources required. If requests are omitted
+                              for a container, it defaults to the specified limits.
+                              If there are no specified limits, it defaults to an
+                              implementation-defined value. For more information,
+                              see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                     type: object
@@ -80,7 +81,7 @@ spec:
                     description: The spec of grafana
                     properties:
                       resources:
-                        description: Compute Resources required by this component.
+                        description: Compute Resources required by this component
                         properties:
                           limits:
                             additionalProperties:
@@ -89,8 +90,8 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            description: 'Limits describe the maximum amount of compute
+                              resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -100,10 +101,11 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Requests describes the minimum amount of
-                              compute resources required. If Requests is omitted for
-                              a container, it defaults to Limits if that is explicitly
-                              specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              compute resources required. If requests are omitted
+                              for a container, it defaults to the specified limits.
+                              If there are no specified limits, it defaults to an
+                              implementation-defined value. For more information,
+                              see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                     type: object
@@ -111,7 +113,7 @@ spec:
                     description: The spec of kafka
                     properties:
                       resources:
-                        description: Compute Resources required by this component.
+                        description: Compute Resources required by this component
                         properties:
                           limits:
                             additionalProperties:
@@ -120,8 +122,8 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            description: 'Limits describe the maximum amount of compute
+                              resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -131,10 +133,11 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Requests describes the minimum amount of
-                              compute resources required. If Requests is omitted for
-                              a container, it defaults to Limits if that is explicitly
-                              specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              compute resources required. If requests are omitted
+                              for a container, it defaults to the specified limits.
+                              If there are no specified limits, it defaults to an
+                              implementation-defined value. For more information,
+                              see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                     type: object
@@ -142,7 +145,7 @@ spec:
                     description: The spec of global hub manager
                     properties:
                       resources:
-                        description: Compute Resources required by this component.
+                        description: Compute Resources required by this component
                         properties:
                           limits:
                             additionalProperties:
@@ -151,8 +154,8 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            description: 'Limits describe the maximum amount of compute
+                              resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -162,10 +165,11 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Requests describes the minimum amount of
-                              compute resources required. If Requests is omitted for
-                              a container, it defaults to Limits if that is explicitly
-                              specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              compute resources required. If requests are omitted
+                              for a container, it defaults to the specified limits.
+                              If there are no specified limits, it defaults to an
+                              implementation-defined value. For more information,
+                              see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                     type: object
@@ -173,7 +177,7 @@ spec:
                     description: The spec of postgres
                     properties:
                       resources:
-                        description: Compute Resources required by this component.
+                        description: Compute Resources required by this component
                         properties:
                           limits:
                             additionalProperties:
@@ -182,8 +186,8 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            description: 'Limits describe the maximum amount of compute
+                              resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -193,10 +197,11 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Requests describes the minimum amount of
-                              compute resources required. If Requests is omitted for
-                              a container, it defaults to Limits if that is explicitly
-                              specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              compute resources required. If requests are omitted
+                              for a container, it defaults to the specified limits.
+                              If there are no specified limits, it defaults to an
+                              implementation-defined value. For more information,
+                              see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                     type: object
@@ -204,7 +209,7 @@ spec:
                     description: The spec of zookeeper
                     properties:
                       resources:
-                        description: Compute Resources required by this component.
+                        description: Compute Resources required by this component
                         properties:
                           limits:
                             additionalProperties:
@@ -213,8 +218,8 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describes the maximum amount of compute
-                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            description: 'Limits describe the maximum amount of compute
+                              resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
                             additionalProperties:
@@ -224,10 +229,11 @@ spec:
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             description: 'Requests describes the minimum amount of
-                              compute resources required. If Requests is omitted for
-                              a container, it defaults to Limits if that is explicitly
-                              specified, otherwise to an implementation-defined value.
-                              More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                              compute resources required. If requests are omitted
+                              for a container, it defaults to the specified limits.
+                              If there are no specified limits, it defaults to an
+                              implementation-defined value. For more information,
+                              see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
                     type: object
@@ -241,40 +247,40 @@ spec:
                 default:
                   postgres:
                     retention: 18m
-                description: DataLayer can be configured to use a different data layer.
+                description: DataLayer can be configured to use a different data layer
                 properties:
                   kafka:
-                    description: KafkaConfig defines the desired state of kafka
+                    description: Specifies the desired state of kafka
                     properties:
                       storageSize:
-                        description: Specify the size for storage.
+                        description: Specifies the size for storage.
                         type: string
                     type: object
                   postgres:
                     default:
                       retention: 18m
-                    description: PostgresConfig defines the desired state of postgres
+                    description: Specifies the desired state of postgres
                     properties:
                       retention:
                         default: 18m
-                        description: Retention is a duration string. Which defines
-                          how long to keep the data in the database. Recommended minimum
-                          value is 1 month, default value is 18 months. A duration
-                          string is a possibly signed sequence of decimal numbers,
-                          each with optional fraction and a unit suffix, such as "1y6m".
-                          Valid time units are "m" and "y".
+                        description: Retention is a duration string, defining how
+                          long to keep the data in the database. The recommended minimum
+                          value is 1 month, and the default value is 18 months. A
+                          duration string is a signed sequence of decimal numbers,
+                          each with an optional fraction and a unit suffix, such as
+                          "1y6m". Valid time units are "m" and "y"
                         type: string
                       storageSize:
-                        description: Specify the size for storage.
+                        description: Specifies the size for storage
                         type: string
                     type: object
                   storageClass:
-                    description: Specify the storageClass for storage.
+                    description: Specifies the storageClass for storage
                     type: string
                 type: object
               enableMetrics:
                 description: EnableMetrics enables the metrics for the global hub
-                  kafka components
+                  components
                 type: boolean
               imagePullPolicy:
                 description: Pull policy of the multicluster global hub images
@@ -288,7 +294,7 @@ spec:
                 description: Spec of NodeSelector
                 type: object
               tolerations:
-                description: Tolerations causes all components to tolerate any taints.
+                description: Tolerations causes all components to tolerate any taints
                 items:
                   description: The pod this Toleration is attached to tolerates any
                     taint that matches the triple <key,value,effect> using the matching
@@ -331,12 +337,11 @@ spec:
             - dataLayer
             type: object
           status:
-            description: MulticlusterGlobalHubStatus defines the observed state of
-              MulticlusterGlobalHub
+            description: Specifies the observed state of multicluster global hub
             properties:
               conditions:
-                description: MulticlusterGlobalHubStatus defines the observed state
-                  of MulticlusterGlobalHub
+                description: Represents the latest available observations of the current
+                  state
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
