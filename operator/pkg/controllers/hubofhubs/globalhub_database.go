@@ -97,7 +97,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		return err
 	}
 
-	if r.EnableGlobalResource {
+	if r.OperatorConfig.GlobalResourceEnabled {
 		if err := applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
 			return err
 		}

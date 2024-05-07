@@ -157,14 +157,17 @@ var _ = BeforeSuite(func() {
 	Expect(err).Should(Succeed())
 
 	mghReconciler = &hubofhubscontroller.MulticlusterGlobalHubReconciler{
-		Manager:              k8sManager,
-		Client:               k8sManager.GetClient(),
-		KubeClient:           kubeClient,
-		Scheme:               k8sManager.GetScheme(),
-		Log:                  ctrl.Log.WithName("multicluster-global-hub-reconciler"),
-		LogLevel:             "info",
-		MiddlewareConfig:     &hubofhubscontroller.MiddlewareConfig{},
-		EnableGlobalResource: true,
+		Manager:          k8sManager,
+		Client:           k8sManager.GetClient(),
+		KubeClient:       kubeClient,
+		Scheme:           k8sManager.GetScheme(),
+		Log:              ctrl.Log.WithName("multicluster-global-hub-reconciler"),
+		MiddlewareConfig: &hubofhubscontroller.MiddlewareConfig{},
+		OperatorConfig: &config.OperatorConfig{
+			LogLevel:              "Info",
+			EnablePprof:           false,
+			GlobalResourceEnabled: true,
+		},
 	}
 	Expect(mghReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
 

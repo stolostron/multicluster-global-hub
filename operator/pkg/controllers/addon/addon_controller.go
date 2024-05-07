@@ -41,12 +41,11 @@ import (
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 type AddonController struct {
-	addonManager         addonmanager.AddonManager
-	kubeConfig           *rest.Config
-	client               client.Client
-	log                  logr.Logger
-	EnableGlobalResource bool
-	LogLevel             string
+	addonManager   addonmanager.AddonManager
+	kubeConfig     *rest.Config
+	client         client.Client
+	log            logr.Logger
+	operatorConfig *config.OperatorConfig
 }
 
 // used to create addon manager
@@ -59,12 +58,11 @@ func NewAddonController(kubeConfig *rest.Config, client client.Client, operatorC
 		return nil, err
 	}
 	return &AddonController{
-		kubeConfig:           kubeConfig,
-		client:               client,
-		log:                  log,
-		addonManager:         addonMgr,
-		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
-		LogLevel:             operatorConfig.LogLevel,
+		kubeConfig:     kubeConfig,
+		client:         client,
+		log:            log,
+		addonManager:   addonMgr,
+		operatorConfig: operatorConfig,
 	}, nil
 }
 
@@ -93,13 +91,12 @@ func (a *AddonController) Start(ctx context.Context) error {
 	}
 
 	hohAgentAddon := HohAgentAddon{
-		ctx:                  ctx,
-		kubeClient:           kubeClient,
-		client:               a.client,
-		dynamicClient:        dynamicClient,
-		log:                  a.log.WithName("values"),
-		EnableGlobalResource: a.EnableGlobalResource,
-		LogLevel:             a.LogLevel,
+		ctx:            ctx,
+		kubeClient:     kubeClient,
+		client:         a.client,
+		dynamicClient:  dynamicClient,
+		log:            a.log.WithName("values"),
+		operatorConfig: a.operatorConfig,
 	}
 	_, err = utils.WaitGlobalHubReady(ctx, a.client, 5*time.Second)
 	if err != nil {

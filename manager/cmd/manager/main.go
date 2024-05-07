@@ -10,9 +10,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
@@ -167,7 +170,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
 		"enable the global resource feature.")
-
+	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.Parse()
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -299,6 +302,15 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		setupLog.Error(err, "failed to complete configuration")
 		return 1
 	}
+
+	if managerConfig.EnablePprof {
+		go func() {
+			if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+				setupLog.Error(err, "failed to start the pprof server")
+			}
+		}()
+	}
+
 	utils.PrintVersion(setupLog)
 	databaseConfig := &database.DatabaseConfig{
 		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,

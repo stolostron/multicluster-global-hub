@@ -19,8 +19,11 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"os"
 	"time"
+
+	_ "net/http/pprof"
 
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -45,6 +48,13 @@ func main() {
 func doMain(ctx context.Context, cfg *rest.Config) int {
 	operatorConfig := parseFlags()
 	utils.PrintVersion(setupLog)
+
+	// Start the pprof server
+	go func() {
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			setupLog.Error(err, "failed to start the pprof server")
+		}
+	}()
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -106,6 +116,7 @@ func parseFlags() *config.OperatorConfig {
 		"Enable leader election for controller manager. ")
 	pflag.BoolVar(&config.GlobalResourceEnabled, "global-resource-enabled", false,
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
+	pflag.BoolVar(&config.EnablePprof, "pprof-enabled", false, "Enable the pprof tool.")
 	pflag.Parse()
 
 	config.LogLevel = "info"
