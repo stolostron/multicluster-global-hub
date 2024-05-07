@@ -58,6 +58,10 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				d.log.V(2).Info("dispatching to the default generic syncer", "eventType", evt.Type())
 				syncer = d.syncers[GenericMessageKey]
 			}
+			if syncer == nil || evt == nil {
+				d.log.Info("nil syncer or evt", "syncer", syncer, "event", evt)
+				continue
+			}
 			if err := syncer.Sync(evt.Data()); err != nil {
 				d.log.Error(err, "submit to syncer error", "eventType", evt.Type())
 			}
