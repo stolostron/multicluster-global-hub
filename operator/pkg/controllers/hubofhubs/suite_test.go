@@ -164,7 +164,7 @@ var _ = BeforeSuite(func() {
 		Log:              ctrl.Log.WithName("multicluster-global-hub-reconciler"),
 		MiddlewareConfig: &hubofhubscontroller.MiddlewareConfig{},
 		OperatorConfig: &config.OperatorConfig{
-			LogLevel:              "Info",
+			LogLevel:              "info",
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,
 		},
