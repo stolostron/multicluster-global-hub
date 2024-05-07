@@ -1115,6 +1115,8 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				return k8sClient.Update(ctx, runtimeKafka)
 			}, timeout, interval).Should(Succeed())
 
+			_, err := mghReconciler.ReconcileTransport(ctx, mcgh, transport.StrimziTransporter)
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() error {
 				kafka := &kafkav1beta2.Kafka{}
 				err := k8sClient.Get(ctx, kafkaNamespacedName, kafka)
