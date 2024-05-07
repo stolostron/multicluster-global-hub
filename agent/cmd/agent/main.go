@@ -5,10 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
-
-	_ "net/http/pprof"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"

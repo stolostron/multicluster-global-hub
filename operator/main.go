@@ -20,10 +20,9 @@ import (
 	"context"
 	"flag"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"time"
-
-	_ "net/http/pprof"
 
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
@@ -118,7 +117,7 @@ func parseFlags() *config.OperatorConfig {
 		"Enable leader election for controller manager. ")
 	pflag.BoolVar(&config.GlobalResourceEnabled, "global-resource-enabled", false,
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
-	pflag.BoolVar(&config.EnablePprof, "pprof-enabled", false, "Enable the pprof tool.")
+	pflag.BoolVar(&config.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.Parse()
 
 	config.LogLevel = "info"

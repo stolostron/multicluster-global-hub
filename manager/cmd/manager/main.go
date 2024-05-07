@@ -11,11 +11,10 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 	"time"
-
-	_ "net/http/pprof"
 
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
