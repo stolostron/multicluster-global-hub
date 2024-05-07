@@ -50,11 +50,13 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	utils.PrintVersion(setupLog)
 
 	// Start the pprof server
-	go func() {
-		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-			setupLog.Error(err, "failed to start the pprof server")
-		}
-	}()
+	if operatorConfig.EnablePprof {
+		go func() {
+			if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+				setupLog.Error(err, "failed to start the pprof server")
+			}
+		}()
+	}
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
