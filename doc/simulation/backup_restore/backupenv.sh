@@ -6,7 +6,6 @@ cd run
 cp -r ../backup ./
 cp -r ../common ./
 
-git clone git@github.com:open-cluster-management-io/policy-collection.git
 
 sed -i 's/<AWS_BUCKET>/'$AWS_BUCKET'/g' common/data-protection-app.yaml
 
@@ -22,7 +21,6 @@ sed -i 's/<RESTIC_PASSWD>/'$RESTIC_PASSWD'/g' backup/restic-secret.yaml
 oc delete secret cloud-credentials -n open-cluster-management-backup
 oc delete -f backup/
 oc delete -f backup/globalhub-custom/
-oc delete -f policy-collection/community/CM-Configuration-Management/acm-hub-pvc-backup/
 sleep 20
 
 oc create ns open-cluster-management-backup
@@ -35,7 +33,6 @@ sleep 200
 oc create secret generic cloud-credentials -n open-cluster-management-backup --from-file cloud=common/credentials-velero
 oc apply -f common/data-protection-app.yaml
 oc apply -f common/msb.yaml
-oc apply -f policy-collection/community/CM-Configuration-Management/acm-hub-pvc-backup/
 
 oc apply -f backup/
 oc apply -f backup/globalhub-custom/
