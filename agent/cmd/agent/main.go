@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -93,11 +91,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 	}
 
 	if agentConfig.EnablePprof {
-		go func() {
-			if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-				setupLog.Error(err, "failed to start the pprof server")
-			}
-		}()
+		go utils.StartDefaultPprofServer()
 	}
 
 	mgr, err := createManager(ctx, restConfig, agentConfig)
