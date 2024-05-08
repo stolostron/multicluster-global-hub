@@ -374,10 +374,10 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(container_memory_usage_bytes{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}) by (container)",
+              "expr": "sum(container_memory_usage_bytes{container=~\"user-operator|topic-operator|strimzi-cluster-operator|tls-sidecar\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{container}}` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
               "range": true,
               "refId": "A"
             }
@@ -473,10 +473,10 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}[5m])) by (container)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"user-operator|topic-operator|strimzi-cluster-operator|tls-sidecar\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{container}}` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
               "range": true,
               "refId": "A"
             }
@@ -519,6 +519,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
@@ -569,10 +570,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(jvm_memory_used_bytes{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}) by (container)",
+              "editorMode": "code",
+              "expr": "sum(jvm_memory_used_bytes{container=~\"user-operator|topic-operator|strimzi-cluster-operator|tls-sidecar\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{container}}` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -592,11 +595,13 @@ data:
           },
           "yaxes": [
             {
+              "$$hashKey": "object:336",
               "format": "decbytes",
               "logBase": 1,
               "show": true
             },
             {
+              "$$hashKey": "object:337",
               "format": "short",
               "logBase": 1,
               "show": true
@@ -612,6 +617,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
@@ -662,10 +668,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(rate(jvm_gc_pause_seconds_sum{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}[5m])) by (container)",
+              "editorMode": "code",
+              "expr": "sum(rate(jvm_gc_pause_seconds_sum{container=~\"user-operator|topic-operator|strimzi-cluster-operator|tls-sidecar\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{container}}` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -707,6 +715,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
@@ -757,10 +766,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(rate(jvm_gc_pause_seconds_count{container=~\"user-operator|topic-operator|strimzi-cluster-operator\"}[5m])) by (container)",
+              "editorMode": "code",
+              "expr": "sum(rate(jvm_gc_pause_seconds_count{container=~\"user-operator|topic-operator|strimzi-cluster-operator|tls-sidecar\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{container}}` }}",
+              "legendFormat": "{{ `{{pod}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -780,11 +791,13 @@ data:
           },
           "yaxes": [
             {
+              "$$hashKey": "object:496",
               "format": "short",
               "logBase": 1,
               "show": true
             },
             {
+              "$$hashKey": "object:497",
               "format": "short",
               "logBase": 1,
               "show": true
@@ -806,7 +819,7 @@ data:
             "x": 0,
             "y": 22
           },
-          "id": 10,
+          "id": 55,
           "panels": [],
           "targets": [
             {
