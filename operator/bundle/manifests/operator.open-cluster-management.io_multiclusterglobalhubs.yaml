@@ -40,13 +40,15 @@ spec:
               dataLayer:
                 postgres:
                   retention: 18m
-            description: Specifies the desired state of multicluster global hub
+            description: Spec specifies the desired state of multicluster global hub
             properties:
               advanced:
-                description: Specifies the advanced configurations for global hub
+                description: AdvancedConfig specifies the advanced configurations
+                  for the multicluster global hub
                 properties:
                   agent:
-                    description: The spec of global hub agent
+                    description: Agent specifies the desired state of multicluster
+                      global hub agent
                     properties:
                       resources:
                         description: Compute Resources required by this component
@@ -58,7 +60,7 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describe the maximum amount of compute
+                            description: 'Limits describes the maximum amount of compute
                               resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
@@ -78,7 +80,7 @@ spec:
                         type: object
                     type: object
                   grafana:
-                    description: The spec of grafana
+                    description: Grafana specifies the desired state of grafana
                     properties:
                       resources:
                         description: Compute Resources required by this component
@@ -90,7 +92,7 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describe the maximum amount of compute
+                            description: 'Limits describes the maximum amount of compute
                               resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
@@ -110,7 +112,7 @@ spec:
                         type: object
                     type: object
                   kafka:
-                    description: The spec of kafka
+                    description: Kafka specifies the desired state of kafka
                     properties:
                       resources:
                         description: Compute Resources required by this component
@@ -122,7 +124,7 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describe the maximum amount of compute
+                            description: 'Limits describes the maximum amount of compute
                               resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
@@ -142,7 +144,8 @@ spec:
                         type: object
                     type: object
                   manager:
-                    description: The spec of global hub manager
+                    description: Manager specifies the desired state of multicluster
+                      global hub manager
                     properties:
                       resources:
                         description: Compute Resources required by this component
@@ -154,7 +157,7 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describe the maximum amount of compute
+                            description: 'Limits describes the maximum amount of compute
                               resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
@@ -174,7 +177,7 @@ spec:
                         type: object
                     type: object
                   postgres:
-                    description: The spec of postgres
+                    description: Postgres specifies the desired state of postgres
                     properties:
                       resources:
                         description: Compute Resources required by this component
@@ -186,7 +189,7 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describe the maximum amount of compute
+                            description: 'Limits describes the maximum amount of compute
                               resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
@@ -206,7 +209,7 @@ spec:
                         type: object
                     type: object
                   zookeeper:
-                    description: The spec of zookeeper
+                    description: Zookeeper specifies the desired state of zookeeper
                     properties:
                       resources:
                         description: Compute Resources required by this component
@@ -218,7 +221,7 @@ spec:
                               - type: string
                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
-                            description: 'Limits describe the maximum amount of compute
+                            description: 'Limits describes the maximum amount of compute
                               resources allowed. For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                           requests:
@@ -240,8 +243,8 @@ spec:
                 type: object
               availabilityConfig:
                 default: High
-                description: 'Specifies deployment replication for improved availability.
-                  Options are: Basic and High (default)'
+                description: 'AvailabilityType specifies deployment replication for
+                  improved availability. Options are: Basic and High (default)'
                 type: string
               dataLayer:
                 default:
@@ -250,16 +253,16 @@ spec:
                 description: DataLayer can be configured to use a different data layer
                 properties:
                   kafka:
-                    description: Specifies the desired state of kafka
+                    description: Kafka specifies the desired state of kafka
                     properties:
                       storageSize:
-                        description: Specifies the size for storage.
+                        description: StorageSize specifies the size for storage
                         type: string
                     type: object
                   postgres:
                     default:
                       retention: 18m
-                    description: Specifies the desired state of postgres
+                    description: Postgres specifies the desired state of postgres
                     properties:
                       retention:
                         default: 18m
@@ -271,27 +274,29 @@ spec:
                           "1y6m". Valid time units are "m" and "y"
                         type: string
                       storageSize:
-                        description: Specifies the size for storage
+                        description: StorageSize specifies the size for storage
                         type: string
                     type: object
                   storageClass:
-                    description: Specifies the storageClass for storage
+                    description: StorageClass specifies the class for storage
                     type: string
                 type: object
               enableMetrics:
-                description: EnableMetrics enables the metrics for the global hub
-                  components
+                description: EnableMetrics enables the metrics for the multicluster
+                  global hub components
                 type: boolean
               imagePullPolicy:
-                description: Pull policy of the multicluster global hub images
+                description: ImagePullPolicy specifies the pull policy of the multicluster
+                  global hub images
                 type: string
               imagePullSecret:
-                description: Pull secret of the multicluster global hub images
+                description: ImagePullSecret specifies the pull secret of the multicluster
+                  global hub images
                 type: string
               nodeSelector:
                 additionalProperties:
                   type: string
-                description: Spec of NodeSelector
+                description: NodeSelector specifies the desired state of NodeSelector
                 type: object
               tolerations:
                 description: Tolerations causes all components to tolerate any taints
@@ -337,11 +342,12 @@ spec:
             - dataLayer
             type: object
           status:
-            description: Specifies the observed state of multicluster global hub
+            description: Status specifies the observed state of multicluster global
+              hub
             properties:
               conditions:
-                description: Represents the latest available observations of the current
-                  state
+                description: Conditions represents the latest available observations
+                  of the current state
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
