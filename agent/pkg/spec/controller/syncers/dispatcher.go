@@ -59,7 +59,8 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				syncer = d.syncers[GenericMessageKey]
 			}
 			if syncer == nil || evt == nil {
-				d.log.Info("nil syncer or evt", "syncer", syncer, "event", evt)
+				d.log.Info("the incompatible event will disappear once the upgrade is completed: nil syncer or evt",
+					"syncer", syncer, "event", evt)
 				continue
 			}
 			if err := syncer.Sync(evt.Data()); err != nil {
