@@ -118,7 +118,7 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 			Reason:         evt.Reason,
 			Count:          evt.Count,
 			Source:         evt.Source,
-			CreatedAt:      evt.LastTimestamp,
+			CreatedAt:      evt.CreationTimestamp,
 		},
 		PolicyID:   string(policy.GetUID()),
 		Compliance: policyCompliance(policy, evt),
