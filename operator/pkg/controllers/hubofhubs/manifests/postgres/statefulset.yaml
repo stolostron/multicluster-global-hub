@@ -95,8 +95,8 @@ spec:
             secretKeyRef:
               name: multicluster-global-hub-postgres
               key: database-admin-password
-        image: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0"
-        imagePullPolicy: IfNotPresent
+        image: {{.PostgresExporterImage}}
+        imagePullPolicy: {{.ImagePullPolicy}}
         ports:
           - name: http
             containerPort: 9187

@@ -56,6 +56,7 @@ const (
 	OauthProxyImageKey           = "oauth_proxy"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
+	PostgresExporterImageKey     = "postgres_exporter"
 	GHPostgresDefaultStorageSize = "25Gi"
 	// default values for the global hub configured by the operator
 	// We may expose these as CRD fields in the future
@@ -73,6 +74,7 @@ var (
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.2",
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
+		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"

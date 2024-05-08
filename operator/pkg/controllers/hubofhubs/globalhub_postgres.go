@@ -111,6 +111,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 			return struct {
 				Namespace                    string
 				PostgresImage                string
+				PostgresExporterImage        string
 				StorageSize                  string
 				ImagePullSecret              string
 				ImagePullPolicy              string
@@ -127,6 +128,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 			}{
 				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
+				PostgresExporterImage:        config.GetImage(config.PostgresExporterImageKey),
 				ImagePullSecret:              mgh.Spec.ImagePullSecret,
 				ImagePullPolicy:              string(imagePullPolicy),
 				NodeSelector:                 mgh.Spec.NodeSelector,

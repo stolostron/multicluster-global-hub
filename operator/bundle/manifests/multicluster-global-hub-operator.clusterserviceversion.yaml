@@ -23,7 +23,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-04-23T08:11:09Z"
+    createdAt: "2024-05-08T05:03:18Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -773,6 +773,8 @@ spec:
                   value: quay.io/stolostron/grafana:globalhub-1.2
                 - name: RELATED_IMAGE_POSTGRESQL
                   value: quay.io/stolostron/postgresql-13:1-101
+                - name: RELATED_IMAGE_POSTGRE_EXPORTER
+                  value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
                 - name: RELATED_IMAGE_OAUTH_PROXY
                   value: quay.io/stolostron/origin-oauth-proxy:4.9
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
