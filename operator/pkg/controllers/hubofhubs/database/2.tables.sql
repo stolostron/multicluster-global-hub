@@ -62,14 +62,13 @@ CREATE INDEX IF NOT EXISTS leafhub_deleted_at_idx ON status.leaf_hubs (deleted_a
 CREATE TABLE IF NOT EXISTS event.managed_clusters (
     event_name text NOT NULL,
     cluster_id uuid NOT NULL,
-    cluster_name character varying(256) NOT NULL,
     leaf_hub_name character varying(256) NOT NULL,
     message text,
     reason text,
-    source jsonb, -- reportingComponent
+    reporting_controller text, 
     event_type character varying(64) NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL, -- eventTime
-    CONSTRAINT managed_clusters_unique_constraint UNIQUE (event_name, cluster_id, created_at)
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    CONSTRAINT managed_clusters_unique_constraint UNIQUE (leaf_hub_name, event_name, created_at)
 ) PARTITION BY RANGE (created_at);
 
 CREATE TABLE IF NOT EXISTS event.local_policies (
