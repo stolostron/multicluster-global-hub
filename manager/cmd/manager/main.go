@@ -167,7 +167,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
 		"enable the global resource feature.")
-
+	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.Parse()
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -299,6 +299,11 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		setupLog.Error(err, "failed to complete configuration")
 		return 1
 	}
+
+	if managerConfig.EnablePprof {
+		go utils.StartDefaultPprofServer()
+	}
+
 	utils.PrintVersion(setupLog)
 	databaseConfig := &database.DatabaseConfig{
 		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,

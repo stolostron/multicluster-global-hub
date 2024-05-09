@@ -55,6 +55,7 @@ spec:
             - --enable-global-resource={{.EnableGlobalResource}}
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
+            - --enable-pprof={{.EnablePprof}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

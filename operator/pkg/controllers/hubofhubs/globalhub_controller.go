@@ -85,31 +85,29 @@ var watchedConfigmap = sets.NewString(
 type MulticlusterGlobalHubReconciler struct {
 	manager.Manager
 	client.Client
-	Scheme               *runtime.Scheme
-	addonMgr             addonmanager.AddonManager
-	KubeClient           kubernetes.Interface
-	Log                  logr.Logger
-	LogLevel             string
-	MiddlewareConfig     *MiddlewareConfig
-	EnableGlobalResource bool
-	upgradeOnce          sync.Once
-	KafkaInit            bool
-	KafkaController      *KafkaController
+	Scheme           *runtime.Scheme
+	addonMgr         addonmanager.AddonManager
+	KubeClient       kubernetes.Interface
+	Log              logr.Logger
+	MiddlewareConfig *MiddlewareConfig
+	OperatorConfig   *config.OperatorConfig
+	upgradeOnce      sync.Once
+	KafkaInit        bool
+	KafkaController  *KafkaController
 }
 
 func NewMulticlusterGlobalHubReconciler(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) *MulticlusterGlobalHubReconciler {
 	return &MulticlusterGlobalHubReconciler{
-		Manager:              mgr,
-		Client:               mgr.GetClient(),
-		addonMgr:             addonMgr,
-		KubeClient:           kubeClient,
-		Scheme:               mgr.GetScheme(),
-		Log:                  ctrl.Log.WithName("global-hub-reconciler"),
-		MiddlewareConfig:     &MiddlewareConfig{},
-		EnableGlobalResource: operatorConfig.GlobalResourceEnabled,
-		LogLevel:             operatorConfig.LogLevel,
+		Manager:          mgr,
+		Client:           mgr.GetClient(),
+		addonMgr:         addonMgr,
+		KubeClient:       kubeClient,
+		Scheme:           mgr.GetScheme(),
+		Log:              ctrl.Log.WithName("global-hub-reconciler"),
+		MiddlewareConfig: &MiddlewareConfig{},
+		OperatorConfig:   operatorConfig,
 	}
 }
 

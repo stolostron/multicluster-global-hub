@@ -59,6 +59,7 @@ spec:
             {{- end}}
             - --data-retention={{.RetentionMonth}}
             - --statistics-log-interval={{.StatisticLogInterval}}
+            - --enable-pprof={{.EnablePprof}}
             {{- if eq .SkipAuth true}}
             - --cluster-api-url=
             {{- end}}

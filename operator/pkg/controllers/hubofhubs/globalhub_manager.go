@@ -140,8 +140,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			Tolerations:            mgh.Spec.Tolerations,
 			RetentionMonth:         months,
 			StatisticLogInterval:   config.GetStatisticLogInterval(),
-			EnableGlobalResource:   r.EnableGlobalResource,
-			LogLevel:               r.LogLevel,
+			EnableGlobalResource:   r.OperatorConfig.GlobalResourceEnabled,
+			EnablePprof:            r.OperatorConfig.EnablePprof,
+			LogLevel:               r.OperatorConfig.LogLevel,
 			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
@@ -257,6 +258,7 @@ type ManagerVariables struct {
 	RetentionMonth         int
 	StatisticLogInterval   string
 	EnableGlobalResource   bool
+	EnablePprof            bool
 	LogLevel               string
 	Resources              *corev1.ResourceRequirements
 }

@@ -68,6 +68,7 @@ type ManifestsConfig struct {
 	AgentQPS               float32
 	AgentBurst             int
 	LogLevel               string
+	EnablePprof            bool
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
 	Resources *Resources
 }
@@ -81,13 +82,12 @@ type Resources struct {
 }
 
 type HohAgentAddon struct {
-	ctx                  context.Context
-	client               client.Client
-	kubeClient           kubernetes.Interface
-	dynamicClient        dynamic.Interface
-	log                  logr.Logger
-	EnableGlobalResource bool
-	LogLevel             string
+	ctx            context.Context
+	client         client.Client
+	kubeClient     kubernetes.Interface
+	dynamicClient  dynamic.Interface
+	log            logr.Logger
+	operatorConfig *config.OperatorConfig
 }
 
 func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
@@ -227,10 +227,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
 		KlusterletNamespace:    "open-cluster-management-agent",
 		KlusterletWorkSA:       "klusterlet-work-sa",
-		EnableGlobalResource:   a.EnableGlobalResource,
+		EnableGlobalResource:   a.operatorConfig.GlobalResourceEnabled,
 		AgentQPS:               agentQPS,
 		AgentBurst:             agentBurst,
-		LogLevel:               a.LogLevel,
+		LogLevel:               a.operatorConfig.LogLevel,
+		EnablePprof:            a.operatorConfig.EnablePprof,
 		Resources:              agentRes,
 	}
 

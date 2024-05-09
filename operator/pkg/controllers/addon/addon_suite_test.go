@@ -114,6 +114,7 @@ var _ = BeforeSuite(func() {
 	addonController, err := addon.NewAddonController(k8sManager.GetConfig(), k8sClient, &config.OperatorConfig{
 		GlobalResourceEnabled: true,
 		LogLevel:              "info",
+		EnablePprof:           false,
 	})
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
