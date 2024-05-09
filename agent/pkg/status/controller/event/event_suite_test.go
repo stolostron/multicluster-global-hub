@@ -2,24 +2,24 @@ package event
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
@@ -32,14 +32,16 @@ import (
 )
 
 var (
-	leafHubName = "hub1"
-	testenv     *envtest.Environment
-	cfg         *rest.Config
-	ctx         context.Context
-	cancel      context.CancelFunc
-	consumer    transport.Consumer
-	producer    transport.Producer
-	kubeClient  client.Client
+	leafHubName                 = "hub1"
+	testenv                     *envtest.Environment
+	cfg                         *rest.Config
+	ctx                         context.Context
+	cancel                      context.CancelFunc
+	consumer                    transport.Consumer
+	producer                    transport.Producer
+	kubeClient                  client.Client
+	receivedEvents              map[string]*cloudevents.Event
+	localRootPolicyEventEmitter *localRootPolicyEmitter
 )
 
 func TestControllers(t *testing.T) {
@@ -108,24 +110,17 @@ var _ = BeforeSuite(func() {
 		return &corev1.Event{}
 	}
 
-	predicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		event, ok := obj.(*corev1.Event)
-		if !ok {
-			return false
-		}
-		// only sync the policy event || extend other InvolvedObject kind
-		return event.InvolvedObject.Kind == policiesv1.Kind
-	})
-
+	localRootPolicyEventEmitter = NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic)
 	err = generic.LaunchGenericObjectSyncer(
 		"status.event",
 		mgr,
-		generic.NewGenericController(instance, predicate),
+		generic.NewGenericController(instance, eventPredicateFunc),
 		producer,
 		statusconfig.GetEventDuration,
 		[]generic.ObjectEmitter{
-			NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
+			localRootPolicyEventEmitter,
 			NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
+			NewManagedClusterEventEmitter(ctx, mgr.GetClient(), transport.GenericEventTopic),
 		})
 	Expect(err).NotTo(HaveOccurred())
 
@@ -137,6 +132,24 @@ var _ = BeforeSuite(func() {
 
 	By("Waiting for the manager to be ready")
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	By("Getting the event from consumer")
+	receivedEvents = make(map[string]*cloudevents.Event)
+	go func() {
+		for {
+			select {
+			case evt, ok := <-consumer.EventChan():
+				if !ok {
+					fmt.Println("event channel closed, exiting...")
+					return
+				}
+				receivedEvents[evt.Type()] = evt
+			case <-ctx.Done():
+				fmt.Println("context canceled, exiting...")
+				return
+			}
+		}
+	}()
 })
 
 var _ = AfterSuite(func() {
