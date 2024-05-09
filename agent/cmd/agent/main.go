@@ -90,6 +90,10 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		return 1
 	}
 
+	if agentConfig.EnablePprof {
+		go utils.StartDefaultPprofServer()
+	}
+
 	mgr, err := createManager(ctx, restConfig, agentConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to create manager")
@@ -171,6 +175,7 @@ func parseFlags() *config.AgentConfig {
 		"QPS for the multicluster global hub agent")
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
+	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.Parse()
 
 	// set zap logger

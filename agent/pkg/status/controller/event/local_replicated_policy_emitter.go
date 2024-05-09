@@ -3,15 +3,16 @@ package event
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
-	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
@@ -60,29 +61,30 @@ var _ generic.ObjectEmitter = &localReplicatedPolicyEmitter{}
 
 type localReplicatedPolicyEmitter struct {
 	ctx             context.Context
+	name            string
 	log             logr.Logger
 	eventType       string
 	runtimeClient   client.Client
 	currentVersion  *version.Version
 	lastSentVersion version.Version
 	payload         event.ReplicatedPolicyEventBundle
-	cache           *lru.Cache
 	topic           string
 }
 
 func NewLocalReplicatedPolicyEmitter(ctx context.Context, runtimeClient client.Client,
 	topic string,
 ) generic.ObjectEmitter {
-	cache, _ := lru.New(20)
+	name := strings.Replace(string(enum.LocalReplicatedPolicyEventType), enum.EventTypePrefix, "", -1)
+	filter.RegisterTimeFilter(name)
 	return &localReplicatedPolicyEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("policy-event-syncer/replicated-policy"),
+		name:            name,
+		log:             ctrl.Log.WithName(name),
 		eventType:       string(enum.LocalReplicatedPolicyEventType),
 		topic:           topic,
 		runtimeClient:   runtimeClient,
 		currentVersion:  version.NewVersion(),
 		lastSentVersion: *version.NewVersion(),
-		cache:           cache,
 		payload:         make([]event.ReplicatedPolicyEvent, 0),
 	}
 }
@@ -96,7 +98,7 @@ func (h *localReplicatedPolicyEmitter) ShouldUpdate(obj client.Object) bool {
 	if config.GetEnableLocalPolicy() != config.EnableLocalPolicyTrue {
 		return false
 	}
-	policy, ok := policyEventPredicate(h.ctx, obj, h.runtimeClient, h.log)
+	policy, ok := policyEventPredicate(h.ctx, h.name, obj, h.runtimeClient, h.log)
 
 	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
 		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
@@ -113,11 +115,6 @@ func (h *localReplicatedPolicyEmitter) Topic() string {
 func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
-		return false
-	}
-	// if exist, then return
-	evtKey := getEventKey(evt)
-	if h.cache.Contains(evtKey) {
 		return false
 	}
 
@@ -151,7 +148,6 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 	}
 	// cache to events and update version
 	h.payload = append(h.payload, replicatedPolicyEvent)
-	h.cache.Add(evtKey, nil)
 	return true
 }
 
@@ -173,6 +169,10 @@ func (h *localReplicatedPolicyEmitter) ToCloudEvent() (*cloudevents.Event, error
 }
 
 func (h *localReplicatedPolicyEmitter) PostSend() {
+	// update the time filter: with latest event
+	for _, evt := range h.payload {
+		filter.CacheTime(h.name, evt.CreatedAt.Time)
+	}
 	// update version and clean the cache
 	h.payload = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()

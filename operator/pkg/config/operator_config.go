@@ -6,5 +6,6 @@ type OperatorConfig struct {
 	PodNamespace          string
 	LeaderElection        bool
 	GlobalResourceEnabled bool
+	EnablePprof           bool
 	LogLevel              string
 }

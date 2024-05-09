@@ -8,13 +8,13 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
-	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -30,13 +30,13 @@ var (
 
 type statusEventEmitter struct {
 	ctx             context.Context
+	name            string
 	log             logr.Logger
 	eventType       string
 	runtimeClient   client.Client
 	currentVersion  *eventversion.Version
 	lastSentVersion eventversion.Version
 	payload         event.ReplicatedPolicyEventBundle
-	cache           *lru.Cache
 	topic           string
 	predicate       func(client.Object) bool
 }
@@ -48,16 +48,17 @@ func StatusEventEmitter(
 	c client.Client,
 	topic string,
 ) generic.ObjectEmitter {
-	cache, _ := lru.New(30)
+	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
+	filter.RegisterTimeFilter(name)
 	return &statusEventEmitter{
 		ctx:             ctx,
-		log:             ctrl.Log.WithName("policy-syncer/status-event"),
+		name:            name,
+		log:             ctrl.Log.WithName(name),
 		eventType:       string(eventType),
 		topic:           topic,
 		runtimeClient:   c,
 		currentVersion:  eventversion.NewVersion(),
 		lastSentVersion: *eventversion.NewVersion(),
-		cache:           cache,
 		payload:         make([]event.ReplicatedPolicyEvent, 0),
 		predicate:       predicate,
 	}
@@ -99,8 +100,8 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 	for _, detail := range policy.Status.Details {
 		if detail.History != nil {
 			for _, evt := range detail.History {
-				key := fmt.Sprintf("%s.%s", evt.EventName, evt.LastTimestamp)
-				if h.cache.Contains(key) {
+				// if the event time is older thant the filter cached sent event time, then skip it
+				if !filter.Newer(h.name, evt.LastTimestamp.Time) {
 					continue
 				}
 
@@ -120,7 +121,6 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 					ClusterID:  clusterID,
 					Compliance: GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
 				})
-				h.cache.Add(key, nil)
 				updated = true
 			}
 		}
@@ -146,6 +146,10 @@ func (h *statusEventEmitter) ToCloudEvent() (*cloudevents.Event, error) {
 }
 
 func (h *statusEventEmitter) PostSend() {
+	// update the time filter: with latest event
+	for _, evt := range h.payload {
+		filter.CacheTime(h.name, evt.CreatedAt.Time)
+	}
 	// update version and clean the cache
 	h.payload = make([]event.ReplicatedPolicyEvent, 0)
 	h.currentVersion.Next()

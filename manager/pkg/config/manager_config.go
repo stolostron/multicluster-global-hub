@@ -24,6 +24,7 @@ type ManagerConfig struct {
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
 	LaunchJobNames        string
+	EnablePprof           bool
 }
 
 type SyncerConfig struct {

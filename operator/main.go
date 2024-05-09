@@ -46,6 +46,10 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	operatorConfig := parseFlags()
 	utils.PrintVersion(setupLog)
 
+	if operatorConfig.EnablePprof {
+		go utils.StartDefaultPprofServer()
+	}
+
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		setupLog.Error(err, "failed to create kube client")
@@ -106,6 +110,7 @@ func parseFlags() *config.OperatorConfig {
 		"Enable leader election for controller manager. ")
 	pflag.BoolVar(&config.GlobalResourceEnabled, "global-resource-enabled", false,
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
+	pflag.BoolVar(&config.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.Parse()
 
 	config.LogLevel = "info"

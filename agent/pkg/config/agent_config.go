@@ -18,4 +18,5 @@ type AgentConfig struct {
 	EnableGlobalResource         bool
 	QPS                          float32
 	Burst                        int
+	EnablePprof                  bool
 }
