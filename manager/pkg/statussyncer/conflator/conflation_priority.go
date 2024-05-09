@@ -8,6 +8,7 @@ const (
 	HubClusterHeartbeatPriority        ConflationPriority = iota
 	HubClusterInfoPriority             ConflationPriority = iota
 	ManagedClustersPriority            ConflationPriority = iota
+	ManagedClusterEventPriority        ConflationPriority = iota
 	LocalPolicySpecPriority            ConflationPriority = iota
 	LocalCompliancePriority            ConflationPriority = iota
 	LocalCompleteCompliancePriority    ConflationPriority = iota
