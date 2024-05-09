@@ -41,7 +41,7 @@ func (k *BYOTransporter) GenerateUserName(clusterIdentity string) string {
 	return ""
 }
 
-func (s *BYOTransporter) CreateUser(name string) error {
+func (s *BYOTransporter) CreateAndUpdateUser(name string) error {
 	return nil
 }
 
@@ -50,7 +50,7 @@ func (k *BYOTransporter) DeleteUser(username string) error {
 }
 
 // create the transport topic(KafkaTopic) if not exist for each hub clusters
-func (s *BYOTransporter) CreateTopic(topic *transport.ClusterTopic) error {
+func (s *BYOTransporter) CreateAndUpdateTopic(topic *transport.ClusterTopic) error {
 	return nil
 }
 

@@ -142,10 +142,10 @@ func (r *AddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) 
 	clusterUser := transporter.GenerateUserName(cluster.Name)
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
 	// create the resources
-	if err := transporter.CreateUser(clusterUser); err != nil {
+	if err := transporter.CreateAndUpdateUser(clusterUser); err != nil {
 		return fmt.Errorf("failed to create transport user %s: %v", clusterUser, err)
 	}
-	if err := transporter.CreateTopic(clusterTopic); err != nil {
+	if err := transporter.CreateAndUpdateTopic(clusterTopic); err != nil {
 		return fmt.Errorf("failed to create transport topics %s: %v", cluster.Name, err)
 	}
 

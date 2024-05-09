@@ -1111,7 +1111,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			Expect(k8sClient.Get(ctx, kafkaNamespacedName, runtimeKafka)).ToNot(HaveOccurred())
 
 			Eventually(func() error {
-				runtimeKafka.Spec.Kafka.Replicas = 2
+				runtimeKafka.Spec.Kafka.Replicas = 4
 				return k8sClient.Update(ctx, runtimeKafka)
 			}, timeout, interval).Should(Succeed())
 
@@ -1121,6 +1121,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 				kafka := &kafkav1beta2.Kafka{}
 				err := k8sClient.Get(ctx, kafkaNamespacedName, kafka)
 				Expect(err).ToNot(HaveOccurred())
+				klog.Infof("kafka: %v", kafka)
 				if kafka.Spec.Kafka.Template == nil || kafka.Spec.Kafka.Template.Pod == nil ||
 					len(kafka.Spec.Kafka.Template.Pod.Tolerations) == 0 {
 					return fmt.Errorf("kafka resource is not updated")

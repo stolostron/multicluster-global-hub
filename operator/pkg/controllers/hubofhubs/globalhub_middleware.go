@@ -170,14 +170,14 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileTransport(ctx context.Context
 	}
 
 	// create the user to connect the transport instance
-	err = trans.CreateUser(transportprotocol.DefaultGlobalHubKafkaUser)
+	err = trans.CreateAndUpdateUser(transportprotocol.DefaultGlobalHubKafkaUser)
 	if err != nil {
 		return nil, err
 	}
 	// create global hub topics, create the status.global, spec and event topics
 	// it's a placeholder for the manager to subscribe the `^status.*`
 	topics := trans.GenerateClusterTopic(transportprotocol.GlobalHubClusterName)
-	err = trans.CreateTopic(topics)
+	err = trans.CreateAndUpdateTopic(topics)
 	if err != nil {
 		return nil, err
 	}

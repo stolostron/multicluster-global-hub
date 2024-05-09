@@ -263,7 +263,7 @@ func TestStrimziTransporter(t *testing.T) {
 	// user
 	userName := trans.GenerateUserName(clusterName)
 	assert.Equal(t, fmt.Sprintf("%s-kafka-user", clusterName), userName)
-	err = trans.CreateUser(userName)
+	err = trans.CreateAndUpdateUser(userName)
 	assert.Nil(t, err)
 
 	// topic
@@ -272,7 +272,7 @@ func TestStrimziTransporter(t *testing.T) {
 	assert.Equal(t, "event", clusterTopic.EventTopic)
 	assert.Equal(t, fmt.Sprintf(StatusTopicTemplate, clusterName), clusterTopic.StatusTopic)
 
-	err = trans.CreateTopic(clusterTopic)
+	err = trans.CreateAndUpdateTopic(clusterTopic)
 	assert.Nil(t, err)
 
 	// grant readable permission
