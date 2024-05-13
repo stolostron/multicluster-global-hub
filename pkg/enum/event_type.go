@@ -33,4 +33,6 @@ const (
 	LocalPlacementRuleSpecType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.localspec"
 	PlacementRuleSpecType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.spec"
 	PlacementSpecType          EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placement.spec"
+
+	ManagedClusterEventType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster"
 )

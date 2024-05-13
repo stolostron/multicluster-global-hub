@@ -47,6 +47,7 @@ func registerHandler(cmr *conflator.ConflationManager, enableGlobalResource bool
 	dbsyncer.NewHubClusterHeartbeatHandler().RegisterHandler(cmr)
 	dbsyncer.NewHubClusterInfoHandler().RegisterHandler(cmr)
 	dbsyncer.NewManagedClusterHandler().RegisterHandler(cmr)
+	dbsyncer.NewManagedClusterEventHandler().RegisterHandler(cmr)
 	dbsyncer.NewLocalPolicySpecHandler().RegisterHandler(cmr)
 	dbsyncer.NewLocalPolicyComplianceHandler().RegisterHandler(cmr)
 	dbsyncer.NewLocalPolicyCompleteHandler().RegisterHandler(cmr)
