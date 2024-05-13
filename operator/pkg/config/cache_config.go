@@ -87,7 +87,7 @@ func InitCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		},
 		&corev1.PersistentVolumeClaim{}: {
 			Namespaces: map[string]cache.Config{
-				utils.GetDefaultNamespace(): {LabelSelector: labelSelector},
+				utils.GetDefaultNamespace(): {},
 			},
 		},
 		&admissionregistrationv1.MutatingWebhookConfiguration{}: {
