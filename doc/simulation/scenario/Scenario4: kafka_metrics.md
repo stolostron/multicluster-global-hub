@@ -1,4 +1,4 @@
-# Scenario 4: Kafka Metrics
+# Scenario 4: Kafka Metrics(release-2.11)
 
 ## Scale
 
@@ -6,7 +6,7 @@
 - 1500 Managed Clusters
 - 250 Policies, 75,000 Replicated Policies
 
-## Step
+## Environment
 
 1. Install the global hub and then join the 5 simulated managed hubs into it
 

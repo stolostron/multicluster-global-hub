@@ -1,4 +1,4 @@
-# Scenario 2: Manage 3,000 clusters and 500 policies(150,000 replicated policies)
+# Scenario 3: Manage 3,000 clusters and 500 policies(release-2.11)
 
 ## Scale
 
@@ -6,7 +6,7 @@
 - 3,000 Managed Clusters
 - 500 Policies, 150,000 Replicated Policies
 
-## Step
+## Environment
 
 1. Install the global hub and then join the `1` simulated managed hubs into it
 
@@ -16,7 +16,7 @@
 
 4. At last, repeat the step 3 to deploy the agent to `hub6` ~ `hub10`, and updating the status.
 
-Through the above steps, we can see the changing trends of the global hub metrics under the management of 1, 3 and 5 hubs.
+Through the above steps, we can see the changing trends of the global hub metrics under the management of 1, 5 and 10 hubs.
 
 ## Statistics and Analysis
 
