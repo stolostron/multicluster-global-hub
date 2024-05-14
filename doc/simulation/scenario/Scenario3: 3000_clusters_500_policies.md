@@ -1,4 +1,4 @@
-# Scenario 3: Manage 3,000 clusters and 500 policies(release-2.11)
+# Scenario 3: Manage 3,000 clusters and 500 policies(release-2.11/globalhub-1.2)
 
 ## Scale
 

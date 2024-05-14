@@ -1,4 +1,4 @@
-# Scenario 4: Kafka Metrics(release-2.11)
+# Scenario 4: Kafka Metrics(release-2.11/globalhub-1.2)
 
 ## Scale
 
