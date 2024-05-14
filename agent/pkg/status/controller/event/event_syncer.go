@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -23,6 +24,16 @@ const (
 var PolicyMessageStatusRe = regexp.
 	MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 
+var eventPredicateFunc = predicate.NewPredicateFuncs(func(obj client.Object) bool {
+	event, ok := obj.(*corev1.Event)
+	if !ok {
+		return false
+	}
+	// only sync the policy event || extend other InvolvedObject kind
+	return event.InvolvedObject.Kind == policiesv1.Kind ||
+		event.InvolvedObject.Kind == constants.ManagedClusterKind
+})
+
 func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 	agentConfig *config.AgentConfig, producer transport.Producer,
 ) error {
@@ -32,22 +43,14 @@ func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 		return &corev1.Event{}
 	}
 
-	predicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		event, ok := obj.(*corev1.Event)
-		if !ok {
-			return false
-		}
-		// only sync the policy event || extend other InvolvedObject kind
-		return event.InvolvedObject.Kind == policiesv1.Kind
-	})
-
 	return generic.LaunchGenericObjectSyncer(
 		"status.event",
 		mgr,
-		generic.NewGenericController(instance, predicate),
+		generic.NewGenericController(instance, eventPredicateFunc),
 		producer,
 		statusconfig.GetEventDuration,
 		[]generic.ObjectEmitter{
 			NewLocalRootPolicyEmitter(ctx, mgr.GetClient(), eventTopic),
+			NewManagedClusterEventEmitter(ctx, mgr.GetClient(), eventTopic),
 		})
 }

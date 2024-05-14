@@ -20,7 +20,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -46,7 +45,7 @@ func NewLocalRootPolicyEmitter(ctx context.Context, c client.Client, topic strin
 		name:            name,
 		log:             ctrl.Log.WithName(name),
 		eventType:       string(enum.LocalRootPolicyEventType),
-		topic:           transport.GenericEventTopic,
+		topic:           topic,
 		runtimeClient:   c,
 		currentVersion:  version.NewVersion(),
 		lastSentVersion: *version.NewVersion(),
@@ -78,7 +77,7 @@ func policyEventPredicate(ctx context.Context, name string, obj client.Object, c
 	}
 
 	// if it's a older event, then return false
-	if !filter.Newer(name, evt.LastTimestamp.Time) {
+	if !filter.Newer(name, evt.CreationTimestamp.Time) {
 		return nil, false
 	}
 
@@ -164,10 +163,6 @@ func (h *localRootPolicyEmitter) PostSend() {
 	// 2. set the lastSenteVersion to current version
 	h.currentVersion.Next()
 	h.lastSentVersion = *h.currentVersion
-}
-
-func getEventKey(event *corev1.Event) string {
-	return fmt.Sprintf("%s-%s-%d", event.Namespace, event.Name, event.Count)
 }
 
 func policyCompliance(policy *policiesv1.Policy, evt *corev1.Event) string {

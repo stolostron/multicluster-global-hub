@@ -104,6 +104,7 @@ const (
 // store hub installation constants
 const (
 	MultiClusterHubKind = "MultiClusterHub"
+	ManagedClusterKind  = "ManagedCluster"
 
 	// VersionClusterClaimName is a claim to record the ACM version
 	VersionClusterClaimName = "version.open-cluster-management.io"
