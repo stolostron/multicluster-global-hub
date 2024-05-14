@@ -39,6 +39,7 @@ var (
 		"event.local_policies",
 		"event.local_root_policies",
 		"history.local_compliance",
+		"event.managed_clusters",
 	}
 	retentionLog = ctrl.Log.WithName(RetentionTaskName)
 )
