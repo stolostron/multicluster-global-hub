@@ -23,7 +23,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-05-08T05:03:18Z"
+    createdAt: "2024-04-29T07:06:22Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -74,7 +74,7 @@ spec:
         displayName: Tolerations
         path: tolerations
       - description: EnableMetrics is to enable collecting the metrics for the global
-          hub kafka and postgres.
+          hub created kafka and postgres.
         displayName: Enable Metrics Collecting
         path: enableMetrics
         x-descriptors:

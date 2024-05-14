@@ -1,4 +1,4 @@
-{{- if .EnableMetrics }}
+{{- if .EnablePostgresMetrics }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:

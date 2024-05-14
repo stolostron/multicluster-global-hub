@@ -14,7 +14,7 @@ spec:
     targetPort: 5432
     name: postgres
     protocol: TCP
-  {{- if .EnableMetrics }}
+  {{- if .EnablePostgresMetrics }}
   - port: 80
     targetPort: 9187
     protocol: TCP

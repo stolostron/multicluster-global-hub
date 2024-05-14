@@ -283,7 +283,7 @@ func detectTransportProtocol(ctx context.Context, runtimeClient client.Client) (
 func (r *MulticlusterGlobalHubReconciler) renderKafkaMetricsResources(
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	if mgh.Spec.EnableMetrics {
+	if (!config.IsBYOKafka()) && mgh.Spec.EnableMetrics {
 		// render the kafka objects
 		kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 		kafkaObjects, err := kafkaRenderer.Render("manifests/kafka", "",

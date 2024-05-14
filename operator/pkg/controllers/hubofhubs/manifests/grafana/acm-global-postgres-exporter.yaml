@@ -1,4 +1,4 @@
-{{- if .EnableMetrics }}
+{{- if .EnablePostgresMetrics }}
 apiVersion: v1
 data:
   acm-global-postgres-exporter.json: |

@@ -125,6 +125,7 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 				StorageClass                 string
 				Resources                    *corev1.ResourceRequirements
 				EnableMetrics                bool
+				EnablePostgresMetrics        bool
 			}{
 				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
@@ -143,7 +144,8 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 					utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=disable",
 				Resources: operatorutils.GetResources(operatorconstants.Postgres,
 					mgh.Spec.AdvancedConfig),
-				EnableMetrics: mgh.Spec.EnableMetrics,
+				EnableMetrics:         mgh.Spec.EnableMetrics,
+				EnablePostgresMetrics: (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
 			}, nil
 		})
 	if err != nil {

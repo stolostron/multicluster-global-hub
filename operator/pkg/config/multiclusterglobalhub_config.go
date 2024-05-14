@@ -27,6 +27,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -79,7 +80,51 @@ var (
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
+	isBYOKafka            = false
+	isBYOPostgres         = false
 )
+
+func SetBYOKafka(ctx context.Context, runtimeClient client.Client, namespace string) error {
+	kafkaSecret := &corev1.Secret{}
+	err := runtimeClient.Get(ctx, types.NamespacedName{
+		Name:      constants.GHTransportSecretName,
+		Namespace: namespace,
+	}, kafkaSecret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			isBYOKafka = false
+			return nil
+		}
+		return err
+	}
+	isBYOKafka = true
+	return nil
+}
+
+func SetBYOPostgres(ctx context.Context, runtimeClient client.Client, namespace string) error {
+	pgSecret := &corev1.Secret{}
+	err := runtimeClient.Get(ctx, types.NamespacedName{
+		Name:      constants.GHStorageSecretName,
+		Namespace: namespace,
+	}, pgSecret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			isBYOPostgres = false
+			return nil
+		}
+		return err
+	}
+	isBYOPostgres = true
+	return nil
+}
+
+func IsBYOKafka() bool {
+	return isBYOKafka
+}
+
+func IsBYOPostgres() bool {
+	return isBYOPostgres
+}
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
 	mghNamespacedName = namespacedName

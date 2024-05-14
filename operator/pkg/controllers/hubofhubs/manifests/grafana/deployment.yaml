@@ -92,13 +92,15 @@ spec:
           name: grafana-dashboard-acm-global-whats-changed-clusters
         - mountPath: /grafana-dashboards/0/acm-global-whats-changed-policies
           name: grafana-dashboard-acm-global-whats-changed-policies
-        {{- if .EnableMetrics }}
+        {{- if .EnableKafkaMetrics }}
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-kafka
           name: grafana-dashboard-acm-strimzi-kafka
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-operator
           name: grafana-dashboard-acm-strimzi-operator
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-zookeeper
           name: grafana-dashboard-acm-strimzi-zookeeper
+        {{- end }}
+        {{- if .EnablePostgresMetrics }}
         - mountPath: /grafana-dashboards/2/acm-global-postgres-exporter
           name: grafana-dashboard-acm-global-postgres-exporter
         {{- end }}
@@ -208,7 +210,7 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-overview
         name: grafana-dashboard-acm-global-overview
-      {{- if .EnableMetrics }}
+      {{- if .EnableKafkaMetrics }}
       - configMap:
           defaultMode: 420
           name: grafana-dashboard-acm-strimzi-kafka
@@ -221,6 +223,8 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-strimzi-zookeeper
         name: grafana-dashboard-acm-strimzi-zookeeper
+      {{- end }}
+      {{- if .EnablePostgresMetrics }}
       - configMap:
           defaultMode: 420
           name: grafana-dashboard-acm-global-postgres-exporter
