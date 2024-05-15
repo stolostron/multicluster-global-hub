@@ -80,6 +80,7 @@ const (
 	// GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
 	// if the resource with this label, it will be synced to database and then propagated to managed hub
 	GlobalHubGlobalResourceLabel = "global-hub.open-cluster-management.io/global-resource"
+	GlobalHubMetricsLabel        = "global-hub.open-cluster-management.io/metrics-resource"
 )
 
 // store all the annotations

@@ -8,6 +8,7 @@ List all of the labels that are used by the multicluster global hub.
 | global-hub.open-cluster-management.io/global-resource=                                               | This label is added when creating the global resources. It is used to identify the resource that transport needs to propagate to the managed hub clusters.                                                                                               |
 | global-hub.open-cluster-management.io/agent-deploy-mode = `Hosted\| Default\| None`                  | This label is used on ManagedCluster.<br>`Hosted` means the global hub agent is deployed on Hosting cluster.<br>`Default` means the global hub agent is deployed on managed cluster.<br>`None` means the global hub agent is not installed. |
 | global-hub.open-cluster-management.io/hub-cluster-install=                                           | This label is used on ManagedCluster. If this label exists, the global hub operator installs Red Hat Advanced Cluster Management on a managed cluster. If the label is not included, Red Hat Advanced Cluster Management is not installed on the managed cluster by the global hub operator.                                          |
+| global-hub.open-cluster-management.io/metrics-resource=`strimzi\|postgres` | It's used to identify the resource owned by enableMetrics, if the enableMetrics is disabled, these resources should be removed. |
 
 # Annotations
 

@@ -6,6 +6,7 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     app: prometheus-postgres-exporter
+    global-hub.open-cluster-management.io/metrics-resource: postgres
 spec:
   groups:
     - name: prometheus-postgres-exporter

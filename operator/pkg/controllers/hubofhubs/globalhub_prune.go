@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,6 +66,56 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 		return err
 	}
 	log.Info("removed finalizer from mgh, app, policy, placement and etc")
+	return nil
+}
+
+func (r *MulticlusterGlobalHubReconciler) pruneMetricsResources(ctx context.Context) error {
+	listOpts := []client.ListOption{
+		client.HasLabels{constants.GlobalHubMetricsLabel},
+	}
+	configmapList := &corev1.ConfigMapList{}
+	if err := r.Client.List(ctx, configmapList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range configmapList.Items {
+		if err := r.Client.Delete(ctx, &configmapList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	serviceMonitorList := &promv1.ServiceMonitorList{}
+	if err := r.Client.List(ctx, serviceMonitorList, listOpts...); err != nil {
+		// Handle the env do not have this kind of resource
+		return nil
+	}
+	for idx := range serviceMonitorList.Items {
+		if err := r.Client.Delete(ctx, serviceMonitorList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	podMonitorList := &promv1.PodMonitorList{}
+	if err := r.Client.List(ctx, podMonitorList, listOpts...); err != nil {
+		// Handle the env do not have this kind of resource
+		return nil
+	}
+	for idx := range podMonitorList.Items {
+		if err := r.Client.Delete(ctx, podMonitorList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	prometheusRuleList := &promv1.PrometheusRuleList{}
+	if err := r.Client.List(ctx, prometheusRuleList, listOpts...); err != nil {
+		// Handle the env do not have this kind of resource
+		return nil
+	}
+	for idx := range prometheusRuleList.Items {
+		if err := r.Client.Delete(ctx, prometheusRuleList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
 	return nil
 }
 
