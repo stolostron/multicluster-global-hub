@@ -281,7 +281,7 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&coordinationv1.Lease{}: {
 			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
 		},
-		&corev1.Event{}: {},
+		&corev1.Event{}: {}, // TODO: need a filter for the target events
 		&corev1.Secret{}: {
 			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
 		},
