@@ -174,7 +174,7 @@ func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
 				// as the underlying client will automatically try to
 				// recover from any errors encountered, the application
 				// does not need to take action on them.
-				log.Info("Transport producer client error", "error", ev)
+				log.Info("Transport producer client error, ignore it for most cases", "error", ev)
 			}
 		}
 	}()
