@@ -8,6 +8,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
+	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,6 +39,7 @@ type statusEventEmitter struct {
 	lastSentVersion eventversion.Version
 	payload         event.ReplicatedPolicyEventBundle
 	topic           string
+	cache           *lru.Cache
 	predicate       func(client.Object) bool
 }
 
@@ -49,7 +51,7 @@ func StatusEventEmitter(
 	topic string,
 ) generic.ObjectEmitter {
 	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
-	filter.RegisterTimeFilter(name)
+	cache, _ := lru.New(30)
 	return &statusEventEmitter{
 		ctx:             ctx,
 		name:            name,
@@ -60,6 +62,7 @@ func StatusEventEmitter(
 		currentVersion:  eventversion.NewVersion(),
 		lastSentVersion: *eventversion.NewVersion(),
 		payload:         make([]event.ReplicatedPolicyEvent, 0),
+		cache:           cache,
 		predicate:       predicate,
 	}
 }
@@ -100,11 +103,13 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 	for _, detail := range policy.Status.Details {
 		if detail.History != nil {
 			for _, evt := range detail.History {
-				// if the event time is older thant the filter cached sent event time, then skip it
-				if !filter.Newer(h.name, evt.LastTimestamp.Time) {
+
+				// since the replicated policy history(event) is updated by the managed clsuter,
+				// using the time filter might cause race condition
+				key := fmt.Sprintf("%s.%s", evt.EventName, evt.LastTimestamp)
+				if h.cache.Contains(key) {
 					continue
 				}
-
 				h.payload = append(h.payload, event.ReplicatedPolicyEvent{
 					BaseEvent: event.BaseEvent{
 						EventName:      evt.EventName,
@@ -121,6 +126,7 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 					ClusterID:  clusterID,
 					Compliance: GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
 				})
+				h.cache.Add(key, nil)
 				updated = true
 			}
 		}

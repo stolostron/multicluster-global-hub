@@ -40,11 +40,12 @@ function update_cluster_policies() {
 
     cluster_name=managedcluster-${j}
     event_name=$root_policy_namespace.$root_policy_name.$cluster_name.$random_number
+    last_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%S.%3NZ")
     if [[ $root_policy_status == "Compliant" ]]; then 
       # patch replicas policy status to compliant
-      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: Compliant, details: [{compliant: Compliant, history: [{eventName: $event_name, message: Compliant; notification - limitranges container-mem-limit-range found as specified in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
+      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: Compliant, details: [{compliant: Compliant, history: [{eventName: $event_name, message: Compliant; notification - limitranges container-mem-limit-range found as specified in namespace $root_policy_namespace, lastTimestamp: "$last_timestamp"}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
     else 
-      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: NonCompliant, details: [{compliant: NonCompliant, history: [{eventName: $event_name, message: NonCompliant; violation - limitranges container-mem-limit-range not found in namespace $root_policy_namespace}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
+      kubectl patch policy $root_policy_namespace.$root_policy_name -n $cluster_name --type=merge --subresource status --patch "status: {compliant: NonCompliant, details: [{compliant: NonCompliant, history: [{eventName: $event_name, message: NonCompliant; violation - limitranges container-mem-limit-range not found in namespace $root_policy_namespace, lastTimestamp: "$last_timestamp"}], templateMeta: {creationTimestamp: null, name: policy-limitrange-container-mem-limit-range}}]}" &
     fi
 
     if [ $j == 1 ];then
