@@ -66,7 +66,7 @@ var (
 	KafkaStorageDeleteClaim        = false
 	KafkaVersion                   = "3.6.0"
 	DefaultPartition         int32 = 1
-	DefaultPartitionReplicas int32 = 3
+	DefaultPartitionReplicas int32 = 2
 	// kafka metrics constants
 	KakfaMetricsConfigmapName       = "kafka-metrics"
 	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
