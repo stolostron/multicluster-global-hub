@@ -23,8 +23,8 @@ const PostgresDialect = "postgres"
 var (
 	IsBackupEnabled bool
 
-	gormDB   *gorm.DB
-	gormOnce sync.Once
+	gormDB *gorm.DB
+	mutext *sync.Mutex
 	// Direct database connection.
 	// It is used:
 	// - to setup/close connection because GORM V2 removed gorm.Close()
@@ -43,20 +43,22 @@ type DatabaseConfig struct {
 }
 
 func InitGormInstance(config *DatabaseConfig) error {
-	var err error
+	mutext.Lock()
+	defer mutext.Unlock()
 
 	if config.Dialect != PostgresDialect {
 		return fmt.Errorf("unsupported database dialect: %s", config.Dialect)
 	}
-	gormOnce.Do(func() {
+	if gormDB == nil {
+		var err error
 		gormDB, sqlDB, err = NewGormConn(config)
+		if err != nil {
+			return err
+		}
 		fmt.Println("set max connection==============:", config.PoolSize)
 		sqlDB.SetMaxOpenConns(config.PoolSize)
-	})
-	if err != nil {
-		return err
 	}
-	return err
+	return nil
 }
 
 func NewGormConn(config *DatabaseConfig) (*gorm.DB, *sql.DB, error) {
@@ -66,6 +68,7 @@ func NewGormConn(config *DatabaseConfig) (*gorm.DB, *sql.DB, error) {
 	}
 	urlObj, err := completePostgres(config.URL, config.CaCertPath)
 	if err != nil {
+		log.Error(err, "failed the complete the postgres uri object")
 		return nil, nil, err
 	}
 
