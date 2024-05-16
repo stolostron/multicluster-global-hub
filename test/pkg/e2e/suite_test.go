@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -75,6 +77,14 @@ var _ = BeforeSuite(func() {
 
 	By("Deploy the global hub")
 	deployGlobalHub()
+
+	By("Init the gorm database client")
+	err := database.InitGormInstance(&database.DatabaseConfig{
+		URL:      strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0],
+		Dialect:  database.PostgresDialect,
+		PoolSize: 5,
+	})
+	Expect(err).Should(Succeed())
 
 	By("Get the managed clusters")
 	Eventually(func() (err error) {

@@ -11,7 +11,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -107,6 +114,49 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				return nil
 			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
+	})
+
+	It("sync the managed cluster event to the global hub database", func() {
+		By("Create the cluster event")
+		cluster := managedClusters[0]
+		leafHubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
+		eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdd", cluster.Name)
+		eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
+		clusterEvent := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      eventName,
+				Namespace: cluster.Name,
+			},
+			InvolvedObject: corev1.ObjectReference{
+				Kind: constants.ManagedClusterKind,
+				// TODO: the cluster namespace should be empty! but if not set the namespace,
+				// it will throw the error: involvedObject.namespace: Invalid value: "": does not match event.namespace
+				Namespace: cluster.Name,
+				Name:      cluster.Name,
+			},
+			Reason:              "AvailableUnknown",
+			Message:             eventMessage,
+			ReportingController: "registration-controller",
+			ReportingInstance:   "registration-controller-cluster-manager-registration-controller-6794cf54d9-j7lgm",
+			Type:                "Warning",
+		}
+		leafHubClient, err := testClients.ControllerRuntimeClient(leafHubName, runtime.NewScheme())
+		Expect(err).To(Succeed())
+		Expect(leafHubClient.Create(ctx, clusterEvent, &client.CreateOptions{})).To(Succeed())
+
+		By("Get the cluster event from database")
+		db := database.GetGorm()
+		Eventually(func() error {
+			var clusterEvent models.ManagedClusterEvent
+			err := db.First(&clusterEvent, "event_name = ?", eventName).Error
+			if err != nil {
+				return err
+			}
+			if clusterEvent.Message != eventMessage {
+				return fmt.Errorf("expected event message: %s, but got: %s", eventMessage, clusterEvent.Message)
+			}
+			return nil
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })
 
