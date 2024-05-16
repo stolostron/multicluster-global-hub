@@ -24,7 +24,7 @@ var (
 	IsBackupEnabled bool
 
 	gormDB *gorm.DB
-	mutext *sync.Mutex
+	mutex  sync.Mutex
 	// Direct database connection.
 	// It is used:
 	// - to setup/close connection because GORM V2 removed gorm.Close()
@@ -43,8 +43,8 @@ type DatabaseConfig struct {
 }
 
 func InitGormInstance(config *DatabaseConfig) error {
-	mutext.Lock()
-	defer mutext.Unlock()
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	if config.Dialect != PostgresDialect {
 		return fmt.Errorf("unsupported database dialect: %s", config.Dialect)
