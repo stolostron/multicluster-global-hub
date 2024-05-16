@@ -104,7 +104,7 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 		if detail.History != nil {
 			for _, evt := range detail.History {
 
-				// since the replicated policy history(event) is updated by the managed clsuter,
+				// since the replicated policy history(event) is updated by the managed cluster,
 				// using the time filter might cause race condition
 				key := fmt.Sprintf("%s.%s", evt.EventName, evt.LastTimestamp)
 				if h.cache.Contains(key) {
