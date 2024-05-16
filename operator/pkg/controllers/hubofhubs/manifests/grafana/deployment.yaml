@@ -101,8 +101,10 @@ spec:
           name: grafana-dashboard-acm-strimzi-zookeeper
         {{- end }}
         {{- if .EnablePostgresMetrics }}
-        - mountPath: /grafana-dashboards/2/acm-global-postgres-exporter
-          name: grafana-dashboard-acm-global-postgres-exporter
+        - mountPath: /grafana-dashboards/2/acm-global-postgres-tables
+          name: grafana-dashboard-acm-global-postgres-tables
+        - mountPath: /grafana-dashboards/2/acm-global-postgres
+          name: grafana-dashboard-acm-global-postgres
         {{- end }}
         - mountPath: /etc/grafana
           name: grafana-config
@@ -227,8 +229,12 @@ spec:
       {{- if .EnablePostgresMetrics }}
       - configMap:
           defaultMode: 420
-          name: grafana-dashboard-acm-global-postgres-exporter
-        name: grafana-dashboard-acm-global-postgres-exporter
+          name: grafana-dashboard-acm-global-postgres
+        name: grafana-dashboard-acm-global-postgres
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-postgres-tables
+        name: grafana-dashboard-acm-global-postgres-tables
       {{- end }}
       - name: grafana-config
         secret:
