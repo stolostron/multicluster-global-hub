@@ -174,7 +174,15 @@ func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
 				// as the underlying client will automatically try to
 				// recover from any errors encountered, the application
 				// does not need to take action on them.
-				log.Info("Transport producer client error, ignore it for most cases", "error", ev)
+				if ev.Code() == kafka.ErrAllBrokersDown {
+					// ALL_BROKERS_DOWN doesn't really mean anything to librdkafka, it is just a friendly indication
+					// to the application that currently there are no brokers to communicate with.
+					// But librdkafka will continue to try to reconnect indefinately,
+					// and it will attempt to re-send messages until message.timeout.ms or message.max.retries are exceeded.
+					log.V(4).Info("Transport producer client error, ignore it for most cases", "error", ev)
+				} else {
+					log.Info("Thransport producer client error", "error", ev)
+				}
 			}
 		}
 	}()
