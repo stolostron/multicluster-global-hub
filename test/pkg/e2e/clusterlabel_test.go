@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 const (
@@ -28,6 +28,19 @@ const (
 )
 
 var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
+	var postgresConn *pgx.Conn
+	BeforeAll(func() {
+		databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
+		var err error
+		postgresConn, err = database.PostgresConnection(ctx, databaseURI, nil)
+		Expect(err).Should(Succeed())
+	})
+
+	AfterAll(func() {
+		err := postgresConn.Close(ctx)
+		Expect(err).Should(Succeed())
+	})
+
 	It("add the label to the managed cluster", func() {
 		patches := []patch{
 			{
@@ -146,17 +159,28 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 		Expect(leafHubClient.Create(ctx, clusterEvent, &client.CreateOptions{})).To(Succeed())
 
 		By("Get the cluster event from database")
-		db := database.GetGorm()
 		Eventually(func() error {
-			var clusterEvent models.ManagedClusterEvent
-			err := db.First(&clusterEvent, "event_name = ?", eventName).Error
+			rows, err := postgresConn.Query(ctx, "SELECT leaf_hub_name,event_name,message FROM event.managed_clusters")
 			if err != nil {
 				return err
 			}
-			if clusterEvent.Message != eventMessage {
-				return fmt.Errorf("expected event message: %s, but got: %s", eventMessage, clusterEvent.Message)
+			defer rows.Close()
+
+			for rows.Next() {
+				columnValues, _ := rows.Values()
+				if len(columnValues) < 2 {
+					return fmt.Errorf("expected 2 fields, but got %d", len(columnValues))
+				}
+				gotLeafHubName, gotName, gotMessage := "", "", ""
+				if err := rows.Scan(&gotLeafHubName, &gotName, &gotMessage); err != nil {
+					return err
+				}
+				fmt.Println("get the cluster event", gotLeafHubName, gotName, gotMessage)
+				if leafHubName == gotLeafHubName && eventName == gotName && eventMessage == gotMessage {
+					return nil
+				}
 			}
-			return nil
+			return fmt.Errorf("not get the expected event, leafHubName: %s, eventName: %s", leafHubName, eventName)
 		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })
