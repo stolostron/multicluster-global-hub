@@ -18,6 +18,7 @@ package crd
 
 import (
 	"context"
+	"sync"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes"
@@ -62,9 +63,13 @@ type CrdController struct {
 	globalHubConditionControllerReady bool
 	globalHubControllerReady          bool
 	backupControllerReady             bool
+	mu                                sync.Mutex
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// the reconcile will update the resources map in multiple goroutines simultaneously
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.resources[req.Name] = true
 	if !r.readyToWatchACMResources() {
 		return ctrl.Result{}, nil
@@ -163,7 +168,6 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
 	for _, val := range KafkaCrds {
 		allCrds[val] = false
 	}
-
 	controller := &CrdController{
 		Manager:        mgr,
 		kubeClient:     kubeClient,
@@ -173,7 +177,10 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
 
 	crdPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			_, ok := allCrds[e.Object.GetName()]
+			// the predicate function might be invoked in different controller goroutines.
+			controller.mu.Lock()
+			_, ok := controller.resources[e.Object.GetName()]
+			controller.mu.Unlock()
 			return ok
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
