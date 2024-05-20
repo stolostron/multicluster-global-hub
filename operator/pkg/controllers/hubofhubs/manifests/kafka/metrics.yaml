@@ -5,6 +5,8 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     app: strimzi
+  labels:
+    global-hub.open-cluster-management.io/metrics-resource: strimzi
 data:
   kafka-metrics-config.yml: |
     # See https://github.com/prometheus/jmx_exporter for more info about JMX Prometheus Exporter metrics

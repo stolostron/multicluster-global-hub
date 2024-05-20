@@ -3470,4 +3470,6 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboard-acm-global-postgres-exporter
   namespace: {{ .Namespace }}
+  labels:
+    global-hub.open-cluster-management.io/metrics-resource: postgres
 {{- end }}

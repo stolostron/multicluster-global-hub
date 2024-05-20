@@ -4,6 +4,8 @@ kind: ServiceMonitor
 metadata:
   name: prometheus-postgres-exporter
   namespace: {{.Namespace}}
+  labels:
+    global-hub.open-cluster-management.io/metrics-resource: postgres
 spec:
   endpoints:
   - targetPort: http

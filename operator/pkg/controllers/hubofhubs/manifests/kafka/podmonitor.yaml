@@ -5,6 +5,7 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     app: strimzi
+    global-hub.open-cluster-management.io/metrics-resource: strimzi
 spec:
   selector:
     matchLabels:
@@ -23,6 +24,7 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     app: strimzi
+    global-hub.open-cluster-management.io/metrics-resource: strimzi
 spec:
   selector:
     matchLabels:
@@ -41,6 +43,7 @@ metadata:
   namespace: {{.Namespace}}
   labels:
     app: strimzi
+    global-hub.open-cluster-management.io/metrics-resource: strimzi
 spec:
   selector:
     matchExpressions:

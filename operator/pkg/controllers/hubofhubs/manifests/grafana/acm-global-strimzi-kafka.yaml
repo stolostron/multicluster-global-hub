@@ -3130,4 +3130,6 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboard-acm-strimzi-kafka
   namespace: {{ .Namespace }}
+  labels:
+    global-hub.open-cluster-management.io/metrics-resource: strimzi
 {{- end }}

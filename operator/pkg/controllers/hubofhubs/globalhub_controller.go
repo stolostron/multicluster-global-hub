@@ -201,27 +201,17 @@ func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{Requeue: true}, err
 	}
 
-	// Set BYO kafka and BYO postgres
-	err = config.SetBYOKafka(ctx, r.Client, mgh.Namespace)
-	if err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-	err = config.SetBYOPostgres(ctx, r.Client, mgh.Namespace)
-	if err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-
-	if config.IsBYOKafka() && config.IsBYOPostgres() {
-		mgh.Spec.EnableMetrics = false
-		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
-	}
-
 	// only reconcile once: upgrade
 	r.upgradeOnce.Do(func() {
 		err = r.Upgrade(ctx)
 	})
 	if err != nil {
 		r.Log.Error(err, "failed to upgrade from release-2.10")
+		return ctrl.Result{}, err
+	}
+
+	err = r.reconcileMiddlewareMetrics(ctx, mgh)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
