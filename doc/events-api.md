@@ -1,7 +1,17 @@
-This document is used to describe what kinds of message transfered via Kafka in multicluster global hub.
-## Message Format
-The message format is following the [CloudEvents](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md) specification. The message is encoded in JSON format. The following is an example of the message:
-```json
+# Event API Specifications
+These are events generated on the Kafka topics by multicluster global hub. The events are for the policy and managed cluster right now. We may extend to support other types in the future.
+
+## Topics
+The following Kafka topics are used
+- event
+- status.$(managed_hub_cluster_name)
+
+## Event Structure
+
+The events are formatted as per [CloudEvents](https://github.com/cloudevents/spec/blob/main/cloudevents/spec.md) Specifications. Therefore the message envelopes are common as specified by the CloudEvent Specs. It is encoded in JSON format.
+
+A simple `hello world` message would look like.  - 
+```
 {
     "specversion" : "1.0",
     "type" : "com.event",
@@ -15,9 +25,13 @@ The message format is following the [CloudEvents](https://github.com/cloudevents
 }
 ```
 
-## Topic: spec
-This is for the global resources only. To propagate the resources from the global hub to the managed hubs.
-Will list the supported resources later.
+_CloudEvent attributes are prefixed with ce_ for use in the message-headers section._
+
+Examples:
+
+* `time` maps to `ce_time`
+* `id` maps to `ce_id`
+* `specversion` maps to `ce_specversion`
 
 ## Topic: status.$(managed_hub_cluster_name)
 ### Policy
@@ -192,7 +206,7 @@ Will list the supported resources later.
         "managedClusterClientConfigs": [
           {
             "url": "https://hub1-cluster1-control-plane:6443",
-            "caBundle": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUMvakNDQWVhZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFWTVJNd0VRWURWUVFERXdwcmRXSmwKY201bGRHVnpNQjRYRFRJME1ESXlOekF4TkRZeU5Wb1hEVE0wTURJeU5EQXhORFl5TlZvd0ZURVRNQkVHQTFVRQpBeE1LYTNWaVpYSnVaWFJsY3pDQ0FTSXdEUVlKS29aSWh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBS3RGClF1c1MwVldPd3A3Z2lZTTBEOTRsRTFNUVRkSC9jWFZFV3RINXFUNGEwUVhzQVkvbWd4SEVvVmhjaVdmR0tSQVcKaDJLenNUL1dJbHFNMmx5YUI1Vktac1p6WEZ1d1FOZUpxM0ZubW5pTzNHZnZEaXlWc2tWUndEclY5MkxpSkhoZgpQZG52ZzlhUk1vUThUQ0lwblNkNXFVUFZuZ3kzSWwzTGxKa2VDTnJDTjhBVWU0V1kzMURDSVhzS0l0RnFoNHRmCitPMHVDUk1rSS9wazAxeG5CQVErN21xS3hVWStDTnZqRlhtcmxwUjdzTlZ2OE5NbVhveElkaktibkIzMkZoVUYKM0VubkJsSHRPVEI0QkU1WHlHNzU5WFN4a3JrTUcycGFsbHJoYXVEMGZPVVB2TFNEZGs1emo5blZiaTlsWHlLZwpsemtFL1Z1a3hSYUc2NTZ5Ry84Q0F3RUFBYU5aTUZjd0RnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCCi93UUZNQU1CQWY4d0hRWURWUjBPQkJZRUZDbUtBRm1QdndRbUVjYzdhd2dpYndmTVVxbjRNQlVHQTFVZEVRUU8KTUF5Q0NtdDFZbVZ5Ym1WMFpYTXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBR1pTdjNXdUUxa0hZODRaQTBuZQpsWUVrZHhhbkRIT0p3SmdKVHkwQ0ZML0sxZzd2NWhZK2xLeEFBR0dOejA3V09Ob2xHK3BRYVY2SXVJOTE1citTClM2TFM2WktFaXUwcStheDFKTnFSZVYzZlBmazViZEdETFBCQkkrQk5qZnQ2bHhRMDBHS2YrOGFaUnI0b2ZPblcKa29BOVNIdk1RUUljREZVZ2FxMmZhVzNoVXF1OHRGR2gwaW5wYXovNmwrQ2Ntb201bVpmbi8vcGtjeUVMWmkrKwoyUm5VclVMdDBGM3dxQ1NiajV4c1dtaXkzbXNnT1FBMUZ5NnZQTyt3N3pFYVhsbVlaeFYvSHJWenFteUxsTnVsCmlSa2Y1VHRKUXNMbzBMWHNwOU8vdSs5R09qOUJGVUdIRG53MDJqdGZndDdnRUpCeXZsajkzOFl4eCs1a01uUjgKYVZBPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg=="
+            "caBundle": "XXX"
           }
         ],
         "hubAcceptsClient": true,
@@ -300,8 +314,7 @@ Will list the supported resources later.
 ## Topic: event
 Currently, the following resource events are supported:
 - **Policy**: propagate, update
-- **ManagedCluster**: provision, import, update, delete
-- **ManagedHubCluster**: create, update, delete
+- **ManagedCluster**: import, detach
 
 ### Policy
 #### Propagate
@@ -369,30 +382,6 @@ Currently, the following resource events are supported:
 ```
 
 ### ManagedCluster
-#### Provision
-```
-{
-    "specversion": "1.0",
-    "id": "60d3e292-bc18-11ee-b1ad-e79256e13892",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.provision",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T04:06:16.542703828Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-                "eventName": "kube-system.provision.17ad7b80d4e6f6a4",
-                "message": "The cluster (cluster1) is being provisioned now",
-                "reason": "Provisioning",
-                "count": 1,
-                "source": "hive",
-                "createdAt": "2024-01-25T04:07:07Z"
-            }
-        ]
-    }
-}
-```
 #### Import
 ```
 {
@@ -402,43 +391,17 @@ Currently, the following resource events are supported:
     "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.import",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-                "eventName": "kube-system.import.17ad7b80d4e6f6a4",
-                "message": "The cluster (cluster1) is being imported now",
-                "reason": "Importing",
-                "count": 1,
-                "source": "import-controller",
-                "createdAt": "2024-01-25T05:08:07Z"
-            } 
-        ]
-    }
-}
-```
-#### Update
-```
-{
-    "specversion": "1.0",
-    "id": "18b775ee-bc2e-11ee-a014-2f5782d1c2cc",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.update",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T04:06:16.542703828Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-                "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                "message": "The cluster (cluster1) is available now",
-                "reason": "Available",
-                "count": 1,
-                "source": "addon-framework",
-                "createdAt": "2024-01-25T05:08:07Z"
-            }  
-        ]
-    }
+    "data": [
+        {
+          "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+          "eventName": "kube-system.import.17ad7b80d4e6f6a4",
+          "message": "The cluster (cluster1) is being imported now",
+          "reason": "Importing",
+          "count": 1,
+          "source": "import-controller",
+          "createdAt": "2024-01-25T05:08:07Z"
+        } 
+    ]
 }
 ```
 #### Detach
@@ -450,43 +413,16 @@ Currently, the following resource events are supported:
     "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.detach",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-                "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                "message": "The cluster (cluster1) is being detached now",
-                "reason": "Detaching",
-                "count": 1,
-                "source": "klusterlet",
-                "createdAt": "2024-01-25T05:08:07Z"
-            } 
-        ]
-    }
-}
-```
-
-#### Destory
-```
-{
-    "specversion": "1.0",
-    "id": "a12abe36-bc2e-11ee-98d9-a752ab52434d",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.destroy",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T04:06:16.542703828Z",
-    "data": {
-        "objects": [
-            {
-                "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-                "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-                "message": "The cluster (cluster1) is destoryed successfully",
-                "reason": "Destroyed",
-                "count": 1,
-                "source": "-",
-                "createdAt": "2024-01-25T05:08:07Z"
-            } 
-        ]
-    }
+    "data": [
+        {
+          "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+          "eventName": "kube-system.status.17ad7b80d4e6f6a4",
+          "message": "The cluster (cluster1) is being detached now",
+          "reason": "Detaching",
+          "count": 1,
+          "source": "import-controller",
+          "createdAt": "2024-01-25T05:08:07Z"
+        } 
+    ]
 }
 ```
