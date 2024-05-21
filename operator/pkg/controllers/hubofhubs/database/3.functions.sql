@@ -144,3 +144,41 @@ BEGIN
                    to_char(input_time::date, 'YYYY_MM')
                   );
 END $$ LANGUAGE plpgsql;
+
+--- trigger function to update the history.local_compliance by event tables
+CREATE OR REPLACE FUNCTION history.update_history_compliance_by_event() 
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Insert or update the history.local_compliance table
+    INSERT INTO history.local_compliance (
+        policy_id, 
+        cluster_id, 
+        leaf_hub_name, 
+        compliance, 
+        compliance_date, 
+        compliance_changed_frequency
+    ) VALUES (
+        NEW.policy_id, 
+        NEW.cluster_id, 
+        NEW.leaf_hub_name, 
+        NEW.compliance, 
+        NEW.created_at::DATE,  -- Use created_at timestamp as compliance_date
+        0
+    ) ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) 
+    DO UPDATE SET 
+        compliance = 
+            CASE
+                WHEN history.local_compliance.compliance = 'pending' OR EXCLUDED.compliance = 'pending' THEN 'pending'::local_status.compliance_type
+                WHEN history.local_compliance.compliance = 'unknown' OR EXCLUDED.compliance = 'unknown' THEN 'unknown'::local_status.compliance_type
+                WHEN history.local_compliance.compliance = 'non_compliant' OR EXCLUDED.compliance = 'non_compliant' THEN 'non_compliant'::local_status.compliance_type
+                ELSE 'compliant'::local_status.compliance_type
+            END,
+        compliance_changed_frequency = 
+            CASE 
+                WHEN history.local_compliance.compliance <> EXCLUDED.compliance THEN history.local_compliance.compliance_changed_frequency + 1 
+                ELSE history.local_compliance.compliance_changed_frequency 
+            END;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

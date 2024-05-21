@@ -24,3 +24,8 @@ SELECT create_monthly_range_partitioned_table('event.local_policies', to_char(cu
 SELECT create_monthly_range_partitioned_table('history.local_compliance', to_char(current_date - interval '1 month', 'YYYY-MM-DD'));
 SELECT create_monthly_range_partitioned_table('event.managed_clusters', to_char(current_date - interval '1 month', 'YYYY-MM-DD'));
 
+-- Attach the function to the event table
+DROP TRIGGER IF EXISTS trg_update_history_compliance_by_event ON event.local_policies;
+CREATE TRIGGER trg_update_history_compliance_by_event AFTER INSERT ON event.local_policies FOR EACH ROW
+EXECUTE FUNCTION history.update_history_compliance_by_event();
+COMMENT ON TRIGGER trg_update_history_compliance_by_event ON event.local_policies IS 'Trigger to update history.local_compliance based on event.local_policies inserts';

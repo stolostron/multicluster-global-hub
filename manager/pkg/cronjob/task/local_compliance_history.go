@@ -148,7 +148,7 @@ func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName 
 	insertCount := int64(0)
 	var err error
 	defer func() {
-		if e := traceComplianceHistoryLog(ctx,
+		if e := traceComplianceHistoryLog(
 			fmt.Sprintf("%s/local_status.compliance", LocalComplianceTaskName),
 			totalCount, offset, insertCount, startTime, err); e != nil {
 			log.Info("trace compliance job failed, retrying", "error", e)
@@ -237,7 +237,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount
 		func(ctx context.Context) (done bool, err error) {
 			var insertError error
 			defer func() {
-				if e := traceComplianceHistoryLog(ctx,
+				if e := traceComplianceHistoryLog(
 					fmt.Sprintf("%s/event.local_policies", LocalComplianceTaskName),
 					totalCount, offset, insertCount, startTime, insertError); e != nil {
 					log.Info("trace compliance job failed, retrying", "error", e)
@@ -293,9 +293,7 @@ func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount
 	return insertCount, err
 }
 
-func traceComplianceHistoryLog(ctx context.Context, name string, total, offset, inserted int64,
-	start time.Time, err error,
-) error {
+func traceComplianceHistoryLog(name string, total, offset, inserted int64, start time.Time, err error) error {
 	db := database.GetGorm()
 	localComplianceJobLog := &models.LocalComplianceJobLog{
 		Name:     name,

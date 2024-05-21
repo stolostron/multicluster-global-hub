@@ -73,12 +73,12 @@ func TestScheduler(t *testing.T) {
 	assert.Nil(t, err)
 
 	globalScheduler := &GlobalHubJobScheduler{
-		log:                   ctrl.Log.WithName("cronjob-scheduler"),
-		scheduler:             scheduler,
-		launchImmediatelyJobs: []string{task.RetentionTaskName, task.LocalComplianceTaskName, "unexpected_name"},
+		log:        ctrl.Log.WithName("cronjob-scheduler"),
+		scheduler:  scheduler,
+		launchJobs: []string{task.RetentionTaskName, task.LocalComplianceTaskName, "unexpected_name"},
 	}
 
-	err = globalScheduler.execJobs(ctx)
+	err = globalScheduler.execJobs()
 	assert.Nil(t, err)
 
 	cancel()
