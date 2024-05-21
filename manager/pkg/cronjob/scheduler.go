@@ -53,7 +53,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	}
 	complianceHistoryJob, err := scheduler.
 		Tag(task.LocalComplianceTaskName).
-		DoWithJobDetails(task.SyncToComplianceHistory, ctx)
+		DoWithJobDetails(task.LocalComplianceHistory, ctx)
 	if err != nil {
 		return err
 	}

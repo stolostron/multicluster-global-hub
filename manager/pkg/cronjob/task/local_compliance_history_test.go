@@ -7,67 +7,40 @@ import (
 	"github.com/go-co-op/gocron"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
-var _ = Describe("sync the compliance data", Ordered, func() {
-	const localPolicyEventTable = "event.local_policies"
-	const localStatusComplianceTable = "local_status.compliance"
-	const targetTable = "history.local_compliance"
-
-	BeforeAll(func() {
-		type Table struct {
-			Schemaname string
-			Tablename  string
-		}
-
-		By("Check whether the tables are created")
-		Eventually(func() error {
-			var tables []Table
-			err := db.Raw("SELECT schemaname, tablename FROM pg_tables").Scan(&tables).Error
-			if err != nil {
-				return err
-			}
-			expectedTableSet := map[string]bool{
-				localStatusComplianceTable: true,
-				localPolicyEventTable:      true,
-				targetTable:                true,
-			}
-
-			for _, t := range tables {
-				gotTable := fmt.Sprintf("%s.%s", t.Schemaname, t.Tablename)
-				delete(expectedTableSet, gotTable)
-			}
-			if len(expectedTableSet) > 0 {
-				return fmt.Errorf("tables %v are not created", expectedTableSet)
-			}
-			return nil
-		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
-	})
-
+// go test ./manager/pkg/cronjob/task -v -ginkgo.focus "LocalComplianceHistory"
+var _ = Describe("LocalComplianceHistory", Ordered, func() {
 	It("sync the data from the event.local_policies to the history.local_compliance", func() {
+		By("Create the data to the local_status.compliance table")
+		err := db.Exec(`
+		INSERT INTO "local_status"."compliance" ("policy_id", "cluster_name", "leaf_hub_name", "error",
+		 "compliance", "cluster_id") VALUES
+		('00000000-0000-0000-0000-000000000001', 'managedcluster-1', 'hub3', 'none', 'compliant',
+		 '00000003-0000-0000-0000-000000000001'),
+		('00000000-0000-0000-0000-000000000001', 'managedcluster-2', 'hub3', 'none', 'compliant', 
+		'00000003-0000-0000-0000-000000000002'),
+		('00000000-0000-0000-0000-000000000001', 'managedcluster-3', 'hub3', 'none', 'compliant', 
+		'00000003-0000-0000-0000-000000000003'),
+		('00000000-0000-0000-0000-000000000001', 'managedcluster-4', 'hub3', 'none', 'compliant', 
+		'00000003-0000-0000-0000-000000000004'),
+		('00000000-0000-0000-0000-000000000001', 'managedcluster-5', 'hub3', 'none', 'compliant', 
+		'00000003-0000-0000-0000-000000000005');
+		`).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Sync the local_status.compliance to history.local_compliance")
 		By("Create the sync job")
 		s := gocron.NewScheduler(time.UTC)
-		complianceJob, err := s.Every(1).Day().DoWithJobDetails(SyncLocalCompliance, ctx, false)
+		complianceJob, err := s.Every(1).Day().DoWithJobDetails(LocalComplianceHistory, ctx)
 		Expect(err).ToNot(HaveOccurred())
 		fmt.Println("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
 		s.StartAsync()
 		defer s.Clear()
 
-		By("Create the data to the source table")
-		err = db.Exec(`
-		INSERT INTO "event"."local_policies" ("event_name", "policy_id", "cluster_id", "leaf_hub_name", "message", 
-		"reason", "source", "created_at", "compliance")
-		VALUES
-		('1', 'f4f888bb-9c87-4db9-aacf-231d550315e1', 'a71a6b5c-8361-4f50-9890-3de9e2df0b1c', 'hub1', 'Sample message 1', 
-			'Sample reason 1', '{"key": "value"}', (CURRENT_DATE - INTERVAL '1 day') + '01:52:13', 'compliant'), 
-		('2', 'f4f888bb-9c87-4db9-aacf-231d550315e1', 'a71a6b5c-8361-4f50-9890-3de9e2df0b1c', 'hub1', 'Sample message 1', 
-			'Sample reason 1', '{"key": "value"}', (CURRENT_DATE - INTERVAL '1 day') + '01:53:13', 'non_compliant'),
-		('3', 'f4f888bb-9c87-4db9-aacf-231d550315e1', 'a71a6b5c-8361-4f50-9890-3de9e2df0b1c', 'hub1', 'Sample message 1', 
-			'Sample reason 1', '{"key": "value"}', (CURRENT_DATE - INTERVAL '1 day') + '01:54:13', 'compliant');
-		`).Error
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Check whether the data is copied to the target table")
+		By("Check whether the data is synced to the history.local_compliance table")
 		Eventually(func() error {
 			rows, err := db.Raw(`
 			SELECT policy_id, cluster_id, compliance, compliance_date, compliance_changed_frequency
@@ -89,25 +62,18 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 					return err
 				}
 				fmt.Println(policy_id, cluster_id, compliance, compliance_date, compliance_changed_frequency)
-				if policy_id == "f4f888bb-9c87-4db9-aacf-231d550315e1" &&
-					cluster_id == "a71a6b5c-8361-4f50-9890-3de9e2df0b1c" &&
-					compliance == "non_compliant" &&
-					compliance_date.Format("2006-01-02") ==
-						time.Now().AddDate(0, 0, -1).Format("2006-01-02") &&
-					compliance_changed_frequency == 2 {
-					syncCount++
-				}
+				syncCount++
 			}
-			if syncCount >= 1 {
-				return fmt.Errorf("table history.local_compliance records are not synced")
+			if syncCount != 5 {
+				return fmt.Errorf("expected 5 items, but got %d in the local compliance history", syncCount)
 			}
 			return nil
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 
 		By("Check whether the job log is created")
 		Eventually(func() error {
-			rows, err := db.Raw(`SELECT start_at, end_at, name, total, inserted, offsets, error FROM 
-			history.local_compliance_job_log`).Rows()
+			rows, err := db.Raw(`SELECT start_at, end_at, name, total, inserted, offsets, error FROM
+				history.local_compliance_job_log`).Rows()
 			if err != nil {
 				return err
 			}
@@ -124,8 +90,8 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 					return err
 				}
 				logCount += 1
-				fmt.Println(startAt.Format("2006-01-02 15:04:05"),
-					endAt.Format("2006-01-02 15:04:05"), name, total,
+				format := "2006-01-02 15:04:05"
+				fmt.Println(">>", startAt.Format(format), endAt.Format(format), name, total,
 					inserted, offsets, errMessage)
 			}
 			if logCount < 1 {
@@ -135,60 +101,122 @@ var _ = Describe("sync the compliance data", Ordered, func() {
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 
-	It("sync the data from local_status.compliance to history.local_compliance", func() {
-		By("Create the sync job")
-		s := gocron.NewScheduler(time.UTC)
-		complianceJob, err := s.Every(1).Second().Tag("LocalCompliance").DoWithJobDetails(
-			SyncLocalCompliance, ctx, true)
-		Expect(err).ToNot(HaveOccurred())
-		fmt.Println("set local compliance job", "scheduleAt", complianceJob.ScheduledAtTime())
-		s.StartAsync()
-		defer s.Clear()
-		By("Create the data to the source table")
-		err = db.Exec(`
-					INSERT INTO local_status.compliance (policy_id, cluster_name, leaf_hub_name, error, compliance, cluster_id) VALUES
-					('f8c4479f-fec5-44d8-8060-da9a92d5e138', 'local_cluster1', 'leaf1', 'none', 'compliant',
-					'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
-					('f8c4479f-fec5-44d8-8060-da9a92d5e139', 'local_cluster2', 'leaf2', 'none', 'compliant',
-					'0cd723ab-4649-42e8-b8aa-aa094ccf06b4'),
-					('f8c4479f-fec5-44d8-8060-da9a92d5e137', 'local_cluster3', 'leaf3', 'none', 'compliant',
-					'0cd723ab-4649-42e8-b8aa-aa094ccf06b4');
-				`).Error
+	It("Update the history compliance by event1", func() {
+		By("Create the data to the event.local_policies table")
+		policyEvent := models.LocalClusterPolicyEvent{
+			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+				EventName:   "default.rootpolicy-1.managedcluster-1.37695",
+				PolicyID:    "00000000-0000-0000-0000-000000000001",
+				LeafHubName: "hub3",
+				Compliance:  "non_compliant",
+				Message:     "Compliant; notification - limitranges container-mem-limit-range found as specified in namespace default",
+				Reason:      "PolicyStatusSync",
+				CreatedAt:   time.Now(),
+			},
+			ClusterID: "00000003-0000-0000-0000-000000000001",
+		}
+		err := db.Create(&policyEvent).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Check whether the data is copied to the target table")
+		By("Check whether the data is updated to the history.local_compliance table")
 		Eventually(func() error {
-			rows, err := db.Raw(`
-					SELECT policy_id, cluster_id,compliance_changed_frequency
-					FROM history.local_compliance`).Rows()
+			compliance, frequency, err := findHistory("00000000-0000-0000-0000-000000000001",
+				"00000003-0000-0000-0000-000000000001")
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
-			syncCount := 0
-			expectRecordMap := map[string]string{
-				"f8c4479f-fec5-44d8-8060-da9a92d5e138": "compliant",
-				"f8c4479f-fec5-44d8-8060-da9a92d5e139": "compliant",
-				"f8c4479f-fec5-44d8-8060-da9a92d5e137": "compliant",
+			if compliance == "non_compliant" && frequency == 1 {
+				return nil
 			}
-			fmt.Println("finding simulating records:")
-			for rows.Next() {
-				var policy_id, cluster_id string
-				var compliance_changed_frequency int
-				err := rows.Scan(&policy_id, &cluster_id, &compliance_changed_frequency)
-				if err != nil {
-					return err
-				}
-				fmt.Println(policy_id, cluster_id, compliance_changed_frequency)
-				if _, ok := expectRecordMap[policy_id]; ok && compliance_changed_frequency == 0 {
-					syncCount++
-					delete(expectRecordMap, policy_id)
-				}
+			return fmt.Errorf("expected non_compliant: 1, but got %s: %d", compliance, frequency)
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("Update the history compliance by event2", func() {
+		By("Create the data to the event.local_policies table")
+		policyEvent := models.LocalClusterPolicyEvent{
+			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+				EventName:   "default.rootpolicy-1.managedcluster-1.37696",
+				PolicyID:    "00000000-0000-0000-0000-000000000001",
+				LeafHubName: "hub3",
+				Compliance:  "compliant",
+				Message:     "Compliant; notification - limitranges container-mem-limit-range found as specified in namespace default",
+				Reason:      "PolicyStatusSync",
+				CreatedAt:   time.Now(),
+			},
+			ClusterID: "00000003-0000-0000-0000-000000000001",
+		}
+		err := db.Create(&policyEvent).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check whether the data is updated to the history.local_compliance table")
+		Eventually(func() error {
+			compliance, frequency, err := findHistory("00000000-0000-0000-0000-000000000001",
+				"00000003-0000-0000-0000-000000000001")
+			if err != nil {
+				return err
 			}
-			if len(expectRecordMap) > 0 {
-				return fmt.Errorf("table history.local_compliance records are not synced")
+			if compliance == "non_compliant" && frequency == 2 {
+				return nil
 			}
-			return nil
+			return fmt.Errorf("expected non_compliant: 2, but got %s: %d", compliance, frequency)
+		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
+	})
+
+	It("Update the history compliance by event3", func() {
+		By("Create the data to the event.local_policies table")
+		policyEvent := models.LocalClusterPolicyEvent{
+			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+				EventName:   "default.rootpolicy-1.managedcluster-1.37697",
+				PolicyID:    "00000000-0000-0000-0000-000000000001",
+				LeafHubName: "hub3",
+				Compliance:  "unknown",
+				Message:     "Compliant; notification - limitranges container-mem-limit-range found as specified in namespace default",
+				Reason:      "PolicyStatusSync",
+				CreatedAt:   time.Now(),
+			},
+			ClusterID: "00000003-0000-0000-0000-000000000001",
+		}
+		err := db.Create(&policyEvent).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Check whether the data is updated to the history.local_compliance table")
+		Eventually(func() error {
+			compliance, frequency, err := findHistory("00000000-0000-0000-0000-000000000001",
+				"00000003-0000-0000-0000-000000000001")
+			if err != nil {
+				return err
+			}
+			if compliance == "unknown" && frequency == 3 {
+				return nil
+			}
+			return fmt.Errorf("expected unknown: 3, but got %s: %d", compliance, frequency)
 		}, 10*time.Second, 2*time.Second).ShouldNot(HaveOccurred())
 	})
 })
+
+func findHistory(policyId, clusterId string) (string, int, error) {
+	rows, err := db.Raw(`
+			SELECT policy_id, cluster_id, compliance, compliance_date, compliance_changed_frequency
+			FROM history.local_compliance`).Rows()
+	if err != nil {
+		return "", 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var policy_id, cluster_id, compliance string
+		var compliance_date time.Time
+		var compliance_changed_frequency int
+		err := rows.Scan(&policy_id, &cluster_id, &compliance,
+			&compliance_date, &compliance_changed_frequency)
+		if err != nil {
+			return "", 0, err
+		}
+		if policy_id == policyId && cluster_id == clusterId {
+			fmt.Println(policy_id, cluster_id, compliance, compliance_date, compliance_changed_frequency)
+			return compliance, compliance_changed_frequency, nil
+		}
+	}
+	return "", 0, nil
+}

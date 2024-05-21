@@ -3,7 +3,6 @@ package task
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -22,9 +21,6 @@ var (
 	log                     logr.Logger
 	timeFormat              = "2006-01-02 15:04:05"
 	dateFormat              = "2006-01-02"
-	dateInterval            = 1
-	simulationCounter       = 1
-	counterLock             sync.Mutex
 	batchSize               = int64(1000)
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
@@ -35,20 +31,10 @@ var (
 	// sizes and measure the performance of the queries.
 )
 
-func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.Job) {
+func LocalComplianceHistory(ctx context.Context, job gocron.Job) {
 	startTime = time.Now()
-
-	interval := dateInterval
-	if enableSimulation {
-		// When the interval is so small that the previous job has not finished running, the next job has already started.
-		// Then the a race condition will arise: the previous and next jobs will using the same view, which will cause the
-		// next job to fail. To avoid this, lock the counter so only one goroutine can access the it and each goroutine
-		// will get a different simulatorCounter value.
-		counterLock.Lock()
-		interval = simulationCounter
-		simulationCounter++
-		counterLock.Unlock()
-	}
+	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("date", startTime.Format(dateFormat))
+	log.V(2).Info("start running", "currentRun", job.LastRun().Format(timeFormat))
 
 	var err error
 	defer func() {
@@ -59,238 +45,87 @@ func SyncLocalCompliance(ctx context.Context, enableSimulation bool, job gocron.
 		}
 	}()
 
-	historyDate := startTime.AddDate(0, 0, -interval)
-	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("history", historyDate.Format(dateFormat))
-	log.V(2).Info("start running", "currentRun", job.LastRun().Format(timeFormat))
-	conn := database.GetConn()
-
-	err = database.Lock(conn)
-	if err != nil {
-		retentionLog.Error(err, "failed to run SyncLocalCompliance job")
-		return
-	}
-	defer database.Unlock(conn)
-
-	// insert or update with local_status.compliance
-	var statusTotal, statusInsert int64
-	statusTotal, statusInsert, err = syncToLocalComplianceHistoryByLocalStatus(ctx, batchSize, interval,
-		enableSimulation)
+	err = snapshotLocalComplianceToHistory(ctx)
 	if err != nil {
 		log.Error(err, "sync from local_status.compliance to history.local_compliance failed")
 		return
 	}
-	log.V(2).Info("with local_status.compliance", "totalCount", statusTotal, "insertedCount", statusInsert)
-
-	if enableSimulation {
-		return
-	}
-
-	// insert or update with event.local_policies
-	var eventTotal, eventInsert int64
-	eventTotal, eventInsert, err = syncToLocalComplianceHistoryByPolicyEvent(ctx, batchSize)
-	if err != nil {
-		log.Error(err, "sync from history.local_policies to history.local_compliance failed")
-		return
-	}
-	log.V(2).Info("with event.local_policies", "totalCount", eventTotal, "insertedCount", eventInsert)
 
 	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
 }
 
-func syncToLocalComplianceHistoryByLocalStatus(ctx context.Context, batchSize int64, interval int,
-	enableSimulation bool) (totalCount int64, insertedCount int64, err error,
-) {
-	viewSchema := "history"
-	viewTable := fmt.Sprintf("local_compliance_view_%s",
-		startTime.AddDate(0, 0, -interval).Format("2006_01_02"))
-	viewName := fmt.Sprintf("%s.%s", viewSchema, viewTable)
-	createViewTemplate := `
-		CREATE MATERIALIZED VIEW IF NOT EXISTS %s AS
-			SELECT policy_id,cluster_id,leaf_hub_name,compliance 
-			FROM local_status.compliance
-		WITH DATA;
-		CREATE INDEX IF NOT EXISTS idx_local_compliance_view ON %s (policy_id, cluster_id);
-	`
-
+func snapshotLocalComplianceToHistory(ctx context.Context) (err error) {
 	db := database.GetGorm()
-
-	err = db.Exec(fmt.Sprintf(createViewTemplate, viewName, viewName)).Error
+	var totalCount int64
+	err = db.Model(&models.LocalStatusCompliance{}).Count(&totalCount).Error
 	if err != nil {
-		return totalCount, insertedCount, err
+		return err
 	}
+	log.V(2).Info("The number of compliance need to be synchronized", "count", totalCount)
 
-	err = db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s", viewName)).Scan(&totalCount).Error
-	if err != nil {
-		return totalCount, insertedCount, err
-	}
-
+	insertedCount := int64(0)
 	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistoryByLocalStatus(ctx, viewName, interval, totalCount,
-			batchSize, offset, enableSimulation)
+		batchInsertedCount, err := batchSync(ctx, totalCount, offset)
 		if err != nil {
-			return totalCount, insertedCount, err
+			return err
 		}
-		insertedCount += count
+		insertedCount += batchInsertedCount
 	}
-
-	// success, drop the materialized view if exists
-	err = db.Exec(fmt.Sprintf("DROP MATERIALIZED VIEW IF EXISTS %s", viewName)).Error
-	if err != nil {
-		return totalCount, insertedCount, err
-	}
-
-	return totalCount, insertedCount, nil
+	log.V(2).Info("The number of compliance has been synchronized", "insertedCount", insertedCount)
+	return nil
 }
 
-func insertToLocalComplianceHistoryByLocalStatus(ctx context.Context, tableName string, interval int,
-	totalCount, batchSize, offset int64, enableSimulation bool,
-) (int64, error) {
-	insertCount := int64(0)
+func batchSync(ctx context.Context, totalCount, offset int64) (int64, error) {
+	batchInsert := int64(0)
 	var err error
 	defer func() {
-		if e := traceComplianceHistoryLog(
-			fmt.Sprintf("%s/local_status.compliance", LocalComplianceTaskName),
-			totalCount, offset, insertCount, startTime, err); e != nil {
-			log.Info("trace compliance job failed, retrying", "error", e)
+		e := traceComplianceHistoryLog(LocalComplianceTaskName, totalCount, offset, offset+batchInsert, startTime, err)
+		if e != nil {
+			log.Info("trace local compliance job failed, retrying", "error", e)
 		}
 	}()
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (done bool, err error) {
-			selectInsertSQLTemplate := `
-			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
+			batchSyncSQLTemplate := `
+				INSERT INTO history.local_compliance (
+					policy_id, 
+					cluster_id, 
+					leaf_hub_name, 
+					compliance, 
+					compliance_date
+				) 
 				(
-					SELECT policy_id,cluster_id,leaf_hub_name,compliance,(CURRENT_DATE - INTERVAL '%d day') 
-					FROM %s 
-					ORDER BY policy_id, cluster_id 
-					LIMIT %d OFFSET %d
+					SELECT 
+						policy_id, 
+						cluster_id, 
+						leaf_hub_name, 
+						compliance, 
+						(CURRENT_DATE - INTERVAL '0 day') 
+					FROM 
+							local_status.compliance
+					ORDER BY policy_id, cluster_id
+					LIMIT %d 
+					OFFSET %d
 				)
-			ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING
-		`
-			if enableSimulation {
-				selectInsertSQLTemplate = `
-				do
-				$$
-				declare
-					all_compliances local_status.compliance_type[] := '{"compliant","non_compliant","unknown","pending"}';
-					compliance_random_index int;
-				begin
-					SELECT floor(random() * 4 + 1)::int into compliance_random_index;
-					INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance, compliance_date) 
-						(
-							SELECT policy_id,cluster_id,leaf_hub_name,all_compliances[compliance_random_index],
-							(CURRENT_DATE - INTERVAL '%d day') 
-							FROM %s 
-							ORDER BY policy_id, cluster_id 
-							LIMIT %d OFFSET %d
-						)
-					ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date) DO NOTHING;
-				end;
-				$$;
+				ON CONFLICT (
+						leaf_hub_name, 
+						policy_id, 
+						cluster_id, 
+						compliance_date
+				) DO NOTHING;
 			`
-			}
-			db := database.GetGorm()
-
-			selectInsertSQL := fmt.Sprintf(selectInsertSQLTemplate, interval, tableName, batchSize, offset)
-			result := db.Exec(selectInsertSQL)
-			if result.Error != nil {
-				log.Info("exec failed, retrying", "error", result.Error)
-				return false, nil
-			}
-			insertCount = result.RowsAffected
-			log.V(2).Info("from local_status.compliance", "batch", batchSize, "insert", insertCount, "offset", offset)
-			return true, nil
-		})
-	return insertCount, err
-}
-
-func syncToLocalComplianceHistoryByPolicyEvent(ctx context.Context, batchSize int64) (
-	totalCount int64, insertedCount int64, err error,
-) {
-	totalCountSQLTemplate := `
-		SELECT COUNT(1) FROM (
-			SELECT DISTINCT policy_id, cluster_id FROM event.local_policies
-			WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
-		) AS subquery
-	`
-	totalCountStatement := fmt.Sprintf(totalCountSQLTemplate, dateInterval, dateInterval-1)
-
-	db := database.GetGorm()
-	if err := db.Raw(totalCountStatement).Scan(&totalCount).Error; err != nil {
-		return totalCount, insertedCount, err
-	}
-
-	for offset := int64(0); offset < totalCount; offset += batchSize {
-		count, err := insertToLocalComplianceHistoryByPolicyEvent(ctx, totalCount, batchSize, offset)
-		if err != nil {
-			return totalCount, insertedCount, err
-		}
-		insertedCount += count
-	}
-
-	return totalCount, insertedCount, nil
-}
-
-func insertToLocalComplianceHistoryByPolicyEvent(ctx context.Context, totalCount, batchSize, offset int64,
-) (int64, error) {
-	insertCount := int64(0)
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 30*time.Minute, true,
-		func(ctx context.Context) (done bool, err error) {
-			var insertError error
-			defer func() {
-				if e := traceComplianceHistoryLog(
-					fmt.Sprintf("%s/event.local_policies", LocalComplianceTaskName),
-					totalCount, offset, insertCount, startTime, insertError); e != nil {
-					log.Info("trace compliance job failed, retrying", "error", e)
-				}
-			}()
-			selectInsertSQLTemplate := `
-			INSERT INTO history.local_compliance (policy_id, cluster_id, leaf_hub_name, compliance_date, compliance,
-					compliance_changed_frequency)
-			WITH compliance_aggregate AS (
-					SELECT cluster_id, policy_id, leaf_hub_name,
-							CASE
-									WHEN bool_or(compliance = 'non_compliant') THEN 'non_compliant'
-									WHEN bool_or(compliance = 'unknown') THEN 'unknown'
-									WHEN bool_or(compliance = 'pending') THEN 'pending'
-									ELSE 'compliant'
-							END::local_status.compliance_type AS aggregated_compliance
-					FROM event.local_policies
-					WHERE created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day'
-					GROUP BY cluster_id, policy_id, leaf_hub_name
-			)
-			SELECT policy_id, cluster_id, leaf_hub_name, (CURRENT_DATE - INTERVAL '%d day'), aggregated_compliance,
-					(SELECT COUNT(1) FROM (
-							SELECT created_at, compliance, 
-									LAG(compliance) OVER (PARTITION BY cluster_id, policy_id ORDER BY created_at ASC)
-									AS prev_compliance
-							FROM event.local_policies lp
-							WHERE (lp.created_at BETWEEN CURRENT_DATE - INTERVAL '%d days' AND CURRENT_DATE - INTERVAL '%d day') 
-									AND lp.cluster_id = ca.cluster_id AND lp.policy_id = ca.policy_id
-							ORDER BY created_at ASC
-					) AS subquery WHERE compliance <> prev_compliance) AS compliance_changed_frequency
-			FROM compliance_aggregate ca
-			ORDER BY cluster_id, policy_id
-			LIMIT $1 OFFSET $2
-			ON CONFLICT (leaf_hub_name, policy_id, cluster_id, compliance_date)
-			DO UPDATE SET
-				compliance = EXCLUDED.compliance,
-				compliance_changed_frequency = EXCLUDED.compliance_changed_frequency;
-			`
-			selectInsertStatement := fmt.Sprintf(selectInsertSQLTemplate, dateInterval, dateInterval-1,
-				dateInterval, dateInterval, dateInterval-1)
 
 			db := database.GetGorm()
-			result := db.Exec(selectInsertStatement, batchSize, offset)
-			insertError = result.Error
-			if insertError != nil {
-				log.Info("insert failed, retrying", "error", insertError)
+			ret := db.Exec(fmt.Sprintf(batchSyncSQLTemplate, batchSize, offset))
+			if ret.Error != nil {
+				log.Info("exec failed, retrying", "error", ret.Error)
 				return false, nil
 			}
-			insertCount = result.RowsAffected
-			log.V(2).Info("from event.local_policies", "batch", batchSize, "insert", insertCount, "offset", offset)
+			batchInsert = ret.RowsAffected
+			log.V(2).Info("sync compliance to history", "batch", batchSize, "batchInsert", batchInsert, "offset", offset)
 			return true, nil
 		})
-	return insertCount, err
+	return batchInsert, err
 }
 
 func traceComplianceHistoryLog(name string, total, offset, inserted int64, start time.Time, err error) error {
