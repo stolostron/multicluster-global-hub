@@ -27,8 +27,9 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 		data = append(data, models.ManagedClusterEvent{
 			EventNamespace:      "managed-cluster1",
 			EventName:           "managed-cluster1.17cd5c3642c43a8a",
-			ClusterID:           "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d",
+			ClusterID:           "",
 			LeafHubName:         "hub1",
+			ClusterName:         "managed-cluster1",
 			Message:             "The managed cluster (managed-cluster1) cannot connect to the hub cluster.",
 			Reason:              "AvailableUnknown",
 			ReportingController: "registration-controller",
@@ -53,7 +54,7 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 
 			count := 0
 			for _, item := range items {
-				fmt.Println(">>>>>>>>>>>>>>>>>> ", item.LeafHubName, item.EventName, item.Message, item.CreatedAt)
+				fmt.Println(">> ", item.LeafHubName, item.ClusterName, item.EventName, item.Message, item.CreatedAt)
 				count++
 			}
 			if count > 0 {

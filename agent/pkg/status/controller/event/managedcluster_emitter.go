@@ -94,6 +94,7 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		EventNamespace: evt.Namespace,
 		Message:        evt.Message,
 		Reason:         evt.Reason,
+		ClusterName:    cluster.Name,
 		// ClusterID:           clusterId,
 		LeafHubName:         config.GetLeafHubName(),
 		ReportingController: evt.ReportingController,
@@ -106,25 +107,26 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		h.log.Error(err, "failed to get involved clusterId", "event", evt.Namespace+"/"+evt.Name)
 		return false
 	}
-	// if the clusterId isn't ready, cache it
-	if clusterId == "" {
-		_, ok := h.cachedEvents[cluster.Name]
-		if !ok {
-			h.cachedEvents[cluster.Name] = make([]*models.ManagedClusterEvent, 0)
-		}
-		h.cachedEvents[cluster.Name] = append(h.cachedEvents[cluster.Name], &clusterEvent)
-		return false
-	}
+	// TODO: We can open the following codes to patch the claimed clusterId for the event table.
+	// // if the clusterId isn't ready, cache it
+	// if clusterId == "" {
+	// 	_, ok := h.cachedEvents[cluster.Name]
+	// 	if !ok {
+	// 		h.cachedEvents[cluster.Name] = make([]*models.ManagedClusterEvent, 0)
+	// 	}
+	// 	h.cachedEvents[cluster.Name] = append(h.cachedEvents[cluster.Name], &clusterEvent)
+	// 	return false
+	// }
 
-	// load the cache events to payload if the clusterId is ready
-	cachedEvents, ok := h.cachedEvents[cluster.Name]
-	if ok {
-		for _, cacheEvent := range cachedEvents {
-			cacheEvent.ClusterID = clusterId
-			h.payload = append(h.payload, *cacheEvent)
-		}
-		delete(h.cachedEvents, cluster.Name)
-	}
+	// // load the cache events to payload if the clusterId is ready
+	// cachedEvents, ok := h.cachedEvents[cluster.Name]
+	// if ok {
+	// 	for _, cacheEvent := range cachedEvents {
+	// 		cacheEvent.ClusterID = clusterId
+	// 		h.payload = append(h.payload, *cacheEvent)
+	// 	}
+	// 	delete(h.cachedEvents, cluster.Name)
+	// }
 
 	// load the current event to payload
 	clusterEvent.ClusterID = clusterId
