@@ -53,12 +53,12 @@ type ManagedClusterEvent struct {
 	EventNamespace      string    `gorm:"column:event_namespace;type:varchar(63);not null" json:"eventNamespace"`
 	EventName           string    `gorm:"column:event_name;type:varchar(63);not null" json:"eventName"`
 	ClusterID           string    `gorm:"column:cluster_id;type:uuid;not null" json:"clusterId"`
-	LeafHubName         string    `gorm:"size:256;not null" json:"-"`
+	LeafHubName         string    `gorm:"column:leaf_hub_name;type:varchar(256);not null" json:"leaf_hub_name"`
 	Message             string    `gorm:"column:message;type:text" json:"message"`
 	Reason              string    `gorm:"column:reason;type:text" json:"reason"`
 	ReportingController string    `gorm:"column:reporting_controller;type:text" json:"reportingController"`
 	ReportingInstance   string    `gorm:"column:reporting_instance;type:text" json:"reportingInstance"`
-	EventType           string    `gorm:"size:256;not null" json:"type"`
+	EventType           string    `gorm:"column:event_type;type:varchar(63);not null" json:"type"`
 	CreatedAt           time.Time `gorm:"column:created_at;default:now();not null" json:"createdAt"`
 }
 

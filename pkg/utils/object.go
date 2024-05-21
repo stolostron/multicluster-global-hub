@@ -71,6 +71,7 @@ func GetRootPolicy(ctx context.Context, runtimeClient client.Client, namespacedN
 	return &rootPolicy, nil
 }
 
+// GetClusterId retrieve the claimId("id.k8s.io") first, if not exist, then get the cluster.UID()
 func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName string) (string, error) {
 	cluster := clusterv1.ManagedCluster{}
 	if err := runtimeClient.Get(ctx, client.ObjectKey{Name: clusterName}, &cluster); err != nil {

@@ -53,7 +53,7 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 
 			count := 0
 			for _, item := range items {
-				fmt.Println(item.LeafHubName, item.EventName, item.Message, item.CreatedAt)
+				fmt.Println(">>>>>>>>>>>>>>>>>> ", item.LeafHubName, item.EventName, item.Message, item.CreatedAt)
 				count++
 			}
 			if count > 0 {

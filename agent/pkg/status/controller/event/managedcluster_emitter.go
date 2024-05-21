@@ -21,7 +21,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ generic.ObjectEmitter = &managedClusterEmitter{}
@@ -36,6 +35,7 @@ type managedClusterEmitter struct {
 	currentVersion  *version.Version
 	lastSentVersion version.Version
 	payload         event.ManagedClusterEventBundle
+	cachedEvents    map[string][]*models.ManagedClusterEvent
 }
 
 func NewManagedClusterEventEmitter(ctx context.Context, c client.Client, topic string) *managedClusterEmitter {
@@ -51,6 +51,7 @@ func NewManagedClusterEventEmitter(ctx context.Context, c client.Client, topic s
 		currentVersion:  version.NewVersion(),
 		lastSentVersion: *version.NewVersion(),
 		payload:         make([]models.ManagedClusterEvent, 0),
+		cachedEvents:    make(map[string][]*models.ManagedClusterEvent),
 	}
 }
 
@@ -88,25 +89,45 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		return false
 	}
 
-	clusterId, err := utils.GetClusterId(h.ctx, h.runtimeClient, cluster.Name)
-	if err != nil {
-		h.log.Error(err, "failed to get involved clusterId", "event", evt.Namespace+"/"+evt.Name)
-		return false
-	}
-
-	// update
 	clusterEvent := models.ManagedClusterEvent{
-		EventName:           evt.Name,
-		EventNamespace:      evt.Namespace,
-		Message:             evt.Message,
-		Reason:              evt.Reason,
-		ClusterID:           clusterId,
+		EventName:      evt.Name,
+		EventNamespace: evt.Namespace,
+		Message:        evt.Message,
+		Reason:         evt.Reason,
+		// ClusterID:           clusterId,
 		LeafHubName:         config.GetLeafHubName(),
 		ReportingController: evt.ReportingController,
 		ReportingInstance:   evt.ReportingInstance,
 		EventType:           evt.Type,
 		CreatedAt:           evt.CreationTimestamp.Time,
 	}
+	clusterId, err := getClusterId(h.ctx, h.runtimeClient, cluster.Name)
+	if err != nil {
+		h.log.Error(err, "failed to get involved clusterId", "event", evt.Namespace+"/"+evt.Name)
+		return false
+	}
+	// if the clusterId isn't ready, cache it
+	if clusterId == "" {
+		_, ok := h.cachedEvents[cluster.Name]
+		if !ok {
+			h.cachedEvents[cluster.Name] = make([]*models.ManagedClusterEvent, 0)
+		}
+		h.cachedEvents[cluster.Name] = append(h.cachedEvents[cluster.Name], &clusterEvent)
+		return false
+	}
+
+	// load the cache events to payload if the clusterId is ready
+	cachedEvents, ok := h.cachedEvents[cluster.Name]
+	if ok {
+		for _, cacheEvent := range cachedEvents {
+			cacheEvent.ClusterID = clusterId
+			h.payload = append(h.payload, *cacheEvent)
+		}
+		delete(h.cachedEvents, cluster.Name)
+	}
+
+	// load the current event to payload
+	clusterEvent.ClusterID = clusterId
 	h.payload = append(h.payload, clusterEvent)
 	return true
 }
@@ -159,4 +180,19 @@ func getInvolveCluster(ctx context.Context, c client.Client, evt *corev1.Event) 
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	return cluster, err
+}
+
+func getClusterId(ctx context.Context, runtimeClient client.Client, clusterName string) (string, error) {
+	cluster := clusterv1.ManagedCluster{}
+	if err := runtimeClient.Get(ctx, client.ObjectKey{Name: clusterName}, &cluster); err != nil {
+		return "", fmt.Errorf("failed to get cluster - %w", err)
+	}
+	clusterId := ""
+	for _, claim := range cluster.Status.ClusterClaims {
+		if claim.Name == "id.k8s.io" {
+			clusterId = claim.Value
+			break
+		}
+	}
+	return clusterId, nil
 }
