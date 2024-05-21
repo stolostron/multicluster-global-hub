@@ -9,9 +9,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
@@ -20,6 +28,19 @@ const (
 )
 
 var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
+	var postgresConn *pgx.Conn
+	BeforeAll(func() {
+		databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
+		var err error
+		postgresConn, err = database.PostgresConnection(ctx, databaseURI, nil)
+		Expect(err).Should(Succeed())
+	})
+
+	AfterAll(func() {
+		err := postgresConn.Close(ctx)
+		Expect(err).Should(Succeed())
+	})
+
 	It("add the label to the managed cluster", func() {
 		patches := []patch{
 			{
@@ -107,6 +128,60 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 				return nil
 			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		}
+	})
+
+	It("sync the managed cluster event to the global hub database", func() {
+		By("Create the cluster event")
+		cluster := managedClusters[0]
+		leafHubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
+		eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdd", cluster.Name)
+		eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
+		clusterEvent := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      eventName,
+				Namespace: cluster.Name,
+			},
+			InvolvedObject: corev1.ObjectReference{
+				Kind: constants.ManagedClusterKind,
+				// TODO: the cluster namespace should be empty! but if not set the namespace,
+				// it will throw the error: involvedObject.namespace: Invalid value: "": does not match event.namespace
+				Namespace: cluster.Name,
+				Name:      cluster.Name,
+			},
+			Reason:              "AvailableUnknown",
+			Message:             eventMessage,
+			ReportingController: "registration-controller",
+			ReportingInstance:   "registration-controller-cluster-manager-registration-controller-6794cf54d9-j7lgm",
+			Type:                "Warning",
+		}
+		leafHubClient, err := testClients.ControllerRuntimeClient(leafHubName, runtime.NewScheme())
+		Expect(err).To(Succeed())
+		Expect(leafHubClient.Create(ctx, clusterEvent, &client.CreateOptions{})).To(Succeed())
+
+		By("Get the cluster event from database")
+		Eventually(func() error {
+			rows, err := postgresConn.Query(ctx, "SELECT leaf_hub_name,event_name,message FROM event.managed_clusters")
+			if err != nil {
+				return err
+			}
+			defer rows.Close()
+
+			for rows.Next() {
+				columnValues, _ := rows.Values()
+				if len(columnValues) < 2 {
+					return fmt.Errorf("expected 2 fields, but got %d", len(columnValues))
+				}
+				gotLeafHubName, gotName, gotMessage := "", "", ""
+				if err := rows.Scan(&gotLeafHubName, &gotName, &gotMessage); err != nil {
+					return err
+				}
+				fmt.Println("get the cluster event", gotLeafHubName, gotName, gotMessage)
+				if leafHubName == gotLeafHubName && eventName == gotName && eventMessage == gotMessage {
+					return nil
+				}
+			}
+			return fmt.Errorf("not get the expected event, leafHubName: %s, eventName: %s", leafHubName, eventName)
+		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 })
 

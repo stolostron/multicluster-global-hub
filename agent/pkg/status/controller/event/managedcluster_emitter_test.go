@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,7 +52,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 				Name:      "cluster2.event.17cd34e8c8b27fdd",
 				Namespace: "cluster2",
 			},
-			InvolvedObject: v1.ObjectReference{
+			InvolvedObject: corev1.ObjectReference{
 				Kind: constants.ManagedClusterKind,
 				// TODO: the cluster namespace should be empty! but if not set the namespace,
 				// it will throw the error: involvedObject.namespace: Invalid value: "": does not match event.namespace
