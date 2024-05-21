@@ -3,8 +3,8 @@ These are events generated on the Kafka topics by multicluster global hub. The e
 
 ## Topics
 The following Kafka topics are used
-- event
 - status.$(managed_hub_cluster_name)
+- event
 
 ## Event Structure
 
@@ -25,17 +25,18 @@ A simple `hello world` message would look like.  -
 }
 ```
 
-_CloudEvent attributes are prefixed with ce_ for use in the message-headers section._
+_CloudEvent attributes are prefixed with ce_ for use in the message-headers section in Kafka._
 
 Examples:
 
-* `time` maps to `ce_time`
-* `id` maps to `ce_id`
-* `specversion` maps to `ce_specversion`
+* `time` maps to `ce-time`
+* `id` maps to `ce-id`
+* `specversion` maps to `ce-specversion`
 
 ## Topic: status.$(managed_hub_cluster_name)
-### Policy
-#### LocalPolicySpec
+### Events related to Policy
+#### Local Policy Spec
+The event includes the policy spec which is applied in the managed hub cluster. The `source` specifies the managed hub cluster name. The `data` is for the policy spec.
 ```
 {
   "specversion": "1.0",
@@ -55,7 +56,6 @@ Examples:
         "resourceVersion": "849216",
         "creationTimestamp": "2024-02-29T03:01:04Z",
         "annotations": {
-          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"policy.open-cluster-management.io/v1\",\"kind\":\"Policy\",\"metadata\":{\"annotations\":{\"policy.open-cluster-management.io/categories\":\"PR.IP Information Protection Processes and Procedures\",\"policy.open-cluster-management.io/controls\":\"PR.IP-1 Baseline Configuration\",\"policy.open-cluster-management.io/standards\":\"NIST-CSF\"},\"name\":\"policy-limitrange\",\"namespace\":\"local-policy-namespace\"},\"spec\":{\"disabled\":false,\"policy-templates\":[{\"objectDefinition\":{\"apiVersion\":\"policy.open-cluster-management.io/v1\",\"kind\":\"ConfigurationPolicy\",\"metadata\":{\"name\":\"policy-limitrange-container-mem-limit-range\"},\"spec\":{\"namespaceSelector\":{\"exclude\":[\"kube-*\"],\"include\":[\"default\"]},\"object-templates\":[{\"complianceType\":\"musthave\",\"objectDefinition\":{\"apiVersion\":\"v1\",\"kind\":\"LimitRange\",\"metadata\":{\"name\":\"container-mem-limit-range\"},\"spec\":{\"limits\":[{\"default\":{\"memory\":\"512Mi\"},\"defaultRequest\":{\"memory\":\"256Mi\"},\"type\":\"Container\"}]}}}],\"remediationAction\":\"inform\",\"severity\":\"medium\"}}}],\"remediationAction\":\"inform\"}}\n",
           "policy.open-cluster-management.io/categories": "PR.IP Information Protection Processes and Procedures",
           "policy.open-cluster-management.io/controls": "PR.IP-1 Baseline Configuration",
           "policy.open-cluster-management.io/standards": "NIST-CSF"
@@ -115,15 +115,37 @@ Examples:
       },
       "status": {}
     }
-  ],
-  "kafkamessagekey": "kind-hub1",
-  "kafkaoffset": "1214",
-  "extversion": "1.3",
-  "kafkapartition": "0",
-  "kafkatopic": "status.kind-hub1"
+  ]
 }
 ```
-#### LocalCompliance
+#### Local Complete Policy Compliance Status
+The event includes the policy compliance status. It is a complete status. The `source` specifies the managed hub cluster name. The `data` is for the policy compliance status, including compliant clusters, non-compliant clusters and unknown clusters.
+
+```
+{
+  "specversion": "1.0",
+  "id": "d6561516-c8d5-4c3f-98e3-df650ee8e809",
+  "source": "kind-hub1",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance",
+  "datacontenttype": "application/json",
+  "time": "2024-02-29T03:01:12.624601184Z",
+  "data": [
+    {
+      "policyId": "cd0a3ae3-6579-4fbc-b9c1-eb7e9d15dd6d",
+      "nonCompliantClusters": [
+        "kind-hub1-cluster1"
+      ],
+      "nonCompliantClusters": [
+        "kind-hub1-cluster2"
+      ],
+      "unknownComplianceClusters": []
+    }
+  ],
+}
+```
+#### Local Policy Compliance Status
+The event includes the policy compliance status. It is a delta status. The `source` specifies the managed hub cluster name. The `data` is for the policy compliance status. We merge the status with the existing status in the database.
+
 ```
 {
   "specversion": "1.0",
@@ -141,48 +163,20 @@ Examples:
         "kind-hub1-cluster1"
       ]
     }
-  ],
-  "kafkatopic": "status.kind-hub1",
-  "kafkamessagekey": "kind-hub1",
-  "extversion": "0.1",
-  "kafkaoffset": "1205",
-  "kafkapartition": "0"
+  ]
 }
 
 ```
-#### LocalCompleteCompliance
-```
-{
-  "specversion": "1.0",
-  "id": "d6561516-c8d5-4c3f-98e3-df650ee8e809",
-  "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance",
-  "datacontenttype": "application/json",
-  "time": "2024-02-29T03:01:12.624601184Z",
-  "data": [
-    {
-      "policyId": "cd0a3ae3-6579-4fbc-b9c1-eb7e9d15dd6d",
-      "nonCompliantClusters": [
-        "kind-hub1-cluster1"
-      ],
-      "unknownComplianceClusters": []
-    }
-  ],
-  "kafkaoffset": "1212",
-  "kafkapartition": "0",
-  "extversion": "1.2",
-  "kafkatopic": "status.kind-hub1",
-  "kafkamessagekey": "kind-hub1",
-  "extdependencyversion": "1.1"
-}
-```
-### ManagedCluster
+
+### Events related to Cluster
+#### Managed Cluster Spec and Status
+This event includes the spec and status of the managed cluster. Once the managed cluster spec or status is changed, the whole information will be reported back.
 ```
 {
   "specversion": "1.0",
   "id": "213d0259-8999-46bf-aa13-bf4a3684075f",
   "source": "kind-hub1",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.spec.managedcluster",
   "datacontenttype": "application/json",
   "time": "2024-02-29T02:53:32.621450791Z",
   "data": [
@@ -263,15 +257,11 @@ Examples:
         ]
       }
     }
-  ],
-  "kafkamessagekey": "kind-hub1",
-  "kafkapartition": "0",
-  "extversion": "0.1",
-  "kafkaoffset": "1183",
-  "kafkatopic": "status.kind-hub1"
+  ]
 }
 ```
 ### ManagedHubCluster
+It is designed to be used internally. The event reflects the managed hub cluster information and liveness.
 #### Heartbeat
 ```
 {
@@ -281,12 +271,7 @@ Examples:
   "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat",
   "datacontenttype": "application/json",
   "time": "2024-02-29T02:57:27.627736066Z",
-  "data": [],
-  "kafkaoffset": "1193",
-  "kafkamessagekey": "kind-hub1",
-  "extversion": "3.0",
-  "kafkapartition": "0",
-  "kafkatopic": "status.kind-hub1"
+  "data": []
 }
 ```
 ### HubClusterInfo
@@ -302,28 +287,26 @@ Examples:
     "consoleURL": "https://console-openshift-console.apps.xxx.com",
     "grafanaURL": "",
     "clusterId": "8606cf88-c711-4dae-ba7e-2e4d54227887"
-  },
-  "kafkapartition": "0",
-  "kafkatopic": "status.kind-hub1",
-  "kafkaoffset": "1186",
-  "extversion": "0.1",
-  "kafkamessagekey": "kind-hub1"
+  }
 }
 ```
 
 ## Topic: event
 Currently, the following resource events are supported:
-- **Policy**: propagate, update
-- **ManagedCluster**: import, detach
+- Policy
+- Cluster
+The event is a Kubernetes event in the managed hub clusters or managed clusters.
 
-### Policy
-#### Propagate
+### Events related to Policy
+The events are Kubernetes events. We collect the root policy events and replicated policy events.
+#### Root Policy Event
+The event is Kubernetes event that exists in root policy namespace. The event specifies which clusters are applied for this policy.
 ```
 {
   "specversion": "1.0",
   "id": "4e85317c-9208-4c9d-be22-4a2725867670",
   "source": "kind-hub2",
-  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localpolicy.propagate",
+  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy",
   "datacontenttype": "application/json",
   "time": "2024-02-29T03:01:06.30007874Z",
   "data": [
@@ -340,15 +323,11 @@ Currently, the following resource events are supported:
       "policyId": "1f2deb7a-0d29-4762-b0fc-daa3ba16c5b5",
       "compliance": "Unknown"
     }
-  ],
-  "extversion": "0.1",
-  "kafkaoffset": "0",
-  "kafkapartition": "0",
-  "kafkatopic": "event",
-  "kafkamessagekey": "kind-hub2"
+  ]
 }
 ```
-#### Update
+#### Replicated Policy Event
+The event is from the replicated policy history status. The event is Kubernetes event and exists in the managed cluster.
 ```
 {
   "specversion": "1.0",
@@ -372,45 +351,52 @@ Currently, the following resource events are supported:
       "clusterId": "0884ef05-115d-46f5-bbda-f759adcbbe5b",
       "compliance": "NonCompliant"
     }
-  ],
-  "kafkamessagekey": "kind-hub2",
-  "extversion": "0.1",
-  "kafkaoffset": "3",
-  "kafkapartition": "0",
-  "kafkatopic": "event"
+  ]
 }
 ```
 
-### ManagedCluster
+### Events related to Cluster
+The events are Kubernetes events. We collect the cluster life cycle events, including import and detach.
 #### Import
+The events are related to cluster import. The data is an array that can include multiple events together. Once the cluster is successfully imported, it is managed by ACM.
 ```
 {
     "specversion": "1.0",
     "id": "c006d9b2-bc2d-11ee-90e9-8feab4dd9214",
     "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.import",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": [
         {
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
           "eventName": "kube-system.import.17ad7b80d4e6f6a4",
-          "message": "The cluster (cluster1) is being imported now",
+          "message": "The cluster is being imported now",
           "reason": "Importing",
           "count": 1,
           "source": "import-controller",
           "createdAt": "2024-01-25T05:08:07Z"
-        } 
+        },
+        {
+          "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+          "eventName": "kube-system.import.17ad7b80d4ade6a4",
+          "message": "The cluster is imported successfully",
+          "reason": "Imported",
+          "count": 1,
+          "source": "import-controller",
+          "createdAt": "2024-01-25T05:08:17Z"
+        }
     ]
 }
 ```
 #### Detach
+The events are related to cluster detach. We do not have `Detached` event. However, we can always treat the detaching process as successful anyway.
 ```
 {
     "specversion": "1.0",
     "id": "a59375e4-bc2e-11ee-98bb-035b5cb373d3",
     "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.detach",
+    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster",
     "datacontenttype": "application/json",
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": [
