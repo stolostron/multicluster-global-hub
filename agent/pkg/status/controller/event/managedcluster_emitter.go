@@ -94,12 +94,12 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		return false
 	}
 
-	// update
 	clusterEvent := models.ManagedClusterEvent{
 		EventName:           evt.Name,
 		EventNamespace:      evt.Namespace,
 		Message:             evt.Message,
 		Reason:              evt.Reason,
+		ClusterName:         cluster.Name,
 		ClusterID:           clusterId,
 		LeafHubName:         config.GetLeafHubName(),
 		ReportingController: evt.ReportingController,
@@ -107,6 +107,7 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		EventType:           evt.Type,
 		CreatedAt:           evt.CreationTimestamp.Time,
 	}
+
 	h.payload = append(h.payload, clusterEvent)
 	return true
 }

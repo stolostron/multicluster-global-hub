@@ -62,6 +62,7 @@ CREATE INDEX IF NOT EXISTS leafhub_deleted_at_idx ON status.leaf_hubs (deleted_a
 CREATE TABLE IF NOT EXISTS event.managed_clusters (
     event_namespace text NOT NULL,
     event_name text NOT NULL,
+    cluster_name text NOT NULL,
     cluster_id uuid NOT NULL,
     leaf_hub_name character varying(256) NOT NULL,
     message text,

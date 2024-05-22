@@ -12,6 +12,12 @@ AFTER INSERT OR UPDATE ON status.managed_clusters
 FOR EACH ROW
 EXECUTE FUNCTION public.update_local_compliance_cluster_id();
 
+DROP TRIGGER IF EXISTS update_cluster_event_cluster_id_trigger ON status.managed_clusters;
+CREATE TRIGGER update_cluster_event_cluster_id_trigger
+AFTER INSERT OR UPDATE ON status.managed_clusters
+FOR EACH ROW
+EXECUTE FUNCTION public.update_cluster_event_cluster_id();
+
 --- create the current month partitioned tables for local_policies and local_root_policies
 SELECT create_monthly_range_partitioned_table('event.local_root_policies', to_char(current_date, 'YYYY-MM-DD'));
 SELECT create_monthly_range_partitioned_table('event.local_policies', to_char(current_date, 'YYYY-MM-DD'));

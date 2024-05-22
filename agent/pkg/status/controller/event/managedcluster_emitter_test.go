@@ -36,6 +36,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		}
 		Expect(kubeClient.Create(ctx, cluster, &client.CreateOptions{})).Should(Succeed())
 
+		By("Claim the clusterId")
 		cluster.Status = clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
@@ -46,7 +47,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		}
 		Expect(kubeClient.Status().Update(ctx, cluster)).Should(Succeed())
 
-		By("Create the cluster event")
+		By("Create the cluster event after the clusterId is ready")
 		evt := &corev1.Event{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "cluster2.event.17cd34e8c8b27fdd",
