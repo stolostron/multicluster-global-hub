@@ -35,7 +35,11 @@ require (
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f
 	github.com/stretchr/testify v1.9.0
+<<<<<<< HEAD
 	go.uber.org/zap v1.26.0
+=======
+	go.uber.org/zap v1.27.0
+>>>>>>> be680f18 (upgrade the sdk to use 'ce_' prefix)
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
 	gorm.io/datatypes v1.2.0
@@ -61,6 +65,7 @@ require (
 )
 
 require (
+<<<<<<< HEAD
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
@@ -72,6 +77,10 @@ require (
 	github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300 // indirect
 	github.com/zmap/zlint/v3 v3.5.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
+=======
+	github.com/jackc/puddle/v2 v2.2.1 // indirect
+	gopkg.in/evanphx/json-patch.v5 v5.6.0 // indirect
+>>>>>>> be680f18 (upgrade the sdk to use 'ce_' prefix)
 	helm.sh/helm/v3 v3.14.2 // indirect
 )
 
@@ -149,7 +158,11 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+<<<<<<< HEAD
 	github.com/klauspost/compress v1.17.7 // indirect
+=======
+	github.com/klauspost/compress v1.17.4 // indirect
+>>>>>>> be680f18 (upgrade the sdk to use 'ce_' prefix)
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect; indirec
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
@@ -191,6 +204,7 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
+<<<<<<< HEAD
 	golang.org/x/crypto v0.25.0 // indirect
 	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
 	golang.org/x/net v0.27.0 // indirect
@@ -205,6 +219,23 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240701130421-f6361c86f094 // indirect
 	google.golang.org/grpc v1.65.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
+=======
+	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
+	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/oauth2 v0.16.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
+	golang.org/x/tools v0.16.1 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
+	google.golang.org/grpc v1.62.1 // indirect
+	google.golang.org/protobuf v1.33.0 // indirect
+>>>>>>> be680f18 (upgrade the sdk to use 'ce_' prefix)
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
