@@ -66,7 +66,7 @@ var (
 	KafkaStorageDeleteClaim        = false
 	KafkaVersion                   = "3.6.0"
 	DefaultPartition         int32 = 1
-	DefaultPartitionReplicas int32 = 2
+	DefaultPartitionReplicas int32 = 3
 	// kafka metrics constants
 	KakfaMetricsConfigmapName       = "kafka-metrics"
 	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
@@ -294,6 +294,8 @@ func (k *strimziTransporter) CreateAndUpdateTopic(topic *transport.ClusterTopic)
 		if err != nil {
 			return err
 		}
+		// Kafka do not support change exitsting kafaka topic replica directly.
+		updatedKafkaTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
 
 		if !equality.Semantic.DeepDerivative(updatedKafkaTopic.Spec, kafkaTopic.Spec) {
 			err = k.runtimeClient.Update(k.ctx, updatedKafkaTopic)
