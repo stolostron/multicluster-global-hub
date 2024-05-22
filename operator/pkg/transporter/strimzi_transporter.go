@@ -736,7 +736,10 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
+"transaction.state.log.replication.factor": 3,
+"log.retention.ms": 604800000,
+"log.retention.bytes": 1073741824,
+"log.segment.bytes": 107374182
 }`)},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
