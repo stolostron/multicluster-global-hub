@@ -370,6 +370,7 @@ The events are related to cluster import. The data is an array that can include 
     "data": [
         {
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+          "clusterName": "cluster1",
           "eventName": "kube-system.import.17ad7b80d4e6f6a4",
           "message": "The cluster is being imported now",
           "reason": "Importing",
@@ -379,6 +380,7 @@ The events are related to cluster import. The data is an array that can include 
         },
         {
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+          "clusterName": "cluster1",
           "eventName": "kube-system.import.17ad7b80d4ade6a4",
           "message": "The cluster is imported successfully",
           "reason": "Imported",
@@ -402,6 +404,7 @@ The events are related to cluster detach. We do not have `Detached` event. Howev
     "data": [
         {
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
+          "clusterName": "cluster1",
           "eventName": "kube-system.status.17ad7b80d4e6f6a4",
           "message": "The cluster (cluster1) is being detached now",
           "reason": "Detaching",
