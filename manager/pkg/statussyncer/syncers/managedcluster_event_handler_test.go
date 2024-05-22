@@ -1,11 +1,15 @@
 package dbsyncer_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -16,20 +20,22 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "ManagedClusterEventHandler"
 var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
-	It("should be able to sync replicate policy event", func() {
-		By("Create hubClusterInfo event")
+	hubName := "hub-managedcluster-event"
+	clusterUUID := "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d"
+	clusterClaimID := "13b2e003-2bdf-4c82-9bdf-f1aa7ccf607c"
+	clusterName := "cluster-event-cluster1"
 
-		leafHubName := "hub1"
+	It("should be able to sync managed cluster event", func() {
+		By("Create cluster event")
 		version := eventversion.NewVersion()
 		version.Incr()
-
 		data := event.ManagedClusterEventBundle{}
 		data = append(data, models.ManagedClusterEvent{
 			EventNamespace:      "managed-cluster1",
 			EventName:           "managed-cluster1.17cd5c3642c43a8a",
-			ClusterID:           "",
-			LeafHubName:         "hub1",
-			ClusterName:         "managed-cluster1",
+			ClusterID:           clusterUUID,
+			LeafHubName:         hubName,
+			ClusterName:         clusterName,
 			Message:             "The managed cluster (managed-cluster1) cannot connect to the hub cluster.",
 			Reason:              "AvailableUnknown",
 			ReportingController: "registration-controller",
@@ -38,7 +44,7 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 			CreatedAt:           time.Now(),
 		})
 
-		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterEventType), version, data)
+		evt := ToCloudEvent(hubName, string(enum.ManagedClusterEventType), version, data)
 
 		By("Sync event with transport")
 		err := producer.SendEvent(ctx, *evt)
@@ -54,8 +60,60 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 
 			count := 0
 			for _, item := range items {
-				fmt.Println(">> ", item.LeafHubName, item.ClusterName, item.EventName, item.Message, item.CreatedAt)
-				count++
+				fmt.Println(">> ", item.ClusterName, item.ClusterID, item.EventName, item.CreatedAt)
+				if clusterUUID == item.ClusterID {
+					count++
+				}
+			}
+			if count > 0 {
+				return nil
+			}
+			return fmt.Errorf("not found expected resource on the table")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should be able to update managed cluster id", func() {
+		By("Create cluster record")
+		cluster := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      clusterName,
+				Namespace: "default",
+				UID:       types.UID(clusterUUID),
+			},
+
+			Status: clusterv1.ManagedClusterStatus{
+				ClusterClaims: []clusterv1.ManagedClusterClaim{
+					{
+						Name:  "id.k8s.io",
+						Value: clusterClaimID,
+					},
+				},
+			},
+		}
+		payload, err := json.Marshal(cluster)
+		Expect(err).Should(Succeed())
+		db := database.GetGorm()
+		db.Create(&models.ManagedCluster{
+			LeafHubName: hubName,
+			ClusterID:   clusterClaimID,
+			Error:       database.ErrorNone,
+			Payload:     payload,
+		})
+
+		By("Check the cluster_id is updated by the trigger")
+		Eventually(func() error {
+			db := database.GetGorm()
+			items := []models.ManagedClusterEvent{}
+			if err := db.Find(&items).Error; err != nil {
+				return err
+			}
+
+			count := 0
+			for _, item := range items {
+				fmt.Println(">> ", item.ClusterName, item.ClusterID, item.EventName, item.CreatedAt)
+				if clusterClaimID == item.ClusterID {
+					count++
+				}
 			}
 			if count > 0 {
 				return nil

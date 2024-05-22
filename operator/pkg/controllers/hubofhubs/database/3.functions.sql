@@ -20,6 +20,20 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.update_cluster_event_cluster_id()
+    RETURNS TRIGGER
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE event.managed_clusters
+    SET cluster_id = NEW.cluster_id
+    WHERE leaf_hub_name = NEW.leaf_hub_name
+        AND cluster_name = (NEW.payload -> 'metadata' ->> 'name')
+        AND cluster_id = (New.payload -> 'metadata' ->> 'uid')::uuid;
+    RETURN NEW;
+END;
+$$;
+
 -- manually exec local compliance cronjob func
 -- insert compliance view records to history.local_compliance: SELECT history.insert_local_compliance_job('2023_07_06');
 CREATE OR REPLACE FUNCTION history.insert_local_compliance_job(

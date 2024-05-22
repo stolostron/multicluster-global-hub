@@ -21,6 +21,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ generic.ObjectEmitter = &managedClusterEmitter{}
@@ -87,7 +88,7 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		return false
 	}
 
-	clusterId, err := getClusterId(h.ctx, h.runtimeClient, cluster.Name)
+	clusterId, err := utils.GetClusterId(h.ctx, h.runtimeClient, cluster.Name)
 	if err != nil {
 		h.log.Error(err, "failed to get involved clusterId", "event", evt.Namespace+"/"+evt.Name)
 		return false
@@ -159,19 +160,4 @@ func getInvolveCluster(ctx context.Context, c client.Client, evt *corev1.Event) 
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	return cluster, err
-}
-
-func getClusterId(ctx context.Context, runtimeClient client.Client, clusterName string) (string, error) {
-	cluster := clusterv1.ManagedCluster{}
-	if err := runtimeClient.Get(ctx, client.ObjectKey{Name: clusterName}, &cluster); err != nil {
-		return "", fmt.Errorf("failed to get cluster - %w", err)
-	}
-	clusterId := ""
-	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == "id.k8s.io" {
-			clusterId = claim.Value
-			break
-		}
-	}
-	return clusterId, nil
 }
