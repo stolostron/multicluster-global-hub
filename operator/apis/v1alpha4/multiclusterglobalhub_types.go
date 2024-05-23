@@ -96,6 +96,7 @@ type MulticlusterGlobalHubSpec struct {
 	// +optional
 	AdvancedConfig *AdvancedConfig `json:"advanced,omitempty"`
 	// EnableMetrics enables the metrics for the global hub created kafka and postgres components.
+	// If the user provides the kafka and postgres, then the enablemetrics variable is useless.
 	// +kubebuilder:default=true
 	// +optional
 	EnableMetrics bool `json:"enableMetrics"`
