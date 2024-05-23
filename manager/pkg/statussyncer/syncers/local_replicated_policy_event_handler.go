@@ -19,17 +19,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-type localPolicyEventHandler struct {
+type localReplicatedPolicyEventHandler struct {
 	log           logr.Logger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 }
 
-func NewLocalPolicyEventHandler() conflator.Handler {
+func NewLocalReplicatedPolicyEventHandler() conflator.Handler {
 	eventType := string(enum.LocalReplicatedPolicyEventType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
-	return &localPolicyEventHandler{
+	return &localReplicatedPolicyEventHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.DeltaStateMode,
@@ -37,7 +37,7 @@ func NewLocalPolicyEventHandler() conflator.Handler {
 	}
 }
 
-func (h *localPolicyEventHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
+func (h *localReplicatedPolicyEventHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
 		h.eventSyncMode,
@@ -46,7 +46,7 @@ func (h *localPolicyEventHandler) RegisterHandler(conflationManager *conflator.C
 	))
 }
 
-func (h *localPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
@@ -56,21 +56,23 @@ func (h *localPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudeve
 		return err
 	}
 
-	batchLocalPolicyEvents := []models.LocalClusterPolicyEvent{}
+	batchLocalPolicyEvents := []models.LocalReplicatedPolicyEvent{}
 	for _, policyStatusEvent := range data {
-		batchLocalPolicyEvents = append(batchLocalPolicyEvents, models.LocalClusterPolicyEvent{
+		batchLocalPolicyEvents = append(batchLocalPolicyEvents, models.LocalReplicatedPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-				EventName:   policyStatusEvent.EventName,
-				PolicyID:    policyStatusEvent.PolicyID,
-				Message:     policyStatusEvent.Message,
-				Reason:      policyStatusEvent.Reason,
-				LeafHubName: leafHubName,
-				Source:      nil,
-				Count:       int(policyStatusEvent.Count),
-				Compliance:  string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
-				CreatedAt:   policyStatusEvent.CreatedAt.Time,
+				EventName:      policyStatusEvent.EventName,
+				EventNamespace: policyStatusEvent.EventNamespace,
+				PolicyID:       policyStatusEvent.PolicyID,
+				Message:        policyStatusEvent.Message,
+				Reason:         policyStatusEvent.Reason,
+				LeafHubName:    leafHubName,
+				Source:         nil,
+				Count:          int(policyStatusEvent.Count),
+				Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
+				CreatedAt:      policyStatusEvent.CreatedAt.Time,
 			},
-			ClusterID: policyStatusEvent.ClusterID,
+			ClusterID:   policyStatusEvent.ClusterID,
+			ClusterName: policyStatusEvent.ClusterName,
 		})
 	}
 

@@ -8,9 +8,10 @@ type RootPolicyEvent struct {
 
 type ReplicatedPolicyEvent struct {
 	BaseEvent
-	PolicyID   string `json:"policyId"`
-	ClusterID  string `json:"clusterId"`
-	Compliance string `json:"compliance"`
+	PolicyID    string `json:"policyId"`
+	ClusterID   string `json:"clusterId"`
+	ClusterName string `json:"clusterName"`
+	Compliance  string `json:"compliance"`
 }
 
 type ReplicatedPolicyEventBundle []ReplicatedPolicyEvent

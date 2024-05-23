@@ -36,7 +36,7 @@ Examples:
 ## Topic: status.$(managed_hub_cluster_name)
 ### Events related to Policy
 #### Local Policy Spec
-The event includes the policy spec which is applied in the managed hub cluster. The `source` specifies the managed hub cluster name. The `data` is for the policy spec.
+The event includes the policy spec which is applied in the managed hub cluster. The `source` specifies the managed hub cluster name. The `data` is for the policy spec. The events are always sent by the hub cluster.
 ```
 {
   "specversion": "1.0",
@@ -135,8 +135,11 @@ The event includes the policy compliance status. It is a complete status. The `s
       "nonCompliantClusters": [
         "kind-hub1-cluster1"
       ],
-      "nonCompliantClusters": [
+      "compliantClusters": [
         "kind-hub1-cluster2"
+      ],
+      "pendingClusters":[
+
       ],
       "unknownComplianceClusters": []
     }
@@ -295,6 +298,7 @@ It is designed to be used internally. The event reflects the managed hub cluster
 Currently, the following resource events are supported:
 - Policy
 - Cluster
+
 The event is a Kubernetes event in the managed hub clusters or managed clusters.
 
 ### Events related to Policy
