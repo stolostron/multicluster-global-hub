@@ -1,7 +1,7 @@
 {{- if .EnablePostgresMetrics }}
 apiVersion: v1
 data:
-  acm-global-postgres-exporter.json: |
+  acm-global-postgres.json: |
     {
       "annotations": {
         "list": [
@@ -24,7 +24,7 @@ data:
       "fiscalYearStartMonth": 0,
       "gnetId": 9628,
       "graphTooltip": 0,
-      "id": 15,
+      "id": 17,
       "links": [],
       "liveNow": false,
       "panels": [
@@ -94,7 +94,7 @@ data:
           },
           "gridPos": {
             "h": 2,
-            "w": 4,
+            "w": 3,
             "x": 0,
             "y": 1
           },
@@ -139,7 +139,7 @@ data:
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "description": "",
+          "description": "Maximum number of concurrent connections",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -169,18 +169,18 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
+              "unit": "none",
               "unitScale": true
             },
             "overrides": []
           },
           "gridPos": {
             "h": 2,
-            "w": 4,
-            "x": 4,
+            "w": 5,
+            "x": 3,
             "y": 1
           },
-          "id": 28,
+          "id": 38,
           "links": [],
           "maxDataPoints": 100,
           "options": {
@@ -196,7 +196,7 @@ data:
               "values": false
             },
             "showPercentChange": false,
-            "textMode": "value",
+            "textMode": "auto",
             "wideLayout": true
           },
           "pluginVersion": "10.3.3",
@@ -206,15 +206,16 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(pg_database_size_bytes{instance=\"$instance\"})",
+              "exemplar": false,
+              "expr": "pg_settings_max_connections{release=\"$release\", instance=\"$instance\"}",
               "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "",
-              "range": true,
+              "instant": true,
+              "intervalFactor": 1,
+              "range": false,
               "refId": "A"
             }
           ],
-          "title": "Total Database Size",
+          "title": "Max Connections",
           "type": "stat"
         },
         {
@@ -468,7 +469,7 @@ data:
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "description": "Maximum number of concurrent connections",
+          "description": "Number of open file descriptors",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -509,7 +510,7 @@ data:
             "x": 20,
             "y": 1
           },
-          "id": 38,
+          "id": 76,
           "links": [],
           "maxDataPoints": 100,
           "options": {
@@ -519,7 +520,7 @@ data:
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
-                "mean"
+                "lastNotNull"
               ],
               "fields": "",
               "values": false
@@ -535,17 +536,127 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "exemplar": false,
-              "expr": "pg_settings_max_connections{release=\"$release\", instance=\"$instance\"}",
+              "expr": "process_open_fds{release=\"$release\", instance=\"$instance\"}",
               "format": "time_series",
-              "instant": true,
-              "intervalFactor": 1,
-              "range": false,
+              "intervalFactor": 2,
+              "range": true,
+              "refId": "A",
+              "step": 4
+            }
+          ],
+          "title": "Open File Descriptors",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 2,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A"
+                    }
+                  },
+                  "type": "special"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes",
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 0,
+            "y": 3
+          },
+          "id": 28,
+          "links": [],
+          "maxDataPoints": 100,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(pg_database_size_bytes{instance=\"$instance\"})",
+              "format": "time_series",
+              "intervalFactor": 2,
+              "legendFormat": "Size",
+              "range": true,
               "refId": "A"
             }
           ],
-          "title": "Max Connections",
-          "type": "stat"
+          "title": "Total Database Size",
+          "type": "timeseries"
         },
         {
           "datasource": {
@@ -612,7 +723,7 @@ data:
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 0,
+            "x": 8,
             "y": 3
           },
           "id": 22,
@@ -716,7 +827,7 @@ data:
           "gridPos": {
             "h": 7,
             "w": 8,
-            "x": 8,
+            "x": 16,
             "y": 3
           },
           "id": 24,
@@ -764,109 +875,6 @@ data:
             }
           ],
           "title": "Average Memory Usage",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of open file descriptors",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "links": [],
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short",
-              "unitScale": true
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 8,
-            "x": 16,
-            "y": 3
-          },
-          "id": 26,
-          "links": [],
-          "options": {
-            "legend": {
-              "calcs": [
-                "mean",
-                "lastNotNull",
-                "max",
-                "min"
-              ],
-              "displayMode": "table",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "9.5.6",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "process_open_fds{release=\"$release\", instance=\"$instance\"}",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "Open FD",
-              "refId": "A"
-            }
-          ],
-          "title": "Open File Descriptors",
           "type": "timeseries"
         },
         {
@@ -2026,7 +2034,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2132,7 +2141,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2236,7 +2246,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2351,7 +2362,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2455,7 +2467,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2559,7 +2572,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2662,7 +2676,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2763,7 +2778,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2867,7 +2883,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2979,7 +2996,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3093,7 +3111,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3236,7 +3255,8 @@ data:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3291,7 +3311,7 @@ data:
           "type": "timeseries"
         }
       ],
-      "refresh": "10s",
+      "refresh": "",
       "schemaVersion": 39,
       "tags": [
         "postgres",
@@ -3376,8 +3396,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "10.128.1.227:9187",
-              "value": "10.128.1.227:9187"
+              "text": "10.128.1.19:9187",
+              "value": "10.128.1.19:9187"
             },
             "datasource": {
               "uid": "${DS_PROMETHEUS}"
@@ -3462,13 +3482,13 @@ data:
       },
       "timezone": "",
       "title": "PostgreSQL Database",
-      "uid": "000000039",
-      "version": 2,
+      "uid": "000000001",
+      "version": 1,
       "weekStart": ""
     }
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-acm-global-postgres-exporter
+  name: grafana-dashboard-acm-global-postgres
   namespace: {{ .Namespace }}
   labels:
     global-hub.open-cluster-management.io/metrics-resource: postgres
