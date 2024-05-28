@@ -1,0 +1,1314 @@
+apiVersion: v1
+data:
+  acm-global-managedclusters.json: |
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "description": "The real data for all managed clusters and policies",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": 11,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "fieldMinMax": false,
+              "mappings": [
+                {
+                  "options": {
+                    "Available": {
+                      "color": "green",
+                      "index": 1,
+                      "text": "Available"
+                    },
+                    "Unknown": {
+                      "color": "red",
+                      "index": 0,
+                      "text": "Unknown"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unitScale": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "available"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "shades"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Available"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Unknown"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 4,
+            "x": 0,
+            "y": 0
+          },
+          "id": 8,
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "sum"
+              ],
+              "fields": "/^count$/",
+              "values": false
+            },
+            "showPercentChange": false,
+            "textMode": "auto",
+            "wideLayout": true
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": " SELECT COUNT(DISTINCT cluster_id)\n FROM status.managed_clusters \n  WHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}\n  AND cluster_name ${cluster_query:raw}\n  AND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Total Managed Clusters",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "Top5 Managed Hub clusters which has largest number of Managed Clusters",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "green",
+                "mode": "fixed"
+              },
+              "fieldMinMax": false,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 8,
+            "x": 4,
+            "y": 0
+          },
+          "id": 5,
+          "options": {
+            "minVizHeight": 75,
+            "minVizWidth": 75,
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^clustercount$/",
+              "values": true
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": false,
+            "sizing": "auto"
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "WITH hub_clusters AS(\n  SELECT leaf_hub_name,\n  COUNT(DISTINCT cluster_id) as clustercount\n  FROM status.managed_clusters\n  WHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}\n  AND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  GROUP BY leaf_hub_name\n),\nall_hub_clusters AS(\n SELECT lh.leaf_hub_name, \n        COALESCE(clustercount,'0') AS clustercount\n        FROM status.leaf_hubs lh LEFT JOIN hub_clusters ahc\n        ON lh.leaf_hub_name = ahc.leaf_hub_name\n        WHERE lh.leaf_hub_name ${hub_query:raw}\n),\nall_hub_clusters_sort AS (\n  SELECT leaf_hub_name,\n        clustercount,\n        ROW_NUMBER() OVER (ORDER BY clustercount DESC) AS row_num\n        FROM all_hub_clusters\n)\nSELECT * FROM \nall_hub_clusters_sort\nWHERE row_num <= 5;",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Managed Clusters For Each Hub(Top 5)",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "row_num": true
+                },
+                "includeByName": {},
+                "indexByName": {},
+                "renameByName": {}
+              }
+            }
+          ],
+          "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "Available": {
+                      "color": "green",
+                      "index": 0,
+                      "text": "Available"
+                    },
+                    "Unknown": {
+                      "color": "red",
+                      "index": 1,
+                      "text": "Unknown"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "string",
+              "unitScale": true
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hub"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View Grafana Observability dashboard of hub ${__data.fields.leaf_hub_name} ",
+                        "url": "${__data.fields.hub_obs_url}"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 168
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Managed Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View Managed Cluster ${__data.fields.cluster_name} details",
+                        "url": "${__data.fields.hub_console_url}/multicloud/infrastructure/clusters/details/${__data.fields.cluster_name}/${__data.fields.cluster_name}/overview?perspective=acm"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 173
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Vendor"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 128
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "available"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "hub_console_url"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width"
+                  },
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "hub_obs_url"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 14,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 6,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": true,
+              "enablePagination": false,
+              "fields": "",
+              "reducer": [
+                "count"
+              ],
+              "show": true
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "WITH cluster_status AS(\n  SELECT cluster_id, 'Available' AS available \n  FROM (\n    SELECT cluster_id, jsonb_array_elements(payload->'status'->'conditions') AS conditions\n    FROM status.managed_clusters) c1\n  WHERE conditions->>'type' = 'ManagedClusterConditionAvailable' AND conditions->>'status' = 'True'\n)\nSELECT mc.leaf_hub_name,mc.cluster_name,\n  mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' AS openshiftVersion, \n  mc.payload -> 'metadata' -> 'labels' ->> 'cloud' AS cloud,\n  mc.payload -> 'metadata' -> 'labels' ->> 'vendor' AS vendor,\n  COALESCE(available,'Unknown') AS available,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc LEFT JOIN cluster_status cs\nON mc.cluster_id = cs.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND cluster_name ${cluster_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Managed Clusters",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "console_url": true,
+                  "hub_console_url": false,
+                  "hub_obs_url": false
+                },
+                "includeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "available": "Available",
+                  "cloud": "Cloud",
+                  "cluster_name": "Managed Cluster",
+                  "compliance": "Status",
+                  "leaf_hub_name": "Hub",
+                  "openshiftversion": "Openshift Version",
+                  "vendor": "Vendor"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "Total managed clusters for each state",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "green",
+                "mode": "palette-classic-by-name"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "fieldMinMax": false,
+              "mappings": [
+                {
+                  "options": {
+                    "Available": {
+                      "color": "green",
+                      "index": 1,
+                      "text": "Available"
+                    },
+                    "Unknown": {
+                      "color": "red",
+                      "index": 0,
+                      "text": "Unknown"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "unitScale": false
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "available"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "shades"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Available"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "green",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Unknown"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "red",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 4,
+            "x": 0,
+            "y": 7
+          },
+          "id": 10,
+          "options": {
+            "displayLabels": [
+              "name",
+              "value"
+            ],
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false,
+              "values": [
+                "value"
+              ]
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^count$/",
+              "values": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "asc"
+            }
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "WITH all_managed_clusters AS (\n  WITH cluster_status AS(\n    SELECT cluster_id, 'Available' AS available \n    FROM (\n      SELECT cluster_id, jsonb_array_elements(payload->'status'->'conditions') AS conditions\n      FROM status.managed_clusters) c1\n    WHERE conditions->>'type' = 'ManagedClusterConditionAvailable' AND conditions->>'status' = 'True'\n  )\n  SELECT leaf_hub_name,mc.cluster_id, COALESCE(available,'Unknown') AS available\n  FROM status.managed_clusters mc LEFT JOIN cluster_status cs\n  ON mc.cluster_id = cs.cluster_id\n  WHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}\n  AND cluster_name ${cluster_query:raw}\n  AND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n)\nSELECT available, COUNT(DISTINCT cluster_id)\nFROM all_managed_clusters\nGROUP BY available",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Cluster Status",
+          "type": "piechart"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "Total managed clusters in each cloud",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "mappings": [],
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 4,
+            "x": 4,
+            "y": 7
+          },
+          "id": 7,
+          "options": {
+            "displayLabels": [
+              "name",
+              "value"
+            ],
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false,
+              "values": []
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "/^count$/",
+              "values": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "select payload -> 'metadata' -> 'labels' ->> 'cloud' as cloud,\ncount(distinct cluster_id)\nfrom status.managed_clusters\nwhere deleted_at IS NULL\nAND leaf_hub_name ${hub_query:raw}\nAND cluster_name ${cluster_query:raw}\nAND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nGROUP BY payload -> 'metadata' -> 'labels' ->> 'cloud'\n",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Cloud",
+          "type": "piechart"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "description": "Total managedcluster for each version (x.y)",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "mappings": [],
+              "unitScale": true
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 4,
+            "x": 8,
+            "y": 7
+          },
+          "id": 9,
+          "options": {
+            "displayLabels": [
+              "name",
+              "value"
+            ],
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false,
+              "values": []
+            },
+            "pieType": "pie",
+            "reduceOptions": {
+              "calcs": [
+                "max"
+              ],
+              "fields": "/^count$/",
+              "values": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "asc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "select payload -> 'metadata' -> 'labels' ->> 'openshiftVersion-major-minor',\ncount(distinct cluster_id)\nfrom status.managed_clusters\nwhere deleted_at IS NULL\nAND leaf_hub_name ${hub_query:raw}\nAND cluster_name ${cluster_query:raw}\nAND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nGROUP BY payload -> 'metadata' -> 'labels' ->> 'openshiftVersion-major-minor'",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Cluster Version",
+          "type": "piechart"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "P244538DD76A4C61D"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": true,
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "string",
+              "unitScale": true
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Hub"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View Grafana Observability dashboard of hub ${__data.fields.leaf_hub_name} ",
+                        "url": "${__data.fields.hub_obs_url}"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 196
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "hub_console_url"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Managed Cluster"
+                },
+                "properties": [
+                  {
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View Managed Cluster ${__data.fields.cluster_name} details",
+                        "url": "${__data.fields.hub_console_url}/multicloud/infrastructure/clusters/details/${__data.fields.cluster_name}/${__data.fields.cluster_name}/overview?perspective=acm"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 247
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "hub_obs_url"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Status"
+                },
+                "properties": [
+                  {
+                    "id": "color"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "gradient",
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "compliant": {
+                            "color": "green",
+                            "index": 0,
+                            "text": "Compliant"
+                          },
+                          "non_compliant": {
+                            "color": "red",
+                            "index": 1,
+                            "text": "Not Compliant"
+                          },
+                          "pending": {
+                            "color": "orange",
+                            "index": 3,
+                            "text": "Pending"
+                          },
+                          "unknown": {
+                            "color": "yellow",
+                            "index": 2,
+                            "text": "Unknown"
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 114
+                  },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        {
+                          "color": "transparent",
+                          "value": null
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "No Status"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "event_type"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 151
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Reason"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 225
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Time"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 195
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 14
+          },
+          "id": 1,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": true,
+              "enablePagination": false,
+              "fields": "",
+              "reducer": [
+                "count"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "10.3.3",
+          "targets": [
+            {
+              "datasource": {
+                "type": "postgres",
+                "uid": "P244538DD76A4C61D"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT emc.created_at,mc.leaf_hub_name,mc.cluster_name,event_type,reason,message,\n  console_url as \"hub_console_url\",\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\n  END AS hub_obs_url\nFROM status.managed_clusters mc JOIN event.managed_clusters emc\nON mc.cluster_id = emc.cluster_id\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nWHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND cluster_name ${cluster_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nORDER BY emc.created_at LIMIT 20",
+              "refId": "A",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            }
+          ],
+          "title": "Managed Clusters Events",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "console_url": true,
+                  "hub_console_url": false
+                },
+                "includeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "cluster_name": "Managed Cluster",
+                  "compliance": "Status",
+                  "created_at": "Time",
+                  "event_type": "Type",
+                  "leaf_hub_name": "Hub",
+                  "message": "Message",
+                  "reason": "Reason"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "refresh": "",
+      "schemaVersion": 39,
+      "tags": [
+        "cluster"
+      ],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  status.leaf_hubs\n WHERE deleted_at IS NULL",
+            "description": "Managed hub cluster name",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Hub",
+            "multi": true,
+            "name": "hub",
+            "options": [],
+            "query": "  SELECT DISTINCT leaf_hub_name\n  FROM\n  status.leaf_hubs\n WHERE deleted_at IS NULL",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": "cloud",
+              "value": "cloud"
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "hide": 0,
+            "includeAll": false,
+            "label": "Label",
+            "multi": false,
+            "name": "label",
+            "options": [],
+            "query": "SELECT\n  DISTINCT jsonb_object_keys(payload -> 'metadata' -> 'labels')\nFROM\n  status.managed_clusters",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 1,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Value",
+            "multi": true,
+            "name": "value",
+            "options": [],
+            "query": "SELECT\n  payload -> 'metadata' -> 'labels' ->> '$label'\nFROM\n  status.managed_clusters",
+            "refresh": 2,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('Amazon','GCP','Azure') ",
+              "value": " in ('Amazon','GCP','Azure') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "value_query",
+            "options": [],
+            "query": "select case when length($$${value}$$)>0 then $$ in ($value) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('l1','l2','l3','l4','leaf1','leaf2','mc1') ",
+              "value": " in ('l1','l2','l3','l4','leaf1','leaf2','mc1') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${hub}$$)>0 then $$ in ($hub) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "hub_query",
+            "options": [],
+            "query": "select case when length($$${hub}$$)>0 then $$ in ($hub) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": true,
+              "text": [
+                "All"
+              ],
+              "value": [
+                "$__all"
+              ]
+            },
+            "definition": "select cluster_name from status.managed_clusters \nwhere leaf_hub_name IN ($hub)\n",
+            "hide": 0,
+            "includeAll": true,
+            "label": "Managed Clusters",
+            "multi": true,
+            "name": "managedclusters",
+            "options": [],
+            "query": "select cluster_name from status.managed_clusters \nwhere leaf_hub_name IN ($hub)\n",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          },
+          {
+            "current": {
+              "selected": false,
+              "text": " in ('demo-managed-a1','demo-managed-dd1','demo-managed-b1','managed-1') ",
+              "value": " in ('demo-managed-a1','demo-managed-dd1','demo-managed-b1','managed-1') "
+            },
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "P244538DD76A4C61D"
+            },
+            "definition": "select case when length($$${managedclusters}$$)>0 then $$ in ($managedclusters) $$ else ' is null ' end",
+            "hide": 2,
+            "includeAll": false,
+            "multi": false,
+            "name": "cluster_query",
+            "options": [],
+            "query": "select case when length($$${managedclusters}$$)>0 then $$ in ($managedclusters) $$ else ' is null ' end",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "sort": 0,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-30d",
+        "to": "now"
+      },
+      "timepicker": {
+        "hidden": true
+      },
+      "timezone": "",
+      "title": "Global Hub - Cluster Overview",
+      "uid": "fbf66c88-ba14-4553-90b7-55ea5870fa00",
+      "version": 2,
+      "weekStart": ""
+    }
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-acm-global-managedclusters
+  namespace: {{.Namespace}}
