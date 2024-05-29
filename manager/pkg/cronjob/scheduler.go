@@ -24,9 +24,9 @@ const (
 )
 
 type GlobalHubJobScheduler struct {
-	log                   logr.Logger
-	scheduler             *gocron.Scheduler
-	launchImmediatelyJobs []string
+	log        logr.Logger
+	scheduler  *gocron.Scheduler
+	launchJobs []string
 }
 
 func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
@@ -51,14 +51,17 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	default:
 		scheduler = scheduler.Every(1).Day().At("00:00")
 	}
-	complianceJob, err := scheduler.Tag(task.LocalComplianceTaskName).DoWithJobDetails(
-		task.SyncLocalCompliance, ctx, enableSimulation)
+	complianceHistoryJob, err := scheduler.
+		Tag(task.LocalComplianceTaskName).
+		DoWithJobDetails(task.LocalComplianceHistory, ctx)
 	if err != nil {
 		return err
 	}
-	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceJob.ScheduledAtTime())
+	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceHistoryJob.ScheduledAtTime())
 
-	dataRetentionJob, err := scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
+	dataRetentionJob, err := scheduler.
+		Every(1).Month(1, 15, 28).At("00:00").
+		Tag(task.RetentionTaskName).
 		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 	if err != nil {
 		return err
@@ -66,9 +69,9 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
 	return mgr.Add(&GlobalHubJobScheduler{
-		log:                   log,
-		scheduler:             scheduler,
-		launchImmediatelyJobs: strings.Split(managerConfig.LaunchJobNames, ","),
+		log:        log,
+		scheduler:  scheduler,
+		launchJobs: strings.Split(managerConfig.LaunchJobNames, ","),
 	})
 }
 
@@ -78,7 +81,7 @@ func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
 	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
 	s.scheduler.StartAsync()
-	if err := s.execJobs(ctx); err != nil {
+	if err := s.execJobs(); err != nil {
 		return err
 	}
 	<-ctx.Done()
@@ -86,10 +89,10 @@ func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *GlobalHubJobScheduler) execJobs(ctx context.Context) error {
-	for _, job := range s.launchImmediatelyJobs {
+func (s *GlobalHubJobScheduler) execJobs() error {
+	for _, job := range s.launchJobs {
 		switch job {
-		case task.LocalComplianceTaskName, task.RetentionTaskName:
+		case task.RetentionTaskName:
 			s.log.Info("launch the job", "name", job)
 			if err := s.scheduler.RunByTag(job); err != nil {
 				return err
