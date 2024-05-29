@@ -8,18 +8,22 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // kafkaReconcileHandler use to render all the kafka resources when its resources is changed, and also get the new conn.
-type kafkaReconcileHandler func() (*transport.ConnCredential, error)
+type kafkaReconcileHandler func(mgh *v1alpha4.MulticlusterGlobalHub) (*transport.ConnCredential, error)
 
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
@@ -32,7 +36,17 @@ type KafkaController struct {
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// get the mcgh cr name and then trigger the globalhub reconciler
 	var err error
-	r.conn, err = r.reconcileHandler()
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+	if err := r.mgr.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
+		if errors.IsNotFound(err) {
+			r.Log.Info("mgh instance not found.")
+			return ctrl.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		r.Log.Error(err, "Failed to get MulticlusterGlobalHub")
+		return ctrl.Result{}, err
+	}
+	r.conn, err = r.reconcileHandler(mgh)
 	if err != nil {
 		r.Log.Error(err, "failed to get connection from kafka reconciler")
 		return ctrl.Result{}, err
@@ -65,9 +79,10 @@ func startKafkaController(ctx context.Context, mgr ctrl.Manager,
 	if err != nil {
 		return nil, err
 	}
-
 	err = ctrl.NewControllerManagedBy(mgr).
 		Named("middleware_kafka_controller").
+		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},

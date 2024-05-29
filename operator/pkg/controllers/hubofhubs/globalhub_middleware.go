@@ -95,9 +95,11 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileMiddleware(ctx context.Contex
 
 			// start the kafka controller
 			if r.KafkaController == nil {
-				kafkaController, err := startKafkaController(ctx, r.Manager, func() (*transport.ConnCredential, error) {
-					return r.ReconcileTransport(ctx, mgh, transport.StrimziTransporter)
-				})
+				kafkaController, err := startKafkaController(ctx,
+					r.Manager,
+					func(mgh *v1alpha4.MulticlusterGlobalHub) (*transport.ConnCredential, error) {
+						return r.ReconcileTransport(ctx, mgh, transport.StrimziTransporter)
+					})
 				if err != nil {
 					errorChan <- err
 					return
