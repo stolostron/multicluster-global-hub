@@ -359,12 +359,7 @@ data:
               "show": false
             },
             "showHeader": true,
-            "sortBy": [
-              {
-                "desc": true,
-                "displayName": "rows_in_table"
-              }
-            ]
+            "sortBy": []
           },
           "pluginVersion": "10.3.3",
           "targets": [
@@ -376,7 +371,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "SELECT relname, 100 * idx_scan / (seq_scan + idx_scan) percent_of_times_index_used, n_live_tup rows_in_table\n    FROM pg_stat_user_tables ORDER BY n_live_tup DESC;",
+              "rawSql": "SELECT relname, 100 * idx_scan / NULLIF((seq_scan + idx_scan), 0) as percent_of_times_index_used, n_live_tup rows_in_table\n    FROM pg_stat_user_tables ORDER BY n_live_tup DESC;",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -518,7 +513,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "\nSELECT t.relname AS table_name, i.indexrelname AS index_name, t.seq_scan AS table_scans,\n    i.idx_scan AS index_scans, round(i.idx_scan::numeric / (i.idx_scan + t.seq_scan) * 100, 2) AS index_scan_percentage\n    FROM pg_stat_user_tables t JOIN pg_stat_user_indexes i ON t.relid = i.relid\n    WHERE  t.seq_scan + i.idx_scan > 0\n    ORDER BY index_scan_percentage DESC;",
+              "rawSql": "\nSELECT t.relname AS table_name, i.indexrelname AS index_name, t.seq_scan AS table_scans,\n    i.idx_scan AS index_scans, round(i.idx_scan::numeric / NULLIF((i.idx_scan + t.seq_scan),0) * 100, 2) AS index_scan_percentage\n    FROM pg_stat_user_tables t JOIN pg_stat_user_indexes i ON t.relid = i.relid\n    WHERE  t.seq_scan + i.idx_scan > 0\n    ORDER BY index_scan_percentage DESC;",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -564,9 +559,9 @@ data:
       "schemaVersion": 39,
       "tags": [
         "postgres",
-        "db",
         "table",
-        "index"
+        "index",
+        "technology-preview"
       ],
       "templating": {
         "list": [
@@ -624,7 +619,7 @@ data:
       "timezone": "",
       "title": "PostgreSQL Tables And Indexes",
       "uid": "000000002",
-      "version": 2,
+      "version": 1,
       "weekStart": ""
     }
 kind: ConfigMap

@@ -1115,7 +1115,8 @@ data:
       "refresh": "",
       "schemaVersion": 39,
       "tags": [
-        "cluster"
+        "cluster",
+        "dev-preview"
       ],
       "templating": {
         "list": [
