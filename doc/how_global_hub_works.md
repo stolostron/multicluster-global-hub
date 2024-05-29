@@ -50,45 +50,25 @@ In the long run, the desired state is full compliance. Daily variations as captu
 
 ### Running the Summarization Process manually
 
-The manual summarization process consists of two subtasks:
-- Insert the cluster policy data of that day from [Materialized View](https://www.postgresql.org/docs/current/rules-materializedviews.html)  `local_compliance_view_<yyyy_MM_dd>` to `history.local_compliance`.
-- Update the `compliance` and policy flip `frequency` of that day to `history.local_compliance` based on `event.local_policies`.
+Manually running the summarization process typically means we need to recover history compliances from the day without initialization. The simplest way is to use the previous day's history as the initial state for the recover day's history.
 
 #### Procedure steps
 
-1. Connect to the database.
-   
-   You can use clients such as pgAdmin, tablePlush, etc. to connect to the Global Hub database to execute the SQL statements involved in the next few steps. If your postgres database is installed through [this script](../operator/config/samples/storage/deploy_postgres.sh), you can directly connect to the database on the cluster by running the following command:
-   ```
-   kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -n multicluster-global-hub -c database -- psql -d hoh
-   ```
-       
-2. Determine the date when it needs to be run, such as `2023-07-06`.
+1.Connect to the database.
 
-    If you find that there is no compliance information on the dashboard for `2023-07-06`, then find the the job failure information of the day following this day in the `history.local_compliance_job_log`. In this case, it is `2023-07-07`. It can be determined that `2023-07-06` is the date when we need to manually run the summary processes.
+  You can use clients such as pgAdmin, tablePlush, etc. to connect to the Global Hub database. Alternatively, use the following command to connect directly.
 
-3. Check whether the Materialized View of `history.local_compliance_view_2023_07_06` exists by running the following command:
-    ```
-    select * from history.local_compliance_view_2023_07_06;
-    ```
-    - If the view exists, load the view records to `history.local_compliance`
-      ```sql
-      -- exec the insert func for that day '2023_07_06'
-      SELECT history.insert_local_compliance_job('2023_07_06');
-      ```
+  ```bash
+  kubectl exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh
+  ```
 
-    - If the view not exists, inherit the history compliance records of the day before that day, that is `2023_07_05`
-      ```sql
-      -- call the func to generate the data of '2023_07_06' by inheriting '2023_07_05'
-      CALL history.inherit_local_compliance_job('2023_07_05', '2023_07_06');
-      ```
+2.Determine the date when it needs to be run, such as `2023-07-07`.
 
-4. Update the `compliance` and `frequency` information of that day to `history.local_compliance`
-    ```sql
-    -- call the func to update records start with '2023-07-06', end with '2023-07-07'
-    SELECT history.update_local_compliance_job('2023_07_06', '2023_07_07');
-    ```
-5. Find the records of that day generated in `history.local_compliance`. You can safely delete the Materialized View `history.local_compliance_view_2023_07_06` by running the following command:
-    ```
-    DROP MATERIALIZED VIEW IF EXISTS history.local_compliance_view_2023_07_06;
-    ```
+  Finding the local compliance job failure information from the dashboard metrics or table `history.local_compliance_job_log`. In this case, if it's `2023-07-07`. That means there was a failure while initializing the state for the day of July 7, 2023.
+
+3.Recover the initial compliance of `2023-07-07` by running the following SQL:
+
+  ```SQL
+  -- call the func to generate the initial data of '2023-07-07' by inheriting '2023-07-06'
+  CALL history.generate_local_compliance('2024-07-07');
+  ```
