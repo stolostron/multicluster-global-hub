@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -646,7 +647,10 @@ func (k *strimziTransporter) createUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		return err, false
 	}
 
-	if !equality.Semantic.DeepDerivative(updatedKafka.Spec, existingKafka.Spec) {
+	updatedKafka.Spec.Kafka.MetricsConfig = desiredKafka.Spec.Kafka.MetricsConfig
+	updatedKafka.Spec.Zookeeper.MetricsConfig = desiredKafka.Spec.Zookeeper.MetricsConfig
+
+	if !reflect.DeepEqual(updatedKafka.Spec, existingKafka.Spec) {
 		return k.runtimeClient.Update(k.ctx, updatedKafka), true
 	}
 	return nil, false
