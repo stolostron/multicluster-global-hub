@@ -3315,8 +3315,8 @@ data:
       "schemaVersion": 39,
       "tags": [
         "postgres",
-        "db",
-        "stats"
+        "stats",
+        "technology-preview"
       ],
       "templating": {
         "list": [
