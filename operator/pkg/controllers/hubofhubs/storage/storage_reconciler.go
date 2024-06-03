@@ -68,7 +68,8 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multicl
 	return nil
 }
 
-func (r *StorageReconciler) reconcileStorage(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+func (r *StorageReconciler) reconcileStorage(ctx context.Context,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) (*config.PostgresConnection, error) {
 	// support BYO postgres
 	pgConnection, err := config.GetPGConnectionFromGHStorageSecret(ctx, r.GetClient())
