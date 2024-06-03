@@ -27,6 +27,7 @@ import (
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -34,12 +35,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
+	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -366,4 +371,78 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 			}
 			return true, nil
 		})
+}
+
+func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx := range clusters.Items {
+		managedHub := &clusters.Items[idx]
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+
+		if ok := controllerutil.RemoveFinalizer(managedHub, commonconstants.GlobalHubCleanupFinalizer); ok {
+			if err := c.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
+// clusters indicate the addons are running on a hub cluster
+func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx, managedHub := range clusters.Items {
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			orgAnnotations = make(map[string]string)
+		}
+		annotations := make(map[string]string, len(orgAnnotations))
+		CopyMap(annotations, managedHub.GetAnnotations())
+
+		// set the annotations for the managed hub
+		orgAnnotations[constants.AnnotationONMulticlusterHub] = "true"
+		orgAnnotations[constants.AnnotationPolicyONMulticlusterHub] = "true"
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func TriggerManagedHubAddons(ctx context.Context, c client.Client,
+	addonMgr addonmanager.AddonManager,
+) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for _, cluster := range clusters.Items {
+		if !FilterManagedCluster(&cluster) {
+			addonMgr.Trigger(cluster.Name, constants.GHClusterManagementAddonName)
+		}
+	}
+	return nil
+}
+
+func FilterManagedCluster(obj client.Object) bool {
+	return obj.GetLabels()["vendor"] != "OpenShift" ||
+		obj.GetLabels()["openshiftVersion"] == "3" ||
+		obj.GetName() == constants.LocalClusterName
 }

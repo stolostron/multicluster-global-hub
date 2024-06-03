@@ -24,7 +24,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -247,10 +247,10 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	clusterPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return !filterManagedCluster(e.Object)
+			return !utils.FilterManagedCluster(e.Object)
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if filterManagedCluster(e.ObjectNew) {
+			if utils.FilterManagedCluster(e.ObjectNew) {
 				return false
 			}
 			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
@@ -259,7 +259,7 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return !filterManagedCluster(e.Object)
+			return !utils.FilterManagedCluster(e.Object)
 		},
 	}
 
@@ -302,7 +302,7 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 	secretCond := func(obj client.Object) bool {
 		if obj.GetName() == config.GetImagePullSecretName() ||
 			obj.GetName() == constants.GHTransportSecretName ||
-			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == transportprotocol.KafkaClusterName &&
+			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
 				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 			return true
 		}
@@ -387,16 +387,10 @@ func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, erro
 
 	for i := range managedClusterList.Items {
 		managedCluster := managedClusterList.Items[i]
-		if filterManagedCluster(&managedCluster) {
+		if utils.FilterManagedCluster(&managedCluster) {
 			continue
 		}
 		names = append(names, managedCluster.GetName())
 	}
 	return names, nil
-}
-
-func filterManagedCluster(obj client.Object) bool {
-	return obj.GetLabels()["vendor"] != "OpenShift" ||
-		obj.GetLabels()["openshiftVersion"] == "3" ||
-		obj.GetName() == operatorconstants.LocalClusterName
 }

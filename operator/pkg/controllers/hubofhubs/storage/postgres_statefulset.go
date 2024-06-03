@@ -1,34 +1,30 @@
-package hubofhubs
+package storage
 
 import (
 	"context"
 	"fmt"
 
-	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
-	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"github.com/go-logr/logr"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
-
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	postgresAdminUsername    = "postgres"
-	postgresReadonlyUsername = "global-hub-readonly-user" // #nosec G101
-)
+var partialPostgresURI = "@multicluster-global-hub-postgres." +
+	utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
 
 type postgresCredential struct {
 	postgresAdminUsername        string
@@ -37,65 +33,11 @@ type postgresCredential struct {
 	postgresReadonlyUserPassword string
 }
 
-var partialPostgresURI = "@multicluster-global-hub-postgres." +
-	utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
-
-// EnsureCrunchyPostgresSubscription verifies resources needed for Crunchy Postgres are created
-func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgresSubscription(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
-	postgresSub, err := operatorutils.GetSubscriptionByName(ctx, r.Client, postgres.SubscriptionName)
-	if err != nil {
-		return err
-	}
-
-	// Generate sub config from mcgh CR
-	subConfig := &subv1alpha1.SubscriptionConfig{
-		NodeSelector: mgh.Spec.NodeSelector,
-		Tolerations:  mgh.Spec.Tolerations,
-	}
-
-	createSub := false
-	if postgresSub == nil {
-		// Sub is nil so create a new one
-		postgresSub = postgres.NewSubscription(mgh, subConfig, operatorutils.IsCommunityMode())
-		createSub = true
-	}
-
-	// Apply Crunchy Postgres sub
-	calcSub := postgres.RenderSubscription(postgresSub, subConfig, operatorutils.IsCommunityMode())
-	if createSub {
-		err = r.Client.Create(ctx, calcSub)
-	} else {
-		if !equality.Semantic.DeepEqual(postgresSub.Spec, calcSub.Spec) {
-			err = r.Client.Update(ctx, calcSub)
-		}
-	}
-	if err != nil {
-		return fmt.Errorf("error updating subscription %s: %w", calcSub.Name, err)
-	}
-
-	return nil
-}
-
-// EnsureCrunchyPostgres verifies PostgresCluster operand is created
-func (r *MulticlusterGlobalHubReconciler) EnsureCrunchyPostgres(ctx context.Context) error {
-	postgresCluster := &postgresv1beta1.PostgresCluster{}
-	err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, postgresCluster)
-	if err != nil && errors.IsNotFound(err) {
-		return r.Client.Create(ctx, postgres.NewPostgres(postgres.PostgresName, utils.GetDefaultNamespace()))
-	}
-	return err
-}
-
-func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) (*postgres.PostgresConnection, error) {
+func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgr ctrl.Manager, log logr.Logger,
+) (*config.PostgresConnection, error) {
 	// install the postgres statefulset only
-	credential, err := getPostgresCredential(ctx, mgh, r)
+	credential, err := getPostgresCredential(ctx, mgh, mgr.GetClient())
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +47,8 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 	}
 
 	// get the postgres objects
-	postgresRenderer, postgresDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-	postgresObjects, err := postgresRenderer.Render("manifests/postgres", "",
+	postgresRenderer, postgresDeployer := renderer.NewHoHRenderer(stsPostgresFS), deployer.NewHoHDeployer(mgr.GetClient())
+	postgresObjects, err := postgresRenderer.Render("manifests.sts", "",
 		func(profile string) (interface{}, error) {
 			return struct {
 				Namespace                    string
@@ -153,21 +95,21 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 	}
 
 	// create restmapper for deployer to find GVR
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
 		return nil, err
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = manipulateObj(postgresObjects, mgh, postgresDeployer, mapper, r.GetScheme()); err != nil {
+	if err = config.ManipulateGlobalHubObjects(postgresObjects, mgh, postgresDeployer, mapper, mgr.GetScheme()); err != nil {
 		return nil, fmt.Errorf("failed to create/update postgres objects: %w", err)
 	}
 
-	ca, err := getPostgresCA(ctx, mgh, r)
+	ca, err := getPostgresCA(ctx, mgh, mgr.GetClient())
 	if err != nil {
 		return nil, err
 	}
-	return &postgres.PostgresConnection{
+	return &config.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
 			credential.postgresAdminUserPassword + partialPostgresURI,
 		ReadonlyUserDatabaseURI: "postgresql://" + credential.postgresReadonlyUsername + ":" +
@@ -177,10 +119,10 @@ func (r *MulticlusterGlobalHubReconciler) InitPostgresByStatefulset(ctx context.
 }
 
 func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	r *MulticlusterGlobalHubReconciler,
+	c client.Client,
 ) (*postgresCredential, error) {
 	postgres := &corev1.Secret{}
-	if err := r.Client.Get(ctx, types.NamespacedName{
+	if err := c.Get(ctx, types.NamespacedName{
 		Name:      constants.GHBuiltInStorageSecretName,
 		Namespace: mgh.Namespace,
 	}, postgres); err != nil && errors.IsNotFound(err) {
@@ -201,11 +143,9 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 	}, nil
 }
 
-func getPostgresCA(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, r *MulticlusterGlobalHubReconciler,
-) (string, error) {
+func getPostgresCA(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub, c client.Client) (string, error) {
 	ca := &corev1.ConfigMap{}
-	if err := r.Client.Get(ctx, types.NamespacedName{
+	if err := c.Get(ctx, types.NamespacedName{
 		Name:      constants.PostgresCAConfigMap,
 		Namespace: mgh.Namespace,
 	}, ca); err != nil {

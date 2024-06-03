@@ -27,7 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -290,7 +290,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 				},
 			})
 
-			transporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+			transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
 				Namespace: tc.mgh.Namespace,
 				Name:      constants.GHTransportSecretName,
 			}, k8sClient)

@@ -1,17 +1,32 @@
-// Copyright (c) 2023 Red Hat, Inc.
-// Copyright Contributors to the Open Cluster Management project
-
-package postgres
+package storage
 
 import (
+	"context"
+	"time"
+
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	"github.com/go-logr/logr"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+)
+
+const (
+	postgresAdminUsername    = "postgres"
+	postgresReadonlyUsername = "global-hub-readonly-user" // #nosec G101
 )
 
 var (
@@ -28,35 +43,70 @@ var (
 	communityPackageName       = "postgresql"
 	communityCatalogSourceName = "community-operators"
 
-	// default names
-	PostgresName                = "postgres"
-	PostgresGuestUser           = "guest"
-	PostgresGuestUserSecretName = PostgresName + "-" + "pguser" + "-" + PostgresGuestUser
-	PostgresSuperUser           = "postgres"
-	PostgresSuperUserSecretName = PostgresName + "-" + "pguser" + "-" + PostgresSuperUser
-	PostgresCertName            = PostgresName + "-cluster-cert"
-
 	replicas3 int32 = 3
-	// need append "?sslmode=verify-ca" to the end of the uri to access postgres
-	PostgresURIWithSslmode = "?sslmode=verify-ca"
+
 	// postgres storage size: 25Gi should be enough for 18 months data
 	// 5 managed hubs with 300 managed cluster each and 50 policies per managed hub cluster
 	storageSize = "25Gi"
 )
 
-type PostgresConnection struct {
-	// super user connection
-	// it is used for initiate the database
-	SuperuserDatabaseURI string
-	// readonly user connection
-	// it is used for read the database by the grafana
-	ReadonlyUserDatabaseURI string
-	// ca certificate
-	CACert []byte
+// EnsureCrunchyPostgresSub verifies resources needed for Crunchy Postgres are created
+func EnsureCrunchyPostgresSub(ctx context.Context, c client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
+	// Generate sub config from mcgh CR
+	subConfig := &subv1alpha1.SubscriptionConfig{
+		NodeSelector: mgh.Spec.NodeSelector,
+		Tolerations:  mgh.Spec.Tolerations,
+	}
+
+	existSub, err := operatorutils.GetSubscriptionByName(ctx, c, SubscriptionName)
+	if err != nil {
+		return err
+	}
+
+	if existSub == nil {
+		// Sub is nil so create a new one
+		return c.Create(ctx, NewCrunchySubscription(mgh, subConfig, operatorutils.IsCommunityMode()))
+	}
+
+	// Apply Crunchy Postgres sub
+	calcSub := ExpectedSubscription(existSub, subConfig, operatorutils.IsCommunityMode())
+	if !equality.Semantic.DeepEqual(existSub.Spec, calcSub.Spec) {
+		return c.Update(ctx, calcSub)
+	}
+	return nil
 }
 
-// NewSubscription returns an CrunchyPostgres subscription with desired default values
-func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.SubscriptionConfig,
+// EnsureCrunchyPostgres verifies PostgresCluster operand is created
+func EnsureCrunchyPostgres(ctx context.Context, c client.Client, log logr.Logger) (*config.PostgresConnection, error) {
+	// store crunchy postgres connection
+	var pgConnection *config.PostgresConnection
+	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			postgresCluster := &postgresv1beta1.PostgresCluster{}
+			err := c.Get(ctx, types.NamespacedName{
+				Name:      config.PostgresName,
+				Namespace: utils.GetDefaultNamespace(),
+			}, postgresCluster)
+			if err != nil && errors.IsNotFound(err) {
+				if err := c.Create(ctx, NewPostgresCluster(config.PostgresName, utils.GetDefaultNamespace())); err != nil {
+					log.Info("waiting the postgres cluster to be ready...", "message", err.Error())
+					return false, nil
+				}
+			}
+
+			pgConnection, err = config.GetPGConnectionFromBuildInPostgres(ctx, c)
+			if err != nil {
+				log.Info("waiting the postgres connection credential to be ready...", "message", err.Error())
+				return false, nil
+			}
+			return true, nil
+		})
+
+	return pgConnection, err
+}
+
+// NewCrunchySubscription returns an CrunchyPostgres subscription with desired default values
+func NewCrunchySubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.SubscriptionConfig,
 	community bool,
 ) *subv1alpha1.Subscription {
 	chName, pkgName, catSourceName := channel, packageName, catalogSourceName
@@ -93,8 +143,8 @@ func NewSubscription(m *globalhubv1alpha4.MulticlusterGlobalHub, c *subv1alpha1.
 	return sub
 }
 
-// RenderSubscription returns a subscription by modifying the spec of an existing subscription based on overrides
-func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *subv1alpha1.SubscriptionConfig,
+// ExpectedSubscription returns a subscription by modifying the spec of an existing subscription based on overrides
+func ExpectedSubscription(existingSubscription *subv1alpha1.Subscription, config *subv1alpha1.SubscriptionConfig,
 	community bool,
 ) *subv1alpha1.Subscription {
 	copy := existingSubscription.DeepCopy()
@@ -128,8 +178,8 @@ func RenderSubscription(existingSubscription *subv1alpha1.Subscription, config *
 	return copy
 }
 
-// NewPostgres returns a postgres cluster with desired default values
-func NewPostgres(name, namespace string) *postgresv1beta1.PostgresCluster {
+// NewPostgreCluster returns a postgres cluster with desired default values
+func NewPostgresCluster(name, namespace string) *postgresv1beta1.PostgresCluster {
 	return &postgresv1beta1.PostgresCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -139,12 +189,12 @@ func NewPostgres(name, namespace string) *postgresv1beta1.PostgresCluster {
 			PostgresVersion: 14,
 			Users: []postgresv1beta1.PostgresUserSpec{
 				{
-					Name:      postgresv1beta1.PostgresIdentifier(PostgresSuperUser),
+					Name:      postgresv1beta1.PostgresIdentifier(config.PostgresSuperUser),
 					Databases: []postgresv1beta1.PostgresIdentifier{"hoh"},
 				},
 				{
 					// create a readonly user for grafana view the data
-					Name:      postgresv1beta1.PostgresIdentifier(PostgresGuestUser),
+					Name:      postgresv1beta1.PostgresIdentifier(config.PostgresGuestUser),
 					Databases: []postgresv1beta1.PostgresIdentifier{"hoh"},
 					Options:   "LOGIN",
 				},

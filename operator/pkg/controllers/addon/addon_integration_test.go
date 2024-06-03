@@ -22,7 +22,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
 )
@@ -97,7 +97,7 @@ var _ = Describe("addon integration", Ordered, func() {
 			fmt.Println("create secret", clusterName, constants.GHTransportSecretName)
 			err := kafka.CreateTestTransportSecret(k8sClient, clusterName)
 			Expect(err).Should(Succeed())
-			transporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+			transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
 				Namespace: clusterName,
 				Name:      constants.GHTransportSecretName,
 			}, k8sClient)

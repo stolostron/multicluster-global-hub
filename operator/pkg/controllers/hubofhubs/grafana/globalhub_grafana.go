@@ -1,8 +1,9 @@
-package hubofhubs
+package grafana
 
 import (
 	"bytes"
 	"context"
+	"embed"
 	"fmt"
 	"net/url"
 	"strings"
@@ -14,12 +15,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -32,6 +36,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+//go:embed manifests
+var fs embed.FS
 
 const (
 	datasourceKey  = "datasources.yaml"
@@ -65,11 +72,16 @@ var (
 	)
 )
 
-func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
+type GrafanaReconciler struct {
+	ctrl.Manager
+	client     client.Client
+	kubeClient kubernetes.Interface
+	scheme     *runtime.Scheme
+}
+
+func (r *GrafanaReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
-	log := r.Log.WithName("grafana")
-
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
@@ -86,8 +98,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 		replicas = 2
 	}
 	// get the grafana objects
-	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
-	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
+	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
+	grafanaObjects, err := grafanaRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
 			Namespace             string
 			Replicas              int32
@@ -131,7 +143,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = manipulateObj(grafanaObjects, mgh, grafanaDeployer, mapper, r.GetScheme()); err != nil {
+	if err = config.ManipulateGlobalHubObjects(grafanaObjects, mgh, grafanaDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 
@@ -152,18 +164,17 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	}
 
 	if changedAlert || changedGrafanaIni || changedDatasourceSecret {
-		err = utils.RestartPod(ctx, r.KubeClient, utils.GetDefaultNamespace(), grafanaDeploymentName)
+		err = utils.RestartPod(ctx, r.kubeClient, utils.GetDefaultNamespace(), grafanaDeploymentName)
 		if err != nil {
 			return fmt.Errorf("failed to restart grafana pod. err:%v", err)
 		}
 	}
 
-	log.Info("grafana objects created/updated successfully")
 	return nil
 }
 
 // generateGranafaIni append the custom grafana.ini to default grafana.ini
-func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
+func (r *GrafanaReconciler) generateGrafanaIni(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
@@ -175,7 +186,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 			Namespace: configNamespace,
 		},
 	}
-	err := r.Get(ctx, client.ObjectKeyFromObject(defaultGrafanaIniSecret), defaultGrafanaIniSecret)
+	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(defaultGrafanaIniSecret), defaultGrafanaIniSecret)
 	if err != nil {
 		return false, fmt.Errorf(
 			"failed to get default grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
@@ -192,7 +203,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 			Namespace: configNamespace,
 		},
 	}
-	err = r.Get(ctx, client.ObjectKeyFromObject(customGrafanaIniSecret), customGrafanaIniSecret)
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(customGrafanaIniSecret), customGrafanaIniSecret)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, fmt.Errorf(
 			"failed to get custom grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
@@ -223,7 +234,7 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 			Namespace: configNamespace,
 		},
 	}
-	err = r.Client.Get(ctx, client.ObjectKeyFromObject(grafanaRoute), grafanaRoute)
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(grafanaRoute), grafanaRoute)
 	if err != nil {
 		klog.Errorf("Failed to get grafana route: %v", err)
 	} else {
@@ -257,16 +268,16 @@ func (r *MulticlusterGlobalHubReconciler) generateGrafanaIni(
 		}
 	}
 
-	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.Scheme); err != nil {
+	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.GetScheme()); err != nil {
 		return false, err
 	}
-	return operatorutils.ApplySecret(ctx, r.Client, mergedGrafanaIniSecret)
+	return operatorutils.ApplySecret(ctx, r.GetClient(), mergedGrafanaIniSecret)
 }
 
 // generateAlertConfigMap generate the alert configmap which grafana direclly use
 // if there is no custom configmap, apply the alert configmap based on default alert configmap data.
 // if there is the custom configmap, merge the custom configmap and default configmap then apply the merged configmap
-func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
+func (r *GrafanaReconciler) generateAlertConfigMap(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
@@ -277,7 +288,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 			Name:      defaultAlertName,
 		},
 	}
-	err := r.Get(ctx, client.ObjectKeyFromObject(defaultAlertConfigMap), defaultAlertConfigMap)
+	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(defaultAlertConfigMap), defaultAlertConfigMap)
 	if err != nil {
 		return false, fmt.Errorf("failed to get default alert configmap: %w", err)
 	}
@@ -288,7 +299,7 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 			Name:      constants.CustomAlertName,
 		},
 	}
-	err = r.Get(ctx, client.ObjectKeyFromObject(customAlertConfigMap), customAlertConfigMap)
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(customAlertConfigMap), customAlertConfigMap)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err
 	}
@@ -313,10 +324,10 @@ func (r *MulticlusterGlobalHubReconciler) generateAlertConfigMap(
 	}
 
 	// Set MGH instance as the owner and controller
-	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.Scheme); err != nil {
+	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.GetScheme()); err != nil {
 		return false, err
 	}
-	return operatorutils.ApplyConfigMap(ctx, r.Client, mergedAlertConfigMap)
+	return operatorutils.ApplyConfigMap(ctx, r.GetClient(), mergedAlertConfigMap)
 }
 
 // mergeGrafanaIni merge the default grafana.ini and custom grafana.ini
@@ -423,18 +434,19 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 
 // GenerateGrafanaDataSource is used to generate the GrafanaDatasource as a secret.
 // the GrafanaDatasource points to multicluster-global-hub cr
-func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
+func (r *GrafanaReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	if r.MiddlewareConfig == nil || r.MiddlewareConfig.StorageConn == nil {
-		return false, fmt.Errorf("middleware PgConnection config is null")
+	storageConn := config.GetStorageConnection()
+	if storageConn == nil {
+		return false, fmt.Errorf("PgConnection config is null")
 	}
 
 	saToken := ""
 	if mgh.Spec.EnableMetrics {
 		saSecret := &corev1.Secret{}
-		err := r.Client.Get(ctx, types.NamespacedName{
+		err := r.GetClient().Get(ctx, types.NamespacedName{
 			Name:      "multicluster-global-hub-grafana-sa-secret",
 			Namespace: utils.GetDefaultNamespace(),
 		}, saSecret)
@@ -444,11 +456,9 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 		saToken = string(saSecret.Data["token"])
 	}
 
-	datasourceVal, err := GrafanaDataSource(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI,
-		r.MiddlewareConfig.StorageConn.CACert, saToken)
+	datasourceVal, err := GrafanaDataSource(storageConn.ReadonlyUserDatabaseURI, storageConn.CACert, saToken)
 	if err != nil {
-		datasourceVal, err = GrafanaDataSource(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
-			r.MiddlewareConfig.StorageConn.CACert, saToken)
+		datasourceVal, err = GrafanaDataSource(storageConn.SuperuserDatabaseURI, storageConn.CACert, saToken)
 		if err != nil {
 			return false, err
 		}
@@ -470,19 +480,19 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 	}
 
 	// Set MGH instance as the owner and controller
-	if err = controllerutil.SetControllerReference(mgh, dsSecret, r.Scheme); err != nil {
+	if err = controllerutil.SetControllerReference(mgh, dsSecret, r.GetScheme()); err != nil {
 		return false, err
 	}
 
 	// Check if this already exists
 	grafanaDSFound := &corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{
+	err = r.GetClient().Get(ctx, types.NamespacedName{
 		Name:      dsSecret.Name,
 		Namespace: dsSecret.Namespace,
 	}, grafanaDSFound)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err = r.Client.Create(ctx, dsSecret)
+			err = r.GetClient().Create(ctx, dsSecret)
 			return true, err
 		}
 		return false, err
@@ -490,7 +500,7 @@ func (r *MulticlusterGlobalHubReconciler) GenerateGrafanaDataSourceSecret(
 
 	if !bytes.Equal(grafanaDSFound.Data[datasourceKey], datasourceVal) {
 		grafanaDSFound.Data[datasourceKey] = datasourceVal
-		err = r.Client.Update(ctx, grafanaDSFound)
+		err = r.GetClient().Update(ctx, grafanaDSFound)
 		return true, err
 	}
 	return false, nil

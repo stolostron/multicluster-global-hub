@@ -1,4 +1,4 @@
-package hubofhubs
+package prune
 
 import (
 	"context"
@@ -10,13 +10,18 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -24,11 +29,37 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Context,
+type PureReconciler struct {
+	client.Client
+	log logr.Logger
+}
+
+func (r *PureReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
-	log := r.Log.WithName("prune")
+	// Deleting the multiclusterglobalhub instance
+	if mgh.GetDeletionTimestamp() != nil &&
+		operatorutils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+		if err := r.GlobalHubResources(ctx, mgh); err != nil {
+			return fmt.Errorf("failed to prune Global Hub resources %v", err)
+		}
+		return nil
+	}
 
+	// reconcile metrics
+	if config.IsBYOKafka() && config.IsBYOPostgres() {
+		mgh.Spec.EnableMetrics = false
+		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
+		if err := r.MetricsResources(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PureReconciler) GlobalHubResources(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
 	// delete addon.open-cluster-management.io/on-multicluster-hub annotation
 	if err := r.pruneManagedHubs(ctx); err != nil {
 		return fmt.Errorf("failed to delete annotation from the managed cluster: %w", err)
@@ -38,13 +69,13 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 	if err := r.deleteClusterManagementAddon(ctx); err != nil {
 		return fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
 	}
-	log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
+	r.log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
 
 	// prune the hub resources until all addons are cleaned up
-	if err := r.waitUtilAddonDeleted(ctx, log); err != nil {
+	if err := r.waitUtilAddonDeleted(ctx, r.log); err != nil {
 		return fmt.Errorf("failed to wait until all addons are deleted: %w", err)
 	}
-	log.Info("all addons are deleted")
+	r.log.Info("all addons are deleted")
 
 	mgh.SetFinalizers(operatorutils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
 	if err := operatorutils.UpdateObject(ctx, r.Client, mgh); err != nil {
@@ -65,11 +96,11 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalHubResources(ctx context.Co
 	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
 		return err
 	}
-	log.Info("removed finalizer from mgh, app, policy, placement and etc")
+	r.log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) pruneMetricsResources(ctx context.Context) error {
+func (r *PureReconciler) MetricsResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.HasLabels{constants.GlobalHubMetricsLabel},
 	}
@@ -121,7 +152,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneMetricsResources(ctx context.Cont
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Context) error {
+func (r *PureReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
@@ -172,7 +203,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneGlobalResources(ctx context.Conte
 }
 
 // pruneNamespacedResources tries to delete mgh resources
-func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.Context) error {
+func (r *PureReconciler) pruneNamespacedResources(ctx context.Context) error {
 	mghServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
@@ -189,7 +220,7 @@ func (r *MulticlusterGlobalHubReconciler) pruneNamespacedResources(ctx context.C
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) deleteClusterManagementAddon(ctx context.Context) error {
+func (r *PureReconciler) deleteClusterManagementAddon(ctx context.Context) error {
 	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: operatorconstants.GHClusterManagementAddonName,
@@ -204,7 +235,7 @@ func (r *MulticlusterGlobalHubReconciler) deleteClusterManagementAddon(ctx conte
 	return nil
 }
 
-func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
+func (r *PureReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
@@ -226,5 +257,35 @@ func (r *MulticlusterGlobalHubReconciler) waitUtilAddonDeleted(ctx context.Conte
 	}); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (r *PureReconciler) pruneManagedHubs(ctx context.Context) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := r.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx, managedHub := range clusters.Items {
+		if managedHub.Name == operatorconstants.LocalClusterName {
+			continue
+		}
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			continue
+		}
+		annotations := make(map[string]string, len(orgAnnotations))
+		operatorutils.CopyMap(annotations, managedHub.GetAnnotations())
+
+		delete(orgAnnotations, operatorconstants.AnnotationONMulticlusterHub)
+		delete(orgAnnotations, operatorconstants.AnnotationPolicyONMulticlusterHub)
+		_ = controllerutil.RemoveFinalizer(&clusters.Items[idx], constants.GlobalHubCleanupFinalizer)
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := r.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

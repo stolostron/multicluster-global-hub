@@ -1,45 +1,49 @@
-package hubofhubs
+package manager
 
 import (
 	"context"
+	"embed"
 	"encoding/base64"
 	"fmt"
 	"reflect"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+//go:embed manifests
+var fs embed.FS
+
 var (
-	storageConnectionCache   *postgres.PostgresConnection
+	storageConnectionCache   *config.PostgresConnection
 	transportConnectionCache *transport.ConnCredential
 )
 
-func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
+type ManagerReconciler struct {
+	ctrl.Manager
+	kubeClient     kubernetes.Interface
+	operatorConfig *config.OperatorConfig
+}
+
+func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	log := r.Log.WithName("manager")
-
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
@@ -47,7 +51,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 
 	// create new HoHRenderer and HoHDeployer
-	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
+	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 
 	// create discovery client
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
@@ -65,21 +69,11 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
 	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
-	// if parsing fails, then set the error message to the condition
 	if err != nil {
-		e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_FALSE, err.Error())
-		if e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, e)
-		}
 		return fmt.Errorf("failed to parse month retention: %v", err)
 	}
 	if months < 1 {
 		months = 1
-	}
-	// If parsing succeeds, update the MGH status and message of the condition if they are not set or changed
-	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
-	if e := condition.SetConditionDataRetention(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE, msg); e != nil {
-		return condition.FailToSetConditionError(condition.CONDITION_TYPE_RETENTION_PARSED, err)
 	}
 
 	replicas := int32(1)
@@ -88,17 +82,19 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	}
 	trans := config.GetTransporter()
 
-	transportTopic := trans.GenerateClusterTopic(transportprotocol.GlobalHubClusterName)
-	transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
+	transportTopic := trans.GenerateClusterTopic(transporter.GlobalHubClusterName)
+	transportConn, err := trans.GetConnCredential(transporter.DefaultGlobalHubKafkaUser)
 	if err != nil {
 		return fmt.Errorf("failed to get global hub transport connection: %w", err)
 	}
 
-	if r.MiddlewareConfig.StorageConn == nil {
-		return fmt.Errorf("failed to get storage connection")
+	storageConn := config.GetStorageConnection()
+	if storageConn == nil || !config.GetDatabaseReady() {
+		return fmt.Errorf("the storage connection or database isn't ready")
 	}
-	if isMiddlewareUpdated(r.MiddlewareConfig) {
-		err = commonutils.RestartPod(ctx, r.KubeClient, commonutils.GetDefaultNamespace(), constants.ManagerDeploymentName)
+
+	if isMiddlewareUpdated(transportConn, storageConn) {
+		err = commonutils.RestartPod(ctx, r.kubeClient, commonutils.GetDefaultNamespace(), constants.ManagerDeploymentName)
 		if err != nil {
 			return fmt.Errorf("failed to restart manager pod: %w", err)
 		}
@@ -108,7 +104,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to get the electionConfig %w", err)
 	}
 
-	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
+	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
 			Replicas:           replicas,
@@ -117,8 +113,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			ImagePullPolicy:    string(imagePullPolicy),
 			ProxySessionSecret: proxySessionSecret,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
-				[]byte(r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI)),
-			PostgresCACert:         base64.StdEncoding.EncodeToString(r.MiddlewareConfig.StorageConn.CACert),
+				[]byte(storageConn.SuperuserDatabaseURI)),
+			PostgresCACert:         base64.StdEncoding.EncodeToString(storageConn.CACert),
 			KafkaClusterIdentity:   transportConn.Identity,
 			KafkaCACert:            transportConn.CACert,
 			KafkaClientCert:        transportConn.ClientCert,
@@ -140,91 +136,46 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 			Tolerations:            mgh.Spec.Tolerations,
 			RetentionMonth:         months,
 			StatisticLogInterval:   config.GetStatisticLogInterval(),
-			EnableGlobalResource:   r.OperatorConfig.GlobalResourceEnabled,
-			EnablePprof:            r.OperatorConfig.EnablePprof,
-			LogLevel:               r.OperatorConfig.LogLevel,
+			EnableGlobalResource:   r.operatorConfig.GlobalResourceEnabled,
+			EnablePprof:            r.operatorConfig.EnablePprof,
+			LogLevel:               r.operatorConfig.LogLevel,
 			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to render manager objects: %v", err)
 	}
-	if err = manipulateObj(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
+	if err = config.ManipulateGlobalHubObjects(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
-
-	log.Info("manager objects are created/updated successfully")
 	return nil
 }
 
-func isMiddlewareUpdated(curMiddlewareConfig *MiddlewareConfig) bool {
-	if curMiddlewareConfig == nil {
-		return false
-	}
+func isMiddlewareUpdated(transportConn *transport.ConnCredential, storageConn *config.PostgresConnection) bool {
+	updated := false
 	if transportConnectionCache == nil || storageConnectionCache == nil {
-		setMiddlewareCache(curMiddlewareConfig)
-		return false
+		updated = true
 	}
-
-	if !reflect.DeepEqual(curMiddlewareConfig.TransportConn, transportConnectionCache) {
-		setMiddlewareCache(curMiddlewareConfig)
-		return true
+	if !reflect.DeepEqual(transportConn, transportConnectionCache) {
+		updated = true
 	}
-	if !reflect.DeepEqual(curMiddlewareConfig.StorageConn, storageConnectionCache) {
-		setMiddlewareCache(curMiddlewareConfig)
-		return true
+	if !reflect.DeepEqual(storageConn, storageConnectionCache) {
+		updated = true
 	}
-	return false
+	if updated {
+		setMiddlewareCache(transportConn, storageConn)
+	}
+	return updated
 }
 
-func setMiddlewareCache(curMiddlewareConfig *MiddlewareConfig) {
-	if curMiddlewareConfig == nil {
-		return
+func setMiddlewareCache(transportConn *transport.ConnCredential, storageConn *config.PostgresConnection) {
+	if transportConn != nil {
+		transportConnectionCache = transportConn
 	}
 
-	if curMiddlewareConfig.TransportConn != nil {
-		tmpKafkaConn := *curMiddlewareConfig.TransportConn
-		transportConnectionCache = &tmpKafkaConn
+	if storageConn != nil {
+		storageConnectionCache = storageConn
 	}
-
-	if curMiddlewareConfig.StorageConn != nil {
-		tmpPgConn := *curMiddlewareConfig.StorageConn
-		storageConnectionCache = &tmpPgConn
-	}
-}
-
-func manipulateObj(objs []*unstructured.Unstructured,
-	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
-	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
-) error {
-	// manipulate the object
-	for _, obj := range objs {
-		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
-		if err != nil {
-			return err
-		}
-
-		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-			// for namespaced resource, set ownerreference of controller
-			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
-				return err
-			}
-		}
-
-		// set owner labels
-		labels := obj.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
-		obj.SetLabels(labels)
-
-		if err := hohDeployer.Deploy(obj); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 type ManagerVariables struct {

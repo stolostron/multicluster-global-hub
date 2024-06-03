@@ -104,6 +104,9 @@ type KafkaOption func(*strimziTransporter)
 func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
 ) (*strimziTransporter, error) {
+	if !config.GetKafkaResourceReady() {
+		return nil, fmt.Errorf("the kafka resource is not ready for the strimzi protocol")
+	}
 	k := &strimziTransporter{
 		log:       ctrl.Log.WithName("strimzi-transporter"),
 		ctx:       context.TODO(),

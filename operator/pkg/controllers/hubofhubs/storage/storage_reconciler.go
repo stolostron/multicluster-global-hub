@@ -1,4 +1,4 @@
-package hubofhubs
+package storage
 
 import (
 	"context"
@@ -10,16 +10,19 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
+	"k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
-
-var DatabaseReconcileCounter = 0
 
 //go:embed database
 var databaseFS embed.FS
@@ -30,29 +33,81 @@ var databaseOldFS embed.FS
 //go:embed upgrade
 var upgradeFS embed.FS
 
-var upgraded = false
+//go:embed manifests.sts
+var stsPostgresFS embed.FS
 
-func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
-	log := r.Log.WithName("database")
+type StorageReconciler struct {
+	ctrl.Manager
+	upgrade                bool
+	databaseReconcileCount int
+	log                    logr.Logger //  ctrl.Log.WithName("global-hub-storage")
+	enableGlobalResource   bool
+}
+
+func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+	storageConn, err := r.reconcileStorage(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("storage not ready, Error: %v", err)
+	}
+	_ = config.SetStorageConnection(storageConn)
+
+	err = r.reconcileDatabase(ctx, mgh)
+	if err != nil {
+		return fmt.Errorf("database not ready, Error: %v", err)
+	}
+	config.SetDatabaseReady(true)
+	return nil
+}
+
+func (r *StorageReconciler) reconcileStorage(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+) (*config.PostgresConnection, error) {
+	// support BYO postgres
+	pgConnection, err := config.GetPGConnectionFromGHStorageSecret(ctx, r.GetClient())
+	if err == nil {
+		return pgConnection, nil
+	} else if !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	// then the storage secret is not found
+	// if not-provided postgres secret, create crunchy postgres operator by subscription
+	if config.GetInstallCrunchyOperator(mgh) {
+		err := EnsureCrunchyPostgresSub(ctx, r.GetClient(), mgh)
+		if err != nil {
+			return nil, err
+		}
+		pgConnection, err = EnsureCrunchyPostgres(ctx, r.GetClient(), r.log)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// create the statefulset postgres and initialize the r.MiddlewareConfig.PgConnection
+		pgConnection, err = InitPostgresByStatefulset(ctx, mgh, r.Manager, r.log)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pgConnection, nil
+}
+
+func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+	log := r.log.WithName("database")
+	storageConn := config.GetStorageConnection()
+	if storageConn == nil {
+		return fmt.Errorf("storage connection is nil")
+	}
 
 	if condition.ContainConditionStatus(mgh, condition.CONDITION_TYPE_DATABASE_INIT, condition.CONDITION_STATUS_TRUE) {
 		log.V(7).Info("database has been initialized, checking the reconcile counter")
 		// if the operator is restarted, reconcile the database again
-		if DatabaseReconcileCounter > 0 {
+		if r.databaseReconcileCount > 0 {
 			return nil
 		}
 	}
 
-	if r.MiddlewareConfig.StorageConn == nil {
-		return fmt.Errorf("storage connection is nil")
-	}
-
-	conn, err := database.PostgresConnection(ctx, r.MiddlewareConfig.StorageConn.SuperuserDatabaseURI,
-		r.MiddlewareConfig.StorageConn.CACert)
+	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
 	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
+		return fmt.Errorf("failed to connect to database: %v", err)
 	}
 	defer func() {
 		if err := conn.Close(ctx); err != nil {
@@ -61,13 +116,13 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 	}()
 
 	// Check if backup is enabled
-	backupEnabled, err := utils.IsBackupEnabled(ctx, r.Client)
+	backupEnabled, err := utils.IsBackupEnabled(ctx, r.GetClient())
 	if err != nil {
 		log.Error(err, "failed to get backup status")
 		return err
 	}
 
-	if backupEnabled || !upgraded {
+	if backupEnabled || !r.upgrade {
 		lockSql := fmt.Sprintf("select pg_advisory_lock(%s)", constants.LockId)
 		unLockSql := fmt.Sprintf("select pg_advisory_unlock(%s)", constants.LockId)
 		defer func() {
@@ -83,11 +138,7 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		}
 	}
 
-	if r.MiddlewareConfig.StorageConn == nil {
-		return fmt.Errorf("the storage connection shouldn't be nil when reconcile database")
-	}
-
-	objURI, err := url.Parse(r.MiddlewareConfig.StorageConn.ReadonlyUserDatabaseURI)
+	objURI, err := url.Parse(storageConn.ReadonlyUserDatabaseURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")
 	}
@@ -97,24 +148,24 @@ func (r *MulticlusterGlobalHubReconciler) ReconcileDatabase(ctx context.Context,
 		return err
 	}
 
-	if r.OperatorConfig.GlobalResourceEnabled {
+	if r.enableGlobalResource {
 		if err := applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
 			return err
 		}
 	}
 
-	if !upgraded {
+	if !r.upgrade {
 		err := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
 		if err != nil {
 			log.Error(err, "failed to exec the upgrade sql files")
 			return err
 		}
-		upgraded = true
+		r.upgrade = true
 	}
 
 	log.V(7).Info("database initialized")
-	DatabaseReconcileCounter++
-	err = condition.SetConditionDatabaseInit(ctx, r.Client, mgh, condition.CONDITION_STATUS_TRUE)
+	r.databaseReconcileCount++
+	err = condition.SetConditionDatabaseInit(ctx, r.GetClient(), mgh, condition.CONDITION_STATUS_TRUE)
 	if err != nil {
 		return condition.FailToSetConditionError(condition.CONDITION_STATUS_TRUE, err)
 	}

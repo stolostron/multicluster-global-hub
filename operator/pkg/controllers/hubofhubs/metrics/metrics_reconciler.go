@@ -1,4 +1,4 @@
-package hubofhubs
+package metrics
 
 import (
 	"context"
@@ -8,21 +8,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
-	log := r.Log.WithName("metrics")
+type MetricsReconciler struct {
+	client.Client
+}
 
+func (r *MetricsReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
 	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
 	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -36,6 +35,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	if labels == nil {
 		labels = make(map[string]string)
 	}
+
 	val, ok := labels[operatorconstants.ClusterMonitoringLabelKey]
 	if !ok || val != operatorconstants.ClusterMonitoringLabelVal {
 		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
@@ -78,7 +78,6 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	serviceMonitor := &promv1.ServiceMonitor{}
 	err := r.Client.Get(ctx, client.ObjectKeyFromObject(expectedServiceMonitor), serviceMonitor)
 	if err != nil && errors.IsNotFound(err) {
-		log.Info("creating ServiceMonitor", "namespace", serviceMonitor.Namespace, "name", serviceMonitor.Name)
 		return r.Create(ctx, expectedServiceMonitor)
 	} else if err != nil {
 		return err
@@ -87,37 +86,8 @@ func (r *MulticlusterGlobalHubReconciler) reconcileMetrics(ctx context.Context,
 	if !equality.Semantic.DeepDerivative(expectedServiceMonitor.Spec, serviceMonitor.Spec) ||
 		!equality.Semantic.DeepDerivative(expectedServiceMonitor.GetLabels(), serviceMonitor.GetLabels()) {
 		expectedServiceMonitor.ObjectMeta.ResourceVersion = serviceMonitor.ObjectMeta.ResourceVersion
-		log.Info("updating ServiceMonitor", "namespace", serviceMonitor.Namespace, "name", serviceMonitor.Name)
 		return r.Update(ctx, expectedServiceMonitor)
 	}
 
-	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) reconcileMiddlewareMetrics(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
-	// Set BYO kafka and BYO postgres
-	err := config.SetBYOKafka(ctx, r.Client, mgh.Namespace)
-	if err != nil {
-		return err
-	}
-	err = config.SetBYOPostgres(ctx, r.Client, mgh.Namespace)
-	if err != nil {
-		return err
-	}
-
-	if config.IsBYOKafka() && config.IsBYOPostgres() {
-		mgh.Spec.EnableMetrics = false
-		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
-	}
-
-	if !mgh.Spec.EnableMetrics {
-		err = r.pruneMetricsResources(ctx)
-		if err != nil {
-			r.Log.Error(err, "failed to clean up metric resources.")
-			return err
-		}
-	}
 	return nil
 }

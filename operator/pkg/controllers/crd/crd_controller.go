@@ -32,7 +32,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
-	globalhubcontrollers "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 )
 
 var ACMCrds = []string{
@@ -55,15 +55,14 @@ var KafkaCrds = []string{
 // https://github.com/kubernetes-sigs/controller-runtime/pull/2159
 type CrdController struct {
 	manager.Manager
-	kubeClient                        *kubernetes.Clientset
-	operatorConfig                    *config.OperatorConfig
-	resources                         map[string]bool
-	addonInstallerReady               bool
-	addonController                   *addon.AddonController
-	globalHubConditionControllerReady bool
-	globalHubControllerReady          bool
-	backupControllerReady             bool
-	mu                                sync.Mutex
+	kubeClient               *kubernetes.Clientset
+	operatorConfig           *config.OperatorConfig
+	resources                map[string]bool
+	addonInstallerReady      bool
+	addonController          *addon.AddonController
+	globalHubControllerReady bool
+	backupControllerReady    bool
+	mu                       sync.Mutex
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -104,24 +103,14 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.addonController = addonController
 	}
 
-	// global hub condition controller
-	if !r.globalHubConditionControllerReady {
-		if err := (&globalhubcontrollers.GlobalHubConditionReconciler{
-			Client: r.Manager.GetClient(),
-			Log:    ctrl.Log.WithName("condition-reconciler"),
-		}).SetupWithManager(r.Manager); err != nil {
-			return ctrl.Result{}, err
-		}
-		r.globalHubConditionControllerReady = true
-	}
-
 	// global hub controller
 	if !r.globalHubControllerReady {
-		err := globalhubcontrollers.NewMulticlusterGlobalHubReconciler(
+		err := hubofhubs.NewMulticlusterGlobalHubController(
 			r.Manager,
 			r.addonController.AddonManager(),
 			r.kubeClient,
-			r.operatorConfig).SetupWithManager(r.Manager)
+			r.operatorConfig,
+		).SetupWithManager(r.Manager)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

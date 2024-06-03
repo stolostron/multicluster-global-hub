@@ -1,4 +1,4 @@
-package postgres
+package storage
 
 import (
 	"testing"
@@ -7,10 +7,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 func TestNewSubscription(t *testing.T) {
-	sub := NewSubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
+	sub := NewCrunchySubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "globalhub",
@@ -22,7 +23,7 @@ func TestNewSubscription(t *testing.T) {
 		t.Errorf("Expected package name %s, got %s", communityPackageName, sub.Spec.Package)
 	}
 
-	sub = NewSubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
+	sub = NewCrunchySubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "globalhub",
@@ -34,7 +35,7 @@ func TestNewSubscription(t *testing.T) {
 		t.Errorf("Expected package name %s, got %s", packageName, sub.Spec.Package)
 	}
 
-	sub = NewSubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
+	sub = NewCrunchySubscription(&globalhubv1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
 			Name:      "globalhub",
@@ -52,7 +53,7 @@ func TestNewSubscription(t *testing.T) {
 }
 
 func TestRenderSubscription(t *testing.T) {
-	sub := RenderSubscription(&subv1alpha1.Subscription{
+	sub := ExpectedSubscription(&subv1alpha1.Subscription{
 		Spec: &subv1alpha1.SubscriptionSpec{
 			Package: packageName,
 			Channel: "foo",
@@ -62,7 +63,7 @@ func TestRenderSubscription(t *testing.T) {
 		t.Errorf("Expected package name %s, got %s", communityPackageName, sub.Spec.Package)
 	}
 
-	sub = RenderSubscription(&subv1alpha1.Subscription{
+	sub = ExpectedSubscription(&subv1alpha1.Subscription{
 		Spec: &subv1alpha1.SubscriptionSpec{
 			Package: packageName,
 			Channel: "foo",
@@ -74,8 +75,8 @@ func TestRenderSubscription(t *testing.T) {
 }
 
 func TestNewPostgres(t *testing.T) {
-	kafka := NewPostgres(PostgresName, "default")
-	if kafka.Name != PostgresName {
-		t.Errorf("Expected name %s, got %s", PostgresName, kafka.Name)
+	kafka := NewPostgresCluster(config.PostgresName, "default")
+	if kafka.Name != config.PostgresName {
+		t.Errorf("Expected name %s, got %s", config.PostgresName, kafka.Name)
 	}
 }

@@ -34,11 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport/transporter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kafka"
@@ -121,7 +121,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Create an external transport")
-	trans := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+	trans := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, k8sClient)
@@ -155,15 +155,15 @@ const (
 	interval = time.Millisecond * 250
 )
 
-var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
+var mgh = &v1alpha4.MulticlusterGlobalHub{
 	ObjectMeta: metav1.ObjectMeta{
 		Name: MGHName,
 	},
-	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+	Spec: v1alpha4.MulticlusterGlobalHubSpec{
 		ImagePullSecret: "test-pull-secret",
-		DataLayer:       globalhubv1alpha4.DataLayerConfig{},
+		DataLayer:       v1alpha4.DataLayerConfig{},
 	},
-	Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
+	Status: v1alpha4.MulticlusterGlobalHubStatus{
 		Conditions: []metav1.Condition{
 			{
 				Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
@@ -197,7 +197,7 @@ func prepareBeforeTest() {
 	// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.
 	mghLookupKey := types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: MGHName}
 	config.SetMGHNamespacedName(mghLookupKey)
-	createdMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
+	createdMGH := &v1alpha4.MulticlusterGlobalHub{}
 
 	// get this newly created MGH instance, given that creation may not immediately happen.
 	Eventually(func() bool {
@@ -226,7 +226,7 @@ func prepareBeforeTest() {
 
 	By("By creating secret transport")
 	kafka.CreateTestTransportSecret(k8sClient, mgh.Namespace)
-	transporter := transportprotocol.NewBYOTransporter(context.TODO(), types.NamespacedName{
+	transporter := operatortrans.NewBYOTransporter(context.TODO(), types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, k8sClient)

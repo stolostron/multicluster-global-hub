@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -33,31 +32,31 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/status"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transport/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -70,10 +69,10 @@ var watchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
 	constants.GHStorageSecretName,
 	constants.GHBuiltInStorageSecretName,
-	postgres.PostgresCertName,
+	config.PostgresCertName,
 	constants.CustomGrafanaIniName,
 	config.GetImagePullSecretName(),
-	transportprotocol.DefaultGlobalHubKafkaUser,
+	transporter.DefaultGlobalHubKafkaUser,
 )
 
 var watchedConfigmap = sets.NewString(
@@ -81,33 +80,32 @@ var watchedConfigmap = sets.NewString(
 	constants.CustomAlertName,
 )
 
-// MulticlusterGlobalHubReconciler reconciles a MulticlusterGlobalHub object
-type MulticlusterGlobalHubReconciler struct {
-	manager.Manager
+// MulticlusterGlobalHubController reconciles a MulticlusterGlobalHub object
+type MulticlusterGlobalHubController struct {
+	ctrl.Manager
 	client.Client
-	Scheme           *runtime.Scheme
-	addonMgr         addonmanager.AddonManager
-	KubeClient       kubernetes.Interface
-	Log              logr.Logger
-	MiddlewareConfig *MiddlewareConfig
-	OperatorConfig   *config.OperatorConfig
-	upgradeOnce      sync.Once
-	KafkaInit        bool
-	KafkaController  *KafkaController
+	addonMgr            addonmanager.AddonManager
+	log                 logr.Logger
+	operatorConfig      *config.OperatorConfig
+	upgraded            bool
+	pruneReconciler     *prune.PureReconciler
+	metricsReconciler   *metrics.MetricsReconciler
+	storageReconciler   *storage.StorageReconciler
+	transportReconciler *transport.TransportReconciler
+	statusReconciler    *status.StatusReconciler
+	managerReconciler   *manager.ManagerReconciler
+	grafanaReconciler   *grafana.GrafanaReconciler
 }
 
-func NewMulticlusterGlobalHubReconciler(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
+func NewMulticlusterGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
-) *MulticlusterGlobalHubReconciler {
-	return &MulticlusterGlobalHubReconciler{
-		Manager:          mgr,
-		Client:           mgr.GetClient(),
-		addonMgr:         addonMgr,
-		KubeClient:       kubeClient,
-		Scheme:           mgr.GetScheme(),
-		Log:              ctrl.Log.WithName("global-hub-reconciler"),
-		MiddlewareConfig: &MiddlewareConfig{},
-		OperatorConfig:   operatorConfig,
+) *MulticlusterGlobalHubController {
+	return &MulticlusterGlobalHubController{
+		Manager:        mgr,
+		Client:         mgr.GetClient(),
+		addonMgr:       addonMgr,
+		operatorConfig: operatorConfig,
+		log:            ctrl.Log.WithName("global-hub-reconciler"),
 	}
 }
 
@@ -158,170 +156,84 @@ func NewMulticlusterGlobalHubReconciler(mgr ctrl.Manager, addonMgr addonmanager.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *MulticlusterGlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if len(req.Namespace) == 0 || len(req.Name) == 0 {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	r.Log.Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-	// Fetch the multiclusterglobalhub instance
-	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
-	if err := r.Get(ctx, req.NamespacedName, mgh); err != nil {
+func (r *MulticlusterGlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.Client)
+	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			r.Log.Info("mgh instance not found.")
+			r.log.Info("mgh instance not found", "namespace", req.Namespace, "name", req.Name)
 			return ctrl.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
-		r.Log.Error(err, "Failed to get MulticlusterGlobalHub")
+		r.log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
 	if config.IsPaused(mgh) {
-		r.Log.Info("mgh reconciliation is paused, nothing more to do")
+		r.log.Info("mgh controller is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
 
-	// Deleting the multiclusterglobalhub instance
-	if mgh.GetDeletionTimestamp() != nil && utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
-		if err := r.pruneGlobalHubResources(ctx, mgh); err != nil {
-			conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
-			if conditionErr != nil {
-				return ctrl.Result{}, conditionErr
-			}
-			return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
+	// update status condition
+	defer func() {
+		err := r.statusReconciler.Reconcile(ctx, mgh, err)
+		if err != nil {
+			r.log.Error(err, "failed to update the instance condition")
 		}
+	}()
+
+	// prune resources if deleting mgh or metrics is disabled
+	if err = r.pruneReconciler.Reconcile(ctx, mgh); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
+	}
+	if mgh.GetDeletionTimestamp() != nil {
 		return ctrl.Result{}, nil
 	}
 
-	// reconcile config: need to be done before the reconcilers start
-	// global image: annotation -> env -> default
-	err := r.reconcileSystemConfig(mgh)
-	if err != nil {
-		return ctrl.Result{Requeue: true}, err
-	}
-
+	// update the managed hub clusters
 	// only reconcile once: upgrade
-	r.upgradeOnce.Do(func() {
-		err = r.Upgrade(ctx)
-	})
-	if err != nil {
-		r.Log.Error(err, "failed to upgrade from release-2.10")
+	if !r.upgraded {
+		if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.Client); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to upgrade from release-2.10: %v", err)
+		}
+		r.upgraded = true
+	}
+	if err := utils.AnnotateManagedHubCluster(ctx, r.Client); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.reconcileMiddlewareMetrics(ctx, mgh)
-	if err != nil {
+	// storage and transporter
+	if err = r.ReconcileMiddleware(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	result, err := r.ReconcileMiddleware(ctx, mgh)
-	if err != nil {
-		r.Log.V(2).Info("ReconcileMiddleware error", "error", err)
-		conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
-		if conditionErr != nil {
-			return ctrl.Result{}, conditionErr
-		}
-		return result, err
-	}
-
-	err = r.reconcileGlobalHub(ctx, mgh)
-	if err != nil {
-		conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
-		if conditionErr != nil {
-			return ctrl.Result{}, conditionErr
-		}
-		return ctrl.Result{}, err
-	}
-
-	// Make sure the reconcile work properly, and then add finalizer to the multiclusterglobalhub instance
-	if !utils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
-		mgh.SetFinalizers(append(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
-		r.Log.Info("adding finalizer to mgh instance")
-		if err := r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
-			if errors.IsConflict(err) {
-				r.Log.Info("conflict when adding finalizer to mgh instance")
-				return ctrl.Result{Requeue: true}, nil
-			} else {
-				r.Log.Error(err, "failed to add finalizer to mgh instance")
-				conditionErr := AddFailedCondition(ctx, r.Client, mgh, err.Error())
-				if conditionErr != nil {
-					return ctrl.Result{}, conditionErr
-				}
-				return ctrl.Result{}, err
-			}
-		}
-	}
-	if err := condition.SetCondition(ctx, r.Client, mgh,
-		condition.CONDITION_TYPE_GLOBALHUB_READY,
-		metav1.ConditionTrue,
-		condition.CONDITION_REASON_GLOBALHUB_READY,
-		condition.CONDITION_MESSAGE_GLOBALHUB_READY,
-	); err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
-}
-
-func AddFailedCondition(ctx context.Context, client client.Client,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub, msg string,
-) error {
-	if err := condition.SetCondition(ctx, client, mgh,
-		condition.CONDITION_TYPE_GLOBALHUB_READY,
-		metav1.ConditionFalse,
-		condition.CONDITION_REASON_GLOBALHUB_FAILED,
-		msg,
-	); err != nil {
-		klog.Errorf("Failed to add Failed condition to MulticlusterGlobalHub instance: %v", err)
-		return err
-	}
-	return nil
-}
-
-func (r *MulticlusterGlobalHubReconciler) reconcileGlobalHub(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
-	// add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
-	// clusters indicate the addons are running on a hub cluster
-	if err := r.reconcileManagedHubs(ctx); err != nil {
-		return err
-	}
-
-	// reconcile database
-	if err := r.ReconcileDatabase(ctx, mgh); err != nil {
-		if e := condition.SetConditionDatabaseInit(ctx, r.Client, mgh,
-			condition.CONDITION_STATUS_FALSE); e != nil {
-			return condition.FailToSetConditionError(condition.CONDITION_STATUS_FALSE, e)
-		}
-		return err
-	}
-
-	// reconcile manager
-	if err := r.reconcileManager(ctx, mgh); err != nil {
-		return err
 	}
 
 	// reconcile metrics
-	if err := r.reconcileMetrics(ctx, mgh); err != nil {
-		return err
+	if err := r.metricsReconciler.Reconcile(ctx, mgh); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	// reconcile grafana
-	if err := r.reconcileGrafana(ctx, mgh); err != nil {
-		return err
+	// reconciler manager and manager
+	if err := r.managerReconciler.Reconcile(ctx, mgh); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.grafanaReconciler.Reconcile(ctx, mgh); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	// reconcile addon
-	managedHubs, err := addon.GetAllManagedHubNames(ctx, r.Client)
-	if err != nil {
-		return err
-	}
-	r.Log.Info("trigger addon on managed clusters", "size", len(managedHubs))
-	for _, clusterName := range managedHubs {
-		r.addonMgr.Trigger(clusterName, operatorconstants.GHClusterManagementAddonName)
+	if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.addonMgr); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	return nil
+	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
+		if err = r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+			if errors.IsConflict(err) {
+				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+	}
+	return ctrl.Result{}, nil
 }
 
 var mghPred = predicate.Funcs{
@@ -377,7 +289,7 @@ var secretCond = func(obj client.Object) bool {
 	if watchedSecret.Has(obj.GetName()) {
 		return true
 	}
-	if obj.GetLabels()["strimzi.io/cluster"] == transportprotocol.KafkaClusterName &&
+	if obj.GetLabels()["strimzi.io/cluster"] == transporter.KafkaClusterName &&
 		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 		return true
 	}
@@ -490,9 +402,9 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 )
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MulticlusterGlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&globalhubv1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
 		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
@@ -532,4 +444,48 @@ func (r *MulticlusterGlobalHubReconciler) SetupWithManager(mgr ctrl.Manager) err
 			globalHubEventHandler,
 			builder.WithPredicates(deletePred)).
 		Complete(r)
+}
+
+// ReconcileMiddleware creates the kafka and postgres if needed.
+// 1. create the kafka and postgres subscription at the same time
+// 2. then create the kafka and postgres resources at the same time
+// 3. wait for kafka and postgres ready
+func (r *MulticlusterGlobalHubController) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+) error {
+	// initialize postgres and kafka at the same time
+	var wg sync.WaitGroup
+
+	errorChan := make(chan error, 2)
+	// initialize transport
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := r.transportReconciler.Reconcile(ctx, mgh)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err := r.storageReconciler.Reconcile(ctx, mgh)
+		if err != nil {
+			errorChan <- err
+			return
+		}
+	}()
+
+	go func() {
+		wg.Wait()
+		close(errorChan)
+	}()
+
+	for err := range errorChan {
+		if err != nil {
+			return fmt.Errorf("middleware not ready, Error: %v", err)
+		}
+	}
+	return nil
 }

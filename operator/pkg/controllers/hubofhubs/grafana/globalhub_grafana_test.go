@@ -1,4 +1,4 @@
-package hubofhubs
+package grafana
 
 import (
 	"context"
@@ -317,10 +317,10 @@ policies:
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
-			r := &MulticlusterGlobalHubReconciler{
-				Client:     fakeClient,
-				KubeClient: kubeClient,
-				Scheme:     scheme.Scheme,
+			r := &GrafanaReconciler{
+				client:     fakeClient,
+				kubeClient: kubeClient,
+				scheme:     scheme.Scheme,
 			}
 			ctx := context.Background()
 			changed, err := r.generateAlertConfigMap(ctx, mgh)
@@ -579,10 +579,10 @@ email = example@redhat.com
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(objs...).Build()
 
 			kubeClient := fakekube.NewSimpleClientset(tt.initObjects...)
-			r := &MulticlusterGlobalHubReconciler{
-				Client:     fakeClient,
-				KubeClient: kubeClient,
-				Scheme:     scheme.Scheme,
+			r := &GrafanaReconciler{
+				client:     fakeClient,
+				kubeClient: kubeClient,
+				scheme:     scheme.Scheme,
 			}
 
 			ctx := context.Background()
@@ -603,7 +603,7 @@ email = example@redhat.com
 				return
 			}
 			mergedGrafanaIniSecret := &corev1.Secret{}
-			err = r.Client.Get(ctx, client.ObjectKeyFromObject(tt.wantSecret), mergedGrafanaIniSecret)
+			err = r.client.Get(ctx, client.ObjectKeyFromObject(tt.wantSecret), mergedGrafanaIniSecret)
 			assert.Nil(t, err)
 
 			if sectionCount(tt.wantSecret.Data[grafanaIniKey]) == -1 || (sectionCount(mergedGrafanaIniSecret.Data[grafanaIniKey]) != sectionCount(tt.wantSecret.Data[grafanaIniKey])) {
