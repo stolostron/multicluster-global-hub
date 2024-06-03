@@ -108,5 +108,4 @@ func TestMetricsReconciler(t *testing.T) {
 	}
 	err = reconciler.Client.Get(ctx, client.ObjectKeyFromObject(serviceMonitor), serviceMonitor)
 	Expect(err).To(Succeed())
-	utils.PrettyPrint(serviceMonitor)
 }
