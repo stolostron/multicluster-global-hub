@@ -105,7 +105,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// global hub controller
 	if !r.globalHubControllerReady {
-		err := hubofhubs.NewMulticlusterGlobalHubController(
+		err := hubofhubs.NewGlobalHubController(
 			r.Manager,
 			r.addonController.AddonManager(),
 			r.kubeClient,

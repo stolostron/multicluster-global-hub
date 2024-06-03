@@ -17,6 +17,7 @@ import (
 	"k8s.io/klog"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -29,12 +30,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-type PureReconciler struct {
+type PruneReconciler struct {
 	client.Client
 	log logr.Logger
 }
 
-func (r *PureReconciler) Reconcile(ctx context.Context,
+func NewPruneReconciler(c client.Client) *PruneReconciler {
+	return &PruneReconciler{
+		log:    ctrl.Log.WithName("global-hub-prune"),
+		Client: c,
+	}
+}
+
+func (r *PruneReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	// Deleting the multiclusterglobalhub instance
@@ -57,7 +65,7 @@ func (r *PureReconciler) Reconcile(ctx context.Context,
 	return nil
 }
 
-func (r *PureReconciler) GlobalHubResources(ctx context.Context,
+func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	// delete addon.open-cluster-management.io/on-multicluster-hub annotation
@@ -100,7 +108,7 @@ func (r *PureReconciler) GlobalHubResources(ctx context.Context,
 	return nil
 }
 
-func (r *PureReconciler) MetricsResources(ctx context.Context) error {
+func (r *PruneReconciler) MetricsResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.HasLabels{constants.GlobalHubMetricsLabel},
 	}
@@ -152,7 +160,7 @@ func (r *PureReconciler) MetricsResources(ctx context.Context) error {
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
-func (r *PureReconciler) pruneGlobalResources(ctx context.Context) error {
+func (r *PruneReconciler) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
@@ -203,7 +211,7 @@ func (r *PureReconciler) pruneGlobalResources(ctx context.Context) error {
 }
 
 // pruneNamespacedResources tries to delete mgh resources
-func (r *PureReconciler) pruneNamespacedResources(ctx context.Context) error {
+func (r *PruneReconciler) pruneNamespacedResources(ctx context.Context) error {
 	mghServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
@@ -220,7 +228,7 @@ func (r *PureReconciler) pruneNamespacedResources(ctx context.Context) error {
 	return nil
 }
 
-func (r *PureReconciler) deleteClusterManagementAddon(ctx context.Context) error {
+func (r *PruneReconciler) deleteClusterManagementAddon(ctx context.Context) error {
 	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: operatorconstants.GHClusterManagementAddonName,
@@ -235,7 +243,7 @@ func (r *PureReconciler) deleteClusterManagementAddon(ctx context.Context) error
 	return nil
 }
 
-func (r *PureReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
+func (r *PruneReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
@@ -260,7 +268,7 @@ func (r *PureReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logg
 	return nil
 }
 
-func (r *PureReconciler) pruneManagedHubs(ctx context.Context) error {
+func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 	clusters := &clusterv1.ManagedClusterList{}
 	if err := r.List(ctx, clusters, &client.ListOptions{}); err != nil {
 		return err

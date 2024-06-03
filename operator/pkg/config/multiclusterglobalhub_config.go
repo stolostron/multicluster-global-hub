@@ -25,19 +25,12 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // ManifestImage contains details for a specific image version
@@ -271,40 +264,5 @@ func SetMulticlusterGlobalHubConfig(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	if err := SetStatisticLogInterval(mgh); err != nil {
 		return err
 	}
-	return nil
-}
-
-// ManipulateGlobalHubObjects will attach the owner reference, add specific labels to these objects
-func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
-	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
-	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
-) error {
-	// manipulate the object
-	for _, obj := range objects {
-		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
-		if err != nil {
-			return err
-		}
-
-		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
-			// for namespaced resource, set ownerreference of controller
-			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
-				return err
-			}
-		}
-
-		// set owner labels
-		labels := obj.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
-		obj.SetLabels(labels)
-
-		if err := hohDeployer.Deploy(obj); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }

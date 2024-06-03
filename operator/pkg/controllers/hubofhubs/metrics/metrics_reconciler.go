@@ -21,6 +21,10 @@ type MetricsReconciler struct {
 	client.Client
 }
 
+func NewMetricsReconciler(c client.Client) *MetricsReconciler {
+	return &MetricsReconciler{Client: c}
+}
+
 func (r *MetricsReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
 	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
 	namespace := &corev1.Namespace{

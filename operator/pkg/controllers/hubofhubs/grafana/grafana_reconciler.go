@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -79,8 +80,17 @@ type GrafanaReconciler struct {
 	scheme     *runtime.Scheme
 }
 
+func NewGrafanaReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *GrafanaReconciler {
+	return &GrafanaReconciler{
+		Manager:    mgr,
+		client:     mgr.GetClient(),
+		kubeClient: kubeClient,
+		scheme:     mgr.GetScheme(),
+	}
+}
+
 func (r *GrafanaReconciler) Reconcile(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
@@ -143,7 +153,8 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context,
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = config.ManipulateGlobalHubObjects(grafanaObjects, mgh, grafanaDeployer, mapper, r.GetScheme()); err != nil {
+	if err = operatorutils.ManipulateGlobalHubObjects(grafanaObjects, mgh, grafanaDeployer,
+		mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update grafana objects: %w", err)
 	}
 
@@ -186,7 +197,7 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 			Namespace: configNamespace,
 		},
 	}
-	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(defaultGrafanaIniSecret), defaultGrafanaIniSecret)
+	err := r.client.Get(ctx, client.ObjectKeyFromObject(defaultGrafanaIniSecret), defaultGrafanaIniSecret)
 	if err != nil {
 		return false, fmt.Errorf(
 			"failed to get default grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
@@ -203,7 +214,7 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 			Namespace: configNamespace,
 		},
 	}
-	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(customGrafanaIniSecret), customGrafanaIniSecret)
+	err = r.client.Get(ctx, client.ObjectKeyFromObject(customGrafanaIniSecret), customGrafanaIniSecret)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, fmt.Errorf(
 			"failed to get custom grafana.ini secret. Namespace:%v, Name:%v, Error: %w",
@@ -234,7 +245,7 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 			Namespace: configNamespace,
 		},
 	}
-	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(grafanaRoute), grafanaRoute)
+	err = r.client.Get(ctx, client.ObjectKeyFromObject(grafanaRoute), grafanaRoute)
 	if err != nil {
 		klog.Errorf("Failed to get grafana route: %v", err)
 	} else {
@@ -268,10 +279,10 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 		}
 	}
 
-	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.GetScheme()); err != nil {
+	if err = controllerutil.SetControllerReference(mgh, mergedGrafanaIniSecret, r.scheme); err != nil {
 		return false, err
 	}
-	return operatorutils.ApplySecret(ctx, r.GetClient(), mergedGrafanaIniSecret)
+	return operatorutils.ApplySecret(ctx, r.client, mergedGrafanaIniSecret)
 }
 
 // generateAlertConfigMap generate the alert configmap which grafana direclly use
@@ -288,7 +299,7 @@ func (r *GrafanaReconciler) generateAlertConfigMap(
 			Name:      defaultAlertName,
 		},
 	}
-	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(defaultAlertConfigMap), defaultAlertConfigMap)
+	err := r.client.Get(ctx, client.ObjectKeyFromObject(defaultAlertConfigMap), defaultAlertConfigMap)
 	if err != nil {
 		return false, fmt.Errorf("failed to get default alert configmap: %w", err)
 	}
@@ -299,7 +310,7 @@ func (r *GrafanaReconciler) generateAlertConfigMap(
 			Name:      constants.CustomAlertName,
 		},
 	}
-	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(customAlertConfigMap), customAlertConfigMap)
+	err = r.client.Get(ctx, client.ObjectKeyFromObject(customAlertConfigMap), customAlertConfigMap)
 	if err != nil && !errors.IsNotFound(err) {
 		return false, err
 	}
@@ -324,10 +335,10 @@ func (r *GrafanaReconciler) generateAlertConfigMap(
 	}
 
 	// Set MGH instance as the owner and controller
-	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.GetScheme()); err != nil {
+	if err = controllerutil.SetControllerReference(mgh, mergedAlertConfigMap, r.scheme); err != nil {
 		return false, err
 	}
-	return operatorutils.ApplyConfigMap(ctx, r.GetClient(), mergedAlertConfigMap)
+	return operatorutils.ApplyConfigMap(ctx, r.client, mergedAlertConfigMap)
 }
 
 // mergeGrafanaIni merge the default grafana.ini and custom grafana.ini

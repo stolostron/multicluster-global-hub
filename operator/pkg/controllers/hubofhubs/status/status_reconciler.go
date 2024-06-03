@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/go-logr/logr"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -20,8 +21,15 @@ import (
 )
 
 type StatusReconciler struct {
-	client.Client
 	log logr.Logger
+	client.Client
+}
+
+func NewStatusReconciler(c client.Client) *StatusReconciler {
+	return &StatusReconciler{
+		log:    ctrl.Log.WithName("global-hub-status"),
+		Client: c,
+	}
 }
 
 func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,

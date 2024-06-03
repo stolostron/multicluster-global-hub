@@ -31,8 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
@@ -40,10 +43,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -445,4 +450,39 @@ func FilterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
 		obj.GetLabels()["openshiftVersion"] == "3" ||
 		obj.GetName() == constants.LocalClusterName
+}
+
+// ManipulateGlobalHubObjects will attach the owner reference, add specific labels to these objects
+func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
+	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
+) error {
+	// manipulate the object
+	for _, obj := range objects {
+		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
+		if err != nil {
+			return err
+		}
+
+		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+			// for namespaced resource, set ownerreference of controller
+			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
+				return err
+			}
+		}
+
+		// set owner labels
+		labels := obj.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.GHOperatorOwnerLabelVal
+		obj.SetLabels(labels)
+
+		if err := hohDeployer.Deploy(obj); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

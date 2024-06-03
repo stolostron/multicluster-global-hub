@@ -33,6 +33,10 @@ type TransportReconciler struct {
 	kafkaController *transporter.KafkaController
 }
 
+func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
+	return &TransportReconciler{Manager: mgr}
+}
+
 // Resources reconcile the transport resources and also update transporter on the configuration
 func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (err error) {
 	// set the transporter
@@ -153,7 +157,7 @@ func (r *TransportReconciler) renderKafkaMetrics(mgh *v1alpha4.MulticlusterGloba
 		}
 		mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-		if err = config.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
+		if err = operatorutils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
 			r.Manager.GetScheme()); err != nil {
 			return fmt.Errorf("failed to create/update kafka objects: %w", err)
 		}

@@ -41,6 +41,16 @@ type ManagerReconciler struct {
 	operatorConfig *config.OperatorConfig
 }
 
+func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
+	conf *config.OperatorConfig,
+) *ManagerReconciler {
+	return &ManagerReconciler{
+		Manager:        mgr,
+		kubeClient:     kubeClient,
+		operatorConfig: conf,
+	}
+}
+
 func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
@@ -145,7 +155,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to render manager objects: %v", err)
 	}
-	if err = config.ManipulateGlobalHubObjects(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
+	if err = utils.ManipulateGlobalHubObjects(managerObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update manager objects: %v", err)
 	}
 	return nil

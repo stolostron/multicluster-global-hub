@@ -30,7 +30,7 @@ func InitDatabase(uri string) error {
 	dirname = filepath.Dir(dirname)
 	dirname = filepath.Dir(dirname)
 
-	sqlDir := filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "database")
+	sqlDir := filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "storage", "database")
 	files, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func InitDatabase(uri string) error {
 		fmt.Printf("script %s executed successfully.\n", file.Name())
 	}
 
-	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "upgrade")
+	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "storage", "upgrade")
 	upgradeFiles, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func InitDatabase(uri string) error {
 		fmt.Printf("script %s executed successfully.\n", file.Name())
 	}
 
-	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "database.old")
+	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "storage", "database.old")
 	oldfiles, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return err

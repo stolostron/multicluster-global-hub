@@ -18,7 +18,6 @@ package hubofhubs
 
 import (
 	"context"
-	"embed"
 	"fmt"
 	"reflect"
 	"sync"
@@ -61,34 +60,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-//go:embed manifests
-var fs embed.FS
-
-// var isPackageManifestControllerRunnning = false
-var watchedSecret = sets.NewString(
-	constants.GHTransportSecretName,
-	constants.GHStorageSecretName,
-	constants.GHBuiltInStorageSecretName,
-	config.PostgresCertName,
-	constants.CustomGrafanaIniName,
-	config.GetImagePullSecretName(),
-	transporter.DefaultGlobalHubKafkaUser,
-)
-
-var watchedConfigmap = sets.NewString(
-	constants.PostgresCAConfigMap,
-	constants.CustomAlertName,
-)
-
-// MulticlusterGlobalHubController reconciles a MulticlusterGlobalHub object
-type MulticlusterGlobalHubController struct {
+// GlobalHubController reconciles a MulticlusterGlobalHub object
+type GlobalHubController struct {
+	log logr.Logger
 	ctrl.Manager
 	client.Client
 	addonMgr            addonmanager.AddonManager
-	log                 logr.Logger
-	operatorConfig      *config.OperatorConfig
 	upgraded            bool
-	pruneReconciler     *prune.PureReconciler
+	operatorConfig      *config.OperatorConfig
+	pruneReconciler     *prune.PruneReconciler
 	metricsReconciler   *metrics.MetricsReconciler
 	storageReconciler   *storage.StorageReconciler
 	transportReconciler *transport.TransportReconciler
@@ -97,15 +77,22 @@ type MulticlusterGlobalHubController struct {
 	grafanaReconciler   *grafana.GrafanaReconciler
 }
 
-func NewMulticlusterGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
+func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
-) *MulticlusterGlobalHubController {
-	return &MulticlusterGlobalHubController{
-		Manager:        mgr,
-		Client:         mgr.GetClient(),
-		addonMgr:       addonMgr,
-		operatorConfig: operatorConfig,
-		log:            ctrl.Log.WithName("global-hub-reconciler"),
+) *GlobalHubController {
+	return &GlobalHubController{
+		log:                 ctrl.Log.WithName("global-hub-controller"),
+		Manager:             mgr,
+		Client:              mgr.GetClient(),
+		addonMgr:            addonMgr,
+		operatorConfig:      operatorConfig,
+		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
+		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
+		storageReconciler:   storage.NewStorageReconciler(mgr, operatorConfig.GlobalResourceEnabled),
+		transportReconciler: transport.NewTransportReconciler(mgr),
+		statusReconciler:    status.NewStatusReconciler(mgr.GetClient()),
+		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
+		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
 	}
 }
 
@@ -156,7 +143,7 @@ func NewMulticlusterGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *MulticlusterGlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.Client)
 	if err != nil {
@@ -286,7 +273,7 @@ var resPred = predicate.Funcs{
 }
 
 var secretCond = func(obj client.Object) bool {
-	if watchedSecret.Has(obj.GetName()) {
+	if WatchedSecret.Has(obj.GetName()) {
 		return true
 	}
 	if obj.GetLabels()["strimzi.io/cluster"] == transporter.KafkaClusterName &&
@@ -322,21 +309,21 @@ var deletePred = predicate.Funcs{
 
 var configmappred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return watchedConfigmap.Has(e.Object.GetName())
+		return WatchedConfigMap.Has(e.Object.GetName())
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 			constants.GHOperatorOwnerLabelVal {
 			return true
 		}
-		return watchedConfigmap.Has(e.ObjectNew.GetName())
+		return WatchedConfigMap.Has(e.ObjectNew.GetName())
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 			constants.GHOperatorOwnerLabelVal {
 			return true
 		}
-		return watchedConfigmap.Has(e.Object.GetName())
+		return WatchedConfigMap.Has(e.Object.GetName())
 	},
 }
 
@@ -402,7 +389,7 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 )
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *MulticlusterGlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
+func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
@@ -450,7 +437,7 @@ func (r *MulticlusterGlobalHubController) SetupWithManager(mgr ctrl.Manager) err
 // 1. create the kafka and postgres subscription at the same time
 // 2. then create the kafka and postgres resources at the same time
 // 3. wait for kafka and postgres ready
-func (r *MulticlusterGlobalHubController) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+func (r *GlobalHubController) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	// initialize postgres and kafka at the same time
 	var wg sync.WaitGroup
@@ -489,3 +476,18 @@ func (r *MulticlusterGlobalHubController) ReconcileMiddleware(ctx context.Contex
 	}
 	return nil
 }
+
+var WatchedSecret = sets.NewString(
+	constants.GHTransportSecretName,
+	constants.GHStorageSecretName,
+	constants.GHBuiltInStorageSecretName,
+	config.PostgresCertName,
+	constants.CustomGrafanaIniName,
+	config.GetImagePullSecretName(),
+	transporter.DefaultGlobalHubKafkaUser,
+)
+
+var WatchedConfigMap = sets.NewString(
+	constants.PostgresCAConfigMap,
+	constants.CustomAlertName,
+)

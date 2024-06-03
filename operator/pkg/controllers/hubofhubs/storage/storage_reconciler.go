@@ -16,7 +16,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -37,14 +36,24 @@ var upgradeFS embed.FS
 var stsPostgresFS embed.FS
 
 type StorageReconciler struct {
+	log logr.Logger
 	ctrl.Manager
 	upgrade                bool
 	databaseReconcileCount int
-	log                    logr.Logger //  ctrl.Log.WithName("global-hub-storage")
 	enableGlobalResource   bool
 }
 
-func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageReconciler {
+	return &StorageReconciler{
+		log:                    ctrl.Log.WithName("global-hub-storage"),
+		Manager:                mgr,
+		upgrade:                false,
+		databaseReconcileCount: 0,
+		enableGlobalResource:   enableGlobalResource,
+	}
+}
+
+func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
 	storageConn, err := r.reconcileStorage(ctx, mgh)
 	if err != nil {
 		return fmt.Errorf("storage not ready, Error: %v", err)
@@ -90,7 +99,7 @@ func (r *StorageReconciler) reconcileStorage(ctx context.Context, mgh *v1alpha4.
 	return pgConnection, nil
 }
 
-func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
 	log := r.log.WithName("database")
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
