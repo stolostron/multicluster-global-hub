@@ -46,8 +46,8 @@ const (
 	datasourceName = "multicluster-global-hub-grafana-datasources"
 
 	mergedAlertName   = "multicluster-global-hub-alerting"
-	defaultAlertName  = "multicluster-global-hub-default-alerting"
-	alertConfigMapKey = "alerting.yaml"
+	DefaultAlertName  = "multicluster-global-hub-default-alerting"
+	AlertConfigMapKey = "alerting.yaml"
 
 	mergedGrafanaIniName  = "multicluster-global-hub-grafana-config"
 	defaultGrafanaIniName = "multicluster-global-hub-default-grafana-config"
@@ -296,7 +296,7 @@ func (r *GrafanaReconciler) generateAlertConfigMap(
 	defaultAlertConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: configNamespace,
-			Name:      defaultAlertName,
+			Name:      DefaultAlertName,
 		},
 	}
 	err := r.client.Get(ctx, client.ObjectKeyFromObject(defaultAlertConfigMap), defaultAlertConfigMap)
@@ -432,13 +432,13 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 	}
 
 	mergedAlertYaml, err := mergeAlertYaml(
-		[]byte(defaultAlertConfigMap.Data[alertConfigMapKey]),
-		[]byte(customAlertConfigMap.Data[alertConfigMapKey]))
+		[]byte(defaultAlertConfigMap.Data[AlertConfigMapKey]),
+		[]byte(customAlertConfigMap.Data[AlertConfigMapKey]))
 	if err != nil {
 		return nil, err
 	}
 	mergedAlertConfigMap.Data = map[string]string{
-		alertConfigMapKey: string(mergedAlertYaml),
+		AlertConfigMapKey: string(mergedAlertYaml),
 	}
 	return &mergedAlertConfigMap, nil
 }

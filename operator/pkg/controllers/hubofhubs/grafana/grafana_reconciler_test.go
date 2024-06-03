@@ -46,7 +46,7 @@ func Test_mergeAlertConfigMap(t *testing.T) {
 					Name:      "default-alert",
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 				},
 			}, customAlertConfigMap: nil,
 			want: &corev1.ConfigMap{
@@ -55,7 +55,7 @@ func Test_mergeAlertConfigMap(t *testing.T) {
 					Name:      mergedAlertName,
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 				},
 			},
 		},
@@ -67,7 +67,7 @@ func Test_mergeAlertConfigMap(t *testing.T) {
 					Name:      "default-alert",
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 				},
 			},
 			customAlertConfigMap: &corev1.ConfigMap{
@@ -76,7 +76,7 @@ func Test_mergeAlertConfigMap(t *testing.T) {
 					Name:      "custom-alert",
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
 				},
 			},
 			want: &corev1.ConfigMap{
@@ -85,7 +85,7 @@ func Test_mergeAlertConfigMap(t *testing.T) {
 					Name:      mergedAlertName,
 				},
 				Data: map[string]string{
-					alertConfigMapKey: `
+					AlertConfigMapKey: `
 apiVersion: 1
 contactPoints:
 - name: alerts-cu-webhook
@@ -121,8 +121,8 @@ policies:
 				if got != tt.want {
 					t.Errorf("want:%v, got:%v", tt.want, got)
 				}
-			} else if len(got.Data[alertConfigMapKey]) != len(tt.want.Data[alertConfigMapKey]) {
-				t.Errorf("mergedAlertConfigMap() = %v, want %v", len(got.Data[alertConfigMapKey]), len(tt.want.Data[alertConfigMapKey]))
+			} else if len(got.Data[AlertConfigMapKey]) != len(tt.want.Data[AlertConfigMapKey]) {
+				t.Errorf("mergedAlertConfigMap() = %v, want %v", len(got.Data[AlertConfigMapKey]), len(tt.want.Data[AlertConfigMapKey]))
 			}
 		})
 	}
@@ -153,10 +153,10 @@ func Test_generateAlertConfigMap(t *testing.T) {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      defaultAlertName,
+						Name:      DefaultAlertName,
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+						AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 					},
 				},
 			},
@@ -166,7 +166,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 					Name:      mergedAlertName,
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 				},
 			},
 			wantChange: true,
@@ -178,10 +178,10 @@ func Test_generateAlertConfigMap(t *testing.T) {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      defaultAlertName,
+						Name:      DefaultAlertName,
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+						AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 					},
 				},
 				&corev1.ConfigMap{
@@ -190,7 +190,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 						Name:      constants.CustomAlertName,
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "- orgId: 1\n	name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
+						AlertConfigMapKey: "- orgId: 1\n	name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
 					},
 				},
 			},
@@ -200,7 +200,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 					Name:      mergedAlertName,
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 				},
 			},
 			wantChange: true,
@@ -212,10 +212,10 @@ func Test_generateAlertConfigMap(t *testing.T) {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      defaultAlertName,
+						Name:      DefaultAlertName,
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+						AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 					},
 				},
 				&corev1.ConfigMap{
@@ -233,7 +233,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 						},
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+						AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 					},
 				},
 			},
@@ -243,7 +243,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 					Name:      mergedAlertName,
 				},
 				Data: map[string]string{
-					alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+					AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 				},
 			},
 			wantChange: false,
@@ -255,10 +255,10 @@ func Test_generateAlertConfigMap(t *testing.T) {
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: configNamespace,
-						Name:      defaultAlertName,
+						Name:      DefaultAlertName,
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
+						AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Policy\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Policy",
 					},
 				},
 				&corev1.ConfigMap{
@@ -267,7 +267,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 						Name:      constants.CustomAlertName,
 					},
 					Data: map[string]string{
-						alertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
+						AlertConfigMapKey: "apiVersion: 1\ngroups:\n  - orgId: 1\n    name: Suspicious policy change\n    folder: Custom\n  - orgId: 1\n    name: Suspicious Cluster Compliance Status Change\n    folder: Custom\ncontactPoints:\n  - orgId: 1\n    name: alerts-cu-webhook\n    receivers:\n      - uid: 4e3bfe25-00cf-4173-b02b-16f077e539da\n        type: email\n        disableResolveMessage: false\npolicies:\n  - orgId: 1\n    receiver: alerts-cu-webhook",
 					},
 				},
 			},
@@ -277,7 +277,7 @@ func Test_generateAlertConfigMap(t *testing.T) {
 					Name:      mergedAlertName,
 				},
 				Data: map[string]string{
-					alertConfigMapKey: `
+					AlertConfigMapKey: `
 apiVersion: 1
 contactPoints:
 - name: alerts-cu-webhook
@@ -339,9 +339,9 @@ policies:
 			if err != nil {
 				t.Errorf("Failed to get merged configmap. Err:%v", err)
 			}
-			equal, err := operatorutils.IsAlertGPCcountEqual([]byte(existConfigMap.Data[alertConfigMapKey]), []byte(tt.wantConfigMap.Data[alertConfigMapKey]))
+			equal, err := operatorutils.IsAlertGPCcountEqual([]byte(existConfigMap.Data[AlertConfigMapKey]), []byte(tt.wantConfigMap.Data[AlertConfigMapKey]))
 			if err != nil || !equal {
-				t.Errorf("len(existConfigMap.Data[alertConfigMapKey]):%v, len(tt.wantConfigMap.Data[alertConfigMapKey]):%v", len(existConfigMap.Data[alertConfigMapKey]), len(tt.wantConfigMap.Data[alertConfigMapKey]))
+				t.Errorf("len(existConfigMap.Data[alertConfigMapKey]):%v, len(tt.wantConfigMap.Data[alertConfigMapKey]):%v", len(existConfigMap.Data[AlertConfigMapKey]), len(tt.wantConfigMap.Data[AlertConfigMapKey]))
 			}
 		})
 	}
