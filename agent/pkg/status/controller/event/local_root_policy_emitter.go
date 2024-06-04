@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
@@ -24,6 +25,8 @@ import (
 )
 
 var _ generic.ObjectEmitter = &localRootPolicyEmitter{}
+
+var DeltaInterval = 10 * time.Second
 
 type localRootPolicyEmitter struct {
 	ctx             context.Context
@@ -76,8 +79,7 @@ func policyEventPredicate(ctx context.Context, name string, obj client.Object, c
 		return nil, false
 	}
 
-	// if it's a older event, then return false
-	if !filter.Newer(name, evt.CreationTimestamp.Time) {
+	if !filter.NewerWithNoise(name, getEventLastTime(evt).Time, DeltaInterval) {
 		return nil, false
 	}
 
@@ -115,9 +117,9 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 			EventNamespace: evt.Namespace,
 			Message:        evt.Message,
 			Reason:         evt.Reason,
-			Count:          evt.Count,
-			Source:         evt.Source,
-			CreatedAt:      evt.CreationTimestamp,
+			Count:          getEventCount(evt),
+			Source:         *getEventSource(evt),
+			CreatedAt:      getEventLastTime(evt),
 		},
 		PolicyID:   string(policy.GetUID()),
 		Compliance: policyCompliance(policy, evt),
@@ -190,4 +192,33 @@ func getInvolvePolicy(ctx context.Context, c client.Client, evt *corev1.Event) (
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(policy), policy)
 	return policy, err
+}
+
+// the client-go event: https://github.com/kubernetes/client-go/blob/master/tools/events/event_recorder.go#L91-L113
+// the library-go event: https://github.com/openshift/library-go/blob/master/pkg/operator/events/recorder.go#L221-L237
+func getEventLastTime(evt *corev1.Event) metav1.Time {
+	lastTime := evt.CreationTimestamp
+	if !evt.LastTimestamp.IsZero() {
+		lastTime = evt.LastTimestamp
+	}
+	if evt.Series != nil {
+		lastTime = metav1.Time(evt.Series.LastObservedTime)
+	}
+	return lastTime
+}
+
+func getEventCount(evt *corev1.Event) int32 {
+	count := evt.Count
+	if evt.Series != nil {
+		count = evt.Series.Count
+	}
+	return count
+}
+
+func getEventSource(evt *corev1.Event) *corev1.EventSource {
+	eventSource := evt.Source
+	if evt.ReportingController != "" {
+		eventSource.Component = evt.ReportingController
+	}
+	return &evt.Source
 }

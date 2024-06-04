@@ -39,6 +39,16 @@ func Newer(key string, val time.Time) bool {
 	return val.After(old)
 }
 
+// NewerWithNoise compares the val time with cached the time, if not exist, then return true
+// Set a delta interval value(noise) to avoid filtering out some out-of order events that still need to be sent
+func NewerWithNoise(key string, val time.Time, noise time.Duration) bool {
+	old, ok := eventTimeCache[key]
+	if !ok {
+		return true
+	}
+	return val.After(old.Add(-noise))
+}
+
 // LaunchTimeFilter start a goroutine periodically sync the time filter cache to configMap
 // and also init the event time cache with configmap
 func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) error {

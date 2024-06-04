@@ -69,7 +69,7 @@ func (h *managedClusterEmitter) ShouldUpdate(obj client.Object) bool {
 	}
 
 	// if it's a older event, then return false
-	if !filter.Newer(h.name, evt.CreationTimestamp.Time) {
+	if !filter.NewerWithNoise(h.name, getEventLastTime(evt).Time, DeltaInterval) {
 		return false
 	}
 
@@ -105,7 +105,7 @@ func (h *managedClusterEmitter) Update(obj client.Object) bool {
 		ReportingController: evt.ReportingController,
 		ReportingInstance:   evt.ReportingInstance,
 		EventType:           evt.Type,
-		CreatedAt:           evt.CreationTimestamp.Time,
+		CreatedAt:           getEventLastTime(evt).Time,
 	}
 
 	h.payload = append(h.payload, clusterEvent)
