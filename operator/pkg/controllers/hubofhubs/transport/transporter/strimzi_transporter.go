@@ -857,9 +857,10 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 			k.log.Error(err, "failed to marshall nodeSelector terms")
 		}
 
-		kafkaNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)                   // #nosec S103
-		zookeeperNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)           // #nosec S103
-		entityOperatorNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0) // #nosec S103
+		// nolint:go:S103
+		kafkaNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
+		zookeeperNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
+		entityOperatorNodeSelectorTermsElem := make([]kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
 
 		err = json.Unmarshal(jsonData, &kafkaNodeSelectorTermsElem)
 		if err != nil {
@@ -874,18 +875,19 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 			k.log.Error(err, "failed to unmarshal to entityOperatorNodeSelectorTermsElem")
 		}
 
+		// nolint:go:S103
 		zookeeperPodAffinity.NodeAffinity = &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{ // #nosec S103
+			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{
 				NodeSelectorTerms: zookeeperNodeSelectorTermsElem,
 			},
 		}
 		kafkaPodAffinity.NodeAffinity = &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{ // #nosec S103
+			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{
 				NodeSelectorTerms: kafkaNodeSelectorTermsElem,
 			},
 		}
 		entityOperatorPodAffinity.NodeAffinity = &kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{ // #nosec S103
+			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{
 				NodeSelectorTerms: entityOperatorNodeSelectorTermsElem,
 			},
 		}
