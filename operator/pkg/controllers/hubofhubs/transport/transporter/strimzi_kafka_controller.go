@@ -7,8 +7,8 @@ import (
 	"context"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -26,7 +26,6 @@ type ReconcileResources func(ctx context.Context, mgh *v1alpha4.MulticlusterGlob
 
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
-	Log                logr.Logger
 	mgr                ctrl.Manager
 	reconcileResources ReconcileResources
 }
@@ -41,7 +40,6 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	if err := r.reconcileResources(ctx, mgh); err != nil {
-		r.Log.Error(err, "failed to reconcile kafka resources by kafka controller")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
@@ -63,7 +61,6 @@ func StartKafkaController(mgr ctrl.Manager,
 	kafkaResourceReconcile ReconcileResources,
 ) (*KafkaController, error) {
 	r := &KafkaController{
-		Log:                ctrl.Log.WithName("kafka-controller"),
 		mgr:                mgr,
 		reconcileResources: kafkaResourceReconcile,
 	}
@@ -80,6 +77,6 @@ func StartKafkaController(mgr ctrl.Manager,
 	if err != nil {
 		return nil, err
 	}
-	r.Log.Info("kafka controller is started")
+	klog.Info("kafka controller is started")
 	return r, nil
 }

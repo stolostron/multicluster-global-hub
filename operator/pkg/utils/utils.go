@@ -247,44 +247,34 @@ func WaitGlobalHubReady(ctx context.Context,
 	client client.Client,
 	interval time.Duration,
 ) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
-	mghNamespacedName := types.NamespacedName{}
-	klog.Info("Wait MulticlusterGlobalHub created")
-	// If there is no mgh created, we should always wait instead of return err after 10 mins
-	// If we return err after 10 mins, the operator pod will restart every 10 mins.
-	if err := wait.PollImmediateInfinite(interval, func() (bool, error) {
-		mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
-		err := client.List(ctx, mghList)
-		if err != nil {
-			klog.Error(err, "Failed to list MulticlusterGlobalHub")
+	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
+
+	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
+		if errors.IsNotFound(err) {
+			klog.Info("wait until the mgh instance is created")
 			return false, nil
-		}
-		if len(mghList.Items) == 0 {
-			return false, nil
-		}
-		mghNamespacedName = types.NamespacedName{
-			Name:      mghList.Items[0].Name,
-			Namespace: mghList.Items[0].Namespace,
+		} else if err != nil {
+			return true, err
 		}
 		return true, nil
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
-	klog.Info("Wait MulticlusterGlobalHub ready")
-	if err := wait.PollImmediate(interval, 10*time.Minute, func() (bool, error) {
-		err := client.Get(ctx, mghNamespacedName, mgh)
-		if err != nil {
-			klog.Error(err, "Failed to Get MulticlusterGlobalHub")
+	err = wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+		if err = client.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
+			klog.Error(err, "failed to get mgh instance")
 			return false, nil
 		}
-
 		if meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_GLOBALHUB_READY) {
-			klog.V(2).Info("MulticlusterGlobalHub ready condition is not true")
 			return true, nil
 		}
+		klog.V(2).Info("mgh instance ready condition is not true")
 		return false, nil
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	klog.Info("MulticlusterGlobalHub is ready")
@@ -371,7 +361,7 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
 		func(ctx context.Context) (bool, error) {
 			if config.GetTransporter() == nil {
-				klog.Info("Wait transporter ready")
+				klog.Info("wait transporter ready")
 				return false, nil
 			}
 			return true, nil
