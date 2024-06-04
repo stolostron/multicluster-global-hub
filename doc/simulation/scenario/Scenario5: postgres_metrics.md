@@ -8,11 +8,11 @@
 
 ## Environment
 
-1. Install the global hub and then join the 5 simulated managed hubs into it
+1. Install the global hub and then join the 5 simulated managed hubs(Each hub has 300 managedclusters and 50 policies) into it
 
 2. Deploy the `multicluster-global-hub-agent` to the `hub1` ~ `hub5` cluster
 
-3. Rotating all the policies to update status, Like changing the all the status from `Compliant` to `NonCompliant`
+3. Generate 180/360/540 days data in `history.local_compliance`
 
 4. Observe the metrics from the dashboard.
 
@@ -86,9 +86,6 @@
       pg_stat_statements.max = 10000
       pg_stat_statements.track = all
   ```
-  - Postgres Dashboard without Workload
-  ![Broker Dashboard](./images/4-kafka-broker-dashboard-0.gif)
-  ![Zookeeper Dashboard](./images/4-kafka-zookeeper-dashboard-0.png)
 
 ## Initializing and Rotating Policies
 
@@ -96,13 +93,37 @@
  ![Clusters And Policies](./images/5-overview.png)
 
 ### Simulate 180/360/540 days data
-We use script to simulate 180/360/540 days data in `history.local_compliance`. Then check some metrics about postgres.
+We use [script](./local-policies/history_local_compliance.sql) to simulate 180/360/540 days data in `history.local_compliance`. Then check some metrics about postgres.
 
 1. CPU usage
-2. Memory usage
-3. PVC usage
+![Postgres CPU Usage](./images/5-postgres-cpu-usage.png)
 
-### Other metrics:
-1. 180 days data
-2. 360 days data
-3. 540 days data
+2. Memory usage
+![Postgres Memory Usage](./images/5-postgres-memory-usage.png)
+
+3. PVC usage
+![Postgres PVC Usage](./images/5-postgres-pvc-usage.png)
+
+4. Other metrics
+![Postgres dashboard 1](./images/5-postgres-dashboard-1.png)
+![Postgres dashboard 2](./images/5-postgres-dashboard-2.png)
+
+
+### Summarize
+1. Generate 180 Days data in `history.local_compliance`
+
+- Data Count in `history.local_compliance`: 13,500,000
+- Postgres Pod Memory Usage: 1.8 GB
+- Postgres PVC Usage: 3.2 GB
+
+2. Generate 360 Days data in `history.local_compliance`
+
+- Data Count in `history.local_compliance`: 27,000,000
+- Postgres Pod Memory Usage: 3.1 GB
+- Postgres PVC Usage: 5.8 GB
+
+3. Generate 540 Days data in `history.local_compliance`
+
+- Data Count in `history.local_compliance`: 40,500,000
+- Postgres Pod Memory Usage: 3.6 GB(Set memory limit as 4G in postgres pod)
+- Postgres PVC Usage: 7.6 GB
