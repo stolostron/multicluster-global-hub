@@ -25,10 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	v1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
@@ -267,6 +269,10 @@ groups:
 }
 
 func TestWaitGlobalHubReady(t *testing.T) {
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: "default",
+		Name:      "test",
+	})
 	now := metav1.Now()
 	tests := []struct {
 		name     string
@@ -277,12 +283,12 @@ func TestWaitGlobalHubReady(t *testing.T) {
 		{
 			name: "no mgh status",
 			mgh: []runtime.Object{
-				&globalhubv1alpha4.MulticlusterGlobalHub{
+				&v1alpha4.MulticlusterGlobalHub{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test",
 						Namespace: "default",
 					},
-					Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
 				},
 			},
 			returned: false,
@@ -296,7 +302,7 @@ func TestWaitGlobalHubReady(t *testing.T) {
 		{
 			name: "mgh is deleting",
 			mgh: []runtime.Object{
-				&globalhubv1alpha4.MulticlusterGlobalHub{
+				&v1alpha4.MulticlusterGlobalHub{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:              "test",
 						Namespace:         "default",
@@ -305,7 +311,7 @@ func TestWaitGlobalHubReady(t *testing.T) {
 							"test",
 						},
 					},
-					Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
 				},
 			},
 			returned: false,
@@ -313,13 +319,13 @@ func TestWaitGlobalHubReady(t *testing.T) {
 		{
 			name: "ready mgh",
 			mgh: []runtime.Object{
-				&globalhubv1alpha4.MulticlusterGlobalHub{
+				&v1alpha4.MulticlusterGlobalHub{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test",
 						Namespace: "default",
 					},
-					Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
-					Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
+					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
+					Status: v1alpha4.MulticlusterGlobalHubStatus{
 						Conditions: []metav1.Condition{
 							{
 								Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
@@ -335,8 +341,7 @@ func TestWaitGlobalHubReady(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := runtime.NewScheme()
-			globalhubv1alpha4.AddToScheme(s)
-
+			v1alpha4.AddToScheme(s)
 			runtimeClient := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(tt.mgh...).Build()
 			returned := false
 			go func() {
@@ -360,7 +365,7 @@ func Test_GetResources(t *testing.T) {
 	tests := []struct {
 		name          string
 		component     string
-		advanced      func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig
+		advanced      func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig
 		cpuRequest    string
 		cpuLimit      string
 		memoryRequest string
@@ -378,9 +383,9 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Grafana with customized values",
 			component: constants.Grafana,
-			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
-				return &globalhubv1alpha4.AdvancedConfig{
-					Grafana: &globalhubv1alpha4.CommonSpec{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
+				return &v1alpha4.AdvancedConfig{
+					Grafana: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
 				}
@@ -398,9 +403,9 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Postgres with customized values",
 			component: constants.Postgres,
-			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
-				return &globalhubv1alpha4.AdvancedConfig{
-					Postgres: &globalhubv1alpha4.CommonSpec{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
+				return &v1alpha4.AdvancedConfig{
+					Postgres: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
 				}
@@ -418,9 +423,9 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Agent with customized values",
 			component: constants.Agent,
-			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
-				return &globalhubv1alpha4.AdvancedConfig{
-					Agent: &globalhubv1alpha4.CommonSpec{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
+				return &v1alpha4.AdvancedConfig{
+					Agent: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
 				}
@@ -438,9 +443,9 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Manager with customized values",
 			component: constants.Manager,
-			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
-				return &globalhubv1alpha4.AdvancedConfig{
-					Manager: &globalhubv1alpha4.CommonSpec{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
+				return &v1alpha4.AdvancedConfig{
+					Manager: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
 				}
@@ -458,9 +463,9 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Kafka with customized values",
 			component: constants.Kafka,
-			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
-				return &globalhubv1alpha4.AdvancedConfig{
-					Kafka: &globalhubv1alpha4.CommonSpec{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
+				return &v1alpha4.AdvancedConfig{
+					Kafka: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
 				}
@@ -478,9 +483,9 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Zookeeper with customized values",
 			component: constants.Zookeeper,
-			advanced: func(resReq *globalhubv1alpha4.ResourceRequirements) *globalhubv1alpha4.AdvancedConfig {
-				return &globalhubv1alpha4.AdvancedConfig{
-					Zookeeper: &globalhubv1alpha4.CommonSpec{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
+				return &v1alpha4.AdvancedConfig{
+					Zookeeper: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
 				}
@@ -489,7 +494,7 @@ func Test_GetResources(t *testing.T) {
 		},
 	}
 
-	resReq := &globalhubv1alpha4.ResourceRequirements{
+	resReq := &v1alpha4.ResourceRequirements{
 		Limits: corev1.ResourceList{
 			corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
 			corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
@@ -502,7 +507,7 @@ func Test_GetResources(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var advanced *globalhubv1alpha4.AdvancedConfig
+			var advanced *v1alpha4.AdvancedConfig
 			if tt.custom {
 				advanced = tt.advanced(resReq)
 				tt.cpuRequest = customCPURequest
