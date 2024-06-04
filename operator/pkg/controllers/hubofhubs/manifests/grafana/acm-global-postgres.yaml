@@ -660,6 +660,7 @@ data:
         },
         {
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Average user and system CPU time spent in seconds.",
@@ -715,7 +716,7 @@ data:
                   }
                 ]
               },
-              "unit": "s",
+              "unit": "none",
               "unitScale": true
             },
             "overrides": []
@@ -731,10 +732,7 @@ data:
           "options": {
             "legend": {
               "calcs": [
-                "mean",
-                "lastNotNull",
-                "max",
-                "min"
+                "max"
               ],
               "displayMode": "table",
               "placement": "bottom",
@@ -751,10 +749,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "avg(rate(process_cpu_seconds_total{release=\"$release\", instance=\"$instance\"}[5m]) * 1000)",
+              "editorMode": "code",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"prometheus-postgres-exporter|multicluster-global-hub-postgres\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "CPU Time",
+              "legendFormat": "__auto",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -835,10 +835,8 @@ data:
           "options": {
             "legend": {
               "calcs": [
-                "mean",
                 "lastNotNull",
-                "max",
-                "min"
+                "max"
               ],
               "displayMode": "table",
               "placement": "bottom",
@@ -856,22 +854,12 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "avg(rate(process_resident_memory_bytes{release=\"$release\", instance=\"$instance\"}[5m]))",
+              "expr": "sum(container_memory_usage_bytes{container=~\"prometheus-postgres-exporter|multicluster-global-hub-postgres\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 2,
-              "legendFormat": "Resident Mem",
+              "legendFormat": "__auto",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "avg(rate(process_virtual_memory_bytes{release=\"$release\", instance=\"$instance\"}[5m]))",
-              "format": "time_series",
-              "intervalFactor": 2,
-              "legendFormat": "Virtual Mem",
-              "refId": "B"
             }
           ],
           "title": "Average Memory Usage",
@@ -3315,8 +3303,8 @@ data:
       "schemaVersion": 39,
       "tags": [
         "postgres",
-        "stats",
-        "technology-preview"
+        "db",
+        "stats"
       ],
       "templating": {
         "list": [
@@ -3396,8 +3384,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "10.128.1.19:9187",
-              "value": "10.128.1.19:9187"
+              "text": "10.128.1.164:9187",
+              "value": "10.128.1.164:9187"
             },
             "datasource": {
               "uid": "${DS_PROMETHEUS}"
