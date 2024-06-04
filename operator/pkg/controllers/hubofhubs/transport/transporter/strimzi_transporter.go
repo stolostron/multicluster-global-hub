@@ -857,16 +857,16 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 			k.log.Error(err, "failed to marshall nodeSelector terms")
 		}
 
-		//nolint:gosec
 		kafkaNodeSelectorTermsElem := make([]kafkav1beta2.
 			KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem,
 			0)
 
 		//nolint:gosec
 		zookeeperNodeSelectorTermsElem := make([]kafkav1beta2.
-			KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
+			KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0) // #nosec S103
 		entityOperatorNodeSelectorTermsElem := make([]kafkav1beta2.
-			KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
+			//nolint:gosec
+			KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0) // #nosec S103
 
 		err = json.Unmarshal(jsonData, &kafkaNodeSelectorTermsElem)
 		if err != nil {
