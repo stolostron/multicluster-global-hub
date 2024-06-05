@@ -32,13 +32,12 @@ func GetPostgresConfig(URI string, cert []byte) (*pgx.ConnConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database uri: %w", err)
 	}
-	if len(cert) > 0 {
+	if len(cert) > 0 { // #nosec G402
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(cert)
-		/* #nosec G402*/
 		config.TLSConfig = &tls.Config{
 			RootCAs: caCertPool,
-			//nolint:gosec
+			// nolint:gosec
 			InsecureSkipVerify: true, // #nosec G402
 		}
 	}
