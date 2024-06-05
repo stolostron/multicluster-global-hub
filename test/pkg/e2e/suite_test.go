@@ -54,10 +54,10 @@ var (
 )
 
 const (
-	ExpectedLeafHubNum        = 2
-	ExpectedManagedClusterNum = 2
-	Namespace                 = "multicluster-global-hub"
-	ServiceMonitorNamespace   = "openshift-monitoring"
+	ExpectedLeafHubNum          = 2
+	Expectedmanaged_cluster_num = 2
+	Namespace                   = "multicluster-global-hub"
+	ServiceMonitorNamespace     = "openshift-monitoring"
 )
 
 func TestClient(t *testing.T) {
@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 		klog.Errorf("Faild to get managedclusters: %v", err)
 		return err
 	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-	Expect(len(managedClusters)).Should(Equal(ExpectedManagedClusterNum))
+	Expect(len(managedClusters)).Should(Equal(Expectedmanaged_cluster_num))
 })
 
 var _ = AfterSuite(func() {

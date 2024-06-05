@@ -19,12 +19,12 @@ fi
 
 # deploy kafka operator
 kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-operator -n $targetNamespace
-waitAppear "kubectl --context $CTX_HUB get pods -n $targetNamespace -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
+wait_appear "kubectl --context $CTX_HUB get pods -n $targetNamespace -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
 kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-cluster -n $targetNamespace
-waitAppear "kubectl --context $CTX_HUB -n $targetNamespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
+wait_appear "kubectl --context $CTX_HUB -n $targetNamespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
 echo "Kafka cluster is ready"
 
 # patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
@@ -48,12 +48,12 @@ kubectl --context $CTX_HUB -n $targetNamespace patch kafka.kafka.strimzi.io/kafk
 ]'
 
 # BYO: 1. create the topics; 2. create the user; 3. create the transport secret 
-# waitAppear "kubectl --context $CTX_HUB get kafkatopic spec -n $targetNamespace --ignore-not-found | grep spec || true"
-# waitAppear "kubectl --context $CTX_HUB get kafkatopic status -n $targetNamespace --ignore-not-found | grep status || true"
+# wait_appear "kubectl --context $CTX_HUB get kafkatopic spec -n $targetNamespace --ignore-not-found | grep spec || true"
+# wait_appear "kubectl --context $CTX_HUB get kafkatopic status -n $targetNamespace --ignore-not-found | grep status || true"
 # echo "Kafka topics spec and status are ready!"
 
 # kafkaUser=global-hub-kafka-user
-# waitAppear "kubectl get secret ${kafkaUser} -n kafka --ignore-not-found"
+# wait_appear "kubectl get secret ${kafkaUser} -n kafka --ignore-not-found"
 # echo "Kafka user ${kafkaUser} is ready!"
 
 ## generate transport secret

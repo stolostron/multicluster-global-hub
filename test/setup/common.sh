@@ -1,14 +1,17 @@
 #!/bin/bash
-function checkEnv() {
-  name="$1"
-  value="$2"
-  if [[ -z "${value}" ]]; then
-    echo "Error: environment variable $name must be specified!"
-    exit 1
-  fi
-}
 
-function checkDir() {
+export INSTALL_DIR=/usr/bin
+export GRC_VERSION=v0.11.0
+export KUBECTL_VERSION=v1.28.1
+export CLUSTERADM_VERSION=0.8.2
+export KIND_VERSION=v0.23.0
+export KUBE_APP_VERSION=v0.8.3
+export ROUTE_VERSION=release-4.12
+export GO_VERSION=go1.21.7
+export GINKGO_VERSION=v2.15.0
+export CONFIG_GRC_VERSION=v0.11.0
+
+function check_dir() {
   if [ ! -d "$1" ];then
     mkdir "$1"
   fi
@@ -16,8 +19,8 @@ function checkDir() {
 
 function hover() {
   local pid=$1; message=${2:-Processing!}; delay=0.4
-  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  echo "$pid" > "${currentDir}/config/pid"
+  current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  echo "$pid" > "${current_dir}/config/pid"
   signs=(🙉 🙈 🙊)
   while ( kill -0 "$pid" 2>/dev/null ); do
     if [[ $LOG =~ "/dev/"* ]]; then
@@ -30,44 +33,51 @@ function hover() {
   printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}";
 }
 
-function checkKubectl() {
+function check_kubectl() {
   if ! command -v kubectl >/dev/null 2>&1; then 
-      echo "This script will install kubectl (https://kubernetes.io/docs/tasks/tools/install-kubectl/) on your machine"
-      if [[ "$(uname)" == "Linux" ]]; then
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.0/bin/linux/amd64/kubectl
-      elif [[ "$(uname)" == "Darwin" ]]; then
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.18.0/bin/darwin/amd64/kubectl
-      fi
-      chmod +x ./kubectl
-      sudo mv ./kubectl /usr/local/bin/kubectl
+    echo "This script will install kubectl (https://kubernetes.io/docs/tasks/tools/install-kubectl/) on your machine"
+    if [[ "$(uname)" == "Linux" ]]; then
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl
+    elif [[ "$(uname)" == "Darwin" ]]; then
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/darwin/amd64/kubectl
+    fi
+    chmod +x ./kubectl
+    sudo mv ./kubectl ${INSTALL_DIR}/kubectl
   fi
+  echo "kubectl version: $(kubectl version --client)"
 }
 
-function checkClusteradm() {
-  if ! hash clusteradm 2>/dev/null; then 
-    curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash
+function check_clusteradm() {
+  if ! command -v clusteradm >/dev/null 2>&1; then 
+    # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash 
+    curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/$CLUSTERADM_VERSION/install.sh
+    chmod +x ./install.sh
+    export INSTALL_DIR=$INSTALL_DIR
+    source ./install.sh $CLUSTERADM_VERSION
+    rm ./install.sh
   fi
+  echo "clusteradm path: $(which clusteradm)"
 }
 
-function checkKind() {
+function check_kind() {
   if ! command -v kind >/dev/null 2>&1; then 
     echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
-    curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/v0.12.0/kind-$(uname)-amd64"
+    curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
     chmod +x ./kind-amd64
-    sudo mv ./kind-amd64 /usr/local/bin/kind
+    sudo mv ./kind-amd64 $INSTALL_DIR/kind
   fi
 }
 
-function initKinDCluster() {
-  clusterName="$1"
-  if [[ $(kind get clusters | grep "^${clusterName}$" || true) != "${clusterName}" ]]; then
-    kind create cluster --name "$clusterName" --wait 1m
-    currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    kubectl config view --context="kind-${clusterName}" --minify --flatten > ${currentDir}/config/kubeconfig-${clusterName}
+function kind_cluster() {
+  cluster_name="$1"
+  if [[ $(kind get clusters | grep "^${cluster_name}$" || true) != "${cluster_name}" ]]; then
+    kind create cluster --name "$cluster_name" --wait 1m
+    dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    kubectl config view --context="kind-${cluster_name}" --minify --flatten > ${dir}/config/kubeconfig-${cluster_name}
   fi
 }
 
-function initHub() {
+function init_hub() {
   echo "Initializing Hub $1 ..."
   clusteradm init --wait --context "$1" > /dev/null 2>&1
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1" 
@@ -75,66 +85,69 @@ function initHub() {
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s  --context "$1"
 }
 
-function initManaged() {
+function init_managed() {
   hub="$1"
-  managedPrefix="$2"
-  managedClusterNum="$3"
-  managedClusterName=""
+  managed_prefix_name="$2"
+  managed_cluster_num="$3"
+  managed_cluster_name=""
 
-  currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  joinCommand="${currentDir}/config/join-${hub}"
-  for i in $(seq 1 "${managedClusterNum}"); do
-    if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "${managedPrefix}$i" || true) == "" ]]; then
-      kubectl config use-context "${managedPrefix}$i"
-      clusteradm get token --context "${hub}" | grep "clusteradm" > "$joinCommand"
+  dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  join_cmd="${dir}/config/join-${hub}"
+  for i in $(seq 1 "${managed_cluster_num}"); do
+    managed="${managed_prefix_name}$i"
+    if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "$managed" || true) == "" ]]; then
+      kubectl config use-context "$managed"
+      clusteradm get token --context "${hub}" | grep "clusteradm" > "$join_cmd"
       if [[ $hub =~ "kind" ]]; then
-        sed -e "s;<cluster_name>;${managedPrefix}$i --force-internal-endpoint-lookup --wait;" "$joinCommand" > "${joinCommand}-named"
-        sed -e "s;<cluster_name>;${managedPrefix}$i --force-internal-endpoint-lookup --wait;" "$joinCommand" | bash
+        sed -e "s;<cluster_name>;$managed --force-internal-endpoint-lookup --wait;" "$join_cmd" > "${join_cmd}-named"
+        sed -e "s;<cluster_name>;$managed --force-internal-endpoint-lookup --wait;" "$join_cmd" | bash
       else
-        sed -e "s;<cluster_name>;${managedPrefix}$i --wait;" "$joinCommand" > "${joinCommand}-named"
-        sed -e "s;<cluster_name>;${managedPrefix}$i --wait;" "$joinCommand" | bash
+        sed -e "s;<cluster_name>;$managed --wait;" "$join_cmd" > "${join_cmd}-named"
+        sed -e "s;<cluster_name>;$managed --wait;" "$join_cmd" | bash
       fi
     fi
-    managedClusterName+="${managedPrefix}$i,"
+    managed_cluster_name+="$managed,"
   done
-  clusteradm accept --clusters "${managedClusterName%,*}" --context "${hub}" --wait
+  clusteradm accept --clusters "${managed_cluster_name%,*}" --context "${hub}" --wait
 }
 
 # init application-lifecycle
-function initApp() {
+function init_app() {
   echo "init app for $1"
   hub="$1"
-  managedPrefix="$2"
-  managedClusterNum="$3"
+  managed_prefix_name="$2"
+  managed_cluster_num="$3"
+
+  app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/$KUBE_APP_VERSION
 
   # enable the applications.app.k8s.io
-  kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${hub}"
+  kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "${hub}"
 
-  for i in $(seq 1 "${managedClusterNum}"); do    
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/application/master/deploy/kube-app-manager-aio.yaml --context "${managedPrefix}$i"
+  for i in $(seq 1 "${managed_cluster_num}"); do  
+    managed="${managed_prefix_name}$i"
+    kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context $managed
     # deploy the subscription operators to the hub cluster
     echo "$hub install hub-addon application-manager"
     clusteradm install hub-addon --names application-manager --context "${hub}"
 
-    echo "Deploying the the subscription add-on to the managed cluster: $managedPrefix$i"
-    clusteradm addon enable --names application-manager --clusters "${managedPrefix}$i" --context "${hub}"
+    echo "Deploying the the subscription add-on to the managed cluster: $managed"
+    clusteradm addon enable --names application-manager --clusters $managed --context "${hub}"
   done
 }
 
-function initPolicy() {
+function init_policy() {
   echo "init policy for $1"
   hub="$1"
-  managedPrefix="$2"
-  managedClusterNum="$3"
+  managed_prefix_name="$2"
+  managed_cluster_num="$3"
   HUB_KUBECONFIG="$4"
 
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
-
   # On hub
   HUB_NAMESPACE="open-cluster-management"
   kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
   ## Apply the CRDs
-  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
+  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/$GRC_VERSION/deploy"
   policyCRD=${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
   kubectl --context $hub apply -f $policyCRD
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
@@ -142,12 +155,11 @@ function initPolicy() {
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
   # Deploy the policy-propagator
   kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
-  kubectl --context $hub patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
 
   # on managed clsuter
-  for i in $(seq 1 "${managedClusterNum}"); do
+  for i in $(seq 1 "${managed_cluster_num}"); do
     MANAGED_NAMESPACE="open-cluster-management-agent-addon"
-    managed="${managedPrefix}$i" # ManagedCluster context
+    managed="${managed_prefix_name}$i" # ManagedCluster context
 
     ## Create the namespace for the synchronization comps
     kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
@@ -161,7 +173,8 @@ function initPolicy() {
     kubectl --context "$managed" apply -f $policyCRD
 
     ## Deploy the synchronization component
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-framework-addon/v0.11.0"
+    COMPONENT=governance-policy-framework-addon
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/$COMPONENT/$GRC_VERSION"
     DEPLOY_ON_HUB=false # Set whether or not this is being deployed on the Hub
     MANAGED_CLUSTER_NAME="$managed" # Set the managed cluster name and create the namespace
     kubectl --context "$managed" create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
@@ -169,10 +182,18 @@ function initPolicy() {
     kubectl --context "$managed" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
     kubectl --context "$managed" patch deployment governance-policy-framework-addon -n ${MANAGED_NAMESPACE} \
       -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
+
+    ## Install configuration policy controller:
+    ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/ 
+    COMPONENT="config-policy-controller"
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/${COMPONENT}/$CONFIG_GRC_VERSION/deploy"
+    kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+    kubectl --context "$managed" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
+    kubectl set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE=${MANAGED_CLUSTER_NAME}
   done
 }
 
-function checkPolicyReadiness() {
+function check_policy_readiness() {
   hub="$1"
   managed="$2"
   SECOND=0
@@ -231,16 +252,16 @@ function checkPolicyReadiness() {
   done
 }
 
-enableRouter() {
+enable_router() {
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$1" apply -f -
-  path="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  path="https://raw.githubusercontent.com/openshift/router/$ROUTE_VERSION"
   kubectl --context "$1" apply -f $path/deploy/route_crd.yaml
   # pacman application depends on route crd, but we do not need to have route pod running in the cluster
   # kubectl apply -f $path/deploy/router.yaml
   # kubectl apply -f $path/deploy/router_rbac.yaml
 }
 
-enableServiceCA() {
+enable_service_ca() {
   HUB_OF_HUB_NAME=$2
   CURRENT_DIR=$3
   # apply service-ca
@@ -251,7 +272,7 @@ enableServiceCA() {
 }
 
 # deploy olm
-function enableOLM() {
+function enable_olm() {
   NS=olm
   csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   if [[ "$csvPhase" == "Succeeded" ]]; then
@@ -281,7 +302,7 @@ function enableOLM() {
   echo "CSV \"packageserver\" install succeeded"
 }
 
-function waitSecretToBeReady() {
+function wait_secret_ready() {
   secretName=$1
   secretNamespace=$2
   ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
@@ -299,7 +320,7 @@ function waitSecretToBeReady() {
   echo "secret: $secretNamespace - $secretName is ready!"
 }
 
-function waitKafkaToBeReady() {
+function wait_kafka_ready() {
   clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found)
   SECOND=0
   while [ -z "$clusterIsReady" ]; do
@@ -313,11 +334,11 @@ function waitKafkaToBeReady() {
     clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found)
   done
   echo "Kafka cluster is ready"
-  waitSecretToBeReady ${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"} "multicluster-global-hub"
+  wait_secret_ready ${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"} "multicluster-global-hub"
   echo "Kafka secret is ready"
 }
 
-function waitPostgresToBeReady() {
+function wait_postgres_ready() {
   clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   SECOND=0
   while [[ -z "$clusterIsReady" || "$clusterIsReady" -lt 1 ]]; do
@@ -331,11 +352,11 @@ function waitPostgresToBeReady() {
     clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   done
   echo "Postgres cluster is ready"
-  waitSecretToBeReady ${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"} "multicluster-global-hub"
+  wait_secret_ready ${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"} "multicluster-global-hub"
   echo "Postgres secret is ready"
 }
 
-waitDisappear() {
+wait_disappear() {
   command=$1
   seconds=${2:-"600"}
   while [ -n "$(eval $command)" ]; do 
@@ -351,7 +372,7 @@ waitDisappear() {
   eval $command
 }
 
-waitAppear() {
+wait_appear() {
   command=$1
   seconds=${2:-"600"}
   while [ -z "$(eval $command)" ]; do 
@@ -365,4 +386,113 @@ waitAppear() {
   done
   echo "> $command"
   eval $command
+}
+
+function version_compare() {
+  if [[ $1 == $2 ]]
+  then
+    return 0
+  fi
+  local IFS=.
+  local i version1=($1) version2=($2)
+  # fill empty fields in version1 with zeros
+  for ((i=${#version1[@]}; i<${#version2[@]}; i++))
+  do
+    version1[i]=0
+  done
+  for ((i=0; i<${#version1[@]}; i++))
+  do
+    if [[ -z ${version2[i]} ]]
+    then
+      # fill empty fields in version2 with zeros
+      version2[i]=0
+    fi
+    if ((10#${version1[i]} > 10#${version2[i]}))
+    then
+      return 1
+    fi
+    if ((10#${version1[i]} < 10#${version2[i]}))
+    then
+      return 2
+    fi
+  done
+
+  return 0
+}
+
+function check_golang() {
+  export PATH=$PATH:/usr/local/go/bin
+  if ! command -v go >/dev/null 2>&1; then
+    wget https://dl.google.com/go/$GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
+    sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
+    sudo rm $GO_VERSION.linux-amd64.tar.gz
+  fi
+  if [[ $(go version) < "go version go1.20" ]]; then
+    echo "go version is less than 1.20, update to $GO_VERSION"
+    sudo rm -rf /usr/local/go
+    wget https://dl.google.com/go/$GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
+    sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
+    sudo rm $GO_VERSION.linux-amd64.tar.gz
+    sleep 2
+  fi
+  echo "go version: $(go version)"
+}
+
+function check_ginkgo() {
+  if ! command -v ginkgo >/dev/null 2>&1; then 
+    go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_VERSION
+    go get github.com/onsi/gomega/...
+    sudo mv $(go env GOPATH)/bin/ginkgo $INSTALL_DIR/ginkgo
+  fi 
+  echo "ginkgo version: $(ginkgo version)"
+}
+
+function install_docker() {
+  sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+  sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+  sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+  sleep 5
+  sudo systemctl start docker
+  sudo systemctl enable docker
+}
+
+function check_docker() {
+  if ! command -v docker >/dev/null 2>&1; then 
+    install_docker
+  fi
+  version_compare $(docker version --format '{{.Client.Version}}') "20.10.0"
+  verCom=$?
+  if [ $verCom -eq 2 ]; then
+    # upgrade
+    echo "remove old version of docker $(docker version --format '{{.Client.Version}}')"
+    sudo yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux  docker-engine-selinux docker-engine 
+    install_docker
+  fi
+  echo "docker version: $(docker version --format '{{.Client.Version}}')"
+}
+
+function check_volume() {
+  if [[ $(df -h | grep -v Size | awk '{print $2}' | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($1 > max) max = $1; fi} END{print max}') -lt 80 ]]; then
+    max_size=$(lsblk | awk '{print $1,$4}' | grep -v Size | grep -v M | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($2 > max) max = $2; fi} END{print max}')
+    mount_name=$(lsblk | grep "$max_size"G | awk '{print $1}')
+    echo "mounting /dev/${mount_name}: ${max_size}"
+    sudo mkfs -t xfs /dev/${mount_name}        
+    sudo mkdir -p /data                    
+    sudo mount /dev/${mount_name} /data  
+    sudo mv /var/lib/docker /data
+
+    # sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
+    echo '{
+      "data-root": "/data/docker"
+    }' | sudo tee /etc/docker/daemon.json
+
+    sleep 2
+
+    sudo systemctl daemon-reload
+    sudo systemctl restart docker
+
+    sudo docker info
+  fi
+  echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
 }

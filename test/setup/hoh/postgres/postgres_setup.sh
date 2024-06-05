@@ -19,12 +19,12 @@ fi
 
 # step2: deploy postgres operator pgo
 kubectl apply --server-side -k ${currentDir}/postgres-operator
-waitAppear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep pgo | grep Running || true"
+wait_appear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep pgo | grep Running || true"
 # kubectl -n postgres-operator wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
 # step3: deploy  postgres cluster
 kubectl --kubeconfig $KUBECONFIG apply -k ${currentDir}/postgres-cluster
-waitAppear "kubectl --kubeconfig $KUBECONFIG get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+wait_appear "kubectl --kubeconfig $KUBECONFIG get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
 
 # step4: generate storage secret
 pgnamespace="hoh-postgres"

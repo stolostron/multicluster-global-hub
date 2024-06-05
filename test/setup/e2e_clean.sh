@@ -10,8 +10,8 @@ PID=${CONFIG_DIR}/pid
 
 source ${CURRENT_DIR}/common.sh
 
-checkDir ${CONFIG_DIR}
-checkKind
+check_dir ${CONFIG_DIR}
+check_kind
 
 LEAF_HUB_NAME="hub"
 HUB_OF_HUB_NAME="global-hub"

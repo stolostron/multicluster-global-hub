@@ -10,9 +10,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -38,21 +36,17 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 	var globalClient client.Client
 	var managedClient client.Client
 	var managedClients []client.Client
-	var err error
 
 	BeforeAll(func() {
 		By("Get the appsubreport client")
-		scheme := runtime.NewScheme()
-		policiesv1.AddToScheme(scheme)
-		corev1.AddToScheme(scheme)
-		placementrulev1.AddToScheme(scheme)
-		globalClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+		var err error
+		globalClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range leafHubNames {
-			managedClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
+			managedClient, err = testClients.ControllerRuntimeClient(leafhubName, agentScheme)
+			Expect(err).ShouldNot(HaveOccurred())
 			managedClients = append(managedClients, managedClient)
 		}
-		Expect(err).ShouldNot(HaveOccurred())
 	})
 
 	It("add the label to a managedcluster1 for the policy", func() {
