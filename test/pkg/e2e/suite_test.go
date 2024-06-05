@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
+	"gorm.io/gorm"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +34,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -51,6 +55,11 @@ var (
 	operatorScheme *runtime.Scheme
 	managerScheme  *runtime.Scheme
 	agentScheme    *runtime.Scheme
+
+	postgresConn *pgx.Conn
+	db           *gorm.DB
+	ctx          context.Context
+	cancel       context.CancelFunc
 )
 
 const (
@@ -75,6 +84,8 @@ func init() {
 }
 
 var _ = BeforeSuite(func() {
+	ctx, cancel = context.WithCancel(context.Background())
+
 	By("Init schemes")
 	operatorScheme = config.GetRuntimeScheme()
 	agentScheme = runtime.NewScheme()
@@ -86,6 +97,19 @@ var _ = BeforeSuite(func() {
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
 	httpClient = testClients.HttpClient()
+
+	By("Init postgres connection")
+	databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
+	var err error
+	postgresConn, err = database.PostgresConnection(ctx, databaseURI, nil)
+	Expect(err).Should(Succeed())
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:      strings.Replace(testOptions.GlobalHub.DatabaseURI, "sslmode=verify-ca", "sslmode=require", -1),
+		Dialect:  database.PostgresDialect,
+		PoolSize: 5,
+	})
+	Expect(err).Should(Succeed())
+	db = database.GetGorm()
 
 	By("Deploy the global hub")
 	deployGlobalHub()
@@ -100,7 +124,10 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	// utils.DeleteTestingRBAC(testOptions)
+	cancel()
+	err := postgresConn.Close(ctx)
+	Expect(err).Should(Succeed())
+	utils.DeleteTestingRBAC(testOptions)
 })
 
 func completeOptions() utils.Options {
@@ -215,7 +242,7 @@ func deployGlobalHub() {
 		},
 	}
 
-	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// patch global hub operator to enable global resources

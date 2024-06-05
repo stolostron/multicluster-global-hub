@@ -92,7 +92,7 @@ func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) e
 
 		clientKube := testClients.KubeClient()
 		dynamicClient := testClients.KubeDynamicClient()
-		clientAPIExtension := testClients.KubeClientAPIExtension()
+		clientAPIExtension := testClients.APIExtensionClient()
 		// now use switch over the type of the object
 		// and match each type-case
 		switch kind {

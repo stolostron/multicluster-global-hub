@@ -32,7 +32,6 @@ const (
 
 var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-tests-grafana"), func() {
 	It("Merged alert configmap should be same as default configmap", func() {
-		ctx := context.Background()
 		Eventually(func() error {
 			defaultAlertConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Get(ctx, defaultAlertName, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
@@ -53,7 +52,6 @@ var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-te
 	})
 
 	It("Merged alert configmap should merged default and custom configmap", func() {
-		ctx := context.Background()
 		customConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,
@@ -138,7 +136,6 @@ policies:
 	})
 
 	It("Merged alert configmap should be same as default when custom alert is invalid", func() {
-		ctx := context.Background()
 		customConfig := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: Namespace,

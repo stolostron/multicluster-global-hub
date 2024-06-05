@@ -1,15 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 export INSTALL_DIR=/usr/bin
 export GRC_VERSION=v0.11.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.23.0
-export KUBE_APP_VERSION=v0.8.3
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.15.0
-export CONFIG_GRC_VERSION=v0.11.0
+export CONFIG_GRC_VERSION=v0.12.0
 
 function check_dir() {
   if [ ! -d "$1" ];then
@@ -50,7 +49,7 @@ function check_kubectl() {
 function check_clusteradm() {
   if ! command -v clusteradm >/dev/null 2>&1; then 
     # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash 
-    curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/$CLUSTERADM_VERSION/install.sh
+    curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/v$CLUSTERADM_VERSION/install.sh
     chmod +x ./install.sh
     export INSTALL_DIR=$INSTALL_DIR
     source ./install.sh $CLUSTERADM_VERSION
@@ -118,7 +117,8 @@ function init_app() {
   managed_prefix_name="$2"
   managed_cluster_num="$3"
 
-  app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/$KUBE_APP_VERSION
+  # Use other branch throw error: unable to read URL "https://raw.githubusercontent.com/kubernetes-sigs/application/v0.8.0/deploy/kube-app-manager-aio.yaml", server reported 404 Not Found, status code=404
+  app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/master
 
   # enable the applications.app.k8s.io
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "${hub}"
@@ -155,6 +155,8 @@ function init_policy() {
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
   # Deploy the policy-propagator
   kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+  kubectl --context $hub patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
+
 
   # on managed clsuter
   for i in $(seq 1 "${managed_cluster_num}"); do
@@ -188,6 +190,7 @@ function init_policy() {
     COMPONENT="config-policy-controller"
     GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/${COMPONENT}/$CONFIG_GRC_VERSION/deploy"
     kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+    kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
     kubectl --context "$managed" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
     kubectl set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE=${MANAGED_CLUSTER_NAME}
   done

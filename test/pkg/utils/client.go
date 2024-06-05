@@ -17,14 +17,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
-	runClient "sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type TestClient interface {
 	KubeClient() kubernetes.Interface
 	KubeDynamicClient() dynamic.Interface
-	KubeClientAPIExtension() apiextensionsclientset.Interface
-	ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error)
+	APIExtensionClient() apiextensionsclientset.Interface
+	RuntimeClient(clusterName string, scheme *runtime.Scheme) (runtimeclient.Client, error)
 	Kubectl(clusterName string, args ...string) (string, error)
 	RestConfig(clusterName string) (*rest.Config, error)
 	HttpClient() *http.Client
@@ -46,12 +46,12 @@ func (c *testClient) HttpClient() *http.Client {
 	}}
 }
 
-func (c *testClient) ControllerRuntimeClient(clusterName string, scheme *runtime.Scheme) (runClient.Client, error) {
+func (c *testClient) RuntimeClient(clusterName string, scheme *runtime.Scheme) (runtimeclient.Client, error) {
 	cfg, err := c.RestConfig(clusterName)
 	if err != nil {
 		return nil, err
 	}
-	controllerClient, err := runClient.New(cfg, runClient.Options{Scheme: scheme})
+	controllerClient, err := runtimeclient.New(cfg, runtimeclient.Options{Scheme: scheme})
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (c *testClient) KubeClient() kubernetes.Interface {
 	return clientset
 }
 
-func (c *testClient) KubeClientAPIExtension() apiextensionsclientset.Interface {
+func (c *testClient) APIExtensionClient() apiextensionsclientset.Interface {
 	opt := c.options
 	config, err := LoadConfig(opt.GlobalHub.KubeConfig, opt.GlobalHub.KubeConfig, opt.GlobalHub.KubeContext)
 	if err != nil {
