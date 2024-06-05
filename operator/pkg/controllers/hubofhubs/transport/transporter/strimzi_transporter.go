@@ -861,12 +861,10 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 			KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem,
 			0)
 
-		//nolint:gosec
 		zookeeperNodeSelectorTermsElem := make([]kafkav1beta2.
-			KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0) // #nosec S103
+			KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
 		entityOperatorNodeSelectorTermsElem := make([]kafkav1beta2.
-			//nolint:gosec
-			KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0) // #nosec S103
+			KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
 
 		err = json.Unmarshal(jsonData, &kafkaNodeSelectorTermsElem)
 		if err != nil {
