@@ -25,7 +25,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
+	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -44,6 +47,10 @@ var (
 
 	leafHubNames    []string
 	managedClusters []clusterv1.ManagedCluster
+
+	operatorScheme *runtime.Scheme
+	managerScheme  *runtime.Scheme
+	agentScheme    *runtime.Scheme
 )
 
 const (
@@ -68,6 +75,13 @@ func init() {
 }
 
 var _ = BeforeSuite(func() {
+	By("Init schemes")
+	operatorScheme = config.GetRuntimeScheme()
+	agentScheme = runtime.NewScheme()
+	agentscheme.AddToScheme(agentScheme)
+	managerScheme = runtime.NewScheme()
+	managerscheme.AddToScheme(managerScheme)
+
 	By("Complete the options and init clients")
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
@@ -148,11 +162,6 @@ func findRootDir(dir string) (string, error) {
 }
 
 func deployGlobalHub() {
-	By("Creating client for the hub cluster")
-	scheme := runtime.NewScheme()
-	Expect(globalhubv1alpha4.AddToScheme(scheme)).Should(Succeed())
-	Expect(appsv1.AddToScheme(scheme)).Should(Succeed())
-
 	By("Creating namespace for the ServiceMonitor")
 	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(), ServiceMonitorNamespace,
 		metav1.GetOptions{})
@@ -183,7 +192,7 @@ func deployGlobalHub() {
 		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
-	mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
+	mcgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: "multicluster-global-hub",
@@ -192,21 +201,21 @@ func deployGlobalHub() {
 				"mgh-scheduler-interval":        "minute",
 			},
 		},
-		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{
 			// Disable metrics in e2e
 			EnableMetrics: false,
 			// the topic partition replicas(depend on the HA) should less than broker replicas
-			AvailabilityConfig: globalhubv1alpha4.HABasic,
-			DataLayer: globalhubv1alpha4.DataLayerConfig{
-				Kafka: globalhubv1alpha4.KafkaConfig{},
-				Postgres: globalhubv1alpha4.PostgresConfig{
+			AvailabilityConfig: v1alpha4.HABasic,
+			DataLayer: v1alpha4.DataLayerConfig{
+				Kafka: v1alpha4.KafkaConfig{},
+				Postgres: v1alpha4.PostgresConfig{
 					Retention: "18m",
 				},
 			},
 		},
 	}
 
-	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// patch global hub operator to enable global resources
