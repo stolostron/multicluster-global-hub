@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: local-policy-namespace
+--- 
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:

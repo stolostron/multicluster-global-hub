@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 export INSTALL_DIR=/usr/bin
-export GRC_VERSION=v0.11.0
+export GRC_VERSION=v0.12.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.23.0
@@ -155,7 +155,12 @@ function init_policy() {
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
   # Deploy the policy-propagator
   kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
-  kubectl --context $hub patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
+  ## Disable the webhook for the controller
+  kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-webhooks=false"}]' -n ${HUB_NAMESPACE}
+  kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[
+  {"op": "remove", "path": "/spec/template/spec/containers/0/volumeMounts/0"},
+  {"op": "remove", "path": "/spec/template/spec/volumes/0"} 
+  ]' -n ${HUB_NAMESPACE}
 
 
   # on managed clsuter
@@ -182,8 +187,10 @@ function init_policy() {
     kubectl --context "$managed" create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
 
     kubectl --context "$managed" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
-    kubectl --context "$managed" patch deployment governance-policy-framework-addon -n ${MANAGED_NAMESPACE} \
+    kubectl --context "$managed" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
+    kubectl --context "$managed" patch deployment $COMPONENT -n ${MANAGED_NAMESPACE} \
       -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
+    
 
     ## Install configuration policy controller:
     ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/ 
@@ -192,6 +199,7 @@ function init_policy() {
     kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
     kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
     kubectl --context "$managed" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
+    kubectl --context "$managed" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/config-policy-controller:$CONFIG_GRC_VERSION -n ${MANAGED_NAMESPACE}
     kubectl set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE=${MANAGED_CLUSTER_NAME}
   done
 }
