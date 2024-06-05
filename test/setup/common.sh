@@ -134,8 +134,9 @@ function initPolicy() {
   HUB_NAMESPACE="open-cluster-management"
   kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
   ## Apply the CRDs
-  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.12.0/deploy"
-  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
+  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
+  policyCRD=${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
+  kubectl --context $hub apply -f $policyCRD
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
   kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
@@ -152,14 +153,15 @@ function initPolicy() {
     kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
 
     ## Create the secret to authenticate with the hub
-    kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" delete secret hub-kubeconfig
-    kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
+    if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$managed" --ignore-not-found) == "" ]]; then 
+      kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
+    fi
 
     ## Apply the policy CRD
-    kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
+    kubectl --context "$managed" apply -f $policyCRD
 
     ## Deploy the synchronization component
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-framework-addon/v0.12.0"
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-framework-addon/v0.11.0"
     DEPLOY_ON_HUB=false # Set whether or not this is being deployed on the Hub
     MANAGED_CLUSTER_NAME="$managed" # Set the managed cluster name and create the namespace
     kubectl --context "$managed" create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
