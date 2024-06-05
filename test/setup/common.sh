@@ -133,55 +133,49 @@ function initPolicy() {
 
   for i in $(seq 1 "${managedClusterNum}"); do
     kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.11.0/deploy"
+
+    # Deploy the synchronization comps to the hub clusters
+    comp="governance-policy-propagator" # on bot
+    version=v0.13.0
+    path="https://raw.githubusercontent.com/open-cluster-management-io/$comp/$version/deploy"
     ## Apply the CRDs
-    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml 
-    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
-    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
-    kubectl --context "${hub}" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
+    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_policies.yaml 
+    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_placementbindings.yaml
+    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_policyautomations.yaml
+    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_policysets.yaml
     ## Deploy the policy-propagator
-    kubectl --context "${hub}" apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+    kubectl --context "${hub}" apply -f ${path}/operator.yaml -n ${HUB_NAMESPACE}
     kubectl --context "${hub}" patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
 
-    # Deploy the synchronization components to the managed cluster(s)
+    # Deploy the synchronization comps to the managed cluster(s) 
+    ## Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
+    ## ManagedCluster context
+    managed="${managedPrefix}$i"
     MANAGED_NAMESPACE="open-cluster-management-agent-addon"
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
 
-    ## Create the namespace for the synchronization components
-    kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "${managedPrefix}$i" apply -f -
+    ## Create the namespace for the synchronization comps
+    kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
 
     ## Create the secret to authenticate with the hub
-    if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "${managedPrefix}$i" --ignore-not-found) == "" ]]; then 
-      kubectl --context "${managedPrefix}$i" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
-    fi
+    kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" delete secret hub-kubeconfig
+    kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
 
     ## Apply the policy CRD
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/governance-policy-propagator/main/deploy/crds/policy.open-cluster-management.io_policies.yaml 
+    kubectl --context "$managed" apply -f ${path}/crds/policy.open-cluster-management.io_policies.yaml 
 
     ## Set the managed cluster name and create the namespace
-    kubectl create ns "${managedPrefix}$i" --dry-run=client -o yaml | kubectl --context "${managedPrefix}$i" apply -f -
+    export MANAGED_CLUSTER_NAME="$managed"
+    kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
 
-    COMPONENT="governance-policy-spec-sync"
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
-    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i" 
-
-    COMPONENT="governance-policy-status-sync"
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
-    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
-
-    COMPONENT="governance-policy-template-sync"
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}" 
-    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
-
-    COMPONENT="config-policy-controller"
-    # Apply the config-policy-controller CRD
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
-    # Deploy the controller
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
-    kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
-    
+    ## Deploy the synchronization component
+    export DEPLOY_ON_HUB=false
+    path="https://raw.githubusercontent.com/open-cluster-management-io"
+    comp="governance-policy-framework-addon"
+    version="v0.13.0"
+    kubectl --context "$managed" apply -f ${path}/${comp}/${version}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
+    kubectl --context "$managed" patch deployment governance-policy-framework-addon -n ${MANAGED_NAMESPACE} \
+      -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
   done
-
 }
 
 function checkPolicyReadiness() {
@@ -194,46 +188,46 @@ function checkPolicyReadiness() {
       exit 1
     fi
 
-    componentCount=0
+    compCount=0
 
     # Deploy the policy framework hub controllers
     HUB_NAMESPACE="open-cluster-management"
 
     policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator" || true)
     if [[ $(echo "${policyPropagator}" | awk '{print $3}')  == "Running" ]]; then 
-      (( componentCount = componentCount + 1 ))
-      echo "Policy: step${componentCount} ${hub} ${policyPropagator} is Running" 
+      (( compCount = compCount + 1 ))
+      echo "Policy: step${compCount} ${hub} ${policyPropagator} is Running" 
     fi
 
-    COMPONENT="governance-policy-spec-sync"
-    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    comp="governance-policy-spec-sync"
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( componentCount = componentCount + 1 ))
-      echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
+      (( compCount = compCount + 1 ))
+      echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
-    COMPONENT="governance-policy-status-sync"
-    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    comp="governance-policy-status-sync"
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( componentCount = componentCount + 1 ))
-      echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
+      (( compCount = compCount + 1 ))
+      echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
-    COMPONENT="governance-policy-template-sync"
-    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    comp="governance-policy-template-sync"
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( componentCount = componentCount + 1 ))
-      echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
+      (( compCount = compCount + 1 ))
+      echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
-    COMPONENT="config-policy-controller"
-    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${COMPONENT}" || true)
+    comp="config-policy-controller"
+    comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( componentCount = componentCount + 1 ))
-      echo "Policy: step${componentCount} ${managed} ${COMPONENT} is Running"
+      (( compCount = compCount + 1 ))
+      echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
-    if [[ "${componentCount}" == 5 ]]; then
+    if [[ "${compCount}" == 5 ]]; then
       echo -e "Policy: ${hub} -> ${managed} Success! \n $(kubectl get pods -n "${MANAGED_NAMESPACE}")"
       break;
     fi 
@@ -245,11 +239,11 @@ function checkPolicyReadiness() {
 
 enableRouter() {
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$1" apply -f -
-  GIT_PATH="https://raw.githubusercontent.com/openshift/router/release-4.12"
-  kubectl --context "$1" apply -f $GIT_PATH/deploy/route_crd.yaml
+  path="https://raw.githubusercontent.com/openshift/router/release-4.12"
+  kubectl --context "$1" apply -f $path/deploy/route_crd.yaml
   # pacman application depends on route crd, but we do not need to have route pod running in the cluster
-  # kubectl apply -f $GIT_PATH/deploy/router.yaml
-  # kubectl apply -f $GIT_PATH/deploy/router_rbac.yaml
+  # kubectl apply -f $path/deploy/router.yaml
+  # kubectl apply -f $path/deploy/router_rbac.yaml
 }
 
 enableServiceCA() {
@@ -271,10 +265,10 @@ function enableOLM() {
     exit 1
   fi
   
-  GIT_PATH="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.22.0"
-  kubectl --context "$1" apply -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml"
-  kubectl --context "$1" wait --for=condition=Established -f "${GIT_PATH}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
-  kubectl --context "$1" apply -f "${GIT_PATH}/deploy/upstream/quickstart/olm.yaml"
+  path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.22.0"
+  kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/crds.yaml"
+  kubectl --context "$1" wait --for=condition=Established -f "${path}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
+  kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/olm.yaml"
 
   retries=60
   csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
