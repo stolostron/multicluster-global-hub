@@ -128,30 +128,25 @@ function initPolicy() {
   managedClusterNum="$3"
   HUB_KUBECONFIG="$4"
 
-  # Deploy the policy framework hub controllers
+  # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
+
+  # On hub
   HUB_NAMESPACE="open-cluster-management"
+  kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
+  ## Apply the CRDs
+  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/v0.12.0/deploy"
+  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
+  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
+  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
+  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
+  # Deploy the policy-propagator
+  kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+  kubectl --context $hub patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
 
+  # on managed clsuter
   for i in $(seq 1 "${managedClusterNum}"); do
-    kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-
-    # Deploy the synchronization comps to the hub clusters
-    comp="governance-policy-propagator" # on bot
-    version=v0.13.0
-    path="https://raw.githubusercontent.com/open-cluster-management-io/$comp/$version/deploy"
-    ## Apply the CRDs
-    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_policies.yaml 
-    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_placementbindings.yaml
-    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_policyautomations.yaml
-    kubectl --context "${hub}" apply -f ${path}/crds/policy.open-cluster-management.io_policysets.yaml
-    ## Deploy the policy-propagator
-    kubectl --context "${hub}" apply -f ${path}/operator.yaml -n ${HUB_NAMESPACE}
-    kubectl --context "${hub}" patch deployment governance-policy-propagator -n ${HUB_NAMESPACE} -p '{"spec":{"template":{"spec":{"containers":[{"name":"governance-policy-propagator","image":"quay.io/open-cluster-management/governance-policy-propagator:v0.11.0"}]}}}}'
-
-    # Deploy the synchronization comps to the managed cluster(s) 
-    ## Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
-    ## ManagedCluster context
-    managed="${managedPrefix}$i"
     MANAGED_NAMESPACE="open-cluster-management-agent-addon"
+    managed="${managedPrefix}$i" # ManagedCluster context
 
     ## Create the namespace for the synchronization comps
     kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
@@ -161,18 +156,15 @@ function initPolicy() {
     kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
 
     ## Apply the policy CRD
-    kubectl --context "$managed" apply -f ${path}/crds/policy.open-cluster-management.io_policies.yaml 
-
-    ## Set the managed cluster name and create the namespace
-    export MANAGED_CLUSTER_NAME="$managed"
-    kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
+    kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
 
     ## Deploy the synchronization component
-    export DEPLOY_ON_HUB=false
-    path="https://raw.githubusercontent.com/open-cluster-management-io"
-    comp="governance-policy-framework-addon"
-    version="v0.13.0"
-    kubectl --context "$managed" apply -f ${path}/${comp}/${version}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
+    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-framework-addon/v0.12.0"
+    DEPLOY_ON_HUB=false # Set whether or not this is being deployed on the Hub
+    MANAGED_CLUSTER_NAME="$managed" # Set the managed cluster name and create the namespace
+    kubectl --context "$managed" create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
+
+    kubectl --context "$managed" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
     kubectl --context "$managed" patch deployment governance-policy-framework-addon -n ${MANAGED_NAMESPACE} \
       -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
   done
