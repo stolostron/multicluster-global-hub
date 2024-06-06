@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euox pipefail
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 # shellcheck source=/dev/null
@@ -57,16 +57,24 @@ done
 
 # # install middlewares in async mode
 bash "$CURRENT_DIR"/hoh/postgres/postgres_setup.sh "$GH_KUBECONFIG" 2>&1 &
+echo "$!" > "$KUBE_DIR/PID"
 bash "$CURRENT_DIR"/hoh/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >> "$KUBE_DIR/PID"
 
 # init hubs
 echo -e "$BLUE initializing hubs $NC"
+pids=()
 init_hub $GH_CTX &
+pids+=($!)
 for i in $(seq 1 "${MH_NUM}"); do
   init_hub "kind-hub$i" &
+  pids+=($!)
 done
 
-wait 
+for pid in "${pids[@]}"; do
+  wait "$pid"
+done
+
 end_time=$(date +%s)
 echo -e "$YELLOW Initializing hubs:$NC $((end_time - start_time)) seconds"
 
@@ -75,15 +83,20 @@ start_time=$(date +%s)
 
 # join spoken clusters, if the cluster has been joined, then skip
 echo -e "$BLUE importing clusters $NC"
+
+pids=()
 for i in $(seq 1 "${MH_NUM}"); do
-  mh_ctx="kind-hub$i"
-  join_cluster $GH_CTX $mh_ctx 2>&1 &  # join to global hub
+  join_cluster $GH_CTX "kind-hub$i" 2>&1 &  # join to global hub
+  pids+=($!)
   for j in $(seq 1 "${MC_NUM}"); do
-    mc_ctx="kind-hub$i-cluster$j"
-    join_cluster $mh_ctx $mc_ctx 2>&1 & # join to managed hub
+    join_cluster "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 & # join to managed hub
+    pids+=($!)
   done
 done
-wait 
+
+for pid in "${pids[@]}"; do
+  wait "$pid"
+done
 
 end_time=$(date +%s)
 echo -e "$YELLOW Importing cluster:$NC $((end_time - start_time)) seconds"
@@ -109,13 +122,11 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
+# wait all the backend process ready
 wait 
+
 end_time=$(date +%s)
 echo -e "$YELLOW App and policy:$NC $((end_time - start_time)) seconds"
-
-# wait middleware to be ready
-wait_appear "kubectl get kafka kafka -n multicluster-global-hub -o jsonpath='{.status.listeners[1].certificates[0]}' --context $GH_CTX" 1200
-wait_appear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true --context $GH_CTX" 1200
 
 echo -e "$BLUE enable the clusters $NC"
 for i in $(seq 1 "${MH_NUM}"); do

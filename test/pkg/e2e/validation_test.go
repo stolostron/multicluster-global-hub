@@ -48,16 +48,16 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 
 		It("Check the num of hub clusters and managed clusters in the kubeconfig", func() {
 			for i := 1; i <= ExpectedLeafHubNum; i++ {
-				hubFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d", i)
+				hubFileName := fmt.Sprintf("../../setup/kubeconfig/kind-hub%d", i)
 				_, err := os.Stat(hubFileName)
 				if os.IsNotExist(err) {
-					Expect(fmt.Errorf("kubeconfig-hub%d is not exist", i)).Should(Succeed())
+					Expect(fmt.Errorf("kind-hub%d is not exist", i)).Should(Succeed())
 				}
 				for j := 1; j <= managed_cluster_num; j++ {
-					managedFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d-cluster%d", i, j)
+					managedFileName := fmt.Sprintf("../../setup/kubeconfig/kind-hub%d-cluster%d", i, j)
 					_, err := os.Stat(managedFileName)
 					if os.IsNotExist(err) {
-						Expect(fmt.Errorf("kubeconfig-hub%d-cluster%d is not exist", i, j)).Should(Succeed())
+						Expect(fmt.Errorf("kind-hub%d-cluster%d is not exist", i, j)).Should(Succeed())
 					}
 				}
 			}

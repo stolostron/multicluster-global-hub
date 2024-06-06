@@ -16,8 +16,6 @@ echo "export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB
 echo "export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" >> ${ROOT_DIR}/test/resources/env.list
 echo "export OPENSHIFT_CI=$OPENSHIFT_CI" >> ${ROOT_DIR}/test/resources/env.list
-echo "export LOG=/dev/stdout" >> ${ROOT_DIR}/test/resources/env.list
-echo "export LEAF_HUB_LOG=/dev/stdout" >> ${ROOT_DIR}/test/resources/env.list
 echo "export VERBOSE=6" >> ${ROOT_DIR}/test/resources/env.list
 
 scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
