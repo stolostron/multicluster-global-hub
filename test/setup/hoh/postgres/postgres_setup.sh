@@ -1,29 +1,27 @@
-# !/bin/bash
-
 #!/bin/bash
+
 KUBECONFIG=${1:-$KUBECONFIG}
 
-currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-rootDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." ; pwd -P)"
+current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." || exit ; pwd -P)"
 
-source $rootDir/test/setup/common.sh
+# shellcheck source=/dev/null
+source $root_dir/test/setup/common.sh
 
 # step1: check storage secret
-targetNamespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
-storageSecret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
-ready=$(kubectl get secret $storageSecret -n $targetNamespace --ignore-not-found=true)
-if [ ! -z "$ready" ]; then
-  echo "storageSecret $storageSecret already exists in $TARGET_NAMESPACE namespace"
+target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
+storage_secret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
+if [ -n "$(kubectl get secret $storage_secret -n $target_namespace --ignore-not-found=true)" ]; then
+  echo "storage_secret $storage_secret already exists in $TARGET_NAMESPACE namespace"
   exit 0
 fi
 
 # step2: deploy postgres operator pgo
-kubectl apply --server-side -k ${currentDir}/postgres-operator
+kubectl apply --server-side -k "$current_dir/postgres-operator"
 wait_appear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep pgo | grep Running || true"
-# kubectl -n postgres-operator wait --for=condition=Available Deployment/"pgo" --timeout=1000s
 
 # step3: deploy  postgres cluster
-kubectl --kubeconfig $KUBECONFIG apply -k ${currentDir}/postgres-cluster
+kubectl --kubeconfig $KUBECONFIG apply -k ${current_dir}/postgres-cluster
 wait_appear "kubectl --kubeconfig $KUBECONFIG get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
 
 # step4: generate storage secret
@@ -32,15 +30,15 @@ userSecret="hoh-pguser-postgres"
 certSecret="hoh-cluster-cert"
 
 databaseURI=$(kubectl --kubeconfig $KUBECONFIG get secrets -n "${pgnamespace}" "${userSecret}" -o go-template='{{index (.data) "uri" | base64decode}}')
-kubectl --kubeconfig $KUBECONFIG get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $currentDir/ca.crt
+kubectl --kubeconfig $KUBECONFIG get secret $certSecret -n $pgnamespace -o jsonpath='{.data.ca\.crt}' |base64 -d > $current_dir/ca.crt
 
 # create target namespace
-kubectl --kubeconfig $KUBECONFIG create namespace $targetNamespace || true
-kubectl --kubeconfig $KUBECONFIG create secret generic $storageSecret -n $targetNamespace \
+kubectl --kubeconfig $KUBECONFIG create namespace $target_namespace || true
+kubectl --kubeconfig $KUBECONFIG create secret generic $storage_secret -n $target_namespace \
     --from-literal=database_uri="${databaseURI}?sslmode=verify-ca" \
-    --from-file=ca.crt=$currentDir/ca.crt 
+    --from-file=ca.crt=$current_dir/ca.crt 
 
-echo "storage secret is ready in $targetNamespace namespace!"
+echo "storage secret is ready in $target_namespace namespace!"
 
 # expose the postgres service as NodePort
 pgnamespace="hoh-postgres"

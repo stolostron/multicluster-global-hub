@@ -1,35 +1,35 @@
-
 #!/bin/bash
 
-currentDir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-setupDir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." ; pwd -P)"
-source "$setupDir/common.sh"
-CTX_HUB=$1
+export KUBECONFIG=${1:-$KUBECONFIG}
+
+current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+setup_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit ; pwd -P)"
+# shellcheck source=/dev/null
+source "$setup_dir/common.sh"
 
 # check the transport secret
-transportSecret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
-targetNamespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
-kubectl --context $CTX_HUB create namespace $targetNamespace --dry-run=client -o yaml | kubectl apply -f -
+transport_secret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
+target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
+kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl apply -f -
 
-ready=$(kubectl --context $CTX_HUB get secret $transportSecret -n $targetNamespace --ignore-not-found=true)
-if [ ! -z "$ready" ]; then
-  echo "transportSecret $transportSecret already exists in $targetNamespace namespace"
+if [ -n "$(kubectl get secret "$transport_secret" -n "$target_namespace" --ignore-not-found=true)" ]; then
+  echo "transport_secret $transport_secret already exists in $target_namespace namespace"
   exit 0
 fi
 
 # deploy kafka operator
-kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-operator -n $targetNamespace
-wait_appear "kubectl --context $CTX_HUB get pods -n $targetNamespace -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
+kubectl apply -k "$current_dir/kafka-operator" -n "$target_namespace"
+wait_appear "kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
-kubectl --context $CTX_HUB apply -k ${currentDir}/kafka-cluster -n $targetNamespace
-wait_appear "kubectl --context $CTX_HUB -n $targetNamespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
+kubectl apply -k "$current_dir/kafka-cluster" -n "$target_namespace"
+wait_appear "kubectl -n $target_namespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
 echo "Kafka cluster is ready"
 
 # patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
-nodePortHost=$(kubectl --context $CTX_HUB -n $targetNamespace get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
-kubectl --context $CTX_HUB -n $targetNamespace patch kafka.kafka.strimzi.io/kafka --type json -p '[
+node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
+kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p '[
   {
     "op": "replace",
     "path": "/spec/kafka/listeners/1/configuration",
@@ -40,7 +40,7 @@ kubectl --context $CTX_HUB -n $targetNamespace patch kafka.kafka.strimzi.io/kafk
       "brokers": [
         {
           "broker": 0,
-          "advertisedHost": "'"$nodePortHost"'", 
+          "advertisedHost": "'"$node_port_host"'", 
         }
       ]
     }
@@ -48,8 +48,8 @@ kubectl --context $CTX_HUB -n $targetNamespace patch kafka.kafka.strimzi.io/kafk
 ]'
 
 # BYO: 1. create the topics; 2. create the user; 3. create the transport secret 
-# wait_appear "kubectl --context $CTX_HUB get kafkatopic spec -n $targetNamespace --ignore-not-found | grep spec || true"
-# wait_appear "kubectl --context $CTX_HUB get kafkatopic status -n $targetNamespace --ignore-not-found | grep status || true"
+# wait_appear "kubectl get kafkatopic spec -n $target_namespace --ignore-not-found | grep spec || true"
+# wait_appear "kubectl get kafkatopic status -n $target_namespace --ignore-not-found | grep status || true"
 # echo "Kafka topics spec and status are ready!"
 
 # kafkaUser=global-hub-kafka-user
@@ -57,19 +57,19 @@ kubectl --context $CTX_HUB -n $targetNamespace patch kafka.kafka.strimzi.io/kafk
 # echo "Kafka user ${kafkaUser} is ready!"
 
 ## generate transport secret
-# bootstrapServers=$(kubectl --context $CTX_HUB get kafka kafka -n $targetNamespace -o jsonpath='{.status.listeners[1].bootstrapServers}')
-# kubectl --context $CTX_HUB get kafka kafka -n $targetNamespace -o jsonpath='{.status.listeners[1].certificates[0]}' > $setupDir/config/kafka-ca-cert.pem
-# kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $setupDir/config/kafka-client-cert.pem
-# kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $setupDir/config/kafka-client-key.pem
+# bootstrapServers=$(kubectl get kafka kafka -n $target_namespace -o jsonpath='{.status.listeners[1].bootstrapServers}')
+# kubectl get kafka kafka -n $target_namespace -o jsonpath='{.status.listeners[1].certificates[0]}' > $setup_dir/config/kafka-ca-cert.pem
+# kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.crt}' | base64 -d > $setup_dir/config/kafka-client-cert.pem
+# kubectl get secret ${kafkaUser} -n kafka -o jsonpath='{.data.user\.key}' | base64 -d > $setup_dir/config/kafka-client-key.pem
 
 ## create target namespace
-# kubectl --context $CTX_HUB create namespace $targetNamespace --dry-run=client -o yaml | kubectl apply -f -
+# kubectl create namespace $target_namespace --dry-run=client -o yaml | kubectl apply -f -
 # Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs 
-# kubectl --context $CTX_HUB create secret generic $transportSecret -n $targetNamespace \
+# kubectl create secret generic $transport_secret -n $target_namespace \
 #     --from-literal=bootstrap_server=$bootstrapServers \
-#     --from-file=ca.crt=$setupDir/config/kafka-ca-cert.pem
-#     # --from-file=client.crt=$setupDir/config/kafka-client-cert.pem \
-#     # --from-file=client.key=$setupDir/config/kafka-client-key.pem 
+#     --from-file=ca.crt=$setup_dir/config/kafka-ca-cert.pem
+#     # --from-file=client.crt=$setup_dir/config/kafka-client-cert.pem \
+#     # --from-file=client.key=$setup_dir/config/kafka-client-key.pem 
 # echo "transport secret is ready!"
 
 

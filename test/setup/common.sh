@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 export INSTALL_DIR=/usr/bin
-export GRC_VERSION=v0.12.0
+export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.15.0
-export CONFIG_GRC_VERSION=v0.12.0
+export CONFIG_GRC_VERSION=v0.13.0
 
 function check_dir() {
   if [ ! -d "$1" ];then
@@ -69,10 +69,10 @@ function check_kind() {
 
 function kind_cluster() {
   cluster_name="$1"
-  if [[ $(kind get clusters | grep "^${cluster_name}$" || true) != "${cluster_name}" ]]; then
+  if ! kind get clusters | grep -q "^$cluster_name$"; then
     kind create cluster --name "$cluster_name" --wait 1m
-    dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-    kubectl config view --context="kind-${cluster_name}" --minify --flatten > ${dir}/config/kubeconfig-${cluster_name}
+    dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+    kubectl config view --context="kind-$cluster_name" --minify --flatten > "$dir/kind-$cluster_name"
   fi
 }
 
@@ -82,6 +82,9 @@ function init_hub() {
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1" 
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1" 
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s  --context "$1"
+  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  join_file="$dir/join-$1"
+  clusteradm get token --context "$1" | grep "clusteradm" > "$join_file"
 }
 
 function init_managed() {
@@ -110,98 +113,105 @@ function init_managed() {
   clusteradm accept --clusters "${managed_cluster_name%,*}" --context "${hub}" --wait
 }
 
+function join_cluster() {
+  hub=$1 # hub name also as the context
+  cluster=$2
+  echo "join cluster: $cluster to $hub"
+  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  join_file="$dir/join-$1"
+  if ! kubectl get mcl --context "${hub}" --ignore-not-found | grep -q "^$cluster$"; then
+    if [[ $hub =~ "kind" ]]; then
+      sed -e "s;<cluster_name>;$cluster --force-internal-endpoint-lookup --context $cluster --wait;" "$join_file" | bash
+    else
+      sed -e "s;<cluster_name>;$cluster --context $cluster --wait;" "$join_file" | bash
+    fi
+  fi
+  clusteradm accept --clusters "$2" --context "${hub}" --wait
+}
+
 # init application-lifecycle
 function init_app() {
-  echo "init app for $1"
-  hub="$1"
-  managed_prefix_name="$2"
-  managed_cluster_num="$3"
+  echo "init app for $1:$2"
+  hub=$1
+  cluster=$2
 
-  # Use other branch throw error: unable to read URL "https://raw.githubusercontent.com/kubernetes-sigs/application/v0.8.0/deploy/kube-app-manager-aio.yaml", server reported 404 Not Found, status code=404
+   # Use other branch throw error: unable to read URL "https://raw.githubusercontent.com/kubernetes-sigs/application/v0.8.0/deploy/kube-app-manager-aio.yaml", server reported 404 Not Found, status code=404
   app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/master
+  kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$hub"
+  kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
 
-  # enable the applications.app.k8s.io
-  kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "${hub}"
+  # deploy the subscription operators to the hub cluster
+  clusteradm install hub-addon --names application-manager --context "$hub"
 
-  for i in $(seq 1 "${managed_cluster_num}"); do  
-    managed="${managed_prefix_name}$i"
-    kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context $managed
-    # deploy the subscription operators to the hub cluster
-    echo "$hub install hub-addon application-manager"
-    clusteradm install hub-addon --names application-manager --context "${hub}"
-
-    echo "Deploying the the subscription add-on to the managed cluster: $managed"
-    clusteradm addon enable --names application-manager --clusters $managed --context "${hub}"
-  done
+  # enable the addon on the managed clusters
+  clusteradm addon enable --names application-manager --clusters "$cluster" --context "$hub"
 }
 
 function init_policy() {
-  echo "init policy for $1"
-  hub="$1"
-  managed_prefix_name="$2"
-  managed_cluster_num="$3"
-  HUB_KUBECONFIG="$4"
+  echo "init policy for $1:$2"
+  hub=$1
+  cluster=$2
 
-  # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
-  # On hub
+  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  HUB_KUBECONFIG="$dir/$hub"
+
+  # create namespace fist
   HUB_NAMESPACE="open-cluster-management"
   kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
-  ## Apply the CRDs
+  MANAGED_NAMESPACE="open-cluster-management-agent-addon"
+  kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
+
+  # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
   GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/$GRC_VERSION/deploy"
   policyCRD=${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
-  kubectl --context $hub apply -f $policyCRD
-  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
-  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
-  kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
-  # Deploy the policy-propagator
-  kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
-  ## Disable the webhook for the controller
-  kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-webhooks=false"}]' -n ${HUB_NAMESPACE}
-  kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[
-  {"op": "remove", "path": "/spec/template/spec/containers/0/volumeMounts/0"},
-  {"op": "remove", "path": "/spec/template/spec/volumes/0"} 
-  ]' -n ${HUB_NAMESPACE}
 
+  # On hub
+  if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q governance-policy-propagator; then 
+    ## Apply the CRDs
+    kubectl --context $hub apply -f $policyCRD
+    kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
+    kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
+    kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
+    # Deploy the policy-propagator
+    kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+    ## Disable the webhook for the controller
+    kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-webhooks=false"}]' -n ${HUB_NAMESPACE}
+    kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[
+    {"op": "remove", "path": "/spec/template/spec/containers/0/volumeMounts/0"},
+    {"op": "remove", "path": "/spec/template/spec/volumes/0"} 
+    ]' -n ${HUB_NAMESPACE}
+  fi
 
-  # on managed clsuter
-  for i in $(seq 1 "${managed_cluster_num}"); do
-    MANAGED_NAMESPACE="open-cluster-management-agent-addon"
-    managed="${managed_prefix_name}$i" # ManagedCluster context
+  # On cluster
+  ## Create the secret to authenticate with the hub
+  if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster" --ignore-not-found) == "" ]]; then 
+    kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$HUB_KUBECONFIG"
+  fi
 
-    ## Create the namespace for the synchronization comps
-    kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
+  ## Apply the policy CRD
+  kubectl --context "$cluster" apply -f "$policyCRD"
 
-    ## Create the secret to authenticate with the hub
-    if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$managed" --ignore-not-found) == "" ]]; then 
-      kubectl --context "$managed" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="${HUB_KUBECONFIG}"
-    fi
+  ## Deploy the synchronization component
+  COMPONENT=governance-policy-framework-addon
+  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/$COMPONENT/$GRC_VERSION"
+  DEPLOY_ON_HUB=false # Set whether or not this is being deployed on the Hub
+  MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
+  kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
-    ## Apply the policy CRD
-    kubectl --context "$managed" apply -f $policyCRD
+  kubectl --context "$cluster" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
+  kubectl --context "$cluster" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
+  kubectl --context "$cluster" patch deployment $COMPONENT -n ${MANAGED_NAMESPACE} \
+    -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
 
-    ## Deploy the synchronization component
-    COMPONENT=governance-policy-framework-addon
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/$COMPONENT/$GRC_VERSION"
-    DEPLOY_ON_HUB=false # Set whether or not this is being deployed on the Hub
-    MANAGED_CLUSTER_NAME="$managed" # Set the managed cluster name and create the namespace
-    kubectl --context "$managed" create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$managed" apply -f -
-
-    kubectl --context "$managed" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
-    kubectl --context "$managed" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
-    kubectl --context "$managed" patch deployment $COMPONENT -n ${MANAGED_NAMESPACE} \
-      -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
-    
-
-    ## Install configuration policy controller:
-    ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/ 
-    COMPONENT="config-policy-controller"
-    GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/${COMPONENT}/$CONFIG_GRC_VERSION/deploy"
-    kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
-    kubectl --context "$managed" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
-    kubectl --context "$managed" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
-    kubectl --context "$managed" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/config-policy-controller:$CONFIG_GRC_VERSION -n ${MANAGED_NAMESPACE}
-    kubectl set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE=${MANAGED_CLUSTER_NAME}
-  done
+  ## Install configuration policy controller:
+  ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/ 
+  COMPONENT="config-policy-controller"
+  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/${COMPONENT}/$CONFIG_GRC_VERSION/deploy"
+  kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+  # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
+  kubectl --context "$cluster" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
+  kubectl --context "$cluster" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/config-policy-controller:$CONFIG_GRC_VERSION -n ${MANAGED_NAMESPACE}
+  kubectl set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"
 }
 
 function check_policy_readiness() {
@@ -272,14 +282,26 @@ enable_router() {
   # kubectl apply -f $path/deploy/router_rbac.yaml
 }
 
+install_crds() {
+  local ctx=$1
+  # router
+  kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
+  path="https://raw.githubusercontent.com/openshift/router/$ROUTE_VERSION"
+  kubectl --context "$ctx" apply -f $path/deploy/route_crd.yaml
+ 
+  # mch
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+}
+
 enable_service_ca() {
-  HUB_OF_HUB_NAME=$2
-  CURRENT_DIR=$3
+  ctx=$1
+  node_name=$2
+  resource_dir=$3
   # apply service-ca
-  kubectl --context $1 label node ${HUB_OF_HUB_NAME}-control-plane node-role.kubernetes.io/master=
-  kubectl --context $1 apply -f ${CURRENT_DIR}/hoh/service-ca-crds
-  kubectl --context $1 create ns openshift-config-managed
-  kubectl --context $1 apply -f ${CURRENT_DIR}/hoh/service-ca/
+  kubectl --context "$ctx" label node "$node_name"-control-plane node-role.kubernetes.io/master=
+  kubectl --context "$ctx" apply -f "$resource_dir"/service-ca-crds
+  kubectl --context "$ctx" create ns openshift-config-managed
+  kubectl --context "$ctx" apply -f "$resource_dir"/service-ca/
 }
 
 # deploy olm
@@ -388,12 +410,12 @@ wait_appear() {
   seconds=${2:-"600"}
   while [ -z "$(eval $command)" ]; do 
     if [ $seconds -lt 0 ]; then
-      echo "timout for appearing[$seconds]: $command"
+      echo -e "$RED timout [$seconds] $NC: $command"
       exit 1
     fi 
-    echo "waiting to appear[$seconds]: $command"
-    sleep 1
-    (( seconds = seconds - 1 ))
+    echo -e "$YELLOW waiting [$seconds] $NC: $command"
+    sleep 5
+    (( seconds = seconds - 5 ))
   done
   echo "> $command"
   eval $command
@@ -507,3 +529,29 @@ function check_volume() {
   fi
   echo "docker root dir: $(docker info -f '{{ .DockerRootDir}}')"
 }
+
+enable_cluster() {
+  hub=$1
+  cluster="$2"
+  # Apply label to managedcluster
+  kubectl label mcl "$cluster" vendor=OpenShift --context "$hub" --overwrite 2>&1
+  # Add clusterclaim
+  cat <<EOF | kubectl --context "$cluster" apply -f -
+apiVersion: cluster.open-cluster-management.io/v1alpha1
+kind: ClusterClaim
+metadata:
+  labels:
+    open-cluster-management.io/hub-managed: ""
+    velero.io/exclude-from-backup: "true"
+  name: id.k8s.io
+spec:
+  value: $(uuidgen)
+EOF
+}
+
+# Define ANSI escape codes for colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
