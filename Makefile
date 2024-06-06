@@ -83,9 +83,6 @@ e2e-test-validation e2e-test-cluster e2e-test-placement e2e-test-app e2e-test-po
 e2e-test-prune: tidy vendor
 	./cicd-scripts/run-local-e2e-test.sh -f "e2e-test-prune" -v $(VERBOSE)
 
-e2e-test-prune-all: tidy vendor
-	./cicd-scripts/run-local-e2e-test.sh -f e2e-test-prune -v $(VERBOSE)
-
 e2e-prow-tests: 
 	./cicd-scripts/run-prow-e2e-test.sh
 

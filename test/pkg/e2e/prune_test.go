@@ -47,7 +47,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		managedClusterName2 = managedClusters[1].Name
 	})
 
-	It("create application", Label("e2e-tests-global-resource"), func() {
+	It("create application", Label("e2e-test-global-resource"), func() {
 		By("Add app label to the managedcluster1")
 		assertAddLabel(managedClusters[0], APP_LABEL_KEY, APP_LABEL_VALUE)
 
@@ -67,9 +67,9 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("create policy", Label("e2e-tests-global-resource"), func() {
+	It("create policy", Label("e2e-test-global-resource"), func() {
 		By("Add policy label to the managedcluster2")
-		assertAddLabel(managedClusters[1], APP_LABEL_KEY, APP_LABEL_VALUE)
+		assertAddLabel(managedClusters[1], POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
 
 		By("Apply the policy to labeled cluster")
 		Eventually(func() error {
@@ -206,7 +206,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("prune application", Label("e2e-tests-global-resource"), func() {
+	It("prune application", Label("e2e-test-global-resource"), func() {
 		By("Delete the application finalizer")
 		Eventually(func() error {
 			applications := &applicationv1beta1.ApplicationList{}
@@ -269,7 +269,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("prune policy", Label("e2e-tests-global-resource"), func() {
+	It("prune policy", Label("e2e-test-global-resource"), func() {
 		By("Delete the policies finalizer")
 		Eventually(func() error {
 			policies := &policiesv1.PolicyList{}

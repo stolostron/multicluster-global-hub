@@ -240,7 +240,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		})
 	})
 
-	Context("When apply global policy with placement on the global hub", Label("e2e-tests-global-resource"), func() {
+	Context("When apply global policy with placement on the global hub", Label("e2e-test-global-resource"), func() {
 		It("apply policy with placement", func() {
 			By("Add managedCluster2 to the clusterset1")
 			assertAddLabel(managedClusters[1], CLUSTERSET_LABEL_KEY, policyClusterset)
@@ -301,7 +301,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 		})
 	})
 
-	Context("When apply global application with placement on the global hub", Label("e2e-tests-global-resource"), func() {
+	Context("When apply global application with placement on the global hub", Label("e2e-test-global-resource"), func() {
 		It("deploy application with placement", func() {
 			By("Add app label to the managedClusters")
 			assertAddLabel(managedClusters[0], APP_LABEL_KEY, APP_LABEL_VALUE)
