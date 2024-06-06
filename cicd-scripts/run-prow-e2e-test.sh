@@ -27,4 +27,4 @@ echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-dep && make e2e-setup" > >(tee "$ARTIFACT_DIR/run-e2e-setup.log") 2>&1
 
 echo "runn e2e tests"
-ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-test-all && make e2e-tests-prune" > >(tee "$ARTIFACT_DIR/run-e2e-test.log") 2>&1
+ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && make e2e-test-all && make e2e-test-prune" > >(tee "$ARTIFACT_DIR/run-e2e-test.log") 2>&1

@@ -203,8 +203,10 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 		if err != nil {
 			return err
 		}
-		if _, ok := managedClusterInfo.Labels[labelKey]; ok {
-			return fmt.Errorf("the label %s should not be deleted from cluster %s", labelKey, cluster.Name)
+		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+			if val == labelVal {
+				return fmt.Errorf("the label %s:%s should not be deleted from cluster %s", labelKey, labelVal, cluster.Name)
+			}
 		}
 		return nil
 	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())

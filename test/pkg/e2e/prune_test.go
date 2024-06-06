@@ -31,7 +31,7 @@ const (
 	REGINAL_HUB_NAME = "kind-hub1"
 )
 
-var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-tests-prune"), Ordered, func() {
+var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-test-prune"), Ordered, func() {
 	ctx := context.Background()
 	var runtimeClient client.Client
 	var managedClusterName1 string
