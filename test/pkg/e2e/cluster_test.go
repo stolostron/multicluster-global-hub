@@ -25,7 +25,7 @@ const (
 	CLUSTER_LABEL_VALUE = "test"
 )
 
-var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-cluster"), Ordered, func() {
+var _ = Describe("Updating cluster label from HoH manager", Label("e2e-test-cluster"), Ordered, func() {
 	It("add the label to the managed cluster", func() {
 		for _, managedCluster := range managedClusters {
 			assertAddLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)

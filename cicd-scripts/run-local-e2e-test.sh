@@ -30,7 +30,7 @@ hub_nonk8s_api_server="http://${global_hub_node_ip}:30080"
 # container postgres uri
 container_pg_port="32432"
 database_uri=$(kubectl get secret multicluster-global-hub-storage -n "$GH_NAMESPACE" --kubeconfig "$GH_KUBECONFIG" -ojsonpath='{.data.database_uri}' | base64 -d)
-container_pg_uri="$(echo "$database_uri" | sed s|@.*hoh|@"$global_hub_node_ip":$container_pg_port/hoh|g)"
+container_pg_uri=$(echo "$database_uri" | sed "s|@.*hoh|@${global_hub_node_ip}:${container_pg_port}/hoh|g")
 
 cat <<EOF > "$OPTIONS_FILE"
 options:

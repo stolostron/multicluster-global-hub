@@ -27,7 +27,7 @@ const (
 	LOCAL_PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
 )
 
-var _ = Describe("Apply local policy to the clusters", Ordered, Label("e2e-tests-local-policy"), func() {
+var _ = Describe("Apply local policy to the clusters", Ordered, Label("e2e-test-localpolicy"), func() {
 	var leafhubClients []client.Client
 	BeforeAll(func() {
 		By("Init leaf hub clients")

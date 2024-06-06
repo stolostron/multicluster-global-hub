@@ -25,7 +25,7 @@ const (
 	APP_SUB_NAMESPACE = "helloworld"
 )
 
-var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tests-app"), Ordered, func() {
+var _ = Describe("Deploy the application to the managed cluster", Label("e2e-test-app"), Ordered, func() {
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
 			By("Add label to the managedcluster")

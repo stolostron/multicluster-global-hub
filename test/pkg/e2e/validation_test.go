@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-tests-validation"), func() {
+var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-test-validation"), func() {
 	Context("Check all the clients could connect to the HoH servers", func() {
 		It("connect to the apiserver with kubernetes interface", func() {
 			hubClient := testClients.KubeClient()

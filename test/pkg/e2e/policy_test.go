@@ -31,7 +31,7 @@ const (
 	PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
 )
 
-var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
+var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-test-policy"), func() {
 	var globalClient client.Client
 	var managedClient client.Client
 	var managedClients []client.Client

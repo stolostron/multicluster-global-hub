@@ -119,14 +119,14 @@ function join_cluster() {
   echo "join cluster: $cluster to $hub"
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
-  if ! kubectl get mcl --context "${hub}" --ignore-not-found | grep -q "^$cluster$"; then
+  if [[ -z $(kubectl get mcl "$cluster" --context "$hub" --ignore-not-found) ]]; then
     if [[ $hub =~ "kind" ]]; then
       sed -e "s;<cluster_name>;$cluster --force-internal-endpoint-lookup --context $cluster --wait;" "$join_file" | bash
     else
       sed -e "s;<cluster_name>;$cluster --context $cluster --wait;" "$join_file" | bash
     fi
+    clusteradm accept --clusters "$2" --context "${hub}" --wait
   fi
-  clusteradm accept --clusters "$2" --context "${hub}" --wait
 }
 
 # init application-lifecycle
@@ -139,12 +139,6 @@ function init_app() {
   app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/master
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$hub"
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
-
-  # deploy the subscription operators to the hub cluster
-  clusteradm install hub-addon --names application-manager --context "$hub"
-
-  # enable the addon on the managed clusters
-  clusteradm addon enable --names application-manager --clusters "$cluster" --context "$hub"
 }
 
 function init_policy() {

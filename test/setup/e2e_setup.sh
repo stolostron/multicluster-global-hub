@@ -40,8 +40,14 @@ start_time=$(date +%s)
 # GH 
 export GH_KUBECONFIG=$KUBE_DIR/kind-$GH_NAME
 start_time=$(date +%s)
+
+# expose the server so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
 node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${GH_NAME}-control-plane)
 kubectl --kubeconfig "$GH_KUBECONFIG" config set-cluster kind-$GH_NAME --server="https://$node_ip:6443"
+for i in $(seq 1 "$MH_NUM"); do 
+  node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "hub$i-control-plane")
+  kubectl --kubeconfig "$KUBE_DIR/kind-hub$i" config set-cluster "kind-hub$i" --server="https://$node_ip:6443"
+done
 
 # init resources
 echo -e "$BLUE initilize resources $NC"
@@ -55,26 +61,18 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-# # install middlewares in async mode
+# Install posgres 
 bash "$CURRENT_DIR"/hoh/postgres/postgres_setup.sh "$GH_KUBECONFIG" 2>&1 &
 echo "$!" > "$KUBE_DIR/PID"
-bash "$CURRENT_DIR"/hoh/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >> "$KUBE_DIR/PID"
 
 # init hubs
 echo -e "$BLUE initializing hubs $NC"
-pids=()
 init_hub $GH_CTX &
-pids+=($!)
 for i in $(seq 1 "${MH_NUM}"); do
   init_hub "kind-hub$i" &
-  pids+=($!)
 done
 
-for pid in "${pids[@]}"; do
-  wait "$pid"
-done
-
+wait
 end_time=$(date +%s)
 echo -e "$YELLOW Initializing hubs:$NC $((end_time - start_time)) seconds"
 
@@ -84,41 +82,69 @@ start_time=$(date +%s)
 # join spoken clusters, if the cluster has been joined, then skip
 echo -e "$BLUE importing clusters $NC"
 
-pids=()
 for i in $(seq 1 "${MH_NUM}"); do
   join_cluster $GH_CTX "kind-hub$i" 2>&1 &  # join to global hub
-  pids+=($!)
   for j in $(seq 1 "${MC_NUM}"); do
     join_cluster "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 & # join to managed hub
-    pids+=($!)
   done
 done
 
-for pid in "${pids[@]}"; do
-  wait "$pid"
-done
-
+wait
 end_time=$(date +%s)
 echo -e "$YELLOW Importing cluster:$NC $((end_time - start_time)) seconds"
+
+# Install kafka and other resources
+bash "$CURRENT_DIR"/hoh/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >> "$KUBE_DIR/PID"
 
 # Install app and policy
 start_time=$(date +%s)
 
 # app
 echo -e "$BLUE deploying app $NC"
+
+# deploy the subscription operators to the hub cluster
+clusteradm install hub-addon --names application-manager --context "$GH_CTX" 2>&1 
 for i in $(seq 1 "${MH_NUM}"); do
-  init_app $GH_CTX "kind-hub$i" 2>&1 &
+  init_app $GH_CTX "kind-hub$i" 2>&1
+  # enable the addon on the managed clusters
+  clusteradm addon enable --names application-manager --clusters "kind-hub$i" --context "$GH_CTX"
+
+  clusteradm install hub-addon --names application-manager --context "kind-hub$i" 2>&1
   for j in $(seq 1 "${MC_NUM}"); do
-    init_app "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
+    init_app "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 
+    clusteradm addon enable --names application-manager --clusters "kind-hub$i-cluster$j" --context "kind-hub$i" 2>&1 
   done
 done
 
-# policy
-echo -e "$BLUE deploying policy $NC"
+# policy 
+# echo -e "$BLUE deploying policy $NC"
+# for i in $(seq 1 "${MH_NUM}"); do
+#   init_policy $GH_CTX "kind-hub$i" 2>&1 &
+#   for j in $(seq 1 "${MC_NUM}"); do
+#     init_policy "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
+#   done
+# done
+
+# policy framework
+echo -e "$BLUE deploying policy framework $NC"
+clusteradm install hub-addon --names governance-policy-framework --context $GH_CTX
 for i in $(seq 1 "${MH_NUM}"); do
-  init_policy $GH_CTX "kind-hub$i" 2>&1 &
+  clusteradm addon enable --names governance-policy-framework --clusters "kind-hub$i" --context $GH_CTX
+
+  clusteradm install hub-addon --names governance-policy-framework --context "kind-hub$i"
   for j in $(seq 1 "${MC_NUM}"); do
-    init_policy "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
+    clusteradm addon enable --names governance-policy-framework --clusters "kind-hub$i-cluster$j" --context "kind-hub$i"
+  done
+done
+
+# config controller
+echo -e "$BLUE deploying configuration policy controller $NC"
+
+for i in $(seq 1 "${MH_NUM}"); do
+  clusteradm addon enable addon --names config-policy-controller --clusters "kind-hub$i" --context $GH_CTX
+  for j in $(seq 1 "${MC_NUM}"); do
+    clusteradm addon enable addon --names config-policy-controller --clusters "kind-hub$i-cluster$j" --context "kind-hub$i"
   done
 done
 

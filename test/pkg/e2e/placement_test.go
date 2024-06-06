@@ -31,7 +31,7 @@ const (
 	CLUSTERSET_LABEL_KEY = "cluster.open-cluster-management.io/clusterset"
 )
 
-var _ = Describe("Apply policy/app with placement on the global hub", Ordered, Label("e2e-tests-placement"), func() {
+var _ = Describe("Apply policy/app with placement on the global hub", Ordered, Label("e2e-test-placement"), func() {
 	var globalClient client.Client
 	var leafhubClients []client.Client
 	var policyName, policyNamespace, policyClusterset string

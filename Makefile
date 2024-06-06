@@ -65,19 +65,19 @@ unit-tests-agent: setup_envtest
 unit-tests-pkg: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./pkg/... | grep -v test`
 
-e2e-setup-dependencies: 
+e2e-dep: 
 	./test/setup/e2e_dependencies.sh
 
-e2e-setup-start: tidy vendor e2e-setup-dependencies
+e2e-setup: tidy vendor e2e-dep
 	./test/setup/e2e_setup.sh
 
-e2e-setup-clean:
+e2e-cleanup:
 	./test/setup/e2e_clean.sh
 
-e2e-tests-all: tidy vendor
-	./cicd-scripts/run-local-e2e-test.sh -f "e2e-tests-validation,e2e-tests-local-policy,e2e-tests-grafana,e2e-tests-placement,e2e-tests-app,e2e-tests-policy,e2e-tests-backup" -v $(VERBOSE)
+e2e-test-all: tidy vendor
+	./cicd-scripts/run-local-e2e-test.sh -f "e2e-test-validation,e2e-test-localpolicy,e2e-tests-grafana,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup" -v $(VERBOSE)
 
-e2e-tests-validation e2e-tests-cluster e2e-tests-placement e2e-tests-app e2e-tests-policy e2e-tests-local-policy: tidy vendor
+e2e-test-validation e2e-test-cluster e2e-test-placement e2e-test-app e2e-test-policy e2e-test-localpolicy: tidy vendor
 	./cicd-scripts/run-local-e2e-test.sh -f $@ -v $(VERBOSE)
 
 e2e-tests-prune: tidy vendor

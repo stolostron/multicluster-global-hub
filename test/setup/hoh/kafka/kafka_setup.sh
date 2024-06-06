@@ -25,7 +25,6 @@ echo "Kafka operator is ready"
 # deploy kafka cluster
 kubectl apply -k "$current_dir/kafka-cluster" -n "$target_namespace"
 wait_appear "kubectl -n $target_namespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
-echo "Kafka cluster is ready"
 
 # patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
 node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
@@ -46,6 +45,8 @@ kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p
     }
   }
 ]'
+
+echo "Kafka cluster is ready"
 
 # BYO: 1. create the topics; 2. create the user; 3. create the transport secret 
 # wait_appear "kubectl get kafkatopic spec -n $target_namespace --ignore-not-found | grep spec || true"
