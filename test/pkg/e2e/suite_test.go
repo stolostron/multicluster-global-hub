@@ -190,10 +190,10 @@ func findRootDir(dir string) (string, error) {
 
 func deployGlobalHub() {
 	By("Creating namespace for the ServiceMonitor")
-	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(), ServiceMonitorNamespace,
+	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(ctx, ServiceMonitorNamespace,
 		metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: ServiceMonitorNamespace,
 			},
@@ -202,10 +202,10 @@ func deployGlobalHub() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating namespace for the multicluster global hub")
-	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(),
+	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(ctx,
 		commonutils.GetDefaultNamespace(), metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: commonutils.GetDefaultNamespace(),
 			},
@@ -256,17 +256,25 @@ func deployGlobalHub() {
 	}
 
 	By("Verifying the multicluster-global-hub-grafana/manager")
+	components := map[string]int{}
+	components["multicluster-global-hub-operator"] = 0
+	components["multicluster-global-hub-manager"] = 0
+	components["multicluster-global-hub-grafana"] = 0
 	Eventually(func() error {
-		err := checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-operator")
-		if err != nil {
-			return err
+		for name, count := range components {
+			err := checkDeployAvailable(runtimeClient, Namespace, name)
+			if err != nil {
+				components[name] += 1
+				// restart it if the blocking time exceeds 30 seconds
+				if count > 30 {
+					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), Namespace, name)
+					components[name] = 0
+				}
+				return err
+			}
 		}
-		err = checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-manager")
-		if err != nil {
-			return err
-		}
-		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
-	}, 3*time.Minute, 1*time.Second).Should(Succeed())
+		return nil
+	}, 5*time.Minute, 1*time.Second).Should(Succeed())
 
 	// Before run test, the mgh should be ready
 	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
@@ -275,7 +283,7 @@ func deployGlobalHub() {
 
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {
 	deployment := &appsv1.Deployment{}
-	err := runtimeClient.Get(context.Background(), client.ObjectKey{
+	err := runtimeClient.Get(ctx, client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
 	}, deployment)
@@ -293,7 +301,7 @@ func checkDeployAvailable(runtimeClient client.Client, namespace, name string) e
 
 func patchGHDeployment(runtimeClient client.Client, namespace, name string) error {
 	deployment := &appsv1.Deployment{}
-	err := runtimeClient.Get(context.Background(), client.ObjectKey{
+	err := runtimeClient.Get(ctx, client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
 	}, deployment)
@@ -302,5 +310,5 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	}
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
-	return runtimeClient.Update(context.Background(), deployment)
+	return runtimeClient.Update(ctx, deployment)
 }
