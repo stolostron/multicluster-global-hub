@@ -118,33 +118,11 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 
 # policy 
-# echo -e "$BLUE deploying policy $NC"
-# for i in $(seq 1 "${MH_NUM}"); do
-#   init_policy $GH_CTX "kind-hub$i" 2>&1 &
-#   for j in $(seq 1 "${MC_NUM}"); do
-#     init_policy "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
-#   done
-# done
-
-# policy framework
-echo -e "$BLUE deploying policy framework $NC"
-clusteradm install hub-addon --names governance-policy-framework --context $GH_CTX
+echo -e "$BLUE deploying policy $NC"
 for i in $(seq 1 "${MH_NUM}"); do
-  clusteradm addon enable --names governance-policy-framework --clusters "kind-hub$i" --context $GH_CTX
-
-  clusteradm install hub-addon --names governance-policy-framework --context "kind-hub$i"
+  init_policy $GH_CTX "kind-hub$i" 2>&1 &
   for j in $(seq 1 "${MC_NUM}"); do
-    clusteradm addon enable --names governance-policy-framework --clusters "kind-hub$i-cluster$j" --context "kind-hub$i"
-  done
-done
-
-# config controller
-echo -e "$BLUE deploying configuration policy controller $NC"
-
-for i in $(seq 1 "${MH_NUM}"); do
-  clusteradm addon enable addon --names config-policy-controller --clusters "kind-hub$i" --context $GH_CTX
-  for j in $(seq 1 "${MC_NUM}"); do
-    clusteradm addon enable addon --names config-policy-controller --clusters "kind-hub$i-cluster$j" --context "kind-hub$i"
+    init_policy "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
   done
 done
 

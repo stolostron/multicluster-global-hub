@@ -205,7 +205,8 @@ function init_policy() {
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
   kubectl --context "$cluster" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/config-policy-controller:$CONFIG_GRC_VERSION -n ${MANAGED_NAMESPACE}
-  kubectl set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"
+  kubectl --context "$cluster" set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"
+  #kubectl patch deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--cluster-name='"${MANAGED_CLUSTER_NAME}"'"}]'
 }
 
 function check_policy_readiness() {
