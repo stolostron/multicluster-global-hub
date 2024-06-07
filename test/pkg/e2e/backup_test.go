@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -41,8 +42,11 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 		var err error
 		runtimeClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 		Expect(err).ShouldNot(HaveOccurred())
+
 		err = runtimeClient.Create(ctx, mchObj)
-		Expect(err).ShouldNot(HaveOccurred())
+		if !errors.IsAlreadyExists(err) {
+			Expect(err).ShouldNot(HaveOccurred())
+		}
 	})
 
 	It("The pvc should have backup label", func() {

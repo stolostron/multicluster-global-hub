@@ -544,6 +544,37 @@ spec:
 EOF
 }
 
+function wait_ocm() {
+  hub=$1
+  cluster=$2
+  echo -e "$BLUE waiting OCM $1:$2 compoenents $NC"
+  kubectl wait deploy/cluster-manager -n open-cluster-management   --for condition=Available=True --timeout=600s --context "$hub"
+  kubectl get pod -n open-cluster-management-hub --context "$hub" # other hub controle planes
+
+  kubectl wait deploy/klusterlet-registration-agent -n open-cluster-management-agent --for condition=Available=True --timeout=600s --context "$cluster"
+  kubectl wait deploy/klusterlet-work-agent -n open-cluster-management-agent --for condition=Available=True --timeout=600s --context "$cluster"
+}
+
+function wait_policy() {
+  hub=$1
+  cluster=$2
+  echo -e "$BLUE waiting Policy $1:$2 compoenents $NC"
+  kubectl wait deploy/governance-policy-propagator -n open-cluster-management   --for condition=Available=True --timeout=600s --context "$hub"
+
+  kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  # configuration policy controller
+  kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+}
+
+function wait_application() {
+  hub=$1
+  cluster=$2
+  echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
+  kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management   --for condition=Available=True --timeout=600s --context "$hub"
+
+  kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+}
+
 # Define ANSI escape codes for colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'

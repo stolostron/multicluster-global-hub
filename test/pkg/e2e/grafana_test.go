@@ -30,7 +30,7 @@ const (
 	grafanaDeploymentName = "multicluster-global-hub-grafana"
 )
 
-var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-tests-grafana"), func() {
+var _ = Describe("The alert configmap should be created", Ordered, Label("e2e-test-grafana"), func() {
 	It("Merged alert configmap should be same as default configmap", func() {
 		Eventually(func() error {
 			defaultAlertConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(Namespace).Get(ctx, defaultAlertName, metav1.GetOptions{})
@@ -179,7 +179,7 @@ policies:
 	})
 })
 
-var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-tests-grafana"), func() {
+var _ = Describe("The grafana.ini should be created", Ordered, Label("e2e-test-grafana"), func() {
 	It("Merged grafana.ini should be same as default configmap", func() {
 		ctx := context.Background()
 		Eventually(func() error {
@@ -261,7 +261,7 @@ func sectionCount(a []byte) int {
 	return len(cfg.Sections()) - 1
 }
 
-var _ = Describe("The grafana resources counts should be right", Ordered, Label("e2e-tests-grafana"), func() {
+var _ = Describe("The grafana resources counts should be right", Ordered, Label("e2e-test-grafana"), func() {
 	It("The grafana default alert rules count should be ok", func() {
 		ctx := context.Background()
 		Eventually(func() error {

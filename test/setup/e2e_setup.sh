@@ -142,11 +142,37 @@ done
 
 wait
 
+set +x
+
+# check COM
+for i in $(seq 1 "$MH_NUM"); do
+  wait_ocm $GH_CTX "kind-hub$i"
+  for j in $(seq 1 "$MC_NUM"); do
+    wait_ocm "kind-hub$i" "kind-hub$i-cluster$j"
+  done 
+done
+
+# check Policy
+for i in $(seq 1 "$MH_NUM"); do
+  wait_policy $GH_CTX "kind-hub$i"
+  for j in $(seq 1 "$MC_NUM"); do
+    wait_policy "kind-hub$i" "kind-hub$i-cluster$j"
+  done 
+done
+
+# check Applicaiton
+for i in $(seq 1 "$MH_NUM"); do
+  wait_application $GH_CTX "kind-hub$i"
+  for j in $(seq 1 "$MC_NUM"); do
+    wait_application "kind-hub$i" "kind-hub$i-cluster$j"
+  done 
+done
+
 #need the following labels to enable deploying agent in leaf hub cluster
 for i in $(seq 1 "${MH_NUM}"); do
-  echo -e "$GREEN [Access the Clusters]: export KUBECONFIG=$KUBE_DIR/kind-hub$i $NC"
+  echo -e "$GREEN [Access the kind-hub$i]: export KUBECONFIG=$KUBE_DIR/kind-hub$i $NC"
   for j in $(seq 1 "${MC_NUM}"); do
-    echo -e "$GREEN [Access the Clusters]: export KUBECONFIG=$KUBE_DIR/kind-hub$i-cluster$j $NC"
+    echo -e "$GREEN [Access the kind-hub$i-cluster$j]: export KUBECONFIG=$KUBE_DIR/kind-hub$i-cluster$j $NC"
   done
 done
-echo -e "$GREEN [Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
+echo -e "$RED [Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
