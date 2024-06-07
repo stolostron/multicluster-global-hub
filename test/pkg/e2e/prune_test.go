@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	TIMEOUT          = 2 * time.Minute
-	INTERVAL         = 1 * time.Second
-	REGINAL_HUB_NAME = "kind-hub1"
+	TIMEOUT  = 2 * time.Minute
+	INTERVAL = 1 * time.Second
 )
 
 var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-test-prune"), Ordered, func() {

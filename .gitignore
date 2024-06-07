@@ -28,6 +28,9 @@ bin
 demos/setup/config/
 doc/simulation/backup_restore/run
 test/setup/config/
+test/setup/kubeconfig/
+test/setup/options.yaml
+test/setup/report
 
 .tmp
 .idea
