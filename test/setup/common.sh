@@ -7,7 +7,7 @@ export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
-export GINKGO_VERSION=v2.15.0
+export GINKGO_VERSION=v2.17.2
 
 check_dir() {
   if [ ! -d "$1" ]; then
@@ -534,8 +534,9 @@ enable_cluster() {
   local cluster="$2"
   # Apply label to managedcluster
   kubectl label mcl "$cluster" vendor=OpenShift --context "$hub" --overwrite 2>&1
-  # Add clusterclaim
-  cat <<EOF | kubectl --context "$cluster" apply -f -
+  if ! kubectl --context "$cluster" get clusterclaim "id.k8s.io" > /dev/null 2>&1; then
+    # Add clusterclaim
+    cat <<EOF | kubectl --context "$cluster" apply -f -
 apiVersion: cluster.open-cluster-management.io/v1alpha1
 kind: ClusterClaim
 metadata:
@@ -546,6 +547,7 @@ metadata:
 spec:
   value: $(uuidgen)
 EOF
+  fi
 }
 
 wait_ocm() {
