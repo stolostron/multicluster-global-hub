@@ -427,6 +427,7 @@ data:
           "fieldConfig": {
             "defaults": {
               "links": [],
+              "unit": "none",
               "unitScale": true
             },
             "overrides": []
@@ -498,7 +499,7 @@ data:
           "yaxes": [
             {
               "$$hashKey": "object:271",
-              "format": "decbytes",
+              "format": "none",
               "logBase": 1,
               "show": true
             },

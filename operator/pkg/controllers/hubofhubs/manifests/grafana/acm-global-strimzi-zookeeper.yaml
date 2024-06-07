@@ -669,6 +669,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Aggregated ZooKeeper pods CPU usage",
@@ -718,10 +719,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
+              "editorMode": "code",
               "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$kubernetes_namespace\",container=\"zookeeper\",pod=~\"$strimzi_cluster_name-$zk_node\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{pod}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -761,6 +764,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Kafka broker pods disk usage",
@@ -810,10 +814,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data(-[0-9]+)?-$strimzi_cluster_name-zookeeper-[0-9]+\"}) by (persistentvolumeclaim)",
+              "editorMode": "code",
+              "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data-kafka-$zk_node\"}) by (persistentvolumeclaim)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{persistentvolumeclaim}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -853,6 +859,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Open File Descriptors",
@@ -903,11 +910,13 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(process_open_fds{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-zookeeper-[0-9+]\",container=\"zookeeper\"}) by (kubernetes_pod_name)",
+              "editorMode": "code",
+              "expr": "sum(process_open_fds{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$zk_node\",container=\"zookeeper\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -1220,6 +1229,7 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "JVM thread count",
@@ -1270,10 +1280,12 @@ data:
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
-              "expr": "sum(jvm_threads_current{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-zookeeper-[0-9+]\",strimzi_io_name=\"$strimzi_cluster_name-zookeeper\"}) by (kubernetes_pod_name)",
+              "editorMode": "code",
+              "expr": "sum(jvm_threads_current{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$zk_node\",strimzi_io_name=\"$strimzi_cluster_name-zookeeper\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
