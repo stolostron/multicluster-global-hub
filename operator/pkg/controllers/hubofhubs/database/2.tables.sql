@@ -76,8 +76,10 @@ CREATE TABLE IF NOT EXISTS event.managed_clusters (
 
 CREATE TABLE IF NOT EXISTS event.local_policies (
     event_name text NOT NULL,
+    event_namespace text,
     policy_id uuid NOT NULL,
     cluster_id uuid NOT NULL,
+    cluster_name text,
     leaf_hub_name character varying(254) NOT NULL,
     message text,
     reason text,
@@ -90,6 +92,7 @@ CREATE TABLE IF NOT EXISTS event.local_policies (
 
 CREATE TABLE IF NOT EXISTS event.local_root_policies (
     event_name text NOT NULL,
+    event_namespace text,
     policy_id uuid NOT NULL,
     leaf_hub_name character varying(254) NOT NULL,
     message text,

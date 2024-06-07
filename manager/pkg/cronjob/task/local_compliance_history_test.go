@@ -103,7 +103,7 @@ var _ = Describe("LocalComplianceHistory", Ordered, func() {
 
 	It("Update the history compliance by event1", func() {
 		By("Create the data to the event.local_policies table")
-		policyEvent := models.LocalClusterPolicyEvent{
+		policyEvent := models.LocalReplicatedPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
 				EventName:   "default.rootpolicy-1.managedcluster-1.37695",
 				PolicyID:    "00000000-0000-0000-0000-000000000001",
@@ -134,7 +134,7 @@ var _ = Describe("LocalComplianceHistory", Ordered, func() {
 
 	It("Update the history compliance by event2", func() {
 		By("Create the data to the event.local_policies table")
-		policyEvent := models.LocalClusterPolicyEvent{
+		policyEvent := models.LocalReplicatedPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
 				EventName:   "default.rootpolicy-1.managedcluster-1.37696",
 				PolicyID:    "00000000-0000-0000-0000-000000000001",
@@ -165,7 +165,7 @@ var _ = Describe("LocalComplianceHistory", Ordered, func() {
 
 	It("Update the history compliance by event3", func() {
 		By("Create the data to the event.local_policies table")
-		policyEvent := models.LocalClusterPolicyEvent{
+		policyEvent := models.LocalReplicatedPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
 				EventName:   "default.rootpolicy-1.managedcluster-1.37697",
 				PolicyID:    "00000000-0000-0000-0000-000000000001",

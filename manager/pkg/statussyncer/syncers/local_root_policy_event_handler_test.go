@@ -18,7 +18,7 @@ import (
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalEventPolicyHandler"
 var _ = Describe("LocalEventPolicyHandler", Ordered, func() {
-	It("should be able to sync replicate policy event", func() {
+	It("should be able to sync root policy event", func() {
 		By("Create hubClusterInfo event")
 
 		leafHubName := "hub1"

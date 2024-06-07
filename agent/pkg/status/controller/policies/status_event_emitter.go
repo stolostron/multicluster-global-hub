@@ -90,7 +90,7 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 		return false // no status to update
 	}
 
-	rootPolicy, clusterID, err := GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
+	rootPolicy, clusterID, clusterName, err := GetRootPolicyAndClusterInfo(h.ctx, policy, h.runtimeClient)
 	if err != nil {
 		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
 		return false
@@ -117,9 +117,10 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 						},
 						CreatedAt: evt.LastTimestamp,
 					},
-					PolicyID:   string(rootPolicy.GetUID()),
-					ClusterID:  clusterID,
-					Compliance: GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
+					PolicyID:    string(rootPolicy.GetUID()),
+					ClusterID:   clusterID,
+					ClusterName: clusterName,
+					Compliance:  GetComplianceState(MessageCompliaceStateRegex, evt.Message, string(detail.ComplianceState)),
 				})
 				updated = true
 			}
@@ -165,21 +166,21 @@ func GetComplianceState(regex *regexp.Regexp, message, defaultVal string) string
 	return defaultVal
 }
 
-func GetRootPolicyAndClusterID(ctx context.Context, replicatedPolicy *policiesv1.Policy, c client.Client) (
-	rootPolicy *policiesv1.Policy, clusterID string, err error,
+func GetRootPolicyAndClusterInfo(ctx context.Context, replicatedPolicy *policiesv1.Policy, c client.Client) (
+	rootPolicy *policiesv1.Policy, clusterID, clusterName string, err error,
 ) {
 	rootPolicyNamespacedName := replicatedPolicy.Labels[constants.PolicyEventRootPolicyNameLabelKey]
 	rootPolicy, err = utils.GetRootPolicy(ctx, c, rootPolicyNamespacedName)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 
 	clusterName, ok := replicatedPolicy.Labels[constants.PolicyEventClusterNameLabelKey]
 	if !ok {
-		return rootPolicy, clusterID,
+		return rootPolicy, "", "",
 			fmt.Errorf("label %s not found in policy %s/%s",
 				constants.PolicyEventClusterNameLabelKey, replicatedPolicy.Namespace, replicatedPolicy.Name)
 	}
 	clusterID, err = utils.GetClusterId(ctx, c, clusterName)
-	return rootPolicy, clusterID, err
+	return rootPolicy, clusterID, clusterName, err
 }

@@ -17,8 +17,8 @@ import (
 )
 
 // go test ./manager/pkg/statussyncer/syncers -v -ginkgo.focus "LocalPolicyEventHandler"
-var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
-	It("should handle the local policy(replicated) event", func() {
+var _ = Describe("LocalReplicatedPolicyEventHandler", Ordered, func() {
+	It("should handle the local replicated policy event", func() {
 		By("Create Event")
 		leafHubName := "hub1"
 		version := eventversion.NewVersion()
@@ -28,6 +28,7 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 		eventName := "local-policy-namespace.policy-limitrange.17b0db242743213210"
 		policyID := "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d"
 		clusterID := "f302ce61-98e7-4d63-8dd2-65951e32fd95"
+		clusterName := "cluster1"
 		compliance := "NonCompliant"
 		data = append(data, event.ReplicatedPolicyEvent{
 			BaseEvent: event.BaseEvent{
@@ -42,9 +43,10 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 				},
 				CreatedAt: metav1.NewTime(time.Now()),
 			},
-			PolicyID:   policyID,
-			ClusterID:  clusterID,
-			Compliance: compliance,
+			PolicyID:    policyID,
+			ClusterID:   clusterID,
+			ClusterName: clusterName,
+			Compliance:  compliance,
 		})
 
 		evt := ToCloudEvent(leafHubName, string(enum.LocalReplicatedPolicyEventType), version, data)
@@ -56,7 +58,7 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 		By("Check event is created and expired policy is deleted from database")
 		Eventually(func() error {
 			db := database.GetGorm()
-			var replicatedPolicyEvents []models.LocalClusterPolicyEvent
+			var replicatedPolicyEvents []models.LocalReplicatedPolicyEvent
 
 			err = db.Where("leaf_hub_name = ?", leafHubName).Find(&replicatedPolicyEvents).Error
 			if err != nil {
@@ -65,7 +67,8 @@ var _ = Describe("LocalPolicyEventHandler", Ordered, func() {
 
 			for _, e := range replicatedPolicyEvents {
 				fmt.Println("LocalPolicyEvent:", e.EventName, e.ClusterID, e.Compliance)
-				if e.EventName == eventName && e.ClusterID == clusterID && e.Compliance == string(database.NonCompliant) {
+				if e.EventName == eventName && e.ClusterID == clusterID && e.ClusterName == clusterName &&
+					e.Compliance == string(database.NonCompliant) {
 					return nil
 				}
 			}

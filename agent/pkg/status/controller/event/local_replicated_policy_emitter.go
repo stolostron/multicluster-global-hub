@@ -126,9 +126,9 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 		return false
 	}
 
-	rootPolicy, clusterID, err := policies.GetRootPolicyAndClusterID(h.ctx, policy, h.runtimeClient)
+	rootPolicy, clusterID, clusterName, err := policies.GetRootPolicyAndClusterInfo(h.ctx, policy, h.runtimeClient)
 	if err != nil {
-		h.log.Error(err, "failed to get get rootPolicy/clusterID by replicatedPolicy")
+		h.log.Error(err, "failed to get get rootPolicy/clusterID/clusterName from the replicatedPolicy")
 		return false
 	}
 	// update
@@ -142,9 +142,10 @@ func (h *localReplicatedPolicyEmitter) Update(obj client.Object) bool {
 			Source:         evt.Source,
 			CreatedAt:      evt.CreationTimestamp,
 		},
-		PolicyID:   string(rootPolicy.GetUID()),
-		ClusterID:  clusterID,
-		Compliance: policyCompliance(rootPolicy, evt),
+		PolicyID:    string(rootPolicy.GetUID()),
+		ClusterID:   clusterID,
+		ClusterName: clusterName,
+		Compliance:  policyCompliance(rootPolicy, evt),
 	}
 	// cache to events and update version
 	h.payload = append(h.payload, replicatedPolicyEvent)

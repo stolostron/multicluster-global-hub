@@ -13,3 +13,7 @@ ALTER TABLE history.local_compliance ADD CONSTRAINT local_policies_unique_constr
 ---- Handle Upgrade from 1.1 to 1.2
 ALTER TYPE status.compliance_type ADD VALUE IF NOT EXISTS 'pending';
 ALTER TYPE local_status.compliance_type ADD VALUE IF NOT EXISTS 'pending';
+
+ALTER TABLE event.local_policies ADD COLUMN IF NOT EXISTS event_namespace text;
+ALTER TABLE event.local_policies ADD COLUMN IF NOT EXISTS cluster_name text;
+ALTER TABLE event.local_root_policies ADD COLUMN IF NOT EXISTS event_namespace text;

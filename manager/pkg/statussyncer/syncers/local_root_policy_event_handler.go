@@ -19,17 +19,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-type localEventPolicyHandler struct {
+type localRootPolicyEventHandler struct {
 	log           logr.Logger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 }
 
-func NewLocalEventPolicyHandler() conflator.Handler {
+func NewLocalRootPolicyEventHandler() conflator.Handler {
 	eventType := string(enum.LocalRootPolicyEventType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
-	return &localEventPolicyHandler{
+	return &localRootPolicyEventHandler{
 		log:           ctrl.Log.WithName(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.DeltaStateMode,
@@ -37,7 +37,7 @@ func NewLocalEventPolicyHandler() conflator.Handler {
 	}
 }
 
-func (h *localEventPolicyHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
+func (h *localRootPolicyEventHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
 		h.eventSyncMode,
@@ -46,7 +46,7 @@ func (h *localEventPolicyHandler) RegisterHandler(conflationManager *conflator.C
 	))
 }
 
-func (h *localEventPolicyHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
@@ -66,14 +66,15 @@ func (h *localEventPolicyHandler) handleEvent(ctx context.Context, evt *cloudeve
 		}
 		localRootPolicyEvent = append(localRootPolicyEvent, models.LocalRootPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-				LeafHubName: leafHubName,
-				EventName:   element.EventName,
-				PolicyID:    element.PolicyID,
-				Message:     element.Message,
-				Reason:      element.Reason,
-				Count:       int(element.Count),
-				Compliance:  string(common.GetDatabaseCompliance(element.Compliance)),
-				CreatedAt:   element.CreatedAt.Time,
+				LeafHubName:    leafHubName,
+				EventName:      element.EventName,
+				EventNamespace: element.EventNamespace,
+				PolicyID:       element.PolicyID,
+				Message:        element.Message,
+				Reason:         element.Reason,
+				Count:          int(element.Count),
+				Compliance:     string(common.GetDatabaseCompliance(element.Compliance)),
+				CreatedAt:      element.CreatedAt.Time,
 			},
 		})
 	}
