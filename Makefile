@@ -66,7 +66,7 @@ unit-tests-pkg: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./pkg/... | grep -v test`
 
 e2e-dep: 
-	./test/setup/e2e_dependencies.sh
+	./test/setup/e2e_dep.sh
 
 e2e-setup: tidy vendor e2e-dep
 	./test/setup/e2e_setup.sh
