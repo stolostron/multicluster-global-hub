@@ -559,20 +559,38 @@ function wait_policy() {
   hub=$1
   cluster=$2
   echo -e "$BLUE waiting Policy $1:$2 compoenents $NC"
-  kubectl wait deploy/governance-policy-propagator -n open-cluster-management   --for condition=Available=True --timeout=600s --context "$hub"
+  run_with_retry "kubectl wait deploy/governance-policy-propagator -n open-cluster-management   --for condition=Available=True --timeout=600s --context $hub"
 
-  kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  run_with_retry "kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
   # configuration policy controller
-  kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  run_with_retry "kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
 }
 
 function wait_application() {
   hub=$1
   cluster=$2
   echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
-  kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management   --for condition=Available=True --timeout=600s --context "$hub"
+  run_with_retry "kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management   --for condition=Available=True --timeout=600s --context $hub"
 
-  kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  run_with_retry "kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
+}
+
+run_with_retry() {
+  local command=$1
+  local retries=60
+  local count=0
+  local delay=5
+
+  until $command; do
+    count=$((count + 1))
+    if [ $count -lt $retries ]; then
+      echo -e "$YELLOW Command failed. $NC Attempt $count/$retries. Retrying in $delay seconds..."
+      sleep $delay
+    else
+      echo -e "$RED Command failed after $retries attempts:$NC $command"
+      exit 1
+    fi
+  done
 }
 
 # Define ANSI escape codes for colors
@@ -581,3 +599,4 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+

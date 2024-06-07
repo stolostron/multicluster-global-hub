@@ -79,8 +79,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 			By("Deploy the placement policy to the leafhub")
 			for _, leafhubName := range leafHubNames {
 				output, err := testClients.Kubectl(leafhubName, "apply", "-f", PLACEMENT_LOCAL_POLICY_YAML)
-				fmt.Printf("deploy inform local policy:\n %s \n", output)
-				Expect(err).Should(Succeed())
+				Expect(err).Should(Succeed(), string(output))
 			}
 
 			By("Verify the local policy is directly synchronized to the global hub spec table")

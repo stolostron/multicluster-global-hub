@@ -164,7 +164,7 @@ done
 for i in $(seq 1 "$MH_NUM"); do
   wait_application $GH_CTX "kind-hub$i"
   for j in $(seq 1 "$MC_NUM"); do
-    wait_application "kind-hub$i" "kind-hub$i-cluster$j"
+   wait_application "kind-hub$i" "kind-hub$i-cluster$j"
   done 
 done
 

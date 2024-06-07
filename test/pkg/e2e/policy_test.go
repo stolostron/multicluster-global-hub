@@ -307,8 +307,6 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 		return nil, err
 	}
 
-	klog.V(5).Info(fmt.Sprintf("Get policy status response body from non-k8s-api: \n%s\n", body))
-
 	err = json.Unmarshal(body, policy)
 	if err != nil {
 		return nil, err

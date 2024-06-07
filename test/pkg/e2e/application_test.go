@@ -116,8 +116,6 @@ func getAppsubReport(httpClient *http.Client, name, namespace string,
 		return nil, err
 	}
 
-	klog.V(5).Info(fmt.Sprintf("get subscription report reponse body: \n%s\n", body))
-
 	err = json.Unmarshal(body, appsubreport)
 	if err != nil {
 		return nil, err
