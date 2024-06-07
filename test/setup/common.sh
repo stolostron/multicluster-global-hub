@@ -11,34 +11,37 @@ export GINKGO_VERSION=v2.15.0
 export CONFIG_GRC_VERSION=v0.13.0
 
 check_dir() {
-  if [ ! -d "$1" ];then
+  if [ ! -d "$1" ]; then
     mkdir "$1"
   fi
 }
 
 hover() {
-  local pid=$1; message=${2:-Processing!}; delay=0.4
-  current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-  echo "$pid" > "${current_dir}/config/pid"
+  local pid=$1
+  message=${2:-Processing!}
+  delay=0.4
+  current_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  echo "$pid" >"${current_dir}/config/pid"
   signs=(🙉 🙈 🙊)
-  while ( kill -0 "$pid" 2>/dev/null ); do
+  while (kill -0 "$pid" 2>/dev/null); do
     if [[ $LOG =~ "/dev/"* ]]; then
       sleep $delay
     else
       index="${RANDOM} % ${#signs[@]}"
-      printf "\e[38;5;$((RANDOM%257))m%s\r\e[0m" "[$(date '+%H:%M:%S')]  ${signs[${index}]}  ${message} ..."; sleep ${delay}
+      printf "\e[38;5;$((RANDOM % 257))m%s\r\e[0m" "[$(date '+%H:%M:%S')]  ${signs[${index}]}  ${message} ..."
+      sleep ${delay}
     fi
   done
-  printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}";
+  printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}"
 }
 
 check_kubectl() {
-  if ! command -v kubectl >/dev/null 2>&1; then 
+  if ! command -v kubectl >/dev/null 2>&1; then
     echo "This script will install kubectl (https://kubernetes.io/docs/tasks/tools/install-kubectl/) on your machine"
     if [[ "$(uname)" == "Linux" ]]; then
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl
+      curl -LO https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/linux/amd64/kubectl
     elif [[ "$(uname)" == "Darwin" ]]; then
-        curl -LO https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/darwin/amd64/kubectl
+      curl -LO https://storage.googleapis.com/kubernetes-release/release/$KUBECTL_VERSION/bin/darwin/amd64/kubectl
     fi
     chmod +x ./kubectl
     sudo mv ./kubectl ${INSTALL_DIR}/kubectl
@@ -47,8 +50,8 @@ check_kubectl() {
 }
 
 check_clusteradm() {
-  if ! command -v clusteradm >/dev/null 2>&1; then 
-    # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash 
+  if ! command -v clusteradm >/dev/null 2>&1; then
+    # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash
     curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/v$CLUSTERADM_VERSION/install.sh
     chmod +x ./install.sh
     export INSTALL_DIR=$INSTALL_DIR
@@ -59,7 +62,7 @@ check_clusteradm() {
 }
 
 check_kind() {
-  if ! command -v kind >/dev/null 2>&1; then 
+  if ! command -v kind >/dev/null 2>&1; then
     echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
     curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
     chmod +x ./kind-amd64
@@ -72,39 +75,39 @@ kind_cluster() {
   if ! kind get clusters | grep -q "^$cluster_name$"; then
     kind create cluster --name "$cluster_name" --wait 1m
     dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-    kubectl config view --context="kind-$cluster_name" --minify --flatten > "$dir/kind-$cluster_name"
+    kubectl config view --context="kind-$cluster_name" --minify --flatten >"$dir/kind-$cluster_name"
   fi
 }
 
 init_hub() {
   echo "Initializing Hub $1 ..."
-  clusteradm init --wait --context "$1" > /dev/null 2>&1
-  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1" 
-  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1" 
-  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s  --context "$1"
+  clusteradm init --wait --context "$1" >/dev/null 2>&1
+  kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
+  kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
-  clusteradm get token --context "$1" | grep "clusteradm" > "$join_file"
+  clusteradm get token --context "$1" | grep "clusteradm" >"$join_file"
 }
 
 init_managed() {
-  hub="$1"
-  managed_prefix_name="$2"
-  managed_cluster_num="$3"
-  managed_cluster_name=""
+  local hub="$1"
+  local managed_prefix_name="$2"
+  local managed_cluster_num="$3"
+  local managed_cluster_name=""
 
-  dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+  dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   join_cmd="${dir}/config/join-${hub}"
   for i in $(seq 1 "${managed_cluster_num}"); do
-    managed="${managed_prefix_name}$i"
+    local managed="${managed_prefix_name}$i"
     if [[ $(kubectl get managedcluster --context "${hub}" --ignore-not-found | grep "$managed" || true) == "" ]]; then
       kubectl config use-context "$managed"
-      clusteradm get token --context "${hub}" | grep "clusteradm" > "$join_cmd"
+      clusteradm get token --context "${hub}" | grep "clusteradm" >"$join_cmd"
       if [[ $hub =~ "kind" ]]; then
-        sed -e "s;<cluster_name>;$managed --force-internal-endpoint-lookup --wait;" "$join_cmd" > "${join_cmd}-named"
+        sed -e "s;<cluster_name>;$managed --force-internal-endpoint-lookup --wait;" "$join_cmd" >"${join_cmd}-named"
         sed -e "s;<cluster_name>;$managed --force-internal-endpoint-lookup --wait;" "$join_cmd" | bash
       else
-        sed -e "s;<cluster_name>;$managed --wait;" "$join_cmd" > "${join_cmd}-named"
+        sed -e "s;<cluster_name>;$managed --wait;" "$join_cmd" >"${join_cmd}-named"
         sed -e "s;<cluster_name>;$managed --wait;" "$join_cmd" | bash
       fi
     fi
@@ -114,8 +117,8 @@ init_managed() {
 }
 
 join_cluster() {
-  hub=$1 # hub name also as the context
-  cluster=$2
+  local hub=$1 # hub name also as the context
+  local cluster=$2
   echo "join cluster: $cluster to $hub"
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
@@ -132,10 +135,10 @@ join_cluster() {
 # init application-lifecycle
 init_app() {
   echo "init app for $1:$2"
-  hub=$1
-  cluster=$2
+  local hub=$1
+  local cluster=$2
 
-   # Use other branch throw error: unable to read URL "https://raw.githubusercontent.com/kubernetes-sigs/application/v0.8.0/deploy/kube-app-manager-aio.yaml", server reported 404 Not Found, status code=404
+  # Use other branch throw error: unable to read URL "https://raw.githubusercontent.com/kubernetes-sigs/application/v0.8.0/deploy/kube-app-manager-aio.yaml", server reported 404 Not Found, status code=404
   app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/master
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$hub"
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
@@ -143,8 +146,8 @@ init_app() {
 
 init_policy() {
   echo "init policy for $1:$2"
-  hub=$1
-  cluster=$2
+  local hub=$1
+  local cluster=$2
 
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   HUB_KUBECONFIG="$dir/$hub"
@@ -162,7 +165,7 @@ init_policy() {
   policyCRD=${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
 
   # On hub
-  if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q governance-policy-propagator; then 
+  if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q governance-policy-propagator | grep -q Running; then
     ## Apply the CRDs
     kubectl --context $hub apply -f $policyCRD
     kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
@@ -181,7 +184,7 @@ init_policy() {
 
   # On cluster
   ## Create the secret to authenticate with the hub
-  if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster" --ignore-not-found) == "" ]]; then 
+  if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster" --ignore-not-found) == "" ]]; then
     kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$HUB_KUBECONFIG"
   fi
 
@@ -191,7 +194,7 @@ init_policy() {
   ## Deploy the synchronization component
   COMPONENT=governance-policy-framework-addon
   GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/$COMPONENT/$GRC_VERSION"
-  DEPLOY_ON_HUB=false # Set whether or not this is being deployed on the Hub
+  DEPLOY_ON_HUB=false             # Set whether or not this is being deployed on the Hub
   MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
   kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
@@ -202,7 +205,7 @@ init_policy() {
     -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
 
   ## Install configuration policy controller:
-  ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/ 
+  ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/
   COMPONENT="config-policy-controller"
   GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/${COMPONENT}/$CONFIG_GRC_VERSION/deploy"
   kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
@@ -215,8 +218,8 @@ init_policy() {
 }
 
 check_policy_readiness() {
-  hub="$1"
-  managed="$2"
+  local hub="$1"
+  local managed="$2"
   SECOND=0
   while true; do
     if [ $SECOND -gt 100 ]; then
@@ -230,46 +233,46 @@ check_policy_readiness() {
     HUB_NAMESPACE="open-cluster-management"
 
     policyPropagator=$(kubectl get pods -n "${HUB_NAMESPACE}" --context "${hub}" --ignore-not-found | grep "governance-policy-propagator" || true)
-    if [[ $(echo "${policyPropagator}" | awk '{print $3}')  == "Running" ]]; then 
-      (( compCount = compCount + 1 ))
-      echo "Policy: step${compCount} ${hub} ${policyPropagator} is Running" 
+    if [[ $(echo "${policyPropagator}" | awk '{print $3}') == "Running" ]]; then
+      ((compCount = compCount + 1))
+      echo "Policy: step${compCount} ${hub} ${policyPropagator} is Running"
     fi
 
     comp="governance-policy-spec-sync"
     comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( compCount = compCount + 1 ))
+      ((compCount = compCount + 1))
       echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
     comp="governance-policy-status-sync"
     comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( compCount = compCount + 1 ))
+      ((compCount = compCount + 1))
       echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
     comp="governance-policy-template-sync"
     comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( compCount = compCount + 1 ))
+      ((compCount = compCount + 1))
       echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
     comp="config-policy-controller"
     comp=$(kubectl --context "${managed}" get pods -n "${MANAGED_NAMESPACE}" --ignore-not-found | grep "${comp}" || true)
     if [[ $(echo "${comp}" | awk '{print $3}') == "Running" ]]; then
-      (( compCount = compCount + 1 ))
+      ((compCount = compCount + 1))
       echo "Policy: step${compCount} ${managed} ${comp} is Running"
     fi
 
     if [[ "${compCount}" == 5 ]]; then
       echo -e "Policy: ${hub} -> ${managed} Success! \n $(kubectl get pods -n "${MANAGED_NAMESPACE}")"
-      break;
-    fi 
+      break
+    fi
 
     sleep 1
-    (( SECOND = SECOND + 1 ))
+    ((SECOND = SECOND + 1))
   done
 }
 
@@ -288,7 +291,7 @@ install_crds() {
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
   path="https://raw.githubusercontent.com/openshift/router/$ROUTE_VERSION"
   kubectl --context "$ctx" apply -f $path/deploy/route_crd.yaml
- 
+
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 }
@@ -312,7 +315,7 @@ enable_olm() {
     echo "OLM is already installed in ${NS} namespace. Exiting..."
     exit 1
   fi
-  
+
   path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.22.0"
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/crds.yaml"
   kubectl --context "$1" wait --for=condition=Established -f "${path}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
@@ -363,7 +366,7 @@ wait_kafka_ready() {
     fi
     echo "Waiting for kafka cluster to become available"
     sleep 1
-    (( SECOND = SECOND + 1 ))
+    ((SECOND = SECOND + 1))
     clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found)
   done
   echo "Kafka cluster is ready"
@@ -381,7 +384,7 @@ wait_postgres_ready() {
     fi
     echo "Waiting for Postgres cluster to become available"
     sleep 1
-    (( SECOND = SECOND + 1 ))
+    ((SECOND = SECOND + 1))
     clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   done
   echo "Postgres cluster is ready"
@@ -392,14 +395,14 @@ wait_postgres_ready() {
 wait_disappear() {
   command=$1
   seconds=${2:-"600"}
-  while [ -n "$(eval $command)" ]; do 
+  while [ -n "$(eval $command)" ]; do
     if [ $seconds -lt 0 ]; then
       echo "timout for disappearing[$seconds]: $command"
       exit 1
-    fi 
+    fi
     echo "waiting to disappear[$seconds]: $command"
     sleep 1
-    (( seconds = seconds - 1 ))
+    ((seconds = seconds - 1))
   done
   echo "> $command"
   eval $command
@@ -408,44 +411,38 @@ wait_disappear() {
 wait_appear() {
   command=$1
   seconds=${2:-"600"}
-  while [ -z "$(eval $command)" ]; do 
+  while [ -z "$(eval $command)" ]; do
     if [ $seconds -lt 0 ]; then
       echo -e "$RED timout [$seconds] $NC: $command"
       exit 1
-    fi 
+    fi
     echo -e "$YELLOW waiting [$seconds] $NC: $command"
     sleep 5
-    (( seconds = seconds - 5 ))
+    ((seconds = seconds - 5))
   done
   echo "> $command"
   eval $command
 }
 
 version_compare() {
-  if [[ $1 == $2 ]]
-  then
+  if [[ $1 == $2 ]]; then
     return 0
   fi
   local IFS=.
   local i version1=($1) version2=($2)
   # fill empty fields in version1 with zeros
-  for ((i=${#version1[@]}; i<${#version2[@]}; i++))
-  do
+  for ((i = ${#version1[@]}; i < ${#version2[@]}; i++)); do
     version1[i]=0
   done
-  for ((i=0; i<${#version1[@]}; i++))
-  do
-    if [[ -z ${version2[i]} ]]
-    then
+  for ((i = 0; i < ${#version1[@]}; i++)); do
+    if [[ -z ${version2[i]} ]]; then
       # fill empty fields in version2 with zeros
       version2[i]=0
     fi
-    if ((10#${version1[i]} > 10#${version2[i]}))
-    then
+    if ((10#${version1[i]} > 10#${version2[i]})); then
       return 1
     fi
-    if ((10#${version1[i]} < 10#${version2[i]}))
-    then
+    if ((10#${version1[i]} < 10#${version2[i]})); then
       return 2
     fi
   done
@@ -472,11 +469,11 @@ check_golang() {
 }
 
 check_ginkgo() {
-  if ! command -v ginkgo >/dev/null 2>&1; then 
+  if ! command -v ginkgo >/dev/null 2>&1; then
     go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_VERSION
     go get github.com/onsi/gomega/...
     sudo mv $(go env GOPATH)/bin/ginkgo $INSTALL_DIR/ginkgo
-  fi 
+  fi
   echo "ginkgo version: $(ginkgo version)"
 }
 
@@ -491,7 +488,7 @@ install_docker() {
 }
 
 check_docker() {
-  if ! command -v docker >/dev/null 2>&1; then 
+  if ! command -v docker >/dev/null 2>&1; then
     install_docker
   fi
   version_compare $(docker version --format '{{.Client.Version}}') "20.10.0"
@@ -499,7 +496,7 @@ check_docker() {
   if [ $verCom -eq 2 ]; then
     # upgrade
     echo "remove old version of docker $(docker version --format '{{.Client.Version}}')"
-    sudo yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux  docker-engine-selinux docker-engine 
+    sudo yum remove -y docker docker-client docker-client-latest docker-common docker-latest docker-latest-logrotate docker-logrotate docker-selinux docker-engine-selinux docker-engine
     install_docker
   fi
   echo "docker version: $(docker version --format '{{.Client.Version}}')"
@@ -510,9 +507,9 @@ check_volume() {
     max_size=$(lsblk | awk '{print $1,$4}' | grep -v Size | grep -v M | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($2 > max) max = $2; fi} END{print max}')
     mount_name=$(lsblk | grep "$max_size"G | awk '{print $1}')
     echo "mounting /dev/${mount_name}: ${max_size}"
-    sudo mkfs -t xfs /dev/${mount_name}        
-    sudo mkdir -p /data                    
-    sudo mount /dev/${mount_name} /data  
+    sudo mkfs -t xfs /dev/${mount_name}
+    sudo mkdir -p /data
+    sudo mount /dev/${mount_name} /data
     sudo mv /var/lib/docker /data
 
     # sudo sed -i "s/ExecStart=\/usr\/bin\/dockerd\ -H/ExecStart=\/usr\/bin\/dockerd\ -g\ \/data\/docker\ -H/g" /lib/systemd/system/docker.service
@@ -531,8 +528,8 @@ check_volume() {
 }
 
 enable_cluster() {
-  hub=$1
-  cluster="$2"
+  local hub=$1
+  local cluster="$2"
   # Apply label to managedcluster
   kubectl label mcl "$cluster" vendor=OpenShift --context "$hub" --overwrite 2>&1
   # Add clusterclaim
@@ -550,10 +547,10 @@ EOF
 }
 
 wait_ocm() {
-  hub=$1
-  cluster=$2
-  echo -e "$BLUE waiting OCM $1:$2 compoenents $NC"
-  kubectl wait deploy/cluster-manager -n open-cluster-management   --for condition=Available=True --timeout=600s --context "$hub"
+  local hub=$1
+  local cluster=$2
+  echo -e "$BLUE waiting OCM $1:$2 components $NC"
+  kubectl wait deploy/cluster-manager -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
   kubectl get pod -n open-cluster-management-hub --context "$hub" # other hub controle planes
 
   kubectl wait deploy/klusterlet-registration-agent -n open-cluster-management-agent --for condition=Available=True --timeout=600s --context "$cluster"
@@ -561,28 +558,28 @@ wait_ocm() {
 }
 
 wait_policy() {
-  hub=$1
-  cluster=$2
-  echo -e "$BLUE waiting Policy $1:$2 compoenents $NC"
-  run_with_retry "kubectl wait deploy/governance-policy-propagator -n open-cluster-management   --for condition=Available=True --timeout=600s --context $hub"
+  local hub=$1
+  local cluster=$2
+  echo -e "$BLUE waiting Policy $1:$2 components $NC"
+  kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
 
-  run_with_retry "kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
+  kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
   # configuration policy controller
-  run_with_retry "kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
+  kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
 }
 
 wait_application() {
-  hub=$1
-  cluster=$2
+  local hub=$1
+  local cluster=$2
   echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
-  run_with_retry "kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management   --for condition=Available=True --timeout=600s --context $hub"
+  kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
 
-  run_with_retry "kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
+  kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
 }
 
 run_with_retry() {
   local command=$1
-  local retries=100
+  local retries=60
   local count=0
   local delay=5
 
