@@ -201,9 +201,9 @@ init_policy() {
   DEPLOY_ON_HUB=false             # Set whether or not this is being deployed on the Hub
   local MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
   kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
+  
+  retry "(kubectl --context $cluster apply -f $GIT_PATH/$policy_addon/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)"
 
-  kubectl --context "$cluster" apply -f "$GIT_PATH/$policy_addon/$GRC_VERSION/deploy/operator.yaml" -n ${MANAGED_NAMESPACE}
-  sleep 2
   kubectl --context "$cluster" set image deployment/$policy_addon $policy_addon=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" patch deployment $policy_addon -n ${MANAGED_NAMESPACE} \
     -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
@@ -213,8 +213,8 @@ init_policy() {
   config_policy="config-policy-controller"
   kubectl --context "$cluster" apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
-  kubectl --context "$cluster" apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
-  sleep 2
+  retry "(kubectl --context $cluster apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster deploy/$config_policy -n $MANAGED_NAMESPACE)" 
+  
   kubectl --context "$cluster" set image deployment/$config_policy $config_policy=quay.io/open-cluster-management/config-policy-controller:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" set env deployment/${config_policy} -n ${MANAGED_NAMESPACE} --containers=${config_policy} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"
   #kubectl patch deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--cluster-name='"${MANAGED_CLUSTER_NAME}"'"}]'
@@ -553,43 +553,43 @@ wait_ocm() {
   local hub=$1
   local cluster=$2
   echo -e "$BLUE waiting OCM $1:$2 components $NC"
-  kubectl wait deploy/cluster-manager -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
+  kubectl wait deploy/cluster-manager -n open-cluster-management --for condition=Available=True --timeout=60s --context "$hub"
   kubectl get pod -n open-cluster-management-hub --context "$hub" # other hub controle planes
 
-  kubectl wait deploy/klusterlet-registration-agent -n open-cluster-management-agent --for condition=Available=True --timeout=600s --context "$cluster"
-  kubectl wait deploy/klusterlet-work-agent -n open-cluster-management-agent --for condition=Available=True --timeout=600s --context "$cluster"
+  kubectl wait deploy/klusterlet-registration-agent -n open-cluster-management-agent --for condition=Available=True --timeout=60s --context "$cluster"
+  kubectl wait deploy/klusterlet-work-agent -n open-cluster-management-agent --for condition=Available=True --timeout=60s --context "$cluster"
 }
 
 wait_policy() {
   local hub=$1
   local cluster=$2
   echo -e "$BLUE waiting Policy $1:$2 components $NC"
-  kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
+  kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=60s --context "$hub"
 
-  kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=60s --context "$cluster"
   # configuration policy controller
-  kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=60s --context "$cluster"
 }
 
 wait_application() {
   local hub=$1
   local cluster=$2
   echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
-  kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
+  kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management --for condition=Available=True --timeout=60s --context "$hub"
 
-  kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
+  kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=60s --context "$cluster"
 }
 
 # Common function to run a command with retries
 # Parameters: $1 = command to run (function name or command string)
-run_with_retry() {
+retry() {
     local retries=3
     local count=0
     local success=false
 
     while [ $count -lt "$retries" ]; do
         echo -e "$YELLOW Attempt $((count + 1))... $NC "
-        if "$2"; then
+        if eval "$1"; then
             success=true
             break
         else
@@ -602,7 +602,6 @@ run_with_retry() {
         echo -e "$GREEN $1: Success. $NC "
     else
         echo -e "$RED $1: Failed after $retries attempts. $NC "
-        exit 1
     fi
 }
 
