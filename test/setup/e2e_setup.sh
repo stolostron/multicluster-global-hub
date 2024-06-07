@@ -2,7 +2,10 @@
 
 set -euox pipefail
 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/common.sh"
 
@@ -37,21 +40,21 @@ echo -e "$YELLOW creating clusters:$NC $sum_time seconds"
 # Init hub resources
 start_time=$(date +%s)
 
-# GH 
+# GH
 export GH_KUBECONFIG=$KUBE_DIR/kind-$GH_NAME
 start_time=$(date +%s)
 
 # expose the server so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
 node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${GH_NAME}-control-plane)
 kubectl --kubeconfig "$GH_KUBECONFIG" config set-cluster kind-$GH_NAME --server="https://$node_ip:6443"
-for i in $(seq 1 "$MH_NUM"); do 
+for i in $(seq 1 "$MH_NUM"); do
   node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "hub$i-control-plane")
   kubectl --kubeconfig "$KUBE_DIR/kind-hub$i" config set-cluster "kind-hub$i" --server="https://$node_ip:6443"
 done
 
 # init resources
 echo -e "$BLUE initilize resources $NC"
-install_crds $GH_CTX 2>&1 &    # router, mch(not needed for the managed clusters)
+install_crds $GH_CTX 2>&1 & # router, mch(not needed for the managed clusters)
 enable_service_ca $GH_CTX $GH_NAME "$CURRENT_DIR/hoh" 2>&1 &
 
 for i in $(seq 1 "${MH_NUM}"); do
@@ -61,9 +64,9 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-# Install posgres 
+# Install posgres
 bash "$CURRENT_DIR"/hoh/postgres/postgres_setup.sh "$GH_KUBECONFIG" 2>&1 &
-echo "$!" > "$KUBE_DIR/PID"
+echo "$!" >"$KUBE_DIR/PID"
 
 # init hubs
 echo -e "$BLUE initializing hubs $NC"
@@ -83,7 +86,7 @@ start_time=$(date +%s)
 echo -e "$BLUE importing clusters $NC"
 
 for i in $(seq 1 "${MH_NUM}"); do
-  join_cluster $GH_CTX "kind-hub$i" 2>&1 &  # join to global hub
+  join_cluster $GH_CTX "kind-hub$i" 2>&1 & # join to global hub
   for j in $(seq 1 "${MC_NUM}"); do
     join_cluster "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 & # join to managed hub
   done
@@ -95,7 +98,7 @@ echo -e "$YELLOW Importing cluster:$NC $((end_time - start_time)) seconds"
 
 # Install kafka and other resources
 bash "$CURRENT_DIR"/hoh/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >> "$KUBE_DIR/PID"
+echo "$!" >>"$KUBE_DIR/PID"
 
 # Install app and policy
 start_time=$(date +%s)
@@ -107,11 +110,11 @@ echo -e "$BLUE deploying app $NC"
 for i in $(seq 1 "${MH_NUM}"); do
   init_app $GH_CTX "kind-hub$i" 2>&1
   for j in $(seq 1 "${MC_NUM}"); do
-    init_app "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 
+    init_app "kind-hub$i" "kind-hub$i-cluster$j" 2>&1
   done
 done
 
-# policy 
+# policy
 echo -e "$BLUE deploying policy $NC"
 for i in $(seq 1 "${MH_NUM}"); do
   init_policy $GH_CTX "kind-hub$i" 2>&1
@@ -120,17 +123,14 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-# wait all the backend process ready
-wait 
-
 end_time=$(date +%s)
 echo -e "$YELLOW App and policy:$NC $((end_time - start_time)) seconds"
 
 echo -e "$BLUE enable the clusters $NC"
 for i in $(seq 1 "${MH_NUM}"); do
-  enable_cluster $GH_CTX "kind-hub$i" 2>&1 &
+  enable_cluster $GH_CTX "kind-hub$i" 2>&1
   for j in $(seq 1 "${MC_NUM}"); do
-    enable_cluster "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
+    enable_cluster "kind-hub$i" "kind-hub$i-cluster$j" 2>&1
   done
 done
 
@@ -143,7 +143,7 @@ for i in $(seq 1 "$MH_NUM"); do
   wait_ocm $GH_CTX "kind-hub$i"
   for j in $(seq 1 "$MC_NUM"); do
     wait_ocm "kind-hub$i" "kind-hub$i-cluster$j"
-  done 
+  done
 done
 
 # check Policy
@@ -151,15 +151,15 @@ for i in $(seq 1 "$MH_NUM"); do
   wait_policy $GH_CTX "kind-hub$i"
   for j in $(seq 1 "$MC_NUM"); do
     wait_policy "kind-hub$i" "kind-hub$i-cluster$j"
-  done 
+  done
 done
 
 # check Applicaiton
 for i in $(seq 1 "$MH_NUM"); do
   wait_application $GH_CTX "kind-hub$i"
   for j in $(seq 1 "$MC_NUM"); do
-   wait_application "kind-hub$i" "kind-hub$i-cluster$j"
-  done 
+    wait_application "kind-hub$i" "kind-hub$i-cluster$j"
+  done
 done
 
 #need the following labels to enable deploying agent in leaf hub cluster
