@@ -213,7 +213,7 @@ init_policy() {
   config_policy="config-policy-controller"
   kubectl --context "$cluster" apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
-  retry "(kubectl --context $cluster apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster deploy/$config_policy -n $MANAGED_NAMESPACE)" 
+  retry "(kubectl --context $cluster apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$config_policy -n $MANAGED_NAMESPACE)" 
   
   kubectl --context "$cluster" set image deployment/$config_policy $config_policy=quay.io/open-cluster-management/config-policy-controller:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" set env deployment/${config_policy} -n ${MANAGED_NAMESPACE} --containers=${config_policy} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"

@@ -114,9 +114,9 @@ done
 # policy 
 echo -e "$BLUE deploying policy $NC"
 for i in $(seq 1 "${MH_NUM}"); do
-  init_policy $GH_CTX "kind-hub$i" 2>&1 &
+  init_policy $GH_CTX "kind-hub$i" 2>&1
   for j in $(seq 1 "${MC_NUM}"); do
-    init_policy "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 &
+    init_policy "kind-hub$i" "kind-hub$i-cluster$j" 2>&1
   done
 done
 
