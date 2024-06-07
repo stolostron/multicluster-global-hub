@@ -47,9 +47,8 @@ func Authentication(clusterAPIURL string, clusterAPICABundle []byte) gin.Handler
 }
 
 func createClient(clusterAPICABundle []byte) (*http.Client, error) {
-	/* #nosec G402*/
-	tlsConfig := &tls.Config{
-		//nolint:gosec
+	tlsConfig := &tls.Config{ // #nosec G402
+		// nolint:gosec
 		InsecureSkipVerify: true, // #nosec G402
 	}
 
