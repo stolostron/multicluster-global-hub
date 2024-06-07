@@ -104,16 +104,10 @@ start_time=$(date +%s)
 echo -e "$BLUE deploying app $NC"
 
 # deploy the subscription operators to the hub cluster
-clusteradm install hub-addon --names application-manager --context "$GH_CTX" 2>&1 
 for i in $(seq 1 "${MH_NUM}"); do
   init_app $GH_CTX "kind-hub$i" 2>&1
-  # enable the addon on the managed clusters
-  clusteradm addon enable --names application-manager --clusters "kind-hub$i" --context "$GH_CTX"
-
-  clusteradm install hub-addon --names application-manager --context "kind-hub$i" 2>&1
   for j in $(seq 1 "${MC_NUM}"); do
     init_app "kind-hub$i" "kind-hub$i-cluster$j" 2>&1 
-    clusteradm addon enable --names application-manager --clusters "kind-hub$i-cluster$j" --context "kind-hub$i" 2>&1 
   done
 done
 

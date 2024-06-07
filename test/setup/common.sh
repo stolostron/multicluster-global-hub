@@ -142,15 +142,18 @@ init_app() {
   app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/master
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$hub"
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
+
+  # deploy the subscription operators to the hub cluster
+  clusteradm install hub-addon --names application-manager --context "$hub"
+
+  # enable the addon on the managed clusters
+  clusteradm addon enable --names application-manager --clusters "$cluster" --context "$hub"
 }
 
 init_policy() {
   echo "init policy for $1:$2"
   local hub=$1
   local cluster=$2
-
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-  HUB_KUBECONFIG="$dir/$hub"
 
   # create namespace fist
   HUB_NAMESPACE="open-cluster-management"
@@ -161,13 +164,13 @@ init_policy() {
   sleep 2
 
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
-  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/$GRC_VERSION/deploy"
-  policyCRD=${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
+  local GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/$GRC_VERSION/deploy"
+  policy_crd=${GIT_PATH}/crds/policy.open-cluster-management.io_policies.yaml
 
   # On hub
   if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q governance-policy-propagator | grep -q Running; then
     ## Apply the CRDs
-    kubectl --context $hub apply -f $policyCRD
+    kubectl --context $hub apply -f $policy_crd
     kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_placementbindings.yaml
     kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policyautomations.yaml
     kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
@@ -184,18 +187,20 @@ init_policy() {
 
   # On cluster
   ## Create the secret to authenticate with the hub
+  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  local hub_kubeconfig="$dir/$hub"
   if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster" --ignore-not-found) == "" ]]; then
-    kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$HUB_KUBECONFIG"
+    kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$hub_kubeconfig"
   fi
 
   ## Apply the policy CRD
-  kubectl --context "$cluster" apply -f "$policyCRD"
+  kubectl --context "$cluster" apply -f "$policy_crd"
 
   ## Deploy the synchronization component
-  COMPONENT=governance-policy-framework-addon
+  local COMPONENT=governance-policy-framework-addon
   GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/$COMPONENT/$GRC_VERSION"
   DEPLOY_ON_HUB=false             # Set whether or not this is being deployed on the Hub
-  MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
+  local MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
   kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
   kubectl --context "$cluster" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
@@ -577,22 +582,30 @@ wait_application() {
   kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context "$cluster"
 }
 
+# Common function to run a command with retries
+# Parameters: $1 = command to run (function name or command string)
 run_with_retry() {
-  local command=$1
-  local retries=60
-  local count=0
-  local delay=5
+    local retries=3
+    local count=0
+    local success=false
 
-  until $command; do
-    count=$((count + 1))
-    if [ $count -lt $retries ]; then
-      echo -e "$YELLOW Command failed. $NC Attempt $count/$retries. Retrying in $delay seconds..."
-      sleep $delay
+    while [ $count -lt "$retries" ]; do
+        echo -e "$YELLOW Attempt $((count + 1))... $NC "
+        if "$2"; then
+            success=true
+            break
+        else
+            ((count++))
+            sleep 5  # Adjust the sleep duration as needed
+        fi
+    done
+
+    if [ "$success" = true ]; then
+        echo -e "$GREEN $1: Success. $NC "
     else
-      echo -e "$RED Command failed after $retries attempts:$NC $command"
-      exit 1
+        echo -e "$RED $1: Failed after $retries attempts. $NC "
+        exit 1
     fi
-  done
 }
 
 # Define ANSI escape codes for colors
