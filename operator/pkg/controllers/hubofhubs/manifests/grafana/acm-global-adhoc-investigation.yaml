@@ -994,7 +994,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH eventdata AS (\n   WITH alleventdata AS(\n      SELECT \n        policy_id,\n        cluster_id,\n        leaf_hub_name,\n        message,\n        reason,\n        compliance,\n        ROW_NUMBER() OVER(\n          PARTITION BY policy_id,cluster_id \n          ORDER BY created_at DESC\n          ) row_num\n      FROM\n        event.local_policies\n      WHERE\n        (compliance = 'non_compliant' OR compliance = 'pending')\n      AND \n        policy_id IN (\n          SELECT DISTINCT policy_id \n          FROM local_spec.policies\n          WHERE leaf_hub_name IN ( $all_hubs ) AND payload -> 'metadata' ->> 'namespace' = '$namespace' AND policy_name = '$policy' AND policy_id ${policy_id_query:raw}\n        )\n    )\n  SELECT * FROM\n  alleventdata\n  WHERE row_num = 1\n)\nSELECT\n  ch.compliance_date as \"time\",\n  mc.cluster_name as \"cluster\",\n  p.policy_name as \"policy\",\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n  message,\n  reason\nFROM\n  history.local_compliance ch\nJOIN\n  local_spec.policies p ON ch.policy_id = p.policy_id \nJOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \nLEFT OUTER JOIN\n  eventdata ed ON ed.policy_id = p.policy_id  AND ed.cluster_id = mc.cluster_id AND ed.compliance = ch.compliance\nWHERE\n  $__timeFilter(ch.compliance_date)\nAND\n  ch.leaf_hub_name IN ( $all_hubs )\nAND \n  mc.leaf_hub_name  IN ( $all_hubs )\nAND \n  p.leaf_hub_name  IN ( $all_hubs )\nAND \n  ed.leaf_hub_name  IN ( $all_hubs )\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\n  p.policy_name = '$policy'\nAND\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nAND\n  (ch.compliance = 'non_compliant' OR ch.compliance = 'pending')\nORDER BY (ch.compliance_date) DESC\n",
+              "rawSql": "WITH eventdata AS (\n   WITH alleventdata AS(\n      SELECT \n        policy_id,\n        cluster_id,\n        leaf_hub_name,\n        message,\n        reason,\n        compliance,\n        ROW_NUMBER() OVER(\n          PARTITION BY policy_id,cluster_id \n          ORDER BY created_at DESC\n          ) row_num\n      FROM\n        event.local_policies\n      WHERE\n        (compliance = 'non_compliant' OR compliance = 'pending')\n      AND \n        policy_id IN (\n          SELECT DISTINCT policy_id \n          FROM local_spec.policies\n          WHERE leaf_hub_name IN ( $all_hubs ) AND payload -> 'metadata' ->> 'namespace' = '$namespace' AND policy_name = '$policy' AND policy_id ${policy_id_query:raw}\n        )\n    )\n  SELECT * FROM\n  alleventdata\n  WHERE row_num = 1\n)\nSELECT\n  to_char(ch.compliance_date, 'YYYY-MM-DD')as \"date\",\n  mc.cluster_name as \"cluster\",\n  p.policy_name as \"policy\",\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' AS \"label\",\n  message,\n  reason\nFROM\n  history.local_compliance ch\nJOIN\n  local_spec.policies p ON ch.policy_id = p.policy_id \nJOIN\n  status.managed_clusters mc ON ch.cluster_id = mc.cluster_id \nLEFT OUTER JOIN\n  eventdata ed ON ed.policy_id = p.policy_id  AND ed.cluster_id = mc.cluster_id AND ed.compliance = ch.compliance\nWHERE\n  $__timeFilter(ch.compliance_date)\nAND\n  ch.leaf_hub_name IN ( $all_hubs )\nAND \n  mc.leaf_hub_name  IN ( $all_hubs )\nAND \n  p.leaf_hub_name  IN ( $all_hubs )\nAND \n  ed.leaf_hub_name  IN ( $all_hubs )\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND\n  p.policy_name = '$policy'\nAND\n  mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nAND\n  (ch.compliance = 'non_compliant' OR ch.compliance = 'pending')\nORDER BY (ch.compliance_date) DESC\n",
               "refId": "A",
               "select": [
                 [
@@ -1039,16 +1039,20 @@ data:
               "id": "organize",
               "options": {
                 "excludeByName": {},
+                "includeByName": {},
                 "indexByName": {
-                  "cloud": 3,
                   "cluster": 2,
+                  "date": 0,
+                  "label": 3,
+                  "message": 4,
                   "policy": 1,
-                  "time": 0
+                  "reason": 5
                 },
                 "renameByName": {
                   "chdate": "Time",
                   "cloud": "Cloud",
                   "cluster": "Cluster",
+                  "date": "Date",
                   "message": "Latest Message",
                   "policy": "Policy",
                   "reason": "Reason",
