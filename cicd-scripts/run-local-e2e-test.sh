@@ -102,7 +102,7 @@ done
 
 verbose=${verbose:=5}
 
-report_dir="$ROOT_DIR/test/resources/report"
+report_dir="$ROOT_DIR/test/setup/report"
 if [ -z "${filter}" ]; then
   ginkgo --fail-fast --label-filter="!e2e-test-prune" --output-dir="$report_dir" --json-report=report.json \
     --junit-report=report.xml "$ROOT_DIR/test/pkg/e2e" -- -options="$OPTIONS_FILE" -v="$verbose"

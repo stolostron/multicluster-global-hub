@@ -13,6 +13,7 @@ export CURRENT_DIR
 export GH_NAME="global-hub"
 export MH_NUM=${MH_NUM:-2}
 export MC_NUM=${MC_NUM:-1}
+export KinD=true
 
 # setup kubeconfig
 export KUBE_DIR=${CURRENT_DIR}/kubeconfig
@@ -20,7 +21,7 @@ check_dir "$KUBE_DIR"
 export KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
 
 # Init clusters
-echo -e "$BLUE create clusters $NC"
+echo -e "$BLUE creating clusters $NC"
 start_time=$(date +%s)
 
 kind_cluster "$GH_NAME" 2>&1 &
@@ -32,91 +33,59 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 
 wait
-
-end_time=$(date +%s)
-echo -e "$YELLOW creating clusters:$NC $((end_time - start_time)) seconds"
-
-# Init hub resources
-start_time=$(date +%s)
+echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds"
 
 # GH
-echo -e "$BLUE initialize global hub setting $NC"
-export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
-# expose the server so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
-node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${GH_NAME}-control-plane)
-kubectl --kubeconfig "$GH_KUBECONFIG" config set-cluster $GH_NAME --server="https://$node_ip:6443"
-enable_service_ca $GH_NAME "$CURRENT_DIR/resource" 2>&1 &
-install_crds $GH_NAME 2>&1 & # router, mch(not needed for the managed clusters)
-
-
-
-# for i in $(seq 1 "$MH_NUM"); do
-#   node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "hub$i-control-plane")
-#   kubectl --kubeconfig "$KUBE_DIR/hub$i" config set-cluster "hub$i" --server="https://$node_ip:6443"
-# done
-
+echo -e "$BLUE setting global hub service ca $NC"
 start_time=$(date +%s)
 
+export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
+enable_service_ca $GH_NAME "$CURRENT_DIR/resource" 2>&1 || true
+
+echo -e "${YELLOW} setting global hub service ca:${NC} $(($(date +%s) - start_time)) seconds"
+
+# async middlewares
 bash "$CURRENT_DIR/resource/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >"$KUBE_DIR/PID"
 bash "$CURRENT_DIR"/resource/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$KUBE_DIR/PID"
 
-# start_time=$(date +%s)
-# # init hubs
-# echo -e "$BLUE initializing hubs $NC"
-# init_hub $GH_NAME &
-# for i in $(seq 1 "${MH_NUM}"); do
-#   init_hub "hub$i" &
-# done
-# wait
-# end_time=$(date +%s)
-# echo -e "$YELLOW Initializing hubs:$NC $((end_time - start_time)) seconds"
+# Init hubs
+echo -e "$BLUE initing hubs $NC"
 
+start_time=$(date +%s)
+(
+  init_hub $GH_NAME 2>&1 &
+  for i in $(seq 1 "${MH_NUM}"); do
+    init_hub "hub$i" 2>&1 &
+  done
+  wait
+) &
+hub_pid=$!
+echo $hub_pid >>"$KUBE_DIR/PID"
+
+wait $hub_pid
+echo -e "${YELLOW} initing hubs:${NC} $(($(date +%s) - start_time)) seconds"
+
+start_time=$(date +%s)
+
+export HUB_INIT=false
 for i in $(seq 1 "${MH_NUM}"); do
-  install_crds "hub$i" 2>&1 
-
   bash "$CURRENT_DIR"/ocm_setup.sh "$GH_NAME" "hub$i" 2>&1 &
   for j in $(seq 1 "${MC_NUM}"); do
-    install_crds "hub$i-cluster$j" 2>&1 
-
     bash "$CURRENT_DIR"/ocm_setup.sh "hub$i" "hub$i-cluster$j" 2>&1 &
   done
 done
 
-
 wait
-end_time=$(date +%s)
-echo -e "$YELLOW init ocm, app and policy:$NC $((end_time - start_time)) seconds"
-
-# # Install app and policy
-# # app
-# echo -e "$BLUE deploying app $NC"
-
-# # deploy the subscription operators to the hub cluster
-# for i in $(seq 1 "${MH_NUM}"); do
-#   init_app $GH_NAME "hub$i" 2>&1
-#   for j in $(seq 1 "${MC_NUM}"); do
-#     init_app "hub$i" "hub$i-cluster$j" 2>&1
-#   done
-# done
-
-# # policy
-# echo -e "$BLUE deploying policy $NC"
-# for i in $(seq 1 "${MH_NUM}"); do
-#   init_policy $GH_NAME "hub$i" 2>&1
-#   for j in $(seq 1 "${MC_NUM}"); do
-#     init_policy "hub$i" "hub$i-cluster$j" 2>&1
-#   done
-# done
-# end_time=$(date +%s)
-# echo -e "$YELLOW App and policy:$NC $((end_time - start_time)) seconds"
+echo -e "${YELLOW} init ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
 set +x
 
+# Validation
 start_time=$(date +%s)
-
 echo -e "$BLUE validate ocm, app and policy $NC"
+
 for i in $(seq 1 "${MH_NUM}"); do
   wait_ocm $GH_NAME "hub$i"
   enable_cluster $GH_NAME "hub$i" 2>&1
@@ -132,10 +101,9 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-end_time=$(date +%s)
-echo -e "$YELLOW validate ocm, app and policy:$NC $((end_time - start_time)) seconds"
+echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
-
+# kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
   echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$KUBE_DIR/hub$i $NC"
   for j in $(seq 1 "${MC_NUM}"); do

@@ -14,6 +14,8 @@ KUBE_DIR=${KUBE_DIR:-${CURRENT_DIR}/kubeconfig}
 KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
 check_dir "$KUBE_DIR"
 
+HUB_INIT=${HUB_INIT:-true}
+
 hub="$1"
 spoken="$2"
 
@@ -21,7 +23,7 @@ spoken="$2"
 kind_cluster "$hub"
 kind_cluster "$spoken"
 
-init_hub "$hub"
+[ "$HUB_INIT" = true ] && (init_hub "$hub")
 
 install_crds "$hub"  # router, mch(not needed for the managed clusters)
 install_crds "$spoken" 

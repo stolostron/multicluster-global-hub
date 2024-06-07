@@ -75,7 +75,12 @@ kind_cluster() {
     echo -e "${CYAN} Init Cluster $cluster_name ... $NC"
     kind create cluster --name "$cluster_name" --wait 1m
     dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+    # modify the context = KinD cluster name = kubeconfig name
     kubectl config rename-context "kind-$cluster_name" "$cluster_name"
+    # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
+    node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
+    kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443" # context is changed but name not
+
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
 }
@@ -124,7 +129,8 @@ join_cluster() {
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   if [[ -z $(kubectl get mcl "$cluster" --context "$hub" --ignore-not-found) ]]; then
-    if [[ $hub =~ "kind" ]]; then
+    # shellcheck disable=SC2154
+    if [ "$KinD" = true ]; then
       sed -e "s;<cluster_name>;$cluster --force-internal-endpoint-lookup --context $cluster --wait;" "$join_file" | bash
     else
       sed -e "s;<cluster_name>;$cluster --context $cluster --wait;" "$join_file" | bash
@@ -418,7 +424,7 @@ wait_appear() {
       eval "$command"
       return 0 # Return success status code
     fi
-    echo -e "$YELLOW Waiting $i $NC: $command"
+    echo -e "\r$YELLOW Waiting $i $NC: $command"
     sleep 5
   done
   echo -e "$RED Timeout $seconds $NC: $command"

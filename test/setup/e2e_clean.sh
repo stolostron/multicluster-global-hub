@@ -11,8 +11,9 @@ MH_NUM=${MH_NUM:-2}
 MC_NUM=${MC_NUM:-1}
 
 # setup kubeconfig
+GH_NAME="global-hub"
 KUBE_DIR=${CURRENT_DIR}/kubeconfig
-KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/kind-clusters}
+KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
 
 while read -r line; do
   if [[ $line != "" ]]; then
@@ -27,4 +28,7 @@ for i in $(seq 1 "${MH_NUM}"); do
     kind delete cluster --name "hub${i}-cluster${j}"
   done
 done
-# rm -rf "$KUBE_DIR"
+
+rm -rf "$KUBE_DIR"
+# ps -ef | grep "setup" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
+
