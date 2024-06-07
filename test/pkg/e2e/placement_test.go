@@ -133,7 +133,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						delete(policies, leafhub)
 					}
 				}
-				if len(policies) == ExpectedLeafHubNum {
+				if len(policies) == ExpectedMH {
 					return fmt.Errorf("not get policy from local_status.compliance")
 				}
 				return nil
@@ -203,7 +203,6 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				if err != nil {
 					return err
 				}
-				fmt.Println("Verify the local policy(placement) is deleted from the spec tabl")
 				defer rows.Close()
 				for rows.Next() {
 					policy := &policiesv1.Policy{}
@@ -224,7 +223,6 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 					fmt.Println(err)
 					return err
 				}
-				fmt.Println("Verify the local policy(placement) is deleted from the global hub status table")
 				defer rows.Close()
 				for rows.Next() {
 					columnValues, _ := rows.Values()

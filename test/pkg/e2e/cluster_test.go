@@ -110,17 +110,17 @@ func getManagedCluster(client *http.Client) ([]clusterv1.ManagedCluster, error) 
 		return nil, err
 	}
 
-	var managedClusterList clusterv1.ManagedClusterList
-	err = json.Unmarshal(body, &managedClusterList)
+	var clusterList clusterv1.ManagedClusterList
+	err = json.Unmarshal(body, &clusterList)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(managedClusterList.Items) != Expectedmanaged_cluster_num {
-		return nil, fmt.Errorf("cannot get two managed clusters")
+	if len(clusterList.Items) != ExpectedMC {
+		return nil, fmt.Errorf("managed cluster number: want %d, got %d", ExpectedMC, len(clusterList.Items))
 	}
 
-	return managedClusterList.Items, nil
+	return clusterList.Items, nil
 }
 
 func getManagedClusterByName(client *http.Client, managedClusterName string) (

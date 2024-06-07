@@ -170,9 +170,9 @@ done
 
 #need the following labels to enable deploying agent in leaf hub cluster
 for i in $(seq 1 "${MH_NUM}"); do
-  echo -e "$GREEN [Access the kind-hub$i]: export KUBECONFIG=$KUBE_DIR/kind-hub$i $NC"
+  echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$KUBE_DIR/kind-hub$i $NC"
   for j in $(seq 1 "${MC_NUM}"); do
-    echo -e "$GREEN [Access the kind-hub$i-cluster$j]: export KUBECONFIG=$KUBE_DIR/kind-hub$i-cluster$j $NC"
+    echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$KUBE_DIR/kind-hub$i-cluster$j $NC"
   done
 done
-echo -e "$RED [Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
+echo -e "$BOLD_GREEN [Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"

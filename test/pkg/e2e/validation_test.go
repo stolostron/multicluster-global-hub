@@ -41,13 +41,13 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 					managedClusters = append(managedClusters, h.Name)
 				}
 			}
-			if len(leafhubClusters) != ExpectedLeafHubNum || len(managedClusters) != managed_cluster_num*ExpectedLeafHubNum {
-				Expect(fmt.Errorf("generate %d hub cluster and %d managed cluster error", ExpectedLeafHubNum, Expectedmanaged_cluster_num)).Should(Succeed())
+			if len(leafhubClusters) != ExpectedMH || len(managedClusters) != managed_cluster_num*ExpectedMH {
+				Expect(fmt.Errorf("generate %d hub cluster and %d managed cluster error", ExpectedMH, ExpectedMC)).Should(Succeed())
 			}
 		})
 
 		It("Check the num of hub clusters and managed clusters in the kubeconfig", func() {
-			for i := 1; i <= ExpectedLeafHubNum; i++ {
+			for i := 1; i <= ExpectedMH; i++ {
 				hubFileName := fmt.Sprintf("../../setup/kubeconfig/kind-hub%d", i)
 				_, err := os.Stat(hubFileName)
 				if os.IsNotExist(err) {

@@ -10,13 +10,13 @@ export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.15.0
 export CONFIG_GRC_VERSION=v0.13.0
 
-function check_dir() {
+check_dir() {
   if [ ! -d "$1" ];then
     mkdir "$1"
   fi
 }
 
-function hover() {
+hover() {
   local pid=$1; message=${2:-Processing!}; delay=0.4
   current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
   echo "$pid" > "${current_dir}/config/pid"
@@ -32,7 +32,7 @@ function hover() {
   printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}";
 }
 
-function check_kubectl() {
+check_kubectl() {
   if ! command -v kubectl >/dev/null 2>&1; then 
     echo "This script will install kubectl (https://kubernetes.io/docs/tasks/tools/install-kubectl/) on your machine"
     if [[ "$(uname)" == "Linux" ]]; then
@@ -46,7 +46,7 @@ function check_kubectl() {
   echo "kubectl version: $(kubectl version --client)"
 }
 
-function check_clusteradm() {
+check_clusteradm() {
   if ! command -v clusteradm >/dev/null 2>&1; then 
     # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash 
     curl -LO https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/v$CLUSTERADM_VERSION/install.sh
@@ -58,7 +58,7 @@ function check_clusteradm() {
   echo "clusteradm path: $(which clusteradm)"
 }
 
-function check_kind() {
+check_kind() {
   if ! command -v kind >/dev/null 2>&1; then 
     echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
     curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
@@ -67,7 +67,7 @@ function check_kind() {
   fi
 }
 
-function kind_cluster() {
+kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
     kind create cluster --name "$cluster_name" --wait 1m
@@ -76,7 +76,7 @@ function kind_cluster() {
   fi
 }
 
-function init_hub() {
+init_hub() {
   echo "Initializing Hub $1 ..."
   clusteradm init --wait --context "$1" > /dev/null 2>&1
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1" 
@@ -87,7 +87,7 @@ function init_hub() {
   clusteradm get token --context "$1" | grep "clusteradm" > "$join_file"
 }
 
-function init_managed() {
+init_managed() {
   hub="$1"
   managed_prefix_name="$2"
   managed_cluster_num="$3"
@@ -113,7 +113,7 @@ function init_managed() {
   clusteradm accept --clusters "${managed_cluster_name%,*}" --context "${hub}" --wait
 }
 
-function join_cluster() {
+join_cluster() {
   hub=$1 # hub name also as the context
   cluster=$2
   echo "join cluster: $cluster to $hub"
@@ -130,7 +130,7 @@ function join_cluster() {
 }
 
 # init application-lifecycle
-function init_app() {
+init_app() {
   echo "init app for $1:$2"
   hub=$1
   cluster=$2
@@ -141,7 +141,7 @@ function init_app() {
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
 }
 
-function init_policy() {
+init_policy() {
   echo "init policy for $1:$2"
   hub=$1
   cluster=$2
@@ -154,6 +154,8 @@ function init_policy() {
   kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
   MANAGED_NAMESPACE="open-cluster-management-agent-addon"
   kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
+
+  sleep 2
 
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
   GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io/governance-policy-propagator/$GRC_VERSION/deploy"
@@ -168,6 +170,7 @@ function init_policy() {
     kubectl --context $hub apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_policysets.yaml
     # Deploy the policy-propagator
     kubectl --context $hub apply -f ${GIT_PATH}/operator.yaml -n ${HUB_NAMESPACE}
+    sleep 2
     ## Disable the webhook for the controller
     kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-webhooks=false"}]' -n ${HUB_NAMESPACE}
     kubectl --context $hub patch deployment governance-policy-propagator --type='json' -p='[
@@ -193,6 +196,7 @@ function init_policy() {
   kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
   kubectl --context "$cluster" apply -f ${GIT_PATH}/deploy/operator.yaml -n ${MANAGED_NAMESPACE}
+  sleep 2
   kubectl --context "$cluster" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" patch deployment $COMPONENT -n ${MANAGED_NAMESPACE} \
     -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"governance-policy-framework-addon\",\"args\":[\"--hub-cluster-configfile=/var/run/klusterlet/kubeconfig\", \"--cluster-namespace=${MANAGED_CLUSTER_NAME}\", \"--enable-lease=true\", \"--log-level=2\", \"--disable-spec-sync=${DEPLOY_ON_HUB}\"]}]}}}}"
@@ -204,12 +208,13 @@ function init_policy() {
   kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
   kubectl --context "$cluster" apply -f ${GIT_PATH}/operator.yaml -n ${MANAGED_NAMESPACE}
+  sleep 2
   kubectl --context "$cluster" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/config-policy-controller:$CONFIG_GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" set env deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --containers=${COMPONENT} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"
   #kubectl patch deployment/${COMPONENT} -n ${MANAGED_NAMESPACE} --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--cluster-name='"${MANAGED_CLUSTER_NAME}"'"}]'
 }
 
-function check_policy_readiness() {
+check_policy_readiness() {
   hub="$1"
   managed="$2"
   SECOND=0
@@ -300,7 +305,7 @@ enable_service_ca() {
 }
 
 # deploy olm
-function enable_olm() {
+enable_olm() {
   NS=olm
   csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   if [[ "$csvPhase" == "Succeeded" ]]; then
@@ -330,7 +335,7 @@ function enable_olm() {
   echo "CSV \"packageserver\" install succeeded"
 }
 
-function wait_secret_ready() {
+wait_secret_ready() {
   secretName=$1
   secretNamespace=$2
   ready=$(kubectl get secret $secretName -n $secretNamespace --ignore-not-found=true)
@@ -348,7 +353,7 @@ function wait_secret_ready() {
   echo "secret: $secretNamespace - $secretName is ready!"
 }
 
-function wait_kafka_ready() {
+wait_kafka_ready() {
   clusterIsReady=$(kubectl -n kafka get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found)
   SECOND=0
   while [ -z "$clusterIsReady" ]; do
@@ -366,7 +371,7 @@ function wait_kafka_ready() {
   echo "Kafka secret is ready"
 }
 
-function wait_postgres_ready() {
+wait_postgres_ready() {
   clusterIsReady=$(kubectl -n hoh-postgres get PostgresCluster/hoh -o jsonpath={.status.instances..readyReplicas} --ignore-not-found)
   SECOND=0
   while [[ -z "$clusterIsReady" || "$clusterIsReady" -lt 1 ]]; do
@@ -416,7 +421,7 @@ wait_appear() {
   eval $command
 }
 
-function version_compare() {
+version_compare() {
   if [[ $1 == $2 ]]
   then
     return 0
@@ -448,7 +453,7 @@ function version_compare() {
   return 0
 }
 
-function check_golang() {
+check_golang() {
   export PATH=$PATH:/usr/local/go/bin
   if ! command -v go >/dev/null 2>&1; then
     wget https://dl.google.com/go/$GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
@@ -466,7 +471,7 @@ function check_golang() {
   echo "go version: $(go version)"
 }
 
-function check_ginkgo() {
+check_ginkgo() {
   if ! command -v ginkgo >/dev/null 2>&1; then 
     go install github.com/onsi/ginkgo/v2/ginkgo@$GINKGO_VERSION
     go get github.com/onsi/gomega/...
@@ -475,7 +480,7 @@ function check_ginkgo() {
   echo "ginkgo version: $(ginkgo version)"
 }
 
-function install_docker() {
+install_docker() {
   sudo yum install -y yum-utils device-mapper-persistent-data lvm2
   sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
   sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
@@ -485,7 +490,7 @@ function install_docker() {
   sudo systemctl enable docker
 }
 
-function check_docker() {
+check_docker() {
   if ! command -v docker >/dev/null 2>&1; then 
     install_docker
   fi
@@ -500,7 +505,7 @@ function check_docker() {
   echo "docker version: $(docker version --format '{{.Client.Version}}')"
 }
 
-function check_volume() {
+check_volume() {
   if [[ $(df -h | grep -v Size | awk '{print $2}' | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($1 > max) max = $1; fi} END{print max}') -lt 80 ]]; then
     max_size=$(lsblk | awk '{print $1,$4}' | grep -v Size | grep -v M | sed -e 's/G//g' | awk 'BEGIN{ max = 0 } {if ($2 > max) max = $2; fi} END{print max}')
     mount_name=$(lsblk | grep "$max_size"G | awk '{print $1}')
@@ -544,7 +549,7 @@ spec:
 EOF
 }
 
-function wait_ocm() {
+wait_ocm() {
   hub=$1
   cluster=$2
   echo -e "$BLUE waiting OCM $1:$2 compoenents $NC"
@@ -555,7 +560,7 @@ function wait_ocm() {
   kubectl wait deploy/klusterlet-work-agent -n open-cluster-management-agent --for condition=Available=True --timeout=600s --context "$cluster"
 }
 
-function wait_policy() {
+wait_policy() {
   hub=$1
   cluster=$2
   echo -e "$BLUE waiting Policy $1:$2 compoenents $NC"
@@ -566,7 +571,7 @@ function wait_policy() {
   run_with_retry "kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=600s --context $cluster"
 }
 
-function wait_application() {
+wait_application() {
   hub=$1
   cluster=$2
   echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
@@ -577,7 +582,7 @@ function wait_application() {
 
 run_with_retry() {
   local command=$1
-  local retries=60
+  local retries=100
   local count=0
   local delay=5
 
@@ -598,5 +603,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+BOLD_GREEN='\033[1;32m'
