@@ -1,19 +1,18 @@
 #!/bin/bash
 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/common.sh"
 
-export CURRENT_DIR
-export GH_NAME="global-hub"
-export GH_CTX="kind-global-hub"
-export MH_NUM=${MH_NUM:-2}
-export MC_NUM=${MC_NUM:-1}
+MH_NUM=${MH_NUM:-2}
+MC_NUM=${MC_NUM:-1}
 
 # setup kubeconfig
-export KUBE_DIR=${CURRENT_DIR}/kubeconfig
-check_dir "$KUBE_DIR"
-export KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/kind-clusters}
+KUBE_DIR=${CURRENT_DIR}/kubeconfig
+KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/kind-clusters}
 
 while read -r line; do
   if [[ $line != "" ]]; then

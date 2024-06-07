@@ -72,15 +72,17 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
+    echo -e "${CYAN} Init Cluster $cluster_name ... $NC"
     kind create cluster --name "$cluster_name" --wait 1m
     dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-    kubectl config view --context="kind-$cluster_name" --minify --flatten >"$dir/kind-$cluster_name"
+    kubectl config rename-context "kind-$cluster_name" "$cluster_name"
+    kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
 }
 
 init_hub() {
-  echo "Initializing Hub $1 ..."
-  clusteradm init --wait --context "$1" >/dev/null 2>&1
+  echo -e "${CYAN} Init Hub $1 ... $NC"
+  clusteradm init --wait --context "$1" 2>&1
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
@@ -118,7 +120,7 @@ init_managed() {
 join_cluster() {
   local hub=$1 # hub name also as the context
   local cluster=$2
-  echo "join cluster: $cluster to $hub"
+  echo -e "${CYAN} Import Cluster $2 to Hub $1 ... $NC"
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   if [[ -z $(kubectl get mcl "$cluster" --context "$hub" --ignore-not-found) ]]; then
@@ -133,7 +135,7 @@ join_cluster() {
 
 # init application-lifecycle
 init_app() {
-  echo "init app for $1:$2"
+  echo -e "${CYAN} Init Application $1:$2 $NC"
   local hub=$1
   local cluster=$2
 
@@ -150,7 +152,7 @@ init_app() {
 }
 
 init_policy() {
-  echo "init policy for $1:$2"
+  echo -e "${CYAN} Init Policy $1:$2 $NC"
   local hub=$1
   local cluster=$2
 
@@ -159,8 +161,6 @@ init_policy() {
   kubectl create ns "${HUB_NAMESPACE}" --dry-run=client -o yaml | kubectl --context $hub apply -f -
   MANAGED_NAMESPACE="open-cluster-management-agent-addon"
   kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
-
-  sleep 2
 
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
   GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
@@ -300,14 +300,13 @@ install_crds() {
 }
 
 enable_service_ca() {
-  ctx=$1
-  node_name=$2
-  resource_dir=$3
+  local name=$1     # the name is the same with context
+  local resource_dir=$2
   # apply service-ca
-  kubectl --context "$ctx" label node "$node_name"-control-plane node-role.kubernetes.io/master=
-  kubectl --context "$ctx" apply -f "$resource_dir"/service-ca-crds
-  kubectl --context "$ctx" create ns openshift-config-managed
-  kubectl --context "$ctx" apply -f "$resource_dir"/service-ca/
+  kubectl --context "$name" label node "$name"-control-plane node-role.kubernetes.io/master=
+  kubectl --context "$name" apply -f "$resource_dir"/service-ca-crds
+  kubectl --context "$name" create ns openshift-config-managed
+  kubectl --context "$name" apply -f "$resource_dir"/service-ca/
 }
 
 # deploy olm
