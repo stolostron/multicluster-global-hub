@@ -414,14 +414,14 @@ wait_disappear() {
     ((seconds = seconds - 1))
   done
   echo "> $command"
-  eval $command
+  eval "$command"
 }
 
 wait_appear() {
   local command=$1
   local seconds=${2:-"600"}
-  local interval=1         # Interval for updating the waiting message
-  local command_interval=5 # Interval for executing the command
+  local interval=2         # Interval for updating the waiting message
+  local command_interval=4 # Interval for executing the command
   local signs=(🙉 🙈 🙊)
   local elapsed=0
   local last_command_run=0
@@ -429,14 +429,14 @@ wait_appear() {
   while [ $elapsed -le "$seconds" ]; do
     if [ $((elapsed - last_command_run)) -ge $command_interval ]; then
       if [ -n "$(eval ${command})" ]; then
-        eval "$command"
+        eval "${command}"
         return 0 # Return success status code
       fi
       last_command_run=$elapsed
     fi
 
     local index=$((elapsed % ${#signs[@]}))
-    echo -ne "\r${signs[$index]}$YELLOW Waiting $elapsed seconds... $NC: $command"
+    echo -ne "\r${signs[$index]}$YELLOW Waiting $elapsed seconds $NC: $command \n"
     sleep $interval
     ((elapsed += interval))
   done

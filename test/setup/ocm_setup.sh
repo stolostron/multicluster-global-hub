@@ -20,7 +20,7 @@ hub="$1"
 spoken="$2"
 start_time=$(date +%s)
 
-echo -e "\r$BOLD_GREEN [ START ] $hub : $spoken $NC"
+echo -e "\r${BOLD_GREEN}[ START ] $hub : $spoken $NC"
 set +e
 
 # init clusters
@@ -38,4 +38,4 @@ init_policy "$hub" "$spoken"
 
 enable_cluster "$hub" "$spoken" 
 
-echo -e "\r${BOLD_GREEN} [ END ] $hub : $spoken ${NC} $(($(date +%s) - start_time)) seconds"
+echo -e "\r${BOLD_GREEN}[ END ] $hub : $spoken ${NC} $(($(date +%s) - start_time)) seconds"

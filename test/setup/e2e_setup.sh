@@ -101,5 +101,5 @@ for i in $(seq 1 "${MH_NUM}"); do
     echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$KUBE_DIR/hub$i-cluster$j $NC"
   done
 done
-echo -e "$BOLD_GREEN [Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
-echo -e "$BOLD_GREEN [ END ] ${NC} $(($(date +%s) - start)) seconds"
+echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
+echo -e "${BOLD_GREEN}[ END ] ${NC} $(($(date +%s) - start)) seconds"
