@@ -151,7 +151,9 @@ init_app() {
   kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
 
   # deploy the subscription operators to the hub cluster
-  clusteradm install hub-addon --names application-manager --context "$hub"
+  if ! kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context "$hub"; then
+    clusteradm install hub-addon --names application-manager --context "$hub"
+  fi
 
   # enable the addon on the managed clusters
   clusteradm addon enable --names application-manager --clusters "$cluster" --context "$hub"
@@ -208,7 +210,7 @@ init_policy() {
   local MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
   kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
-  retry "(kubectl --context $cluster apply -f $GIT_PATH/$policy_addon/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)"
+  retry "(kubectl --context $cluster apply -f $GIT_PATH/$policy_addon/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
 
   kubectl --context "$cluster" set image deployment/$policy_addon $policy_addon=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" patch deployment $policy_addon -n ${MANAGED_NAMESPACE} \
@@ -306,7 +308,7 @@ install_crds() {
 }
 
 enable_service_ca() {
-  local name=$1     # the name is the same with context
+  local name=$1 # the name is the same with context
   local resource_dir=$2
   # apply service-ca
   kubectl --context "$name" label node "$name"-control-plane node-role.kubernetes.io/master=
@@ -539,7 +541,7 @@ enable_cluster() {
   local cluster="$2"
   # Apply label to managedcluster
   kubectl label mcl "$cluster" vendor=OpenShift --context "$hub" --overwrite 2>&1
-  if ! kubectl --context "$cluster" get clusterclaim "id.k8s.io" > /dev/null 2>&1; then
+  if ! kubectl --context "$cluster" get clusterclaim "id.k8s.io" >/dev/null 2>&1; then
     # Add clusterclaim
     cat <<EOF | kubectl --context "$cluster" apply -f -
 apiVersion: cluster.open-cluster-management.io/v1alpha1

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euox pipefail
+set -euo pipefail
 
 CURRENT_DIR=$(
   cd "$(dirname "$0")" || exit
@@ -50,37 +50,31 @@ echo "$!" >"$KUBE_DIR/PID"
 bash "$CURRENT_DIR"/resource/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$KUBE_DIR/PID"
 
-# Init hubs
-echo -e "$BLUE initing hubs $NC"
-
+# async ocm, policy and app
 start_time=$(date +%s)
+
+# gobal-hub: hub1, hub2
 (
-  init_hub $GH_NAME 2>&1 &
+  init_hub $GH_NAME 2>&1
   for i in $(seq 1 "${MH_NUM}"); do
-    init_hub "hub$i" 2>&1 &
+    bash "$CURRENT_DIR"/ocm_setup.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
   done
   wait
 ) &
-hub_pid=$!
-echo $hub_pid >>"$KUBE_DIR/PID"
 
-wait $hub_pid
-echo -e "${YELLOW} initing hubs:${NC} $(($(date +%s) - start_time)) seconds"
-
-start_time=$(date +%s)
-
-export HUB_INIT=false
+# hub1: cluster1 | hub2: cluster1
 for i in $(seq 1 "${MH_NUM}"); do
-  bash "$CURRENT_DIR"/ocm_setup.sh "$GH_NAME" "hub$i" 2>&1 &
-  for j in $(seq 1 "${MC_NUM}"); do
-    bash "$CURRENT_DIR"/ocm_setup.sh "hub$i" "hub$i-cluster$j" 2>&1 &
-  done
+  (
+    init_hub "hub$i" 2>&1
+    for j in $(seq 1 "${MC_NUM}"); do
+      bash "$CURRENT_DIR"/ocm_setup.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
+    done
+    wait
+  ) &
 done
 
 wait
 echo -e "${YELLOW} init ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
-
-set +x
 
 # Validation
 start_time=$(date +%s)
@@ -88,14 +82,10 @@ echo -e "$BLUE validate ocm, app and policy $NC"
 
 for i in $(seq 1 "${MH_NUM}"); do
   wait_ocm $GH_NAME "hub$i"
-  enable_cluster $GH_NAME "hub$i" 2>&1
-
   wait_policy $GH_NAME "hub$i"
   wait_application $GH_NAME "hub$i"
   for j in $(seq 1 "${MC_NUM}"); do
     wait_ocm "hub$i" "hub$i-cluster$j"
-    enable_cluster "hub$i" "hub$i-cluster$j" 2>&1
-
     wait_policy "hub$i" "hub$i-cluster$j"
     wait_application "hub$i" "hub$i-cluster$j"
   done
