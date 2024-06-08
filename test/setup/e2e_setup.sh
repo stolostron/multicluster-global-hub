@@ -19,6 +19,7 @@ export KinD=true
 export KUBE_DIR=${CURRENT_DIR}/kubeconfig
 check_dir "$KUBE_DIR"
 export KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
+start=$(date +%s)
 
 # Init clusters
 echo -e "$BLUE creating clusters $NC"
@@ -101,3 +102,4 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 echo -e "$BOLD_GREEN [Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
+echo -e "$BOLD_GREEN [ END ] ${NC} $(($(date +%s) - start)) seconds"

@@ -72,7 +72,6 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    echo -e "${CYAN} Init Cluster $cluster_name ... $NC"
     kind create cluster --name "$cluster_name" --wait 1m
     dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
     # modify the context = KinD cluster name = kubeconfig name
@@ -426,7 +425,7 @@ wait_appear() {
       eval "$command"
       return 0 # Return success status code
     fi
-    echo -e "\r$YELLOW Waiting $i $NC: $command"
+    echo -ne "\r$YELLOW Waiting $i $NC: $command"
     sleep 5
   done
   echo -e "$RED Timeout $seconds $NC: $command"
