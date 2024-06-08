@@ -28,7 +28,7 @@ kind_cluster "$spoken"
 install_crds "$hub"  # router, mch(not needed for the managed clusters)
 install_crds "$spoken" 
 
-join_cluster "$hub" "$spoken" 
+retry "(join_cluster $hub $spoken) && kubectl get mcl $spoken --context $hub" 10
 
 # async
 init_app "$hub" "$spoken" 

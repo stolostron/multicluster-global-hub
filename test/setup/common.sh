@@ -589,7 +589,7 @@ wait_application() {
 # Common function to run a command with retries
 # Parameters: $1 = command to run (function name or command string)
 retry() {
-  local retries=3
+  local retries=${2:-3}
   local count=0
   local success=false
 
