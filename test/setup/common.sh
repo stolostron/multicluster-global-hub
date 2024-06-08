@@ -72,14 +72,14 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    kind create cluster --name "$cluster_name" --wait 1m
-    dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+    retry "kind create cluster --name $cluster_name --wait 1m"
     # modify the context = KinD cluster name = kubeconfig name
     kubectl config rename-context "kind-$cluster_name" "$cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
     node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
     kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443" # context is changed but name not
 
+    dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
 }
@@ -615,7 +615,7 @@ retry() {
   local success=false
 
   while [ $count -lt "$retries" ]; do
-    echo -e "$YELLOW Attempt $((count + 1))... $NC "
+    echo -e "\r${YELLOW}Attempt $((count + 1))... $NC "
     if eval "$1"; then
       success=true
       break
@@ -626,9 +626,9 @@ retry() {
   done
 
   if [ "$success" = true ]; then
-    echo -e "$GREEN $1: Success. $NC "
+    echo -e "${GREEN}$1: Success. $NC "
   else
-    echo -e "$RED $1: Failed after $retries attempts. $NC "
+    echo -e "${RED}$1: Failed after $retries attempts. $NC "
   fi
 }
 
