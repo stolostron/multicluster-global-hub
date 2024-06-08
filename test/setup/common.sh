@@ -196,7 +196,7 @@ init_policy() {
   ## Create the secret to authenticate with the hub
   dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local hub_kubeconfig="$dir/$hub"
-  if [[ $(kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster" --ignore-not-found) == "" ]]; then
+  if ! kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster"; then
     kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$hub_kubeconfig"
   fi
 
