@@ -73,7 +73,7 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --image $KIND_IMAGE --wait 1m"
+    kind create cluster --name "$cluster_name" --image $KIND_IMAGE --wait 2m
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
@@ -503,7 +503,7 @@ check_ginkgo() {
 install_docker() {
   sudo yum install -y yum-utils device-mapper-persistent-data lvm2
   sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-  sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  sudo yum install -y docker-ce-3:26.1.3-1.el8 docker-ce-cli-3:26.1.3-1.el8 containerd.io docker-compose-plugin
 
   sleep 5
   sudo systemctl start docker

@@ -26,10 +26,13 @@ echo -e "$BLUE creating clusters $NC"
 start_time=$(date +%s)
 
 kind_cluster "$GH_NAME" 2>&1 &
+sleep 1
 for i in $(seq 1 "${MH_NUM}"); do
   kind_cluster "hub$i" 2>&1 &
+  sleep 1
   for j in $(seq 1 "${MC_NUM}"); do
     kind_cluster "hub$i-cluster$j" 2>&1 &
+    sleep 1
   done
 done
 
