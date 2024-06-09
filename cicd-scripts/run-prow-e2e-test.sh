@@ -22,7 +22,10 @@ scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 
 ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y 
 # Insufficient resources creating kind clusters, modify parameters to expand
-ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\" >> /etc/sysctl.conf && echo \"fs.inotify.max_user_instances=1024\" >> /etc/sysctl.conf && sysctl -p /etc/sysctl.conf'"
+ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\" >> /etc/sysctl.conf && \
+                                     echo \"fs.inotify.max_user_instances=8192\" >> /etc/sysctl.conf && \
+                                     sysctl -p /etc/sysctl.conf'"
+                                     
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/resources/env.list && sudo make e2e-dep && make e2e-setup" > >(tee "$ARTIFACT_DIR/e2e-setup.log") 2>&1
 
