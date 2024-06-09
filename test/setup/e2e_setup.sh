@@ -77,7 +77,7 @@ done
 wait
 echo -e "${YELLOW} init ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
-# Validation
+# validation
 start_time=$(date +%s)
 echo -e "$BLUE validate ocm, app and policy $NC"
 
@@ -91,6 +91,11 @@ for i in $(seq 1 "${MH_NUM}"); do
     wait_application "hub$i" "hub$i-cluster$j"
   done
 done
+
+# postgres
+kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n hoh-postgres --context $GH_NAME --timeout=100s
+# hoh
+kubectl wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=kafka-kafka-0 -n multicluster-global-hub --context $GH_NAME --timeout=100s
 
 echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 

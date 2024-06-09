@@ -74,10 +74,11 @@ kind_cluster() {
   if ! kind get clusters | grep -q "^$cluster_name$"; then
     retry "kind create cluster --name $cluster_name --wait 1m"
     # modify the context = KinD cluster name = kubeconfig name
-    kubectl config rename-context "kind-$cluster_name" "$cluster_name"
+    retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
     node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
-    kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443" # context is changed but name not
+    # context is changed but name not
+    retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
 
     dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
@@ -151,7 +152,7 @@ init_app() {
 
   # deploy the subscription operators to the hub cluster
   if ! kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context "$hub"; then
-    clusteradm install hub-addon --names application-manager --context "$hub"
+    retry "clusteradm install hub-addon --names application-manager --context $hub && (kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context $hub)"
   fi
 
   # enable the addon on the managed clusters
@@ -436,7 +437,7 @@ wait_appear() {
     fi
 
     local index=$((elapsed % ${#signs[@]}))
-    echo -ne "\r${signs[$index]}$YELLOW Waiting $elapsed seconds $NC: $command \n"
+    echo -ne "\r${signs[$index]}$YELLOW Waiting $elapsed seconds $NC: $command"
     sleep $interval
     ((elapsed += interval))
   done
@@ -614,8 +615,9 @@ retry() {
   local count=0
   local success=false
 
+  echo -e "${CYAN}$1 $NC "
   while [ $count -lt "$retries" ]; do
-    echo -e "\r${YELLOW}Attempt $((count + 1))... $NC "
+    echo -en "\r${YELLOW} Attempt $((count + 1))... $NC "
     if eval "$1"; then
       success=true
       break
