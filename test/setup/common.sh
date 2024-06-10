@@ -175,9 +175,11 @@ function initPolicy() {
 
     COMPONENT="config-policy-controller"
     # Apply the config-policy-controller CRD
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/v0.13.0/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
     # Deploy the controller
-    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/main/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
+    kubectl --context "${managedPrefix}$i" apply -f ${GIT_PATH}/"${COMPONENT}"/v0.13.0/deploy/operator.yaml -n "${MANAGED_NAMESPACE}"
+
+    kubectl --context "${managedPrefix}$i" set image deployment/$COMPONENT $COMPONENT=quay.io/open-cluster-management/config-policy-controller:v0.13.0 -n ${MANAGED_NAMESPACE}
     kubectl --context "${managedPrefix}$i" set env deployment/"${COMPONENT}" -n "${MANAGED_NAMESPACE}" --containers="${COMPONENT}" WATCH_NAMESPACE="${managedPrefix}$i"
     
   done
