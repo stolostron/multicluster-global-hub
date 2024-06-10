@@ -27,16 +27,12 @@ start_time=$(date +%s)
 
 docker pull "$KIND_IMAGE"
 
-kind_cluster "$GH_NAME" 2>&1 &
+kind_cluster "$GH_NAME" 2>&1 
 for i in $(seq 1 "${MH_NUM}"); do
-  kind_cluster "hub$i" 2>&1 &
-  for j in $(seq 1 "${MC_NUM}"); do
-    kind_cluster "hub$i-cluster$j" 2>&1 &
-  done
+  kind_cluster "hub$i" 2>&1 
 done
 
-wait
-echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds"
+echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
 
 # GH
 echo -e "$BLUE setting global hub service ca $NC"

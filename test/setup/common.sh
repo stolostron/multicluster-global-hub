@@ -8,7 +8,7 @@ export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
-export KIND_IMAGE=kindest/node:v1.29.4
+export KIND_IMAGE=kindest/node:v1.30.0
 
 check_dir() {
   if [ ! -d "$1" ]; then
