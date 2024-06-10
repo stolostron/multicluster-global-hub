@@ -11,7 +11,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
-  name: kind-hub1-kafka-user
+  name: hub1-kafka-user
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -21,7 +21,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
-  name: kind-hub2-kafka-user
+  name: hub2-kafka-user
   labels:
     strimzi.io/cluster: kafka
 spec:
