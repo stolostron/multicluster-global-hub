@@ -93,6 +93,9 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to get global hub transport connection: %w", err)
 	}
+	if transportConn.BootstrapServer == "" {
+		return fmt.Errorf("the transport connnection is not ready")
+	}
 
 	if r.MiddlewareConfig.StorageConn == nil {
 		return fmt.Errorf("failed to get storage connection")

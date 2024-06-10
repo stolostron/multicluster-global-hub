@@ -191,6 +191,9 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if err != nil {
 		return nil, err
 	}
+	if kafkaConnection.BootstrapServer != "" {
+		return nil, fmt.Errorf("the transport crendential is not ready for the agent: %s", cluster.Name)
+	}
 	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
 
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
