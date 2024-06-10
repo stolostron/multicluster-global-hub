@@ -8,7 +8,6 @@ export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
-export KIND_IMAGE=kindest/node:v1.30.0
 
 check_dir() {
   if [ ! -d "$1" ]; then
@@ -73,7 +72,7 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --image $KIND_IMAGE --wait 1m"
+    retry "kind create cluster --name $cluster_name --wait 1m"
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
