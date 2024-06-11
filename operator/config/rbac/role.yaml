@@ -377,6 +377,12 @@ rules:
 - apiGroups:
   - operators.coreos.com
   resources:
+  - clusterserviceversions
+  verbs:
+  - delete
+- apiGroups:
+  - operators.coreos.com
+  resources:
   - subscriptions
   verbs:
   - create

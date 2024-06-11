@@ -4,12 +4,17 @@ import (
 	"context"
 	"testing"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func TestMulticlusterGlobalHubReconciler_pruneMetricsResources(t *testing.T) {
@@ -91,6 +96,74 @@ func TestMulticlusterGlobalHubReconciler_pruneMetricsResources(t *testing.T) {
 			}
 			if err := r.pruneMetricsResources(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("MulticlusterGlobalHubReconciler.pruneMetricsResources() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestMulticlusterGlobalHubReconciler_pruneStrimziResources(t *testing.T) {
+	tests := []struct {
+		name        string
+		initObjects []runtime.Object
+		wantErr     bool
+	}{
+		{
+			name: "remove kafka resources",
+			initObjects: []runtime.Object{
+				&kafkav1beta2.Kafka{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      transporter.KafkaClusterName,
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
+				&kafkav1beta2.KafkaUser{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kafkauser",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
+				&kafkav1beta2.KafkaTopic{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kafkatopic",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
+			},
+		},
+		{
+			name: "remove subscription and csv",
+			initObjects: []runtime.Object{
+				&subv1alpha1.Subscription{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      transporter.DefaultKafkaSubName,
+						Namespace: utils.GetDefaultNamespace(),
+					},
+					Status: subv1alpha1.SubscriptionStatus{
+						InstalledCSV: "kafka-0.38.0",
+					},
+				},
+				&subv1alpha1.ClusterServiceVersion{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kafka-0.38.0",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			kafkav1beta2.AddToScheme(scheme.Scheme)
+			subv1alpha1.AddToScheme(scheme.Scheme)
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
+			r := &MulticlusterGlobalHubReconciler{
+				Client: fakeClient,
+				Scheme: scheme.Scheme,
+			}
+			if err := r.pruneStrimziResources(ctx); (err != nil) != tt.wantErr {
+				t.Errorf("MulticlusterGlobalHubReconciler.pruneStrimziResources() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
