@@ -33,21 +33,18 @@ done
 echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
 
 # GH
-echo -e "$BLUE setting global hub service ca $NC"
-start_time=$(date +%s)
-
-export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
+# service-ca
+echo -e "$BLUE setting global hub service-ca and middlewares $NC"
 enable_service_ca $GH_NAME "$CURRENT_DIR/resource" 2>&1 || true
-
-echo -e "${YELLOW} setting global hub service ca:${NC} $(($(date +%s) - start_time)) seconds"
-
 # async middlewares
+export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
 bash "$CURRENT_DIR/resource/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >"$KUBE_DIR/PID"
 bash "$CURRENT_DIR"/resource/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$KUBE_DIR/PID"
 
 # async ocm, policy and app
+echo -e "$BLUE installing ocm, policy, and app in global hub and managed hubs $NC"
 start_time=$(date +%s)
 
 # gobal-hub: hub1, hub2
@@ -71,11 +68,11 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 
 wait
-echo -e "${YELLOW} init ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
+echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
 # validation
+echo -e "$BLUE validating ocm, app and policy $NC"
 start_time=$(date +%s)
-echo -e "$BLUE validate ocm, app and policy $NC"
 
 for i in $(seq 1 "${MH_NUM}"); do
   wait_ocm $GH_NAME "hub$i"
