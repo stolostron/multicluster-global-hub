@@ -644,7 +644,7 @@ data:
               },
               "links": [],
               "mappings": [],
-              "noValue": "No data in response",
+              "noValue": "-",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -726,18 +726,10 @@ data:
                   {
                     "id": "custom.width",
                     "value": 358
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Time"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "custom.width",
-                    "value": 192
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               },
@@ -762,6 +754,10 @@ data:
                   {
                     "id": "custom.width",
                     "value": 189
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               },
@@ -774,6 +770,18 @@ data:
                   {
                     "id": "custom.width",
                     "value": 110
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Control"
+                },
+                "properties": [
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               }
@@ -810,7 +818,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
+              "rawSql": "WITH data AS (\n  SELECT\n    to_char(ch.compliance_date,'YYYY-MM-DD' )as \"date\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    date,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    non_compliant::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (date, value) DESC\n",
               "refId": "A",
               "select": [
                 [
@@ -855,10 +863,12 @@ data:
               "id": "organize",
               "options": {
                 "excludeByName": {},
+                "includeByName": {},
                 "indexByName": {},
                 "renameByName": {
                   "category": "Category",
                   "control": "Control",
+                  "date": "Date",
                   "hub": "Hub",
                   "name": "Name",
                   "namespace": "Namespace",
@@ -1019,6 +1029,10 @@ data:
                   {
                     "id": "custom.width",
                     "value": 187
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               },
@@ -1031,6 +1045,10 @@ data:
                   {
                     "id": "custom.width",
                     "value": 356
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               },
@@ -1053,6 +1071,18 @@ data:
                         "url": "d/pAqtIGj4k/global-hub-investigation-help??orgId=1&from=${__value.time}&to=${__value.time}&var-hub=${__data.fields.Hub}&var-namespace=${__data.fields.Namespace}&var-policy=${__data.fields.Name}"
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Control"
+                },
+                "properties": [
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               }
@@ -1088,7 +1118,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    pending::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    pending > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
+              "rawSql": "WITH data AS (\n  SELECT\n    to_char(ch.compliance_date,'YYYY-MM-DD') as \"date\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    date,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    pending::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    pending > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (date, value) DESC\n",
               "refId": "A",
               "select": [
                 [
@@ -1138,6 +1168,7 @@ data:
                 "renameByName": {
                   "category": "Category",
                   "control": "Control",
+                  "date": "Date",
                   "hub": "Hub",
                   "namespace": "Namespace",
                   "policy": "Name",
@@ -1310,6 +1341,10 @@ data:
                   {
                     "id": "custom.width",
                     "value": 187
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               },
@@ -1322,6 +1357,10 @@ data:
                   {
                     "id": "custom.width",
                     "value": 356
+                  },
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               },
@@ -1344,6 +1383,18 @@ data:
                         "url": "d/pAqtIGj4k/global-hub-investigation-help??orgId=1&from=${__value.time}&to=${__value.time}&var-hub=${__data.fields.Hub}&var-namespace=${__data.fields.Namespace}&var-policy=${__data.fields.Name}"
                       }
                     ]
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Control"
+                },
+                "properties": [
+                  {
+                    "id": "noValue",
+                    "value": "-"
                   }
                 ]
               }
@@ -1379,7 +1430,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\n  SELECT\n    ch.compliance_date as \"time\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    time,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    pending = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (time, value) DESC\n",
+              "rawSql": "WITH data AS (\n  SELECT\n    to_char(ch.compliance_date, 'YYYY-MM-DD') as \"date\",\n    p.policy_name as \"policy\",\n    p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n    p.leaf_hub_name as \"hub\",\n    p.policy_standard as \"standard\",\n    p.policy_category as \"category\",\n    p.policy_control as \"control\",\n    COUNT(CASE WHEN ch.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n    COUNT(CASE WHEN ch.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n    COUNT(CASE WHEN ch.compliance = 'pending' THEN 1 END) AS \"pending\",\n    COUNT(CASE WHEN ch.compliance = 'compliant' THEN 1 END) AS \"compliant\"\n  FROM\n    local_spec.policies p\n  JOIN\n    history.local_compliance ch ON p.policy_id = ch.policy_id\n  WHERE\n    $__timeFilter(ch.compliance_date)\n  AND\n    p.policy_standard ${standard_query:raw} AND p.policy_category ${category_query:raw} AND p.policy_control ${control_query:raw}\n  AND\n    ch.cluster_id IS NOT NULL\n  GROUP BY (ch.compliance_date, p.policy_name, p.policy_id, p.payload -> 'metadata' ->> 'namespace', p.policy_standard, p.policy_category, p.policy_control, p.leaf_hub_name)\n),\nres as (\n  SELECT\n    date,\n    policy,\n    namespace,\n    hub,\n    standard,\n    category,\n    control,\n    unknown::float / NULLIF((compliant::float + unknown + non_compliant + pending), 0) as \"value\"\n  FROM\n    data\n  WHERE\n    non_compliant = 0 \n  AND\n    pending = 0\n  AND\n    unknown > 0\n)\nSELECT\n  *\nFROM\n  res\nORDER BY (date, value) DESC\n",
               "refId": "A",
               "select": [
                 [
@@ -1424,10 +1475,12 @@ data:
               "id": "organize",
               "options": {
                 "excludeByName": {},
+                "includeByName": {},
                 "indexByName": {},
                 "renameByName": {
                   "category": "Category",
                   "control": "Control",
+                  "date": "Date",
                   "hub": "Hub",
                   "namespace": "Namespace",
                   "policy": "Name",
