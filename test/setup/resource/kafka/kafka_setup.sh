@@ -18,13 +18,11 @@ if [ -n "$(kubectl get secret "$transport_secret" -n "$target_namespace" --ignor
 fi
 
 # deploy kafka operator
-kubectl apply -k "$current_dir/kafka-operator" -n "$target_namespace"
-wait_appear "kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
+retry "(kubectl apply -k $current_dir/kafka-operator -n $target_namespace) && (kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
-kubectl apply -k "$current_dir/kafka-cluster" -n "$target_namespace"
-wait_appear "kubectl -n $target_namespace get kafka.kafka.strimzi.io/kafka -o jsonpath={.status.listeners} --ignore-not-found" 1200
+retry "(kubectl apply -k $current_dir/kafka-cluster -n $target_namespace) && (kubectl get kafka kafka -n $target_namespace -o json | jq '(.status.listeners | length) == 2'  | grep true)" 120
 
 # patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
 node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
