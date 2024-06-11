@@ -85,17 +85,6 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-# postgres
-kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n hoh-postgres --context $GH_NAME --timeout=100s
-# kafka
-wait_appear "kubectl get kafkatopic event -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-wait_appear "kubectl get kafkatopic spec -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-wait_appear "kubectl get kafkatopic status.hub1 -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-wait_appear "kubectl get kafkatopic status.hub2 -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-wait_appear "kubectl get kafkauser global-hub-kafka-user -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-wait_appear "kubectl get kafkauser hub1-kafka-user -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-wait_appear "kubectl get kafkauser hub2-kafka-user -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
-
 echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
 # kubeconfig

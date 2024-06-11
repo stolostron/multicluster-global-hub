@@ -49,3 +49,6 @@ done
 
 kubectl --kubeconfig $KUBECONFIG delete pod -n $pgnamespace --all --ignore-not-found=true 2>/dev/null  
 echo "Postgres is pathed!"
+
+# postgres
+kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n hoh-postgres --timeout=100s

@@ -44,6 +44,15 @@ kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p
   }
 ]'
 
+# kafka
+wait_appear "kubectl get kafkatopic event -n multicluster-global-hub | grep -C 1 True"
+wait_appear "kubectl get kafkatopic spec -n multicluster-global-hub | grep -C 1 True"
+wait_appear "kubectl get kafkatopic status.hub1 -n multicluster-global-hub | grep -C 1 True"
+wait_appear "kubectl get kafkatopic status.hub2 -n multicluster-global-hub | grep -C 1 True"
+wait_appear "kubectl get kafkauser global-hub-kafka-user -n multicluster-global-hub | grep -C 1 True"
+wait_appear "kubectl get kafkauser hub1-kafka-user -n multicluster-global-hub | grep -C 1 True"
+wait_appear "kubectl get kafkauser hub2-kafka-user -n multicluster-global-hub | grep -C 1 True"
+
 echo "Kafka cluster is ready"
 
 # BYO: 1. create the topics; 2. create the user; 3. create the transport secret 
