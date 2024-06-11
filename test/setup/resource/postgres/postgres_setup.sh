@@ -17,12 +17,10 @@ if [ -n "$(kubectl get secret $storage_secret -n $target_namespace --ignore-not-
 fi
 
 # step2: deploy postgres operator pgo
-kubectl apply --server-side -k "$current_dir/postgres-operator"
-wait_appear "kubectl get pods -n postgres-operator --ignore-not-found=true | grep pgo | grep Running || true"
+retry "kubectl apply --server-side -k $current_dir/postgres-operator && (kubectl get pods -n postgres-operator | grep pgo | grep Running)" 60
 
 # step3: deploy  postgres cluster
-kubectl --kubeconfig $KUBECONFIG apply -k ${current_dir}/postgres-cluster
-wait_appear "kubectl --kubeconfig $KUBECONFIG get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
+retry "kubectl apply -k ${current_dir}/postgres-cluster && (kubectl get secret hoh-pguser-postgres -n hoh-postgres)"
 
 # step4: generate storage secret
 pgnamespace="hoh-postgres"
