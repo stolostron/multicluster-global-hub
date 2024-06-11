@@ -7,6 +7,39 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      resource:
+        name: event
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Read
+      resource:
+        name: '*'
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      resource:
+        name: status
+        patternType: prefix
+        type: topic
+    - host: '*'
+      operations:
+      - Write
+      resource:
+        name: spec
+        patternType: literal
+        type: topic
+    type: simple
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
@@ -17,6 +50,38 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      resource:
+        name: spec
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Read
+      resource:
+        name: '*'
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Write
+      resource:
+        name: event
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Write
+      resource:
+        name: status.hub1
+        patternType: literal
+        type: topic
+    type: simple
 ---
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
@@ -27,3 +92,35 @@ metadata:
 spec:
   authentication:
     type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      resource:
+        name: spec
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Read
+      resource:
+        name: '*'
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Write
+      resource:
+        name: event
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Write
+      resource:
+        name: status.hub2
+        patternType: literal
+        type: topic
+    type: simple

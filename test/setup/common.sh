@@ -427,17 +427,20 @@ wait_appear() {
   local elapsed=0
   local last_command_run=0
 
+  if eval "${command}"; then
+    return 0 
+  fi
+
   while [ $elapsed -le "$seconds" ]; do
     if [ $((elapsed - last_command_run)) -ge $command_interval ]; then
       if [ -n "$(eval ${command})" ]; then
-        eval "${command}"
         return 0 # Return success status code
       fi
       last_command_run=$elapsed
     fi
 
-    local index=$((elapsed % ${#signs[@]}))
-    echo -ne "\r${signs[$index]}$YELLOW Waiting $elapsed seconds $NC: $command"
+    local index=$(((elapsed / interval % ${#signs[@]}) + 1))
+    echo -ne "\r ${signs[$index]} Waiting $elapsed seconds ..."
     sleep $interval
     ((elapsed += interval))
   done
