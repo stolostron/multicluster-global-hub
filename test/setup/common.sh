@@ -439,7 +439,7 @@ wait_appear() {
       last_command_run=$elapsed
     fi
 
-    local index=$(((elapsed / interval % ${#signs[@]}) + 1))
+    local index=$((elapsed / interval % ${#signs[@]}))
     echo -ne "\r ${signs[$index]} Waiting $elapsed seconds ..."
     sleep $interval
     ((elapsed += interval))

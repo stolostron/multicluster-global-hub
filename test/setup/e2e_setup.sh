@@ -88,7 +88,6 @@ done
 # postgres
 kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n hoh-postgres --context $GH_NAME --timeout=100s
 # kafka
-kubectl wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=kafka-kafka-0 -n multicluster-global-hub --context $GH_NAME --timeout=100s
 wait_appear "kubectl get kafkatopic event -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
 wait_appear "kubectl get kafkatopic spec -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
 wait_appear "kubectl get kafkatopic status.hub1 -n multicluster-global-hub --context $GH_NAME | grep -C 1 True"
