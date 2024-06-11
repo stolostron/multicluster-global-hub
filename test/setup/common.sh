@@ -72,7 +72,7 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --wait 1m"
+    retry "kind create cluster --name $cluster_name --wait 5m"
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
