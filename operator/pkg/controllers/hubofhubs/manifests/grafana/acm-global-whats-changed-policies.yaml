@@ -345,7 +345,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id \nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name IN ( $all_hubs )\nAND\n  rp.leaf_hub_name IN ( $all_hubs )\nAND\n  policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND reverse(SUBSTRING(reverse(rp.message), 0, position('/' in reverse(rp.message)))) ${cluster_query:raw}\nORDER BY (rp.created_at) DESC",
+              "rawSql": "SELECT\n  rp.created_at as \"time\",\n  p.leaf_hub_name as \"hub\",\n  p.payload -> 'metadata' ->> 'namespace' as \"namespace\",\n  p.policy_name,\n  rp.message\nFROM\n  event.local_root_policies rp\nINNER JOIN\n  local_spec.policies p ON rp.policy_id = p.policy_id \nWHERE\n  $__timeFilter(rp.created_at)\nAND\n  p.leaf_hub_name IN ( $all_hubs )\nAND\n  rp.leaf_hub_name IN ( $all_hubs )\nAND\n  policy_name = '$policy'\nAND\n  p.payload -> 'metadata' ->> 'namespace' = '$namespace'\nAND reverse(SUBSTRING(reverse(rp.message), 0, position(' ' in reverse(rp.message)))) ${cluster_query:raw}\nORDER BY (rp.created_at) DESC",
               "refId": "A",
               "select": [
                 [
