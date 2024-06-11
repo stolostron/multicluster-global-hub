@@ -90,20 +90,20 @@ spec:
     ```
     $ kubectl get pods -n multicluster-global-hub
     NAME                                                    READY   STATUS    RESTARTS   AGE
-    amq-streams-cluster-operator-v2.6.0-2-f49bf7559-569mw   1/1     Running   0          102m
-    kafka-entity-operator-68dcd446f4-pg257                  3/3     Running   0          99m
-    kafka-kafka-0                                           1/1     Running   0          7m20s
-    kafka-kafka-1                                           1/1     Running   0          48s
-    kafka-kafka-2                                           0/1     Running   0          10s
-    kafka-zookeeper-0                                       1/1     Running   0          2m28s
-    kafka-zookeeper-1                                       1/1     Running   0          2m
-    kafka-zookeeper-2                                       1/1     Running   0          76s
-    multicluster-global-hub-grafana-5b7cfb6876-629jn        2/2     Running   0          2m
-    multicluster-global-hub-grafana-5b7cfb6876-hdqll        2/2     Running   0          2m30s
-    multicluster-global-hub-manager-7f56d78c49-hzfvw        1/1     Running   0          99m
-    multicluster-global-hub-manager-7f56d78c49-wbkzl        1/1     Running   0          99m
-    multicluster-global-hub-operator-768bd5bd4f-59xjd       1/1     Running   0          103m
-    multicluster-global-hub-postgres-0                      2/2     Running   0          2m
+    amq-streams-cluster-operator-v2.6.0-2-f49bf7559-569mw   1/1     Running   0          22m
+    kafka-entity-operator-68dcd446f4-pg257                  3/3     Running   0          19m
+    kafka-kafka-0                                           1/1     Running   0          20m
+    kafka-kafka-1                                           1/1     Running   0          20m
+    kafka-kafka-2                                           1/1     Running   0          20m
+    kafka-zookeeper-0                                       1/1     Running   0          21m
+    kafka-zookeeper-1                                       1/1     Running   0          21m
+    kafka-zookeeper-2                                       1/1     Running   0          21m
+    multicluster-global-hub-grafana-5b7cfb6876-5rcnn        2/2     Running   0          19m
+    multicluster-global-hub-grafana-5b7cfb6876-wq99v        2/2     Running   0          19m
+    multicluster-global-hub-manager-7f56d78c49-hzfvw        1/1     Running   0          19m
+    multicluster-global-hub-manager-7f56d78c49-wbkzl        1/1     Running   0          19m
+    multicluster-global-hub-operator-768bd5bd4f-59xjd       1/1     Running   0          22m
+    multicluster-global-hub-postgres-0                      2/2     Running   0          22m
     ```
   displayName: Multicluster Global Hub Operator
   icon:
