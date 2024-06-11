@@ -3304,7 +3304,8 @@ data:
       "tags": [
         "postgres",
         "db",
-        "stats"
+        "stats",
+        "technology-preview"
       ],
       "templating": {
         "list": [
