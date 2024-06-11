@@ -418,7 +418,7 @@ wait_disappear() {
   eval "$command"
 }
 
-wait_appear() {
+wait_cmd() {
   local command=$1
   local seconds=${2:-"600"}
   local interval=2         # Interval for updating the waiting message
@@ -427,6 +427,7 @@ wait_appear() {
   local elapsed=0
   local last_command_run=0
 
+  echo -e "\r${CYAN}$1 $NC "
   if eval "${command}"; then
     return 0 
   fi
@@ -439,6 +440,9 @@ wait_appear() {
       last_command_run=$elapsed
     fi
 
+    if [ $elapsed -eq 0 ]; then
+      echo -e "\r placeholder will be overwrite by wating message"
+    fi
     local index=$((elapsed / interval % ${#signs[@]}))
     echo -ne "\r ${signs[$index]} Waiting $elapsed seconds ..."
     sleep $interval
@@ -589,14 +593,14 @@ wait_policy() {
   local cluster=$2
   echo -e "$BLUE waiting Policy $1:$2 components $NC"
 
-  wait_appear "kubectl get deploy/governance-policy-propagator -n open-cluster-management --context $hub"
+  wait_cmd "kubectl get deploy/governance-policy-propagator -n open-cluster-management --context $hub"
   kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
 
-  wait_appear "kubectl get deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --context $cluster"
+  wait_cmd "kubectl get deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 
   # configuration policy controller
-  wait_appear "kubectl get deploy/config-policy-controller -n open-cluster-management-agent-addon --context $cluster"
+  wait_cmd "kubectl get deploy/config-policy-controller -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 }
 
@@ -604,10 +608,10 @@ wait_application() {
   local hub=$1
   local cluster=$2
   echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
-  wait_appear "kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context $hub"
+  wait_cmd "kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context $hub"
   kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management --for condition=Available=True --timeout=200s --context "$hub"
 
-  wait_appear "kubectl get deploy/application-manager -n open-cluster-management-agent-addon --context $cluster"
+  wait_cmd "kubectl get deploy/application-manager -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 }
 
@@ -620,7 +624,7 @@ retry() {
 
   echo -e "${CYAN}$1 $NC "
   while [ $count -lt "$retries" ]; do
-    echo -en "\r${YELLOW} Attempt $((count + 1))... $NC "
+    echo -e "\r${YELLOW} Attempt $((count + 1))... $NC "
     if eval "$1"; then
       success=true
       break
