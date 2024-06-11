@@ -7,19 +7,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -30,59 +26,29 @@ import (
 )
 
 const (
-	TIMEOUT          = 2 * time.Minute
-	INTERVAL         = 1 * time.Second
-	REGINAL_HUB_NAME = "kind-hub1"
+	TIMEOUT  = 2 * time.Minute
+	INTERVAL = 1 * time.Second
 )
 
-var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-tests-prune"), Ordered, func() {
+var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-test-prune"), Ordered, func() {
 	ctx := context.Background()
 	var runtimeClient client.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
-	var managedClusterUID1 string
-	var managedClusterUID2 string
 
 	BeforeAll(func() {
 		By("Get the runtimeClient client")
-		scheme := runtime.NewScheme()
-		appsv1alpha1.AddToScheme(scheme)
-		rbacv1.AddToScheme(scheme)
-		clusterv1beta1.AddToScheme(scheme)
-		clusterv1beta2.AddToScheme(scheme)
-		policiesv1.AddToScheme(scheme)
-		clusterv1.AddToScheme(scheme)
-		corev1.AddToScheme(scheme)
-		applicationv1beta1.AddToScheme(scheme)
-		appsubv1.SchemeBuilder.AddToScheme(scheme)
-		chnv1.AddToScheme(scheme)
-		placementrulesv1.AddToScheme(scheme)
-		globalhubv1alpha4.AddToScheme(scheme)
 		var err error
-		runtimeClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+		runtimeClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 		Expect(err).ShouldNot(HaveOccurred())
 
 		managedClusterName1 = managedClusters[0].Name
 		managedClusterName2 = managedClusters[1].Name
-		managedClusterUID1 = GetClusterID(managedClusters[0])
-		managedClusterUID2 = GetClusterID(managedClusters[1])
 	})
 
-	It("create application", Label("e2e-tests-global-resource"), func() {
+	It("create application", Label("e2e-test-global-resource"), func() {
 		By("Add app label to the managedcluster1")
-		patches := []patch{
-			{
-				Op:    "add",
-				Path:  "/metadata/labels/" + APP_LABEL_KEY,
-				Value: APP_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			if err := updateClusterLabelByAPI(httpClient, patches, managedClusterUID1); err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+		assertAddLabel(managedClusters[0], APP_LABEL_KEY, APP_LABEL_VALUE)
 
 		By("Apply the appsub to labeled cluster")
 		Eventually(func() error {
@@ -95,27 +61,14 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 
 		By("Check the appsub is applied to the cluster")
 		Eventually(func() error {
-			return checkAppsubreport(runtimeClient, httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1,
+			return checkAppsubreport(httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1,
 				[]string{managedClusterName1})
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("create policy", Label("e2e-tests-global-resource"), func() {
+	It("create policy", Label("e2e-test-global-resource"), func() {
 		By("Add policy label to the managedcluster2")
-		patches := []patch{
-			{
-				Op:    "add", // or remove
-				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-				Value: POLICY_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			err := updateClusterLabelByAPI(httpClient, patches, managedClusterUID2)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
+		assertAddLabel(managedClusters[1], POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
 
 		By("Apply the policy to labeled cluster")
 		Eventually(func() error {
@@ -252,7 +205,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("prune application", Label("e2e-tests-global-resource"), func() {
+	It("prune application", Label("e2e-test-global-resource"), func() {
 		By("Delete the application finalizer")
 		Eventually(func() error {
 			applications := &applicationv1beta1.ApplicationList{}
@@ -315,7 +268,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 	})
 
-	It("prune policy", Label("e2e-tests-global-resource"), func() {
+	It("prune policy", Label("e2e-test-global-resource"), func() {
 		By("Delete the policies finalizer")
 		Eventually(func() error {
 			policies := &policiesv1.PolicyList{}

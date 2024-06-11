@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-tests-validation"), func() {
+var _ = Describe("Check all the connection of clients and necessary parameter validation", Label("e2e-test-validation"), func() {
 	Context("Check all the clients could connect to the HoH servers", func() {
 		It("connect to the apiserver with kubernetes interface", func() {
 			hubClient := testClients.KubeClient()
@@ -29,7 +29,7 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 	})
 
 	Context("Check all the parameters for e2e-tests", func() {
-		ManagedClusterNum := 1
+		managed_cluster_num := 1
 		It("Check the num of hub clusters and managed clusters on options-local.yaml", func() {
 			opt := testOptions.GlobalHub.ManagedHubs
 			var leafhubClusters []string
@@ -41,23 +41,23 @@ var _ = Describe("Check all the connection of clients and necessary parameter va
 					managedClusters = append(managedClusters, h.Name)
 				}
 			}
-			if len(leafhubClusters) != ExpectedLeafHubNum || len(managedClusters) != ManagedClusterNum*ExpectedLeafHubNum {
-				Expect(fmt.Errorf("generate %d hub cluster and %d managed cluster error", ExpectedLeafHubNum, ExpectedManagedClusterNum)).Should(Succeed())
+			if len(leafhubClusters) != ExpectedMH || len(managedClusters) != managed_cluster_num*ExpectedMH {
+				Expect(fmt.Errorf("generate %d hub cluster and %d managed cluster error", ExpectedMH, ExpectedMC)).Should(Succeed())
 			}
 		})
 
 		It("Check the num of hub clusters and managed clusters in the kubeconfig", func() {
-			for i := 1; i <= ExpectedLeafHubNum; i++ {
-				hubFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d", i)
+			for i := 1; i <= ExpectedMH; i++ {
+				hubFileName := fmt.Sprintf("../../setup/kubeconfig/hub%d", i)
 				_, err := os.Stat(hubFileName)
 				if os.IsNotExist(err) {
-					Expect(fmt.Errorf("kubeconfig-hub%d is not exist", i)).Should(Succeed())
+					Expect(fmt.Errorf("hub%d is not exist", i)).Should(Succeed())
 				}
-				for j := 1; j <= ManagedClusterNum; j++ {
-					managedFileName := fmt.Sprintf("../../resources/kubeconfig/kubeconfig-hub%d-cluster%d", i, j)
+				for j := 1; j <= managed_cluster_num; j++ {
+					managedFileName := fmt.Sprintf("../../setup/kubeconfig/hub%d-cluster%d", i, j)
 					_, err := os.Stat(managedFileName)
 					if os.IsNotExist(err) {
-						Expect(fmt.Errorf("kubeconfig-hub%d-cluster%d is not exist", i, j)).Should(Succeed())
+						Expect(fmt.Errorf("hub%d-cluster%d is not exist", i, j)).Should(Succeed())
 					}
 				}
 			}

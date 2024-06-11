@@ -8,7 +8,7 @@ This document is aimed to provide an example about how to connect to the kafka a
 
 These instructions assume:
 
-- You need to have a global hub setup successfully. You can choose to [setup a global hub environment on the OCP](https://github.com/stolostron/multicluster-global-hub/blob/main/README.md). If you do not have OCP, you can also run `make e2e-setup-start` to [create a local one in your linux machine](https://github.com/stolostron/multicluster-global-hub/blob/719606de0a65eb8d62c9b10932ef8614bc39ccd0/Makefile#L71).
+- You need to have a global hub setup successfully. You can choose to [setup a global hub environment on the OCP](https://github.com/stolostron/multicluster-global-hub/blob/main/README.md). If you do not have OCP, you can also run `make e2e-setup` to [create a local one in your linux machine](https://github.com/stolostron/multicluster-global-hub/blob/719606de0a65eb8d62c9b10932ef8614bc39ccd0/Makefile#L71).
 
 Set environment variables.
 ```bash

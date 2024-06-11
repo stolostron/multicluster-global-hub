@@ -2,100 +2,102 @@
 
 set -euo pipefail
 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
-CONFIG_DIR=${CURRENT_DIR}/config
-export LOG=${LOG:-$CONFIG_DIR/e2e_setup.log}
-export TAG=${TAG:-"latest"}
-export LOG_MODE=${LOG_MODE:-INFO}
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
+# shellcheck source=/dev/null
+source "$CURRENT_DIR/common.sh"
 
-source ${CURRENT_DIR}/common.sh
-checkDir ${CONFIG_DIR}
-
-LEAF_HUB_NAME="hub"
-HUB_OF_HUB_NAME="global-hub"
-CTX_HUB="kind-global-hub"
-CTX_MANAGED="kind-hub"
-HUB_CLUSTER_NUM=${HUB_CLUSTER_NUM:-2}
-MANAGED_CLUSTER_NUM=${MANAGED_CLUSTER_NUM:-1}
+export CURRENT_DIR
+export GH_NAME="global-hub"
+export MH_NUM=${MH_NUM:-2}
+export MC_NUM=${MC_NUM:-1}
+export KinD=true
 
 # setup kubeconfig
-export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/kubeconfig}
-echo "export KUBECONFIG=$KUBECONFIG" > $LOG
-sleep 1 &
-hover $! "KUBECONFIG=${KUBECONFIG}"
-startTime_s=`date +%s`
+export KUBE_DIR=${CURRENT_DIR}/kubeconfig
+check_dir "$KUBE_DIR"
+export KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
+start=$(date +%s)
 
-# init hoh
-initKinDCluster "$HUB_OF_HUB_NAME" >> $LOG 2>&1 &
-hover $! "1 Prepare top hub cluster $HUB_OF_HUB_NAME"
-global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${HUB_OF_HUB_NAME}-control-plane)
-hub_kubeconfig="${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}"
-kubectl --kubeconfig $hub_kubeconfig config set-cluster kind-${HUB_OF_HUB_NAME} --server=https://$global_hub_node_ip:6443
-HOH_KUBECONFIG=${CONFIG_DIR}/kubeconfig-${HUB_OF_HUB_NAME}
-# enable  route
-enableRouter $CTX_HUB 2>&1 >> $LOG &
-# enable service CA
-enableServiceCA $CTX_HUB ${HUB_OF_HUB_NAME} ${CURRENT_DIR} 2>&1 >> $LOG &
+# Init clusters
+echo -e "$BLUE creating clusters $NC"
+start_time=$(date +%s)
 
-endTime_s=`date +%s`
-sumTime=$[ $endTime_s - $startTime_s ]
-echo "Prepare top hub :$sumTime seconds"
-
-# install some component in global hub in async mode
-bash ${CURRENT_DIR}/hoh/postgres/postgres_setup.sh $HOH_KUBECONFIG 2>&1 >> $LOG &
-bash ${CURRENT_DIR}/hoh/kafka/kafka_setup.sh $CTX_HUB 2>&1 >> $LOG &
-initHub $CTX_HUB 2>&1 >> $LOG &
-startTime_s=`date +%s`
-
-# apply multiclusterhubs.crd.yaml
-kubectl --kubeconfig $hub_kubeconfig apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
-
-# init leafhub
-sleep 1 &
-hover $! "2 Prepare leaf hub cluster $LEAF_HUB_NAME"
-bash ${CURRENT_DIR}/leafhub_setup.sh "$HUB_CLUSTER_NUM" "$MANAGED_CLUSTER_NUM"
-endTime_s=`date +%s`
-sumTime=$[ $endTime_s - $startTime_s ]
-echo "Prepare leaf hub cluster :$sumTime seconds"
-
-startTime_s=`date +%s`
-
-# import managed hubs
-initManaged $CTX_HUB $CTX_MANAGED ${HUB_CLUSTER_NUM} 2>&1 >> $LOG &
-hover $! "  Joining $CTX_HUB"
-
-initApp $CTX_HUB $CTX_MANAGED ${HUB_CLUSTER_NUM} 2>&1 >> $LOG &
-initPolicy $CTX_HUB $CTX_MANAGED ${HUB_CLUSTER_NUM} $HOH_KUBECONFIG 2>&1 >> $LOG &
-
-endTime_s=`date +%s`
-sumTime=$[ $endTime_s - $startTime_s ]
-echo "check connection :$sumTime seconds"
-startTime_s=`date +%s`
-kubectl config use-context $CTX_HUB >> $LOG
-# wait kafka to be ready
-waitAppear "kubectl get pods -n multicluster-global-hub -l name=strimzi-cluster-operator --ignore-not-found | grep Running || true" 1200
-waitAppear "kubectl get kafka kafka -n multicluster-global-hub -o jsonpath='{.status.listeners[1].certificates[0]}' --ignore-not-found=true" 1200
-
-# wait postgres to be ready
-waitAppear "kubectl get secret hoh-pguser-postgres -n hoh-postgres --ignore-not-found=true"
-
-#need the following labels to enable deploying agent in leaf hub cluster
-for i in $(seq 1 "${HUB_CLUSTER_NUM}"); do
-    kubectl label managedcluster kind-$LEAF_HUB_NAME$i vendor=OpenShift --overwrite 2>&1 >> $LOG
-    # add clusterclaim 
-    cat <<EOF | kubectl --context kind-$LEAF_HUB_NAME$i apply -f -
-apiVersion: cluster.open-cluster-management.io/v1alpha1
-kind: ClusterClaim
-metadata:
-  labels:
-    open-cluster-management.io/hub-managed: ""
-    velero.io/exclude-from-backup: "true"
-  name: id.k8s.io
-spec:
-  value: $(uuidgen)
-EOF
+kind_cluster "$GH_NAME" 2>&1 
+for i in $(seq 1 "${MH_NUM}"); do
+  kind_cluster "hub$i" 2>&1 
 done
-export KUBECONFIG=$KUBECONFIG
-# TODO: think about readinessCheck
 
-printf "%s\033[0;32m%s\n\033[0m" "[Access the Clusters]: " "export KUBECONFIG=$KUBECONFIG"
+echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
+
+# GH
+# service-ca
+echo -e "$BLUE setting global hub service-ca and middlewares $NC"
+enable_service_ca $GH_NAME "$CURRENT_DIR/resource" 2>&1 || true
+# async middlewares
+export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
+bash "$CURRENT_DIR/resource/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >"$KUBE_DIR/PID"
+bash "$CURRENT_DIR"/resource/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$KUBE_DIR/PID"
+
+# async ocm, policy and app
+echo -e "$BLUE installing ocm, policy, and app in global hub and managed hubs $NC"
+start_time=$(date +%s)
+
+# gobal-hub: hub1, hub2
+(
+  init_hub $GH_NAME 2>&1
+  for i in $(seq 1 "${MH_NUM}"); do
+    bash "$CURRENT_DIR"/ocm_setup.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
+  done
+  wait
+) &
+
+# hub1: cluster1 | hub2: cluster1
+for i in $(seq 1 "${MH_NUM}"); do
+  (
+    init_hub "hub$i" 2>&1
+    for j in $(seq 1 "${MC_NUM}"); do
+      bash "$CURRENT_DIR"/ocm_setup.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
+    done
+    wait
+  ) &
+done
+
+wait
+echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
+
+# validation
+echo -e "$BLUE validating ocm, app and policy $NC"
+start_time=$(date +%s)
+
+for i in $(seq 1 "${MH_NUM}"); do
+  wait_ocm $GH_NAME "hub$i"
+  wait_policy $GH_NAME "hub$i"
+  wait_application $GH_NAME "hub$i"
+  for j in $(seq 1 "${MC_NUM}"); do
+    wait_ocm "hub$i" "hub$i-cluster$j"
+    wait_policy "hub$i" "hub$i-cluster$j"
+    wait_application "hub$i" "hub$i-cluster$j"
+  done
+done
+
+# postgres
+kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n hoh-postgres --context $GH_NAME --timeout=100s
+# hoh
+kubectl wait --for=condition=ready pod -l statefulset.kubernetes.io/pod-name=kafka-kafka-0 -n multicluster-global-hub --context $GH_NAME --timeout=100s
+
+echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
+
+# kubeconfig
+for i in $(seq 1 "${MH_NUM}"); do
+  echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$KUBE_DIR/hub$i $NC"
+  for j in $(seq 1 "${MC_NUM}"); do
+    echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$KUBE_DIR/hub$i-cluster$j $NC"
+  done
+done
+echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
+echo -e "${BOLD_GREEN}[ END ] ${NC} $(($(date +%s) - start)) seconds"

@@ -8,12 +8,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
+	"gorm.io/gorm"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -25,9 +29,14 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
+	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
 	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
@@ -44,13 +53,22 @@ var (
 
 	leafHubNames    []string
 	managedClusters []clusterv1.ManagedCluster
+
+	operatorScheme *runtime.Scheme
+	managerScheme  *runtime.Scheme
+	agentScheme    *runtime.Scheme
+
+	postgresConn *pgx.Conn
+	db           *gorm.DB
+	ctx          context.Context
+	cancel       context.CancelFunc
 )
 
 const (
-	ExpectedLeafHubNum        = 2
-	ExpectedManagedClusterNum = 2
-	Namespace                 = "multicluster-global-hub"
-	ServiceMonitorNamespace   = "openshift-monitoring"
+	ExpectedMH              = 2
+	ExpectedMC              = 2
+	Namespace               = "multicluster-global-hub"
+	ServiceMonitorNamespace = "openshift-monitoring"
 )
 
 func TestClient(t *testing.T) {
@@ -68,10 +86,32 @@ func init() {
 }
 
 var _ = BeforeSuite(func() {
+	ctx, cancel = context.WithCancel(context.Background())
+
+	By("Init schemes")
+	operatorScheme = config.GetRuntimeScheme()
+	agentScheme = runtime.NewScheme()
+	agentscheme.AddToScheme(agentScheme)
+	managerScheme = runtime.NewScheme()
+	managerscheme.AddToScheme(managerScheme)
+
 	By("Complete the options and init clients")
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
 	httpClient = testClients.HttpClient()
+
+	By("Init postgres connection")
+	databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
+	var err error
+	postgresConn, err = database.PostgresConnection(ctx, databaseURI, nil)
+	Expect(err).Should(Succeed())
+	err = database.InitGormInstance(&database.DatabaseConfig{
+		URL:      strings.Replace(testOptions.GlobalHub.DatabaseURI, "sslmode=verify-ca", "sslmode=require", -1),
+		Dialect:  database.PostgresDialect,
+		PoolSize: 5,
+	})
+	Expect(err).Should(Succeed())
+	db = database.GetGorm()
 
 	By("Deploy the global hub")
 	deployGlobalHub()
@@ -79,14 +119,16 @@ var _ = BeforeSuite(func() {
 	By("Get the managed clusters")
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
-		klog.Errorf("Faild to get managedclusters: %v", err)
 		return err
-	}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-	Expect(len(managedClusters)).Should(Equal(ExpectedManagedClusterNum))
+	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	Expect(len(managedClusters)).Should(Equal(ExpectedMC))
 })
 
 var _ = AfterSuite(func() {
-	// utils.DeleteTestingRBAC(testOptions)
+	cancel()
+	err := postgresConn.Close(ctx)
+	Expect(err).Should(Succeed())
+	utils.DeleteTestingRBAC(testOptions)
 })
 
 func completeOptions() utils.Options {
@@ -119,7 +161,7 @@ func completeOptions() utils.Options {
 		leafHubNames = append(leafHubNames, cluster.Name)
 	}
 
-	Expect(len(leafHubNames)).Should(Equal(ExpectedLeafHubNum))
+	Expect(len(leafHubNames)).Should(Equal(ExpectedMH))
 	return testOptions
 }
 
@@ -148,16 +190,11 @@ func findRootDir(dir string) (string, error) {
 }
 
 func deployGlobalHub() {
-	By("Creating client for the hub cluster")
-	scheme := runtime.NewScheme()
-	Expect(globalhubv1alpha4.AddToScheme(scheme)).Should(Succeed())
-	Expect(appsv1.AddToScheme(scheme)).Should(Succeed())
-
 	By("Creating namespace for the ServiceMonitor")
-	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(), ServiceMonitorNamespace,
+	_, err := testClients.KubeClient().CoreV1().Namespaces().Get(ctx, ServiceMonitorNamespace,
 		metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: ServiceMonitorNamespace,
 			},
@@ -166,10 +203,10 @@ func deployGlobalHub() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating namespace for the multicluster global hub")
-	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(context.Background(),
+	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(ctx,
 		commonutils.GetDefaultNamespace(), metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+		_, err = testClients.KubeClient().CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: commonutils.GetDefaultNamespace(),
 			},
@@ -183,7 +220,7 @@ func deployGlobalHub() {
 		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
-	mcgh := &globalhubv1alpha4.MulticlusterGlobalHub{
+	mcgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "multiclusterglobalhub",
 			Namespace: "multicluster-global-hub",
@@ -192,21 +229,21 @@ func deployGlobalHub() {
 				"mgh-scheduler-interval":        "minute",
 			},
 		},
-		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{
 			// Disable metrics in e2e
 			EnableMetrics: false,
 			// the topic partition replicas(depend on the HA) should less than broker replicas
-			AvailabilityConfig: globalhubv1alpha4.HABasic,
-			DataLayer: globalhubv1alpha4.DataLayerConfig{
-				Kafka: globalhubv1alpha4.KafkaConfig{},
-				Postgres: globalhubv1alpha4.PostgresConfig{
+			AvailabilityConfig: v1alpha4.HABasic,
+			DataLayer: v1alpha4.DataLayerConfig{
+				Kafka: v1alpha4.KafkaConfig{},
+				Postgres: v1alpha4.PostgresConfig{
 					Retention: "18m",
 				},
 			},
 		},
 	}
 
-	runtimeClient, err := testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// patch global hub operator to enable global resources
@@ -214,23 +251,51 @@ func deployGlobalHub() {
 		return patchGHDeployment(runtimeClient, Namespace, "multicluster-global-hub-operator")
 	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
-	err = runtimeClient.Create(context.TODO(), mcgh)
+	err = runtimeClient.Create(ctx, mcgh)
 	if !errors.IsAlreadyExists(err) {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
 
-	By("Verifying the multicluster-global-hub-grafana/manager")
+	// verify the kafka resources
 	Eventually(func() error {
-		err := checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-operator")
-		if err != nil {
-			return err
+		kafkaUser := &kafkav1beta2.KafkaUser{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      transporter.DefaultGlobalHubKafkaUser,
+				Namespace: mcgh.Namespace,
+			},
 		}
-		err = checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-manager")
+		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get the kafka user %v", err)
 		}
-		return checkDeployAvailable(runtimeClient, Namespace, "multicluster-global-hub-grafana")
-	}, 3*time.Minute, 1*time.Second).Should(Succeed())
+		for _, cond := range kafkaUser.Status.Conditions {
+			if *cond.Type == "Ready" && *cond.Status == "True" {
+				return nil
+			}
+		}
+		return fmt.Errorf("the kafak user is not ready %v", kafkaUser.Status)
+	}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+	By("Verifying the multicluster-global-hub-grafana/manager")
+	components := map[string]int{}
+	components["multicluster-global-hub-operator"] = 0
+	components["multicluster-global-hub-manager"] = 0
+	components["multicluster-global-hub-grafana"] = 0
+	Eventually(func() error {
+		for name, count := range components {
+			err := checkDeployAvailable(runtimeClient, Namespace, name)
+			if err != nil {
+				components[name] += 1
+				// restart it if the blocking time exceeds 30 seconds
+				if count > 30 {
+					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), Namespace, name)
+					components[name] = 0
+				}
+				return err
+			}
+		}
+		return nil
+	}, 5*time.Minute, 1*time.Second).Should(Succeed())
 
 	// Before run test, the mgh should be ready
 	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
@@ -239,7 +304,7 @@ func deployGlobalHub() {
 
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {
 	deployment := &appsv1.Deployment{}
-	err := runtimeClient.Get(context.Background(), client.ObjectKey{
+	err := runtimeClient.Get(ctx, client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
 	}, deployment)
@@ -257,7 +322,7 @@ func checkDeployAvailable(runtimeClient client.Client, namespace, name string) e
 
 func patchGHDeployment(runtimeClient client.Client, namespace, name string) error {
 	deployment := &appsv1.Deployment{}
-	err := runtimeClient.Get(context.Background(), client.ObjectKey{
+	err := runtimeClient.Get(ctx, client.ObjectKey{
 		Namespace: namespace,
 		Name:      name,
 	}, deployment)
@@ -266,5 +331,5 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	}
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
-	return runtimeClient.Update(context.Background(), deployment)
+	return runtimeClient.Update(ctx, deployment)
 }

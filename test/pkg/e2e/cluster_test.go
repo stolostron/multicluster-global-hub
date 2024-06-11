@@ -9,17 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 const (
@@ -27,106 +25,16 @@ const (
 	CLUSTER_LABEL_VALUE = "test"
 )
 
-var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-label"), Ordered, func() {
-	var postgresConn *pgx.Conn
-	BeforeAll(func() {
-		databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
-		var err error
-		postgresConn, err = database.PostgresConnection(ctx, databaseURI, nil)
-		Expect(err).Should(Succeed())
-	})
-
-	AfterAll(func() {
-		err := postgresConn.Close(ctx)
-		Expect(err).Should(Succeed())
-	})
-
+var _ = Describe("Updating cluster label from HoH manager", Label("e2e-test-cluster"), Ordered, func() {
 	It("add the label to the managed cluster", func() {
-		patches := []patch{
-			{
-				Op:    "add", // or remove
-				Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-				Value: CLUSTER_LABEL_VALUE,
-			},
-		}
-
-		By("Check the label is added")
-		Eventually(func() error {
-			err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[0]))
-			if err != nil {
-				return err
-			}
-			managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[0].Name)
-			if err != nil {
-				return err
-			}
-			if val, ok := managedClusterInfo.Labels[CLUSTER_LABEL_KEY]; ok {
-				if val == CLUSTER_LABEL_VALUE {
-					return nil
-				}
-			}
-			return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-	})
-
-	It("add the label to the managed cluster", func() {
-		for i := 1; i < len(managedClusters); i++ {
-			patches := []patch{
-				{
-					Op:    "add", // or remove
-					Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-					Value: CLUSTER_LABEL_VALUE,
-				},
-			}
-
-			By("Check the label is added")
-			Eventually(func() error {
-				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[i]))
-				if err != nil {
-					return err
-				}
-				managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[i].Name)
-				if err != nil {
-					return err
-				}
-				if val, ok := managedClusterInfo.Labels[CLUSTER_LABEL_KEY]; ok {
-					if val == CLUSTER_LABEL_VALUE {
-						return nil
-					}
-				}
-				return fmt.Errorf("the label [%s: %s] is not exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+		for _, managedCluster := range managedClusters {
+			assertAddLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
 		}
 	})
 
 	It("remove the label from the managed cluster", func() {
 		for _, managedCluster := range managedClusters {
-			patches := []patch{
-				{
-					Op:    "remove",
-					Path:  "/metadata/labels/" + CLUSTER_LABEL_KEY,
-					Value: CLUSTER_LABEL_VALUE,
-				},
-			}
-
-			By("Check the label is deleted")
-			Eventually(func() error {
-				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedCluster))
-				if err != nil {
-					return err
-				}
-				managedClusterInfo, err := getManagedClusterByName(httpClient, managedCluster.Name)
-				if err != nil {
-					return err
-				}
-
-				if val, ok := managedClusterInfo.Labels[CLUSTER_LABEL_KEY]; ok {
-					if val == CLUSTER_LABEL_VALUE {
-						return fmt.Errorf("the label %s: %s should not be exist", CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-					}
-				}
-				return nil
-			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+			assertRemoveLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
 		}
 	})
 
@@ -154,34 +62,28 @@ var _ = Describe("Updating cluster label from HoH manager", Label("e2e-tests-lab
 			ReportingInstance:   "registration-controller-cluster-manager-registration-controller-6794cf54d9-j7lgm",
 			Type:                "Warning",
 		}
-		leafHubClient, err := testClients.ControllerRuntimeClient(leafHubName, runtime.NewScheme())
+		leafHubClient, err := testClients.RuntimeClient(leafHubName, agentScheme)
 		Expect(err).To(Succeed())
 		Expect(leafHubClient.Create(ctx, clusterEvent, &client.CreateOptions{})).To(Succeed())
 
 		By("Get the cluster event from database")
 		Eventually(func() error {
-			rows, err := postgresConn.Query(ctx, "SELECT leaf_hub_name,event_name,message FROM event.managed_clusters")
+			clusterEvent := models.ManagedClusterEvent{
+				LeafHubName: leafHubName,
+				EventName:   eventName,
+			}
+			err := db.First(&clusterEvent).Error
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
-
-			for rows.Next() {
-				columnValues, _ := rows.Values()
-				if len(columnValues) < 2 {
-					return fmt.Errorf("expected 2 fields, but got %d", len(columnValues))
-				}
-				gotLeafHubName, gotName, gotMessage := "", "", ""
-				if err := rows.Scan(&gotLeafHubName, &gotName, &gotMessage); err != nil {
-					return err
-				}
-				fmt.Println("get the cluster event", gotLeafHubName, gotName, gotMessage)
-				if leafHubName == gotLeafHubName && eventName == gotName && eventMessage == gotMessage {
-					return nil
-				}
+			if clusterEvent.Message != eventMessage {
+				return fmt.Errorf("want messsage %s, got %s", eventMessage, clusterEvent.Message)
 			}
-			return fmt.Errorf("not get the expected event, leafHubName: %s, eventName: %s", leafHubName, eventName)
+			return nil
 		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Delete the cluster event from the leafhub")
+		Expect(leafHubClient.Delete(ctx, clusterEvent)).To(Succeed())
 	})
 })
 
@@ -208,17 +110,17 @@ func getManagedCluster(client *http.Client) ([]clusterv1.ManagedCluster, error) 
 		return nil, err
 	}
 
-	var managedClusterList clusterv1.ManagedClusterList
-	err = json.Unmarshal(body, &managedClusterList)
+	var clusterList clusterv1.ManagedClusterList
+	err = json.Unmarshal(body, &clusterList)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(managedClusterList.Items) != ExpectedManagedClusterNum {
-		return nil, fmt.Errorf("cannot get two managed clusters")
+	if len(clusterList.Items) != ExpectedMC {
+		return nil, fmt.Errorf("managed cluster number: want %d, got %d", ExpectedMC, len(clusterList.Items))
 	}
 
-	return managedClusterList.Items, nil
+	return clusterList.Items, nil
 }
 
 func getManagedClusterByName(client *http.Client, managedClusterName string) (
@@ -254,6 +156,60 @@ func getManagedClusterByName(client *http.Client, managedClusterName string) (
 	}
 
 	return nil, nil
+}
+
+func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string) {
+	patches := []patch{
+		{
+			Op:    "add",
+			Path:  "/metadata/labels/" + labelKey,
+			Value: labelVal,
+		},
+	}
+	By("Check the label is added")
+	Eventually(func() error {
+		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
+		if err != nil {
+			return err
+		}
+		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
+		if err != nil {
+			return err
+		}
+		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+			if labelVal == val {
+				return nil
+			}
+		}
+		return fmt.Errorf("failed to add label [%s: %s] to cluster %s", labelKey, labelVal, cluster.Name)
+	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string) {
+	patches := []patch{
+		{
+			Op:    "remove",
+			Path:  "/metadata/labels/" + labelKey,
+			Value: labelVal,
+		},
+	}
+
+	Eventually(func() error {
+		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
+		if err != nil {
+			return err
+		}
+		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
+		if err != nil {
+			return err
+		}
+		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+			if val == labelVal {
+				return fmt.Errorf("the label %s:%s should not be deleted from cluster %s", labelKey, labelVal, cluster.Name)
+			}
+		}
+		return nil
+	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 }
 
 func updateClusterLabelByAPI(client *http.Client, patches []patch, managedClusterID string) error {

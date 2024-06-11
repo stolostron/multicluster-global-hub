@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,9 +9,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -34,56 +31,27 @@ const (
 	PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
 )
 
-var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tests-policy"), func() {
+var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-test-policy"), func() {
 	var globalClient client.Client
 	var managedClient client.Client
 	var managedClients []client.Client
-	var err error
 
 	BeforeAll(func() {
 		By("Get the appsubreport client")
-		scheme := runtime.NewScheme()
-		policiesv1.AddToScheme(scheme)
-		corev1.AddToScheme(scheme)
-		placementrulev1.AddToScheme(scheme)
-		globalClient, err = testClients.ControllerRuntimeClient(testOptions.GlobalHub.Name, scheme)
+		var err error
+		globalClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 		Expect(err).ShouldNot(HaveOccurred())
 		for _, leafhubName := range leafHubNames {
-			managedClient, err = testClients.ControllerRuntimeClient(leafhubName, scheme)
+			managedClient, err = testClients.RuntimeClient(leafhubName, agentScheme)
+			Expect(err).ShouldNot(HaveOccurred())
 			managedClients = append(managedClients, managedClient)
 		}
-		Expect(err).ShouldNot(HaveOccurred())
-	})
-
-	It("add the label to a managedcluster1 for the policy", func() {
-		patches := []patch{
-			{
-				Op:    "add", // or remove
-				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-				Value: POLICY_LABEL_VALUE,
-			},
-		}
-
-		By("Check the label is added")
-		Eventually(func() error {
-			err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[0]))
-			if err != nil {
-				return err
-			}
-			managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[0].Name)
-			if err != nil {
-				return err
-			}
-			if val, ok := managedClusterInfo.Labels[POLICY_LABEL_KEY]; ok {
-				if val == POLICY_LABEL_VALUE && managedClusterInfo.Name == managedClusters[0].Name {
-					return nil
-				}
-			}
-			return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
-		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("create a inform policy for the labeled cluster", func() {
+		By("add the label to a managedcluster1 for the policy")
+		assertAddLabel(managedClusters[0], POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
+
 		By("Create the inform policy in global hub")
 		Eventually(func() error {
 			message, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", INFORM_POLICY_YAML)
@@ -158,31 +126,8 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	It("add the label to a managedcluster for the policy", func() {
 		for i := 1; i < len(managedClusters); i++ {
-			patches := []patch{
-				{
-					Op:    "add", // or remove
-					Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-					Value: POLICY_LABEL_VALUE,
-				},
-			}
-
-			By("Check the label is added")
-			Eventually(func() error {
-				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[i]))
-				if err != nil {
-					return err
-				}
-				managedClusterInfo, err := getManagedClusterByName(httpClient, managedClusters[i].Name)
-				if err != nil {
-					return err
-				}
-				if val, ok := managedClusterInfo.Labels[POLICY_LABEL_KEY]; ok {
-					if val == POLICY_LABEL_VALUE && managedClusterInfo.Name == managedClusters[i].Name {
-						return nil
-					}
-				}
-				return fmt.Errorf("the label %s: %s is not exist", POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
-			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+			cluster := managedClusters[i]
+			assertAddLabel(cluster, POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
 
 			By("Check the policy is created in global hub")
 			Eventually(func() error {
@@ -234,21 +179,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("remove the label from the managedcluster1")
-		patches := []patch{
-			{
-				Op:    "remove",
-				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-				Value: POLICY_LABEL_VALUE,
-			},
-		}
-		Eventually(func() error {
-			err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[0]))
-			if err != nil {
-				return err
-			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-
+		assertRemoveLabel(managedClusters[0], POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
 		By("Check the policy is removed from the managedcluster1")
 		Eventually(func() error {
 			status, err := getPolicyStatus(globalClient, httpClient, POLICY_NAME, POLICY_NAMESPACE)
@@ -268,7 +199,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		By("Verify the policy has been added the global hub cleanup finalizer")
 		Eventually(func() error {
 			policy := &policiesv1.Policy{}
-			err := globalClient.Get(context.TODO(), client.ObjectKey{
+			err := globalClient.Get(ctx, client.ObjectKey{
 				Namespace: POLICY_NAMESPACE,
 				Name:      POLICY_NAME,
 			}, policy)
@@ -286,7 +217,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		By("Verify the placementbinding has been added the global hub cleanup finalizer")
 		Eventually(func() error {
 			placementbinding := &policiesv1.PlacementBinding{}
-			err := globalClient.Get(context.TODO(), client.ObjectKey{
+			err := globalClient.Get(ctx, client.ObjectKey{
 				Namespace: POLICY_NAMESPACE,
 				Name:      PLACEMENTBINDING_NAME,
 			}, placementbinding)
@@ -304,7 +235,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		By("Verify the local placementrule has been added the global hub cleanup finalizer")
 		Eventually(func() error {
 			placementrule := &placementrulev1.PlacementRule{}
-			err := globalClient.Get(context.TODO(), client.ObjectKey{
+			err := globalClient.Get(ctx, client.ObjectKey{
 				Namespace: POLICY_NAMESPACE,
 				Name:      PLACEMENT_RULE_NAME,
 			}, placementrule)
@@ -338,28 +269,14 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		By("Delete the label from managedcluster2")
-		patches := []patch{
-			{
-				Op:    "remove",
-				Path:  "/metadata/labels/" + POLICY_LABEL_KEY,
-				Value: POLICY_LABEL_VALUE,
-			},
+		for i := 1; i < len(managedClusters); i++ {
+			assertRemoveLabel(managedClusters[i], POLICY_LABEL_KEY, POLICY_LABEL_VALUE)
 		}
-		Eventually(func() error {
-			for i := 1; i < len(managedClusters); i++ {
-				err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(managedClusters[i]))
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 		// By("Delete the LimitRange CR from managedclusters")
 		// for _, managedCluster := range managedClusters {
-		// 	deleteInfo, err := clients.Kubectl(managedCluster.Name, "delete", "LimitRange", "container-mem-limit-range")
-		// 	Expect(err).ShouldNot(HaveOccurred())
-		// 	klog.V(5).Info(managedCluster.Name, ": ", deleteInfo)
+		// 	deleteInfo, err := testClients.Kubectl(managedCluster.Name, "delete", "LimitRange", "container-mem-limit-range")
+		// 	Expect(err).ShouldNot(HaveOccurred(), deleteInfo)
 		// }
 	})
 })
@@ -367,7 +284,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 func getPolicyStatus(client client.Client, httpClient *http.Client, name, namespace string,
 ) (*policiesv1.PolicyStatus, error) {
 	policy := &policiesv1.Policy{}
-	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
+	err := client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, policy)
 	if err != nil {
 		return nil, err
 	}
@@ -390,8 +307,6 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 		return nil, err
 	}
 
-	klog.V(5).Info(fmt.Sprintf("Get policy status response body from non-k8s-api: \n%s\n", body))
-
 	err = json.Unmarshal(body, policy)
 	if err != nil {
 		return nil, err
@@ -402,7 +317,7 @@ func getPolicyStatus(client client.Client, httpClient *http.Client, name, namesp
 
 func getManagedPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
 	policy := &policiesv1.Policy{}
-	err := client.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, policy)
+	err := client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, policy)
 	if err != nil {
 		return nil, err
 	}
