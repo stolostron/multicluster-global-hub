@@ -6,15 +6,16 @@ CURRENT_DIR=$(
   cd "$(dirname "$0")" || exit
   pwd
 )
+
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/common.sh"
 
 # setup kubeconfig
-KUBE_DIR=${KUBE_DIR:-${CURRENT_DIR}/kubeconfig} 
-KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
-check_dir "$KUBE_DIR"
-
+CONFIG_DIR=${CONFIG_DIR:-${CURRENT_DIR}/config} 
+KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 HUB_INIT=${HUB_INIT:-true}
+
+check_dir "$CONFIG_DIR"
 
 hub="$1"
 spoken="$2"

@@ -3,10 +3,9 @@
 KUBECONFIG=${1:-$KUBECONFIG}
 
 current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." || exit ; pwd -P)"
-
+setup_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit ; pwd -P)"
 # shellcheck source=/dev/null
-source $root_dir/test/setup/common.sh
+source "$setup_dir/common.sh"
 
 # step1: check storage secret
 target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}

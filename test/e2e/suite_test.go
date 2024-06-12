@@ -213,7 +213,7 @@ func deployGlobalHub() {
 	Expect(err).NotTo(HaveOccurred())
 
 	Expect(kustomize.Apply(testClients, testOptions,
-		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/test/pkg/e2e/resources", rootDir)})).NotTo(HaveOccurred())
+		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/test/pkg/e2e/manifests/resource", rootDir)})).NotTo(HaveOccurred())
 	Expect(kustomize.Apply(testClients, testOptions,
 		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 

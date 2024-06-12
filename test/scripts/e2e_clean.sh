@@ -12,14 +12,14 @@ MC_NUM=${MC_NUM:-1}
 
 # setup kubeconfig
 GH_NAME="global-hub"
-KUBE_DIR=${CURRENT_DIR}/kubeconfig
-KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
+CONFIG_DIR=${CURRENT_DIR}/config
+KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 
 while read -r line; do
   if [[ $line != "" ]]; then
     kill -9 "${line}" >/dev/null 2>&1
   fi
-done <"$KUBE_DIR/PID"
+done <"$CONFIG_DIR/PID"
 
 kind delete cluster --name ${GH_NAME}
 for i in $(seq 1 "${MH_NUM}"); do
@@ -29,6 +29,6 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-rm -rf "$KUBE_DIR"
+rm -rf "$CONFIG_DIR"
 # ps -ef | grep "setup" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
 

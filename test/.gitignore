@@ -1,7 +1,6 @@
 options*.yaml
 env.list
 kubeconfig
-run.sh
-result
 report
+config
 

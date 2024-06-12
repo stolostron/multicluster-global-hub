@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	LOCAL_INFORM_POLICY_YAML  = "../../resources/policy/local-inform-limitrange-policy.yaml"
-	LOCAL_ENFORCE_POLICY_YAML = "../../resources/policy/local-enforce-limitrange-policy.yaml"
+	LOCAL_INFORM_POLICY_YAML  = "./manifests/policy/local-inform-limitrange-policy.yaml"
+	LOCAL_ENFORCE_POLICY_YAML = "./manifests/policy/local-enforce-limitrange-policy.yaml"
 
 	LOCAL_POLICY_LABEL_KEY      = "local-policy"
 	LOCAL_POLICY_LABEL_VALUE    = "test"

@@ -14,11 +14,10 @@ export GH_NAME="global-hub"
 export MH_NUM=${MH_NUM:-2}
 export MC_NUM=${MC_NUM:-1}
 export KinD=true
+export CONFIG_DIR=${CURRENT_DIR}/config
+export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
+export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
 
-# setup kubeconfig
-export KUBE_DIR=${CURRENT_DIR}/kubeconfig
-check_dir "$KUBE_DIR"
-export KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
 start=$(date +%s)
 
 # Init clusters
@@ -35,13 +34,12 @@ echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
 # GH
 # service-ca
 echo -e "$BLUE setting global hub service-ca and middlewares $NC"
-enable_service_ca $GH_NAME "$CURRENT_DIR/resource" 2>&1 || true
+enable_service_ca $GH_NAME "$CURRENT_DIR/manifests" 2>&1 || true
 # async middlewares
-export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
-bash "$CURRENT_DIR/resource/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >"$KUBE_DIR/PID"
-bash "$CURRENT_DIR"/resource/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >>"$KUBE_DIR/PID"
+bash "$CURRENT_DIR/manifests/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >"$CONFIG_DIR/PID"
+bash "$CURRENT_DIR"/manifests/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
 
 # async ocm, policy and app
 echo -e "$BLUE installing ocm, policy, and app in global hub and managed hubs $NC"
@@ -89,9 +87,9 @@ echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_t
 
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
-  echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$KUBE_DIR/hub$i $NC"
+  echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$CONFIG_DIR/hub$i $NC"
   for j in $(seq 1 "${MC_NUM}"); do
-    echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$KUBE_DIR/hub$i-cluster$j $NC"
+    echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$CONFIG_DIR/hub$i-cluster$j $NC"
   done
 done
 echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
