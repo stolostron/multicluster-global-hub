@@ -69,7 +69,7 @@ func (h *managedClusterEmitter) ShouldUpdate(obj client.Object) bool {
 	}
 
 	// if it's a older event, then return false
-	if !filter.NewerWithNoise(h.name, getEventLastTime(evt).Time, DeltaInterval) {
+	if !filter.Newer(h.name, getEventLastTime(evt).Time) {
 		return false
 	}
 

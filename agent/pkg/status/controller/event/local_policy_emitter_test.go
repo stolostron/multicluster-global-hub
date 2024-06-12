@@ -106,8 +106,6 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 		}
 		Expect(kubeClient.Create(ctx, expiredEvent)).NotTo(HaveOccurred())
-		// update the deltaInterval to make sure the older event can be filtered
-		DeltaInterval = 1 * time.Second
 		time.Sleep(5 * time.Second)
 
 		By("Create a new event")

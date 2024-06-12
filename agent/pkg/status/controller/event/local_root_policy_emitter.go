@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
@@ -25,8 +24,6 @@ import (
 )
 
 var _ generic.ObjectEmitter = &localRootPolicyEmitter{}
-
-var DeltaInterval = 10 * time.Second
 
 type localRootPolicyEmitter struct {
 	ctx             context.Context
@@ -79,7 +76,7 @@ func policyEventPredicate(ctx context.Context, name string, obj client.Object, c
 		return nil, false
 	}
 
-	if !filter.NewerWithNoise(name, getEventLastTime(evt).Time, DeltaInterval) {
+	if !filter.Newer(name, getEventLastTime(evt).Time) {
 		return nil, false
 	}
 
