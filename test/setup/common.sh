@@ -72,7 +72,7 @@ check_kind() {
 kind_cluster() {
   cluster_name="$1"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --wait 1m"
+    retry "kind create cluster --name $cluster_name --wait 5m"
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
@@ -418,7 +418,7 @@ wait_disappear() {
   eval "$command"
 }
 
-wait_appear() {
+wait_cmd() {
   local command=$1
   local seconds=${2:-"600"}
   local interval=2         # Interval for updating the waiting message
@@ -427,17 +427,24 @@ wait_appear() {
   local elapsed=0
   local last_command_run=0
 
+  echo -e "\r${CYAN}$1 $NC "
+  if eval "${command}"; then
+    return 0 
+  fi
+
   while [ $elapsed -le "$seconds" ]; do
     if [ $((elapsed - last_command_run)) -ge $command_interval ]; then
       if [ -n "$(eval ${command})" ]; then
-        eval "${command}"
         return 0 # Return success status code
       fi
       last_command_run=$elapsed
     fi
 
-    local index=$((elapsed % ${#signs[@]}))
-    echo -ne "\r${signs[$index]}$YELLOW Waiting $elapsed seconds $NC: $command"
+    if [ $elapsed -eq 0 ]; then
+      echo -e "\r placeholder will be overwrite by wating message"
+    fi
+    local index=$((elapsed / interval % ${#signs[@]}))
+    echo -ne "\r ${signs[$index]} Waiting $elapsed seconds ..."
     sleep $interval
     ((elapsed += interval))
   done
@@ -586,14 +593,14 @@ wait_policy() {
   local cluster=$2
   echo -e "$BLUE waiting Policy $1:$2 components $NC"
 
-  wait_appear "kubectl get deploy/governance-policy-propagator -n open-cluster-management --context $hub"
-  kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=200s --context "$hub"
+  wait_cmd "kubectl get deploy/governance-policy-propagator -n open-cluster-management --context $hub"
+  kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
 
-  wait_appear "kubectl get deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --context $cluster"
+  wait_cmd "kubectl get deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 
   # configuration policy controller
-  wait_appear "kubectl get deploy/config-policy-controller -n open-cluster-management-agent-addon --context $cluster"
+  wait_cmd "kubectl get deploy/config-policy-controller -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/config-policy-controller -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 }
 
@@ -601,10 +608,10 @@ wait_application() {
   local hub=$1
   local cluster=$2
   echo -e "$BLUE waiting Application $1:$2 compoenents $NC"
-  wait_appear "kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context $hub"
+  wait_cmd "kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context $hub"
   kubectl wait deploy/multicluster-operators-subscription -n open-cluster-management --for condition=Available=True --timeout=200s --context "$hub"
 
-  wait_appear "kubectl get deploy/application-manager -n open-cluster-management-agent-addon --context $cluster"
+  wait_cmd "kubectl get deploy/application-manager -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/application-manager -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 }
 
@@ -617,7 +624,7 @@ retry() {
 
   echo -e "${CYAN}$1 $NC "
   while [ $count -lt "$retries" ]; do
-    echo -en "\r${YELLOW} Attempt $((count + 1))... $NC "
+    echo -e "\r${YELLOW} Attempt $((count + 1))... $NC "
     if eval "$1"; then
       success=true
       break

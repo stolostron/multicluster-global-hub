@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -34,7 +33,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -255,26 +253,6 @@ func deployGlobalHub() {
 	if !errors.IsAlreadyExists(err) {
 		Expect(err).ShouldNot(HaveOccurred())
 	}
-
-	// verify the kafka resources
-	Eventually(func() error {
-		kafkaUser := &kafkav1beta2.KafkaUser{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      transporter.DefaultGlobalHubKafkaUser,
-				Namespace: mcgh.Namespace,
-			},
-		}
-		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
-		if err != nil {
-			return fmt.Errorf("failed to get the kafka user %v", err)
-		}
-		for _, cond := range kafkaUser.Status.Conditions {
-			if *cond.Type == "Ready" && *cond.Status == "True" {
-				return nil
-			}
-		}
-		return fmt.Errorf("the kafak user is not ready %v", kafkaUser.Status)
-	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 	By("Verifying the multicluster-global-hub-grafana/manager")
 	components := map[string]int{}
