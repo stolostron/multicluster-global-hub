@@ -2,6 +2,7 @@ package dbsyncer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -58,6 +59,12 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 
 	batchLocalPolicyEvents := []models.LocalReplicatedPolicyEvent{}
 	for _, policyStatusEvent := range data {
+
+		sourceJSONB, err := json.Marshal(policyStatusEvent.Source)
+		if err != nil {
+			h.log.Error(err, "failed to parse the event source", "source", policyStatusEvent.Source)
+		}
+
 		batchLocalPolicyEvents = append(batchLocalPolicyEvents, models.LocalReplicatedPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
 				EventName:      policyStatusEvent.EventName,
@@ -66,7 +73,7 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 				Message:        policyStatusEvent.Message,
 				Reason:         policyStatusEvent.Reason,
 				LeafHubName:    leafHubName,
-				Source:         nil,
+				Source:         sourceJSONB,
 				Count:          int(policyStatusEvent.Count),
 				Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
 				CreatedAt:      policyStatusEvent.CreatedAt.Time,
