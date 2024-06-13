@@ -10,7 +10,7 @@ HOST="ec2-user@${IP}"
 OPT=(-q -o "UserKnownHostsFile=/dev/null" -o "StrictHostKeyChecking=no" -i "${KEY}")
 
 ROOT_DIR="$(
-  cd "$(dirname "$0")/.."
+  cd "$(dirname "$0")/../.."
   pwd -P
 )"
 HOST_DIR="/tmp/multicluster-global-hub"
