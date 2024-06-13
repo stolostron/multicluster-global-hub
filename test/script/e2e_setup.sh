@@ -2,22 +2,11 @@
 
 set -euo pipefail
 
-CURRENT_DIR=$(
-  cd "$(dirname "$0")" || exit
-  pwd
-)
-TEST_DIR=$(dirname "$CURRENT_DIR")
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
-export CURRENT_DIR
-export GH_NAME="global-hub"
-export MH_NUM=${MH_NUM:-2}
-export MC_NUM=${MC_NUM:-1}
-export KinD=true
-export CONFIG_DIR=${CURRENT_DIR}/config
 export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
-export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
 
 [ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
 
@@ -37,11 +26,12 @@ echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
 # GH
 # service-ca
 echo -e "$BLUE setting global hub service-ca and middlewares $NC"
-enable_service_ca $GH_NAME "$TEST_DIR/manifest" 2>&1 || true
+enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
+
 # async middlewares
-bash "$TEST_DIR/manifest/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
+bash "$CURRENT_DIR/e2e_postgres.sh" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >"$CONFIG_DIR/PID"
-bash "$TEST_DIR"/manifest/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
+bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$CONFIG_DIR/PID"
 
 # async ocm, policy and app
@@ -56,6 +46,7 @@ start_time=$(date +%s)
   done
   wait
 ) &
+echo "$!" >>"$CONFIG_DIR/PID"
 
 # hub1: cluster1 | hub2: cluster1
 for i in $(seq 1 "${MH_NUM}"); do
@@ -66,6 +57,7 @@ for i in $(seq 1 "${MH_NUM}"); do
     done
     wait
   ) &
+  echo "$!" >>"$CONFIG_DIR/PID"
 done
 
 wait

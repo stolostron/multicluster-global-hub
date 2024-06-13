@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# VERSION
 export INSTALL_DIR=/usr/bin
 export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
@@ -8,6 +9,18 @@ export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
+
+# Environment Variables 
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+TEST_DIR=$(dirname "$CURRENT_DIR")
+export CURRENT_DIR
+export TEST_DIR
+export GH_NAME="global-hub"
+export MH_NUM=${MH_NUM:-2}
+export MC_NUM=${MC_NUM:-1}
+export KinD=true
+export CONFIG_DIR=$CURRENT_DIR/config
+export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
 
 check_dir() {
   if [ ! -d "$1" ]; then

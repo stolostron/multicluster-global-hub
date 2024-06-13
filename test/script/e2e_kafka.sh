@@ -1,11 +1,10 @@
 #!/bin/bash
 
-export KUBECONFIG=${1:-$KUBECONFIG}
-
-current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit ; pwd -P)"
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null
-source "$test_dir/script/util.sh"
+source "$CURRENT_DIR/util.sh"
+
+KUBECONFIG=${1:-$KUBECONFIG}
 
 start_time=$(date +%s)
 echo -e "\r${BOLD_GREEN}[ START ] Install Kafka $NC"
@@ -22,11 +21,11 @@ fi
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl apply -f -
 
 # deploy kafka operator
-retry "(kubectl apply -k $current_dir/kafka-operator -n $target_namespace) && (kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
+retry "(kubectl apply -k $TEST_DIR/manifest/kafka/kafka-operator -n $target_namespace) && (kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
-retry "(kubectl apply -k $current_dir/kafka-cluster -n $target_namespace) && (kubectl get kafka kafka -n $target_namespace -o json | jq '(.status.listeners | length) == 2'  | grep true)" 120
+retry "(kubectl apply -k $TEST_DIR/manifest/kafka/kafka-cluster -n $target_namespace) && (kubectl get kafka kafka -n $target_namespace -o json | jq '(.status.listeners | length) == 2'  | grep true)" 120
 
 # patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
 node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')

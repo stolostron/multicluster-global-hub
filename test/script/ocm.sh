@@ -2,20 +2,13 @@
 
 set -euo pipefail
 
-CURRENT_DIR=$(
-  cd "$(dirname "$0")" || exit
-  pwd
-)
-
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
 # setup kubeconfig
-CONFIG_DIR=${CONFIG_DIR:-${CURRENT_DIR}/config} 
 KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 HUB_INIT=${HUB_INIT:-true}
-
-check_dir "$CONFIG_DIR"
 
 hub="$1"
 spoken="$2"

@@ -1,18 +1,13 @@
 #!/bin/bash
 
-CURRENT_DIR=$(
-  cd "$(dirname "$0")" || exit
-  pwd
-)
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
-MH_NUM=${MH_NUM:-2}
-MC_NUM=${MC_NUM:-1}
+# whether delete the kind clusters
+DELETE=${DELETE:-true} 
 
 # setup kubeconfig
-GH_NAME="global-hub"
-CONFIG_DIR=${CURRENT_DIR}/config
 KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 
 while read -r line; do
@@ -20,6 +15,8 @@ while read -r line; do
     kill -9 "${line}" >/dev/null 2>&1
   fi
 done <"$CONFIG_DIR/PID"
+
+[ "$DELETE" = false ] && exit 0
 
 kind delete cluster --name ${GH_NAME}
 for i in $(seq 1 "${MH_NUM}"); do
@@ -30,9 +27,6 @@ for i in $(seq 1 "${MH_NUM}"); do
     rm "$CONFIG_DIR/hub${i}-cluster${j}"
   done
 done
-
 rm "$KUBECONFIG"
 
-# rm -rf "$CONFIG_DIR"
-# ps -ef | grep "setup" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
-
+# ps -ef | grep "e2e" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
