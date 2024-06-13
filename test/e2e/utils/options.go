@@ -1,4 +1,4 @@
-package common
+package utils
 
 type OptionsContainer struct {
 	Options Options `yaml:"options"`

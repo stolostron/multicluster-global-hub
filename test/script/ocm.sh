@@ -8,7 +8,7 @@ CURRENT_DIR=$(
 )
 
 # shellcheck source=/dev/null
-source "$CURRENT_DIR/common.sh"
+source "$CURRENT_DIR/util.sh"
 
 # setup kubeconfig
 CONFIG_DIR=${CONFIG_DIR:-${CURRENT_DIR}/config} 

@@ -35,16 +35,16 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"github.com/stolostron/multicluster-global-hub/test/e2e/common"
+	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
 
 var (
 	rootDir     string
 	optionsFile string
-	testOptions common.Options
+	testOptions utils.Options
 	testTimeout time.Duration
 
-	testClients common.TestClient
+	testClients utils.TestClient
 	httpClient  *http.Client
 
 	globalHubClient client.Client
@@ -95,7 +95,7 @@ var _ = BeforeSuite(func() {
 
 	By("Complete the options and init clients")
 	testOptions = completeOptions()
-	testClients = common.NewTestClient(testOptions)
+	testClients = utils.NewTestClient(testOptions)
 	httpClient = testClients.HttpClient()
 	// valid the clients
 	deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
@@ -150,10 +150,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	common.DeleteTestingRBAC(testOptions)
+	utils.DeleteTestingRBAC(testOptions)
 })
 
-func completeOptions() common.Options {
+func completeOptions() utils.Options {
 	testTimeout = time.Second * 30
 
 	// get project rootdir path
@@ -168,7 +168,7 @@ func completeOptions() common.Options {
 	data, err := os.ReadFile(optionsFile)
 	Expect(err).NotTo(HaveOccurred())
 
-	testOptionsContainer := &common.OptionsContainer{}
+	testOptionsContainer := &utils.OptionsContainer{}
 	err = yaml.UnmarshalStrict([]byte(data), testOptionsContainer)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -231,10 +231,10 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(common.Apply(testClients, testOptions,
-		common.RenderOptions{KustomizationPath: fmt.Sprintf("%s/test/e2e/manifests/resource", rootDir)})).NotTo(HaveOccurred())
-	Expect(common.Apply(testClients, testOptions,
-		common.RenderOptions{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
+	Expect(utils.Apply(testClients, testOptions,
+		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
+	Expect(utils.Apply(testClients, testOptions,
+		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
 	mcgh := &v1alpha4.MulticlusterGlobalHub{

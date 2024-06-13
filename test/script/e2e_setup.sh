@@ -6,8 +6,9 @@ CURRENT_DIR=$(
   cd "$(dirname "$0")" || exit
   pwd
 )
+TEST_DIR=$(dirname "$CURRENT_DIR")
 # shellcheck source=/dev/null
-source "$CURRENT_DIR/common.sh"
+source "$CURRENT_DIR/util.sh"
 
 export CURRENT_DIR
 export GH_NAME="global-hub"
@@ -36,11 +37,11 @@ echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
 # GH
 # service-ca
 echo -e "$BLUE setting global hub service-ca and middlewares $NC"
-enable_service_ca $GH_NAME "$CURRENT_DIR/manifests" 2>&1 || true
+enable_service_ca $GH_NAME "$CURRENT_DIR/manifest" 2>&1 || true
 # async middlewares
-bash "$CURRENT_DIR/manifests/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
+bash "$TEST_DIR/manifest/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >"$CONFIG_DIR/PID"
-bash "$CURRENT_DIR"/manifests/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
+bash "$TEST_DIR"/manifest/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$CONFIG_DIR/PID"
 
 # async ocm, policy and app

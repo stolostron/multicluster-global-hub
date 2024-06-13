@@ -1,4 +1,4 @@
-package common
+package utils
 
 import "k8s.io/apimachinery/pkg/runtime/schema"
 

@@ -5,7 +5,7 @@ export KUBECONFIG=${1:-$KUBECONFIG}
 current_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 setup_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." || exit ; pwd -P)"
 # shellcheck source=/dev/null
-source "$setup_dir/common.sh"
+source "$setup_dir/util.sh"
 
 # check the transport secret
 transport_secret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}

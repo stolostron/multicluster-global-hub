@@ -21,9 +21,9 @@ import (
 )
 
 const (
-	PLACEMENT_POLICY_YAML       = "./manifests/policy/inform-limitrange-policy-placement.yaml"
-	PLACEMENT_APP_SUB_YAML      = "./manifests/app/app-helloworld-appsub-placement.yaml"
-	PLACEMENT_LOCAL_POLICY_YAML = "./manifests/policy/local-inform-limitrange-policy-placement.yaml"
+	PLACEMENT_POLICY_YAML       = "./../manifest/policy/inform-limitrange-policy-placement.yaml"
+	PLACEMENT_APP_SUB_YAML      = "./../manifest/app/app-helloworld-appsub-placement.yaml"
+	PLACEMENT_LOCAL_POLICY_YAML = "./../manifest/policy/local-inform-limitrange-policy-placement.yaml"
 	CLUSTERSET_LABEL_KEY        = "cluster.open-cluster-management.io/clusterset"
 )
 

@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	INFORM_POLICY_YAML  = "./manifests/policy/inform-limitrange-policy.yaml"
-	ENFORCE_POLICY_YAML = "./manifests/policy/enforce-limitrange-policy.yaml"
+	INFORM_POLICY_YAML  = "./../manifest/policy/inform-limitrange-policy.yaml"
+	ENFORCE_POLICY_YAML = "./../manifest/policy/enforce-limitrange-policy.yaml"
 
 	POLICY_LABEL_KEY      = "global-policy"
 	POLICY_LABEL_VALUE    = "test"

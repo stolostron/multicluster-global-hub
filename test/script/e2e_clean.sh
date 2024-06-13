@@ -5,7 +5,7 @@ CURRENT_DIR=$(
   pwd
 )
 # shellcheck source=/dev/null
-source "$CURRENT_DIR/common.sh"
+source "$CURRENT_DIR/util.sh"
 
 MH_NUM=${MH_NUM:-2}
 MC_NUM=${MC_NUM:-1}
@@ -24,10 +24,14 @@ done <"$CONFIG_DIR/PID"
 kind delete cluster --name ${GH_NAME}
 for i in $(seq 1 "${MH_NUM}"); do
   kind delete cluster --name "hub${i}"
+  rm "$CONFIG_DIR/hub${i}"
   for j in $(seq 1 "${MC_NUM}"); do
     kind delete cluster --name "hub${i}-cluster${j}"
+    rm "$CONFIG_DIR/hub${i}-cluster${j}"
   done
 done
+
+rm "$KUBECONFIG"
 
 # rm -rf "$CONFIG_DIR"
 # ps -ef | grep "setup" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1

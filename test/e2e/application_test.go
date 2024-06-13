@@ -20,7 +20,7 @@ import (
 const (
 	APP_LABEL_KEY     = "app"
 	APP_LABEL_VALUE   = "test"
-	APP_SUB_YAML      = "./manifests/app/app-helloworld-appsub.yaml"
+	APP_SUB_YAML      = "./../manifest/app/app-helloworld-appsub.yaml"
 	APP_SUB_NAME      = "helloworld-appsub"
 	APP_SUB_NAMESPACE = "helloworld"
 )
