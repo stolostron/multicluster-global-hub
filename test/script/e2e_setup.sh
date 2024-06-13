@@ -16,23 +16,22 @@ start=$(date +%s)
 echo -e "$BLUE creating clusters $NC"
 start_time=$(date +%s)
 
-kind_cluster "$GH_NAME" 2>&1 
+# GH
+kind_cluster "$GH_NAME" 2>&1
+
+# service-ca
+echo -e "$BLUE setting global hub service-ca and middlewares $NC"
+enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
+bash "$CURRENT_DIR/e2e_postgres.sh" "$GH_KUBECONFIG" 2>&1 & # async middlewares
+echo "$!" >"$CONFIG_DIR/PID"
+bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
+
 for i in $(seq 1 "${MH_NUM}"); do
   kind_cluster "hub$i" 2>&1
 done
 
 echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
-
-# GH
-# service-ca
-echo -e "$BLUE setting global hub service-ca and middlewares $NC"
-enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
-
-# async middlewares
-bash "$CURRENT_DIR/e2e_postgres.sh" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >"$CONFIG_DIR/PID"
-bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >>"$CONFIG_DIR/PID"
 
 # async ocm, policy and app
 echo -e "$BLUE installing ocm, policy, and app in global hub and managed hubs $NC"
