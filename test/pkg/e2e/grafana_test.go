@@ -266,10 +266,13 @@ var _ = Describe("The grafana resources counts should be right", Ordered, Label(
 		ctx := context.Background()
 		Eventually(func() error {
 			alertCount, err := getGrafanaResource(ctx, "v1/provisioning/alert-rules")
+			klog.Errorf("#######:%v,err:%v", alertCount, err)
+
 			if err != nil {
 				klog.Errorf("Get grafana resource error:%v", err)
 				return err
 			}
+			klog.Errorf("#######:%v", alertCount)
 			if alertCount != 5 {
 				klog.Errorf("get alert count:%v", alertCount)
 				return fmt.Errorf("Expect alert count is 5, bug got:%v", alertCount)
@@ -325,6 +328,8 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 		poList.Items[0].Name,
 		"-n",
 		configNamespace,
+		"-c",
+		"grafana",
 		"--",
 		"/usr/bin/curl",
 		"-H",
@@ -336,7 +341,7 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 		klog.Errorf("responseBody: %v, err: %v", string(responseBody), err)
 		return 0, err
 	}
-
+	klog.Errorf("########res:%v", responseBody)
 	var mapObj map[string]interface{}
 	var arrayObj []interface{}
 
@@ -345,11 +350,15 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 	}
 
 	err = yaml.Unmarshal([]byte(responseBody), &mapObj)
+	klog.Errorf("########res:%v, err:%v", mapObj, err)
+
 	if err == nil {
 		return 1, nil
 	}
+	klog.Errorf("########res:%v", mapObj)
 
 	err = yaml.Unmarshal([]byte(responseBody), &arrayObj)
+	klog.Errorf("########res:%v, err:%v", arrayObj, err)
 	if err == nil {
 		return len(arrayObj), nil
 	}
