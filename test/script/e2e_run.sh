@@ -2,12 +2,13 @@
 
 set -euxo pipefail
 
-TEST_DIR="$(
-  cd "$(dirname "$0")/.."
-  pwd -P
-)"
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
+TEST_DIR=$(dirname "$CURRENT_DIR")
 
-CONFIG_DIR="${TEST_DIR}/scripts/config"
+CONFIG_DIR="${CURRENT_DIR}/config"
 OPTION_FILE="${CONFIG_DIR}/options.yaml"
 
 [ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")

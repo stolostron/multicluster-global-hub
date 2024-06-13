@@ -37,7 +37,7 @@ echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
 # GH
 # service-ca
 echo -e "$BLUE setting global hub service-ca and middlewares $NC"
-enable_service_ca $GH_NAME "$CURRENT_DIR/manifest" 2>&1 || true
+enable_service_ca $GH_NAME "$TEST_DIR/manifest" 2>&1 || true
 # async middlewares
 bash "$TEST_DIR/manifest/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >"$CONFIG_DIR/PID"
