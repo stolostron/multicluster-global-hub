@@ -18,6 +18,8 @@ export CONFIG_DIR=${CURRENT_DIR}/config
 export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
 
+[ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
+
 start=$(date +%s)
 
 # Init clusters
@@ -26,7 +28,7 @@ start_time=$(date +%s)
 
 kind_cluster "$GH_NAME" 2>&1 
 for i in $(seq 1 "${MH_NUM}"); do
-  kind_cluster "hub$i" 2>&1 
+  kind_cluster "hub$i" 2>&1
 done
 
 echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
@@ -49,7 +51,7 @@ start_time=$(date +%s)
 (
   init_hub $GH_NAME 2>&1
   for i in $(seq 1 "${MH_NUM}"); do
-    bash "$CURRENT_DIR"/ocm_setup.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
+    bash "$CURRENT_DIR"/ocm.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
   done
   wait
 ) &
@@ -59,7 +61,7 @@ for i in $(seq 1 "${MH_NUM}"); do
   (
     init_hub "hub$i" 2>&1
     for j in $(seq 1 "${MC_NUM}"); do
-      bash "$CURRENT_DIR"/ocm_setup.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
+      bash "$CURRENT_DIR"/ocm.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
     done
     wait
   ) &

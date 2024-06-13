@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -31,17 +30,10 @@ const (
 )
 
 var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("e2e-test-prune"), Ordered, func() {
-	ctx := context.Background()
-	var runtimeClient client.Client
 	var managedClusterName1 string
 	var managedClusterName2 string
 
 	BeforeAll(func() {
-		By("Get the runtimeClient client")
-		var err error
-		runtimeClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
-		Expect(err).ShouldNot(HaveOccurred())
-
 		managedClusterName1 = managedClusters[0].Name
 		managedClusterName2 = managedClusters[1].Name
 	})
@@ -80,7 +72,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		}, TIMEOUT, INTERVAL).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			status, err := getPolicyStatus(runtimeClient, httpClient, POLICY_NAME, POLICY_NAMESPACE)
+			status, err := getStatusFromGolbalHub(globalHubClient, httpClient, POLICY_NAME, POLICY_NAMESPACE)
 			if err != nil {
 				return err
 			}
@@ -98,19 +90,19 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 	It("delete multiclusterglobalhub", func() {
 		By("Check whether multiclusterglobalhub is exists")
 		mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
-		err := runtimeClient.Get(ctx, types.NamespacedName{
+		err := globalHubClient.Get(ctx, types.NamespacedName{
 			Namespace: utils.GetDefaultNamespace(),
 			Name:      "multiclusterglobalhub",
 		}, mgh)
-		Expect(err).NotTo(HaveOccurred())
+		Expect(err).To(Succeed())
 
 		By("Delete multiclusterglobalhub")
-		err = runtimeClient.Delete(ctx, mgh, &client.DeleteOptions{})
-		Expect(err).NotTo(HaveOccurred())
+		err = globalHubClient.Delete(ctx, mgh, &client.DeleteOptions{})
+		Expect(err).To(Succeed())
 
 		By("Check whether multiclusterglobalhub is deleted")
 		Eventually(func() error {
-			err = runtimeClient.Get(ctx, types.NamespacedName{
+			err = globalHubClient.Get(ctx, types.NamespacedName{
 				Namespace: utils.GetDefaultNamespace(),
 				Name:      "multiclusterglobalhub",
 			}, mgh)
@@ -134,7 +126,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete clusterrole")
 		Eventually(func() error {
 			clusterRoleList := &rbacv1.ClusterRoleList{}
-			if err := runtimeClient.List(ctx, clusterRoleList, listOpts...); err != nil {
+			if err := globalHubClient.List(ctx, clusterRoleList, listOpts...); err != nil {
 				return err
 			}
 			if len(clusterRoleList.Items) > 0 {
@@ -146,7 +138,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete clusterrolebinding")
 		Eventually(func() error {
 			clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
-			if err := runtimeClient.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
+			if err := globalHubClient.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
 				return err
 			}
 			if len(clusterRoleBindingList.Items) > 0 {
@@ -158,7 +150,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete placement finalizer")
 		Eventually(func() error {
 			placements := &clusterv1beta1.PlacementList{}
-			if err := runtimeClient.List(ctx, placements, &client.ListOptions{}); err != nil &&
+			if err := globalHubClient.List(ctx, placements, &client.ListOptions{}); err != nil &&
 				!errors.IsNotFound(err) {
 				return err
 			}
@@ -174,7 +166,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete managedclusterset finalizer")
 		Eventually(func() error {
 			managedclustersets := &clusterv1beta2.ManagedClusterSetList{}
-			if err := runtimeClient.List(ctx, managedclustersets, &client.ListOptions{}); err != nil {
+			if err := globalHubClient.List(ctx, managedclustersets, &client.ListOptions{}); err != nil {
 				return err
 			}
 			for idx := range managedclustersets.Items {
@@ -190,7 +182,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete managedclustersetbinding finalizer")
 		Eventually(func() error {
 			managedclustersetbindings := &clusterv1beta2.ManagedClusterSetBindingList{}
-			if err := runtimeClient.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil &&
+			if err := globalHubClient.List(ctx, managedclustersetbindings, &client.ListOptions{}); err != nil &&
 				!errors.IsNotFound(err) {
 				return err
 			}
@@ -209,7 +201,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete the application finalizer")
 		Eventually(func() error {
 			applications := &applicationv1beta1.ApplicationList{}
-			if err := runtimeClient.List(ctx, applications, &client.ListOptions{}); err != nil {
+			if err := globalHubClient.List(ctx, applications, &client.ListOptions{}); err != nil {
 				return err
 			}
 			for idx := range applications.Items {
@@ -224,7 +216,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete the appsub finalizer")
 		Eventually(func() error {
 			appsubs := &appsubv1.SubscriptionList{}
-			if err := runtimeClient.List(ctx, appsubs, &client.ListOptions{}); err != nil {
+			if err := globalHubClient.List(ctx, appsubs, &client.ListOptions{}); err != nil {
 				return err
 			}
 			for idx := range appsubs.Items {
@@ -239,7 +231,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete the channel finalizer")
 		Eventually(func() error {
 			channels := &chnv1.ChannelList{}
-			if err := runtimeClient.List(ctx, channels, &client.ListOptions{}); err != nil {
+			if err := globalHubClient.List(ctx, channels, &client.ListOptions{}); err != nil {
 				return err
 			}
 			for idx := range channels.Items {
@@ -254,7 +246,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete the palcementrules(policy and app) finalizer")
 		Eventually(func() error {
 			palcementrules := &placementrulesv1.PlacementRuleList{}
-			if err := runtimeClient.List(ctx, palcementrules, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
+			if err := globalHubClient.List(ctx, palcementrules, &client.ListOptions{}); err != nil && errors.IsNotFound(err) {
 				return err
 			}
 			for idx := range palcementrules.Items {
@@ -272,7 +264,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete the policies finalizer")
 		Eventually(func() error {
 			policies := &policiesv1.PolicyList{}
-			if err := runtimeClient.List(ctx, policies, &client.ListOptions{}); err != nil {
+			if err := globalHubClient.List(ctx, policies, &client.ListOptions{}); err != nil {
 				return err
 			}
 			for idx := range policies.Items {
@@ -287,7 +279,7 @@ var _ = Describe("Delete the multiclusterglobalhub and prune resources", Label("
 		By("Delete the placementbindings finalizer")
 		Eventually(func() error {
 			placementbindings := &policiesv1.PlacementBindingList{}
-			if err := runtimeClient.List(ctx, placementbindings, &client.ListOptions{}); err != nil {
+			if err := globalHubClient.List(ctx, placementbindings, &client.ListOptions{}); err != nil {
 				return err
 			}
 			for idx := range placementbindings.Items {

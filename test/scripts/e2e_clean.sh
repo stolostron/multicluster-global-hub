@@ -29,6 +29,6 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
-rm -rf "$CONFIG_DIR"
+# rm -rf "$CONFIG_DIR"
 # ps -ef | grep "setup" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1
 

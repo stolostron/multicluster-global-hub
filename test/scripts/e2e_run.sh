@@ -99,10 +99,10 @@ verbose=${verbose:=5}
 
 if [ -z "${filter}" ]; then
   ginkgo --fail-fast --label-filter="!e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
-    --junit-report=report.xml "$TEST_DIR/test/e2e" -- -options="$OPTION_FILE" -v="$verbose"
+    --junit-report=report.xml "$TEST_DIR/e2e" -- -options="$OPTION_FILE" -v="$verbose"
 else
   ginkgo --fail-fast --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \
-    --junit-report=report.xml "$TEST_DIR"/test/e2e -- -options="$OPTION_FILE" -v="$verbose"
+    --junit-report=report.xml "$TEST_DIR"/e2e -- -options="$OPTION_FILE" -v="$verbose"
 fi
 
 if ! cat "$CONFIG_DIR/report.xml" | grep failures=\"0\" | grep errors=\"0\" >/dev/null; then

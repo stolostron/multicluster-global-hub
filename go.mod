@@ -22,7 +22,7 @@ require (
 	github.com/jackc/pgx/v4 v4.18.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.10.9
-	github.com/onsi/ginkgo/v2 v2.14.0
+	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.30.0
 	github.com/openshift/api v0.0.0-20231218131639-7a5aa77cc72d
 	github.com/openshift/library-go v0.0.0-20240116081341-964bcb3f545c

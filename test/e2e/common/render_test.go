@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package kustomize
+package common
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 
 func TestRender(t *testing.T) {
 	// Test
-	buf, err := Render(Options{
+	buf, err := Render(RenderOptions{
 		KustomizationPath: "tests",
 	})
 	require.NoError(t, err, "Render()")

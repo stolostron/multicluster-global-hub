@@ -70,7 +70,9 @@ check_kind() {
 }
 
 kind_cluster() {
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   cluster_name="$1"
+  echo "dir $dir"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
     retry "kind create cluster --name $cluster_name --wait 5m"
     # modify the context = KinD cluster name = kubeconfig name
@@ -79,8 +81,6 @@ kind_cluster() {
     node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
     # context is changed but name not
     retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
-
-    dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
 }
@@ -91,7 +91,7 @@ init_hub() {
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   clusteradm get token --context "$1" | grep "clusteradm" >"$join_file"
 }
@@ -126,7 +126,7 @@ join_cluster() {
   local hub=$1 # hub name also as the context
   local cluster=$2
   echo -e "${CYAN} Import Cluster $2 to Hub $1 ... $NC"
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   if [[ -z $(kubectl get mcl "$cluster" --context "$hub" --ignore-not-found) ]]; then
     # shellcheck disable=SC2154
@@ -195,7 +195,7 @@ init_policy() {
 
   # On cluster
   ## Create the secret to authenticate with the hub
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local hub_kubeconfig="$dir/$hub"
   if ! kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster"; then
     kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$hub_kubeconfig"

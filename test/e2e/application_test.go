@@ -26,6 +26,10 @@ const (
 )
 
 var _ = Describe("Deploy the application to the managed cluster", Label("e2e-test-app"), Ordered, func() {
+	BeforeAll(func() {
+		_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", APP_SUB_YAML)
+		Expect(err).To(Succeed())
+	})
 	Context("deploy the application", func() {
 		It("deploy the application/subscription", func() {
 			By("Add label to the managedcluster")
@@ -33,12 +37,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub is applied to the cluster")
 			Eventually(func() error {
-				_, err := testClients.Kubectl(testOptions.GlobalHub.Name, "apply", "-f", APP_SUB_YAML)
-				if err != nil {
-					return err
-				}
-				return checkAppsubreport(httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1,
-					[]string{managedClusters[0].Name})
+				return checkAppsubreport(httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 1, []string{managedClusters[0].Name})
 			}, 5*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 
@@ -48,8 +47,7 @@ var _ = Describe("Deploy the application to the managed cluster", Label("e2e-tes
 
 			By("Check the appsub apply to the clusters")
 			Eventually(func() error {
-				return checkAppsubreport(httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 2,
-					[]string{managedClusters[0].Name, managedClusters[1].Name})
+				return checkAppsubreport(httpClient, APP_SUB_NAME, APP_SUB_NAMESPACE, 2, []string{managedClusters[0].Name, managedClusters[1].Name})
 			}, 5*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 		})
 

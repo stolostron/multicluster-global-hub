@@ -87,3 +87,14 @@ func (h LeafHubHeartbeat) UpInsertHeartBeat(db *gorm.DB) error {
 		VALUES ($1, $2, $3) ON CONFLICT (leaf_hub_name) DO UPDATE SET last_timestamp = $3;`
 	return db.Exec(tmp, h.Name, h.Status, h.LastUpdateAt).Error
 }
+
+type SubscriptionReport struct {
+	ID          string         `gorm:"column:id;primaryKey"`
+	LeafHubName string         `gorm:"type:varchar(254);column:leaf_hub_name"`
+	Payload     datatypes.JSON `gorm:"type:jsonb;column:payload"`
+}
+
+// TableName specifies the table name for the SubscriptionReport model
+func (SubscriptionReport) TableName() string {
+	return "status.subscription_reports"
+}
