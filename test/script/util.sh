@@ -457,7 +457,7 @@ wait_cmd() {
       echo -e "\r placeholder will be overwrite by wating message"
     fi
     local index=$((elapsed / interval % ${#signs[@]}))
-    echo -ne "\r ${signs[$index]} Waiting $elapsed seconds ..."
+    echo -ne "\r ${signs[$index]} Waiting $elapsed seconds: $1"
     sleep $interval
     ((elapsed += interval))
   done
@@ -637,7 +637,7 @@ retry() {
 
   echo -e "${CYAN}$1 $NC "
   while [ $count -lt "$retries" ]; do
-    echo -e "\r${YELLOW} Attempt $((count + 1))... $NC "
+    echo -e "${YELLOW} Attempt $((count + 1))... $NC "
     if eval "$1"; then
       success=true
       break
