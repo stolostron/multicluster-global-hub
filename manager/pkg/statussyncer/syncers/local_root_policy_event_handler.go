@@ -2,6 +2,7 @@ package dbsyncer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -59,12 +60,17 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 		return fmt.Errorf("the root policy event payload shouldn't be empty")
 	}
 
-	localRootPolicyEvent := []models.LocalRootPolicyEvent{}
+	localRootPolicyEvents := []models.LocalRootPolicyEvent{}
 	for _, element := range data {
 		if element.PolicyID == "" {
 			continue
 		}
-		localRootPolicyEvent = append(localRootPolicyEvent, models.LocalRootPolicyEvent{
+
+		sourceJSONB, err := json.Marshal(element.Source)
+		if err != nil {
+			h.log.Error(err, "failed to parse the event source", "source", element.Source)
+		}
+		localRootPolicyEvents = append(localRootPolicyEvents, models.LocalRootPolicyEvent{
 			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
 				LeafHubName:    leafHubName,
 				EventName:      element.EventName,
@@ -72,6 +78,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 				PolicyID:       element.PolicyID,
 				Message:        element.Message,
 				Reason:         element.Reason,
+				Source:         sourceJSONB,
 				Count:          int(element.Count),
 				Compliance:     string(common.GetDatabaseCompliance(element.Compliance)),
 				CreatedAt:      element.CreatedAt.Time,
@@ -83,7 +90,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		UpdateAll: true,
-	}).CreateInBatches(localRootPolicyEvent, 100).Error
+	}).CreateInBatches(localRootPolicyEvents, 100).Error
 	if err != nil {
 		return fmt.Errorf("failed to handle the event to database %v", err)
 	}
