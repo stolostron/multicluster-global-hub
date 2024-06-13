@@ -128,7 +128,12 @@ func (c *testClient) Kubectl(clusterName string, args ...string) (string, error)
 
 	args = append([]string{"--context", context}, args...)
 	args = append([]string{"--kubeconfig", config}, args...)
-	output, err := exec.Command("kubectl", args...).CombinedOutput()
+	output, err := exec.Command("kubectl", args...).Output()
+	klog.Errorf("Output:%v, err:%v", string(output), err)
+	if err != nil {
+		combinedOutput, err := exec.Command("kubectl", args...).CombinedOutput()
+		klog.Errorf("Output:%v, err:%v", string(combinedOutput), err)
+	}
 	return string(output), err
 }
 
