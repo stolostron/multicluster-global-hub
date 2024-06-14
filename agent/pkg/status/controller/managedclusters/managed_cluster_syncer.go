@@ -30,7 +30,9 @@ func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConf
 			constants.ManagedClusterManagedByAnnotation: statusconfig.GetLeafHubName(),
 		})
 	}
-	emitter := generic.ObjectEmitterWrapper(enum.ManagedClusterType, nil, tweakFunc, false)
+	emitter := generic.ObjectEmitterWrapper(enum.ManagedClusterType, func(obj client.Object) bool {
+		return true
+	}, tweakFunc, false)
 
 	return generic.LaunchGenericObjectSyncer(
 		"status.managed_cluster",

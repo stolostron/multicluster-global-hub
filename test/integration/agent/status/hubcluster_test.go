@@ -1,4 +1,4 @@
-package hubcluster
+package status
 
 import (
 	"fmt"
@@ -15,13 +15,23 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("Hub cluster integration test", Ordered, func() {
+// go test ./test/integration/agent/status -v -ginkgo.focus "HubClusterInfo"
+var _ = Describe("HubClusterInfo", Ordered, func() {
+	var heartBeatConsumer transport.Consumer
+	var hubInfoConsumer transport.Consumer
+
+	BeforeAll(func() {
+		heartBeatConsumer = chanTransport.Consumer(HeartBeatTopic)
+		hubInfoConsumer = chanTransport.Consumer(HubClusterInfoTopic)
+	})
+
 	It("should receive the heartbeat", func() {
 		By("Check the local hearbeat event can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := heartbeatTrans.GetEvent()
+			evt := <-heartBeatConsumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.HubClusterHeartbeatType) {
 				return fmt.Errorf("want %v, got %v", string(enum.HubClusterHeartbeatType), evt.Type())
@@ -40,11 +50,11 @@ var _ = Describe("Hub cluster integration test", Ordered, func() {
 				Value: "00000000-0000-0000-0000-000000000001",
 			},
 		}
-		Expect(kubeClient.Create(ctx, clusterClaim)).Should(Succeed())
+		Expect(runtimeClient.Create(ctx, clusterClaim)).Should(Succeed())
 
 		By("Check the hub cluster info bundle can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := mockTrans.GetEvent()
+			evt := <-hubInfoConsumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.HubClusterInfoType) {
 				return fmt.Errorf("want %v, got %v", string(enum.HubClusterHeartbeatType), evt.Type())
@@ -53,7 +63,7 @@ var _ = Describe("Hub cluster integration test", Ordered, func() {
 		}, 50*time.Second, 1*time.Second).Should(Succeed())
 
 		By("Create openshift route for hub cluster")
-		Expect(kubeClient.Create(ctx, &corev1.Namespace{
+		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{Name: constants.OpenShiftConsoleNamespace},
 		})).Should(Succeed())
 
@@ -70,10 +80,10 @@ var _ = Describe("Hub cluster integration test", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Create(ctx, consoleRoute)).Should(Succeed())
+		Expect(runtimeClient.Create(ctx, consoleRoute)).Should(Succeed())
 
 		By("Create observability grafana route in the managed hub cluster")
-		Expect(kubeClient.Create(ctx, &corev1.Namespace{
+		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{Name: constants.ObservabilityNamespace},
 		})).Should(Succeed())
 
@@ -90,11 +100,11 @@ var _ = Describe("Hub cluster integration test", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Create(ctx, obsRoute)).Should(Succeed())
+		Expect(runtimeClient.Create(ctx, obsRoute)).Should(Succeed())
 
 		By("Check the hub cluster info bundle can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := mockTrans.GetEvent()
+			evt := <-hubInfoConsumer.EventChan()
 			fmt.Println(evt)
 			if evt.Type() != string(enum.HubClusterInfoType) {
 				return fmt.Errorf("want %v, got %v", string(enum.HubClusterHeartbeatType), evt.Type())

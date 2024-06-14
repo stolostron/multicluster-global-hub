@@ -19,3 +19,9 @@ e2e-test-prune: tidy vendor
 
 e2e-prow-tests: 
 	./test/script/e2e_prow.sh
+
+integration-test: setup_envtest
+	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./test/integration/...`
+
+integration-test/agent: setup_envtest
+	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./test/integration/agent/...`

@@ -27,7 +27,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
+	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -88,8 +88,7 @@ var _ = BeforeSuite(func() {
 
 	By("Init schemes")
 	operatorScheme = config.GetRuntimeScheme()
-	agentScheme = runtime.NewScheme()
-	agentscheme.AddToScheme(agentScheme)
+	agentScheme = agentconfig.GetRuntimeScheme()
 	managerScheme = runtime.NewScheme()
 	managerscheme.AddToScheme(managerScheme)
 

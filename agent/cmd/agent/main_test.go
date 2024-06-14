@@ -63,16 +63,6 @@ func TestMain(m *testing.M) {
 		panic(fmt.Errorf("empty kubeconfig!"))
 	}
 
-	// // init mock kafka cluster
-	// mockKafkaCluster, err = kafka.NewMockCluster(1)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// if mockKafkaCluster == nil {
-	// 	panic(fmt.Errorf("empty mock kafka cluster!"))
-	// }
-
 	kubeClient, err = kubernetes.NewForConfig(cfg)
 	if err != nil {
 		panic(err)

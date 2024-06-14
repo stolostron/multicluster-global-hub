@@ -1,4 +1,4 @@
-package placement
+package status
 
 import (
 	"fmt"
@@ -11,9 +11,16 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("Placement integration test", Ordered, func() {
+// go test ./test/integration/agent/status -v -ginkgo.focus "Placement"
+var _ = Describe("Placement", Ordered, func() {
+	var consumer transport.Consumer
+	BeforeAll(func() {
+		consumer = chanTransport.Consumer(PlacementTopic)
+	})
+
 	It("should be able to sync placementrule", func() {
 		By("Create global placementrule")
 		testGlobalPlacementRuleOriginUID := "test-globalplacementrule-uid"
@@ -27,7 +34,7 @@ var _ = Describe("Placement integration test", Ordered, func() {
 			},
 			Spec: placementrulev1.PlacementRuleSpec{},
 		}
-		Expect(kubeClient.Create(ctx, testGlobalPlacementRule)).ToNot(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, testGlobalPlacementRule)).ToNot(HaveOccurred())
 
 		By("Check the placementrule can be read from cloudevents consumer")
 		evt := <-consumer.EventChan()
@@ -49,7 +56,7 @@ var _ = Describe("Placement integration test", Ordered, func() {
 			},
 			Spec: clusterv1beta1.PlacementSpec{},
 		}
-		Expect(kubeClient.Create(ctx, testGlobalPlacement)).ToNot(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, testGlobalPlacement)).ToNot(HaveOccurred())
 
 		By("Check the placement can be read from cloudevents consumer")
 		evt := <-consumer.EventChan()
@@ -71,7 +78,7 @@ var _ = Describe("Placement integration test", Ordered, func() {
 			},
 			Status: clusterv1beta1.PlacementDecisionStatus{},
 		}
-		Expect(kubeClient.Create(ctx, testPlacementDecision)).ToNot(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, testPlacementDecision)).ToNot(HaveOccurred())
 
 		By("Check the placementdecision can be read from cloudevents consumer")
 		evt := <-consumer.EventChan()

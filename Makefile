@@ -80,17 +80,5 @@ strict-fmt:
 	gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
 	git diff --exit-code
 
-install-kafka: # install kafka on the ocp
-	./operator/config/samples/transport/deploy_kafka.sh
-
-uninstall-kafka: 
-	./operator/config/samples/transport/undeploy_kafka.sh
-
-install-postgres: # install postgres on the ocp
-	./operator/config/samples/storage/deploy_postgres.sh
-
-uninstall-postgres: 
-	./operator/config/samples/storage/undeploy_postgres.sh
-
-# Include the e2e makefile.
-include ./test/e2e-test.mk
+# Include the e2e an integration makefile.
+include ./test/Makefile

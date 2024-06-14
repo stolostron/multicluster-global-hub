@@ -14,7 +14,6 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -31,7 +30,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
-	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -47,10 +45,6 @@ const (
 )
 
 var setupLog = ctrl.Log.WithName("setup")
-
-func init() {
-	agentscheme.AddToScheme(scheme.Scheme)
-}
 
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
@@ -230,7 +224,7 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 			BindAddress: agentConfig.MetricsAddress,
 		},
 		LeaderElection:          true,
-		Scheme:                  scheme.Scheme,
+		Scheme:                  config.GetRuntimeScheme(),
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
 		LeaderElectionNamespace: agentConfig.PodNameSpace,

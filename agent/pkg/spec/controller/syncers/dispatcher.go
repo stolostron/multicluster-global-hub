@@ -7,6 +7,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -56,7 +57,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			syncer, found := d.syncers[evt.Type()]
 			if !found {
 				d.log.V(2).Info("dispatching to the default generic syncer", "eventType", evt.Type())
-				syncer = d.syncers[GenericMessageKey]
+				syncer = d.syncers[constants.GenericSpecMsgKey]
 			}
 			if syncer == nil || evt == nil {
 				d.log.Info("the incompatible event will disappear once the upgrade is completed: nil syncer or evt",

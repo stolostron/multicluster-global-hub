@@ -1,4 +1,4 @@
-package apps
+package status
 
 import (
 	"fmt"
@@ -10,9 +10,17 @@ import (
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var _ = Describe("App integration test", Ordered, func() {
+// go test ./test/integration/agent/status -v -ginkgo.focus "Application"
+var _ = Describe("Application", Ordered, func() {
+	var consumer transport.Consumer
+
+	BeforeAll(func() {
+		consumer = chanTransport.Consumer(ApplicationTopic)
+	})
+
 	It("should be able to sync subscriptionreports", func() {
 		By("Create subscriptionreport in testing managed hub")
 		testSubscriptionReport := &appsv1alpha1.SubscriptionReport{
@@ -43,7 +51,7 @@ var _ = Describe("App integration test", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Create(ctx, testSubscriptionReport)).ToNot(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, testSubscriptionReport)).ToNot(HaveOccurred())
 
 		By("Check the app can be read from cloudevents consumer")
 		evt := <-consumer.EventChan()

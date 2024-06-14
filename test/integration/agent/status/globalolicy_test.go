@@ -1,4 +1,4 @@
-package policies
+package status
 
 import (
 	"fmt"
@@ -13,13 +13,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-// go test ./agent/pkg/status/controller/policies -v -ginkgo.focus "GlobalPolicyEmitters"
+// go test ./test/integration/agent/status -v -ginkgo.focus "GlobalPolicyEmitters"
 var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 	const testGlobalPolicyOriginUID = "test-globalpolicy-uid"
 	var globalPolicy *policyv1.Policy
+	var consumer transport.Consumer
+
+	BeforeAll(func() {
+		consumer = chanTransport.Consumer(PolicyTopic)
+	})
 
 	It("be able to sync policy spec", func() {
 		By("Create a global policy")
@@ -37,7 +43,7 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			},
 			Status: policyv1.PolicyStatus{},
 		}
-		Expect(kubeClient.Create(ctx, globalPolicy)).NotTo(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, globalPolicy)).NotTo(HaveOccurred())
 
 		By("Create compliance on the policy")
 		globalPolicyCopy := globalPolicy.DeepCopy()
@@ -67,11 +73,11 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
-		// Expect(kubeClient.Status().Update(ctx, globalPolicy)).Should(Succeed())
+		Expect(runtimeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
+		// Expect(runtimeClient.Status().Update(ctx, globalPolicy)).Should(Succeed())
 
 		// policy := &policyv1.Policy{}
-		// err := kubeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
+		// err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
 		// Expect(err).Should(Succeed())
 		// utils.PrettyPrint(policy.Status)
 
@@ -130,10 +136,10 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
+		Expect(runtimeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
 
 		// policy := &policyv1.Policy{}
-		// err := kubeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
+		// err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
 		// Expect(err).Should(Succeed())
 		// utils.PrettyPrint(policy.Status)
 
@@ -183,10 +189,10 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
+		Expect(runtimeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
 
 		// policy := &policyv1.Policy{}
-		// err := kubeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
+		// err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
 		// Expect(err).Should(Succeed())
 		// utils.PrettyPrint(policy.Status)
 
@@ -232,10 +238,10 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
+		Expect(runtimeClient.Status().Patch(ctx, globalPolicy, client.MergeFrom(globalPolicyCopy))).ToNot(HaveOccurred())
 
 		// policy := &policyv1.Policy{}
-		// err := kubeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
+		// err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(globalPolicy), policy)
 		// Expect(err).Should(Succeed())
 		// utils.PrettyPrint(policy.Status)
 

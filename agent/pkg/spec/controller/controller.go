@@ -38,7 +38,7 @@ func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
 
 	// register syncer to the dispatcher
 	if agentConfig.EnableGlobalResource {
-		dispatcher.RegisterSyncer(syncers.GenericMessageKey,
+		dispatcher.RegisterSyncer(constants.GenericSpecMsgKey,
 			syncers.NewGenericSyncer(workers, agentConfig))
 		dispatcher.RegisterSyncer(constants.ManagedClustersLabelsMsgKey,
 			syncers.NewManagedClusterLabelSyncer(workers))

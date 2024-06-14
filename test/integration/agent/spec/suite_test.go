@@ -1,4 +1,4 @@
-package syncers_test
+package spec
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -18,7 +16,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	speccontroller "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -30,13 +27,13 @@ func TestSyncers(t *testing.T) {
 }
 
 var (
-	testenv     *envtest.Environment
-	cfg         *rest.Config
-	agentConfig *config.AgentConfig
-	ctx         context.Context
-	cancel      context.CancelFunc
-	client      runtimeclient.Client
-	producer    transport.Producer
+	testenv         *envtest.Environment
+	leafHubName     string
+	agentConfig     *config.AgentConfig
+	ctx             context.Context
+	cancel          context.CancelFunc
+	runtimeClient   runtimeclient.Client
+	genericProducer transport.Producer
 )
 
 var _ = BeforeSuite(func() {
@@ -44,27 +41,7 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.Background())
 
-	testenv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "pkg", "testdata", "crds"),
-		},
-	}
-
-	var err error
-	cfg, err = testenv.Start()
-	Expect(err).NotTo(HaveOccurred())
-
-	// add scheme
-	agentscheme.AddToScheme(scheme.Scheme)
-
-	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Metrics: metricsserver.Options{
-			BindAddress: "0", // disable the metrics serving
-		},
-		Scheme: scheme.Scheme,
-	})
-	Expect(err).NotTo(HaveOccurred())
-
+	leafHubName = "spec-hub"
 	agentConfig = &config.AgentConfig{
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
@@ -76,10 +53,27 @@ var _ = BeforeSuite(func() {
 			},
 		},
 		SpecWorkPoolSize:     2,
-		LeafHubName:          "leaf-hub1",
+		LeafHubName:          leafHubName,
 		SpecEnforceHohRbac:   true,
 		EnableGlobalResource: true,
 	}
+
+	testenv = &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
+		},
+	}
+
+	cfg, err := testenv.Start()
+	Expect(err).NotTo(HaveOccurred())
+
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable the metrics serving
+		},
+		Scheme: config.GetRuntimeScheme(),
+	})
+	Expect(err).NotTo(HaveOccurred())
 
 	err = speccontroller.AddToManager(mgr, agentConfig)
 	Expect(err).NotTo(HaveOccurred())
@@ -91,9 +85,8 @@ var _ = BeforeSuite(func() {
 	By("Waiting for the manager to be ready")
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 
-	client = mgr.GetClient()
-
-	producer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig, "spec")
+	runtimeClient = mgr.GetClient()
+	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig, "spec")
 	Expect(err).NotTo(HaveOccurred())
 })
 
