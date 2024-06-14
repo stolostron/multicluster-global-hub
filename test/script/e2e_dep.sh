@@ -2,7 +2,7 @@
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
 # shellcheck source=/dev/null
-source "$CURRENT_DIR/common.sh"
+source "$CURRENT_DIR/util.sh"
 
 start_time=$(date +%s)
 check_golang

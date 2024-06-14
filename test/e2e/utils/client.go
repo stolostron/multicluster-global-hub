@@ -136,9 +136,14 @@ func (c *testClient) RestConfig(clusterName string) (*rest.Config, error) {
 	if c.options.GlobalHub.Name == clusterName {
 		return LoadConfig(c.options.GlobalHub.ApiServer, c.options.GlobalHub.KubeConfig, c.options.GlobalHub.KubeContext)
 	}
-	for _, cluster := range c.options.GlobalHub.ManagedHubs {
-		if cluster.Name == clusterName {
-			return LoadConfig("", cluster.KubeConfig, cluster.KubeContext)
+	for _, hub := range c.options.GlobalHub.ManagedHubs {
+		if hub.Name == clusterName {
+			return LoadConfig("", hub.KubeConfig, hub.KubeContext)
+		}
+		for _, cluster := range hub.ManagedClusters {
+			if cluster.Name == clusterName {
+				return LoadConfig("", cluster.KubeConfig, cluster.KubeContext)
+			}
 		}
 	}
 	return nil, fmt.Errorf("cluster %s is not found in options", clusterName)

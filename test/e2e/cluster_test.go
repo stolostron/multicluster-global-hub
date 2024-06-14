@@ -25,65 +25,70 @@ const (
 	CLUSTER_LABEL_VALUE = "test"
 )
 
-var _ = Describe("Updating cluster label from HoH manager", Label("e2e-test-cluster"), Ordered, func() {
-	It("add the label to the managed cluster", func() {
-		for _, managedCluster := range managedClusters {
-			assertAddLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}
+var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() {
+	Context("Cluster Label", func() {
+		It("add cluster label", func() {
+			for _, managedCluster := range managedClusters {
+				assertAddLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
+			}
+		})
+
+		It("remove cluster label", func() {
+			for _, managedCluster := range managedClusters {
+				assertRemoveLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
+			}
+		})
 	})
 
-	It("remove the label from the managed cluster", func() {
-		for _, managedCluster := range managedClusters {
-			assertRemoveLabel(managedCluster, CLUSTER_LABEL_KEY, CLUSTER_LABEL_VALUE)
-		}
-	})
-
-	It("sync the managed cluster event to the global hub database", func() {
-		By("Create the cluster event")
-		cluster := managedClusters[0]
-		leafHubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
-		eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdd", cluster.Name)
-		eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
-		clusterEvent := &corev1.Event{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      eventName,
-				Namespace: cluster.Name,
-			},
-			InvolvedObject: corev1.ObjectReference{
-				Kind: constants.ManagedClusterKind,
-				// TODO: the cluster namespace should be empty! but if not set the namespace,
-				// it will throw the error: involvedObject.namespace: Invalid value: "": does not match event.namespace
-				Namespace: cluster.Name,
-				Name:      cluster.Name,
-			},
-			Reason:              "AvailableUnknown",
-			Message:             eventMessage,
-			ReportingController: "registration-controller",
-			ReportingInstance:   "registration-controller-cluster-manager-registration-controller-6794cf54d9-j7lgm",
-			Type:                "Warning",
-		}
-		leafHubClient, err := testClients.RuntimeClient(leafHubName, agentScheme)
-		Expect(err).To(Succeed())
-		Expect(leafHubClient.Create(ctx, clusterEvent, &client.CreateOptions{})).To(Succeed())
-
-		By("Get the cluster event from database")
-		Eventually(func() error {
-			clusterEvent := models.ManagedClusterEvent{
-				LeafHubName: leafHubName,
-				EventName:   eventName,
+	Context("Cluster Events", func() {
+		It("sync the event to the global hub database", func() {
+			By("Create the cluster event")
+			cluster := managedClusters[0]
+			hubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
+			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdd", cluster.Name)
+			eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
+			clusterEvent := &corev1.Event{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      eventName,
+					Namespace: cluster.Name,
+				},
+				InvolvedObject: corev1.ObjectReference{
+					Kind: constants.ManagedClusterKind,
+					// TODO: the cluster namespace should be empty! but if not set the namespace,
+					// it will throw the error: involvedObject.namespace: Invalid value: "": does not match event.namespace
+					Namespace: cluster.Name,
+					Name:      cluster.Name,
+				},
+				Reason:              "AvailableUnknown",
+				Message:             eventMessage,
+				ReportingController: "registration-controller",
+				ReportingInstance:   "registration-controller-cluster-manager-registration-controller-6794cf54d9-j7lgm",
+				Type:                "Warning",
 			}
-			err := db.First(&clusterEvent).Error
-			if err != nil {
-				return err
-			}
-			if clusterEvent.Message != eventMessage {
-				return fmt.Errorf("want messsage %s, got %s", eventMessage, clusterEvent.Message)
-			}
-			return nil
-		}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Delete the cluster event from the leafhub")
-		Expect(leafHubClient.Delete(ctx, clusterEvent)).To(Succeed())
+			hubClient, err := testClients.RuntimeClient(hubName, agentScheme)
+			Expect(err).To(Succeed())
+			Expect(hubClient.Create(ctx, clusterEvent, &client.CreateOptions{})).To(Succeed())
+
+			By("Get the cluster event from database")
+			Eventually(func() error {
+				clusterEvent := models.ManagedClusterEvent{
+					LeafHubName: hubName,
+					EventName:   eventName,
+				}
+				err := db.First(&clusterEvent).Error
+				if err != nil {
+					return err
+				}
+				if clusterEvent.Message != eventMessage {
+					return fmt.Errorf("want messsage %s, got %s", eventMessage, clusterEvent.Message)
+				}
+				return nil
+			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			By("Delete the cluster event from the leafhub")
+			Expect(hubClient.Delete(ctx, clusterEvent)).To(Succeed())
+		})
 	})
 })
 
@@ -116,8 +121,8 @@ func getManagedCluster(client *http.Client) ([]clusterv1.ManagedCluster, error) 
 		return nil, err
 	}
 
-	if len(clusterList.Items) != ExpectedMC {
-		return nil, fmt.Errorf("managed cluster number: want %d, got %d", ExpectedMC, len(clusterList.Items))
+	if len(clusterList.Items) != (ExpectedMH * ExpectedMC) {
+		return nil, fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(clusterList.Items))
 	}
 
 	return clusterList.Items, nil

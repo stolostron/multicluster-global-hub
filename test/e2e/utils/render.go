@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package kustomize
+package utils
 
 import (
 	"context"
@@ -21,18 +21,16 @@ import (
 	"sigs.k8s.io/kustomize/api/krusty"
 	"sigs.k8s.io/kustomize/kyaml/filesys"
 	"sigs.k8s.io/yaml"
-
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
 )
 
 // Options ...
-type Options struct {
+type RenderOptions struct {
 	KustomizationPath string
 	OutputPath        string
 }
 
 // Render is used to render the kustomization
-func Render(o Options) ([]byte, error) {
+func Render(o RenderOptions) ([]byte, error) {
 	fSys := filesys.MakeFsOnDisk()
 	k := krusty.MakeKustomizer(krusty.MakeDefaultOptions())
 	m, err := k.Run(fSys, o.KustomizationPath)
@@ -54,7 +52,7 @@ func GetLabels(yamlB []byte) (interface{}, error) {
 // kubeconfig which contains the ctx
 // ctx, the ctx to use
 // yamlB, a byte array containing the resources file
-func Apply(testClients utils.TestClient, testOptions utils.Options, o Options) error {
+func Apply(testClients TestClient, testOptions Options, o RenderOptions) error {
 	bytes, err := Render(o)
 	if err != nil {
 		return err

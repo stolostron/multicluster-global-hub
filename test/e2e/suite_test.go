@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
@@ -36,8 +35,7 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/kustomize"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
 
 var (
@@ -49,22 +47,24 @@ var (
 	testClients utils.TestClient
 	httpClient  *http.Client
 
-	leafHubNames    []string
+	globalHubClient client.Client
+	managedHubNames []string
+	hubClients      []client.Client
 	managedClusters []clusterv1.ManagedCluster
+	clusterClients  []client.Client
 
 	operatorScheme *runtime.Scheme
 	managerScheme  *runtime.Scheme
 	agentScheme    *runtime.Scheme
 
-	postgresConn *pgx.Conn
-	db           *gorm.DB
-	ctx          context.Context
-	cancel       context.CancelFunc
+	db     *gorm.DB
+	ctx    context.Context
+	cancel context.CancelFunc
 )
 
 const (
 	ExpectedMH              = 2
-	ExpectedMC              = 2
+	ExpectedMC              = 1
 	Namespace               = "multicluster-global-hub"
 	ServiceMonitorNamespace = "openshift-monitoring"
 )
@@ -97,11 +97,17 @@ var _ = BeforeSuite(func() {
 	testOptions = completeOptions()
 	testClients = utils.NewTestClient(testOptions)
 	httpClient = testClients.HttpClient()
+	// valid the clients
+	deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
+	deployList, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2})
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(len(deployList.Items) > 0).To(BeTrue())
+	// valid the global hub cluster apiserver
+	healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
+	Expect(err).ShouldNot(HaveOccurred())
+	Expect(string(healthy)).To(Equal("ok"))
 
 	By("Init postgres connection")
-	databaseURI := strings.Split(testOptions.GlobalHub.DatabaseURI, "?")[0]
-	var err error
-	postgresConn, err = database.PostgresConnection(ctx, databaseURI, nil)
 	Expect(err).Should(Succeed())
 	err = database.InitGormInstance(&database.DatabaseConfig{
 		URL:      strings.Replace(testOptions.GlobalHub.DatabaseURI, "sslmode=verify-ca", "sslmode=require", -1),
@@ -114,18 +120,36 @@ var _ = BeforeSuite(func() {
 	By("Deploy the global hub")
 	deployGlobalHub()
 
-	By("Get the managed clusters")
+	By("Validate the opitions")
+	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	Expect(err).To(Succeed())
+	var clusterNames []string
+	for _, hub := range testOptions.GlobalHub.ManagedHubs {
+		managedHubNames = append(managedHubNames, hub.Name)
+		// it will validate the kubeconfig
+		hubClient, err := testClients.RuntimeClient(hub.Name, agentScheme)
+		Expect(err).To(Succeed())
+		hubClients = append(hubClients, hubClient)
+		for _, cluster := range hub.ManagedClusters {
+			clusterNames = append(clusterNames, cluster.Name)
+			clusterClient, err := testClients.RuntimeClient(cluster.Name, operatorScheme)
+			Expect(err).To(Succeed())
+			clusterClients = append(clusterClients, clusterClient)
+		}
+	}
+	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
+	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
+
+	By("Validate the clusters on database")
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
 		return err
 	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
-	Expect(len(managedClusters)).Should(Equal(ExpectedMC))
+	Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 })
 
 var _ = AfterSuite(func() {
 	cancel()
-	err := postgresConn.Close(ctx)
-	Expect(err).Should(Succeed())
 	utils.DeleteTestingRBAC(testOptions)
 })
 
@@ -148,18 +172,13 @@ func completeOptions() utils.Options {
 	err = yaml.UnmarshalStrict([]byte(data), testOptionsContainer)
 	Expect(err).NotTo(HaveOccurred())
 
+	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
+	klog.V(6).Infof("OptionsContainer %s", s)
+
 	testOptions = testOptionsContainer.Options
 	if testOptions.GlobalHub.KubeConfig == "" {
 		testOptions.GlobalHub.KubeConfig = os.Getenv("KUBECONFIG")
 	}
-
-	s, _ := json.MarshalIndent(testOptionsContainer, "", "  ")
-	klog.V(6).Infof("OptionsContainer %s", s)
-	for _, cluster := range testOptions.GlobalHub.ManagedHubs {
-		leafHubNames = append(leafHubNames, cluster.Name)
-	}
-
-	Expect(len(leafHubNames)).Should(Equal(ExpectedMH))
 	return testOptions
 }
 
@@ -212,10 +231,10 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
-	Expect(kustomize.Apply(testClients, testOptions,
-		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/test/pkg/e2e/resources", rootDir)})).NotTo(HaveOccurred())
-	Expect(kustomize.Apply(testClients, testOptions,
-		kustomize.Options{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
+	Expect(utils.Apply(testClients, testOptions,
+		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/test/manifest/resources", rootDir)})).NotTo(HaveOccurred())
+	Expect(utils.Apply(testClients, testOptions,
+		utils.RenderOptions{KustomizationPath: fmt.Sprintf("%s/operator/config/default", rootDir)})).NotTo(HaveOccurred())
 
 	By("Deploying operand")
 	mcgh := &v1alpha4.MulticlusterGlobalHub{

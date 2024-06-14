@@ -2,46 +2,36 @@
 
 set -euo pipefail
 
-CURRENT_DIR=$(
-  cd "$(dirname "$0")" || exit
-  pwd
-)
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null
-source "$CURRENT_DIR/common.sh"
+source "$CURRENT_DIR/util.sh"
 
-export CURRENT_DIR
-export GH_NAME="global-hub"
-export MH_NUM=${MH_NUM:-2}
-export MC_NUM=${MC_NUM:-1}
-export KinD=true
+export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 
-# setup kubeconfig
-export KUBE_DIR=${CURRENT_DIR}/kubeconfig
-check_dir "$KUBE_DIR"
-export KUBECONFIG=${KUBECONFIG:-${KUBE_DIR}/clusters}
+[ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
+
 start=$(date +%s)
 
 # Init clusters
 echo -e "$BLUE creating clusters $NC"
 start_time=$(date +%s)
 
-kind_cluster "$GH_NAME" 2>&1 
+# GH
+kind_cluster "$GH_NAME" 2>&1
+
+# service-ca
+echo -e "$BLUE setting global hub service-ca and middlewares $NC"
+enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
+bash "$CURRENT_DIR/e2e_postgres.sh" "$GH_KUBECONFIG" 2>&1 & # async middlewares
+echo "$!" >"$CONFIG_DIR/PID"
+bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
+
 for i in $(seq 1 "${MH_NUM}"); do
-  kind_cluster "hub$i" 2>&1 
+  kind_cluster "hub$i" 2>&1
 done
 
 echo -e "${YELLOW} creating hubs:${NC} $(($(date +%s) - start_time)) seconds"
-
-# GH
-# service-ca
-echo -e "$BLUE setting global hub service-ca and middlewares $NC"
-enable_service_ca $GH_NAME "$CURRENT_DIR/resource" 2>&1 || true
-# async middlewares
-export GH_KUBECONFIG=$KUBE_DIR/$GH_NAME
-bash "$CURRENT_DIR/resource/postgres/postgres_setup.sh" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >"$KUBE_DIR/PID"
-bash "$CURRENT_DIR"/resource/kafka/kafka_setup.sh "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >>"$KUBE_DIR/PID"
 
 # async ocm, policy and app
 echo -e "$BLUE installing ocm, policy, and app in global hub and managed hubs $NC"
@@ -51,20 +41,22 @@ start_time=$(date +%s)
 (
   init_hub $GH_NAME 2>&1
   for i in $(seq 1 "${MH_NUM}"); do
-    bash "$CURRENT_DIR"/ocm_setup.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
+    bash "$CURRENT_DIR"/ocm.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
   done
   wait
 ) &
+echo "$!" >>"$CONFIG_DIR/PID"
 
 # hub1: cluster1 | hub2: cluster1
 for i in $(seq 1 "${MH_NUM}"); do
   (
     init_hub "hub$i" 2>&1
     for j in $(seq 1 "${MC_NUM}"); do
-      bash "$CURRENT_DIR"/ocm_setup.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
+      bash "$CURRENT_DIR"/ocm.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
     done
     wait
   ) &
+  echo "$!" >>"$CONFIG_DIR/PID"
 done
 
 wait
@@ -89,9 +81,9 @@ echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_t
 
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
-  echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$KUBE_DIR/hub$i $NC"
+  echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$CONFIG_DIR/hub$i $NC"
   for j in $(seq 1 "${MC_NUM}"); do
-    echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$KUBE_DIR/hub$i-cluster$j $NC"
+    echo -e "$CYAN [Access the ManagedCluster]: export KUBECONFIG=$CONFIG_DIR/hub$i-cluster$j $NC"
   done
 done
 echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"

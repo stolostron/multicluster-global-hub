@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# VERSION
 export INSTALL_DIR=/usr/bin
 export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
@@ -8,6 +9,18 @@ export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
+
+# Environment Variables 
+CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+TEST_DIR=$(dirname "$CURRENT_DIR")
+export CURRENT_DIR
+export TEST_DIR
+export GH_NAME="global-hub"
+export MH_NUM=${MH_NUM:-2}
+export MC_NUM=${MC_NUM:-1}
+export KinD=true
+export CONFIG_DIR=$CURRENT_DIR/config
+export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
 
 check_dir() {
   if [ ! -d "$1" ]; then
@@ -70,7 +83,9 @@ check_kind() {
 }
 
 kind_cluster() {
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   cluster_name="$1"
+  echo "dir $dir"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
     retry "kind create cluster --name $cluster_name --wait 5m"
     # modify the context = KinD cluster name = kubeconfig name
@@ -79,8 +94,6 @@ kind_cluster() {
     node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
     # context is changed but name not
     retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
-
-    dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
 }
@@ -91,7 +104,7 @@ init_hub() {
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   clusteradm get token --context "$1" | grep "clusteradm" >"$join_file"
 }
@@ -126,7 +139,7 @@ join_cluster() {
   local hub=$1 # hub name also as the context
   local cluster=$2
   echo -e "${CYAN} Import Cluster $2 to Hub $1 ... $NC"
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   join_file="$dir/join-$1"
   if [[ -z $(kubectl get mcl "$cluster" --context "$hub" --ignore-not-found) ]]; then
     # shellcheck disable=SC2154
@@ -195,7 +208,7 @@ init_policy() {
 
   # On cluster
   ## Create the secret to authenticate with the hub
-  dir="${KUBE_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local hub_kubeconfig="$dir/$hub"
   if ! kubectl get secret hub-kubeconfig -n "${MANAGED_NAMESPACE}" --context "$cluster"; then
     kubectl --context "$cluster" -n "${MANAGED_NAMESPACE}" create secret generic hub-kubeconfig --from-file=kubeconfig="$hub_kubeconfig"
@@ -444,7 +457,7 @@ wait_cmd() {
       echo -e "\r placeholder will be overwrite by wating message"
     fi
     local index=$((elapsed / interval % ${#signs[@]}))
-    echo -ne "\r ${signs[$index]} Waiting $elapsed seconds ..."
+    echo -ne "\r ${signs[$index]} Waiting $elapsed seconds: $1"
     sleep $interval
     ((elapsed += interval))
   done
@@ -624,7 +637,7 @@ retry() {
 
   echo -e "${CYAN}$1 $NC "
   while [ $count -lt "$retries" ]; do
-    echo -e "\r${YELLOW} Attempt $((count + 1))... $NC "
+    echo -e "${YELLOW} Attempt $((count + 1))... $NC "
     if eval "$1"; then
       success=true
       break
