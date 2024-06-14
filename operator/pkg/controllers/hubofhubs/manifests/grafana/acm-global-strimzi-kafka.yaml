@@ -974,7 +974,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data-0-kafka-$kafka_broker\"}) by (persistentvolumeclaim)",
+              "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data(-[0-9]+)?-$strimzi_cluster_name-$kafka_broker\", persistentvolumeclaim!~\".*zookeeper(-[0-9]+)?$\"}) by (persistentvolumeclaim)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -2983,32 +2983,6 @@ data:
             "regex": "/.*strimzi_io_cluster=\"([^\"]*).*/",
             "skipUrlSync": false,
             "sort": 0,
-            "tagValuesQuery": "",
-            "tagsQuery": "",
-            "type": "query",
-            "useTags": false
-          },
-          {
-            "current": {
-              "selected": false,
-              "text": "All",
-              "value": "$__all"
-            },
-            "datasource": {
-              "uid": "${DS_PROMETHEUS}"
-            },
-            "definition": "",
-            "hide": 2,
-            "includeAll": true,
-            "label": "Pool name",
-            "multi": true,
-            "name": "pool_name",
-            "options": [],
-            "query": "query_result(kafka_server_replicamanager_leadercount{namespace=\"$kubernetes_namespace\"})",
-            "refresh": 1,
-            "regex": "/.*strimzi_io_pool_name=\"([^\"]*).*/",
-            "skipUrlSync": false,
-            "sort": 3,
             "tagValuesQuery": "",
             "tagsQuery": "",
             "type": "query",
