@@ -325,6 +325,8 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 		poList.Items[0].Name,
 		"-n",
 		configNamespace,
+		"-c",
+		"grafana",
 		"--",
 		"/usr/bin/curl",
 		"-H",
