@@ -89,10 +89,10 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, r.reconclieAddonAndResources(ctx, cluster)
+	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster)
 }
 
-func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *AddonInstaller) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
@@ -168,7 +168,7 @@ func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *c
 		return err
 	}
 
-	if err := r.Create(ctx, expectedAddon); err != nil {
+	if err := r.Create(ctx, expectedAddon); err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create the managedclusteraddon: %v", err)
 	}
 	return nil
@@ -188,7 +188,7 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 	} else if err != nil {
 		return fmt.Errorf("failed go get the addon %v", err)
 	}
-	if err = r.Delete(ctx, existingAddon); err != nil {
+	if err = r.Delete(ctx, existingAddon); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete the addon %v", err)
 	}
 	return nil
