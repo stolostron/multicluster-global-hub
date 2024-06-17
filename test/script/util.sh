@@ -594,11 +594,11 @@ wait_ocm() {
   local hub=$1
   local cluster=$2
   echo -e "$BLUE waiting OCM $1:$2 components $NC"
-  kubectl wait deploy/cluster-manager -n open-cluster-management --for condition=Available=True --timeout=60s --context "$hub"
+  kubectl wait deploy/cluster-manager -n open-cluster-management --for condition=Available=True --timeout=200s --context "$hub"
   kubectl get pod -n open-cluster-management-hub --context "$hub" # other hub controle planes
 
-  kubectl wait deploy/klusterlet-registration-agent -n open-cluster-management-agent --for condition=Available=True --timeout=60s --context "$cluster"
-  kubectl wait deploy/klusterlet-work-agent -n open-cluster-management-agent --for condition=Available=True --timeout=60s --context "$cluster"
+  kubectl wait deploy/klusterlet-registration-agent -n open-cluster-management-agent --for condition=Available=True --timeout=200s --context "$cluster"
+  kubectl wait deploy/klusterlet-work-agent -n open-cluster-management-agent --for condition=Available=True --timeout=200s --context "$cluster"
 }
 
 wait_policy() {
