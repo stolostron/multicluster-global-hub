@@ -229,7 +229,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(SED_COMMAND) '/relatedImage/,+12d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
 	# remove bundle.Dockerfile
 	rm -rf bundle.Dockerfile
-	git diff -I"createdAt" --exit-code
+	git diff -I 'createdAt' --exit-code
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
