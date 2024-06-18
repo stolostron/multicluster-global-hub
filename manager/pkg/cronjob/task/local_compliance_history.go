@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -19,8 +19,8 @@ var (
 	LocalComplianceTaskName = "local-compliance-history"
 	startTime               time.Time
 	log                     logr.Logger
-	timeFormat              = "2006-01-02 15:04:05"
-	dateFormat              = "2006-01-02"
+	TimeFormat              = "2006-01-02 15:04:05"
+	DateFormat              = "2006-01-02"
 	batchSize               = int64(1000)
 	// batchSize = 1000 for now
 	// The suitable batchSize for selecting and inserting a lot of records from a table in PostgreSQL depends on
@@ -33,15 +33,15 @@ var (
 
 func LocalComplianceHistory(ctx context.Context, job gocron.Job) {
 	startTime = time.Now()
-	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("date", startTime.Format(dateFormat))
-	log.V(2).Info("start running", "currentRun", job.LastRun().Format(timeFormat))
+	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("date", startTime.Format(DateFormat))
+	log.V(2).Info("start running", "currentRun", job.LastRun().Format(TimeFormat))
 
 	var err error
 	defer func() {
 		if err != nil {
-			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(1)
+			config.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(1)
 		} else {
-			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(0)
+			config.GlobalHubCronJobGaugeVec.WithLabelValues(LocalComplianceTaskName).Set(0)
 		}
 	}()
 
@@ -51,7 +51,7 @@ func LocalComplianceHistory(ctx context.Context, job gocron.Job) {
 		return
 	}
 
-	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
+	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(TimeFormat))
 }
 
 func snapshotLocalComplianceToHistory(ctx context.Context) (err error) {

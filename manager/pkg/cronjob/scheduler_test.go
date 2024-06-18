@@ -31,7 +31,7 @@ func TestScheduler(t *testing.T) {
 	var err error
 	testenv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "test", "manifest", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

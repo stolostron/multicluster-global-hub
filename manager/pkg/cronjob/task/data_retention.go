@@ -9,8 +9,8 @@ import (
 	"github.com/go-co-op/gocron"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -25,17 +25,17 @@ var (
 	// after the record is marked as deleted, retentionMonth is used to indicate how long it will be retained
 	// before it is completely deleted from database
 	// retentionMonth  = 18
-	retentionTables = []string{
+	RetentionTables = []string{
 		"status.managed_clusters",
 		"status.leaf_hubs",
 		"local_spec.policies",
 	}
 
 	// partition by month
-	partitionDateFormat = "2006_01"
+	PartitionDateFormat = "2006_01"
 	// the following data tables will generate records over time, so it is necessary to split them into small tables to
 	// achieve better scanning and writing performance.
-	partitionTables = []string{
+	PartitionTables = []string{
 		"event.local_policies",
 		"event.local_root_policies",
 		"history.local_compliance",
@@ -60,15 +60,15 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 
 	defer func() {
 		if err != nil {
-			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(1)
+			config.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(1)
 		} else {
-			monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
+			config.GlobalHubCronJobGaugeVec.WithLabelValues(RetentionTaskName).Set(0)
 		}
 	}()
 
 	createMonth := currentMonth.AddDate(0, 1, 0)
 	deleteMonth := currentMonth.AddDate(0, -(retentionMonth + 1), 0)
-	for _, tableName := range partitionTables {
+	for _, tableName := range PartitionTables {
 		err = updatePartitionTables(tableName, createMonth, deleteMonth)
 		if e := traceDataRetentionLog(tableName, currentMonth, err, true); e != nil {
 			retentionLog.Error(e, "failed to trace data retention log")
@@ -81,7 +81,7 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 
 	// delete the soft deleted records from database
 	minTime := currentMonth.AddDate(0, -retentionMonth, 0)
-	for _, tableName := range retentionTables {
+	for _, tableName := range RetentionTables {
 		err = deleteExpiredRecords(tableName, minTime)
 		if e := traceDataRetentionLog(tableName, currentMonth, err, false); e != nil {
 			retentionLog.Error(e, "failed to trace data retention log")
@@ -97,7 +97,7 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 		retentionLog.Error(err, "failed to delete the expired leaf hub heartbeat")
 		return
 	}
-	retentionLog.Info("finish running", "nextRun", job.NextRun().Format(timeFormat))
+	retentionLog.Info("finish running", "nextRun", job.NextRun().Format(TimeFormat))
 }
 
 func updatePartitionTables(tableName string, createTime, deleteTime time.Time) error {
@@ -106,18 +106,18 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	// create the partition tables for the next month
 	startTime := time.Date(createTime.Year(), createTime.Month(), 1, 0, 0, 0, 0, createTime.Location())
 	endTime := startTime.AddDate(0, 1, 0)
-	createPartitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(partitionDateFormat))
+	createPartitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(PartitionDateFormat))
 
 	creationSql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
-		createPartitionTableName, tableName, startTime.Format(dateFormat), endTime.Format(dateFormat))
+		createPartitionTableName, tableName, startTime.Format(DateFormat), endTime.Format(DateFormat))
 	if result := db.Exec(creationSql); result.Error != nil {
 		return fmt.Errorf("failed to create partition table %s: %w", tableName, result.Error)
 	}
-	retentionLog.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(dateFormat),
-		"end", endTime.Format(dateFormat))
+	retentionLog.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(DateFormat),
+		"end", endTime.Format(DateFormat))
 
 	// delete the partition tables that are expired
-	deletePartitionTableName := fmt.Sprintf("%s_%s", tableName, deleteTime.Format(partitionDateFormat))
+	deletePartitionTableName := fmt.Sprintf("%s_%s", tableName, deleteTime.Format(PartitionDateFormat))
 	deletionSql := fmt.Sprintf("DROP TABLE IF EXISTS %s", deletePartitionTableName)
 	if result := db.Exec(deletionSql); result.Error != nil {
 		return fmt.Errorf("failed to delete partition table %s: %w", tableName, result.Error)
@@ -127,13 +127,13 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 }
 
 func deleteExpiredRecords(tableName string, minDate time.Time) error {
-	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(dateFormat))
+	sql := fmt.Sprintf("DELETE FROM %s WHERE deleted_at < '%s'", tableName, minDate.Format(DateFormat))
 	db := database.GetGorm()
 	if result := db.Exec(sql); result.Error != nil {
 		return fmt.Errorf("failed to delete records before %s from %s: %w",
-			minDate.Format(dateFormat), tableName, result.Error)
+			minDate.Format(DateFormat), tableName, result.Error)
 	}
-	retentionLog.Info("delete records", "table", tableName, "before", minDate.Format(dateFormat))
+	retentionLog.Info("delete records", "table", tableName, "before", minDate.Format(DateFormat))
 	return nil
 }
 
