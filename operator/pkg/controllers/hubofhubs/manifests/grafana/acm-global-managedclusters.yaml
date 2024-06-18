@@ -370,24 +370,22 @@ data:
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "ManagedHub Clusters"
+                  "options": "Hub"
                 },
                 "properties": [
                   {
                     "id": "custom.width",
                     "value": 180
-                  }
-                ]
-              },
-              {
-                "matcher": {
-                  "id": "byName",
-                  "options": "Cluster Count"
-                },
-                "properties": [
+                  },
                   {
-                    "id": "custom.width",
-                    "value": 80
+                    "id": "links",
+                    "value": [
+                      {
+                        "targetBlank": true,
+                        "title": "View ACM Grafana Overview Dashboard for ${__data.fields.leaf_hub_name} ",
+                        "url": "${__data.fields.hub_obs_url}"
+                      }
+                    ]
                   }
                 ]
               },
@@ -399,7 +397,19 @@ data:
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 106
+                    "value": 80
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "hub_obs_url"
+                },
+                "properties": [
+                  {
+                    "id": "custom.hidden",
+                    "value": true
                   }
                 ]
               }
@@ -436,7 +446,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "  SELECT leaf_hub_name,\n  COUNT(DISTINCT cluster_id) as clustercount\n  FROM status.managed_clusters mc\n  WHERE deleted_at IS NULL\n  AND leaf_hub_name ${hub_query:raw}\n  AND payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\n  GROUP BY leaf_hub_name",
+              "rawSql": "  SELECT mc.leaf_hub_name,\n  COUNT(DISTINCT mc.cluster_id) as clustercount,\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url\n  END AS hub_obs_url\n  FROM status.managed_clusters mc LEFT JOIN status.leaf_hubs lh\n  ON mc.leaf_hub_name=lh.leaf_hub_name\n  WHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\n  GROUP BY mc.leaf_hub_name, lh.grafana_url",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -457,7 +467,7 @@ data:
               }
             }
           ],
-          "title": "ManagedHub Clusters",
+          "title": "Managed Hub Clusters",
           "transformations": [
             {
               "id": "organize",
@@ -536,7 +546,7 @@ data:
                     "value": [
                       {
                         "targetBlank": true,
-                        "title": "View Grafana Observability dashboard of hub ${__data.fields.leaf_hub_name} ",
+                        "title": "View ACM Grafana Resource Optimization Dashboard for ${__data.fields.cluster_name}",
                         "url": "${__data.fields.hub_obs_url}"
                       }
                     ]
@@ -924,7 +934,7 @@ data:
                     "value": [
                       {
                         "targetBlank": true,
-                        "title": "View Grafana Observability dashboard of hub ${__data.fields.leaf_hub_name} ",
+                        "title": "View ACM Grafana Resource Optimization Dashboard for ${__data.fields.cluster_name}",
                         "url": "${__data.fields.hub_obs_url}"
                       }
                     ]
@@ -1207,7 +1217,7 @@ data:
           },
           {
             "current": {
-              "selected": true,
+              "selected": false,
               "text": "cloud",
               "value": "cloud"
             },
@@ -1424,7 +1434,7 @@ data:
       "timezone": "",
       "title": "Global Hub - Cluster Overview",
       "uid": "fbf66c88-ba14-4553-90b7-55ea5870fa00",
-      "version": 4,
+      "version": 1,
       "weekStart": ""
     }
 kind: ConfigMap
