@@ -33,5 +33,7 @@ ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\"
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && sudo make e2e-dep && make e2e-setup" > >(tee "$ARTIFACT_DIR/e2e-setup.log") 2>&1
 
+sleep 3600
+
 echo "runn e2e tests"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-test-all && make e2e-test-prune" > >(tee "$ARTIFACT_DIR/e2e-test.log") 2>&1
