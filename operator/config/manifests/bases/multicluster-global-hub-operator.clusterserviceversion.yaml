@@ -56,8 +56,9 @@ spec:
       - description: Tolerations causes all components to tolerate any taints.
         displayName: Tolerations
         path: tolerations
-      - description: EnableMetrics is to enable collecting the metrics for the global
-          hub created kafka and postgres.
+      - description: EnableMetrics enables the metrics for the global hub created
+          kafka and postgres components. If the user provides the kafka and postgres,
+          then the enablemetrics variable is useless.
         displayName: Enable Metrics Collecting
         path: enableMetrics
         x-descriptors:
