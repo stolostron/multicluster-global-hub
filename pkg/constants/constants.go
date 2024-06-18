@@ -120,13 +120,13 @@ const (
 
 // message types
 const (
-	// StatusBundle - status bundle message type.
-	StatusBundle = "StatusBundle"
-
 	ResyncMsgKey = "Resync"
 
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.
 	ManagedClustersLabelsMsgKey = "ManagedClustersLabels"
+
+	// GenericSpecMsgKey is the generic spec message key for the bundle
+	GenericSpecMsgKey = "Generic"
 )
 
 // event exporter reference object label keys

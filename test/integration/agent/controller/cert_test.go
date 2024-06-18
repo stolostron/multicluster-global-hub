@@ -1,7 +1,7 @@
 // Copyright (c) 2022 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package controllers_test
+package controller
 
 import (
 	"time"
@@ -25,6 +25,7 @@ var certSecret = &corev1.Secret{
 	},
 }
 
+// TODO: need to verify the cert controller result
 var _ = Describe("cert controllers", Ordered, func() {
 	It("create cert secret when cache is null", func() {
 		Eventually(func() error {

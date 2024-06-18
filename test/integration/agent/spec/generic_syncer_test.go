@@ -1,4 +1,4 @@
-package syncers_test
+package spec
 
 import (
 	"encoding/json"
@@ -8,10 +8,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -19,7 +20,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ = Describe("GenericBundle", func() {
+var _ = Describe("GenericSpecBundle", func() {
 	It("sync placement bundle", func() {
 		By("Create Bundle with placement")
 		baseBundle := bundle.NewBaseObjectsBundle()
@@ -48,13 +49,13 @@ var _ = Describe("GenericBundle", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		evt := utils.ToCloudEvent("Placements", transport.Broadcast, payloadBytes)
-		err = producer.SendEvent(ctx, evt)
+		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the placement is synced")
 		Eventually(func() error {
 			syncedPlacement := &clustersv1beta1.Placement{}
-			err := client.Get(ctx, runtimeclient.ObjectKeyFromObject(placement), syncedPlacement)
+			err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(placement), syncedPlacement)
 			if err == nil {
 				fmt.Println("create spec resource:")
 				utils.PrettyPrint(syncedPlacement)
@@ -100,13 +101,13 @@ var _ = Describe("GenericBundle", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		evt := utils.ToCloudEvent("Placementbinding", transport.Broadcast, payloadBytes)
-		err = producer.SendEvent(ctx, evt)
+		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the placementbinding is synced")
 		Eventually(func() error {
 			syncedPlacementbinding := &policyv1.PlacementBinding{}
-			err := client.Get(ctx, runtimeclient.ObjectKeyFromObject(placementbinding), syncedPlacementbinding)
+			err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(placementbinding), syncedPlacementbinding)
 			if err == nil {
 				if err == nil {
 					fmt.Println("create spec resource:")
@@ -114,6 +115,38 @@ var _ = Describe("GenericBundle", func() {
 				}
 			}
 			return err
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("sync configmap bundle", func() {
+		By("Create Config Bundle")
+		baseBundle := bundle.NewBaseObjectsBundle()
+		cm := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hello",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"hello": "world",
+			},
+		}
+		baseBundle.AddObject(cm, uuid.New().String())
+
+		By("Send Config Bundle by transport")
+		payloadBytes, err := json.Marshal(baseBundle)
+		Expect(err).NotTo(HaveOccurred())
+		evt := utils.ToCloudEvent("Config", transport.Broadcast, payloadBytes)
+		err = genericProducer.SendEvent(ctx, evt)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Check the configmap is synced")
+		Eventually(func() error {
+			syncedConfigMap := &corev1.ConfigMap{}
+			return runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), syncedConfigMap)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

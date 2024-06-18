@@ -4,8 +4,6 @@ import (
 	"context"
 )
 
-const GenericMessageKey = "Generic"
-
 type Syncer interface {
 	Sync(payload []byte) error
 }

@@ -1,4 +1,4 @@
-package event
+package status
 
 import (
 	"encoding/json"
@@ -17,11 +17,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-// go test ./agent/pkg/status/controller/event -ginkgo.focus "ManagedClusterEventEmitter" -v
+// go test ./test/integration/agent/status -v -ginkgo.focus "ManagedClusterEventEmitter"
 var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 	It("should pass the managed cluster event", func() {
 		By("Create namespace and cluster for managed cluster event")
-		err := kubeClient.Create(ctx, &corev1.Namespace{
+		err := runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cluster2",
 			},
@@ -34,7 +34,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 				Name: "cluster2",
 			},
 		}
-		Expect(kubeClient.Create(ctx, cluster, &client.CreateOptions{})).Should(Succeed())
+		Expect(runtimeClient.Create(ctx, cluster, &client.CreateOptions{})).Should(Succeed())
 
 		By("Claim the clusterId")
 		cluster.Status = clusterv1.ManagedClusterStatus{
@@ -45,7 +45,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 				},
 			},
 		}
-		Expect(kubeClient.Status().Update(ctx, cluster)).Should(Succeed())
+		Expect(runtimeClient.Status().Update(ctx, cluster)).Should(Succeed())
 
 		By("Create the cluster event after the clusterId is ready")
 		evt := &corev1.Event{
@@ -66,7 +66,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 			ReportingInstance:   "registration-controller-cluster-manager-registration-controller-6794cf54d9-j7lgm",
 			Type:                "Warning",
 		}
-		Expect(kubeClient.Create(ctx, evt)).NotTo(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, evt)).NotTo(HaveOccurred())
 
 		Eventually(func() error {
 			key := string(enum.ManagedClusterEventType)

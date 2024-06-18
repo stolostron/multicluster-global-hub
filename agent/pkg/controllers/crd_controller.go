@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/lease"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
 )
@@ -47,7 +46,7 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := lease.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
+	if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
 		"multicluster-global-hub-controller"); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
 	}

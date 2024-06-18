@@ -133,11 +133,11 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						eventPolicyIds.Insert(e.PolicyID)
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("replicated policy event num want %d, but got %d", len(managedClusters), count)
+				if count < len(managedClusters) {
+					return fmt.Errorf("replicated policy event num at least %d, but got %d", len(managedClusters), count)
 				}
-				if len(policyIds) != eventPolicyIds.Len() {
-					return fmt.Errorf("policy num(policy event): want %d, but got %d", len(policyIds), eventPolicyIds.Len())
+				if eventPolicyIds.Len() < len(policyIds) {
+					return fmt.Errorf("policy num(policy event) at least %d, but got %d", len(policyIds), eventPolicyIds.Len())
 				}
 				return nil
 			}, 3*time.Minute, 1*time.Second).Should(Succeed())

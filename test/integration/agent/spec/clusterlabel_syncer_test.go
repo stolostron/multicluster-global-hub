@@ -1,26 +1,22 @@
-package syncers_test
+package spec
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var _ = Describe("ManagerClusterLabel Bundle", func() {
+var _ = Describe("ManagerClusterLabelBundle", func() {
 	It("sync managedclusterlabel bundle", func() {
 		managedClusterName := "mc1"
 
@@ -36,17 +32,17 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 				HubAcceptsClient: true,
 			},
 		}
-		Expect(client.Create(ctx, &managedCluster)).NotTo(HaveOccurred())
+		Expect(runtimeClient.Create(ctx, &managedCluster)).NotTo(HaveOccurred())
 
 		Eventually(func() error {
 			mc := clusterv1.ManagedCluster{}
-			return client.Get(ctx, runtimeclient.ObjectKeyFromObject(&managedCluster), &mc)
+			return runtimeClient.Get(ctx, runtimeclient.ObjectKeyFromObject(&managedCluster), &mc)
 		}, 5*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		By("Create ManagedClusterLabelBundle with labels")
 		managedClusterLabelsSpecBundle := &spec.ManagedClusterLabelsSpecBundle{
 			Objects:     []*spec.ManagedClusterLabelsSpec{},
-			LeafHubName: agentConfig.LeafHubName,
+			LeafHubName: leafHubName,
 		}
 		bundleObj := &spec.ManagedClusterLabelsSpec{
 			ClusterName: managedClusterName,
@@ -64,13 +60,13 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		evt := utils.ToCloudEvent(constants.ManagedClustersLabelsMsgKey, agentConfig.LeafHubName, payloadBytes)
-		err = producer.SendEvent(ctx, evt)
+		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Check the managed cluster label")
 		Eventually(func() error {
 			mc := clusterv1.ManagedCluster{}
-			err = client.Get(ctx, runtimeclient.ObjectKeyFromObject(&managedCluster), &mc)
+			err = runtimeClient.Get(ctx, runtimeclient.ObjectKeyFromObject(&managedCluster), &mc)
 			if err != nil {
 				return err
 			}
@@ -79,39 +75,7 @@ var _ = Describe("ManagerClusterLabel Bundle", func() {
 				fmt.Println(mc.Labels)
 				return nil
 			}
-			return fmt.Errorf("not found label { %s : %s}", "test", "add")
-		}, 5*time.Second, 100*time.Microsecond).ShouldNot(HaveOccurred())
-	})
-
-	It("sync configmap bundle", func() {
-		By("Create Config Bundle")
-		baseBundle := bundle.NewBaseObjectsBundle()
-		cm := &corev1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ConfigMap",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "hello",
-				Namespace: "default",
-			},
-			Data: map[string]string{
-				"hello": "world",
-			},
-		}
-		baseBundle.AddObject(cm, uuid.New().String())
-
-		By("Send Config Bundle by transport")
-		payloadBytes, err := json.Marshal(baseBundle)
-		Expect(err).NotTo(HaveOccurred())
-		evt := utils.ToCloudEvent("Config", transport.Broadcast, payloadBytes)
-		err = producer.SendEvent(ctx, evt)
-		Expect(err).NotTo(HaveOccurred())
-
-		By("Check the configmap is synced")
-		Eventually(func() error {
-			syncedConfigMap := &corev1.ConfigMap{}
-			return client.Get(ctx, runtimeclient.ObjectKeyFromObject(cm), syncedConfigMap)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+			return fmt.Errorf("not found label on cluster { %s : %s}", "test", "add")
+		}, 5*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

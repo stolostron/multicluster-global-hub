@@ -10,7 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 )
 
-var supportedResyncTypes map[string]*version.Version
+var enabledResyncTypes map[string]*version.Version
 
 // resyncSyncer resync the bundle info.
 type resyncSyncer struct {
@@ -33,11 +33,11 @@ func (syncer *resyncSyncer) Sync(payload []byte) error {
 
 	for _, eventType := range eventTypes {
 		syncer.log.Info("Resync event", "key", eventType)
-		if supportedResyncTypes == nil {
+		if enabledResyncTypes == nil {
 			syncer.log.Info("not support to resync any type of resources")
 			return nil
 		}
-		resyncVersion, ok := supportedResyncTypes[eventType]
+		resyncVersion, ok := enabledResyncTypes[eventType]
 		if !ok {
 			syncer.log.Info("not support to resync the current resource type", "event key", eventType)
 			return nil
@@ -47,10 +47,14 @@ func (syncer *resyncSyncer) Sync(payload []byte) error {
 	return nil
 }
 
-func SupportResyc(evtType string, syncVersion *version.Version) {
-	if supportedResyncTypes == nil {
-		supportedResyncTypes = make(map[string]*version.Version)
+func EnableResyc(evtType string, syncVersion *version.Version) {
+	if enabledResyncTypes == nil {
+		enabledResyncTypes = make(map[string]*version.Version)
 	}
-	supportedResyncTypes[evtType] = syncVersion
+	enabledResyncTypes[evtType] = syncVersion
 	klog.Info("support to resync type: ", evtType)
+}
+
+func GetEventVersion(evtType string) *version.Version {
+	return enabledResyncTypes[evtType]
 }

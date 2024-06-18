@@ -1,7 +1,7 @@
 // Copyright (c) 2023 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package scheme
+package config
 
 import (
 	routev1 "github.com/openshift/api/route/v1"
@@ -24,8 +24,8 @@ import (
 	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 )
 
-// AddToScheme adds all the resources to be processed to the Scheme.
-func AddToScheme(scheme *runtime.Scheme) {
+func GetRuntimeScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
@@ -42,4 +42,5 @@ func AddToScheme(scheme *runtime.Scheme) {
 	utilruntime.Must(channelv1.AddToScheme(scheme))
 	utilruntime.Must(appsubv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(appv1beta1.AddToScheme(scheme))
+	return scheme
 }

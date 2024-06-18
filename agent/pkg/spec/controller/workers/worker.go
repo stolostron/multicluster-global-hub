@@ -7,6 +7,8 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 )
 
 // worker within the WorkerPool. runs as a goroutine and invokes Jobs.
@@ -18,7 +20,7 @@ type Worker struct {
 }
 
 func newWorker(log logr.Logger, id int, kubeConfig *rest.Config, jobsQueue chan *Job) (*Worker, error) {
-	client, err := client.New(kubeConfig, client.Options{})
+	client, err := client.New(kubeConfig, client.Options{Scheme: config.GetRuntimeScheme()})
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize worker - %w", err)
 	}

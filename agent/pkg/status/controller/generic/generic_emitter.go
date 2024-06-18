@@ -69,7 +69,7 @@ func NewGenericEmitter(
 	}
 	emitter.applyOptions(opts...)
 	// support resync
-	syncers.SupportResyc(string(eventType), emitter.currentVersion)
+	syncers.EnableResyc(string(eventType), emitter.currentVersion)
 	return emitter
 }
 
