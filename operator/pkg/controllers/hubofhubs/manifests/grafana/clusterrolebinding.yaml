@@ -1,16 +1,14 @@
-{{- if .EnableMetrics }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: grafana-cluster-monitoring-binding
   labels:
-    app: multicluster-global-hub-grafana
-subjects:
-  - kind: ServiceAccount
     name: multicluster-global-hub-grafana
-    namespace: {{.Namespace}}
+  name: multicluster-global-hub:multicluster-global-hub-grafana
 roleRef:
-  kind: ClusterRole
-  name: cluster-monitoring-view
   apiGroup: rbac.authorization.k8s.io
-{{- end }}
+  kind: ClusterRole
+  name: multicluster-global-hub:multicluster-global-hub-grafana
+subjects:
+- kind: ServiceAccount
+  name: multicluster-global-hub-grafana
+  namespace: {{.Namespace}}
