@@ -81,7 +81,7 @@ var _ = Describe("data retention job", Ordered, func() {
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-		By("Create soft deleted recorded in the databse")
+		By("Create soft deleted recorded in the database")
 		for _, tableName := range task.RetentionTables {
 			err := createRetentionData(tableName, expirationTime)
 			Expect(err).ToNot(HaveOccurred())
