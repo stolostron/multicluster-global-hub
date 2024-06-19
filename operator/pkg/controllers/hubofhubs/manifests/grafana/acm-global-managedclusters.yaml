@@ -375,7 +375,7 @@ data:
                 "properties": [
                   {
                     "id": "custom.width",
-                    "value": 180
+                    "value": 160
                   },
                   {
                     "id": "links",
@@ -412,12 +412,44 @@ data:
                     "value": true
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "available"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-background"
+                    }
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 100
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "Unknown": {
+                            "color": "dark-red",
+                            "index": 0
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
+                  }
+                ]
               }
             ]
           },
           "gridPos": {
             "h": 14,
-            "w": 4,
+            "w": 5,
             "x": 8,
             "y": 0
           },
@@ -446,7 +478,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "  SELECT mc.leaf_hub_name,\n  COUNT(DISTINCT mc.cluster_id) as clustercount,\n  CASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url\n  END AS hub_obs_url\n  FROM status.managed_clusters mc LEFT JOIN status.leaf_hubs lh\n  ON mc.leaf_hub_name=lh.leaf_hub_name\n  WHERE mc.deleted_at IS NULL\n  AND mc.leaf_hub_name ${hub_query:raw}\n  AND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\n  AND string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\n  OR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\n  GROUP BY mc.leaf_hub_name, lh.grafana_url",
+              "rawSql": "WITH cluster_status AS(\n  SELECT leaf_hub_name, 'Available' AS available \n  FROM status.leaf_hub_heartbeats\n  WHERE status = 'active'\n)\nSELECT mc.leaf_hub_name,\nCOUNT(DISTINCT mc.cluster_id) as clustercount,\nCOALESCE(available, 'Unknown') AS available,\nCASE\n  WHEN length(grafana_url) =0 THEN NULL\n  ELSE grafana_url\nEND AS hub_obs_url\nFROM status.managed_clusters mc LEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN cluster_status cs\nON mc.leaf_hub_name = cs.leaf_hub_name\nWHERE mc.deleted_at IS NULL\nAND mc.leaf_hub_name ${hub_query:raw}\nAND mc.payload -> 'metadata' -> 'labels' ->> '$label' ${value_query:raw}\nAND string_to_array(mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion', '.')::int[] $compare string_to_array('$version', '.')::int[]\nOR (mc.payload -> 'metadata' -> 'labels' ->> 'openshiftVersion' IS NULL AND '$version' = '0.0.0')\nGROUP BY mc.leaf_hub_name, lh.grafana_url, cs.available",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -478,6 +510,7 @@ data:
                 "includeByName": {},
                 "indexByName": {},
                 "renameByName": {
+                  "available": "Status",
                   "clustercount": "Count",
                   "leaf_hub_name": "Hub"
                 }
@@ -553,7 +586,7 @@ data:
                   },
                   {
                     "id": "custom.width",
-                    "value": 168
+                    "value": 154
                   }
                 ]
               },
@@ -602,6 +635,20 @@ data:
                     "value": {
                       "type": "color-background"
                     }
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {
+                        "options": {
+                          "Unknown": {
+                            "color": "red",
+                            "index": 0
+                          }
+                        },
+                        "type": "value"
+                      }
+                    ]
                   }
                 ]
               },
@@ -634,13 +681,49 @@ data:
                     "id": "noValue"
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "OpenShift Version"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 80
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Version"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 101
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Cloud"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 110
+                  }
+                ]
               }
             ]
           },
           "gridPos": {
             "h": 14,
-            "w": 12,
-            "x": 12,
+            "w": 11,
+            "x": 13,
             "y": 0
           },
           "id": 6,
@@ -702,12 +785,12 @@ data:
                 "includeByName": {},
                 "indexByName": {},
                 "renameByName": {
-                  "available": "Available",
+                  "available": "Status",
                   "cloud": "Cloud",
                   "cluster_name": "Managed Cluster",
                   "compliance": "Status",
                   "leaf_hub_name": "Hub",
-                  "openshiftversion": "Openshift Version",
+                  "openshiftversion": "Version",
                   "vendor": "Vendor"
                 }
               }
@@ -888,7 +971,7 @@ data:
               }
             }
           ],
-          "title": "Openshift Version",
+          "title": "OpenShift Version",
           "type": "piechart"
         },
         {
@@ -1321,7 +1404,7 @@ data:
             },
             "hide": 0,
             "includeAll": false,
-            "label": "Openshift Version",
+            "label": "OpenShift Version",
             "multi": false,
             "name": "compare",
             "options": [
@@ -1369,7 +1452,8 @@ data:
             ],
             "query": "0.0.0",
             "skipUrlSync": false,
-            "type": "textbox"
+            "type": "textbox",
+            "width": 10
           },
           {
             "current": {
