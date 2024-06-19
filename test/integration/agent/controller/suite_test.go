@@ -43,7 +43,7 @@ var _ = BeforeSuite(func() {
 
 	testenv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "manifest", "crd"),
 		},
 	}
 

@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
+	managerconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -89,8 +89,7 @@ var _ = BeforeSuite(func() {
 	By("Init schemes")
 	operatorScheme = config.GetRuntimeScheme()
 	agentScheme = agentconfig.GetRuntimeScheme()
-	managerScheme = runtime.NewScheme()
-	managerscheme.AddToScheme(managerScheme)
+	managerScheme = managerconfig.GetRuntimeScheme()
 
 	By("Complete the options and init clients")
 	testOptions = completeOptions()

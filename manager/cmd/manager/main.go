@@ -17,7 +17,6 @@ import (
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -39,9 +38,7 @@ import (
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
-	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
@@ -68,15 +65,13 @@ const (
 var (
 	setupLog                     = ctrl.Log.WithName("setup")
 	managerNamespace             = constants.GHDefaultNamespace
-	scheme                       = runtime.NewScheme()
 	enableSimulation             = false
 	errFlagParameterEmpty        = errors.New("flag parameter empty")
 	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
 )
 
 func init() {
-	managerscheme.AddToScheme(scheme)
-	monitoring.RegisterMetrics()
+	managerconfig.RegisterMetrics()
 }
 
 func parseFlags() *managerconfig.ManagerConfig {
@@ -207,7 +202,7 @@ func createManager(ctx context.Context,
 	renewDeadline := time.Duration(managerConfig.ElectionConfig.RenewDeadline) * time.Second
 	retryPeriod := time.Duration(managerConfig.ElectionConfig.RetryPeriod) * time.Second
 	options := ctrl.Options{
-		Scheme: scheme,
+		Scheme: managerconfig.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
 			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		},

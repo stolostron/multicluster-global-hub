@@ -11,7 +11,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/monitoring"
 )
 
 const (
@@ -27,6 +26,14 @@ type GlobalHubJobScheduler struct {
 	log        logr.Logger
 	scheduler  *gocron.Scheduler
 	launchJobs []string
+}
+
+func NewGlobalHubScheduler(scheduler *gocron.Scheduler, launchJobs []string) *GlobalHubJobScheduler {
+	return &GlobalHubJobScheduler{
+		log:        ctrl.Log.WithName("cronjob-scheduler"),
+		scheduler:  scheduler,
+		launchJobs: launchJobs,
+	}
 }
 
 func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
@@ -78,10 +85,10 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	s.log.Info("start job scheduler")
 	// Set the status of the job to 0 (success) when the job is started.
-	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
-	monitoring.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
+	config.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
+	config.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
 	s.scheduler.StartAsync()
-	if err := s.execJobs(); err != nil {
+	if err := s.ExecJobs(); err != nil {
 		return err
 	}
 	<-ctx.Done()
@@ -89,7 +96,7 @@ func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *GlobalHubJobScheduler) execJobs() error {
+func (s *GlobalHubJobScheduler) ExecJobs() error {
 	for _, job := range s.launchJobs {
 		switch job {
 		case task.RetentionTaskName:
