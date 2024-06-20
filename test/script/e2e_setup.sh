@@ -19,7 +19,7 @@ kind_cluster "$GH_NAME" 2>&1 &
 for i in $(seq 1 "${MH_NUM}"); do
   kind_cluster "hub$i" 2>&1 &
   for j in $(seq 1 "${MC_NUM}"); do
-    kind_cluster "hub$i-cluster$j" &
+    kind_cluster "hub$i-cluster$j" 2>&1 &
   done
 done
 
@@ -30,12 +30,11 @@ echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds
 enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 
 # async middlewares
-bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >>"$CONFIG_DIR/PID"
-bash "$CURRENT_DIR/e2e_postgres.sh" "$GH_KUBECONFIG" 2>&1 & 
+bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1-cluster1" "$GH_KUBECONFIG" 2>&1 & # install postgres into hub1
 echo "$!" >"$CONFIG_DIR/PID"
 
-
+bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
 
 # init hubs
 start_time=$(date +%s)
