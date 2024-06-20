@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (
@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 	// start testenv
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "test", "manifest", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

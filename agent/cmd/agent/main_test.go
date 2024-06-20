@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 	// start testenv
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "test", "manifest", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -175,7 +175,7 @@ func initMockAgentConfig() *config.AgentConfig {
 func TestHasMCHCRDWithoutCR(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "test", "manifest", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -194,7 +194,7 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 func TestHasMCHCRDCR(t *testing.T) {
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
+			filepath.Join("..", "..", "..", "test", "manifest", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}

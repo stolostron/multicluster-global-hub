@@ -34,7 +34,7 @@ import (
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (

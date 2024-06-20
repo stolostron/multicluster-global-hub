@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -62,7 +61,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	mgh := mghList.Items[0].DeepCopy()
 	// Backup condition means added backup label to all resources already
-	backuped := meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_BACKUP)
+	backuped := meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_BACKUP)
 
 	// Check if backup is enabled
 	backupEnabled, err := utils.IsBackupEnabled(ctx, r.Client)
@@ -105,14 +104,14 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func addDisableCondition(ctx context.Context, client client.Client,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub, err error,
 ) (ctrl.Result, error) {
-	msg := condition.CONDITION_MESSAGE_BACKUP_DISABLED
+	msg := config.CONDITION_MESSAGE_BACKUP_DISABLED
 	if err != nil {
 		msg = fmt.Sprintf("Backup is diabled with error: %v.", err.Error())
 	}
-	if err := condition.SetCondition(ctx, client, mgh,
-		condition.CONDITION_TYPE_BACKUP,
-		condition.CONDITION_STATUS_FALSE,
-		condition.CONDITION_REASON_BACKUP_DISABLED,
+	if err := config.SetCondition(ctx, client, mgh,
+		config.CONDITION_TYPE_BACKUP,
+		config.CONDITION_STATUS_FALSE,
+		config.CONDITION_REASON_BACKUP_DISABLED,
 		msg,
 	); err != nil {
 		return ctrl.Result{}, err
@@ -123,14 +122,14 @@ func addDisableCondition(ctx context.Context, client client.Client,
 func addBackupCondition(ctx context.Context, client client.Client,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub, err error,
 ) (ctrl.Result, error) {
-	msg := condition.CONDITION_MESSAGE_BACKUP
+	msg := config.CONDITION_MESSAGE_BACKUP
 	if err != nil {
 		msg = fmt.Sprintf("Added backup labels with error: %v.", err.Error())
 	}
-	if err := condition.SetCondition(ctx, client, mgh,
-		condition.CONDITION_TYPE_BACKUP,
-		condition.CONDITION_STATUS_TRUE,
-		condition.CONDITION_REASON_BACKUP,
+	if err := config.SetCondition(ctx, client, mgh,
+		config.CONDITION_TYPE_BACKUP,
+		config.CONDITION_STATUS_TRUE,
+		config.CONDITION_REASON_BACKUP,
 		msg,
 	); err != nil {
 		return ctrl.Result{}, err

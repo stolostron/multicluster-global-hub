@@ -67,7 +67,7 @@ unit-tests-pkg: setup_envtest
 
 .PHONY: fmt				##formats the code
 fmt:
-	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/pkg/...
+	@go fmt ./agent/... ./manager/... ./operator/... ./pkg/... ./test/...
 	git diff --exit-code
 	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/operator/\|multicluster-global-hub/manager/" ./pkg
 	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/manager/" ./operator
@@ -76,8 +76,8 @@ fmt:
 
 .PHONY: strict-fmt				##formats the code
 strict-fmt:
-	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
-	gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/pkg/
+	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./agent/ ./manager/ ./operator/ ./pkg/ ./test/
+	gofumpt -w ./agent/ ./manager/ ./operator/ ./pkg/ ./test/
 	git diff --exit-code
 
 # Include the e2e an integration makefile.

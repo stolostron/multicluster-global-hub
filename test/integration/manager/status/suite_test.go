@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (

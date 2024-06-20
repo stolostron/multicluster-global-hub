@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (

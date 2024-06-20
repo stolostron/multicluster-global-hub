@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	managerconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
+	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -87,7 +88,7 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	By("Init schemes")
-	operatorScheme = config.GetRuntimeScheme()
+	operatorScheme = operatorconfig.GetRuntimeScheme()
 	agentScheme = agentconfig.GetRuntimeScheme()
 	managerScheme = managerconfig.GetRuntimeScheme()
 
@@ -293,6 +294,7 @@ func deployGlobalHub() {
 	}, 5*time.Minute, 1*time.Second).Should(Succeed())
 
 	// Before run test, the mgh should be ready
+	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
 	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
 	Expect(err).ShouldNot(HaveOccurred())
 }

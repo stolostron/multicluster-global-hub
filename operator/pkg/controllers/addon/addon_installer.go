@@ -24,7 +24,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -302,7 +302,7 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 	secretCond := func(obj client.Object) bool {
 		if obj.GetName() == config.GetImagePullSecretName() ||
 			obj.GetName() == constants.GHTransportSecretName ||
-			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == transportprotocol.KafkaClusterName &&
+			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
 				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
 			return true
 		}

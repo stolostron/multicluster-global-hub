@@ -20,7 +20,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/homeport/dyff v1.5.5
 	github.com/jackc/pgx/v4 v4.18.2
-	github.com/kylelemons/godebug v1.1.0
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.15.0
 	github.com/onsi/gomega v1.30.0

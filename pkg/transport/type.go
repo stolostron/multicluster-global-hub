@@ -30,6 +30,17 @@ const (
 	Chan  TransportType = "chan"
 )
 
+// transport protocol
+// indicate which kind of transport protocol, only support
+type TransportProtocol int
+
+const (
+	// the kafka cluster is created by the strimzi operator, which is provisioned by global hub operator
+	StrimziTransporter TransportProtocol = iota
+	// the kafka cluster is created by customer, and the transport secret will be shared between clusters
+	SecretTransporter
+)
+
 type TransportConfig struct {
 	TransportType          string
 	MessageCompressionType string
@@ -59,17 +70,6 @@ type KafkaProducerConfig struct {
 type KafkaConsumerConfig struct {
 	ConsumerID string
 }
-
-// transport protocol
-// indicate which kind of transport protocol, only support
-type TransportProtocol int
-
-const (
-	// the kafka cluster is created by the strimzi operator, which is provisioned by global hub operator
-	StrimziTransporter TransportProtocol = iota
-	// the kafka cluster is created by customer, and the transport secret will be shared between clusters
-	SecretTransporter
-)
 
 // topics
 type ClusterTopic struct {

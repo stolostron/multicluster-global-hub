@@ -16,7 +16,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/test/pkg/testpostgres"
+	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 func TestHubManagement(t *testing.T) {
