@@ -6,7 +6,7 @@
 REGISTRY ?= quay.io/stolostron
 IMAGE_TAG ?= latest
 TMP_BIN ?= /tmp/cr-tests-bin
-GO_TEST ?= go test -v
+GO_TEST ?= go test -v -count=1
 
 .PHONY: vendor			##download all third party libraries and puts them inside vendor directory
 vendor:
