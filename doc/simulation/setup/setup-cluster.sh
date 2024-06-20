@@ -86,7 +86,7 @@ EOF
     # 1. related namespace(kubectl version must be 1.24+)
     kubectl create ns application-system --dry-run=client -oyaml | kubectl --kubeconfig $kubeconfig apply -f -
     # apply the CRDs
-    kubectl apply --server-side=true --validate=false --force-conflicts -f $REPO_DIR/pkg/testdata/crds --kubeconfig $kubeconfig
+    kubectl apply --server-side=true --validate=false --force-conflicts -f $REPO_DIR/test/manifest/crd --kubeconfig $kubeconfig
 
     # mock the NS/MultiClusterHub so that the agent can start
     kubectl create ns multicluster-global-hub --dry-run=client -oyaml | kubectl --kubeconfig $kubeconfig apply -f -

@@ -9,6 +9,16 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
+type Producer interface {
+	SendEvent(ctx context.Context, evt cloudevents.Event) error
+}
+
+type Consumer interface {
+	// start the transport to consume message
+	Start(ctx context.Context) error
+	EventChan() chan *cloudevents.Event
+}
+
 // init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
 type Transporter interface {
 	// define the user for each hub clusters, user lifecycle is managed by the transporter
@@ -27,14 +37,4 @@ type Transporter interface {
 
 	// get the connection credential by user
 	GetConnCredential(userName string) (*ConnCredential, error)
-}
-
-type Producer interface {
-	SendEvent(ctx context.Context, evt cloudevents.Event) error
-}
-
-type Consumer interface {
-	// start the transport to consume message
-	Start(ctx context.Context) error
-	EventChan() chan *cloudevents.Event
 }

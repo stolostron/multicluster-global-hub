@@ -317,7 +317,7 @@ install_crds() {
   kubectl --context "$ctx" apply -f $path/deploy/route_crd.yaml
 
   # mch
-  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 }
 
 enable_service_ca() {

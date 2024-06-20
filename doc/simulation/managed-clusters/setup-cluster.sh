@@ -17,7 +17,7 @@ else
 fi
 
 # create the mcl crd
-kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
+kubectl apply -f $REPO_DIR/test/manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
 
 # creating the simulated managedcluster
 for i in $(seq 1 $1)

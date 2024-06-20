@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -118,7 +117,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 				if !utils.HasItem(mgh.Labels, constants.BackupKey, constants.BackupActivationValue) {
 					return false
 				}
-				if !meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_BACKUP) {
+				if !meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_BACKUP) {
 					return false
 				}
 				return true
@@ -155,7 +154,7 @@ var _ = Describe("Backup controller", Ordered, func() {
 				if utils.HasItem(mgh.Labels, constants.BackupKey, constants.BackupActivationValue) {
 					return false
 				}
-				if meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_BACKUP) {
+				if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_BACKUP) {
 					return false
 				}
 				return true

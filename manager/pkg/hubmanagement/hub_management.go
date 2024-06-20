@@ -32,23 +32,27 @@ const (
 )
 
 // manage the leaf hub lifecycle based on the heartbeat
-type hubManagement struct {
+type HubManagement struct {
 	log           logr.Logger
 	producer      transport.Producer
 	probeDuration time.Duration
 	activeTimeout time.Duration
 }
 
-func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
-	return mgr.Add(&hubManagement{
+func NewHubManagement(producer transport.Producer, probeDuration, activeTimeout time.Duration) *HubManagement {
+	return &HubManagement{
 		log:           ctrl.Log.WithName("hub-management"),
 		producer:      producer,
-		probeDuration: ProbeDuration,
-		activeTimeout: ActiveTimeout,
-	})
+		probeDuration: probeDuration,
+		activeTimeout: activeTimeout,
+	}
 }
 
-func (h *hubManagement) Start(ctx context.Context) error {
+func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
+	return mgr.Add(NewHubManagement(producer, ProbeDuration, ActiveTimeout))
+}
+
+func (h *HubManagement) Start(ctx context.Context) error {
 	// when start the hub management, resync all the necessary resources
 	err := h.resync(ctx, transport.Broadcast)
 	if err != nil {
@@ -73,7 +77,7 @@ func (h *hubManagement) Start(ctx context.Context) error {
 	return nil
 }
 
-func (h *hubManagement) update(ctx context.Context) error {
+func (h *HubManagement) update(ctx context.Context) error {
 	thresholdTime := time.Now().Add(-h.activeTimeout)
 	db := database.GetGorm()
 	var expiredHubs []models.LeafHubHeartbeat
@@ -96,7 +100,7 @@ func (h *hubManagement) update(ctx context.Context) error {
 	return nil
 }
 
-func (h *hubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat, thresholdTime time.Time) error {
+func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat, thresholdTime time.Time) error {
 	for _, hub := range hubs {
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
@@ -113,7 +117,7 @@ func (h *hubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeart
 	return nil
 }
 
-func (h *hubManagement) cleanup(hubName string) error {
+func (h *HubManagement) cleanup(hubName string) error {
 	db := database.GetGorm()
 	return db.Transaction(func(tx *gorm.DB) error {
 		// soft delete the cluster
@@ -151,7 +155,7 @@ func (h *hubManagement) cleanup(hubName string) error {
 	})
 }
 
-func (h *hubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeartbeat, thresholdTime time.Time) error {
+func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeartbeat, thresholdTime time.Time) error {
 	// resync hub resources
 	db := database.GetGorm()
 	for _, hub := range hubs {
@@ -176,7 +180,7 @@ func (h *hubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeart
 	return nil
 }
 
-func (h *hubManagement) resync(ctx context.Context, hubName string) error {
+func (h *HubManagement) resync(ctx context.Context, hubName string) error {
 	resyncResources := []string{
 		string(enum.HubClusterInfoType),
 		string(enum.ManagedClusterType),

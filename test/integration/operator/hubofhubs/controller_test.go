@@ -1,0 +1,134 @@
+package hubofhubs
+
+import (
+	"fmt"
+	"os"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+)
+
+// go test ./test/integration/operator/hubofhubs -ginkgo.focus "controller" -v
+var _ = Describe("controller", Ordered, func() {
+	var mgh *v1alpha4.MulticlusterGlobalHub
+	var namespace string
+	BeforeAll(func() {
+		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
+		mghName := "test-mgh"
+
+		// mgh
+		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		})).To(Succeed())
+		mgh = &v1alpha4.MulticlusterGlobalHub{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      mghName,
+				Namespace: namespace,
+			},
+			Spec: v1alpha4.MulticlusterGlobalHubSpec{
+				EnableMetrics: true,
+				DataLayer: v1alpha4.DataLayerConfig{
+					Postgres: v1alpha4.PostgresConfig{
+						Retention: "2y",
+					},
+				},
+			},
+		}
+		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
+		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+
+		// update the middleware configuration
+		// storage
+		storageSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.GHStorageSecretName,
+				Namespace: mgh.Namespace,
+			},
+			Data: map[string][]byte{
+				"database_uri":                   []byte(testPostgres.URI),
+				"database_uri_with_readonlyuser": []byte(testPostgres.URI),
+				"ca.crt":                         []byte(""),
+			},
+			Type: corev1.SecretTypeOpaque,
+		}
+		Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
+
+		// transport
+		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
+		Expect(err).To(Succeed())
+	})
+
+	It("should generate the update the mgh condition", func() {
+		controller := hubofhubs.NewGlobalHubController(runtimeManager, nil, kubeClient, &config.OperatorConfig{
+			LogLevel:              "info",
+			EnablePprof:           false,
+			GlobalResourceEnabled: true,
+		})
+
+		err := os.Setenv("POD_NAMESPACE", namespace)
+		Expect(err).To(Succeed())
+		_, _ = controller.Reconcile(ctx, reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(mgh),
+		})
+
+		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+		Expect(err).To(Succeed())
+
+		utils.PrettyPrint(mgh)
+
+		count := 0
+		for _, cond := range mgh.Status.Conditions {
+			if cond.Type == config.CONDITION_REASON_RETENTION_PARSED {
+				count++
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Message).To(Equal("The data will be kept in the database for 24 months."))
+			}
+			if cond.Type == config.CONDITION_TYPE_DATABASE_INIT {
+				count++
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Message).To(ContainSubstring("Database has been initialized"))
+			}
+			if cond.Type == config.CONDITION_TYPE_GLOBALHUB_READY {
+				count++
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Message).To(ContainSubstring("Multicluster Global Hub is ready"))
+			}
+		}
+		Expect(count).To(Equal(3))
+
+		Expect(utils.ContainsString(mgh.Finalizers, constants.GlobalHubCleanupFinalizer)).To(BeTrue())
+	})
+
+	AfterAll(func() {
+		err := runtimeClient.Delete(ctx, mgh)
+		Expect(err).To(Succeed())
+
+		err = runtimeClient.Delete(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.GHTransportSecretName,
+				Namespace: mgh.Namespace,
+			},
+		})
+		Expect(err).To(Succeed())
+
+		err = runtimeClient.Delete(ctx, &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: namespace,
+			},
+		})
+		Expect(err).To(Succeed())
+	})
+})

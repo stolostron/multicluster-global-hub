@@ -50,9 +50,6 @@ func TestMain(m *testing.M) {
 	}
 	// start testenv
 	testenv := &envtest.Environment{
-		// CRDDirectoryPaths: []string{
-		// 	filepath.Join("..", "..", "..", "pkg", "testdata", "crds"),
-		// },
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -109,7 +106,7 @@ func TestCRDCtr(t *testing.T) {
 		assert.False(t, ok)
 	}
 
-	err = applyYaml(filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds", clusterResourceFile))
+	err = applyYaml(filepath.Join("..", "..", "..", "..", "test", "manifest", "crd", clusterResourceFile))
 	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 

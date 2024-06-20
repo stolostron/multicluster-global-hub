@@ -3,8 +3,6 @@ package addon_test
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,53 +10,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	v1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
-	transportprotocol "github.com/stolostron/multicluster-global-hub/operator/pkg/transporter"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
-
-var kubeCfg *rest.Config
-
-func TestMain(m *testing.M) {
-	// start testEnv
-	testEnv := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "..", "pkg", "testdata", "crds"),
-		},
-		ErrorIfCRDPathMissing: true,
-	}
-	var err error
-	kubeCfg, err = testEnv.Start()
-	if err != nil {
-		panic(err)
-	}
-
-	// run testings
-	code := m.Run()
-
-	// stop testEnv
-	err = testEnv.Stop()
-	if err != nil {
-		panic(err)
-	}
-
-	os.Exit(code)
-}
 
 func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluster {
 	cluster := &v1.ManagedCluster{
@@ -103,7 +68,7 @@ func fakeMGH(namespace, name string) *operatorv1alpha4.MulticlusterGlobalHub {
 		Status: operatorv1alpha4.MulticlusterGlobalHubStatus{
 			Conditions: []metav1.Condition{
 				{
-					Type:   condition.CONDITION_TYPE_GLOBALHUB_READY,
+					Type:   config.CONDITION_TYPE_GLOBALHUB_READY,
 					Status: metav1.ConditionTrue,
 				},
 			},
@@ -129,7 +94,7 @@ func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.M
 	return addon
 }
 
-func TestHoHAddonReconciler(t *testing.T) {
+func TestAddonInstaller(t *testing.T) {
 	namespace := "default"
 	name := "test"
 	config.SetMGHNamespacedName(types.NamespacedName{
@@ -252,6 +217,9 @@ func TestHoHAddonReconciler(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			objects := []client.Object{tc.cluster}
 			if tc.managementAddon != nil {
 				objects = append(objects, tc.managementAddon)
@@ -267,19 +235,7 @@ func TestHoHAddonReconciler(t *testing.T) {
 			} else {
 				config.SetMGHNamespacedName(types.NamespacedName{Namespace: "", Name: ""})
 			}
-			mgr, err := ctrl.NewManager(kubeCfg, ctrl.Options{
-				Scheme: config.GetRuntimeScheme(),
-				Metrics: metricsserver.Options{
-					BindAddress: "0", // disable the metrics serving
-				},
-				NewCache: config.InitCache,
-			})
-			if err != nil {
-				t.Errorf("failed to create manager: %v", err)
-			}
-			if mgr == nil {
-				t.Error("the mgr shouldn't be nil")
-			}
+
 			objects = append(objects, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      fmt.Sprintf("%s-kafka-user", tc.cluster.Name),
@@ -290,25 +246,23 @@ func TestHoHAddonReconciler(t *testing.T) {
 				},
 			})
 
-			transporter := transportprotocol.NewBYOTransporter(ctx, types.NamespacedName{
+			fakeClient := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(objects...).Build()
+
+			transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
 				Namespace: tc.mgh.Namespace,
 				Name:      constants.GHTransportSecretName,
-			}, k8sClient)
+			}, fakeClient)
 			config.SetTransporter(transporter)
 
 			r := &hubofhubsaddon.AddonInstaller{
-				Client: fake.NewClientBuilder().WithScheme(mgr.GetScheme()).WithObjects(objects...).Build(),
+				Client: fakeClient,
 				Log:    ctrl.Log.WithName("test"),
 			}
-			err = r.SetupWithManager(ctx, mgr)
-			if err != nil {
-				t.Errorf("failed to setup addon install controller with manager: %v", err)
-			}
 
-			_, err = r.Reconcile(context.TODO(), tc.req)
+			_, err := r.Reconcile(ctx, tc.req)
 			for err != nil && strings.Contains(err.Error(), "object was modified") {
 				fmt.Println("error message:", err.Error())
-				_, err = r.Reconcile(context.TODO(), tc.req)
+				_, err = r.Reconcile(ctx, tc.req)
 			}
 
 			if err != nil {

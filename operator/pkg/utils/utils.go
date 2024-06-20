@@ -27,19 +27,27 @@ import (
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
+	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/condition"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -236,52 +244,42 @@ func CopyMap(newMap, originalMap map[string]string) {
 func WaitGlobalHubReady(ctx context.Context,
 	client client.Client,
 	interval time.Duration,
-) (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
-	mghNamespacedName := types.NamespacedName{}
-	klog.Info("Wait MulticlusterGlobalHub created")
-	// If there is no mgh created, we should always wait instead of return err after 10 mins
-	// If we return err after 10 mins, the operator pod will restart every 10 mins.
-	if err := wait.PollImmediateInfinite(interval, func() (bool, error) {
-		mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
-		err := client.List(ctx, mghList)
-		if err != nil {
-			klog.Error(err, "Failed to list MulticlusterGlobalHub")
+) (*v1alpha4.MulticlusterGlobalHub, error) {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+
+	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
+		if errors.IsNotFound(err) {
+			klog.Info("wait until the mgh instance is created")
 			return false, nil
-		}
-		if len(mghList.Items) == 0 {
-			return false, nil
-		}
-		mghNamespacedName = types.NamespacedName{
-			Name:      mghList.Items[0].Name,
-			Namespace: mghList.Items[0].Namespace,
+		} else if err != nil {
+			return true, err
 		}
 		return true, nil
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
-	klog.Info("Wait MulticlusterGlobalHub ready")
-	if err := wait.PollImmediate(interval, 10*time.Minute, func() (bool, error) {
-		err := client.Get(ctx, mghNamespacedName, mgh)
-		if err != nil {
-			klog.Error(err, "Failed to Get MulticlusterGlobalHub")
+	err = wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+		if err = client.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
+			klog.Error(err, "failed to get mgh instance")
 			return false, nil
 		}
-
-		if meta.IsStatusConditionTrue(mgh.Status.Conditions, condition.CONDITION_TYPE_GLOBALHUB_READY) {
-			klog.V(2).Info("MulticlusterGlobalHub ready condition is not true")
+		if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
 			return true, nil
 		}
+		klog.V(2).Info("mgh instance ready condition is not true")
 		return false, nil
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
 	}
 	klog.Info("MulticlusterGlobalHub is ready")
 	return mgh, nil
 }
 
-func GetResources(component string, advanced *globalhubv1alpha4.AdvancedConfig) *corev1.ResourceRequirements {
+func GetResources(component string, advanced *v1alpha4.AdvancedConfig) *corev1.ResourceRequirements {
 	resourceReq := corev1.ResourceRequirements{}
 	requests := corev1.ResourceList{}
 	limits := corev1.ResourceList{}
@@ -340,7 +338,7 @@ func GetResources(component string, advanced *globalhubv1alpha4.AdvancedConfig) 
 	return &resourceReq
 }
 
-func setResourcesFromCR(res *globalhubv1alpha4.ResourceRequirements, requests, limits corev1.ResourceList) {
+func setResourcesFromCR(res *v1alpha4.ResourceRequirements, requests, limits corev1.ResourceList) {
 	if res != nil {
 		if res.Requests.Memory().String() != "0" {
 			requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(res.Requests.Memory().String())
@@ -361,9 +359,119 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
 		func(ctx context.Context) (bool, error) {
 			if config.GetTransporter() == nil {
-				klog.Info("Wait transporter ready")
+				klog.Info("wait transporter ready")
 				return false, nil
 			}
 			return true, nil
 		})
+}
+
+func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx := range clusters.Items {
+		managedHub := &clusters.Items[idx]
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+
+		if ok := controllerutil.RemoveFinalizer(managedHub, commonconstants.GlobalHubCleanupFinalizer); ok {
+			if err := c.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// add addon.open-cluster-management.io/on-multicluster-hub annotation to the managed hub
+// clusters indicate the addons are running on a hub cluster
+func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx, managedHub := range clusters.Items {
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			orgAnnotations = make(map[string]string)
+		}
+		annotations := make(map[string]string, len(orgAnnotations))
+		CopyMap(annotations, managedHub.GetAnnotations())
+
+		// set the annotations for the managed hub
+		orgAnnotations[constants.AnnotationONMulticlusterHub] = "true"
+		orgAnnotations[constants.AnnotationPolicyONMulticlusterHub] = "true"
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func TriggerManagedHubAddons(ctx context.Context, c client.Client,
+	addonMgr addonmanager.AddonManager,
+) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for i := range clusters.Items {
+		cluster := clusters.Items[i]
+		if !FilterManagedCluster(&cluster) {
+			addonMgr.Trigger(cluster.Name, constants.GHClusterManagementAddonName)
+		}
+	}
+	return nil
+}
+
+func FilterManagedCluster(obj client.Object) bool {
+	return obj.GetLabels()["vendor"] != "OpenShift" ||
+		obj.GetLabels()["openshiftVersion"] == "3" ||
+		obj.GetName() == constants.LocalClusterName
+}
+
+// ManipulateGlobalHubObjects will attach the owner reference, add specific labels to these objects
+func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
+	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
+	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
+) error {
+	// manipulate the object
+	for _, obj := range objects {
+		mapping, err := mapper.RESTMapping(obj.GroupVersionKind().GroupKind(), obj.GroupVersionKind().Version)
+		if err != nil {
+			return err
+		}
+
+		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
+			// for namespaced resource, set ownerreference of controller
+			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
+				return err
+			}
+		}
+
+		// set owner labels
+		labels := obj.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.GHOperatorOwnerLabelVal
+		obj.SetLabels(labels)
+
+		if err := hohDeployer.Deploy(obj); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

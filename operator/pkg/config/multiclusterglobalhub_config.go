@@ -25,17 +25,12 @@ import (
 	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/postgres"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ManifestImage contains details for a specific image version
@@ -80,51 +75,7 @@ var (
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
-	isBYOKafka            = false
-	isBYOPostgres         = false
 )
-
-func SetBYOKafka(ctx context.Context, runtimeClient client.Client, namespace string) error {
-	kafkaSecret := &corev1.Secret{}
-	err := runtimeClient.Get(ctx, types.NamespacedName{
-		Name:      constants.GHTransportSecretName,
-		Namespace: namespace,
-	}, kafkaSecret)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			isBYOKafka = false
-			return nil
-		}
-		return err
-	}
-	isBYOKafka = true
-	return nil
-}
-
-func SetBYOPostgres(ctx context.Context, runtimeClient client.Client, namespace string) error {
-	pgSecret := &corev1.Secret{}
-	err := runtimeClient.Get(ctx, types.NamespacedName{
-		Name:      constants.GHStorageSecretName,
-		Namespace: namespace,
-	}, pgSecret)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			isBYOPostgres = false
-			return nil
-		}
-		return err
-	}
-	isBYOPostgres = true
-	return nil
-}
-
-func IsBYOKafka() bool {
-	return isBYOKafka
-}
-
-func IsBYOPostgres() bool {
-	return isBYOPostgres
-}
 
 func SetMGHNamespacedName(namespacedName types.NamespacedName) {
 	mghNamespacedName = namespacedName
@@ -147,7 +98,7 @@ func GetOauthSessionSecret() (string, error) {
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
-func getAnnotation(mgh *globalhubv1alpha4.MulticlusterGlobalHub, annotationKey string) string {
+func getAnnotation(mgh *v1alpha4.MulticlusterGlobalHub, annotationKey string) string {
 	annotations := mgh.GetAnnotations()
 	if annotations == nil {
 		return ""
@@ -157,7 +108,7 @@ func getAnnotation(mgh *globalhubv1alpha4.MulticlusterGlobalHub, annotationKey s
 }
 
 // IsPaused returns true if the MulticlusterGlobalHub instance is annotated as paused, and false otherwise
-func IsPaused(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
+func IsPaused(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	isPausedVal := getAnnotation(mgh, operatorconstants.AnnotationMGHPause)
 	if isPausedVal != "" && strings.EqualFold(isPausedVal, "true") {
 		return true
@@ -167,12 +118,12 @@ func IsPaused(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 }
 
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history
-func GetSchedulerInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+func GetSchedulerInterval(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
 }
 
 // SkipAuth returns true to skip authenticate for non-k8s api
-func SkipAuth(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
+func SkipAuth(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	toSkipAuth := getAnnotation(mgh, operatorconstants.AnnotationMGHSkipAuth)
 	if toSkipAuth != "" && strings.EqualFold(toSkipAuth, "true") {
 		return true
@@ -181,7 +132,7 @@ func SkipAuth(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
 	return false
 }
 
-func GetInstallCrunchyOperator(mgh *globalhubv1alpha4.MulticlusterGlobalHub) bool {
+func GetInstallCrunchyOperator(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	toInstallCrunchyOperator := getAnnotation(mgh, operatorconstants.AnnotationMGHInstallCrunchyOperator)
 	if toInstallCrunchyOperator != "" && strings.EqualFold(toInstallCrunchyOperator, "true") {
 		return true
@@ -191,16 +142,16 @@ func GetInstallCrunchyOperator(mgh *globalhubv1alpha4.MulticlusterGlobalHub) boo
 }
 
 // GetLaunchJobNames returns the jobs concatenated using "," wchich will run once the constainer is started
-func GetLaunchJobNames(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+func GetLaunchJobNames(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationLaunchJobNames)
 }
 
 // GetImageOverridesConfigmap returns the images override configmap annotation, or an empty string if not set
-func GetImageOverridesConfigmap(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+func GetImageOverridesConfigmap(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationImageOverridesCM)
 }
 
-func SetImageOverrides(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	// first check for environment variables containing the 'RELATED_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
@@ -227,7 +178,7 @@ func GetImage(componentName string) string {
 	return imageOverrides[componentName]
 }
 
-func SetStatisticLogInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
+func SetStatisticLogInterval(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	interval := getAnnotation(mgh, operatorconstants.AnnotationStatisticInterval)
 	if interval == "" {
 		return nil
@@ -245,7 +196,7 @@ func GetStatisticLogInterval() string {
 	return statisticLogInterval
 }
 
-func GetMetricsScrapeInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+func GetMetricsScrapeInterval(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	interval := getAnnotation(mgh, operatorconstants.AnnotationMetricsScrapeInterval)
 	if interval == "" {
 		interval = metricsScrapeInterval
@@ -253,14 +204,14 @@ func GetMetricsScrapeInterval(mgh *globalhubv1alpha4.MulticlusterGlobalHub) stri
 	return interval
 }
 
-func GetPostgresStorageSize(mgh *globalhubv1alpha4.MulticlusterGlobalHub) string {
+func GetPostgresStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	if mgh.Spec.DataLayer.Postgres.StorageSize != "" {
 		return mgh.Spec.DataLayer.Postgres.StorageSize
 	}
 	return GHPostgresDefaultStorageSize
 }
 
-func SetImagePullSecretName(mgh *globalhubv1alpha4.MulticlusterGlobalHub) {
+func SetImagePullSecretName(mgh *v1alpha4.MulticlusterGlobalHub) {
 	if mgh.Spec.ImagePullSecret != imagePullSecretName {
 		imagePullSecretName = mgh.Spec.ImagePullSecret
 	}
@@ -270,68 +221,48 @@ func GetImagePullSecretName() string {
 	return imagePullSecretName
 }
 
-// GeneratePGConnectionFromGHStorageSecret returns a postgres connection from the GH storage secret
-func GetPGConnectionFromGHStorageSecret(ctx context.Context, client client.Client) (
-	*postgres.PostgresConnection, error,
-) {
-	pgSecret := &corev1.Secret{}
-	err := client.Get(ctx, types.NamespacedName{
-		Name:      constants.GHStorageSecretName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, pgSecret)
+// GetMulticlusterGlobalHub will get the CR and also update the configuration based on it
+func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
+	c client.Client,
+) (*v1alpha4.MulticlusterGlobalHub, error) {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err := c.Get(ctx, req.NamespacedName, mgh)
 	if err != nil {
 		return nil, err
 	}
-	return &postgres.PostgresConnection{
-		SuperuserDatabaseURI:    string(pgSecret.Data["database_uri"]),
-		ReadonlyUserDatabaseURI: string(pgSecret.Data["database_uri_with_readonlyuser"]),
-		CACert:                  pgSecret.Data["ca.crt"],
-	}, nil
+	err = SetMulticlusterGlobalHubConfig(mgh)
+	if err != nil {
+		return nil, err
+	}
+	err = SetBYOKafka(ctx, c, mgh.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+	err = SetBYOPostgres(ctx, c, mgh.GetNamespace())
+	if err != nil {
+		return nil, err
+	}
+	return mgh, nil
 }
 
-func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Client) (
-	*postgres.PostgresConnection, error,
-) {
-	// wait for postgres guest user secret to be ready
-	guestPostgresSecret := &corev1.Secret{}
-	err := client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresGuestUserSecretName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, guestPostgresSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("postgres guest user secret %s is nil", postgres.PostgresGuestUserSecretName)
-		}
-		return nil, err
-	}
-	// wait for postgres super user secret to be ready
-	superuserPostgresSecret := &corev1.Secret{}
-	err = client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresSuperUserSecretName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, superuserPostgresSecret)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("postgres super user secret %s is nil", postgres.PostgresSuperUserSecretName)
-		}
-		return nil, err
-	}
-	// wait for postgres cert secret to be ready
-	postgresCertName := &corev1.Secret{}
-	err = client.Get(ctx, types.NamespacedName{
-		Name:      postgres.PostgresCertName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, postgresCertName)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, fmt.Errorf("postgres cert secret %s is nil", postgres.PostgresCertName)
-		}
-		return nil, err
+// SetMulticlusterGlobalHubConfig extract the namespacedName, image, and log configurations from CR
+func SetMulticlusterGlobalHubConfig(mgh *v1alpha4.MulticlusterGlobalHub) error {
+	// set request name to be used in leafhub controller
+	SetMGHNamespacedName(types.NamespacedName{
+		Namespace: mgh.GetNamespace(), Name: mgh.GetName(),
+	})
+
+	// set image overrides
+	if err := SetImageOverrides(mgh); err != nil {
+		return err
 	}
 
-	return &postgres.PostgresConnection{
-		SuperuserDatabaseURI:    string(superuserPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
-		ReadonlyUserDatabaseURI: string(guestPostgresSecret.Data["uri"]) + postgres.PostgresURIWithSslmode,
-		CACert:                  postgresCertName.Data["ca.crt"],
-	}, nil
+	// set image pull secret
+	SetImagePullSecretName(mgh)
+
+	// set statistic log interval
+	if err := SetStatisticLogInterval(mgh); err != nil {
+		return err
+	}
+	return nil
 }

@@ -18,9 +18,9 @@ echo ">> Generate policy ${policy_start}~${policy_end} on $KUBECONFIG"
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit;pwd)
-kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_policy.open-cluster-management.io_policies.crd.yaml
-kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_00_cluster.open-cluster-management.io_placements.crd.yaml
-kubectl apply -f $REPO_DIR/pkg/testdata/crds/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml
+kubectl apply -f $REPO_DIR/test/manifest/crd/0000_00_policy.open-cluster-management.io_policies.crd.yaml
+kubectl apply -f $REPO_DIR/test/manifest/crd/0000_00_cluster.open-cluster-management.io_placements.crd.yaml
+kubectl apply -f $REPO_DIR/test/manifest/crd/0000_03_clusters.open-cluster-management.io_placementdecisions.crd.yaml
 
 source ${CURRENT_DIR}/policy.sh
 
