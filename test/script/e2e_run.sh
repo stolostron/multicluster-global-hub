@@ -28,9 +28,9 @@ global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IP
 hub_nonk8s_api_server="http://${global_hub_node_ip}:30080"
 
 # container postgres uri
-container_pg_port="32432"
 database_uri=$(kubectl get secret multicluster-global-hub-storage -n "$GH_NAMESPACE" --kubeconfig "$GH_KUBECONFIG" -ojsonpath='{.data.database_uri}' | base64 -d)
-container_pg_uri=$(echo "$database_uri" | sed "s|@.*hoh|@${global_hub_node_ip}:${container_pg_port}/hoh|g")
+# container_pg_port="32432"
+# database_uri=$(echo "$database_uri" | sed "s|@.*hoh|@${global_hub_node_ip}:${container_pg_port}/hoh|g")
 
 cat <<EOF >"$OPTION_FILE"
 options:
@@ -41,7 +41,7 @@ options:
     nonk8sApiServer: ${hub_nonk8s_api_server}
     kubeconfig: ${GH_KUBECONFIG}
     kubecontext: $GH_NAME
-    databaseURI: ${container_pg_uri}
+    databaseURI: ${database_uri}
     managerImageREF: ${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF}
     agentImageREF: ${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF}
     operatorImageREF: ${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF}
