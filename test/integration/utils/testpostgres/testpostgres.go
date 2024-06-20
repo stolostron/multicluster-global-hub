@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"os"
 	"os/exec"
 	"os/user"
@@ -39,6 +40,12 @@ func NewTestPostgres() (*TestPostgres, error) {
 
 	// generate random postgres port
 	postgresPort := uint32(rand.Intn(65535-1024) + 1024)
+	for {
+		if isPortAvailable(postgresPort) {
+			break
+		}
+		postgresPort = uint32(rand.Intn(65535-1024) + 1024)
+	}
 
 	// if the current is root user, then it creates a non-root user and start a postgres process
 	if currentUser.Username == "root" {
@@ -198,4 +205,14 @@ func getPostgresCommand(username string, postgresPort uint32) (*exec.Cmd, error)
 	case <-time.After(1 * time.Minute):
 		return cmd, fmt.Errorf("waiting for database initialization timeout")
 	}
+}
+
+func isPortAvailable(port uint32) bool {
+	address := fmt.Sprintf(":%d", port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return false
+	}
+	defer listener.Close()
+	return true
 }
