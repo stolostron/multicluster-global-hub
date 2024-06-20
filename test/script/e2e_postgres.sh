@@ -7,7 +7,7 @@ source "$CURRENT_DIR/util.sh"
 KUBECONFIG=${1:-$KUBECONFIG}
 
 start_time=$(date +%s)
-echo -e "\r${BOLD_GREEN}[ START ] Install Postgres $NC"
+echo -e "\r${BOLD_GREEN}[ START - $(date +"%T") ] Install Postgres $NC"
 
 # step1: check storage secret
 target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
@@ -54,4 +54,4 @@ echo "Postgres is pathed!"
 wait_cmd "kubectl get pods -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns | grep Running"
 kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns--timeout=100s
 
-echo -e "\r${BOLD_GREEN}[ END ] Install Postgres ${NC} $(($(date +%s) - start_time)) seconds"
+echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Postgres ${NC} $(($(date +%s) - start_time)) seconds"

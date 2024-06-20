@@ -7,7 +7,7 @@ source "$CURRENT_DIR/util.sh"
 KUBECONFIG=${1:-$KUBECONFIG}
 
 start_time=$(date +%s)
-echo -e "\r${BOLD_GREEN}[ START ] Install Kafka $NC"
+echo -e "\r${BOLD_GREEN}[ START - $(date +"%T") ] Install Kafka $NC"
 
 # check the transport secret
 transport_secret=${TRANSPORT_SECRET_NAME:-"multicluster-global-hub-transport"}
@@ -58,7 +58,7 @@ wait_cmd "kubectl get kafkauser hub2-kafka-user -n multicluster-global-hub | gre
 
 echo "Kafka cluster is ready"
 
-echo -e "\r${BOLD_GREEN}[ END ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"
+echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"
 
 # BYO: 1. create the topics; 2. create the user; 3. create the transport secret 
 # wait_cmd "kubectl get kafkatopic spec -n $target_namespace --ignore-not-found | grep spec || true"
