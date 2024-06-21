@@ -4,12 +4,12 @@
 package spec
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
+// go test ./test/integration/manager/spec -v -ginkgo.focus "Database to Transport Syncer"
 var _ = Describe("Database to Transport Syncer", Ordered, func() {
 	var db *gorm.DB
 	BeforeEach(func() {
@@ -30,9 +31,33 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 	It("test resources can be synced through transport", func() {
 		ExpectedMessageIDs := make(map[string]string)
+		ExpectedMessageIDs["ManagedClustersLabels"] = ""
+		ExpectedMessageIDs["ManagedClusterSets"] = managedclustersetUID
+		ExpectedMessageIDs["ManagedClusterSetBindings"] = managedclustersetbindingUID
+		ExpectedMessageIDs["Policies"] = policyUID
+		ExpectedMessageIDs["PlacementRules"] = placementruleUID
+		ExpectedMessageIDs["PlacementBindings"] = placementbindingUID
+		ExpectedMessageIDs["Placements"] = placementUID
+		ExpectedMessageIDs["Applications"] = applicationUID
+		ExpectedMessageIDs["Subscriptions"] = subscriptionUID
+		ExpectedMessageIDs["Channels"] = channelUID
+
+		go func(ctx context.Context) {
+			for {
+				select {
+				case evt := <-consumer.EventChan():
+					// fmt.Println("get the event", evt)
+					if val, ok := ExpectedMessageIDs[evt.Type()]; ok && strings.Contains(string(evt.Data()), val) {
+						delete(ExpectedMessageIDs, evt.Type())
+					}
+				case <-ctx.Done():
+					fmt.Println("Task canceled:", ctx.Err())
+					return
+				}
+			}
+		}(ctx)
 
 		By("ManagedClusterLabels")
-		ExpectedMessageIDs["ManagedClustersLabels"] = ""
 		labelPayload, err := json.Marshal(labelsToAdd)
 		Expect(err).Should(Succeed())
 		labelKeysToRemovePayload, err := json.Marshal(labelKeysToRemove)
@@ -48,74 +73,55 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("ManagedClusterSet")
-		ExpectedMessageIDs["ManagedClusterSets"] = managedclustersetUID
 		err = db.Exec("INSERT INTO spec.managedclustersets (id, payload) VALUES(?, ?)",
 			managedclustersetUID, managedclustersetJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("ManagedClustersetBinding")
-		ExpectedMessageIDs["ManagedClusterSetBindings"] = managedclustersetbindingUID
 		err = db.Exec("INSERT INTO spec.managedclustersetbindings (id,payload) VALUES(?, ?)", managedclustersetbindingUID,
 			&managedclustersetbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Policy")
-		ExpectedMessageIDs["Policies"] = policyUID
 		err = db.Exec("INSERT INTO spec.policies (id,payload) VALUES(?, ?)", policyUID, &policyJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Placementrule")
-		ExpectedMessageIDs["PlacementRules"] = placementruleUID
 		err = db.Exec("INSERT INTO spec.placementrules (id,payload) VALUES(?, ?)", placementruleUID,
 			&placementruleJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Placementbinding")
-		ExpectedMessageIDs["PlacementBindings"] = placementbindingUID
 		err = db.Exec("INSERT INTO spec.placementbindings (id,payload) VALUES(?, ?)", placementbindingUID,
 			&placementbindingJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Placement")
-		ExpectedMessageIDs["Placements"] = placementUID
 		err = db.Exec(
 			"INSERT INTO spec.placements (id,payload) VALUES(?, ?)", placementUID, &placementJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Application")
-		ExpectedMessageIDs["Applications"] = applicationUID
 		err = db.Exec(
 			"INSERT INTO spec.applications (id,payload) VALUES(?, ?)", applicationUID, &applicationJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Subscription")
-		ExpectedMessageIDs["Subscriptions"] = subscriptionUID
 		err = db.Exec("INSERT INTO spec.subscriptions (id,payload) VALUES(?, ?)", subscriptionUID,
 			&subscriptionJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Channel")
-		ExpectedMessageIDs["Channels"] = channelUID
 		err = db.Exec("INSERT INTO spec.channels (id,payload) VALUES(?, ?)", channelUID, &channelJSONBytes).Error
 		Expect(err).ToNot(HaveOccurred())
 
-		By("verify the result from transport")
+		By("Verify the result from transport")
 		Eventually(func() error {
-			evt := waitForChannel(consumer.EventChan())
-			if evt == nil {
-				return fmt.Errorf("the message shouldn't be nil")
-			}
-			if val, ok := ExpectedMessageIDs[evt.Type()]; ok && strings.Contains(string(evt.Data()), val) {
-				fmt.Println("receive the expected message", evt.Type(), string(evt.Data()))
-				delete(ExpectedMessageIDs, evt.Type())
-			} else if !ok {
-				fmt.Printf("get an unexpected message %s: %v \n", evt.Type(), evt)
-			}
 			if len(ExpectedMessageIDs) > 0 {
-				return fmt.Errorf("missing the message: %s", ExpectedMessageIDs)
+				return fmt.Errorf("not receive expect message: %s", ExpectedMessageIDs)
 			}
 			return nil
-		}, 15*time.Second, 1*time.Second).Should(Succeed())
+		}, 30*time.Second, 1*time.Second).Should(Succeed())
 	})
 
 	// It("Test managed cluster labels syncer", func() {
@@ -139,19 +145,6 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 	// 	}, 20*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	// })
 })
-
-// waitForChannel genericConsumer.MessageChan() with timeout
-func waitForChannel(ch chan *cloudevents.Event) *cloudevents.Event {
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
-	select {
-	case msg := <-ch:
-		return msg
-	case <-timer.C:
-		fmt.Println("timeout waiting for message from  transport consumer channel")
-		return nil
-	}
-}
 
 var (
 	managedclusterUID  = uuid.New().String()
