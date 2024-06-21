@@ -27,10 +27,11 @@ retry "(kubectl apply -k $TEST_DIR/manifest/kafka/kafka-operator -n $target_name
 echo "Kafka operator is ready"
 
 # deploy kafka cluster
-retry "(kubectl apply -k $TEST_DIR/manifest/kafka/kafka-cluster -n $target_namespace) && (kubectl get kafka kafka -n $target_namespace -o json | jq '(.status.listeners | length) == 2'  | grep true)" 120
+kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$target_namespace"
 
 # patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
-node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
+# or node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
+node_port_host=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
 kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p '[
   {
     "op": "replace",
@@ -48,6 +49,8 @@ kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p
     }
   }
 ]'
+
+retry "kubectl get kafka kafka -n $target_namespace -o json | jq '(.status.listeners | length) == 2'  | grep true" 120
 
 # kafka
 # wait_cmd "kubectl get kafkatopic event -n multicluster-global-hub | grep -C 1 True"

@@ -11,7 +11,7 @@ if [[ $OPENSHIFT_CI == "true" ]]; then
   check_volume
 fi
 check_kind
-check_kustomize
+# check_kustomize
 check_kubectl
 check_clusteradm
 check_ginkgo
