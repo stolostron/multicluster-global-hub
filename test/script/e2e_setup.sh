@@ -33,7 +33,7 @@ enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1-cluster1" "$GH_KUBECONFIG" 2>&1 & # install postgres into hub1
 echo "$!" >"$CONFIG_DIR/PID"
 
-bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &
+bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2-cluster1" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$CONFIG_DIR/PID"
 
 # init hubs

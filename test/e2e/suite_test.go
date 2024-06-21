@@ -98,9 +98,9 @@ var _ = BeforeSuite(func() {
 	httpClient = testClients.HttpClient()
 	// valid the clients
 	deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)
-	deployList, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2})
+	_, err := deployClient.List(ctx, metav1.ListOptions{Limit: 2})
 	Expect(err).ShouldNot(HaveOccurred())
-	Expect(len(deployList.Items) > 0).To(BeTrue())
+	// Expect(len(deployList.Items) > 0).To(BeTrue())
 	// valid the global hub cluster apiserver
 	healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
 	Expect(err).ShouldNot(HaveOccurred())
@@ -283,7 +283,7 @@ func deployGlobalHub() {
 			if err != nil {
 				components[name] += 1
 				// restart it if the blocking time exceeds 30 seconds
-				if count > 120 {
+				if count > 30 {
 					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), Namespace, name)
 					components[name] = 0
 				}

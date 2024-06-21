@@ -61,6 +61,13 @@ check_kubectl() {
   echo "kubectl version: $(kubectl version --client)"
 }
 
+check_kustomize() {
+  if ! command -v kustomize >/dev/null 2>&1; then
+    GOBIN=$INSTALL_DIR && go install sigs.k8s.io/kustomize/kustomize/v5@v5.4.2
+  fi
+  echo "kustomize version: $(kustomize version)"
+}
+
 check_clusteradm() {
   if ! command -v clusteradm >/dev/null 2>&1; then
     # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash

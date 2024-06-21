@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
 
 KEY="${SHARED_DIR}/private.pem"
 chmod 400 "${KEY}"
