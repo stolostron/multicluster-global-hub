@@ -23,7 +23,6 @@ fi
 docker pull registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0
 docker pull registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1
 docker pull registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1
-wait
 cluster_name=$(basename "$KUBECONFIG")
 kind load docker-image registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0 --name "$cluster_name"
 kind load docker-image registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1 --name "$cluster_name"
