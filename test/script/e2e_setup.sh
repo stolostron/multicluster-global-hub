@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euox pipefail
+set -euo pipefail
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null

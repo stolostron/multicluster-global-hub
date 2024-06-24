@@ -50,7 +50,7 @@ kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p
   }
 ]'
 
-wait_cmd "kubectl get kafka kafka -n $target_namespace -o json | jq '(.status.listeners | length) == 2'"
+wait_cmd "kubectl get kafka kafka -n $target_namespace -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 
 # kafka
 # wait_cmd "kubectl get kafkatopic event -n multicluster-global-hub | grep -C 1 True"

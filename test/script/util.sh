@@ -107,7 +107,7 @@ kind_cluster() {
 
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
-  clusteradm init --wait --context "$1" 2>&1
+  clusteradm init --wait --context "$1" > /dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
