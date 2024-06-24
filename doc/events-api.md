@@ -315,6 +315,7 @@ The event is Kubernetes event that exists in root policy namespace. The event sp
   "time": "2024-02-29T03:01:06.30007874Z",
   "data": [
     {
+      "leafHubName": "kind-hub2",
       "eventName": "policy-limitrange.17b8363660d39188",
       "eventNamespace": "local-policy-namespace",
       "message": "Policy local-policy-namespace/policy-limitrange was propagated to cluster kind-hub2-cluster1/kind-hub2-cluster1",
@@ -342,6 +343,7 @@ The event is from the replicated policy history status. The event is Kubernetes 
   "time": "2024-02-29T03:01:16.387894285Z",
   "data": [
     {
+      "leafHubName": "kind-hub2",
       "eventName": "local-policy-namespace.policy-limitrange.17b83638614ff6b7",
       "eventNamespace": "kind-hub2-cluster1",
       "message": "NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace default",
@@ -353,6 +355,7 @@ The event is from the replicated policy history status. The event is Kubernetes 
       "createdAt": "2024-02-29T03:01:14Z",
       "policyId": "1f2deb7a-0d29-4762-b0fc-daa3ba16c5b5",
       "clusterId": "0884ef05-115d-46f5-bbda-f759adcbbe5b",
+      "clusterName": "kind-hub2-cluster1",
       "compliance": "NonCompliant"
     }
   ]
@@ -373,6 +376,7 @@ The events are related to cluster import. The data is an array that can include 
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": [
         {
+          "leafHubName": "managed_hub1",
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
           "clusterName": "cluster1",
           "eventName": "kube-system.import.17ad7b80d4e6f6a4",
@@ -383,6 +387,7 @@ The events are related to cluster import. The data is an array that can include 
           "createdAt": "2024-01-25T05:08:07Z"
         },
         {
+          "leafHubName": "managed_hub1",
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
           "clusterName": "cluster1",
           "eventName": "kube-system.import.17ad7b80d4ade6a4",
@@ -407,6 +412,7 @@ The events are related to cluster detach. We do not have `Detached` event. Howev
     "time": "2024-01-25T04:06:16.542703828Z",
     "data": [
         {
+          "leafHubName": "managed_hub1",
           "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
           "clusterName": "cluster1",
           "eventName": "kube-system.status.17ad7b80d4e6f6a4",
