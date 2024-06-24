@@ -18,6 +18,17 @@ if kubectl get secret "$storage_secret" -n "$target_namespace" --kubeconfig "$SE
   exit 0
 fi
 
+# load all the image to kind cluster
+# load all the kafka images to the KUBECONFIG
+docker pull registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0
+docker pull registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1
+docker pull registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1
+wait
+cluster_name=$(basename "$KUBECONFIG")
+kind load docker-image registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0 --name "$cluster_name"
+kind load docker-image registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1 --name "$cluster_name"
+kind load docker-image registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1 --name "$cluster_name"
+
 # installed credentials
 pg_ns="hoh-postgres"
 ps_user="hoh-pguser-postgres"

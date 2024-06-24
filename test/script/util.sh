@@ -616,6 +616,7 @@ wait_policy() {
   wait_cmd "kubectl get deploy/governance-policy-propagator -n open-cluster-management --context $hub"
   kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
 
+  kubectl get secret/hub-kubeconfig -n open-cluster-management-agent-addon --context "$cluster"
   wait_cmd "kubectl get deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 

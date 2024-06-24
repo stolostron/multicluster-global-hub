@@ -283,7 +283,7 @@ func deployGlobalHub() {
 			if err != nil {
 				components[name] += 1
 				// restart it if the blocking time exceeds 30 seconds
-				if count > 30 {
+				if count > 120 {
 					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), Namespace, name)
 					components[name] = 0
 				}

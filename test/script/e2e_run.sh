@@ -48,6 +48,18 @@ options:
     managedhubs:
 EOF
 
+docker pull "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" &
+docker pull "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" &
+docker pull quay.io/stolostron/origin-oauth-proxy:4.9 &
+docker pull quay.io/stolostron/grafana:globalhub-1.2 &
+
+wait
+
+kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" --name $GH_NAME
+kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" --name $GH_NAME
+kind load docker-image quay.io/stolostron/origin-oauth-proxy:4.9 --name $GH_NAME
+kind load docker-image quay.io/stolostron/grafana:globalhub-1.2 --name $GH_NAME
+
 for i in $(seq 1 "${MH_NUM}"); do
   # leafhub
   mh_kubeconfig="${CONFIG_DIR}/hub$i"
@@ -59,6 +71,8 @@ for i in $(seq 1 "${MH_NUM}"); do
       kubecontext: $mh_kubecontext
 EOF
 
+  docker pull "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
+  kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" --name "hub$i"
   for j in $(seq 1 "${MC_NUM}"); do
     # imported managedcluster
     mc_kubeconfig="${CONFIG_DIR}/hub$i-cluster$j"

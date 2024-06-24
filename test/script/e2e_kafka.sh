@@ -19,8 +19,16 @@ if kubectl get secret "$transport_secret" -n "$target_namespace" --kubeconfig "$
 fi
 
 # create all the resource in cluster KUBECONFIG
-
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl apply -f -
+
+# load all the kafka images to the KUBECONFIG
+docker pull quay.io/strimzi/operator:0.38.0
+docker pull quay.io/strimzi/kafka:0.38.0-kafka-3.6.0 
+wait
+cluster_name=$(basename "$KUBECONFIG")
+kind load docker-image quay.io/strimzi/operator:0.38.0 --name "$cluster_name"
+kind load docker-image quay.io/strimzi/kafka:0.38.0-kafka-3.6.0 --name "$cluster_name"
+
 
 # deploy kafka operator
 retry "(kubectl apply -k $TEST_DIR/manifest/kafka/kafka-operator -n $target_namespace) && (kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
