@@ -32,4 +32,8 @@ init_policy "$hub" "$spoken"
 
 enable_cluster "$hub" "$spoken" 
 
+wait_ocm "$hub" "$spoken"
+wait_policy "$hub" "$spoken"
+wait_application "$hub" "$spoken"
+
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] $hub : $spoken ${NC} $(($(date +%s) - start_time)) seconds"

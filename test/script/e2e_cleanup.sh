@@ -27,6 +27,6 @@ for i in $(seq 1 "${MH_NUM}"); do
     rm "$CONFIG_DIR/hub${i}-cluster${j}" > /dev/null 2>&1
   done
 done
-rm "$KUBECONFIG" > /dev/null 2>&1 || true
+rm "$KUBECONFIG" > /dev/null 2>&1 
 
 # ps -ef | grep "e2e" | grep -v grep |awk '{print $2}' | xargs kill -9 >/dev/null 2>&1

@@ -68,22 +68,6 @@ done
 wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
-# validation
-start_time=$(date +%s)
-
-for i in $(seq 1 "${MH_NUM}"); do
-  wait_ocm "$GH_NAME" "hub$i"
-  wait_policy "$GH_NAME" "hub$i"
-  wait_application "$GH_NAME" "hub$i"
-  for j in $(seq 1 "${MC_NUM}"); do
-    wait_ocm "hub$i" "hub$i-cluster$j"
-    wait_policy "hub$i" "hub$i-cluster$j"
-    wait_application "hub$i" "hub$i-cluster$j"
-  done
-done
-
-echo -e "${YELLOW} validating ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
-
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
   echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$CONFIG_DIR/hub$i $NC"
