@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euox pipefail
 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
 # shellcheck source=/dev/null
@@ -47,7 +47,7 @@ for i in $(seq 1 "${MH_NUM}"); do
   pids+=($!)
 done
 for pid in "${pids[@]}"; do
-    wait "$pid"
+    wait "$pid" || true
 done
 echo -e "${YELLOW} initializing hubs:${NC} $(($(date +%s) - start_time)) seconds"
 
