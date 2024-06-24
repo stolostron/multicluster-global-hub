@@ -6,9 +6,9 @@ CURRENT_DIR=$(
   cd "$(dirname "$0")" || exit
   pwd
 )
-TEST_DIR=$(dirname "$CURRENT_DIR")
 
-CONFIG_DIR="${CURRENT_DIR}/config"
+# shellcheck source=/dev/null
+source "$CURRENT_DIR/util.sh"
 OPTION_FILE="${CONFIG_DIR}/options.yaml"
 
 [ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
@@ -50,15 +50,13 @@ EOF
 
 docker pull "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" &
 docker pull "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" &
-docker pull quay.io/stolostron/origin-oauth-proxy:4.9 &
-docker pull quay.io/stolostron/grafana:globalhub-1.2 &
-
+docker pull "$OAUTH_PROXY_IMG" &
+docker pull "$GRAFANA_IMG" &
 wait
-
 kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" --name $GH_NAME
 kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" --name $GH_NAME
-kind load docker-image quay.io/stolostron/origin-oauth-proxy:4.9 --name $GH_NAME
-kind load docker-image quay.io/stolostron/grafana:globalhub-1.2 --name $GH_NAME
+kind load docker-image "$OAUTH_PROXY_IMG" --name $GH_NAME
+kind load docker-image "$GRAFANA_IMG" --name $GH_NAME
 
 for i in $(seq 1 "${MH_NUM}"); do
   # leafhub

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# VERSION
+# Version
 export INSTALL_DIR=/usr/bin
 export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
@@ -9,6 +9,14 @@ export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
+# Image
+export KAFKA_OPERATOR_IMG="quay.io/strimzi/operator:0.38.0"
+export KAFKA_IMG="quay.io/strimzi/kafka:0.38.0-kafka-3.6.0"
+export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0"
+export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
+export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
+export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
+export GRAFANA_IMG="quay.io/stolostron/grafana:globalhub-1.2"
 
 # Environment Variables 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
