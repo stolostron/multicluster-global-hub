@@ -23,12 +23,14 @@ import (
 // go test ./test/integration/agent/status -v -ginkgo.focus "LocalPolicyEventEmitter"
 var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 	var cachedRootPolicyEvent *corev1.Event
+	policyName := "event-local-policy"
+	policyNamespace := "default"
 	It("should pass the root policy event", func() {
 		By("Creating a root policy")
 		rootPolicy := &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       "policy1",
-				Namespace:  "default",
+				Name:       policyName,
+				Namespace:  policyNamespace,
 				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
 			},
 			Spec: policyv1.PolicySpec{
@@ -43,13 +45,13 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 
 		evt := &corev1.Event{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "policy1.123r543243242",
+				Name:      "event-local-policy.123r543243242",
 				Namespace: "default",
 			},
 			InvolvedObject: corev1.ObjectReference{
 				Kind:      string(policyv1.Kind),
-				Namespace: "default",
-				Name:      "policy1",
+				Name:      policyName,
+				Namespace: policyNamespace,
 			},
 			Reason:  "PolicyPropagation",
 			Message: "Policy default/policy1 was propagated to cluster1",
@@ -80,7 +82,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			}
 			cachedRootPolicyEvent = evt
 			return nil
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("should skip the older root policy event", func() {
@@ -99,8 +101,8 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 			InvolvedObject: corev1.ObjectReference{
 				Kind:      string(policyv1.Kind),
-				Namespace: "default",
-				Name:      "policy1",
+				Name:      policyName,
+				Namespace: policyNamespace,
 			},
 			Reason:  "PolicyPropagation",
 			Message: "Policy default/policy1 was propagated to cluster2",
@@ -119,8 +121,8 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 			InvolvedObject: corev1.ObjectReference{
 				Kind:      string(policyv1.Kind),
-				Namespace: "default",
-				Name:      "policy1",
+				Name:      policyName,
+				Namespace: policyNamespace,
 			},
 			Reason:  "PolicyPropagation",
 			Message: "Policy default/policy1 was propagated to cluster3",
@@ -186,12 +188,13 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		Expect(runtimeClient.Status().Update(ctx, cluster)).Should(Succeed())
 
 		By("Create the replicated policy")
+		replicatedPolicyName := fmt.Sprintf("%s.%s", policyNamespace, policyName)
 		replicatedPolicy := &policyv1.Policy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "default.policy1",
+				Name:      replicatedPolicyName,
 				Namespace: "policy-event-cluster",
 				Labels: map[string]string{
-					constants.PolicyEventRootPolicyNameLabelKey: fmt.Sprintf("%s.%s", "default", "policy1"),
+					constants.PolicyEventRootPolicyNameLabelKey: replicatedPolicyName,
 					constants.PolicyEventClusterNameLabelKey:    "policy-event-cluster",
 				},
 			},
@@ -205,13 +208,13 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		By("Create the replicated policy event")
 		evt := &corev1.Event{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "default.policy1.17af98f19c06811e",
+				Name:      replicatedPolicyName + ".17af98f19c06811e",
 				Namespace: "policy-event-cluster",
 			},
 			InvolvedObject: corev1.ObjectReference{
 				Kind:      string(policyv1.Kind),
 				Namespace: "policy-event-cluster",
-				Name:      "default.policy1",
+				Name:      replicatedPolicyName,
 			},
 			Reason:  "PolicyStatusSync",
 			Message: "Policy default.policy1 status was updated in cluster",

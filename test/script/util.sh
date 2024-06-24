@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# VERSION
+# Version
 export INSTALL_DIR=/usr/bin
 export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
@@ -9,6 +9,14 @@ export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
+# Image
+export KAFKA_OPERATOR_IMG="quay.io/strimzi/operator:0.38.0"
+export KAFKA_IMG="quay.io/strimzi/kafka:0.38.0-kafka-3.6.0"
+export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0"
+export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
+export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
+export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
+export GRAFANA_IMG="quay.io/stolostron/grafana:globalhub-1.2"
 
 # Environment Variables 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
@@ -61,6 +69,13 @@ check_kubectl() {
   echo "kubectl version: $(kubectl version --client)"
 }
 
+check_kustomize() {
+  if ! command -v kustomize >/dev/null 2>&1; then
+    GOBIN=$INSTALL_DIR && go install sigs.k8s.io/kustomize/kustomize/v5@v5.4.2
+  fi
+  echo "kustomize version: $(kustomize version)"
+}
+
 check_clusteradm() {
   if ! command -v clusteradm >/dev/null 2>&1; then
     # curl -L https://raw.githubusercontent.com/open-cluster-management-io/clusteradm/main/install.sh | bash
@@ -100,7 +115,7 @@ kind_cluster() {
 
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
-  clusteradm init --wait --context "$1" 2>&1
+  clusteradm init --wait --context "$1" > /dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
@@ -609,6 +624,7 @@ wait_policy() {
   wait_cmd "kubectl get deploy/governance-policy-propagator -n open-cluster-management --context $hub"
   kubectl wait deploy/governance-policy-propagator -n open-cluster-management --for condition=Available=True --timeout=600s --context "$hub"
 
+  kubectl get secret/hub-kubeconfig -n open-cluster-management-agent-addon --context "$cluster"
   wait_cmd "kubectl get deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --context $cluster"
   kubectl wait deploy/governance-policy-framework-addon -n open-cluster-management-agent-addon --for condition=Available=True --timeout=200s --context "$cluster"
 

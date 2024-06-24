@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euxo pipefail
+set -euo pipefail
 
 KEY="${SHARED_DIR}/private.pem"
 chmod 400 "${KEY}"
@@ -24,7 +24,7 @@ echo "export VERBOSE=6" >>${PROJECT_DIR}/test/script/env.list
 
 scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 
-ssh "${OPT[@]}" "$HOST" sudo yum install gcc git wget jq -y
+ssh "${OPT[@]}" "$HOST" sudo yum install git wget jq -y
 # Insufficient resources creating kind clusters, modify parameters to expand
 ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\" >> /etc/sysctl.conf && \
                                      echo \"fs.inotify.max_user_instances=8192\" >> /etc/sysctl.conf && \
