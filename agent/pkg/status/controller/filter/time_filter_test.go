@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -72,13 +73,17 @@ func TestMain(m *testing.M) {
 func TestTimeFilter(t *testing.T) {
 	// init the time cache to configMap
 	initCtx, initCancel := context.WithCancel(context.Background())
+	agentConfig := &config.AgentConfig{
+		Standalone:   false,
+		PodNameSpace: "default",
+	}
 
 	eventTimeCacheInterval = 1 * time.Second
-	err := LaunchTimeFilter(initCtx, runtimeClient, "default")
+	err := LaunchTimeFilter(initCtx, runtimeClient, agentConfig)
 	assert.Nil(t, err)
 
 	// the configMap can be created
-	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: CACHE_CONFIG_NAME, Namespace: "default"}}
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cacheConfigName, Namespace: cacheConfigNamespace}}
 	err = runtimeClient.Get(initCtx, client.ObjectKeyFromObject(cm), cm)
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
@@ -111,7 +116,7 @@ func TestTimeFilter(t *testing.T) {
 	err = runtimeClient.Update(reloadCtx, cm)
 	assert.Nil(t, err)
 
-	err = LaunchTimeFilter(reloadCtx, runtimeClient, "default")
+	err = LaunchTimeFilter(reloadCtx, runtimeClient, agentConfig)
 	assert.Nil(t, err)
 
 	err = runtimeClient.Get(reloadCtx, client.ObjectKeyFromObject(cm), cm)

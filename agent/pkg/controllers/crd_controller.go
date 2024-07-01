@@ -31,14 +31,18 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
+	if err := statusController.AddControllers(ctx, c.mgr, c.agentConfig); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
+	}
+
+	// only enable the status syncer with the standalone mode
+	if c.agentConfig.Standalone {
+		return ctrl.Result{}, nil
+	}
+
 	// add spec controllers
 	if err := specController.AddToManager(c.mgr, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
-	}
-	reqLogger.V(2).Info("add spec controllers to manager")
-
-	if err := statusController.AddControllers(ctx, c.mgr, c.agentConfig); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
 	// Need this controller to update the value of clusterclaim version.open-cluster-management.io

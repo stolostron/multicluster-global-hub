@@ -19,4 +19,5 @@ type AgentConfig struct {
 	QPS                          float32
 	Burst                        int
 	EnablePprof                  bool
+	Standalone                   bool
 }

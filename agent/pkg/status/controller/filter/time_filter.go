@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,11 +13,14 @@ import (
 )
 
 const (
-	CACHE_CONFIG_NAME = "multicluster-global-hub-agent-sync-state"
-	CACHE_TIME_FORMAT = "2006-01-02 15:04:05.000000 -0700 MST m=+0.000000000"
+	AGENT_CACHE_CONFIG_NAME    = "multicluster-global-hub-agent-sync-state"
+	EXPORTER_CACHE_CONFIG_NAME = "multicluster-global-hub-exporter-sync-state"
+	CACHE_TIME_FORMAT          = "2006-01-02 15:04:05.000000 -0700 MST m=+0.000000000"
 )
 
 var (
+	cacheConfigNamespace   = ""
+	cacheConfigName        = AGENT_CACHE_CONFIG_NAME
 	eventTimeCache         = make(map[string]time.Time)
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
@@ -41,11 +45,16 @@ func Newer(key string, val time.Time) bool {
 
 // LaunchTimeFilter start a goroutine periodically sync the time filter cache to configMap
 // and also init the event time cache with configmap
-func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) error {
+func LaunchTimeFilter(ctx context.Context, c client.Client, agentConfig *config.AgentConfig) error {
+	if agentConfig.Standalone {
+		cacheConfigName = EXPORTER_CACHE_CONFIG_NAME
+	}
+	cacheConfigNamespace = agentConfig.PodNameSpace
+
 	agentStateConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CACHE_CONFIG_NAME,
-			Namespace: namespace,
+			Name:      cacheConfigName,
+			Namespace: cacheConfigNamespace,
 		},
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(agentStateConfigMap), agentStateConfigMap)
@@ -74,7 +83,7 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) er
 				klog.Info("cancel context")
 				return
 			case <-ticker.C:
-				err := periodicSync(ctx, c, namespace)
+				err := periodicSync(ctx, c)
 				if err != nil {
 					klog.Errorf("failed to sync the configmap %v", err)
 				}
@@ -85,7 +94,7 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) er
 	return nil
 }
 
-func periodicSync(ctx context.Context, c client.Client, namespace string) error {
+func periodicSync(ctx context.Context, c client.Client) error {
 	// update the lastSentCache
 	update := false
 	for key, currentTime := range eventTimeCache {
@@ -103,7 +112,7 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 
 	// sync the lastSentCache to ConfigMap
 	if update {
-		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: CACHE_CONFIG_NAME, Namespace: namespace}}
+		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cacheConfigName, Namespace: cacheConfigNamespace}}
 		err := c.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 		if err != nil {
 			return err

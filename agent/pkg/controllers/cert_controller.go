@@ -44,7 +44,7 @@ func AddCertController(mgr ctrl.Manager, kubeClient kubernetes.Interface) error 
 				return false
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				if e.ObjectNew.GetName() != constants.KafkaCertSecretName {
+				if e.ObjectNew.GetName() != constants.KafkaCertSecretName || e.ObjectNew.GetName() != constants.KafkaExporterSecretName {
 					return false
 				}
 				newSecret := e.ObjectNew.(*corev1.Secret)
