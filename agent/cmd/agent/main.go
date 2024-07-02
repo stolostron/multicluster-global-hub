@@ -170,6 +170,7 @@ func parseFlags() *config.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+	pflag.BoolVar(&agentConfig.Standalone, "standalone", false, "Whether start running the agent on the standalone mode")
 	pflag.Parse()
 
 	// set zap logger
@@ -242,18 +243,23 @@ func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *co
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubeclient: %w", err)
 	}
-	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
-	// we use the value to decide whether install the ACM or not
-	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
-	}
-
 	if err := controllers.AddCRDController(mgr, restConfig, agentConfig); err != nil {
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
 	if err := controllers.AddCertController(mgr, kubeClient); err != nil {
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
+	}
+
+	// if it is not standalone, then add claim information
+	if agentConfig.Standalone {
+		return mgr, nil
+	}
+
+	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
+	// we use the value to decide whether install the ACM or not
+	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
 	}
 
 	return mgr, nil
