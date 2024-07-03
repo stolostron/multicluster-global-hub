@@ -355,7 +355,6 @@ apiVersion: config.openshift.io/v1
 kind: ClusterVersion
 metadata:
   name: version
-  uid: 6a339f88-1a5b-4266-9fd0-8934c1d7f033
 spec:
   channel: stable-4.14
   clusterID: 7520d4b2-0d8f-47d4-87d2-5de5a27e6fec

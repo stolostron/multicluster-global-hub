@@ -47,7 +47,8 @@ func TestSetImageOverrides(t *testing.T) {
 			initImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
+				OauthProxyImage415DownKey:         "quay.io/stolostron/origin-oauth-proxy:latest",
+				OauthProxyImage416UpKey:           "quay.io/stolostron/origin-oauth-proxy:latest",
 			},
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
@@ -65,16 +66,18 @@ func TestSetImageOverrides(t *testing.T) {
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
-				"oauth_proxy":                     "quay.io/stolostron/origin-oauth-proxy:4.16",
+				OauthProxyImage415DownKey:         "quay.io/stolostron/origin-oauth-proxy:4.9",
+				OauthProxyImage416UpKey:           "quay.io/stolostron/origin-oauth-proxy:4.16",
 			},
 			wantErr: nil,
 		},
 		{
-			desc: "override image repo",
+			desc: "override image reposity with annotation",
 			initImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
+				OauthProxyImage415DownKey:         "quay.io/stolostron/origin-oauth-proxy:4.9",
+				OauthProxyImage416UpKey:           "quay.io/stolostron/origin-oauth-proxy:4.16",
 			},
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
@@ -95,7 +98,8 @@ func TestSetImageOverrides(t *testing.T) {
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/testing/multicluster-global-hub-agent:v0.6.0",
 				"multicluster_global_hub_manager": "quay.io/testing/multicluster-global-hub-manager:v0.6.0",
-				"oauth_proxy":                     "quay.io/testing/origin-oauth-proxy:4.9",
+				OauthProxyImage415DownKey:         "quay.io/testing/origin-oauth-proxy:4.9",
+				OauthProxyImage416UpKey:           "quay.io/testing/origin-oauth-proxy:4.16",
 			},
 			wantErr: nil,
 		},

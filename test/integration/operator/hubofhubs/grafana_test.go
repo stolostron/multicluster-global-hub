@@ -68,6 +68,15 @@ var _ = Describe("grafana", Ordered, func() {
 			if err != nil {
 				return err
 			}
+			updatedOauthProxyImage := false
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if container.Name == "grafana-proxy" && container.Image == config.GetImage(config.OauthProxyImage416UpKey) {
+					updatedOauthProxyImage = true
+				}
+			}
+			if !updatedOauthProxyImage {
+				return fmt.Errorf("should update the oauth proxy image to %s", config.GetImage(config.OauthProxyImage416UpKey))
+			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})

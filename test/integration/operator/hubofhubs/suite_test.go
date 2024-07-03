@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -92,6 +93,28 @@ var _ = BeforeSuite(func() {
 	runtimeClient, err = client.New(cfg, client.Options{Scheme: runtimeScheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(runtimeClient).NotTo(BeNil())
+
+	// create the cluster version for oauth proxy image
+	clusterVersion := &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			Channel: "stable-4.16",
+		},
+	}
+	err = runtimeClient.Create(ctx, clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
+	clusterVersion.Status = configv1.ClusterVersionStatus{
+		History: []configv1.UpdateHistory{{
+			StartedTime: metav1.NewTime(time.Now()),
+			Version:     "4.16.20",
+		}},
+	}
+	err = runtimeClient.Status().Update(ctx, clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
 
 	leaseDuration := 137 * time.Second
 	renewDeadline := 126 * time.Second
