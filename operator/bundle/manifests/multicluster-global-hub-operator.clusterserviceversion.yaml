@@ -934,6 +934,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  - image: quay.io/stolostron/origin-oauth-proxy:4.16
-    name: oauth-proxy-416-and-up
   version: 1.2.0-dev
