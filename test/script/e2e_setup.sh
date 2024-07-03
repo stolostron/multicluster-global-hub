@@ -22,6 +22,8 @@ kind_cluster "$GH_NAME" 2>&1
 # service-ca
 echo -e "$BLUE setting global hub service-ca and middlewares $NC"
 enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
+# create the clusterVersion for the oauth proxy image
+create_cluster_version "$GH_NAME" 2>&1
 bash "$CURRENT_DIR/e2e_postgres.sh" "$GH_KUBECONFIG" 2>&1 & # async middlewares
 echo "$!" >"$CONFIG_DIR/PID"
 bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" 2>&1 &

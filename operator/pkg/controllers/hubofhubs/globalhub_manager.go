@@ -108,11 +108,16 @@ func (r *MulticlusterGlobalHubReconciler) reconcileManager(ctx context.Context,
 		return fmt.Errorf("failed to get the electionConfig %w", err)
 	}
 
+	oauthProxyImage, err := config.GetOauthProxyImage(ctx, r.Manager.GetClient())
+	if err != nil {
+		return fmt.Errorf("failed to get the oauth-proxy image: %v", err)
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests/manager", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
 			Replicas:           replicas,
-			ProxyImage:         config.GetImage(config.OauthProxyImageKey),
+			ProxyImage:         oauthProxyImage,
 			ImagePullSecret:    mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:    string(imagePullPolicy),
 			ProxySessionSecret: proxySessionSecret,

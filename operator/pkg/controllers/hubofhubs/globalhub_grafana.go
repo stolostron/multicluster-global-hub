@@ -85,6 +85,12 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
 		replicas = 2
 	}
+
+	oauthProxyImage, err := config.GetOauthProxyImage(ctx, r.Client)
+	if err != nil {
+		return fmt.Errorf("failed to get the oauth-proxy image: %v", err)
+	}
+
 	// get the grafana objects
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.Client)
 	grafanaObjects, err := grafanaRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
@@ -107,7 +113,7 @@ func (r *MulticlusterGlobalHubReconciler) reconcileGrafana(ctx context.Context,
 			Namespace:             utils.GetDefaultNamespace(),
 			Replicas:              replicas,
 			SessionSecret:         proxySessionSecret,
-			ProxyImage:            config.GetImage(config.OauthProxyImageKey),
+			ProxyImage:            oauthProxyImage,
 			GrafanaImage:          config.GetImage(config.GrafanaImageKey),
 			ImagePullSecret:       mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:       string(imagePullPolicy),

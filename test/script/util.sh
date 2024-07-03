@@ -361,6 +361,22 @@ enable_olm() {
   echo "CSV \"packageserver\" install succeeded"
 }
 
+create_cluster_version() {
+  local name=$1 
+  # install clusterversion for oauth proxy image
+  kubectl --context "$name" apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_06_config.openshift.io_clusterversions.crd.yaml
+  cat <<EOF | kubectl --context "$name" apply -f - 
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  name: version
+spec:
+  channel: stable-4.14
+  clusterID: 7520d4b2-0d8f-47d4-87d2-5de5a27e6fec
+EOF
+kubectl patch clusterversion version --type='json' -p='[{"op": "add", "path": "/status/history", "value": [{"completionTime": "2024-05-16T08:01:07Z", "image": "quay.io/openshift-release-dev/ocp-release@sha256:e64464879cd1acdfa7112c1ac1d90039e1689189e0af197f34881c79decda933", "startedTime": "2024-05-16T07:36:34Z", "state": "Completed", "verified": false, "version": "4.16.20"}]}]'
+}
+
 wait_secret_ready() {
   secretName=$1
   secretNamespace=$2

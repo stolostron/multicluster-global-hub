@@ -24,11 +24,13 @@ import (
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -127,12 +129,35 @@ var _ = BeforeSuite(func() {
 	Expect(subv1alpha1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(postgresv1beta1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 	Expect(kafkav1beta2.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
+	Expect(configv1.AddToScheme(scheme.Scheme)).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	// create the cluster version for oauth proxy image
+	clusterVersion := &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			Channel: "stable-4.16",
+		},
+	}
+	err = k8sClient.Create(ctx, clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
+	err = k8sClient.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
+	clusterVersion.Status = configv1.ClusterVersionStatus{
+		History: []configv1.UpdateHistory{{
+			StartedTime: metav1.NewTime(time.Now()),
+			Version:     "4.16.20",
+		}},
+	}
+	err = k8sClient.Status().Update(ctx, clusterVersion)
+	Expect(err).NotTo(HaveOccurred())
 
 	leaseDuration := 137 * time.Second
 	renewDeadline := 126 * time.Second

@@ -2,6 +2,7 @@ package config
 
 import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	operatorsv1 "github.com/operator-framework/operator-lifecycle-manager/pkg/package-server/apis/operators/v1"
@@ -51,6 +52,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(agentv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(promv1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
 
 	// add Kafka scheme
 	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))
