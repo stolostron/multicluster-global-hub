@@ -334,6 +334,9 @@ install_crds() {
 
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
+  # install crds for oauth proxy image
+  kubectl --context "$name" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_config.openshift.io_clusterversions.crd.yaml
 }
 
 enable_service_ca() {
@@ -344,22 +347,6 @@ enable_service_ca() {
   kubectl --context "$name" apply -f "$resource_dir"/service-ca-crds
   kubectl --context "$name" create ns openshift-config-managed
   kubectl --context "$name" apply -f "$resource_dir"/service-ca/
-}
-
-create_cluster_version() {
-  local name=$1 
-  # install clusterversion for oauth proxy image
-  kubectl --context "$name" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_config.openshift.io_clusterversions.crd.yaml
-  cat <<EOF | kubectl --context "$name" apply -f - 
-apiVersion: config.openshift.io/v1
-kind: ClusterVersion
-metadata:
-  name: version
-spec:
-  channel: stable-4.14
-  clusterID: 7520d4b2-0d8f-47d4-87d2-5de5a27e6fec
-EOF
-kubectl patch clusterversion version --type='json' -p='[{"op": "add", "path": "/status/history", "value": [{"completionTime": "2024-05-16T08:01:07Z", "image": "quay.io/openshift-release-dev/ocp-release@sha256:e64464879cd1acdfa7112c1ac1d90039e1689189e0af197f34881c79decda933", "startedTime": "2024-05-16T07:36:34Z", "state": "Completed", "verified": false, "version": "4.16.20"}]}]'
 }
 
 # deploy olm

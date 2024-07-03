@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
 	appsv1 "k8s.io/api/apps/v1"
@@ -218,6 +219,10 @@ func deployGlobalHub() {
 	}
 	Expect(err).NotTo(HaveOccurred())
 
+	By("Creating the clusterVersion for Oauth proxy")
+	err = createClusterVersion(globalHubClient)
+	Expect(err).NotTo(HaveOccurred())
+
 	By("Creating namespace for the multicluster global hub")
 	_, err = testClients.KubeClient().CoreV1().Namespaces().Get(ctx,
 		commonutils.GetDefaultNamespace(), metav1.GetOptions{})
@@ -329,4 +334,37 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
 	return runtimeClient.Update(ctx, deployment)
+}
+
+func createClusterVersion(runtimeClient client.Client) error {
+	// create the cluster version for oauth proxy image
+	clusterVersion := &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			Channel: "stable-4.16",
+		},
+	}
+	err := runtimeClient.Create(ctx, clusterVersion)
+	if err != nil {
+		return err
+	}
+
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+	if err != nil {
+		return err
+	}
+
+	clusterVersion.Status = configv1.ClusterVersionStatus{
+		History: []configv1.UpdateHistory{{
+			StartedTime: metav1.NewTime(time.Now()),
+			Version:     "4.16.20",
+		}},
+	}
+	err = runtimeClient.Status().Update(ctx, clusterVersion)
+	if err != nil {
+		return err
+	}
+	return nil
 }
