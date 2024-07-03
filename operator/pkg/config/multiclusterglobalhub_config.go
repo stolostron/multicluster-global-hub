@@ -67,7 +67,7 @@ var (
 	imageOverrides     = map[string]string{
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
+		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.16",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.2",
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",

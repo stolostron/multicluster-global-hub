@@ -15,7 +15,7 @@ export KAFKA_IMG="quay.io/strimzi/kafka:0.38.0-kafka-3.6.0"
 export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0"
 export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
 export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
-export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
+export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.16"
 export GRAFANA_IMG="quay.io/stolostron/grafana:globalhub-1.2"
 
 # Environment Variables 
