@@ -118,11 +118,11 @@ var _ = BeforeSuite(func() {
 	db = database.GetGorm()
 
 	By("Deploy the global hub")
+	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	Expect(err).To(Succeed())
 	deployGlobalHub()
 
 	By("Validate the opitions")
-	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
-	Expect(err).To(Succeed())
 	var clusterNames []string
 	for _, hub := range testOptions.GlobalHub.ManagedHubs {
 		managedHubNames = append(managedHubNames, hub.Name)
