@@ -26,6 +26,9 @@ echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds
 # service-ca
 enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 
+# create the clusterVersion for the oauth proxy image
+create_cluster_version "$GH_NAME" 2>&1
+
 # async middlewares
 bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 & # install postgres into hub1
 echo "$!" >"$CONFIG_DIR/PID"

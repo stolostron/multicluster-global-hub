@@ -17,14 +17,19 @@ limitations under the License.
 package config
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	configv1 "github.com/openshift/api/config/v1"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestSetImageOverrides(t *testing.T) {
@@ -47,7 +52,8 @@ func TestSetImageOverrides(t *testing.T) {
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.16",
+				"RELATED_IMAGE_OAUTH_PROXY_415_AND_DOWN":        "quay.io/stolostron/origin-oauth-proxy:4.9",
+				"RELATED_IMAGE_OAUTH_PROXY_416_AND_UP":          "quay.io/stolostron/origin-oauth-proxy:4.16",
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
@@ -73,7 +79,8 @@ func TestSetImageOverrides(t *testing.T) {
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.16",
+				"RELATED_IMAGE_OAUTH_PROXY_415_AND_DOWN":        "quay.io/stolostron/origin-oauth-proxy:4.9",
+				"RELATED_IMAGE_OAUTH_PROXY_416_AND_UP":          "quay.io/stolostron/origin-oauth-proxy:4.16",
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
@@ -122,5 +129,70 @@ func TestGetOauthSessionSecret(t *testing.T) {
 	}
 	if secret1 != secret2 {
 		t.Errorf("oauth session secret is not consistent")
+	}
+}
+
+func TestOauthProxyImage(t *testing.T) {
+	cases := []struct {
+		desc           string
+		clusterVersion runtime.Object
+		expectErr      string
+		expectImage    string
+	}{
+		{
+			desc:           "Retrieve image without clusterVersion",
+			clusterVersion: &configv1.ClusterVersion{},
+			expectErr:      "not found",
+			expectImage:    imageOverrides[OauthProxyImage415DownKey],
+		},
+		{
+			desc: "Retrieve image without clusterVersion status",
+			clusterVersion: &configv1.ClusterVersion{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "version",
+				},
+			},
+			expectErr:   "failed to get the status history form clusterversions(version)",
+			expectImage: imageOverrides[OauthProxyImage415DownKey],
+		},
+		{
+			desc: "Retrieve image with clusterVersion 4.14.20",
+			clusterVersion: &configv1.ClusterVersion{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "version",
+				},
+				Status: configv1.ClusterVersionStatus{
+					History: []configv1.UpdateHistory{{
+						Version: "4.14.20",
+					}},
+				},
+			},
+			expectErr:   "",
+			expectImage: imageOverrides[OauthProxyImage415DownKey],
+		},
+		{
+			desc: "Retrieve image with clusterVersion 4.16.20",
+			clusterVersion: &configv1.ClusterVersion{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "version",
+				},
+				Status: configv1.ClusterVersionStatus{
+					History: []configv1.UpdateHistory{{
+						Version: "4.16.20",
+					}},
+				},
+			},
+			expectErr:   "",
+			expectImage: imageOverrides[OauthProxyImage416UpKey],
+		},
+	}
+
+	for _, tc := range cases {
+		fakeClient := fake.NewClientBuilder().WithScheme(GetRuntimeScheme()).WithRuntimeObjects(tc.clusterVersion).Build()
+		image, err := GetOauthProxyImage(context.Background(), fakeClient)
+		if err != nil {
+			assert.ErrorContains(t, err, tc.expectErr)
+		}
+		assert.Equal(t, tc.expectImage, image)
 	}
 }

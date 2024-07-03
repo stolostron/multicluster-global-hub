@@ -15,7 +15,8 @@ export KAFKA_IMG="quay.io/strimzi/kafka:0.38.0-kafka-3.6.0"
 export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0"
 export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
 export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
-export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.16"
+export RELATED_IMAGE_OAUTH_PROXY_415_AND_DOWN="quay.io/stolostron/origin-oauth-proxy:4.9"
+export RELATED_IMAGE_OAUTH_PROXY_416_AND_UP="quay.io/stolostron/origin-oauth-proxy:4.16"
 export GRAFANA_IMG="quay.io/stolostron/grafana:globalhub-1.2"
 
 # Environment Variables 
@@ -343,6 +344,23 @@ enable_service_ca() {
   kubectl --context "$name" apply -f "$resource_dir"/service-ca-crds
   kubectl --context "$name" create ns openshift-config-managed
   kubectl --context "$name" apply -f "$resource_dir"/service-ca/
+}
+
+create_cluster_version() {
+  local name=$1 
+  # install clusterversion for oauth proxy image
+  kubectl --context "$name" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_config.openshift.io_clusterversions.crd.yaml
+  cat <<EOF | kubectl --context "$name" apply -f - 
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  name: version
+  uid: 6a339f88-1a5b-4266-9fd0-8934c1d7f033
+spec:
+  channel: stable-4.14
+  clusterID: 7520d4b2-0d8f-47d4-87d2-5de5a27e6fec
+EOF
+kubectl patch clusterversion version --type='json' -p='[{"op": "add", "path": "/status/history", "value": [{"completionTime": "2024-05-16T08:01:07Z", "image": "quay.io/openshift-release-dev/ocp-release@sha256:e64464879cd1acdfa7112c1ac1d90039e1689189e0af197f34881c79decda933", "startedTime": "2024-05-16T07:36:34Z", "state": "Completed", "verified": false, "version": "4.16.20"}]}]'
 }
 
 # deploy olm

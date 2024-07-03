@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -134,6 +135,7 @@ func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager
 // +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers,verbs=get;create;list;watch;update;delete
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -308,7 +310,7 @@ var deletePred = predicate.Funcs{
 	},
 }
 
-var configmappred = predicate.Funcs{
+var configMapPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return WatchedConfigMap.Has(e.Object.GetName())
 	},
@@ -328,12 +330,28 @@ var configmappred = predicate.Funcs{
 	},
 }
 
-var mhPred = predicate.Funcs{
+var managedClusterPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return true
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
+var clusterVersionPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+		if e.ObjectNew.GetGeneration() == 0 {
+			return true
+		}
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -405,7 +423,7 @@ func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
 		// secondary watch for configmap
 		Watches(&corev1.ConfigMap{},
-			globalHubEventHandler, builder.WithPredicates(configmappred)).
+			globalHubEventHandler, builder.WithPredicates(configMapPred)).
 		// secondary watch for namespace
 		Watches(&corev1.Namespace{},
 			globalHubEventHandler, builder.WithPredicates(namespacePred)).
@@ -424,13 +442,16 @@ func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(resPred)).
 		Watches(&clusterv1.ManagedCluster{},
 			globalHubEventHandler,
-			builder.WithPredicates(mhPred)).
+			builder.WithPredicates(managedClusterPred)).
 		Watches(&promv1.ServiceMonitor{},
 			globalHubEventHandler,
 			builder.WithPredicates(resPred)).
 		Watches(&subv1alpha1.Subscription{},
 			globalHubEventHandler,
 			builder.WithPredicates(deletePred)).
+		Watches(&configv1.ClusterVersion{},
+			globalHubEventHandler,
+			builder.WithPredicates(clusterVersionPred)).
 		Complete(r)
 }
 

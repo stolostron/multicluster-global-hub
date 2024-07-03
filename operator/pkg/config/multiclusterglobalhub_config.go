@@ -20,11 +20,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
+	configv1 "github.com/openshift/api/config/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,7 +52,8 @@ type ManifestImage struct {
 const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
 	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
-	OauthProxyImageKey           = "oauth_proxy"
+	OauthProxyImage415DownKey    = "oauth_proxy_415_and_down"
+	OauthProxyImage416UpKey      = "oauth_proxy_416_and_up"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
 	PostgresExporterImageKey     = "postgres_exporter"
@@ -65,12 +69,13 @@ var (
 	mghNamespacedName  = types.NamespacedName{}
 	oauthSessionSecret = ""
 	imageOverrides     = map[string]string{
-		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.16",
-		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.2",
-		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
-		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
+		GlobalHubAgentImageKey:    "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		GlobalHubManagerImageKey:  "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		OauthProxyImage415DownKey: "quay.io/stolostron/origin-oauth-proxy:4.9",
+		OauthProxyImage416UpKey:   "quay.io/stolostron/origin-oauth-proxy:4.16",
+		GrafanaImageKey:           "quay.io/stolostron/grafana:globalhub-1.2",
+		PostgresImageKey:          "quay.io/stolostron/postgresql-13:1-101",
+		PostgresExporterImageKey:  "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
@@ -176,6 +181,32 @@ func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 // GetImage is used to retrieve image for given component
 func GetImage(componentName string) string {
 	return imageOverrides[componentName]
+}
+
+// GetOauthProxyImage get the oauth proxy image by the cluster version, by default using 4.9
+func GetOauthProxyImage(ctx context.Context, runtimeClient client.Client) (string, error) {
+	defaultImage := imageOverrides[OauthProxyImage415DownKey]
+	clusterVersion := &configv1.ClusterVersion{}
+	err := runtimeClient.Get(ctx, types.NamespacedName{Name: "version"}, clusterVersion)
+	if err != nil {
+		return defaultImage, err
+	}
+	if len(clusterVersion.Status.History) == 0 {
+		return defaultImage, errors.New("failed to get the status history form clusterversions(version)")
+	}
+	semverVersion, err := semver.NewVersion(clusterVersion.Status.History[0].Version)
+	if err != nil {
+		return defaultImage, fmt.Errorf("failed to convert ocp version to semver compatible value: %w", err)
+	}
+
+	constraint, err := semver.NewConstraint(">= 4.16.0-0")
+	if err != nil {
+		return defaultImage, fmt.Errorf("failed to set ocp version constraint: %w", err)
+	}
+	if constraint.Check(semverVersion) {
+		return imageOverrides[OauthProxyImage416UpKey], nil
+	}
+	return defaultImage, nil
 }
 
 func SetStatisticLogInterval(mgh *v1alpha4.MulticlusterGlobalHub) error {
