@@ -27,6 +27,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	configv1 "github.com/openshift/api/config/v1"
 	agentscheme "github.com/stolostron/multicluster-global-hub/agent/pkg/scheme"
 	managerscheme "github.com/stolostron/multicluster-global-hub/manager/pkg/scheme"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -118,11 +119,11 @@ var _ = BeforeSuite(func() {
 	db = database.GetGorm()
 
 	By("Deploy the global hub")
+	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
+	Expect(err).To(Succeed())
 	deployGlobalHub()
 
 	By("Validate the opitions")
-	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
-	Expect(err).To(Succeed())
 	var clusterNames []string
 	for _, hub := range testOptions.GlobalHub.ManagedHubs {
 		managedHubNames = append(managedHubNames, hub.Name)
@@ -217,6 +218,10 @@ func deployGlobalHub() {
 			},
 		}, metav1.CreateOptions{})
 	}
+	Expect(err).NotTo(HaveOccurred())
+
+	By("Creating the clusterVersion for Oauth proxy")
+	err = createClusterVersion(globalHubClient)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Creating namespace for the multicluster global hub")
@@ -329,4 +334,37 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
 	return runtimeClient.Update(ctx, deployment)
+}
+
+func createClusterVersion(runtimeClient client.Client) error {
+	// create the cluster version for oauth proxy image
+	clusterVersion := &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			Channel: "stable-4.16",
+		},
+	}
+	err := runtimeClient.Create(ctx, clusterVersion)
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return err
+	}
+
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+	if err != nil {
+		return err
+	}
+
+	clusterVersion.Status = configv1.ClusterVersionStatus{
+		History: []configv1.UpdateHistory{{
+			StartedTime: metav1.NewTime(time.Now()),
+			Version:     "4.16.20",
+		}},
+	}
+	err = runtimeClient.Status().Update(ctx, clusterVersion)
+	if err != nil {
+		return err
+	}
+	return nil
 }

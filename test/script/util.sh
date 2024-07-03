@@ -318,6 +318,9 @@ install_crds() {
 
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
+  # install clusterversion for oauth proxy image
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../../pkg/testdata/crds/0000_06_config.openshift.io_clusterversions.crd.yaml
 }
 
 enable_service_ca() {

@@ -337,13 +337,16 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			transportConn, err := trans.GetConnCredential(transportprotocol.DefaultGlobalHubKafkaUser)
 			Expect(err).Should(Succeed())
 
+			oauthProxyImage, err := config.GetOauthProxyImage(ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
 			managerObjects, err = hohRenderer.Render("manifests/manager", "", func(
 				profile string,
 			) (interface{}, error) {
 				return hubofhubs.ManagerVariables{
 					Image:                  config.GetImage(config.GlobalHubManagerImageKey),
 					Replicas:               2,
-					ProxyImage:             config.GetImage(config.OauthProxyImageKey),
+					ProxyImage:             oauthProxyImage,
 					ImagePullPolicy:        string(imagePullPolicy),
 					ImagePullSecret:        mgh.Spec.ImagePullSecret,
 					ProxySessionSecret:     "testing",
@@ -410,6 +413,9 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 			// generate datasource secret: must before the grafana objects
 			mghReconciler.GenerateGrafanaDataSourceSecret(ctx, mgh)
 
+			oauthProxyImage, err := config.GetOauthProxyImage(ctx, k8sClient)
+			Expect(err).NotTo(HaveOccurred())
+
 			grafanaObjects, err := hohRenderer.Render("manifests/grafana", "", func(profile string) (interface{}, error) {
 				return struct {
 					Namespace             string
@@ -431,7 +437,7 @@ var _ = Describe("MulticlusterGlobalHub controller", Ordered, func() {
 					Namespace:            commonutils.GetDefaultNamespace(),
 					Replicas:             2,
 					SessionSecret:        "testing",
-					ProxyImage:           config.GetImage(config.OauthProxyImageKey),
+					ProxyImage:           oauthProxyImage,
 					GrafanaImage:         config.GetImage(config.GrafanaImageKey),
 					ImagePullPolicy:      string(imagePullPolicy),
 					ImagePullSecret:      mgh.Spec.ImagePullSecret,

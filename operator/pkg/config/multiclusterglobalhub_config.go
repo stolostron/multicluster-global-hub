@@ -20,13 +20,15 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,7 +56,8 @@ type ManifestImage struct {
 const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
 	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
-	OauthProxyImageKey           = "oauth_proxy"
+	OauthProxyImage415DownKey    = "oauth_proxy_415_and_down"
+	OauthProxyImage416UpKey      = "oauth_proxy_416_and_up"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
 	PostgresExporterImageKey     = "postgres_exporter"
@@ -70,12 +73,13 @@ var (
 	mghNamespacedName  = types.NamespacedName{}
 	oauthSessionSecret = ""
 	imageOverrides     = map[string]string{
-		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
-		GrafanaImageKey:          "quay.io/stolostron/grafana:globalhub-1.2",
-		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
-		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
+		GlobalHubAgentImageKey:    "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		GlobalHubManagerImageKey:  "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		OauthProxyImage415DownKey: "quay.io/stolostron/origin-oauth-proxy:4.9",
+		OauthProxyImage416UpKey:   "quay.io/stolostron/origin-oauth-proxy:4.16",
+		GrafanaImageKey:           "quay.io/stolostron/grafana:globalhub-1.2",
+		PostgresImageKey:          "quay.io/stolostron/postgresql-13:1-101",
+		PostgresExporterImageKey:  "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
@@ -132,6 +136,32 @@ func SetMGHNamespacedName(namespacedName types.NamespacedName) {
 
 func GetMGHNamespacedName() types.NamespacedName {
 	return mghNamespacedName
+}
+
+// GetOauthProxyImage get the oauth proxy image by the cluster version, by default using 4.9
+func GetOauthProxyImage(ctx context.Context, runtimeClient client.Client) (string, error) {
+	defaultImage := imageOverrides[OauthProxyImage415DownKey]
+	clusterVersion := &configv1.ClusterVersion{}
+	err := runtimeClient.Get(ctx, types.NamespacedName{Name: "version"}, clusterVersion)
+	if err != nil {
+		return defaultImage, err
+	}
+	if len(clusterVersion.Status.History) == 0 {
+		return defaultImage, errors.New("failed to get the status history form clusterversions(version)")
+	}
+	semverVersion, err := semver.NewVersion(clusterVersion.Status.History[0].Version)
+	if err != nil {
+		return defaultImage, fmt.Errorf("failed to convert ocp version to semver compatible value: %w", err)
+	}
+
+	constraint, err := semver.NewConstraint(">= 4.16.0-0")
+	if err != nil {
+		return defaultImage, fmt.Errorf("failed to set ocp version constraint: %w", err)
+	}
+	if constraint.Check(semverVersion) {
+		return imageOverrides[OauthProxyImage416UpKey], nil
+	}
+	return defaultImage, nil
 }
 
 func GetOauthSessionSecret() (string, error) {
@@ -299,7 +329,7 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 		Namespace: utils.GetDefaultNamespace(),
 	}, guestPostgresSecret)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("postgres guest user secret %s is nil", postgres.PostgresGuestUserSecretName)
 		}
 		return nil, err
@@ -311,7 +341,7 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 		Namespace: utils.GetDefaultNamespace(),
 	}, superuserPostgresSecret)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("postgres super user secret %s is nil", postgres.PostgresSuperUserSecretName)
 		}
 		return nil, err
@@ -323,7 +353,7 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 		Namespace: utils.GetDefaultNamespace(),
 	}, postgresCertName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("postgres cert secret %s is nil", postgres.PostgresCertName)
 		}
 		return nil, err
