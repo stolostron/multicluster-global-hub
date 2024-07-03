@@ -30,7 +30,9 @@ kind load docker-image "$KAFKA_IMG" --name "$cluster_name"
 
 
 # deploy kafka operator
-retry "(kubectl apply -k $TEST_DIR/manifest/kafka/kafka-operator -n $target_namespace) && (kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
+kubectl -n $target_namespace create -f "https://strimzi.io/install/latest?namespace=$target_namespace"
+retry "(kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
+
 echo "Kafka operator is ready"
 
 # deploy kafka cluster

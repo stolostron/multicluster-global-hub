@@ -10,8 +10,8 @@ export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.21.7
 export GINKGO_VERSION=v2.17.2
 # Image
-export KAFKA_OPERATOR_IMG="quay.io/strimzi/operator:0.38.0"
-export KAFKA_IMG="quay.io/strimzi/kafka:0.38.0-kafka-3.6.0"
+export KAFKA_OPERATOR_IMG="quay.io/strimzi/operator:latest"
+export KAFKA_IMG="quay.io/strimzi/kafka:latest-kafka-3.7.0"
 export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0"
 export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
 export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
