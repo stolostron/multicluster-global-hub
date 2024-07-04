@@ -39,12 +39,14 @@ import (
 )
 
 const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8384
-	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
+	metricsHost       = "0.0.0.0"
+	metricsPort int32 = 8384
 )
 
-var setupLog = ctrl.Log.WithName("setup")
+var (
+	setupLog             = ctrl.Log.WithName("setup")
+	leaderElectionLockID = config.AGETN_ELECTION_ID
+)
 
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
@@ -198,6 +200,26 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	agentConfig.TransportConfig.KafkaConfig.EnableTLS = true
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
+	}
+	if agentConfig.Standalone {
+		leaderElectionLockID = config.EXPORTER_ELECTION_ID
+		kafkaCred := agentConfig.TransportConfig.KafkaConfig
+		bootstrapServer, ok := os.LookupEnv(config.KAFKA_BOOTSTRAP_SERVERS)
+		if kafkaCred.BootstrapServer == "" && ok {
+			agentConfig.TransportConfig.KafkaConfig.BootstrapServer = bootstrapServer
+		}
+		statusTopic, ok := os.LookupEnv(config.STATUS_TOPIC)
+		if kafkaCred.Topics.StatusTopic == "" && ok {
+			agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic = statusTopic
+		}
+		eventTopic, ok := os.LookupEnv(config.EVENT_TOPIC)
+		if kafkaCred.Topics.EventTopic == "" && ok {
+			agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic = eventTopic
+		}
+		namespace, ok := os.LookupEnv(config.POD_NAMESPACE)
+		if agentConfig.PodNameSpace == "" && ok {
+			agentConfig.PodNameSpace = namespace
+		}
 	}
 	return nil
 }

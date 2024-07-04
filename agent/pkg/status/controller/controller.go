@@ -28,8 +28,11 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	}
 
 	// only use the cloudevents
-	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig,
-		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic)
+	topic := agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic
+	if agentConfig.Standalone {
+		topic = agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
+	}
+	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig, topic)
 	if err != nil {
 		return fmt.Errorf("failed to init status transport producer: %w", err)
 	}
