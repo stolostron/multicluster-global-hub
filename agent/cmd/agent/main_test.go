@@ -233,3 +233,33 @@ func TestHasMCHCRDCR(t *testing.T) {
 	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
 	assert.Nil(t, err)
 }
+
+func TestAgentConfig(t *testing.T) {
+	agentConfig := &config.AgentConfig{
+		LeafHubName:      "hub1",
+		SpecWorkPoolSize: 4,
+		TransportConfig: &transport.TransportConfig{
+			KafkaConfig: &transport.KafkaConfig{
+				ProducerConfig: &transport.KafkaProducerConfig{
+					MessageSizeLimitKB: 561,
+				},
+				EnableTLS: true,
+				Topics:    &transport.ClusterTopic{},
+			},
+		},
+		Standalone: true,
+	}
+	err := os.Setenv(config.KAFKA_BOOTSTRAP_SERVERS, "http:test.com")
+	assert.Nil(t, err)
+	err = os.Setenv(config.STATUS_TOPIC, "status")
+	assert.Nil(t, err)
+	err = os.Setenv(config.EVENT_TOPIC, "event")
+	assert.Nil(t, err)
+
+	err = completeConfig(agentConfig)
+	assert.Nil(t, err)
+
+	assert.Equal(t, "http:test.com", agentConfig.TransportConfig.KafkaConfig.BootstrapServer)
+	assert.Equal(t, "status", agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic)
+	assert.Equal(t, "event", agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic)
+}

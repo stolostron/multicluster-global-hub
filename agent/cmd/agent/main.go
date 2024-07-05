@@ -201,6 +201,10 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
+	namespace, ok := os.LookupEnv(config.POD_NAMESPACE)
+	if agentConfig.PodNameSpace == "" && ok {
+		agentConfig.PodNameSpace = namespace
+	}
 	if agentConfig.Standalone {
 		leaderElectionLockID = config.EXPORTER_ELECTION_ID
 		kafkaCred := agentConfig.TransportConfig.KafkaConfig
@@ -215,10 +219,6 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 		eventTopic, ok := os.LookupEnv(config.EVENT_TOPIC)
 		if kafkaCred.Topics.EventTopic == "" && ok {
 			agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic = eventTopic
-		}
-		namespace, ok := os.LookupEnv(config.POD_NAMESPACE)
-		if agentConfig.PodNameSpace == "" && ok {
-			agentConfig.PodNameSpace = namespace
 		}
 	}
 	return nil
