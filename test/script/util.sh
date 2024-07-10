@@ -16,7 +16,7 @@ export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres
 export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
 export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
 export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
-export GRAFANA_IMG="quay.io/stolostron/grafana:globalhub-1.2"
+export GRAFANA_IMG="quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/release-globalhub-1-3/glo-grafana-globalhub-1-3@sha256:c73fb10b1230c5e678d51fc609a5cfb8fb02ca2f4c12e4639cf7ad483f6a47a0"
 
 # Environment Variables 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
