@@ -1,6 +1,6 @@
 module github.com/stolostron/multicluster-global-hub
 
-go 1.21
+go 1.22
 
 require (
 	github.com/RedHatInsights/strimzi-client-go v0.34.2
