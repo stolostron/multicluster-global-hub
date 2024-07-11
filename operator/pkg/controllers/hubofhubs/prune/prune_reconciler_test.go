@@ -137,12 +137,12 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 						Namespace: utils.GetDefaultNamespace(),
 					},
 					Status: subv1alpha1.SubscriptionStatus{
-						InstalledCSV: "kafka-0.38.0",
+						InstalledCSV: "kafka-0.40.0",
 					},
 				},
 				&subv1alpha1.ClusterServiceVersion{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "kafka-0.38.0",
+						Name:      "kafka-0.40.0",
 						Namespace: utils.GetDefaultNamespace(),
 					},
 				},

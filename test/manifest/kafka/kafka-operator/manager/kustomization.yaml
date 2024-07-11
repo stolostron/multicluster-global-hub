@@ -1,4 +1,0 @@
-resources:
-- 010-ServiceAccount-strimzi-cluster-operator.yaml
-- 060-Deployment-strimzi-cluster-operator.yaml
-- 050-ConfigMap-strimzi-cluster-operator.yaml

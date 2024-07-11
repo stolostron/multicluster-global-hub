@@ -52,7 +52,7 @@ spec:
     replicas: 1
     storage:
       type: ephemeral
-    version: 3.6.0
+    version: 3.7.0
   zookeeper:
     logging:
       loggers:
