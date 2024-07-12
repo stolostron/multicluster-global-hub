@@ -23,7 +23,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-06-17T03:24:48Z"
+    createdAt: "2024-07-11T03:14:11Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -90,7 +90,7 @@ spec:
     The Operator also deploys the strimzi kafka and crunchy postgres if you do not bring your own kafka and postgres.
 
     ## Prerequisites
-    - Red Hat Advanced Cluster Management for Kubernetes (RHACM) 2.8 or later needs to be installed.
+    - Red Hat Advanced Cluster Management for Kubernetes needs to be installed. You can find the support matrix in the official document.
 
     ## How to Install
     Install the Multicluster Global Hub Operator by following the instructions that are displayed after you select the Install button.
