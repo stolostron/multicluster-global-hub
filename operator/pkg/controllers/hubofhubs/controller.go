@@ -80,6 +80,7 @@ type GlobalHubController struct {
 func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) *GlobalHubController {
+	transReconciler := transporter.NewTransportReconciler(mgr)
 	return &GlobalHubController{
 		log:                 ctrl.Log.WithName("global-hub-controller"),
 		Manager:             mgr,
@@ -89,10 +90,11 @@ func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager
 		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
 		storageReconciler:   storage.NewStorageReconciler(mgr, operatorConfig.GlobalResourceEnabled),
-		transportReconciler: transporter.NewTransportReconciler(mgr),
+		transportReconciler: transReconciler,
 		statusReconciler:    status.NewStatusReconciler(mgr.GetClient()),
-		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
-		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
+		managerReconciler: manager.NewManagerReconciler(mgr, kubeClient, operatorConfig,
+			transReconciler.GetManagerTopicAndConn),
+		grafanaReconciler: grafana.NewGrafanaReconciler(mgr, kubeClient),
 	}
 }
 
@@ -485,7 +487,7 @@ var WatchedSecret = sets.NewString(
 	config.PostgresCertName,
 	constants.CustomGrafanaIniName,
 	config.GetImagePullSecretName(),
-	protocol.DefaultGlobalHubKafkaUser,
+	config.GetKafkaUserName(protocol.GlobalHubClusterName), // the cert secret name is the same as the kafka user name
 )
 
 var WatchedConfigMap = sets.NewString(

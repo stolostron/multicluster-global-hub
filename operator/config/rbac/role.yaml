@@ -247,9 +247,27 @@ rules:
 - apiGroups:
   - certificates.k8s.io
   resources:
+  - certificatesigningrequests/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
   - signers
   verbs:
   - approve
+- apiGroups:
+  - certificates.k8s.io
+  resourceNames:
+  - open-cluster-management.io/globalhub-signer
+  resources:
+  - signers
+  verbs:
+  - sign
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:

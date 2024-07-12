@@ -28,7 +28,7 @@ func main() {
 	topic := os.Args[1]
 
 	// kafkaConfigMap, err := config.GetConfluentConfigMap()
-	kafkaConfigMap, err := config.GetConfluentConfigMapByKafkaUser(true)
+	kafkaConfigMap, err := config.GetConfluentConfigMap(true)
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}

@@ -15,13 +15,17 @@ import (
 	"k8s.io/client-go/rest"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	"open-cluster-management.io/addon-framework/pkg/agent"
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 )
 
@@ -33,7 +37,9 @@ import (
 // +kubebuilder:rbac:groups=work.open-cluster-management.io,resources=manifestworks,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create;update;get;list;watch;patch
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests/approval,verbs=create;update;get;list;watch;patch
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests/status,verbs=update;get;list;watch;patch
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=signers,verbs=approve
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=signers,resourceNames=open-cluster-management.io/globalhub-signer,verbs=sign
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=get;create
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;update;get;list;watch;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=create;update;get;list;watch;delete;deletecollection;patch
@@ -102,6 +108,7 @@ func (a *AddonController) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	agentAddon, err := addonfactory.NewAgentAddonFactory(
 		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
@@ -112,6 +119,7 @@ func (a *AddonController) Start(ctx context.Context) error {
 				addonfactory.ToAddOnDeloymentConfigValues,
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
+		WithAgentRegistrationOption(newRegistrationOption(operatorconstants.GHManagedClusterAddonName)).
 		WithScheme(addonScheme).
 		BuildTemplateAgentAddon()
 	if err != nil {
@@ -131,4 +139,15 @@ func (a *AddonController) Start(ctx context.Context) error {
 
 func (a *AddonController) AddonManager() addonmanager.AddonManager {
 	return a.addonManager
+}
+
+func newRegistrationOption(addonName string) *agent.RegistrationOption {
+	return &agent.RegistrationOption{
+		CSRConfigurations: certificates.SignerAndCsrConfigurations(addonName),
+		CSRApproveCheck:   certificates.Approve,
+		PermissionConfig: func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) error {
+			return nil
+		},
+		CSRSign: certificates.Sign,
+	}
 }

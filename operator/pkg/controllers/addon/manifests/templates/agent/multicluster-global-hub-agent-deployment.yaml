@@ -42,9 +42,9 @@ spec:
             - --enforce-hoh-rbac=false
             - --transport-type={{ .TransportType }}
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
-            - --kafka-ca-cert-path=/kafka-certs/ca.crt
-            - --kafka-client-cert-path=/kafka-certs/client.crt
-            - --kafka-client-key-path=/kafka-certs/client.key
+            - --kafka-ca-cert-path=/kafka-cluster-ca/ca.crt
+            - --kafka-client-cert-path=/kafka-client-certs/tls.crt
+            - --kafka-client-key-path=/kafka-client-certs/tls.key
             - --kafka-consumer-topic={{.KafkaConsumerTopic}}
             - --kafka-producer-topic={{.KafkaProducerTopic}}
             - --kafka-event-topic={{.KafkaEventTopic}}
@@ -68,8 +68,11 @@ spec:
                  apiVersion: v1
                  fieldPath: metadata.namespace
           volumeMounts:
-          - mountPath: /kafka-certs
-            name: kafka-certs
+          - mountPath: /kafka-cluster-ca
+            name: kafka-cluster-ca
+            readOnly: true
+          - mountPath: /kafka-client-certs
+            name: kafka-client-certs
             readOnly: true
       {{- if .ImagePullSecretName }}
       imagePullSecrets:
@@ -90,7 +93,10 @@ spec:
           {{- end}}
         {{- end}}
       volumes:
-      - name: kafka-certs
+      - name: kafka-cluster-ca
         secret:
-          secretName: kafka-certs-secret
+          secretName: kafka-cluster-ca-cert
+      - name: kafka-client-certs
+        secret:
+          secretName: {{.KafkaClientCertSecret}}
 {{ end }}

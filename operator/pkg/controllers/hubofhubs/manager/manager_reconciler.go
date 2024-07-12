@@ -18,7 +18,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -39,15 +38,17 @@ type ManagerReconciler struct {
 	ctrl.Manager
 	kubeClient     kubernetes.Interface
 	operatorConfig *config.OperatorConfig
+	transportFunc  func() (*transport.ClusterTopic, *transport.ConnCredential)
 }
 
 func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
-	conf *config.OperatorConfig,
+	conf *config.OperatorConfig, transportFunc func() (*transport.ClusterTopic, *transport.ConnCredential),
 ) *ManagerReconciler {
 	return &ManagerReconciler{
 		Manager:        mgr,
 		kubeClient:     kubeClient,
 		operatorConfig: conf,
+		transportFunc:  transportFunc,
 	}
 }
 
@@ -90,12 +91,10 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
-	trans := config.GetTransporter()
 
-	transportTopic := trans.GenerateClusterTopic(protocol.GlobalHubClusterName)
-	transportConn, err := trans.GetConnCredential(protocol.DefaultGlobalHubKafkaUser)
-	if err != nil {
-		return fmt.Errorf("failed to get global hub transport connection: %w", err)
+	transportTopic, transportConn := r.transportFunc()
+	if transportTopic == nil || transportConn == nil {
+		return fmt.Errorf("failed to emtpy transport topic(%v) or connection(%v)", transportTopic, transportConn)
 	}
 
 	storageConn := config.GetStorageConnection()

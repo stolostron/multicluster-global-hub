@@ -23,6 +23,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -45,6 +46,7 @@ type ManifestsConfig struct {
 	KafkaCACert            string
 	KafkaClientCert        string
 	KafkaClientKey         string
+	KafkaClientCertSecret  string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
 	KafkaEventTopic        string
@@ -187,11 +189,14 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	transporter := config.GetTransporter()
 
 	// will block until the credential is ready
-	kafkaConnection, err := transporter.GetConnCredential(transporter.GenerateUserName(cluster.Name))
+	kafkaConnection, err := transporter.GetConnCredential(cluster.Name)
 	if err != nil {
 		return nil, err
 	}
-	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
+	clusterTopic, err := transporter.EnsureTopic(cluster.Name)
+	if err != nil {
+		return nil, err
+	}
 
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
 	agentRes := &Resources{}
@@ -217,6 +222,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
+		KafkaClientCertSecret:  certificates.AagentCertificateSecretName(cluster.Name),
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
 		KafkaEventTopic:        clusterTopic.EventTopic,

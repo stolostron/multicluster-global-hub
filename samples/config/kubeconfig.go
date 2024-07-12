@@ -20,3 +20,7 @@ func loadDynamicKubeConfig(envVar string) (*rest.Config, error) {
 	// Use the in-cluster configuration
 	return config.GetConfig()
 }
+
+func DefaultKubeConfig() (*rest.Config, error) {
+	return loadDynamicKubeConfig(EnvKubconfig)
+}

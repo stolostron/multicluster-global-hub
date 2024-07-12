@@ -21,20 +21,13 @@ type Consumer interface {
 
 // init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
 type Transporter interface {
-	// define the user for each hub clusters, user lifecycle is managed by the transporter
-	GenerateUserName(clusterIdentity string) string
-	CreateAndUpdateUser(name string) error
-	DeleteUser(name string) error
-
-	// define the topic for each hub clusters(or shared topic), topic lifecycle is managed by the transporter
-	GenerateClusterTopic(clusterIdentity string) *ClusterTopic
-	CreateAndUpdateTopic(topic *ClusterTopic) error
-	DeleteTopic(topic *ClusterTopic) error
-
-	// authorize
-	GrantRead(userName string, topicName string) error
-	GrantWrite(userName string, topicName string) error
+	// CreateUser creates/updates a kafka user for the cluster, the kafka user name is also the CN of cert
+	EnsureUser(clusterName string) (string, error)
+	// CreateTopic creates/updates a kafka topic
+	EnsureTopic(clusterName string) (*ClusterTopic, error)
+	// Cleanup will delete the user or topic for the cluster
+	Prune(clusterName string) error
 
 	// get the connection credential by user
-	GetConnCredential(userName string) (*ConnCredential, error)
+	GetConnCredential(clusterName string) (*ConnCredential, error)
 }

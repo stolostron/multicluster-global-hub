@@ -157,5 +157,10 @@ func CreateTestSecretTransport(c client.Client, namespace string) error {
 		Name:      constants.GHTransportSecretName,
 	}, runtimeClient)
 	config.SetTransporter(trans)
+	conn, err := trans.GetConnCredential(protocol.GlobalHubClusterName)
+	if err != nil {
+		return err
+	}
+	config.SetTransporterConn(conn)
 	return nil
 }
