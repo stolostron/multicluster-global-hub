@@ -82,8 +82,8 @@ type GlobalHubReconciler struct {
 	imageClient         *imagev1client.ImageV1Client
 }
 
-func NewGlobalHubReconciler(mgr ctrl.Manager,
-	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
+func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
+	operatorConfig *config.OperatorConfig, imageClient *imagev1client.ImageV1Client,
 ) *GlobalHubReconciler {
 	return &GlobalHubReconciler{
 		log:                 ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
@@ -100,14 +100,19 @@ func NewGlobalHubReconciler(mgr ctrl.Manager,
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
 		imageClient:         imageClient,
-	}, nil
+	}
 }
 
 func NewGlobalHubController(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) (controller.Controller, error) {
+	imageClient, err := imagev1client.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
 	globalHubController, err := controller.New(operatorconstants.GlobalHubControllerName, mgr, controller.Options{
-		Reconciler: NewGlobalHubReconciler(mgr, kubeClient, operatorConfig),
+		Reconciler: NewGlobalHubReconciler(mgr, kubeClient, operatorConfig, imageClient),
 	})
 	if err != nil {
 		return nil, err
@@ -536,7 +541,7 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.Client, r.imageClient)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.client, r.imageClient)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -608,9 +613,12 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// reconcile grafana
-	if err := r.grafanaReconciler.Reconcile(ctx, mgh); err != nil {
-		return ctrl.Result{}, err
+	if config.IsACMResourceReady() {
+		// Grafana is required for ACM global hub
+		// reconcile grafana
+		if err := r.grafanaReconciler.Reconcile(ctx, mgh); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if config.IsACMResourceReady() {

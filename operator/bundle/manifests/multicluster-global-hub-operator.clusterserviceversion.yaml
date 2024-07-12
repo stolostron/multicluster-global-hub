@@ -808,8 +808,6 @@ spec:
                   value: quay.io/stolostron/postgresql-13:1-101
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
-                - name: RELATED_IMAGE_OAUTH_PROXY
-                  value: quay.io/stolostron/origin-oauth-proxy:4.9
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 livenessProbe:
                   httpGet:

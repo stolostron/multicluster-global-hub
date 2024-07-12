@@ -254,7 +254,8 @@ func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
 
 // SetMulticlusterGlobalHubConfig extract the namespacedName, image, and log configurations from CR
 func SetMulticlusterGlobalHubConfig(ctx context.Context,
-	mgh *v1alpha4.MulticlusterGlobalHub, imageClient *imagev1client.ImageV1Client) error {
+	mgh *v1alpha4.MulticlusterGlobalHub, imageClient *imagev1client.ImageV1Client,
+) error {
 	// set request name to be used in leafhub controller
 	SetMGHNamespacedName(types.NamespacedName{
 		Namespace: mgh.GetNamespace(), Name: mgh.GetName(),
@@ -265,17 +266,19 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context,
 		return err
 	}
 
-	// set oauth-proxy from imagestream.image.openshift.io
-	oauthImageStream, err := imageClient.ImageStreams(operatorconstants.OauthProxyImageStreamNamespace).
-		Get(ctx, operatorconstants.OauthProxyImageStreamName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
+	if imageClient != nil {
+		// set oauth-proxy from imagestream.image.openshift.io
+		oauthImageStream, err := imageClient.ImageStreams(operatorconstants.OauthProxyImageStreamNamespace).
+			Get(ctx, operatorconstants.OauthProxyImageStreamName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
 
-	if oauthImageStream.Spec.Tags != nil {
-		tag := oauthImageStream.Spec.Tags[0]
-		if tag.From != nil && tag.From.Kind == "DockerImage" && len(tag.From.Name) > 0 {
-			SetOauthProxyImage(tag.From.Name)
+		if oauthImageStream.Spec.Tags != nil {
+			tag := oauthImageStream.Spec.Tags[0]
+			if tag.From != nil && tag.From.Kind == "DockerImage" && len(tag.From.Name) > 0 {
+				SetOauthProxyImage(tag.From.Name)
+			}
 		}
 	}
 

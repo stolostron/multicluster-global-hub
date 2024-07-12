@@ -42,12 +42,10 @@ func TestSetImageOverrides(t *testing.T) {
 			initImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
 			},
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
@@ -68,12 +66,10 @@ func TestSetImageOverrides(t *testing.T) {
 			initImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
 			},
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
