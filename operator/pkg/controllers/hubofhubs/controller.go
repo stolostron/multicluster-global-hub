@@ -25,6 +25,7 @@ import (
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
+	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
@@ -47,7 +48,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -79,6 +79,7 @@ type GlobalHubReconciler struct {
 	statusReconciler    *status.StatusReconciler
 	managerReconciler   *manager.ManagerReconciler
 	grafanaReconciler   *grafana.GrafanaReconciler
+	imageClient         *imagev1client.ImageV1Client
 }
 
 func NewGlobalHubReconciler(mgr ctrl.Manager,
@@ -98,7 +99,8 @@ func NewGlobalHubReconciler(mgr ctrl.Manager,
 		statusReconciler:    status.NewStatusReconciler(mgr.GetClient()),
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
-	}
+		imageClient:         imageClient,
+	}, nil
 }
 
 func NewGlobalHubController(mgr ctrl.Manager,
@@ -518,6 +520,7 @@ func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admi
 // +kubebuilder:rbac:groups=postgres-operator.crunchydata.com,resources=postgresclusters,verbs=get;create;list;watch
 // +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers,verbs=get;create;list;watch;update;delete
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -533,7 +536,7 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.client)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.Client, r.imageClient)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.

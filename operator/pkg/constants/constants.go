@@ -175,3 +175,8 @@ const (
 	ZookeeperMemoryRequest = "500Mi"
 	ZookeeperCPURequest    = "20m"
 )
+
+const (
+	OauthProxyImageStreamName      = "oauth-proxy"
+	OauthProxyImageStreamNamespace = "openshift"
+)

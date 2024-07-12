@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -174,6 +176,10 @@ func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	return nil
 }
 
+func SetOauthProxyImage(image string) {
+	imageOverrides[OauthProxyImageKey] = image
+}
+
 // GetImage is used to retrieve image for given component
 func GetImage(componentName string) string {
 	return imageOverrides[componentName]
@@ -224,14 +230,14 @@ func GetImagePullSecretName() string {
 
 // GetMulticlusterGlobalHub will get the CR and also update the configuration based on it
 func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
-	c client.Client,
+	c client.Client, imageClient *imagev1client.ImageV1Client,
 ) (*v1alpha4.MulticlusterGlobalHub, error) {
 	mgh := &v1alpha4.MulticlusterGlobalHub{}
 	err := c.Get(ctx, req.NamespacedName, mgh)
 	if err != nil {
 		return nil, err
 	}
-	err = SetMulticlusterGlobalHubConfig(mgh)
+	err = SetMulticlusterGlobalHubConfig(ctx, mgh, imageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +253,8 @@ func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
 }
 
 // SetMulticlusterGlobalHubConfig extract the namespacedName, image, and log configurations from CR
-func SetMulticlusterGlobalHubConfig(mgh *v1alpha4.MulticlusterGlobalHub) error {
+func SetMulticlusterGlobalHubConfig(ctx context.Context,
+	mgh *v1alpha4.MulticlusterGlobalHub, imageClient *imagev1client.ImageV1Client) error {
 	// set request name to be used in leafhub controller
 	SetMGHNamespacedName(types.NamespacedName{
 		Namespace: mgh.GetNamespace(), Name: mgh.GetName(),
@@ -256,6 +263,20 @@ func SetMulticlusterGlobalHubConfig(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	// set image overrides
 	if err := SetImageOverrides(mgh); err != nil {
 		return err
+	}
+
+	// set oauth-proxy from imagestream.image.openshift.io
+	oauthImageStream, err := imageClient.ImageStreams(operatorconstants.OauthProxyImageStreamNamespace).
+		Get(ctx, operatorconstants.OauthProxyImageStreamName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if oauthImageStream.Spec.Tags != nil {
+		tag := oauthImageStream.Spec.Tags[0]
+		if tag.From != nil && tag.From.Kind == "DockerImage" && len(tag.From.Name) > 0 {
+			SetOauthProxyImage(tag.From.Name)
+		}
 	}
 
 	// set image pull secret

@@ -77,8 +77,9 @@ var _ = Describe("controller", Ordered, func() {
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,
 		})
+		Expect(err).To(Succeed())
 
-		err := os.Setenv("POD_NAMESPACE", namespace)
+		err = os.Setenv("POD_NAMESPACE", namespace)
 		Expect(err).To(Succeed())
 		_, err = reconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: client.ObjectKeyFromObject(mgh),
