@@ -147,7 +147,7 @@ init_managed() {
     fi
     managed_cluster_name+="$managed,"
   done
-  clusteradm accept --clusters "${managed_cluster_name%,*}" --context "${hub}" --wait
+  timeout 5m clusteradm accept --clusters "${managed_cluster_name%,*}" --context "${hub}" --wait
 }
 
 join_cluster() {
@@ -163,7 +163,7 @@ join_cluster() {
     else
       sed -e "s;<cluster_name>;$cluster --context $cluster --wait;" "$join_file" | bash
     fi
-    clusteradm accept --clusters "$2" --context "${hub}" --wait
+    timeout 5m clusteradm accept --clusters "$2" --context "${hub}" --wait
   fi
 }
 
