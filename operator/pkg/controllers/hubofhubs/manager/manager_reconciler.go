@@ -146,6 +146,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			EnablePprof:            r.operatorConfig.EnablePprof,
 			LogLevel:               r.operatorConfig.LogLevel,
 			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
+			WithACM:                config.GetACMResourceReady(),
 		}, nil
 	})
 	if err != nil {
@@ -218,4 +219,5 @@ type ManagerVariables struct {
 	EnablePprof            bool
 	LogLevel               string
 	Resources              *corev1.ResourceRequirements
+	WithACM                bool
 }

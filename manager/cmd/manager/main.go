@@ -161,8 +161,10 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.IntVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", 18,
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
-		"enable the global resource feature.")
-	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+		"enable the global resource feature")
+	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
+		"run on Red Hat Advanced Cluster Management")
+	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.Parse()
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -250,8 +252,10 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
-	if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
-		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
+	if managerConfig.WithACM && managerConfig.EnableGlobalResource {
+		if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
+			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
+		}
 	}
 
 	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig,
@@ -259,7 +263,7 @@ func createManager(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
 	}
-	if managerConfig.EnableGlobalResource {
+	if managerConfig.WithACM && managerConfig.EnableGlobalResource {
 		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
 			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
 		}
@@ -269,19 +273,22 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 	}
 
-	// add hub management
-	if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
-		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
+	if managerConfig.WithACM {
+		// add hub management
+		if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
+			return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
+		}
+
+		// need lock DB for backup
+		backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
+		err = backupPVC.SetupWithManager(mgr)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
-	}
-
-	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
-	err = backupPVC.SetupWithManager(mgr)
-	if err != nil {
-		return nil, err
 	}
 
 	return mgr, nil

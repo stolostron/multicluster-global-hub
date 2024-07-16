@@ -24,6 +24,7 @@ var (
 	transportClusterTopic *transport.ClusterTopic
 	isBYOKafka            = false
 	kafkaResourceReady    = false
+	acmResourceReady      = false
 	clientCAKey           []byte
 	clientCACert          []byte
 )
@@ -58,6 +59,14 @@ func GetKafkaResourceReady() bool {
 
 func SetKafkaResourceReady(ready bool) {
 	kafkaResourceReady = ready
+}
+
+func GetACMResourceReady() bool {
+	return acmResourceReady
+}
+
+func SetACMResourceReady(ready bool) {
+	acmResourceReady = ready
 }
 
 func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {

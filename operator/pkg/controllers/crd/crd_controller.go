@@ -69,9 +69,11 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// the reconcile will update the resources map in multiple goroutines simultaneously
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// set resource as ready
 	r.resources[req.Name] = true
-	if !r.readyToWatchACMResources() {
-		return ctrl.Result{}, nil
+
+	if r.readyToWatchACMResources() {
+		config.SetACMResourceReady(true)
 	}
 
 	// mark the states of kafka crd
@@ -80,7 +82,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon installer
-	if !r.addonInstallerReady {
+	if config.GetACMResourceReady() && !r.addonInstallerReady {
 		if err := (&addon.AddonInstaller{
 			Client: r.GetClient(),
 			Log:    ctrl.Log.WithName("addon-reconciler"),
@@ -91,7 +93,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon controller
-	if r.addonController == nil {
+	if config.GetACMResourceReady() && r.addonController == nil {
 		addonController, err := addon.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -118,7 +120,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// backup controller
-	if !r.backupControllerReady {
+	if config.GetACMResourceReady() && !r.backupControllerReady {
 		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).SetupWithManager(r.Manager)
 		if err != nil {
 			return ctrl.Result{}, err

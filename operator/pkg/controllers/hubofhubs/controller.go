@@ -179,16 +179,18 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	// update the managed hub clusters
-	// only reconcile once: upgrade
-	if !r.upgraded {
-		if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.Client); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to upgrade from release-2.10: %v", err)
+	if config.GetACMResourceReady() {
+		// update the managed hub clusters
+		// only reconcile once: upgrade
+		if !r.upgraded {
+			if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.Client); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to upgrade from release-2.10: %v", err)
+			}
+			r.upgraded = true
 		}
-		r.upgraded = true
-	}
-	if err := utils.AnnotateManagedHubCluster(ctx, r.Client); err != nil {
-		return ctrl.Result{}, err
+		if err := utils.AnnotateManagedHubCluster(ctx, r.Client); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// storage and transporter
@@ -201,23 +203,27 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// reconciler manager and manager
+	// reconcile manager
 	if err := r.managerReconciler.Reconcile(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// reconcile grafana
 	if err := r.grafanaReconciler.Reconcile(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.addonMgr); err != nil {
-		return ctrl.Result{}, err
-	}
+	if config.GetACMResourceReady() {
+		if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.addonMgr); err != nil {
+			return ctrl.Result{}, err
+		}
 
-	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
-		if err = r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
-			if errors.IsConflict(err) {
-				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
-				return ctrl.Result{Requeue: true}, nil
+		if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
+			if err = r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+				if errors.IsConflict(err) {
+					r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
+					return ctrl.Result{Requeue: true}, nil
+				}
 			}
 		}
 	}
