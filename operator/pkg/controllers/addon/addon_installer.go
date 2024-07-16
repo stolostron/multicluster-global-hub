@@ -167,19 +167,21 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 		},
 	}
 	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
-	if err == nil {
-		if e := r.Delete(ctx, existingAddon); e != nil {
-			return fmt.Errorf("failed to delete the managedclusteraddon %v", e)
-		}
+	if err != nil && errors.IsNotFound(err) {
+		return r.removeResources(cluster)
+	} else if err != nil {
+		return fmt.Errorf("failed go get the addon %v", err)
 	}
 	if err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed go get the managedclusteraddon %v", err)
 	}
 
-	// clean kafka resource: user and topic
-	trans := config.GetTransporter()
-	if trans == nil {
-		return fmt.Errorf("failed to get the transporter")
+func (r *AddonInstaller) removeResources(cluster *clusterv1.ManagedCluster) error {
+	transporter := config.GetTransporter()
+	clusterUser := transporter.GenerateUserName(cluster.Name)
+	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
+	if err := transporter.DeleteUser(clusterUser); err != nil {
+		return fmt.Errorf("failed to remove user %v", err)
 	}
 
 	return trans.Prune(cluster.Name)

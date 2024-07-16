@@ -33,6 +33,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -71,6 +72,16 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	_, err = crd.AddCRDController(mgr, operatorConfig, kubeClient)
 	if err != nil {
 		setupLog.Error(err, "unable to create crd controller")
+		return 1
+	}
+
+	// global hub controller
+	if err := hubofhubs.NewGlobalHubController(
+		mgr,
+		kubeClient,
+		operatorConfig,
+	).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to set up global hub controller")
 		return 1
 	}
 

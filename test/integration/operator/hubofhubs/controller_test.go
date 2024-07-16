@@ -72,7 +72,7 @@ var _ = Describe("controller", Ordered, func() {
 	})
 
 	It("should generate the update the mgh condition", func() {
-		controller := hubofhubs.NewGlobalHubController(runtimeManager, nil, kubeClient, &config.OperatorConfig{
+		controller := hubofhubs.NewGlobalHubController(runtimeManager, kubeClient, &config.OperatorConfig{
 			LogLevel:              "info",
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,

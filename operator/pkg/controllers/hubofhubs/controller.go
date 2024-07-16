@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,7 +64,6 @@ type GlobalHubController struct {
 	log logr.Logger
 	ctrl.Manager
 	client.Client
-	addonMgr            addonmanager.AddonManager
 	upgraded            bool
 	operatorConfig      *config.OperatorConfig
 	pruneReconciler     *prune.PruneReconciler
@@ -77,14 +75,13 @@ type GlobalHubController struct {
 	grafanaReconciler   *grafana.GrafanaReconciler
 }
 
-func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
+func NewGlobalHubController(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) *GlobalHubController {
 	return &GlobalHubController{
 		log:                 ctrl.Log.WithName("global-hub-controller"),
 		Manager:             mgr,
 		Client:              mgr.GetClient(),
-		addonMgr:            addonMgr,
 		operatorConfig:      operatorConfig,
 		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
@@ -214,7 +211,7 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if config.GetACMResourceReady() {
-		if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.addonMgr); err != nil {
+		if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.GetConfig()); err != nil {
 			return ctrl.Result{}, err
 		}
 

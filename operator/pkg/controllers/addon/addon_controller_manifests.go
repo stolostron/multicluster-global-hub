@@ -170,7 +170,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	image, err := a.getOverrideImage(mgh, cluster)
+	image, err := a.getOverrideImage(cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -298,9 +298,7 @@ func (a *HohAgentAddon) setImagePullSecret(mgh *globalhubv1alpha4.MulticlusterGl
 	return nil
 }
 
-func (a *HohAgentAddon) getOverrideImage(mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	cluster *clusterv1.ManagedCluster,
-) (string, error) {
+func (a *HohAgentAddon) getOverrideImage(cluster *clusterv1.ManagedCluster) (string, error) {
 	// image registry override by operator environment variable and mgh annotation
 	configOverrideImage := config.GetImage(config.GlobalHubAgentImageKey)
 

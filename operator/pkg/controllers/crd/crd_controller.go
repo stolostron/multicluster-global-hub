@@ -32,7 +32,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 )
 
 var ACMCrds = []string{
@@ -103,20 +102,6 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, err
 		}
 		r.addonController = addonController
-	}
-
-	// global hub controller
-	if !r.globalHubControllerReady {
-		err := hubofhubs.NewGlobalHubController(
-			r.Manager,
-			r.addonController.AddonManager(),
-			r.kubeClient,
-			r.operatorConfig,
-		).SetupWithManager(r.Manager)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		r.globalHubControllerReady = true
 	}
 
 	// backup controller

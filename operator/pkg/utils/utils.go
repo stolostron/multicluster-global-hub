@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
@@ -437,11 +438,14 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 	return nil
 }
 
-func TriggerManagedHubAddons(ctx context.Context, c client.Client,
-	addonMgr addonmanager.AddonManager,
-) error {
+func TriggerManagedHubAddons(ctx context.Context, c client.Client, kubeConfig *rest.Config) error {
 	clusters := &clusterv1.ManagedClusterList{}
 	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	addonMgr, err := addonmanager.New(kubeConfig)
+	if err != nil {
 		return err
 	}
 
