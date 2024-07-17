@@ -146,7 +146,6 @@ var _ = Describe("GlobalPolicyComplianceHandler", Ordered, func() {
 			}
 
 			if success == 2 {
-				fmt.Println("Complete(Same) ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync complete compliance")

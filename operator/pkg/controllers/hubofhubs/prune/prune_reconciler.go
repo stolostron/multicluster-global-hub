@@ -72,7 +72,7 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 	return nil
 }
 
-func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
+func (r *PruneReconciler) acmResources(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	// delete addon.open-cluster-management.io/on-multicluster-hub annotation
@@ -92,15 +92,33 @@ func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 	}
 	r.log.Info("all addons are deleted")
 
-	if !config.IsBYOKafka() {
-		if err := r.pruneStrimziResources(ctx); err != nil {
+	mgh.SetFinalizers(operatorutils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+	if err := operatorutils.UpdateObject(ctx, r.Client, mgh); err != nil {
+		return err
+	}
+
+	// remove finalizer from app, policy and placement.
+	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
+		return err
+	}
+	r.log.Info("removed finalizer from mgh, app, policy, placement and etc")
+	return nil
+}
+
+func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
+
+	if config.IsACMResourceReady() {
+		if err := r.acmResources(ctx, mgh); err != nil {
 			return err
 		}
 	}
 
-	mgh.SetFinalizers(operatorutils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
-	if err := operatorutils.UpdateObject(ctx, r.Client, mgh); err != nil {
-		return err
+	if !config.IsBYOKafka() {
+		if err := r.pruneStrimziResources(ctx); err != nil {
+			return err
+		}
 	}
 
 	// clean up namesapced resources, eg. mgh system namespace, etc
@@ -113,11 +131,6 @@ func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 		return err
 	}
 
-	// remove finalizer from app, policy and placement.
-	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
-		return err
-	}
-	r.log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	return nil
 }
 
@@ -196,16 +209,6 @@ func (r *PruneReconciler) pruneGlobalResources(ctx context.Context) error {
 	}
 	for idx := range clusterRoleBindingList.Items {
 		if err := r.Client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	clusterManagementAddOnList := &addonv1alpha1.ClusterManagementAddOnList{}
-	if err := r.Client.List(ctx, clusterManagementAddOnList, listOpts...); err != nil {
-		return err
-	}
-	for idx := range clusterManagementAddOnList.Items {
-		if err := r.Client.Delete(ctx, &clusterManagementAddOnList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}

@@ -146,7 +146,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			EnablePprof:            r.operatorConfig.EnablePprof,
 			LogLevel:               r.operatorConfig.LogLevel,
 			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
-			WithACM:                config.GetACMResourceReady(),
+			WithACM:                config.IsACMResourceReady(),
 		}, nil
 	})
 	if err != nil {

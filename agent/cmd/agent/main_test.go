@@ -187,7 +187,7 @@ func TestHasMCHCRDWithoutCR(t *testing.T) {
 		err := testenv.Stop()
 		assert.Nil(t, err)
 	}()
-	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
+	_, err = createManager(cfg, initMockAgentConfig())
 	assert.Nil(t, err)
 }
 
@@ -230,6 +230,6 @@ func TestHasMCHCRDCR(t *testing.T) {
 		Create(context.TODO(), obj, metav1.CreateOptions{})
 	assert.Nil(t, err)
 
-	_, err = createManager(context.Background(), cfg, initMockAgentConfig())
+	_, err = createManager(cfg, initMockAgentConfig())
 	assert.Nil(t, err)
 }

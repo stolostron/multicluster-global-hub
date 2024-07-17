@@ -29,7 +29,7 @@ var (
 	kubeClient    kubernetes.Interface
 	runtimeClient client.Client
 	namespace     = "default"
-	controller    *GlobalHubController
+	reconciler    *GlobalHubReconciler
 	ctx           context.Context
 	cancel        context.CancelFunc
 )

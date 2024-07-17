@@ -30,7 +30,7 @@ var log = logf.Log.WithName("admission-handler")
 
 type admissionHandler struct {
 	client  client.Client
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
 func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -82,7 +82,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 // A decoder will be automatically injected.
 
 // InjectDecoder injects the decoder.
-func (a *admissionHandler) InjectDecoder(d *admission.Decoder) error {
+func (a *admissionHandler) InjectDecoder(d admission.Decoder) error {
 	a.decoder = d
 	return nil
 }

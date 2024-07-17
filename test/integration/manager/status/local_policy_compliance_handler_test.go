@@ -91,7 +91,6 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 				fmt.Printf("LocalCompliance: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
 			}
 			if expiredCount == 0 && addedCount == 3 && len(localCompliances) == 3 {
-				fmt.Println("LocalCompliance ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local compliance")
@@ -167,7 +166,6 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 				}
 			}
 			if addedCount == 3 && len(localCompliances) == 3 {
-				fmt.Println("LocalCompliance(Resync) ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local compliance")
@@ -219,7 +217,6 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			}
 
 			if success == 2 {
-				fmt.Println("LocalComplete same ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local complete compliance")
@@ -277,7 +274,6 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			}
 
 			if len(localCompliances) == 3 && success == 3 {
-				fmt.Println("LocalComplete update ========================================================== ")
 				return nil
 			}
 			return fmt.Errorf("failed to sync local complete compliance")

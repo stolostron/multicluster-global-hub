@@ -61,7 +61,7 @@ func SetKafkaResourceReady(ready bool) {
 	kafkaResourceReady = ready
 }
 
-func GetACMResourceReady() bool {
+func IsACMResourceReady() bool {
 	return acmResourceReady
 }
 

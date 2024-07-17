@@ -31,18 +31,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	"open-cluster-management.io/api/addon/v1alpha1"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -59,11 +61,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-// GlobalHubController reconciles a MulticlusterGlobalHub object
-type GlobalHubController struct {
-	log logr.Logger
-	ctrl.Manager
-	client.Client
+// GlobalHubReconciler reconciles a MulticlusterGlobalHub object
+type GlobalHubReconciler struct {
+	config              *rest.Config
+	client              client.Client
+	recorder            record.EventRecorder
+	scheme              *runtime.Scheme
+	log                 logr.Logger
 	upgraded            bool
 	operatorConfig      *config.OperatorConfig
 	pruneReconciler     *prune.PruneReconciler
@@ -77,11 +81,14 @@ type GlobalHubController struct {
 
 func NewGlobalHubController(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
-) *GlobalHubController {
-	return &GlobalHubController{
+) (controller.Controller, error) {
+
+	reconciler := &GlobalHubReconciler{
 		log:                 ctrl.Log.WithName("global-hub-controller"),
-		Manager:             mgr,
-		Client:              mgr.GetClient(),
+		client:              mgr.GetClient(),
+		config:              mgr.GetConfig(),
+		scheme:              mgr.GetScheme(),
+		recorder:            mgr.GetEventRecorderFor("global-hub-controller"),
 		operatorConfig:      operatorConfig,
 		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
@@ -91,6 +98,172 @@ func NewGlobalHubController(mgr ctrl.Manager,
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
 	}
+
+	globalHubController, err := controller.New("config-controller", mgr, controller.Options{
+		MaxConcurrentReconciles: 3,
+		Reconciler:              reconciler,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := addGlobalHubControllerWatches(mgr, globalHubController); err != nil {
+		return nil, err
+	}
+
+	return globalHubController, nil
+}
+
+func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController controller.Controller) error {
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&v1alpha4.MulticlusterGlobalHub{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha4.MulticlusterGlobalHub]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&appsv1.Deployment{},
+			handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &appsv1.StatefulSet{},
+			handler.TypedEnqueueRequestForOwner[*appsv1.StatefulSet](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Service{},
+			handler.TypedEnqueueRequestForOwner[*corev1.Service](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.ServiceAccount{},
+			handler.TypedEnqueueRequestForOwner[*corev1.ServiceAccount](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Secret{},
+			handler.TypedEnqueueRequestForOwner[*corev1.Secret](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &rbacv1.Role{},
+			handler.TypedEnqueueRequestForOwner[*rbacv1.Role](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{},
+			handler.TypedEnqueueRequestForOwner[*rbacv1.RoleBinding](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &routev1.Route{},
+			handler.TypedEnqueueRequestForOwner[*routev1.Route](
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.ConfigMap{},
+			&handler.TypedEnqueueRequestForObject[*corev1.ConfigMap]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&admissionregistrationv1.MutatingWebhookConfiguration{},
+			&handler.TypedEnqueueRequestForObject[*admissionregistrationv1.MutatingWebhookConfiguration]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.Namespace{},
+			&handler.TypedEnqueueRequestForObject[*corev1.Namespace]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.Secret{},
+			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&rbacv1.ClusterRole{},
+			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRole]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&rbacv1.ClusterRoleBinding{},
+			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRoleBinding]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&promv1.ServiceMonitor{},
+			&handler.TypedEnqueueRequestForObject[*promv1.ServiceMonitor]{},
+		)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&subv1alpha1.Subscription{},
+			&handler.TypedEnqueueRequestForObject[*subv1alpha1.Subscription]{},
+		)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -141,9 +314,9 @@ func NewGlobalHubController(mgr ctrl.Manager,
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.Client)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.client)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -176,16 +349,16 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	if config.GetACMResourceReady() {
+	if config.IsACMResourceReady() {
 		// update the managed hub clusters
 		// only reconcile once: upgrade
 		if !r.upgraded {
-			if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.Client); err != nil {
+			if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.client); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to upgrade from release-2.10: %v", err)
 			}
 			r.upgraded = true
 		}
-		if err := utils.AnnotateManagedHubCluster(ctx, r.Client); err != nil {
+		if err := utils.AnnotateManagedHubCluster(ctx, r.client); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -210,13 +383,13 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	if config.GetACMResourceReady() {
-		if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.GetConfig()); err != nil {
+	if config.IsACMResourceReady() {
+		if err := utils.TriggerManagedHubAddons(ctx, r.client, r.config); err != nil {
 			return ctrl.Result{}, err
 		}
 
 		if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
-			if err = r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+			if err = r.client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
 				if errors.IsConflict(err) {
 					r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
 					return ctrl.Result{Requeue: true}, nil
@@ -225,34 +398,6 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 	return ctrl.Result{}, nil
-}
-
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return !e.DeleteStateUnknown
-	},
-}
-
-var ownPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
-		if e.ObjectNew.GetGeneration() == 0 {
-			return true
-		}
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return true
-	},
 }
 
 var resPred = predicate.Funcs{
@@ -393,55 +538,55 @@ var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
 )
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
-		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
-		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
-		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
-		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
-		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
-		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
-			globalHubEventHandler, builder.WithPredicates(webhookPred)).
-		// secondary watch for configmap
-		Watches(&corev1.ConfigMap{},
-			globalHubEventHandler, builder.WithPredicates(configmappred)).
-		// secondary watch for namespace
-		Watches(&corev1.Namespace{},
-			globalHubEventHandler, builder.WithPredicates(namespacePred)).
-		// secondary watch for clusterrole
-		Watches(&rbacv1.ClusterRole{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
-		// secondary watch for clusterrolebinding
-		Watches(&rbacv1.ClusterRoleBinding{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
-		// secondary watch for Secret
-		Watches(&corev1.Secret{},
-			globalHubEventHandler, builder.WithPredicates(secretPred)).
-		// secondary watch for clustermanagementaddon
-		Watches(&v1alpha1.ClusterManagementAddOn{},
-			globalHubEventHandler,
-			builder.WithPredicates(resPred)).
-		Watches(&clusterv1.ManagedCluster{},
-			globalHubEventHandler,
-			builder.WithPredicates(mhPred)).
-		Watches(&promv1.ServiceMonitor{},
-			globalHubEventHandler,
-			builder.WithPredicates(resPred)).
-		Watches(&subv1alpha1.Subscription{},
-			globalHubEventHandler,
-			builder.WithPredicates(deletePred)).
-		Complete(r)
-}
+// func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
+// 	return ctrl.NewControllerManagedBy(mgr).
+// 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+// 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
+// 		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
+// 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
+// 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
+// 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
+// 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
+// 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
+// 		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
+// 		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
+// 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
+// 		// secondary watch for configmap
+// 		Watches(&corev1.ConfigMap{},
+// 			globalHubEventHandler, builder.WithPredicates(configmappred)).
+// 		// secondary watch for namespace
+// 		Watches(&corev1.Namespace{},
+// 			globalHubEventHandler, builder.WithPredicates(namespacePred)).
+// 		// secondary watch for clusterrole
+// 		Watches(&rbacv1.ClusterRole{},
+// 			globalHubEventHandler, builder.WithPredicates(resPred)).
+// 		// secondary watch for clusterrolebinding
+// 		Watches(&rbacv1.ClusterRoleBinding{},
+// 			globalHubEventHandler, builder.WithPredicates(resPred)).
+// 		// secondary watch for Secret
+// 		Watches(&corev1.Secret{},
+// 			globalHubEventHandler, builder.WithPredicates(secretPred)).
+// 		// secondary watch for clustermanagementaddon
+// 		Watches(&v1alpha1.ClusterManagementAddOn{},
+// 			globalHubEventHandler,
+// 			builder.WithPredicates(resPred)).
+// 		Watches(&clusterv1.ManagedCluster{},
+// 			globalHubEventHandler,
+// 			builder.WithPredicates(mhPred)).
+// 		Watches(&promv1.ServiceMonitor{},
+// 			globalHubEventHandler,
+// 			builder.WithPredicates(resPred)).
+// 		Watches(&subv1alpha1.Subscription{},
+// 			globalHubEventHandler,
+// 			builder.WithPredicates(deletePred)).
+// 		Complete(r)
+// }
 
 // ReconcileMiddleware creates the kafka and postgres if needed.
 // 1. create the kafka and postgres subscription at the same time
 // 2. then create the kafka and postgres resources at the same time
 // 3. wait for kafka and postgres ready
-func (r *GlobalHubController) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	// initialize postgres and kafka at the same time
 	var wg sync.WaitGroup

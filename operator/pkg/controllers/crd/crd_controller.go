@@ -22,12 +22,16 @@ import (
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes"
+	"open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	runtimeController "sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
@@ -59,6 +63,7 @@ type CrdController struct {
 	resources                map[string]bool
 	addonInstallerReady      bool
 	addonController          *addon.AddonController
+	globalHubController      runtimeController.Controller
 	globalHubControllerReady bool
 	backupControllerReady    bool
 	mu                       sync.Mutex
@@ -73,6 +78,23 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	if r.readyToWatchACMResources() {
 		config.SetACMResourceReady(true)
+		// add watcher dynamically
+		if err := r.globalHubController.Watch(
+			source.Kind(
+				r.Manager.GetCache(),
+				&v1alpha1.ClusterManagementAddOn{},
+				&handler.TypedEnqueueRequestForObject[*v1alpha1.ClusterManagementAddOn]{},
+			)); err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.globalHubController.Watch(
+			source.Kind(
+				r.Manager.GetCache(),
+				&clusterv1.ManagedCluster{},
+				&handler.TypedEnqueueRequestForObject[*clusterv1.ManagedCluster]{},
+			)); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// mark the states of kafka crd
@@ -81,7 +103,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon installer
-	if config.GetACMResourceReady() && !r.addonInstallerReady {
+	if config.IsACMResourceReady() && !r.addonInstallerReady {
 		if err := (&addon.AddonInstaller{
 			Client: r.GetClient(),
 			Log:    ctrl.Log.WithName("addon-reconciler"),
@@ -92,7 +114,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon controller
-	if config.GetACMResourceReady() && r.addonController == nil {
+	if config.IsACMResourceReady() && r.addonController == nil {
 		addonController, err := addon.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -105,7 +127,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// backup controller
-	if config.GetACMResourceReady() && !r.backupControllerReady {
+	if config.IsACMResourceReady() && !r.backupControllerReady {
 		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).SetupWithManager(r.Manager)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -135,7 +157,7 @@ func (r *CrdController) readyToWatchKafkaResources() bool {
 }
 
 func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
-	kubeClient *kubernetes.Clientset,
+	kubeClient *kubernetes.Clientset, globalHubController runtimeController.Controller,
 ) (*CrdController, error) {
 	allCrds := map[string]bool{}
 	for _, val := range ACMCrds {
@@ -145,10 +167,11 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
 		allCrds[val] = false
 	}
 	controller := &CrdController{
-		Manager:        mgr,
-		kubeClient:     kubeClient,
-		operatorConfig: operatorConfig,
-		resources:      allCrds,
+		Manager:             mgr,
+		kubeClient:          kubeClient,
+		operatorConfig:      operatorConfig,
+		resources:           allCrds,
+		globalHubController: globalHubController,
 	}
 
 	crdPred := predicate.Funcs{
