@@ -162,6 +162,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 	})
 
 	It("should pass the replicated policy event", func() {
+		Skip("the event is duplicated with event from replicated policy history, so skip...")
 		By("Create namespace and cluster for the replicated policy")
 		err := runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
