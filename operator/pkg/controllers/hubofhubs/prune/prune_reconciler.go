@@ -92,11 +92,6 @@ func (r *PruneReconciler) acmResources(ctx context.Context,
 	}
 	r.log.Info("all addons are deleted")
 
-	mgh.SetFinalizers(operatorutils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
-	if err := operatorutils.UpdateObject(ctx, r.Client, mgh); err != nil {
-		return err
-	}
-
 	// remove finalizer from app, policy and placement.
 	if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
 		return err
@@ -119,6 +114,11 @@ func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 		if err := r.pruneStrimziResources(ctx); err != nil {
 			return err
 		}
+	}
+
+	mgh.SetFinalizers(operatorutils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+	if err := operatorutils.UpdateObject(ctx, r.Client, mgh); err != nil {
+		return err
 	}
 
 	// clean up namesapced resources, eg. mgh system namespace, etc

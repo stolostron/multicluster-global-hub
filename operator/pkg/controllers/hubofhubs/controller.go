@@ -121,10 +121,7 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 			mgr.GetCache(),
 			&v1alpha4.MulticlusterGlobalHub{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha4.MulticlusterGlobalHub]{},
-			[]predicate.TypedPredicate[*v1alpha4.MulticlusterGlobalHub]{
-				predicate.TypedGenerationChangedPredicate[*v1alpha4.MulticlusterGlobalHub]{},
-				predicate.TypedAnnotationChangedPredicate[*v1alpha4.MulticlusterGlobalHub]{},
-			}...,
+			watchMulticlusterGlobalHubPredict(),
 		)); err != nil {
 		return err
 	}
@@ -363,6 +360,20 @@ func watchServiceMonitorPredict() predicate.TypedPredicate[*promv1.ServiceMonito
 		DeleteFunc: func(e event.TypedDeleteEvent[*promv1.ServiceMonitor]) bool {
 			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchMulticlusterGlobalHubPredict() predicate.TypedPredicate[*v1alpha4.MulticlusterGlobalHub] {
+	return predicate.TypedFuncs[*v1alpha4.MulticlusterGlobalHub]{
+		CreateFunc: func(e event.TypedCreateEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
+			return true
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
+			return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
+			return !e.DeleteStateUnknown
 		},
 	}
 }
@@ -639,13 +650,13 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err := utils.TriggerManagedHubAddons(ctx, r.client, r.config); err != nil {
 			return ctrl.Result{}, err
 		}
+	}
 
-		if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
-			if err = r.client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
-				if errors.IsConflict(err) {
-					r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
-					return ctrl.Result{Requeue: true}, nil
-				}
+	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
+		if err = r.client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+			if errors.IsConflict(err) {
+				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
+				return ctrl.Result{Requeue: true}, nil
 			}
 		}
 	}
