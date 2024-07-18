@@ -72,16 +72,15 @@ var _ = Describe("controller", Ordered, func() {
 	})
 
 	It("should generate the update the mgh condition", func() {
-		controller, err := hubofhubs.NewGlobalHubController(runtimeManager, kubeClient, &config.OperatorConfig{
+		reconciler := hubofhubs.NewGlobalHubReconciler(runtimeManager, kubeClient, &config.OperatorConfig{
 			LogLevel:              "info",
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,
 		})
-		Expect(err).To(Succeed())
 
-		err = os.Setenv("POD_NAMESPACE", namespace)
+		err := os.Setenv("POD_NAMESPACE", namespace)
 		Expect(err).To(Succeed())
-		_, err = controller.Reconcile(ctx, reconcile.Request{
+		_, err = reconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: client.ObjectKeyFromObject(mgh),
 		})
 		Expect(err).To(Succeed())

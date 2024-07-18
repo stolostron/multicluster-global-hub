@@ -80,10 +80,10 @@ type GlobalHubReconciler struct {
 	grafanaReconciler   *grafana.GrafanaReconciler
 }
 
-func NewGlobalHubController(mgr ctrl.Manager,
+func NewGlobalHubReconciler(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
-) (controller.Controller, error) {
-	reconciler := &GlobalHubReconciler{
+) *GlobalHubReconciler {
+	return &GlobalHubReconciler{
 		log:                 ctrl.Log.WithName("global-hub-controller"),
 		client:              mgr.GetClient(),
 		config:              mgr.GetConfig(),
@@ -98,9 +98,13 @@ func NewGlobalHubController(mgr ctrl.Manager,
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
 	}
+}
 
+func NewGlobalHubController(mgr ctrl.Manager,
+	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
+) (controller.Controller, error) {
 	globalHubController, err := controller.New("global-hub-controller", mgr, controller.Options{
-		Reconciler: reconciler,
+		Reconciler: NewGlobalHubReconciler(mgr, kubeClient, operatorConfig),
 	})
 	if err != nil {
 		return nil, err
