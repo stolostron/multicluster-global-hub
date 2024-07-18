@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -237,8 +238,7 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
 				}
-			}),
-			watchConfigMapPredict(),
+			}), watchConfigMapPredict(),
 		)); err != nil {
 		return err
 	}
@@ -252,8 +252,7 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
 				}
-			}),
-			watchMutatingWebhookConfigurationPredicate(),
+			}), watchMutatingWebhookConfigurationPredicate(),
 		)); err != nil {
 		return err
 	}
@@ -261,7 +260,13 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(), &corev1.Namespace{},
-			&handler.TypedEnqueueRequestForObject[*corev1.Namespace]{}, watchNamespacePredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *corev1.Namespace) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchNamespacePredict(),
 		)); err != nil {
 		return err
 	}
@@ -269,7 +274,13 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(), &corev1.Secret{},
-			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{}, watchSecretPredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *corev1.Secret) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchSecretPredict(),
 		)); err != nil {
 		return err
 	}
@@ -277,7 +288,13 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(), &rbacv1.ClusterRole{},
-			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRole]{}, watchClusterRolePredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *rbacv1.ClusterRole) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchClusterRolePredict(),
 		)); err != nil {
 		return err
 	}
@@ -285,7 +302,13 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(), &rbacv1.ClusterRoleBinding{},
-			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRoleBinding]{}, watchClusterRoleBindingPredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *rbacv1.ClusterRoleBinding) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchClusterRoleBindingPredict(),
 		)); err != nil {
 		return err
 	}
@@ -293,7 +316,13 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(), &promv1.ServiceMonitor{},
-			&handler.TypedEnqueueRequestForObject[*promv1.ServiceMonitor]{}, watchServiceMonitorPredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *promv1.ServiceMonitor) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchServiceMonitorPredict(),
 		)); err != nil {
 		return err
 	}
@@ -301,7 +330,13 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(), &subv1alpha1.Subscription{},
-			&handler.TypedEnqueueRequestForObject[*subv1alpha1.Subscription]{}, watchSubscriptionPredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *subv1alpha1.Subscription) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchSubscriptionPredict(),
 		)); err != nil {
 		return err
 	}
@@ -529,6 +564,9 @@ func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admi
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
 func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if len(req.Namespace) == 0 || len(req.Name) == 0 {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.client)
 	if err != nil {

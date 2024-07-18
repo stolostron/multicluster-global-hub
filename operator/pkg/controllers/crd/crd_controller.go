@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -192,15 +193,26 @@ func (r *CrdController) watchACMResources() error {
 	if err := r.globalHubController.Watch(
 		source.Kind(
 			r.Manager.GetCache(), &v1alpha1.ClusterManagementAddOn{},
-			&handler.TypedEnqueueRequestForObject[*v1alpha1.ClusterManagementAddOn]{},
-			watchClusterManagementAddOnPredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *v1alpha1.ClusterManagementAddOn) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchClusterManagementAddOnPredict(),
 		)); err != nil {
 		return err
 	}
 	if err := r.globalHubController.Watch(
 		source.Kind(
 			r.Manager.GetCache(), &clusterv1.ManagedCluster{},
-			&handler.TypedEnqueueRequestForObject[*clusterv1.ManagedCluster]{}, watchManagedClusterPredict(),
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *clusterv1.ManagedCluster) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}), watchManagedClusterPredict(),
 		)); err != nil {
 		return err
 	}
