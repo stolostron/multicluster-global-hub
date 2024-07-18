@@ -103,7 +103,6 @@ func (r *PruneReconciler) acmResources(ctx context.Context,
 func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
-
 	if config.IsACMResourceReady() {
 		if err := r.acmResources(ctx, mgh); err != nil {
 			return err

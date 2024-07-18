@@ -55,7 +55,6 @@ func InitGormInstance(config *DatabaseConfig) error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("set max connection==============:", config.PoolSize)
 		sqlDB.SetMaxOpenConns(config.PoolSize)
 	}
 	return nil

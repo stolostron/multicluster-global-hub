@@ -83,7 +83,6 @@ type GlobalHubReconciler struct {
 func NewGlobalHubController(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) (controller.Controller, error) {
-
 	reconciler := &GlobalHubReconciler{
 		log:                 ctrl.Log.WithName("global-hub-controller"),
 		client:              mgr.GetClient(),
@@ -115,7 +114,6 @@ func NewGlobalHubController(mgr ctrl.Manager,
 }
 
 func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController controller.Controller) error {
-
 	if err := globalHubController.Watch(
 		source.Kind(
 			mgr.GetCache(),
@@ -230,7 +228,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &corev1.ConfigMap{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *corev1.ConfigMap) []reconcile.Request {
+				c *corev1.ConfigMap,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -244,7 +243,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &admissionv1.MutatingWebhookConfiguration{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				a *admissionv1.MutatingWebhookConfiguration) []reconcile.Request {
+				a *admissionv1.MutatingWebhookConfiguration,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -258,7 +258,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &corev1.Namespace{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *corev1.Namespace) []reconcile.Request {
+				c *corev1.Namespace,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -272,7 +273,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &corev1.Secret{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *corev1.Secret) []reconcile.Request {
+				c *corev1.Secret,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -286,7 +288,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &rbacv1.ClusterRole{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *rbacv1.ClusterRole) []reconcile.Request {
+				c *rbacv1.ClusterRole,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -300,7 +303,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &rbacv1.ClusterRoleBinding{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *rbacv1.ClusterRoleBinding) []reconcile.Request {
+				c *rbacv1.ClusterRoleBinding,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -314,7 +318,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &promv1.ServiceMonitor{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *promv1.ServiceMonitor) []reconcile.Request {
+				c *promv1.ServiceMonitor,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -328,7 +333,8 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		source.Kind(
 			mgr.GetCache(), &subv1alpha1.Subscription{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *subv1alpha1.Subscription) []reconcile.Request {
+				c *subv1alpha1.Subscription,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -439,7 +445,7 @@ func watchSubscriptionPredict() predicate.TypedPredicate[*subv1alpha1.Subscripti
 }
 
 func watchSecretPredict() predicate.TypedPredicate[*corev1.Secret] {
-	var secretCond = func(obj client.Object) bool {
+	secretCond := func(obj client.Object) bool {
 		if WatchedSecret.Has(obj.GetName()) {
 			return true
 		}
@@ -596,6 +602,16 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
+	// add finalizer to the mgh
+	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
+		if err = r.client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+			if errors.IsConflict(err) {
+				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+	}
+
 	// update status condition
 	defer func() {
 		err := r.statusReconciler.Reconcile(ctx, mgh, err)
@@ -652,14 +668,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
-		if err = r.client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
-			if errors.IsConflict(err) {
-				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
-				return ctrl.Result{Requeue: true}, nil
-			}
-		}
-	}
 	return ctrl.Result{}, nil
 }
 

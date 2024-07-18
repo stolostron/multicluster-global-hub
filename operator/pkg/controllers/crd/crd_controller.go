@@ -194,7 +194,8 @@ func (r *CrdController) watchACMResources() error {
 		source.Kind(
 			r.Manager.GetCache(), &v1alpha1.ClusterManagementAddOn{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *v1alpha1.ClusterManagementAddOn) []reconcile.Request {
+				c *v1alpha1.ClusterManagementAddOn,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
@@ -207,7 +208,8 @@ func (r *CrdController) watchACMResources() error {
 		source.Kind(
 			r.Manager.GetCache(), &clusterv1.ManagedCluster{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *clusterv1.ManagedCluster) []reconcile.Request {
+				c *clusterv1.ManagedCluster,
+			) []reconcile.Request {
 				return []reconcile.Request{
 					// trigger MGH instance reconcile
 					{NamespacedName: config.GetMGHNamespacedName()},
