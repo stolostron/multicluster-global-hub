@@ -26,7 +26,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -99,9 +99,8 @@ func NewGlobalHubController(mgr ctrl.Manager,
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
 	}
 
-	globalHubController, err := controller.New("config-controller", mgr, controller.Options{
-		MaxConcurrentReconciles: 3,
-		Reconciler:              reconciler,
+	globalHubController, err := controller.New("global-hub-controller", mgr, controller.Options{
+		Reconciler: reconciler,
 	})
 	if err != nil {
 		return nil, err
@@ -121,16 +120,26 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 			mgr.GetCache(),
 			&v1alpha4.MulticlusterGlobalHub{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha4.MulticlusterGlobalHub]{},
+			[]predicate.TypedPredicate[*v1alpha4.MulticlusterGlobalHub]{
+				predicate.TypedGenerationChangedPredicate[*v1alpha4.MulticlusterGlobalHub]{},
+				predicate.TypedAnnotationChangedPredicate[*v1alpha4.MulticlusterGlobalHub]{},
+			}...,
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&appsv1.Deployment{},
+			mgr.GetCache(), &appsv1.Deployment{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*appsv1.Deployment]{
+				predicate.TypedGenerationChangedPredicate[*appsv1.Deployment]{},
+				// predicate.NewTypedPredicateFuncs[*appsv1.Deployment](func(node *appsv1.Deployment) bool {
+				// 	return handleDeployment(deployment)
+				// },
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -138,7 +147,11 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &appsv1.StatefulSet{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.StatefulSet](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*appsv1.StatefulSet]{
+				predicate.TypedGenerationChangedPredicate[*appsv1.StatefulSet]{},
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -146,7 +159,11 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Service{},
 			handler.TypedEnqueueRequestForOwner[*corev1.Service](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*corev1.Service]{
+				predicate.TypedGenerationChangedPredicate[*corev1.Service]{},
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -154,7 +171,11 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.ServiceAccount{},
 			handler.TypedEnqueueRequestForOwner[*corev1.ServiceAccount](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*corev1.ServiceAccount]{
+				predicate.TypedGenerationChangedPredicate[*corev1.ServiceAccount]{},
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -162,7 +183,11 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Secret{},
 			handler.TypedEnqueueRequestForOwner[*corev1.Secret](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*corev1.Secret]{
+				predicate.TypedGenerationChangedPredicate[*corev1.Secret]{},
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -170,7 +195,11 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &rbacv1.Role{},
 			handler.TypedEnqueueRequestForOwner[*rbacv1.Role](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*rbacv1.Role]{
+				predicate.TypedGenerationChangedPredicate[*rbacv1.Role]{},
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -178,7 +207,11 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{},
 			handler.TypedEnqueueRequestForOwner[*rbacv1.RoleBinding](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*rbacv1.RoleBinding]{
+				predicate.TypedGenerationChangedPredicate[*rbacv1.RoleBinding]{},
+			}...,
 		)); err != nil {
 		return err
 	}
@@ -186,84 +219,265 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &routev1.Route{},
 			handler.TypedEnqueueRequestForOwner[*routev1.Route](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(), &v1alpha4.MulticlusterGlobalHub{}),
+				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
+				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*routev1.Route]{
+				predicate.TypedGenerationChangedPredicate[*routev1.Route]{},
+			}...,
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&corev1.ConfigMap{},
-			&handler.TypedEnqueueRequestForObject[*corev1.ConfigMap]{},
+			mgr.GetCache(), &corev1.ConfigMap{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *corev1.ConfigMap) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}),
+			watchConfigMapPredict(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&admissionregistrationv1.MutatingWebhookConfiguration{},
-			&handler.TypedEnqueueRequestForObject[*admissionregistrationv1.MutatingWebhookConfiguration]{},
+			mgr.GetCache(), &admissionv1.MutatingWebhookConfiguration{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				a *admissionv1.MutatingWebhookConfiguration) []reconcile.Request {
+				return []reconcile.Request{
+					// trigger MGH instance reconcile
+					{NamespacedName: config.GetMGHNamespacedName()},
+				}
+			}),
+			watchMutatingWebhookConfigurationPredicate(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&corev1.Namespace{},
-			&handler.TypedEnqueueRequestForObject[*corev1.Namespace]{},
+			mgr.GetCache(), &corev1.Namespace{},
+			&handler.TypedEnqueueRequestForObject[*corev1.Namespace]{}, watchNamespacePredict(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&corev1.Secret{},
-			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{},
+			mgr.GetCache(), &corev1.Secret{},
+			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{}, watchSecretPredict(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&rbacv1.ClusterRole{},
-			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRole]{},
+			mgr.GetCache(), &rbacv1.ClusterRole{},
+			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRole]{}, watchClusterRolePredict(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&rbacv1.ClusterRoleBinding{},
-			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRoleBinding]{},
+			mgr.GetCache(), &rbacv1.ClusterRoleBinding{},
+			&handler.TypedEnqueueRequestForObject[*rbacv1.ClusterRoleBinding]{}, watchClusterRoleBindingPredict(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&promv1.ServiceMonitor{},
-			&handler.TypedEnqueueRequestForObject[*promv1.ServiceMonitor]{},
+			mgr.GetCache(), &promv1.ServiceMonitor{},
+			&handler.TypedEnqueueRequestForObject[*promv1.ServiceMonitor]{}, watchServiceMonitorPredict(),
 		)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(
-			mgr.GetCache(),
-			&subv1alpha1.Subscription{},
-			&handler.TypedEnqueueRequestForObject[*subv1alpha1.Subscription]{},
+			mgr.GetCache(), &subv1alpha1.Subscription{},
+			&handler.TypedEnqueueRequestForObject[*subv1alpha1.Subscription]{}, watchSubscriptionPredict(),
 		)); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func watchServiceMonitorPredict() predicate.TypedPredicate[*promv1.ServiceMonitor] {
+	return predicate.TypedFuncs[*promv1.ServiceMonitor]{
+		CreateFunc: func(e event.TypedCreateEvent[*promv1.ServiceMonitor]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*promv1.ServiceMonitor]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*promv1.ServiceMonitor]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchClusterRolePredict() predicate.TypedPredicate[*rbacv1.ClusterRole] {
+	return predicate.TypedFuncs[*rbacv1.ClusterRole]{
+		CreateFunc: func(e event.TypedCreateEvent[*rbacv1.ClusterRole]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*rbacv1.ClusterRole]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*rbacv1.ClusterRole]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchClusterRoleBindingPredict() predicate.TypedPredicate[*rbacv1.ClusterRoleBinding] {
+	return predicate.TypedFuncs[*rbacv1.ClusterRoleBinding]{
+		CreateFunc: func(e event.TypedCreateEvent[*rbacv1.ClusterRoleBinding]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*rbacv1.ClusterRoleBinding]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*rbacv1.ClusterRoleBinding]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchSubscriptionPredict() predicate.TypedPredicate[*subv1alpha1.Subscription] {
+	return predicate.TypedFuncs[*subv1alpha1.Subscription]{
+		CreateFunc: func(e event.TypedCreateEvent[*subv1alpha1.Subscription]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*subv1alpha1.Subscription]) bool {
+			return false
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*subv1alpha1.Subscription]) bool {
+			return true
+		},
+	}
+}
+
+func watchSecretPredict() predicate.TypedPredicate[*corev1.Secret] {
+	var secretCond = func(obj client.Object) bool {
+		if WatchedSecret.Has(obj.GetName()) {
+			return true
+		}
+		if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
+			obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+			return true
+		}
+		return false
+	}
+	return predicate.TypedFuncs[*corev1.Secret]{
+		CreateFunc: func(e event.TypedCreateEvent[*corev1.Secret]) bool {
+			return secretCond(e.Object)
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+			return secretCond(e.ObjectNew)
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool {
+			return secretCond(e.Object)
+		},
+	}
+}
+
+func watchConfigMapPredict() predicate.TypedPredicate[*corev1.ConfigMap] {
+	return predicate.TypedFuncs[*corev1.ConfigMap]{
+		CreateFunc: func(e event.TypedCreateEvent[*corev1.ConfigMap]) bool {
+			return WatchedConfigMap.Has(e.Object.GetName())
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.ConfigMap]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
+				return true
+			}
+			return WatchedConfigMap.Has(e.ObjectNew.GetName())
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*corev1.ConfigMap]) bool {
+			if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
+				return true
+			}
+			return WatchedConfigMap.Has(e.Object.GetName())
+		},
+	}
+}
+
+func watchNamespacePredict() predicate.TypedPredicate[*corev1.Namespace] {
+	return predicate.TypedFuncs[*corev1.Namespace]{
+		CreateFunc: func(e event.TypedCreateEvent[*corev1.Namespace]) bool {
+			return e.Object.GetName() == config.GetMGHNamespacedName().Namespace
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Namespace]) bool {
+			return e.ObjectNew.GetName() == config.GetMGHNamespacedName().Namespace &&
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Namespace]) bool {
+			return false
+		},
+	}
+}
+
+func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admissionv1.MutatingWebhookConfiguration] {
+	return predicate.TypedFuncs[*admissionv1.MutatingWebhookConfiguration]{
+		CreateFunc: func(e event.TypedCreateEvent[*admissionv1.MutatingWebhookConfiguration]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*admissionv1.MutatingWebhookConfiguration]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
+				if len(e.ObjectNew.Webhooks) != len(e.ObjectOld.Webhooks) ||
+					e.ObjectNew.Webhooks[0].Name != e.ObjectOld.Webhooks[0].Name ||
+					!reflect.DeepEqual(e.ObjectNew.Webhooks[0].AdmissionReviewVersions,
+						e.ObjectOld.Webhooks[0].AdmissionReviewVersions) ||
+					!reflect.DeepEqual(e.ObjectNew.Webhooks[0].Rules, e.ObjectOld.Webhooks[0].Rules) ||
+					!reflect.DeepEqual(e.ObjectNew.Webhooks[0].ClientConfig.Service, e.ObjectOld.Webhooks[0].ClientConfig.Service) {
+					return true
+				}
+				return false
+			}
+			return false
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*admissionv1.MutatingWebhookConfiguration]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -399,188 +613,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	return ctrl.Result{}, nil
 }
-
-var resPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
-			constants.GHOperatorOwnerLabelVal {
-			return false
-		}
-		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
-		if e.ObjectNew.GetGeneration() == 0 {
-			return true
-		}
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal
-	},
-}
-
-var secretCond = func(obj client.Object) bool {
-	if WatchedSecret.Has(obj.GetName()) {
-		return true
-	}
-	if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
-		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
-		return true
-	}
-	return false
-}
-
-var secretPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return secretCond(e.Object)
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return secretCond(e.ObjectNew)
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return secretCond(e.Object)
-	},
-}
-
-var deletePred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return false
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return true
-	},
-}
-
-var configmappred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return WatchedConfigMap.Has(e.Object.GetName())
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			return true
-		}
-		return WatchedConfigMap.Has(e.ObjectNew.GetName())
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			return true
-		}
-		return WatchedConfigMap.Has(e.Object.GetName())
-	},
-}
-
-var mhPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var webhookPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
-			old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
-			if len(new.Webhooks) != len(old.Webhooks) ||
-				new.Webhooks[0].Name != old.Webhooks[0].Name ||
-				!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
-					old.Webhooks[0].AdmissionReviewVersions) ||
-				!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
-				!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
-				return true
-			}
-			return false
-		}
-		return false
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal
-	},
-}
-
-var namespacePred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == config.GetMGHNamespacedName().Namespace
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetName() == config.GetMGHNamespacedName().Namespace &&
-			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
-	func(ctx context.Context, obj client.Object) []reconcile.Request {
-		return []reconcile.Request{
-			// trigger MGH instance reconcile
-			{NamespacedName: config.GetMGHNamespacedName()},
-		}
-	},
-)
-
-// SetupWithManager sets up the controller with the Manager.
-// func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
-// 	return ctrl.NewControllerManagedBy(mgr).
-// 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
-// 		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
-// 		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
-// 		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
-// 		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
-// 		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
-// 		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
-// 		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
-// 		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
-// 		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
-// 			globalHubEventHandler, builder.WithPredicates(webhookPred)).
-// 		// secondary watch for configmap
-// 		Watches(&corev1.ConfigMap{},
-// 			globalHubEventHandler, builder.WithPredicates(configmappred)).
-// 		// secondary watch for namespace
-// 		Watches(&corev1.Namespace{},
-// 			globalHubEventHandler, builder.WithPredicates(namespacePred)).
-// 		// secondary watch for clusterrole
-// 		Watches(&rbacv1.ClusterRole{},
-// 			globalHubEventHandler, builder.WithPredicates(resPred)).
-// 		// secondary watch for clusterrolebinding
-// 		Watches(&rbacv1.ClusterRoleBinding{},
-// 			globalHubEventHandler, builder.WithPredicates(resPred)).
-// 		// secondary watch for Secret
-// 		Watches(&corev1.Secret{},
-// 			globalHubEventHandler, builder.WithPredicates(secretPred)).
-// 		// secondary watch for clustermanagementaddon
-// 		Watches(&v1alpha1.ClusterManagementAddOn{},
-// 			globalHubEventHandler,
-// 			builder.WithPredicates(resPred)).
-// 		Watches(&clusterv1.ManagedCluster{},
-// 			globalHubEventHandler,
-// 			builder.WithPredicates(mhPred)).
-// 		Watches(&promv1.ServiceMonitor{},
-// 			globalHubEventHandler,
-// 			builder.WithPredicates(resPred)).
-// 		Watches(&subv1alpha1.Subscription{},
-// 			globalHubEventHandler,
-// 			builder.WithPredicates(deletePred)).
-// 		Complete(r)
-// }
 
 // ReconcileMiddleware creates the kafka and postgres if needed.
 // 1. create the kafka and postgres subscription at the same time

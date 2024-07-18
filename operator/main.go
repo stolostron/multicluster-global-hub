@@ -70,11 +70,7 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	}
 
 	// global hub controller
-	globalHubController, err := hubofhubs.NewGlobalHubController(
-		mgr,
-		kubeClient,
-		operatorConfig,
-	)
+	globalHubController, err := hubofhubs.NewGlobalHubController(mgr, kubeClient, operatorConfig)
 	if err != nil {
 		setupLog.Error(err, "unable to create crd controller")
 		return 1

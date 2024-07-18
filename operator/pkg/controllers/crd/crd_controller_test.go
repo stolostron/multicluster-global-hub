@@ -27,8 +27,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
@@ -90,7 +92,14 @@ func TestCRDCtr(t *testing.T) {
 	})
 	assert.Nil(t, err)
 
-	controller, err := AddCRDController(mgr, &config.OperatorConfig{}, nil)
+	instance, err := controller.New("global-hub-controller", mgr, controller.Options{
+		Reconciler: reconcile.Func(
+			func(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
+				return reconcile.Result{}, nil
+			}),
+	})
+
+	controller, err := AddCRDController(mgr, &config.OperatorConfig{}, nil, instance)
 	assert.Nil(t, err)
 
 	go func() {

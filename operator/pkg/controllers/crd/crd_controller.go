@@ -36,6 +36,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var ACMCrds = []string{
@@ -78,21 +79,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	if r.readyToWatchACMResources() {
 		config.SetACMResourceReady(true)
-		// add watcher dynamically
-		if err := r.globalHubController.Watch(
-			source.Kind(
-				r.Manager.GetCache(),
-				&v1alpha1.ClusterManagementAddOn{},
-				&handler.TypedEnqueueRequestForObject[*v1alpha1.ClusterManagementAddOn]{},
-			)); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := r.globalHubController.Watch(
-			source.Kind(
-				r.Manager.GetCache(),
-				&clusterv1.ManagedCluster{},
-				&handler.TypedEnqueueRequestForObject[*clusterv1.ManagedCluster]{},
-			)); err != nil {
+		if err := r.watchACMResources(); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -198,4 +185,70 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
 			builder.WithPredicates(crdPred),
 		).
 		Complete(controller)
+}
+
+func (r *CrdController) watchACMResources() error {
+	// add watcher dynamically
+	if err := r.globalHubController.Watch(
+		source.Kind(
+			r.Manager.GetCache(), &v1alpha1.ClusterManagementAddOn{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha1.ClusterManagementAddOn]{},
+			watchClusterManagementAddOnPredict(),
+		)); err != nil {
+		return err
+	}
+	if err := r.globalHubController.Watch(
+		source.Kind(
+			r.Manager.GetCache(), &clusterv1.ManagedCluster{},
+			&handler.TypedEnqueueRequestForObject[*clusterv1.ManagedCluster]{}, watchManagedClusterPredict(),
+		)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func watchClusterManagementAddOnPredict() predicate.TypedPredicate[*v1alpha1.ClusterManagementAddOn] {
+	return predicate.TypedFuncs[*v1alpha1.ClusterManagementAddOn]{
+		CreateFunc: func(e event.TypedCreateEvent[*v1alpha1.ClusterManagementAddOn]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha1.ClusterManagementAddOn]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha1.ClusterManagementAddOn]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchManagedClusterPredict() predicate.TypedPredicate[*clusterv1.ManagedCluster] {
+	return predicate.TypedFuncs[*clusterv1.ManagedCluster]{
+		CreateFunc: func(e event.TypedCreateEvent[*clusterv1.ManagedCluster]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*clusterv1.ManagedCluster]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*clusterv1.ManagedCluster]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
 }

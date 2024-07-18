@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -77,13 +78,12 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	controller = NewGlobalHubController(runtimeMgr, kubeClient, &config.OperatorConfig{})
-	err = controller.SetupWithManager(runtimeMgr)
+	_, err = controller.New("global-hub-controller", runtimeMgr, controller.Options{
+		Reconciler: reconciler,
+	})
 	if err != nil {
 		panic(err)
 	}
-	// not use the manager client
-	controller.Client = runtimeClient
 
 	// run testings
 	code := m.Run()
@@ -117,10 +117,6 @@ func TestController(t *testing.T) {
 		},
 	}
 	Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
-
-	_, _ = controller.Reconcile(ctx, ctrl.Request{
-		NamespacedName: client.ObjectKeyFromObject(mgh),
-	})
 
 	err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 	Expect(err).To(Succeed())
