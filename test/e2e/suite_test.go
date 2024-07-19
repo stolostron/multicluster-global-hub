@@ -249,7 +249,8 @@ func deployGlobalHub() {
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
 			// Disable metrics in e2e
-			EnableMetrics: false,
+			EnableMetrics:   false,
+			ImagePullPolicy: corev1.PullIfNotPresent,
 			// the topic partition replicas(depend on the HA) should less than broker replicas
 			AvailabilityConfig: v1alpha4.HABasic,
 			DataLayer: v1alpha4.DataLayerConfig{
