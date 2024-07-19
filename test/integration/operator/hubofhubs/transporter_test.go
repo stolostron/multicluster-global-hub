@@ -358,12 +358,16 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(err).To(Succeed())
 		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
-		// topic
+		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
 		Expect("spec").To(Equal(clusterTopic.SpecTopic))
 		Expect("event").To(Equal(clusterTopic.EventTopic))
 		Expect(fmt.Sprintf(protocol.StatusTopicTemplate, clusterName)).To(Equal(clusterTopic.StatusTopic))
+
+		// topic: update
+		_, err = trans.EnsureTopic(clusterName)
+		Expect(err).To(Succeed())
 
 		err = trans.Prune(clusterName)
 		Expect(err).To(Succeed())
