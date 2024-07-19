@@ -8,6 +8,7 @@ import (
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
+	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
@@ -148,6 +149,9 @@ func newRegistrationOption(addonName string) *agent.RegistrationOption {
 		PermissionConfig: func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) error {
 			return nil
 		},
-		CSRSign: certificates.Sign,
+		CSRSign: func(csr *certificatesv1.CertificateSigningRequest) []byte {
+			key, cert := config.GetClientCA()
+			return certificates.Sign(csr, key, cert)
+		},
 	}
 }

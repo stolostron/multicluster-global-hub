@@ -16,14 +16,11 @@ import (
 	"github.com/cloudflare/cfssl/signer/local"
 	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/klog/v2"
-
-	operatorconifg "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 )
 
 // default: https://github.com/open-cluster-management-io/addon-framework/blob/main/pkg/utils/csr_helpers.go#L65
-func Sign(csr *certificatesv1.CertificateSigningRequest) []byte {
-	key, cert := operatorconifg.GetClientCA()
-	caKey, caCert, err := parseClientCA(key, cert)
+func Sign(csr *certificatesv1.CertificateSigningRequest, clientCaKey, clientCaCert []byte) []byte {
+	caKey, caCert, err := parseClientCA(clientCaKey, clientCaCert)
 	if err != nil {
 		klog.Infof("The singer checks CSR(%s), not get client CA: %v", csr.Name, err)
 		return nil
