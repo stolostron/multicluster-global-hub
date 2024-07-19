@@ -11,7 +11,6 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	transconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
@@ -33,7 +32,7 @@ func main() {
 		panic(fmt.Sprintf("failed to get client: %v", err))
 	}
 
-	kafkaConfigMap, err := transconfig.GetConfluentConfigMapByUser(c, "multicluster-global-hub", "kafka", "admin-kafka-user")
+	kafkaConfigMap, err := config.GetConfluentConfigMapByUser(c, "multicluster-global-hub", "kafka", "admin-kafka-user")
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}

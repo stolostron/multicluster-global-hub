@@ -143,7 +143,7 @@ func (a *AddonController) AddonManager() addonmanager.AddonManager {
 
 func newRegistrationOption(addonName string) *agent.RegistrationOption {
 	return &agent.RegistrationOption{
-		CSRConfigurations: certificates.SignerAndCsrConfigurations(addonName),
+		CSRConfigurations: certificates.SignerAndCsrConfigurations,
 		CSRApproveCheck:   certificates.Approve,
 		PermissionConfig: func(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn) error {
 			return nil

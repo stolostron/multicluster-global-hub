@@ -1,18 +1,12 @@
 package config
 
 import (
-	"context"
 	"crypto/x509"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	kafkav2 "github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -85,7 +79,7 @@ func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, k
 // https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
 func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*kafkav2.ConfigMap, error) {
 	kafkaConfigMap := GetBasicConfigMap()
-	kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.BootstrapServer)
+	_ = kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.BootstrapServer)
 	if producer {
 		SetProducerConfig(kafkaConfigMap)
 	} else {
@@ -99,45 +93,4 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 		return nil, err
 	}
 	return kafkaConfigMap, nil
-}
-
-// GetConfluentConfigMapByUser create a kafka.configmap by the kafkauser
-func GetConfluentConfigMapByUser(c client.Client, namespace, clusterName, userName string) (*kafkav2.ConfigMap, error) {
-	kafkaCluster := &kafkav1beta2.Kafka{}
-	err := c.Get(context.TODO(), types.NamespacedName{
-		Name:      clusterName,
-		Namespace: namespace,
-	}, kafkaCluster)
-	if err != nil {
-		return nil, err
-	}
-
-	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-		return nil, fmt.Errorf("kafka cluster %s has no status conditions", kafkaCluster.Name)
-	}
-
-	kafkaClientCertSecret := &corev1.Secret{}
-	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      userName,
-		Namespace: namespace,
-	}, kafkaClientCertSecret)
-	if err != nil {
-		return nil, err
-	}
-	clientCert := string(kafkaClientCertSecret.Data["user.crt"])
-	clientKey := string(kafkaClientCertSecret.Data["user.key"])
-
-	cm := GetBasicConfigMap()
-	for _, condition := range kafkaCluster.Status.Conditions {
-		if *condition.Type == "Ready" && *condition.Status == "True" {
-			clusterCaCert := kafkaCluster.Status.Listeners[1].Certificates[0]
-			_ = cm.SetKey("bootstrap.servers", *kafkaCluster.Status.Listeners[1].BootstrapServers)
-			_ = cm.SetKey("security.protocol", "ssl")
-			_ = cm.SetKey("ssl.ca.pem", clusterCaCert)
-			_ = cm.SetKey("ssl.certificate.pem", clientCert)
-			_ = cm.SetKey("ssl.key.pem", clientKey)
-			return cm, nil
-		}
-	}
-	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", namespace, clusterName)
 }
