@@ -53,6 +53,13 @@ func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, k
 		return errors.New("invalid client key or cert")
 	}
 
+	if err := kafkaConfigMap.SetKey("security.protocol", "ssl"); err != nil {
+		return err
+	}
+	if err := kafkaConfigMap.SetKey("ssl.ca.location", caCertPath); err != nil {
+		return err
+	}
+
 	// set ca
 	certBytes, err := os.ReadFile(filepath.Clean(caCertPath))
 	if err != nil {
@@ -66,14 +73,7 @@ func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, k
 
 	// Append our cert to the system pool
 	if ok := rootCertAuth.AppendCertsFromPEM(certBytes); !ok {
-		return errors.New("kafka-certificate-manager: failed to append certificate")
-	}
-
-	if err := kafkaConfigMap.SetKey("security.protocol", "ssl"); err != nil {
-		return err
-	}
-	if err := kafkaConfigMap.SetKey("ssl.ca.location", caCertPath); err != nil {
-		return err
+		return errors.New("failed to append ca certificate")
 	}
 
 	// set client certificate

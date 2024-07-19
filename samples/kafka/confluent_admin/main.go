@@ -11,7 +11,6 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	transconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
@@ -106,7 +105,7 @@ func createTopic(admin *kafka.AdminClient, topic string) {
 
 func grantWrite(admin *kafka.AdminClient, clusterName, topicName string) error {
 	// grant the managed hub user permission with admin client and CommonName in cert
-	commonName := certificates.GetKafkaUser(clusterName)
+	commonName := operatorconfig.GetKafkaUserName(clusterName)
 	fmt.Println("KafkaUser: ", commonName)
 	expectedACLBindings := []kafka.ACLBinding{
 		{
@@ -176,7 +175,7 @@ func grantWrite(admin *kafka.AdminClient, clusterName, topicName string) error {
 
 func grantRead(admin *kafka.AdminClient, clusterName, topicName string) error {
 	// grant the managed hub user permission with admin client and CommonName in cert
-	commonName := certificates.GetKafkaUser(clusterName)
+	commonName := operatorconfig.GetKafkaUserName(clusterName)
 	fmt.Println("KafkaUser: ", commonName)
 	expectedACLBindings := []kafka.ACLBinding{
 		{

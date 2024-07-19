@@ -33,7 +33,7 @@ func SignerAndCsrConfigurations(addonName string) func(cluster *clusterv1.Manage
 }
 
 // https://github.com/open-cluster-management-io/ocm/blob/main/pkg/registration/spoke/addon/configuration.go
-func AagentCertificateSecretName(clusterName string) string {
+func AagentCertificateSecretName() string {
 	return fmt.Sprintf("%s-%s-client-cert", operatorconstants.GHManagedClusterAddonName,
 		strings.ReplaceAll(SignerName, "/", "-"))
 }

@@ -1,9 +1,12 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -23,7 +26,7 @@ func TestConfluentConfig(t *testing.T) {
 				ClientCertPath:  "/tmp/client.crt",
 				ClientKeyPath:   "/tmp/client.key",
 			},
-			expectedErr: nil,
+			expectedErr: errors.New("failed to append ca certificate"),
 		},
 		{
 			desc: "kafka config without tls",
@@ -37,9 +40,20 @@ func TestConfluentConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
+			if tc.kafkaConfig.CaCertPath != "" {
+				assert.Nil(t, os.WriteFile(tc.kafkaConfig.CaCertPath, []byte("cadata"), 0o644))
+			}
+			if tc.kafkaConfig.ClientCertPath != "" {
+				assert.Nil(t, os.WriteFile(tc.kafkaConfig.ClientCertPath, []byte("certdata"), 0o644))
+			}
+			if tc.kafkaConfig.ClientKeyPath != "" {
+				assert.Nil(t, os.WriteFile(tc.kafkaConfig.ClientKeyPath, []byte("keydata"), 0o644))
+			}
 			_, err := GetConfluentConfigMap(tc.kafkaConfig, true)
-			if err != tc.expectedErr {
-				t.Errorf("%s:\nexpected err: %v\ngot err: %v\n", tc.desc, tc.expectedErr, err)
+			if tc.expectedErr != nil {
+				assert.Equal(t, err.Error(), tc.expectedErr.Error())
+			} else {
+				assert.Nil(t, err)
 			}
 		})
 	}

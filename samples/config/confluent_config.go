@@ -88,15 +88,9 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 
 	bootstrapSever := os.Getenv("BOOTSTRAP_SEVER")
 	if bootstrapSever == "" {
-		return nil, fmt.Errorf("Must proivde the bootstrap server: %s", "BOOTSTRAP_SEVER")
+		return nil, fmt.Errorf("must proivde the bootstrap server: %s", "BOOTSTRAP_SEVER")
 	}
 
-	clusterName := os.Getenv("HUB")
-	if clusterName == "" {
-		return nil, fmt.Errorf("Must set the managed hub: %s", "HUB")
-	}
-
-	fmt.Println(">> cluster name:", clusterName)
 	namespace := "multicluster-global-hub-agent"
 	if ns := os.Getenv("NAMESPACE"); ns != "" {
 		namespace = ns
@@ -104,7 +98,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 
 	clientCertSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      certificates.AagentCertificateSecretName(clusterName),
+		Name:      certificates.AagentCertificateSecretName(),
 		Namespace: namespace,
 	}, clientCertSecret)
 	if err != nil {
@@ -144,6 +138,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 		return nil, err
 	}
 
+	consumerGroupId := "test-group-id-managed-hub"
 	kafkaConfig := &transport.KafkaConfig{
 		BootstrapServer: bootstrapSever,
 		EnableTLS:       true,
@@ -151,9 +146,11 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 		ClientCertPath:  clientCrtPath,
 		ClientKeyPath:   clientKeyPath,
 		ConsumerConfig: &transport.KafkaConsumerConfig{
-			ConsumerID: clusterName,
+			ConsumerID: consumerGroupId,
 		},
 	}
+
+	fmt.Println(">> consumer group id:", consumerGroupId)
 	// true will load the producer config
 	configMap, err := config.GetConfluentConfigMap(kafkaConfig, producer)
 	if err != nil {
@@ -184,10 +181,13 @@ func GetConfluentConfigMapFromGlobalHub(producer bool) (*kafka.ConfigMap, error)
 		return nil, err
 	}
 
+	consumerGroupId := "test-group-id" + kafkaUserName
+	fmt.Println(">> consumer group id:", consumerGroupId)
+
 	if producer {
 		config.SetProducerConfig(kafkaConfigMap)
 	} else {
-		config.SetConsumerConfig(kafkaConfigMap, kafkaUserName)
+		config.SetConsumerConfig(kafkaConfigMap, consumerGroupId)
 	}
 
 	return kafkaConfigMap, nil
