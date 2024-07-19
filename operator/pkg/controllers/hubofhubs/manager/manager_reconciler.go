@@ -38,17 +38,14 @@ type ManagerReconciler struct {
 	ctrl.Manager
 	kubeClient     kubernetes.Interface
 	operatorConfig *config.OperatorConfig
-	transportFunc  func() (*transport.ClusterTopic, *transport.ConnCredential)
 }
 
-func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
-	conf *config.OperatorConfig, transportFunc func() (*transport.ClusterTopic, *transport.ConnCredential),
+func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface, conf *config.OperatorConfig,
 ) *ManagerReconciler {
 	return &ManagerReconciler{
 		Manager:        mgr,
 		kubeClient:     kubeClient,
 		operatorConfig: conf,
-		transportFunc:  transportFunc,
 	}
 }
 
@@ -92,7 +89,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		replicas = 2
 	}
 
-	transportTopic, transportConn := r.transportFunc()
+	transportTopic, transportConn := config.GetTransporterTopic(), config.GetTransporterConn()
 	if transportTopic == nil || transportConn == nil {
 		return fmt.Errorf("failed to emtpy transport topic(%v) or connection(%v)", transportTopic, transportConn)
 	}

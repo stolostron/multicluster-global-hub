@@ -18,13 +18,14 @@ import (
 )
 
 var (
-	transporterProtocol transport.TransportProtocol
-	transporterInstance transport.Transporter
-	transporterConn     *transport.ConnCredential
-	isBYOKafka          = false
-	kafkaResourceReady  = false
-	clientCAKey         []byte
-	clientCACert        []byte
+	transporterProtocol   transport.TransportProtocol
+	transporterInstance   transport.Transporter
+	transporterConn       *transport.ConnCredential
+	transportClusterTopic *transport.ClusterTopic
+	isBYOKafka            = false
+	kafkaResourceReady    = false
+	clientCAKey           []byte
+	clientCACert          []byte
 )
 
 func SetTransporterConn(conn *transport.ConnCredential) {
@@ -33,6 +34,14 @@ func SetTransporterConn(conn *transport.ConnCredential) {
 
 func GetTransporterConn() *transport.ConnCredential {
 	return transporterConn
+}
+
+func SetTransporterTopic(topic *transport.ClusterTopic) {
+	transportClusterTopic = topic
+}
+
+func GetTransporterTopic() *transport.ClusterTopic {
+	return transportClusterTopic
 }
 
 func SetTransporter(p transport.Transporter) {

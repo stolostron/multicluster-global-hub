@@ -30,8 +30,6 @@ var manifests embed.FS
 type TransportReconciler struct {
 	ctrl.Manager
 	kafkaController *protocol.KafkaController
-	managerTopics   *transport.ClusterTopic
-	managerConn     *transport.ConnCredential
 }
 
 func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
@@ -59,6 +57,8 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			return err
 		}
 		config.SetTransporterConn(conn)
+		clusterTopic, _ := trans.EnsureTopic(protocol.GlobalHubClusterName)
+		config.SetTransporterTopic(clusterTopic)
 	}
 
 	// set kafka controller
@@ -69,10 +69,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 		}
 	}
 	return nil
-}
-
-func (r *TransportReconciler) GetManagerTopicAndConn() (*transport.ClusterTopic, *transport.ConnCredential) {
-	return r.managerTopics, r.managerConn
 }
 
 func (r *TransportReconciler) reconcileKafkaResources(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
@@ -99,16 +95,17 @@ func (r *TransportReconciler) reconcileKafkaResources(ctx context.Context, mgh *
 		return err
 	}
 
-	r.managerTopics, err = trans.EnsureTopic(protocol.GlobalHubClusterName)
+	transportTopic, err := trans.EnsureTopic(protocol.GlobalHubClusterName)
 	if err != nil {
 		return err
 	}
+	config.SetTransporterTopic(transportTopic)
 
-	r.managerConn, err = waitTransportConn(ctx, trans, protocol.GlobalHubClusterName)
+	transportConn, err := waitTransportConn(ctx, trans, protocol.GlobalHubClusterName)
 	if err != nil {
 		return err
 	}
-	config.SetTransporterConn(r.managerConn)
+	config.SetTransporterConn(transportConn)
 	return nil
 }
 

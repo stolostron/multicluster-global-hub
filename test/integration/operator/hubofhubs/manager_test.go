@@ -19,7 +19,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // go test ./test/integration/operator/hubofhubs -ginkgo.focus "manager" -v
@@ -67,8 +66,6 @@ var _ = Describe("manager", Ordered, func() {
 			LogLevel:              "info",
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,
-		}, func() (*transport.ClusterTopic, *transport.ConnCredential) {
-			return &transport.ClusterTopic{}, config.GetTransporterConn()
 		})
 
 		err := reconciler.Reconcile(ctx, mgh)
