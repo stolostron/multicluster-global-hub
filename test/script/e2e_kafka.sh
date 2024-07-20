@@ -21,14 +21,6 @@ fi
 # create all the resource in cluster KUBECONFIG
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl apply -f -
 
-# load all the kafka images to the KUBECONFIG
-docker pull "$KAFKA_OPERATOR_IMG"
-docker pull "$KAFKA_IMG "
-cluster_name=$(basename "$KUBECONFIG")
-kind load docker-image "$KAFKA_OPERATOR_IMG" --name "$cluster_name"
-kind load docker-image "$KAFKA_IMG" --name "$cluster_name"
-
-
 # deploy kafka operator
 kubectl -n $target_namespace create -f "https://strimzi.io/install/latest?namespace=$target_namespace"
 retry "(kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator | grep Running)" 60
