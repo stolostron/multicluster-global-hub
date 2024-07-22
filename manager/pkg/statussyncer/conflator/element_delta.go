@@ -22,6 +22,9 @@ type deltaElement struct {
 	dependency           *dependency.Dependency
 	isInProcess          bool
 	lastProcessedVersion *version.Version
+
+	// the metadata of the event
+	metadata ConflationMetadata
 }
 
 func NewDeltaElement(leafHubName string, registration *ConflationRegistration) *deltaElement {
@@ -43,7 +46,7 @@ func (e *deltaElement) Name() string {
 }
 
 func (e *deltaElement) Metadata() ConflationMetadata {
-	return nil
+	return e.metadata
 }
 
 func (e *deltaElement) SyncMode() enum.EventSyncMode {
@@ -61,6 +64,7 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 
 func (e *deltaElement) AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit) {
 	cu.readyQueue.DeltaEventJobChan <- NewConflationJob(event, metadata, e.handlerFunction, cu)
+	e.metadata = metadata
 }
 
 // Success is to update the conflation element state after processing the event
