@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -23,7 +22,6 @@ import (
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 var (
@@ -52,6 +51,9 @@ func TestMain(m *testing.M) {
 	}
 	// start testenv
 	testenv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "..", "test", "manifest", "crd"),
+		},
 		ErrorIfCRDPathMissing: true,
 	}
 
@@ -88,18 +90,19 @@ func TestCRDCtr(t *testing.T) {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
-		}, Scheme: scheme.Scheme,
+		},
+		Scheme: config.GetRuntimeScheme(),
 	})
 	assert.Nil(t, err)
 
-	instance, err := controller.New("global-hub-controller", mgr, controller.Options{
+	instance, err := controller.New(constants.GlobalHubControllerName, mgr, controller.Options{
 		Reconciler: reconcile.Func(
 			func(_ context.Context, request reconcile.Request) (reconcile.Result, error) {
 				return reconcile.Result{}, nil
 			}),
 	})
 
-	controller, err := AddCRDController(mgr, &config.OperatorConfig{}, nil, instance)
+	_, err = AddCRDController(mgr, &config.OperatorConfig{}, nil, instance)
 	assert.Nil(t, err)
 
 	go func() {
@@ -108,29 +111,19 @@ func TestCRDCtr(t *testing.T) {
 	}()
 	assert.True(t, mgr.GetCache().WaitForCacheSync(ctx))
 
-	clusterResource := "managedclusters.cluster.open-cluster-management.io"
-	clusterResourceFile := "0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml"
+	clusterResourceFile := "operator.open-cluster-management.io_multiclusterglobalhubs.yaml"
 
-	for _, ok := range controller.resources {
-		assert.False(t, ok)
-	}
-
-	err = applyYaml(filepath.Join("..", "..", "..", "..", "test", "manifest", "crd", clusterResourceFile))
+	err = applyYaml(filepath.Join("..", "..", "..", "config", "crd", "bases", clusterResourceFile))
 	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
 
-	for resource, ok := range controller.resources {
-		if resource == clusterResource {
-			assert.True(t, ok)
-		} else {
-			assert.False(t, ok)
-		}
-	}
+	assert.True(t, config.IsACMResourceReady())
+	assert.True(t, config.GetKafkaResourceReady())
 	cancel()
 }
 
 func applyYaml(file string) error {
-	b, err := ioutil.ReadFile(file)
+	b, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}

@@ -50,6 +50,7 @@ import (
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
@@ -84,11 +85,11 @@ func NewGlobalHubReconciler(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) *GlobalHubReconciler {
 	return &GlobalHubReconciler{
-		log:                 ctrl.Log.WithName("global-hub-controller"),
+		log:                 ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
 		client:              mgr.GetClient(),
 		config:              mgr.GetConfig(),
 		scheme:              mgr.GetScheme(),
-		recorder:            mgr.GetEventRecorderFor("global-hub-controller"),
+		recorder:            mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
 		operatorConfig:      operatorConfig,
 		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
@@ -103,7 +104,7 @@ func NewGlobalHubReconciler(mgr ctrl.Manager,
 func NewGlobalHubController(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
 ) (controller.Controller, error) {
-	globalHubController, err := controller.New("global-hub-controller", mgr, controller.Options{
+	globalHubController, err := controller.New(operatorconstants.GlobalHubControllerName, mgr, controller.Options{
 		Reconciler: NewGlobalHubReconciler(mgr, kubeClient, operatorConfig),
 	})
 	if err != nil {
@@ -118,233 +119,176 @@ func NewGlobalHubController(mgr ctrl.Manager,
 }
 
 func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController controller.Controller) error {
+	schema := mgr.GetScheme()
+	restMapper := mgr.GetClient().RESTMapper()
+
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(),
-			&v1alpha4.MulticlusterGlobalHub{},
+		source.Kind(mgr.GetCache(), &v1alpha4.MulticlusterGlobalHub{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha4.MulticlusterGlobalHub]{},
-			watchMulticlusterGlobalHubPredict(),
-		)); err != nil {
+			watchMulticlusterGlobalHubPredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &appsv1.Deployment{},
+		source.Kind(mgr.GetCache(), &appsv1.Deployment{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*appsv1.Deployment]{
 				predicate.TypedGenerationChangedPredicate[*appsv1.Deployment]{},
 				// predicate.NewTypedPredicateFuncs[*appsv1.Deployment](func(node *appsv1.Deployment) bool {
 				// 	return handleDeployment(deployment)
 				// },
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &appsv1.StatefulSet{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.StatefulSet](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*appsv1.StatefulSet]{
 				predicate.TypedGenerationChangedPredicate[*appsv1.StatefulSet]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Service{},
 			handler.TypedEnqueueRequestForOwner[*corev1.Service](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*corev1.Service]{
 				predicate.TypedGenerationChangedPredicate[*corev1.Service]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.ServiceAccount{},
 			handler.TypedEnqueueRequestForOwner[*corev1.ServiceAccount](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*corev1.ServiceAccount]{
 				predicate.TypedGenerationChangedPredicate[*corev1.ServiceAccount]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Secret{},
 			handler.TypedEnqueueRequestForOwner[*corev1.Secret](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*corev1.Secret]{
 				predicate.TypedGenerationChangedPredicate[*corev1.Secret]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &rbacv1.Role{},
 			handler.TypedEnqueueRequestForOwner[*rbacv1.Role](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*rbacv1.Role]{
 				predicate.TypedGenerationChangedPredicate[*rbacv1.Role]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{},
 			handler.TypedEnqueueRequestForOwner[*rbacv1.RoleBinding](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*rbacv1.RoleBinding]{
 				predicate.TypedGenerationChangedPredicate[*rbacv1.RoleBinding]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &routev1.Route{},
 			handler.TypedEnqueueRequestForOwner[*routev1.Route](
-				mgr.GetScheme(), mgr.GetClient().RESTMapper(),
-				&v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*routev1.Route]{
 				predicate.TypedGenerationChangedPredicate[*routev1.Route]{},
-			}...,
-		)); err != nil {
+			}...)); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &corev1.ConfigMap{},
+		source.Kind(mgr.GetCache(), &corev1.ConfigMap{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *corev1.ConfigMap,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchConfigMapPredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchConfigMapPredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &admissionv1.MutatingWebhookConfiguration{},
+		source.Kind(mgr.GetCache(), &admissionv1.MutatingWebhookConfiguration{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				a *admissionv1.MutatingWebhookConfiguration,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchMutatingWebhookConfigurationPredicate(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchMutatingWebhookConfigurationPredicate())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &corev1.Namespace{},
+		source.Kind(mgr.GetCache(), &corev1.Namespace{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *corev1.Namespace,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchNamespacePredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchNamespacePredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &corev1.Secret{},
+		source.Kind(mgr.GetCache(), &corev1.Secret{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *corev1.Secret,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchSecretPredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchSecretPredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &rbacv1.ClusterRole{},
+		source.Kind(mgr.GetCache(), &rbacv1.ClusterRole{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *rbacv1.ClusterRole,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchClusterRolePredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchClusterRolePredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &rbacv1.ClusterRoleBinding{},
+		source.Kind(mgr.GetCache(), &rbacv1.ClusterRoleBinding{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *rbacv1.ClusterRoleBinding,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchClusterRoleBindingPredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchClusterRoleBindingPredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &promv1.ServiceMonitor{},
+		source.Kind(mgr.GetCache(), &promv1.ServiceMonitor{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *promv1.ServiceMonitor,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchServiceMonitorPredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchServiceMonitorPredict())); err != nil {
 		return err
 	}
 
 	if err := globalHubController.Watch(
-		source.Kind(
-			mgr.GetCache(), &subv1alpha1.Subscription{},
+		source.Kind(mgr.GetCache(), &subv1alpha1.Subscription{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *subv1alpha1.Subscription,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
-			}), watchSubscriptionPredict(),
-		)); err != nil {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchSubscriptionPredict())); err != nil {
 		return err
 	}
 
