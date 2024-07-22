@@ -270,7 +270,7 @@ func WaitGlobalHubReady(ctx context.Context,
 	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
 		if errors.IsNotFound(err) {
-			klog.Info("wait until the mgh instance is created")
+			klog.V(2).Info("wait until the mgh instance is created")
 			return false, nil
 		} else if err != nil {
 			return true, err
@@ -379,7 +379,7 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
 		func(ctx context.Context) (bool, error) {
 			if config.GetTransporter() == nil {
-				klog.Info("wait transporter ready")
+				klog.V(2).Info("wait transporter ready")
 				return false, nil
 			}
 			return true, nil
