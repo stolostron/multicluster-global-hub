@@ -304,25 +304,33 @@ func getGrafanaResource(ctx context.Context, path string) (int, error) {
 	configNamespace := commonutils.GetDefaultNamespace()
 
 	labelSelector := fmt.Sprintf("name=%s", grafanaDeploymentName)
+	var grafanaPod corev1.Pod
+	Eventually(func() error {
+		poList, err := testClients.KubeClient().CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+		if err != nil {
+			return err
+		}
 
-	poList, err := testClients.KubeClient().CoreV1().Pods(configNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		return 0, err
-	}
-	klog.Infof("Get grafana path:%v", path)
-	if len(poList.Items) == 0 {
-		return 0, fmt.Errorf("Can not get grafana pod")
-	}
+		klog.Infof("Get grafana path:%v", path)
+		if len(poList.Items) == 0 {
+			return fmt.Errorf("Can not get grafana pod")
+		}
+		if len(poList.Items[0].Status.PodIP) == 0 {
+			return fmt.Errorf("Can not get grafana pod IP")
+		}
+		grafanaPod = poList.Items[0]
+		return nil
+	}, 2*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
-	url := "http://" + poList.Items[0].Status.PodIP + ":3001/api/" + path
+	url := "http://" + grafanaPod.Status.PodIP + ":3001/api/" + path
 	klog.Infof("Sending request: %v", url)
 
 	responseBody, err := testClients.Kubectl(testOptions.GlobalHub.Name,
 		"exec",
 		"-it",
-		poList.Items[0].Name,
+		grafanaPod.Name,
 		"-n",
 		configNamespace,
 		"-c",
