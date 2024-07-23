@@ -78,20 +78,22 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// set resource as ready
 	r.resources[req.Name] = true
 
-	if r.readyToWatchACMResources() {
-		config.SetACMResourceReady(true)
-		if err := r.watchACMResources(); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	// mark the states of kafka crd
 	if r.readyToWatchKafkaResources() {
 		config.SetKafkaResourceReady(true)
 	}
 
+	if r.readyToWatchACMResources() {
+		config.SetACMResourceReady(true)
+		if err := r.watchACMResources(); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else {
+		return ctrl.Result{}, nil
+	}
+
 	// start addon installer
-	if config.IsACMResourceReady() && !r.addonInstallerReady {
+	if !r.addonInstallerReady {
 		if err := (&addon.AddonInstaller{
 			Client: r.GetClient(),
 			Log:    ctrl.Log.WithName("addon-reconciler"),
@@ -102,7 +104,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon controller
-	if config.IsACMResourceReady() && r.addonController == nil {
+	if r.addonController == nil {
 		addonController, err := addon.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -115,7 +117,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// backup controller
-	if config.IsACMResourceReady() && !r.backupControllerReady {
+	if !r.backupControllerReady {
 		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).SetupWithManager(r.Manager)
 		if err != nil {
 			return ctrl.Result{}, err

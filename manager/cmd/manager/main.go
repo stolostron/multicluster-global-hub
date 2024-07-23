@@ -252,39 +252,40 @@ func createManager(ctx context.Context,
 
 	// TODO: refactor the manager to start the conflation manager so that it can handle the events from restful API
 
-	if managerConfig.WithACM {
+	if !managerConfig.WithACM {
+		return mgr, nil
+	}
 
-		if managerConfig.EnableGlobalResource {
-			if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
-				return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
-			}
+	if managerConfig.EnableGlobalResource {
+		if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
+			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 		}
+	}
 
-		if managerConfig.EnableGlobalResource {
-			if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
-				return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
-			}
+	if managerConfig.EnableGlobalResource {
+		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
+			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
 		}
+	}
 
-		if err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
-			return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
-		}
+	if err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
+		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
+	}
 
-		// add hub management
-		if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
-			return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
-		}
+	// add hub management
+	if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
+		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
+	}
 
-		// need lock DB for backup
-		backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
-		err = backupPVC.SetupWithManager(mgr)
-		if err != nil {
-			return nil, err
-		}
+	// need lock DB for backup
+	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
+	err = backupPVC.SetupWithManager(mgr)
+	if err != nil {
+		return nil, err
+	}
 
-		if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
-			return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
-		}
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
+		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
 	return mgr, nil
