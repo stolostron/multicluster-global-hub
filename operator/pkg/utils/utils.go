@@ -18,12 +18,14 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +52,23 @@ import (
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+// MergeObjects merge the desiredObj into the existingObj, then unmarshal to updatedObj
+func MergeObjects(existingObj, desiredObj, updatedObj client.Object) error {
+	existingJson, _ := json.Marshal(existingObj)
+	desiredJson, _ := json.Marshal(desiredObj)
+
+	// patch the desired json to the existing json
+	patchedData, err := jsonpatch.MergePatch(existingJson, desiredJson)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(patchedData, updatedObj)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // Remove is used to remove string from a string array
 func Remove(list []string, s string) []string {

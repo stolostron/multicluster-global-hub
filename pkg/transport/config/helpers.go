@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	kafkav2 "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
-func LoadCACertToConfigMap(kafkaCAPath string, kafkaConfigMap *kafka.ConfigMap) error {
+func LoadCACertToConfigMap(kafkaCAPath string, kafkaConfigMap *kafkav2.ConfigMap) error {
 	// If kafka CA certificate path is not empty, set ssl for kafka client configuration
 	if kafkaCAPath != "" {
 		// Read in the cert file

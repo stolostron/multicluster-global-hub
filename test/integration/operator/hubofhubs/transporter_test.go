@@ -333,56 +333,43 @@ var _ = Describe("transporter", Ordered, func() {
 		// simulate to create a cluster named: hub1
 		clusterName := "hub1"
 
-		// user
-		userName := trans.GenerateUserName(clusterName)
-		Expect(string(fmt.Sprintf("%s-kafka-user", clusterName))).To(Equal(userName))
-		err = trans.CreateAndUpdateUser(userName)
+		// user - round 1
+		userName, err := trans.EnsureUser(clusterName)
 		Expect(err).To(Succeed())
+		Expect(config.GetKafkaUserName(clusterName)).To(Equal(userName))
 
-		// topic
-		clusterTopic := trans.GenerateClusterTopic(clusterName)
-		Expect("spec").To(Equal(clusterTopic.SpecTopic))
-		Expect("event").To(Equal(clusterTopic.EventTopic))
-		Expect(fmt.Sprintf(protocol.StatusTopicTemplate, clusterName)).To(Equal(clusterTopic.StatusTopic))
-		err = trans.CreateAndUpdateTopic(clusterTopic)
-		Expect(err).To(Succeed())
+		kafkaUser := &kafkav1beta2.KafkaUser{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      userName,
+				Namespace: mgh.Namespace,
+			},
+		}
 
-		// grant readable permission
-		err = trans.GrantRead(userName, "spec")
-		Expect(err).To(Succeed())
-
-		err = trans.GrantRead(userName, "spec")
-		Expect(err).To(Succeed())
-
-		kafkaUser := &kafkav1beta2.KafkaUser{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{
-			Name:      userName,
-			Namespace: mgh.Namespace,
-		}, kafkaUser)
-		Expect(err).To(Succeed())
-		Expect(2).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
-
-		// grant writable permission
-		err = trans.GrantWrite(userName, "event")
-		Expect(err).To(Succeed())
-		err = trans.GrantWrite(userName, "event")
-		Expect(err).To(Succeed())
-		err = trans.GrantRead(userName, protocol.StatusTopicRegex)
-		Expect(err).To(Succeed())
-
-		kafkaUser = &kafkav1beta2.KafkaUser{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{
-			Name:      userName,
-			Namespace: mgh.Namespace,
-		}, kafkaUser)
+		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
 		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
-		// delete user and topic
-		err = trans.DeleteUser(userName)
+		// user - round 2
+		userName, err = trans.EnsureUser(clusterName)
+		Expect(err).To(Succeed())
+		Expect(config.GetKafkaUserName(clusterName)).To(Equal(userName))
+
+		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
+		Expect(err).To(Succeed())
+		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+
+		// topic: create
+		clusterTopic, err := trans.EnsureTopic(clusterName)
+		Expect(err).To(Succeed())
+		Expect("spec").To(Equal(clusterTopic.SpecTopic))
+		Expect("event").To(Equal(clusterTopic.EventTopic))
+		Expect(fmt.Sprintf(protocol.StatusTopicTemplate, clusterName)).To(Equal(clusterTopic.StatusTopic))
+
+		// topic: update
+		_, err = trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
 
-		err = trans.DeleteTopic(clusterTopic)
+		err = trans.Prune(clusterName)
 		Expect(err).To(Succeed())
 
 		// test block
@@ -403,10 +390,12 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 })
 
-func UpdateKafkaClusterReady(client client.Client, ns string) error {
+func UpdateKafkaClusterReady(c client.Client, ns string) error {
 	kafkaVersion := "3.5.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
+	clientCa := "kafka-clients-ca-cert"
+	clientCaCert := "kafka-clients-ca"
 
 	readyCondition := "Ready"
 	trueCondition := "True"
@@ -467,13 +456,13 @@ func UpdateKafkaClusterReady(client client.Client, ns string) error {
 
 	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
 		existkafkaCluster := &kafkav1beta2.Kafka{}
-		err := client.Get(context.Background(), types.NamespacedName{
+		err := c.Get(context.Background(), types.NamespacedName{
 			Name:      kafkaClusterName,
 			Namespace: ns,
 		}, existkafkaCluster)
 		if err != nil {
 			if errors.IsNotFound(err) {
-				if e := client.Create(context.Background(), statusKafkaCluster); e != nil {
+				if e := c.Create(context.Background(), statusKafkaCluster); e != nil {
 					klog.Errorf("Failed to create kafka cluster, error: %v", e)
 					return false, nil
 				}
@@ -501,39 +490,54 @@ func UpdateKafkaClusterReady(client client.Client, ns string) error {
 				},
 			},
 		}
-		err = client.Status().Update(context.Background(), existkafkaCluster)
+		err = c.Status().Update(context.Background(), existkafkaCluster)
 		if err != nil {
 			klog.Errorf("Failed to update Kafka cluster, error:%v", err)
-			return false, nil
-		}
-
-		kafkaGlobalUserSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: ns,
-				Name:      globalHubKafkaUser,
-			},
-			Data: map[string][]byte{
-				"user.crt": []byte("usercrt"),
-				"user.key": []byte("userkey"),
-			},
-		}
-		err = client.Get(context.Background(), types.NamespacedName{
-			Name:      kafkaGlobalUserSecret.Name,
-			Namespace: ns,
-		}, kafkaGlobalUserSecret)
-
-		if errors.IsNotFound(err) {
-			e := client.Create(context.Background(), kafkaGlobalUserSecret)
-			if e != nil {
-				klog.Errorf("Failed to create Kafka secret, error:%v", e)
-				return false, nil
-			}
-		} else if err != nil {
-			klog.Errorf("Failed to get Kafka secret, error:%v", err)
 			return false, nil
 		}
 		return true, nil
 	})
 
-	return err
+	err = createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
+		"user.crt": []byte("usercrt"),
+		"user.key": []byte("userkey"),
+	})
+	if err != nil {
+		return err
+	}
+
+	err = createSecret(c, ns, clientCa, map[string][]byte{
+		"ca.key": []byte("cakey"),
+	})
+	if err != nil {
+		return err
+	}
+
+	err = createSecret(c, ns, clientCaCert, map[string][]byte{
+		"ca.crt": []byte("cacert"),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createSecret(c client.Client, ns, name string, data map[string][]byte) error {
+	clientCaCertSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+		Data: data,
+	}
+	err := c.Get(context.Background(), client.ObjectKeyFromObject(clientCaCertSecret), clientCaCertSecret)
+	if errors.IsNotFound(err) {
+		e := c.Create(context.Background(), clientCaCertSecret)
+		if e != nil {
+			return e
+		}
+	} else if err != nil {
+		return err
+	}
+	return nil
 }

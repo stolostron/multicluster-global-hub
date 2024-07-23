@@ -37,42 +37,20 @@ func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 	}
 }
 
-func (k *BYOTransporter) GenerateUserName(clusterIdentity string) string {
-	return ""
+func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
+	return "", nil
 }
 
-func (s *BYOTransporter) CreateAndUpdateUser(name string) error {
-	return nil
-}
-
-func (k *BYOTransporter) DeleteUser(username string) error {
-	return nil
-}
-
-// create the transport topic(KafkaTopic) if not exist for each hub clusters
-func (s *BYOTransporter) CreateAndUpdateTopic(topic *transport.ClusterTopic) error {
-	return nil
-}
-
-func (k *BYOTransporter) DeleteTopic(topic *transport.ClusterTopic) error {
-	return nil
-}
-
-// authorize
-func (k *BYOTransporter) GrantRead(userName string, topicName string) error {
-	return nil
-}
-
-func (k *BYOTransporter) GrantWrite(userName string, topicName string) error {
-	return nil
-}
-
-func (k *BYOTransporter) GenerateClusterTopic(clusterIdentity string) *transport.ClusterTopic {
+func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	return &transport.ClusterTopic{
-		SpecTopic:   "spec",
-		StatusTopic: "status",
-		EventTopic:  "event",
-	}
+		SpecTopic:   transport.GenericSpecTopic,
+		StatusTopic: transport.GenericStatusTopic,
+		EventTopic:  transport.GenericEventTopic,
+	}, nil
+}
+
+func (s *BYOTransporter) Prune(clusterName string) error {
+	return nil
 }
 
 func (s *BYOTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {

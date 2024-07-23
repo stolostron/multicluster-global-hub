@@ -67,8 +67,12 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
 
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
-		err = storageReconciler.Reconcile(ctx, mgh)
 		Expect(err).To(Succeed())
+
+		// the subscription
+		Eventually(func() error {
+			return storageReconciler.Reconcile(ctx, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).To(Succeed())

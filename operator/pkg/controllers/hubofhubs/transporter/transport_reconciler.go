@@ -43,16 +43,22 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 	switch config.TransporterProtocol() {
 	case transport.StrimziTransporter:
 		err = r.reconcileKafkaResources(ctx, mgh)
+		if err != nil {
+			return err
+		}
 	case transport.SecretTransporter:
 		trans = protocol.NewBYOTransporter(ctx, types.NamespacedName{
 			Namespace: mgh.Namespace,
 			Name:      constants.GHTransportSecretName,
 		}, r.GetClient())
 		config.SetTransporter(trans)
-		err = loadTransportConn(ctx, trans)
-	}
-	if err != nil {
-		return err
+		conn, err := trans.GetConnCredential(protocol.GlobalHubClusterName)
+		if err != nil {
+			return err
+		}
+		config.SetTransporterConn(conn)
+		clusterTopic, _ := trans.EnsureTopic(protocol.GlobalHubClusterName)
+		config.SetTransporterTopic(clusterTopic)
 	}
 
 	// set kafka controller
@@ -82,44 +88,36 @@ func (r *TransportReconciler) reconcileKafkaResources(ctx context.Context, mgh *
 	if err != nil {
 		return err
 	}
-
-	// create the user to connect the transport instance
-	err = trans.CreateAndUpdateUser(protocol.DefaultGlobalHubKafkaUser)
-	if err != nil {
-		return err
-	}
-	// create global hub topics, create the status.global, spec and event topics
-	// it's a placeholder for the manager to subscribe the `^status.*`
-	topics := trans.GenerateClusterTopic(protocol.GlobalHubClusterName)
-	err = trans.CreateAndUpdateTopic(topics)
-	if err != nil {
-		return err
-	}
-	// grant permission: read - status,event, write - spec;
-	err = trans.GrantRead(protocol.DefaultGlobalHubKafkaUser, topics.EventTopic)
-	if err != nil {
-		return err
-	}
-	err = trans.GrantRead(protocol.DefaultGlobalHubKafkaUser, topics.StatusTopic)
-	if err != nil {
-		return err
-	}
-	err = trans.GrantWrite(protocol.DefaultGlobalHubKafkaUser, topics.SpecTopic)
-	if err != nil {
-		return err
-	}
-
 	config.SetTransporter(trans)
-	return loadTransportConn(ctx, trans)
+
+	_, err = trans.EnsureUser(protocol.GlobalHubClusterName)
+	if err != nil {
+		return err
+	}
+
+	transportTopic, err := trans.EnsureTopic(protocol.GlobalHubClusterName)
+	if err != nil {
+		return err
+	}
+	config.SetTransporterTopic(transportTopic)
+
+	transportConn, err := waitTransportConn(ctx, trans, protocol.GlobalHubClusterName)
+	if err != nil {
+		return err
+	}
+	config.SetTransporterConn(transportConn)
+	return nil
 }
 
-func loadTransportConn(ctx context.Context, trans transport.Transporter) error {
+func waitTransportConn(ctx context.Context, trans transport.Transporter, clusterName string) (
+	*transport.ConnCredential, error,
+) {
 	// set transporter connection
 	var conn *transport.ConnCredential
 	var err error
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
-			conn, err = trans.GetConnCredential(protocol.DefaultGlobalHubKafkaUser)
+			conn, err = trans.GetConnCredential(clusterName)
 			if err != nil {
 				klog.Info("waiting the kafka connection credential to be ready...", "message", err.Error())
 				return false, err
@@ -127,10 +125,9 @@ func loadTransportConn(ctx context.Context, trans transport.Transporter) error {
 			return true, nil
 		})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	config.SetTransporterConn(conn)
-	return nil
+	return conn, nil
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics

@@ -6,59 +6,55 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	kafkav2 "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*kafka.ConfigMap, error) {
-	kafkaConfigMap := &kafka.ConfigMap{
-		"bootstrap.servers":       kafkaConfig.BootstrapServer,
+func GetBasicConfigMap() *kafkav2.ConfigMap {
+	return &kafkav2.ConfigMap{
 		"socket.keepalive.enable": "true",
 		// silence spontaneous disconnection logs, kafka recovers by itself.
 		"log.connection.close": "false",
 		// https://github.com/confluentinc/librdkafka/issues/4349
 		"ssl.endpoint.identification.algorithm": "none",
-		// the events channel server for both producer and consumer
-		"go.events.channel.size": 1000,
 	}
-	if producer {
-		_ = kafkaConfigMap.SetKey("go.produce.channel.size", 1000)
-		_ = kafkaConfigMap.SetKey("acks", "1")
-		_ = kafkaConfigMap.SetKey("retries", "0")
-	} else {
-		_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
-		_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
-		_ = kafkaConfigMap.SetKey("group.id", kafkaConfig.ConsumerConfig.ConsumerID)
-		_ = kafkaConfigMap.SetKey("client.id", kafkaConfig.ConsumerConfig.ConsumerID)
-	}
-
-	_, validCA := utils.Validate(kafkaConfig.CaCertPath)
-	if kafkaConfig.EnableTLS && validCA {
-		if err := setCertificate(kafkaConfig.CaCertPath); err != nil {
-			return nil, err
-		}
-
-		if err := kafkaConfigMap.SetKey("security.protocol", "ssl"); err != nil {
-			return nil, err
-		}
-		if err := kafkaConfigMap.SetKey("ssl.ca.location", kafkaConfig.CaCertPath); err != nil {
-			return nil, err
-		}
-
-		_, validCert := utils.Validate(kafkaConfig.ClientCertPath)
-		_, validKey := utils.Validate(kafkaConfig.ClientKeyPath)
-		if validCert && validKey {
-			_ = kafkaConfigMap.SetKey("ssl.certificate.location", kafkaConfig.ClientCertPath)
-			_ = kafkaConfigMap.SetKey("ssl.key.location", kafkaConfig.ClientKeyPath)
-		}
-	}
-	return kafkaConfigMap, nil
 }
 
-// registers the ca in root certification authority.
-func setCertificate(caCertPath string) error {
+func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
+	_ = kafkaConfigMap.SetKey("go.produce.channel.size", 1000)
+	_ = kafkaConfigMap.SetKey("acks", "1")
+	_ = kafkaConfigMap.SetKey("retries", "0")
+	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
+}
+
+func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
+	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
+	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
+	_ = kafkaConfigMap.SetKey("group.id", groupId)
+	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
+}
+
+func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {
+	_, validCA := utils.Validate(caCertPath)
+	if !validCA {
+		return errors.New("invalid ca certificate")
+	}
+	_, validCert := utils.Validate(certPath)
+	_, validKey := utils.Validate(keyPath)
+	if !validCert || !validKey {
+		return errors.New("invalid client key or cert")
+	}
+
+	if err := kafkaConfigMap.SetKey("security.protocol", "ssl"); err != nil {
+		return err
+	}
+	if err := kafkaConfigMap.SetKey("ssl.ca.location", caCertPath); err != nil {
+		return err
+	}
+
+	// set ca
 	certBytes, err := os.ReadFile(filepath.Clean(caCertPath))
 	if err != nil {
 		return err
@@ -71,7 +67,30 @@ func setCertificate(caCertPath string) error {
 
 	// Append our cert to the system pool
 	if ok := rootCertAuth.AppendCertsFromPEM(certBytes); !ok {
-		return errors.New("kafka-certificate-manager: failed to append certificate")
+		return errors.New("failed to append ca certificate")
 	}
+
+	// set client certificate
+	_ = kafkaConfigMap.SetKey("ssl.certificate.location", certPath)
+	_ = kafkaConfigMap.SetKey("ssl.key.location", keyPath)
 	return nil
+}
+
+// https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
+func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*kafkav2.ConfigMap, error) {
+	kafkaConfigMap := GetBasicConfigMap()
+	_ = kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.BootstrapServer)
+	if producer {
+		SetProducerConfig(kafkaConfigMap)
+	} else {
+		SetConsumerConfig(kafkaConfigMap, kafkaConfig.ConsumerConfig.ConsumerID)
+	}
+	if !kafkaConfig.EnableTLS {
+		return kafkaConfigMap, nil
+	}
+	err := SetTLSByLocation(kafkaConfigMap, kafkaConfig.CaCertPath, kafkaConfig.ClientCertPath, kafkaConfig.ClientKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	return kafkaConfigMap, nil
 }

@@ -99,12 +99,8 @@ func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster
 			Namespace: cluster.Name,
 		},
 	}
-	err := r.updateKafkaResource(cluster)
-	if err != nil {
-		return fmt.Errorf("failed to update kafka resources: %v", err)
-	}
 
-	err = r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
+	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
 	// create
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -137,31 +133,6 @@ func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster
 	return nil
 }
 
-func (r *AddonInstaller) updateKafkaResource(cluster *clusterv1.ManagedCluster) error {
-	transporter := config.GetTransporter()
-	clusterUser := transporter.GenerateUserName(cluster.Name)
-	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
-	// create the resources
-	if err := transporter.CreateAndUpdateUser(clusterUser); err != nil {
-		return fmt.Errorf("failed to create transport user %s: %v", clusterUser, err)
-	}
-	if err := transporter.CreateAndUpdateTopic(clusterTopic); err != nil {
-		return fmt.Errorf("failed to create transport topics %s: %v", cluster.Name, err)
-	}
-
-	// grant spec/event with readable, status with writable
-	if err := transporter.GrantRead(clusterUser, clusterTopic.SpecTopic); err != nil {
-		return err
-	}
-	if err := transporter.GrantWrite(clusterUser, clusterTopic.EventTopic); err != nil {
-		return err
-	}
-	if err := transporter.GrantWrite(clusterUser, clusterTopic.StatusTopic); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster)
 	if err != nil {
@@ -171,6 +142,19 @@ func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *c
 	if err := r.Create(ctx, expectedAddon); err != nil {
 		return fmt.Errorf("failed to create the managedclusteraddon: %v", err)
 	}
+
+	// create kafka resource: user and topic
+	trans := config.GetTransporter()
+	if trans == nil {
+		return fmt.Errorf("failed to get the transporter")
+	}
+	if _, err = trans.EnsureUser(cluster.Name); err != nil {
+		return err
+	}
+	if _, err = trans.EnsureTopic(cluster.Name); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -183,28 +167,22 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 		},
 	}
 	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
-	if err != nil && errors.IsNotFound(err) {
-		return r.removeResources(ctx, cluster)
-	} else if err != nil {
-		return fmt.Errorf("failed go get the addon %v", err)
+	if err == nil {
+		if e := r.Delete(ctx, existingAddon); e != nil {
+			return fmt.Errorf("failed to delete the managedclusteraddon %v", e)
+		}
 	}
-	if err = r.Delete(ctx, existingAddon); err != nil {
-		return fmt.Errorf("failed to delete the addon %v", err)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed go get the managedclusteraddon %v", err)
 	}
-	return nil
-}
 
-func (r *AddonInstaller) removeResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
-	transporter := config.GetTransporter()
-	clusterUser := transporter.GenerateUserName(cluster.Name)
-	clusterTopic := transporter.GenerateClusterTopic(cluster.Name)
-	if err := transporter.DeleteUser(clusterUser); err != nil {
-		return fmt.Errorf("failed to remove user %v", err)
+	// clean kafka resource: user and topic
+	trans := config.GetTransporter()
+	if trans == nil {
+		return fmt.Errorf("failed to get the transporter")
 	}
-	if err := transporter.DeleteTopic(clusterTopic); err != nil {
-		return fmt.Errorf("failed to remove topic %v", err)
-	}
-	return nil
+
+	return trans.Prune(cluster.Name)
 }
 
 func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.ManagedClusterAddOn, error) {
@@ -379,9 +357,6 @@ func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, erro
 	managedClusterList := &clusterv1.ManagedClusterList{}
 	err := c.List(ctx, managedClusterList)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return names, nil
-		}
 		return nil, err
 	}
 
