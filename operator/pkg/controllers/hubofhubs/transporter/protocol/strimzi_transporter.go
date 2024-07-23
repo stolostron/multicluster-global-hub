@@ -145,7 +145,7 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 	}
 
 	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetClientCA(k.namespace, k.name, k.runtimeClient); err != nil {
+	if err := config.SetClientCA(k.ctx, k.namespace, k.name, k.runtimeClient); err != nil {
 		return nil, err
 	}
 	return k, err

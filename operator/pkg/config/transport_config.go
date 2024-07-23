@@ -100,14 +100,14 @@ func GetClientCA() ([]byte, []byte) {
 	return clientCAKey, clientCACert
 }
 
-func SetClientCA(namespace, name string, c client.Client) error {
+func SetClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca", name),
 			Namespace: namespace,
 		},
 	}
-	err := c.Get(context.TODO(), client.ObjectKeyFromObject(clientCAKeySecret), clientCAKeySecret)
+	err := c.Get(ctx, client.ObjectKeyFromObject(clientCAKeySecret), clientCAKeySecret)
 	if err != nil {
 		return err
 	}
@@ -122,7 +122,7 @@ func SetClientCA(namespace, name string, c client.Client) error {
 			Namespace: namespace,
 		},
 	}
-	err = c.Get(context.TODO(), client.ObjectKeyFromObject(clientCACertSecret), clientCACertSecret)
+	err = c.Get(ctx, client.ObjectKeyFromObject(clientCACertSecret), clientCACertSecret)
 	if err != nil {
 		return err
 	}

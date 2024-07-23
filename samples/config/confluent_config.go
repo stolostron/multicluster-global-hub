@@ -99,7 +99,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 
 	clientCertSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      certificates.AagentCertificateSecretName(),
+		Name:      certificates.AgentCertificateSecretName(),
 		Namespace: namespace,
 	}, clientCertSecret)
 	if err != nil {
