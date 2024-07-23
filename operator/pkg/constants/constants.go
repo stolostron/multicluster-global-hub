@@ -20,6 +20,8 @@ const (
 	// ControllerConfig allows customizing LeaseDuration, RenewDeadline and RetryPeriod
 	// for operator, manager and agent via the ConfigMap
 	ControllerConfig = "controller-config"
+	// Global Hub Controller Name
+	GlobalHubControllerName = "global-hub-controller"
 )
 
 // global hub metrics

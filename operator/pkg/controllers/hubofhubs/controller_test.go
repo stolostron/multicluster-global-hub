@@ -5,9 +5,11 @@ package hubofhubs
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +17,9 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -25,13 +29,13 @@ import (
 )
 
 var (
-	cfg           *rest.Config
-	kubeClient    kubernetes.Interface
-	runtimeClient client.Client
-	namespace     = "default"
-	controller    *GlobalHubController
-	ctx           context.Context
-	cancel        context.CancelFunc
+	cfg                 *rest.Config
+	kubeClient          kubernetes.Interface
+	namespace           = "default"
+	globalHubController controller.Controller
+	runtimeMgr          manager.Manager
+	ctx                 context.Context
+	cancel              context.CancelFunc
 )
 
 func TestMain(m *testing.M) {
@@ -48,6 +52,9 @@ func TestMain(m *testing.M) {
 		},
 		ErrorIfCRDPathMissing: true,
 	}
+	testenv.ControlPlane.GetAPIServer().Configure().Set("disable-admission-plugins",
+		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
+
 	config.SetKafkaResourceReady(true)
 
 	cfg, err = testenv.Start()
@@ -60,30 +67,21 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	runtimeClient, err = client.New(cfg, client.Options{Scheme: config.GetRuntimeScheme()})
-	if err != nil {
-		panic(err)
-	}
-
-	runtimeMgr, err := ctrl.NewManager(cfg, ctrl.Options{
+	runtimeMgr, err = ctrl.NewManager(cfg, ctrl.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
-		}, Scheme: config.GetRuntimeScheme(),
-		LeaderElection:          true,
-		LeaderElectionNamespace: namespace,
-		LeaderElectionID:        "549a8919.open-cluster-management.io",
+		},
+		Scheme:         config.GetRuntimeScheme(),
+		LeaderElection: false,
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	controller = NewGlobalHubController(runtimeMgr, nil, kubeClient, &config.OperatorConfig{})
-	err = controller.SetupWithManager(runtimeMgr)
+	globalHubController, err = NewGlobalHubController(runtimeMgr, kubeClient, &config.OperatorConfig{})
 	if err != nil {
 		panic(err)
 	}
-	// not use the manager client
-	controller.Client = runtimeClient
 
 	// run testings
 	code := m.Run()
@@ -99,6 +97,13 @@ func TestMain(m *testing.M) {
 
 func TestController(t *testing.T) {
 	RegisterTestingT(t)
+
+	go func() {
+		err := runtimeMgr.Start(ctx)
+		Expect(err).To(Succeed())
+	}()
+	Expect(runtimeMgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
 	// By("By creating a new MGH instance with reference to nonexisting image override configmap")
 	mgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,27 +121,34 @@ func TestController(t *testing.T) {
 			},
 		},
 	}
-	Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 
-	_, _ = controller.Reconcile(ctx, ctrl.Request{
+	Expect(runtimeMgr.GetClient().Create(ctx, mgh)).To(Succeed())
+
+	_, _ = globalHubController.Reconcile(ctx, ctrl.Request{
 		NamespacedName: client.ObjectKeyFromObject(mgh),
 	})
 
-	err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
-	Expect(err).To(Succeed())
-
-	count := 0
-	for _, cond := range mgh.Status.Conditions {
-		if cond.Type == config.CONDITION_REASON_RETENTION_PARSED {
-			count++
-			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Message).To(Equal("The data will be kept in the database for 24 months."))
+	Eventually(func() error {
+		err := runtimeMgr.GetClient().Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+		if err != nil {
+			return err
 		}
-		if cond.Type == config.CONDITION_TYPE_GLOBALHUB_READY {
-			count++
-			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Message).To(ContainSubstring("middleware not ready"))
+		count := 0
+		for _, cond := range mgh.Status.Conditions {
+			if cond.Type == config.CONDITION_REASON_RETENTION_PARSED {
+				count++
+				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+				Expect(cond.Message).To(Equal("The data will be kept in the database for 24 months."))
+			}
+			if cond.Type == config.CONDITION_TYPE_GLOBALHUB_READY {
+				count++
+				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+				Expect(cond.Message).To(ContainSubstring("middleware not ready"))
+			}
 		}
-	}
-	Expect(count).To(Equal(2))
+		if count != 2 {
+			return fmt.Errorf("expected to be 2, but got %v", count)
+		}
+		return nil
+	}, 10*time.Second, 1*time.Second).Should(Succeed())
 }

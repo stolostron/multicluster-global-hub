@@ -21,33 +21,36 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
-	"open-cluster-management.io/addon-framework/pkg/addonmanager"
-	"open-cluster-management.io/api/addon/v1alpha1"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	// pmcontroller "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/packagemanifest"
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
@@ -60,12 +63,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-// GlobalHubController reconciles a MulticlusterGlobalHub object
-type GlobalHubController struct {
-	log logr.Logger
-	ctrl.Manager
-	client.Client
-	addonMgr            addonmanager.AddonManager
+// GlobalHubReconciler reconciles a MulticlusterGlobalHub object
+type GlobalHubReconciler struct {
+	config              *rest.Config
+	client              client.Client
+	recorder            record.EventRecorder
+	scheme              *runtime.Scheme
+	log                 logr.Logger
 	upgraded            bool
 	operatorConfig      *config.OperatorConfig
 	pruneReconciler     *prune.PruneReconciler
@@ -77,14 +81,15 @@ type GlobalHubController struct {
 	grafanaReconciler   *grafana.GrafanaReconciler
 }
 
-func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager,
+func NewGlobalHubReconciler(mgr ctrl.Manager,
 	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
-) *GlobalHubController {
-	return &GlobalHubController{
-		log:                 ctrl.Log.WithName("global-hub-controller"),
-		Manager:             mgr,
-		Client:              mgr.GetClient(),
-		addonMgr:            addonMgr,
+) *GlobalHubReconciler {
+	return &GlobalHubReconciler{
+		log:                 ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
+		client:              mgr.GetClient(),
+		config:              mgr.GetConfig(),
+		scheme:              mgr.GetScheme(),
+		recorder:            mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
 		operatorConfig:      operatorConfig,
 		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
@@ -93,6 +98,385 @@ func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager
 		statusReconciler:    status.NewStatusReconciler(mgr.GetClient()),
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
+	}
+}
+
+func NewGlobalHubController(mgr ctrl.Manager,
+	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
+) (controller.Controller, error) {
+	globalHubController, err := controller.New(operatorconstants.GlobalHubControllerName, mgr, controller.Options{
+		Reconciler: NewGlobalHubReconciler(mgr, kubeClient, operatorConfig),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := addGlobalHubControllerWatches(mgr, globalHubController); err != nil {
+		return nil, err
+	}
+
+	return globalHubController, nil
+}
+
+func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController controller.Controller) error {
+	schema := mgr.GetScheme()
+	restMapper := mgr.GetClient().RESTMapper()
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &v1alpha4.MulticlusterGlobalHub{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha4.MulticlusterGlobalHub]{},
+			watchMulticlusterGlobalHubPredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &appsv1.Deployment{},
+			handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*appsv1.Deployment]{
+				predicate.TypedGenerationChangedPredicate[*appsv1.Deployment]{},
+				// predicate.NewTypedPredicateFuncs[*appsv1.Deployment](func(node *appsv1.Deployment) bool {
+				// 	return handleDeployment(deployment)
+				// },
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &appsv1.StatefulSet{},
+			handler.TypedEnqueueRequestForOwner[*appsv1.StatefulSet](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*appsv1.StatefulSet]{
+				predicate.TypedGenerationChangedPredicate[*appsv1.StatefulSet]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Service{},
+			handler.TypedEnqueueRequestForOwner[*corev1.Service](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*corev1.Service]{
+				predicate.TypedGenerationChangedPredicate[*corev1.Service]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.ServiceAccount{},
+			handler.TypedEnqueueRequestForOwner[*corev1.ServiceAccount](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*corev1.ServiceAccount]{
+				predicate.TypedGenerationChangedPredicate[*corev1.ServiceAccount]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Secret{},
+			handler.TypedEnqueueRequestForOwner[*corev1.Secret](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*corev1.Secret]{
+				predicate.TypedGenerationChangedPredicate[*corev1.Secret]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &rbacv1.Role{},
+			handler.TypedEnqueueRequestForOwner[*rbacv1.Role](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*rbacv1.Role]{
+				predicate.TypedGenerationChangedPredicate[*rbacv1.Role]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &rbacv1.RoleBinding{},
+			handler.TypedEnqueueRequestForOwner[*rbacv1.RoleBinding](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*rbacv1.RoleBinding]{
+				predicate.TypedGenerationChangedPredicate[*rbacv1.RoleBinding]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &routev1.Route{},
+			handler.TypedEnqueueRequestForOwner[*routev1.Route](
+				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
+			[]predicate.TypedPredicate[*routev1.Route]{
+				predicate.TypedGenerationChangedPredicate[*routev1.Route]{},
+			}...)); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.ConfigMap{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *corev1.ConfigMap,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchConfigMapPredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &admissionv1.MutatingWebhookConfiguration{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				a *admissionv1.MutatingWebhookConfiguration,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchMutatingWebhookConfigurationPredicate())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Namespace{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *corev1.Namespace,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchNamespacePredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Secret{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *corev1.Secret,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchSecretPredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &rbacv1.ClusterRole{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *rbacv1.ClusterRole,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchClusterRolePredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &rbacv1.ClusterRoleBinding{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *rbacv1.ClusterRoleBinding,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchClusterRoleBindingPredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &promv1.ServiceMonitor{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *promv1.ServiceMonitor,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchServiceMonitorPredict())); err != nil {
+		return err
+	}
+
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &subv1alpha1.Subscription{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *subv1alpha1.Subscription,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchSubscriptionPredict())); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func watchServiceMonitorPredict() predicate.TypedPredicate[*promv1.ServiceMonitor] {
+	return predicate.TypedFuncs[*promv1.ServiceMonitor]{
+		CreateFunc: func(e event.TypedCreateEvent[*promv1.ServiceMonitor]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*promv1.ServiceMonitor]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*promv1.ServiceMonitor]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchMulticlusterGlobalHubPredict() predicate.TypedPredicate[*v1alpha4.MulticlusterGlobalHub] {
+	return predicate.TypedFuncs[*v1alpha4.MulticlusterGlobalHub]{
+		CreateFunc: func(e event.TypedCreateEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
+			return true
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
+			return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
+			return !e.DeleteStateUnknown
+		},
+	}
+}
+
+func watchClusterRolePredict() predicate.TypedPredicate[*rbacv1.ClusterRole] {
+	return predicate.TypedFuncs[*rbacv1.ClusterRole]{
+		CreateFunc: func(e event.TypedCreateEvent[*rbacv1.ClusterRole]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*rbacv1.ClusterRole]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*rbacv1.ClusterRole]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchClusterRoleBindingPredict() predicate.TypedPredicate[*rbacv1.ClusterRoleBinding] {
+	return predicate.TypedFuncs[*rbacv1.ClusterRoleBinding]{
+		CreateFunc: func(e event.TypedCreateEvent[*rbacv1.ClusterRoleBinding]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*rbacv1.ClusterRoleBinding]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+				constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*rbacv1.ClusterRoleBinding]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchSubscriptionPredict() predicate.TypedPredicate[*subv1alpha1.Subscription] {
+	return predicate.TypedFuncs[*subv1alpha1.Subscription]{
+		CreateFunc: func(e event.TypedCreateEvent[*subv1alpha1.Subscription]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*subv1alpha1.Subscription]) bool {
+			return false
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*subv1alpha1.Subscription]) bool {
+			return true
+		},
+	}
+}
+
+func watchSecretPredict() predicate.TypedPredicate[*corev1.Secret] {
+	secretCond := func(obj client.Object) bool {
+		if WatchedSecret.Has(obj.GetName()) {
+			return true
+		}
+		if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
+			obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+			return true
+		}
+		return false
+	}
+	return predicate.TypedFuncs[*corev1.Secret]{
+		CreateFunc: func(e event.TypedCreateEvent[*corev1.Secret]) bool {
+			return secretCond(e.Object)
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+			return secretCond(e.ObjectNew)
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool {
+			return secretCond(e.Object)
+		},
+	}
+}
+
+func watchConfigMapPredict() predicate.TypedPredicate[*corev1.ConfigMap] {
+	return predicate.TypedFuncs[*corev1.ConfigMap]{
+		CreateFunc: func(e event.TypedCreateEvent[*corev1.ConfigMap]) bool {
+			return WatchedConfigMap.Has(e.Object.GetName())
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.ConfigMap]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
+				return true
+			}
+			return WatchedConfigMap.Has(e.ObjectNew.GetName())
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*corev1.ConfigMap]) bool {
+			if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
+				return true
+			}
+			return WatchedConfigMap.Has(e.Object.GetName())
+		},
+	}
+}
+
+func watchNamespacePredict() predicate.TypedPredicate[*corev1.Namespace] {
+	return predicate.TypedFuncs[*corev1.Namespace]{
+		CreateFunc: func(e event.TypedCreateEvent[*corev1.Namespace]) bool {
+			return e.Object.GetName() == config.GetMGHNamespacedName().Namespace
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Namespace]) bool {
+			return e.ObjectNew.GetName() == config.GetMGHNamespacedName().Namespace &&
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Namespace]) bool {
+			return false
+		},
+	}
+}
+
+func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admissionv1.MutatingWebhookConfiguration] {
+	return predicate.TypedFuncs[*admissionv1.MutatingWebhookConfiguration]{
+		CreateFunc: func(e event.TypedCreateEvent[*admissionv1.MutatingWebhookConfiguration]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*admissionv1.MutatingWebhookConfiguration]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal {
+				if len(e.ObjectNew.Webhooks) != len(e.ObjectOld.Webhooks) ||
+					e.ObjectNew.Webhooks[0].Name != e.ObjectOld.Webhooks[0].Name ||
+					!reflect.DeepEqual(e.ObjectNew.Webhooks[0].AdmissionReviewVersions,
+						e.ObjectOld.Webhooks[0].AdmissionReviewVersions) ||
+					!reflect.DeepEqual(e.ObjectNew.Webhooks[0].Rules, e.ObjectOld.Webhooks[0].Rules) ||
+					!reflect.DeepEqual(e.ObjectNew.Webhooks[0].ClientConfig.Service, e.ObjectOld.Webhooks[0].ClientConfig.Service) {
+					return true
+				}
+				return false
+			}
+			return false
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*admissionv1.MutatingWebhookConfiguration]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+				constants.GHOperatorOwnerLabelVal
+		},
 	}
 }
 
@@ -144,9 +528,12 @@ func NewGlobalHubController(mgr ctrl.Manager, addonMgr addonmanager.AddonManager
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.11.0/pkg/reconcile
-func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if len(req.Namespace) == 0 || len(req.Name) == 0 {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.Client)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.client)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -161,6 +548,16 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 	if config.IsPaused(mgh) {
 		r.log.Info("mgh controller is paused, nothing more to do")
 		return ctrl.Result{}, nil
+	}
+
+	// add finalizer to the mgh
+	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
+		if err = r.client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
+			if errors.IsConflict(err) {
+				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
 	}
 
 	// update status condition
@@ -179,16 +576,18 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	// update the managed hub clusters
-	// only reconcile once: upgrade
-	if !r.upgraded {
-		if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.Client); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to upgrade from release-2.10: %v", err)
+	if config.IsACMResourceReady() {
+		// update the managed hub clusters
+		// only reconcile once: upgrade
+		if !r.upgraded {
+			if err = utils.RemoveManagedHubClusterFinalizer(ctx, r.client); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to upgrade from release-2.10: %v", err)
+			}
+			r.upgraded = true
 		}
-		r.upgraded = true
-	}
-	if err := utils.AnnotateManagedHubCluster(ctx, r.Client); err != nil {
-		return ctrl.Result{}, err
+		if err := utils.AnnotateManagedHubCluster(ctx, r.client); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	// storage and transporter
@@ -201,244 +600,30 @@ func (r *GlobalHubController) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// reconciler manager and manager
+	// reconcile manager
 	if err := r.managerReconciler.Reconcile(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// reconcile grafana
 	if err := r.grafanaReconciler.Reconcile(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := utils.TriggerManagedHubAddons(ctx, r.Client, r.addonMgr); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
-		if err = r.Client.Update(ctx, mgh, &client.UpdateOptions{}); err != nil {
-			if errors.IsConflict(err) {
-				r.log.Info("conflict when adding finalizer to mgh instance", "error", err)
-				return ctrl.Result{Requeue: true}, nil
-			}
+	if config.IsACMResourceReady() {
+		if err := utils.TriggerManagedHubAddons(ctx, r.client, r.config); err != nil {
+			return ctrl.Result{}, err
 		}
 	}
+
 	return ctrl.Result{}, nil
-}
-
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return !e.DeleteStateUnknown
-	},
-}
-
-var ownPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
-		if e.ObjectNew.GetGeneration() == 0 {
-			return true
-		}
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return true
-	},
-}
-
-var resPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
-			constants.GHOperatorOwnerLabelVal {
-			return false
-		}
-		// only requeue when spec change, if the resource do not have spec field, the generation is always 0
-		if e.ObjectNew.GetGeneration() == 0 {
-			return true
-		}
-		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal
-	},
-}
-
-var secretCond = func(obj client.Object) bool {
-	if WatchedSecret.Has(obj.GetName()) {
-		return true
-	}
-	if obj.GetLabels()["strimzi.io/cluster"] == protocol.KafkaClusterName &&
-		obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
-		return true
-	}
-	return false
-}
-
-var secretPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return secretCond(e.Object)
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return secretCond(e.ObjectNew)
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return secretCond(e.Object)
-	},
-}
-
-var deletePred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return false
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return true
-	},
-}
-
-var configmappred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return WatchedConfigMap.Has(e.Object.GetName())
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			return true
-		}
-		return WatchedConfigMap.Has(e.ObjectNew.GetName())
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			return true
-		}
-		return WatchedConfigMap.Has(e.Object.GetName())
-	},
-}
-
-var mhPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var webhookPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
-			old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
-			if len(new.Webhooks) != len(old.Webhooks) ||
-				new.Webhooks[0].Name != old.Webhooks[0].Name ||
-				!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
-					old.Webhooks[0].AdmissionReviewVersions) ||
-				!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
-				!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
-				return true
-			}
-			return false
-		}
-		return false
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal
-	},
-}
-
-var namespacePred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == config.GetMGHNamespacedName().Namespace
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetName() == config.GetMGHNamespacedName().Namespace &&
-			e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var globalHubEventHandler = handler.EnqueueRequestsFromMapFunc(
-	func(ctx context.Context, obj client.Object) []reconcile.Request {
-		return []reconcile.Request{
-			// trigger MGH instance reconcile
-			{NamespacedName: config.GetMGHNamespacedName()},
-		}
-	},
-)
-
-// SetupWithManager sets up the controller with the Manager.
-func (r *GlobalHubController) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
-		Owns(&appsv1.Deployment{}, builder.WithPredicates(ownPred)).
-		Owns(&appsv1.StatefulSet{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.Service{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.ServiceAccount{}, builder.WithPredicates(ownPred)).
-		Owns(&corev1.Secret{}, builder.WithPredicates(ownPred)).
-		Owns(&rbacv1.Role{}, builder.WithPredicates(ownPred)).
-		Owns(&rbacv1.RoleBinding{}, builder.WithPredicates(ownPred)).
-		Owns(&routev1.Route{}, builder.WithPredicates(ownPred)).
-		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
-			globalHubEventHandler, builder.WithPredicates(webhookPred)).
-		// secondary watch for configmap
-		Watches(&corev1.ConfigMap{},
-			globalHubEventHandler, builder.WithPredicates(configmappred)).
-		// secondary watch for namespace
-		Watches(&corev1.Namespace{},
-			globalHubEventHandler, builder.WithPredicates(namespacePred)).
-		// secondary watch for clusterrole
-		Watches(&rbacv1.ClusterRole{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
-		// secondary watch for clusterrolebinding
-		Watches(&rbacv1.ClusterRoleBinding{},
-			globalHubEventHandler, builder.WithPredicates(resPred)).
-		// secondary watch for Secret
-		Watches(&corev1.Secret{},
-			globalHubEventHandler, builder.WithPredicates(secretPred)).
-		// secondary watch for clustermanagementaddon
-		Watches(&v1alpha1.ClusterManagementAddOn{},
-			globalHubEventHandler,
-			builder.WithPredicates(resPred)).
-		Watches(&clusterv1.ManagedCluster{},
-			globalHubEventHandler,
-			builder.WithPredicates(mhPred)).
-		Watches(&promv1.ServiceMonitor{},
-			globalHubEventHandler,
-			builder.WithPredicates(resPred)).
-		Watches(&subv1alpha1.Subscription{},
-			globalHubEventHandler,
-			builder.WithPredicates(deletePred)).
-		Complete(r)
 }
 
 // ReconcileMiddleware creates the kafka and postgres if needed.
 // 1. create the kafka and postgres subscription at the same time
 // 2. then create the kafka and postgres resources at the same time
 // 3. wait for kafka and postgres ready
-func (r *GlobalHubController) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	// initialize postgres and kafka at the same time
 	var wg sync.WaitGroup

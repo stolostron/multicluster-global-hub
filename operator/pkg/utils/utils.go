@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
@@ -269,7 +270,7 @@ func WaitGlobalHubReady(ctx context.Context,
 	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
 		if errors.IsNotFound(err) {
-			klog.Info("wait until the mgh instance is created")
+			klog.V(2).Info("wait until the mgh instance is created")
 			return false, nil
 		} else if err != nil {
 			return true, err
@@ -378,7 +379,7 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
 		func(ctx context.Context) (bool, error) {
 			if config.GetTransporter() == nil {
-				klog.Info("wait transporter ready")
+				klog.V(2).Info("wait transporter ready")
 				return false, nil
 			}
 			return true, nil
@@ -437,11 +438,14 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 	return nil
 }
 
-func TriggerManagedHubAddons(ctx context.Context, c client.Client,
-	addonMgr addonmanager.AddonManager,
-) error {
+func TriggerManagedHubAddons(ctx context.Context, c client.Client, kubeConfig *rest.Config) error {
 	clusters := &clusterv1.ManagedClusterList{}
 	if err := c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	addonMgr, err := addonmanager.New(kubeConfig)
+	if err != nil {
 		return err
 	}
 

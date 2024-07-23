@@ -23,6 +23,7 @@ type ManagerConfig struct {
 	NonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
+	WithACM               bool
 	LaunchJobNames        string
 	EnablePprof           bool
 }

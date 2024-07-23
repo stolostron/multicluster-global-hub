@@ -499,11 +499,11 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				Namespace: k.namespace,
 			}, kafkaCluster)
 			if err != nil {
-				k.log.Info("fail to get the kafka cluster, waiting", "message", err.Error())
+				k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
 				return false, nil
 			}
 			if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-				k.log.Info("kafka cluster status is not ready")
+				k.log.V(2).Info("kafka cluster status is not ready")
 				return false, nil
 			}
 
@@ -525,7 +525,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 				}
 			}
 
-			k.log.Info("kafka cluster status condition is not ready")
+			k.log.V(2).Info("kafka cluster status condition is not ready")
 			return false, nil
 		})
 	k.log.Info("kafka cluster is ready")

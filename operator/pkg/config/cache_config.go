@@ -93,28 +93,6 @@ func InitCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&admissionregistrationv1.MutatingWebhookConfiguration{}: {
 			Label: labelSelector,
 		},
-
-		// Open the following cache option won't works for the cluster install the following resources
-		// // addon installer, global hub controller
-		// &clusterv1.ManagedCluster{}: {
-		// 	Label: labels.SelectorFromSet(labels.Set{"vendor": "OpenShift"}),
-		// },
-		// // addon installer, global hub controller
-		// &addonv1alpha1.ClusterManagementAddOn{}: {
-		// 	Label: labelSelector,
-		// },
-		// // addon installer
-		// &addonv1alpha1.ManagedClusterAddOn{}: {
-		// 	Label: labelSelector,
-		// },
-		// // global hub controller
-		// &promv1.ServiceMonitor{}: {
-		// 	Label: labelSelector,
-		// },
-		// // global hub controller
-		// &subv1alpha1.Subscription{}: {},
-		// // backup controller
-		// &mchv1.MultiClusterHub{}: {},
 	}
 	return cache.New(config, cacheOpts)
 }

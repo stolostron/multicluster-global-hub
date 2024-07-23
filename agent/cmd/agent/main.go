@@ -88,7 +88,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 		go utils.StartDefaultPprofServer()
 	}
 
-	mgr, err := createManager(ctx, restConfig, agentConfig)
+	mgr, err := createManager(restConfig, agentConfig)
 	if err != nil {
 		setupLog.Error(err, "failed to create manager")
 		return 1
@@ -201,7 +201,7 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	return nil
 }
 
-func createManager(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) (
+func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (
 	ctrl.Manager, error,
 ) {
 	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second

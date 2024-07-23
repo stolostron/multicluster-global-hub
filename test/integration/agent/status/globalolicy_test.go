@@ -102,7 +102,6 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			if !utils.Equal(compliance.NonCompliantClusters, expectedNonCompliant) {
 				return fmt.Errorf("nonCompliant: want %v, got %v", expectedNonCompliant, compliance.NonCompliantClusters)
 			}
-			fmt.Println("======================================================================= compliance: m1,m2,m3")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -160,7 +159,6 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			if !utils.Equal(complete.NonCompliantClusters, expectedNonCompliant) {
 				return fmt.Errorf("noCompliant: want %v, got %v", expectedNonCompliant, complete.NonCompliantClusters)
 			}
-			fmt.Println("============================================================= complete: m1 m2 -> 0, m3 -> 1")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -221,7 +219,6 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 			if len(compliance.UnknownComplianceClusters) > 0 {
 				return fmt.Errorf("expect unknown compliance should be emtpy")
 			}
-			fmt.Println("======================================================================= compliance: m1, m3")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -270,7 +267,6 @@ var _ = Describe("GlobalPolicyEmitters", Ordered, func() {
 				return fmt.Errorf("expect non-compliant compliance should be emtpy")
 			}
 
-			fmt.Println("==================================================================== compliance: {  }")
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})

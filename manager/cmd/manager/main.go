@@ -19,14 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
-	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	subscriptionv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -161,8 +153,10 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.IntVar(&managerConfig.DatabaseConfig.DataRetention, "data-retention", 18,
 		"data retention indicates how many months the expired data will kept in the database")
 	pflag.BoolVar(&managerConfig.EnableGlobalResource, "enable-global-resource", false,
-		"enable the global resource feature.")
-	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+		"enable the global resource feature")
+	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
+		"run on Red Hat Advanced Cluster Management")
+	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.Parse()
 	// set zap logger
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -250,15 +244,24 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
-	if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
-		return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
-	}
-
 	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig,
 		managerConfig.TransportConfig.KafkaConfig.Topics.SpecTopic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
 	}
+
+	// TODO: refactor the manager to start the conflation manager so that it can handle the events from restful API
+
+	if !managerConfig.WithACM {
+		return mgr, nil
+	}
+
+	if managerConfig.EnableGlobalResource {
+		if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
+			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
+		}
+	}
+
 	if managerConfig.EnableGlobalResource {
 		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
 			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
@@ -274,14 +277,15 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 	}
 
-	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
-		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
-	}
-
+	// need lock DB for backup
 	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
 	err = backupPVC.SetupWithManager(mgr)
 	if err != nil {
 		return nil, err
+	}
+
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
+		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
 
 	return mgr, nil
@@ -362,16 +366,6 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&corev1.ConfigMap{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
 		},
-		&applicationv1beta1.Application{}:          {},
-		&channelv1.Channel{}:                       {},
-		&clusterv1beta2.ManagedClusterSet{}:        {},
-		&clusterv1beta2.ManagedClusterSetBinding{}: {},
-		&clusterv1.ManagedCluster{}:                {},
-		&clusterv1beta1.Placement{}:                {},
-		&policyv1.PlacementBinding{}:               {},
-		&placementrulev1.PlacementRule{}:           {},
-		&policyv1.Policy{}:                         {},
-		&subscriptionv1.Subscription{}:             {},
 		&corev1.PersistentVolumeClaim{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
 		},

@@ -123,7 +123,6 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 	c client.Client,
 ) (*postgresCredential, error) {
-	fmt.Println("=====================================0")
 	postgres := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{
 		Name:      constants.GHBuiltInStorageSecretName,

@@ -107,9 +107,11 @@ var _ = BeforeSuite(func() {
 	Expect(string(healthy)).To(Equal("ok"))
 
 	By("Init postgres connection")
+	databaseSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
+		Get(ctx, "multicluster-global-hub-storage", metav1.GetOptions{})
 	Expect(err).Should(Succeed())
 	err = database.InitGormInstance(&database.DatabaseConfig{
-		URL:      strings.Replace(testOptions.GlobalHub.DatabaseURI, "sslmode=verify-ca", "sslmode=require", -1),
+		URL:      strings.Replace(string(databaseSecret.Data["database_uri"]), "sslmode=verify-ca", "sslmode=require", -1),
 		Dialect:  database.PostgresDialect,
 		PoolSize: 5,
 	})
@@ -247,7 +249,8 @@ func deployGlobalHub() {
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
 			// Disable metrics in e2e
-			EnableMetrics: false,
+			EnableMetrics:   false,
+			ImagePullPolicy: corev1.PullIfNotPresent,
 			// the topic partition replicas(depend on the HA) should less than broker replicas
 			AvailabilityConfig: v1alpha4.HABasic,
 			DataLayer: v1alpha4.DataLayerConfig{
