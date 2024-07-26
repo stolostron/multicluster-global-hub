@@ -255,9 +255,34 @@ spec:
                   kafka:
                     description: Kafka specifies the desired state of kafka
                     properties:
+                      enableMetrics:
+                        default: true
+                        description: ClusterTopic specifies whether to split the current
+                          statusTopic for each managed hub. If it's false, all the
+                          managed hubs will use the statusTopic to report status/event,
+                          else the statusTopic for the managed hub will be <statusTopic>.<managed-hub-name>.
+                          For exmample, the default statusTopic for "hub1" will be
+                          "gh-event.hub1"
+                        type: boolean
+                      specTopic:
+                        default: gh-spec
+                        description: SpecTopic is the topic to distribute workload
+                          from global hub to managed hubs. The default value is "gh-spec"
+                        type: string
+                      statusTopic:
+                        default: gh-event
+                        description: StatusTopic is the topic for agent to report
+                          event/status to manager. The default value is "gh-event"
+                          if the clusterTopic is disable, else the default value will
+                          be "gh-event.<managed-hub-name>".
+                        type: string
                       storageSize:
                         description: StorageSize specifies the size for storage
                         type: string
+                    required:
+                    - enableMetrics
+                    - specTopic
+                    - statusTopic
                     type: object
                   postgres:
                     default:
