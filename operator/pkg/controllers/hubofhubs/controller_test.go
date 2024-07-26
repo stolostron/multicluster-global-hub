@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	globalHubController, err = NewGlobalHubController(runtimeMgr, kubeClient, &config.OperatorConfig{})
+	globalHubController, err = NewGlobalHubController(runtimeMgr, kubeClient, &config.OperatorConfig{}, nil)
 	if err != nil {
 		panic(err)
 	}

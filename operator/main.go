@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -69,8 +70,14 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
+	imageClient, err := imagev1client.NewForConfig(cfg)
+	if err != nil {
+		setupLog.Error(err, "failed to create openshift image client")
+		return 1
+	}
+
 	// global hub controller
-	globalHubController, err := hubofhubs.NewGlobalHubController(mgr, kubeClient, operatorConfig)
+	globalHubController, err := hubofhubs.NewGlobalHubController(mgr, kubeClient, operatorConfig, imageClient)
 	if err != nil {
 		setupLog.Error(err, "unable to create crd controller")
 		return 1

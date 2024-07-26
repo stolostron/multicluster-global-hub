@@ -103,14 +103,9 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 	}
 }
 
-func NewGlobalHubController(mgr ctrl.Manager,
-	kubeClient kubernetes.Interface, operatorConfig *config.OperatorConfig,
+func NewGlobalHubController(mgr ctrl.Manager, kubeClient kubernetes.Interface,
+	operatorConfig *config.OperatorConfig, imageClient *imagev1client.ImageV1Client,
 ) (controller.Controller, error) {
-	imageClient, err := imagev1client.NewForConfig(mgr.GetConfig())
-	if err != nil {
-		return nil, err
-	}
-
 	globalHubController, err := controller.New(operatorconstants.GlobalHubControllerName, mgr, controller.Options{
 		Reconciler: NewGlobalHubReconciler(mgr, kubeClient, operatorConfig, imageClient),
 	})

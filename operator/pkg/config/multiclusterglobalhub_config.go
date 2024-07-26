@@ -26,6 +26,7 @@ import (
 	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -271,13 +272,17 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context,
 		oauthImageStream, err := imageClient.ImageStreams(operatorconstants.OauthProxyImageStreamNamespace).
 			Get(ctx, operatorconstants.OauthProxyImageStreamName, metav1.GetOptions{})
 		if err != nil {
-			return err
-		}
-
-		if oauthImageStream.Spec.Tags != nil {
-			tag := oauthImageStream.Spec.Tags[0]
-			if tag.From != nil && tag.From.Kind == "DockerImage" && len(tag.From.Name) > 0 {
-				SetOauthProxyImage(tag.From.Name)
+			if !errors.IsNotFound(err) {
+				return err
+			}
+			// do not expect error = IsNotFound in OCP environment.
+			// But for e2e test, it can be. for this case, just ignore
+		} else {
+			if oauthImageStream.Spec.Tags != nil {
+				tag := oauthImageStream.Spec.Tags[0]
+				if tag.From != nil && tag.From.Kind == "DockerImage" && len(tag.From.Name) > 0 {
+					SetOauthProxyImage(tag.From.Name)
+				}
 			}
 		}
 	}
