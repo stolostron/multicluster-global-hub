@@ -179,24 +179,27 @@ type PostgresConfig struct {
 
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
-	// SpecTopic is the topic to distribute workload from global hub to managed hubs. The default value is "gh-spec"
-	// +kubebuilder:default="gh-spec"
-	SpecTopic string `json:"specTopic"`
-
-	// StatusTopic is the topic for agent to report event/status to manager. The default value is "gh-event" if
-	// the clusterTopic is disable, else the default value will be "gh-event.<managed-hub-name>".
-	// +kubebuilder:default="gh-event"
-	StatusTopic string `json:"statusTopic"`
-
-	// ClusterTopic specifies whether to split the current statusTopic for each managed hub. If it's false, all the
-	// managed hubs will use the statusTopic to report status/event, else the statusTopic for the managed hub will be
-	// <statusTopic>.<managed-hub-name>. For exmample, the default statusTopic for "hub1" will be "gh-event.hub1"
-	// +kubebuilder:default=true
-	ClusterTopic bool `json:"enableMetrics"`
+	// KafkaTopics specifies the desired topics
+	// +kubebuilder:default={specTopic: "gh-spec", statusTopic: "gh-event.*"}
+	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 
 	// StorageSize specifies the size for storage
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
+}
+
+// KafkaTopics is the transport topics for the manager and agent to communicate
+type KafkaTopics struct {
+	// SpecTopic is the topic to distribute workload from global hub to managed hubs. The default value is "gh-spec"
+	// +kubebuilder:default="gh-spec"
+	SpecTopic string `json:"spec,omitempty"`
+
+	// StatusTopic defines the topic for the agent to report events and statuses to the manager.
+	// For the built-in Kafka, the default topic is "gh-event.*", where "*" is replaced by the managed hub cluster's name.
+	// For example, if the hub cluster is named "hub1", the default StatusTopic for it will be "gh-event.hub1".
+	// For BYO Kafka, the default topic is simply "gh-event" for all the managed hubs.
+	// +kubebuilder:default="gh-event.*"
+	StatusTopic string `json:"status,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of multicluster global hub
