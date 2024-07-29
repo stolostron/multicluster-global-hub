@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -255,7 +256,7 @@ func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
 
 // SetMulticlusterGlobalHubConfig extract the namespacedName, image, and log configurations from CR
 func SetMulticlusterGlobalHubConfig(ctx context.Context,
-	mgh *v1alpha4.MulticlusterGlobalHub, imageClient *imagev1client.ImageV1Client,
+	mgh *v1alpha4.MulticlusterGlobalHub, imageClient imagev1client.ImageV1Interface,
 ) error {
 	// set request name to be used in leafhub controller
 	SetMGHNamespacedName(types.NamespacedName{
@@ -267,7 +268,7 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context,
 		return err
 	}
 
-	if imageClient != nil {
+	if imageClient != nil && !reflect.ValueOf(imageClient).IsNil() {
 		// set oauth-proxy from imagestream.image.openshift.io
 		oauthImageStream, err := imageClient.ImageStreams(operatorconstants.OauthProxyImageStreamNamespace).
 			Get(ctx, operatorconstants.OauthProxyImageStreamName, metav1.GetOptions{})
