@@ -180,7 +180,7 @@ type PostgresConfig struct {
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
 	// KafkaTopics specifies the desired topics
-	// +kubebuilder:default={specTopic: "gh-spec", statusTopic: "gh-event.*"}
+	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-event.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 
 	// StorageSize specifies the size for storage
@@ -192,14 +192,14 @@ type KafkaConfig struct {
 type KafkaTopics struct {
 	// SpecTopic is the topic to distribute workload from global hub to managed hubs. The default value is "gh-spec"
 	// +kubebuilder:default="gh-spec"
-	SpecTopic string `json:"spec,omitempty"`
+	SpecTopic string `json:"specTopic,omitempty"`
 
 	// StatusTopic defines the topic for the agent to report events and statuses to the manager.
 	// For the built-in Kafka, the default topic is "gh-event.*", where "*" is replaced by the managed hub cluster's name.
 	// For example, if the hub cluster is named "hub1", the default StatusTopic for it will be "gh-event.hub1".
 	// For BYO Kafka, the default topic is simply "gh-event" for all the managed hubs.
 	// +kubebuilder:default="gh-event.*"
-	StatusTopic string `json:"status,omitempty"`
+	StatusTopic string `json:"statusTopic,omitempty"`
 }
 
 // MulticlusterGlobalHubStatus defines the observed state of multicluster global hub
