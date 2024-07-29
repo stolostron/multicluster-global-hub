@@ -76,7 +76,7 @@ var _ = Describe("controller", Ordered, func() {
 			LogLevel:              "info",
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,
-		})
+		}, nil)
 
 		err := os.Setenv("POD_NAMESPACE", namespace)
 		Expect(err).To(Succeed())

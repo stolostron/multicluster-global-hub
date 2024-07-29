@@ -24,8 +24,9 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
-	github.com/openshift/api v0.0.0-20231218131639-7a5aa77cc72d
-	github.com/openshift/library-go v0.0.0-20240116081341-964bcb3f545c
+	github.com/openshift/api v0.0.0-20240527133614-ba11c1587003
+	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
+	github.com/openshift/library-go v0.0.0-20240723172506-8bb8fe6cc56d
 	github.com/operator-framework/api v0.17.7-0.20230626210316-aa3e49803e7b
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
@@ -45,7 +46,7 @@ require (
 	k8s.io/apimachinery v0.30.1
 	k8s.io/client-go v0.30.1
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.29.0
+	k8s.io/kube-aggregator v0.30.1
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
 	open-cluster-management.io/addon-framework v0.9.0
 	open-cluster-management.io/api v0.13.0

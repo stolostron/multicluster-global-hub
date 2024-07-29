@@ -17,9 +17,14 @@ limitations under the License.
 package config
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
+	imagev1 "github.com/openshift/api/image/v1"
+	fakeimageclient "github.com/openshift/client-go/image/clientset/versioned/fake"
+	fakeimagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1/fake"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
@@ -42,12 +47,10 @@ func TestSetImageOverrides(t *testing.T) {
 			initImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
 			},
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
@@ -59,7 +62,6 @@ func TestSetImageOverrides(t *testing.T) {
 			wantImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
-				"oauth_proxy":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
 			wantErr: nil,
 		},
@@ -68,12 +70,11 @@ func TestSetImageOverrides(t *testing.T) {
 			initImageManifests: map[string]string{
 				"multicluster_global_hub_agent":   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 				"multicluster_global_hub_manager": "quay.io/stolostron/multicluster-global-hub-manager:latest",
-				"oauth_proxy":                     "quay.io/stolostron/multicluster-global-hub-operator:latest",
+				"oauth_proxy":                     "quay.io/testing/origin-oauth-proxy:4.9",
 			},
 			operandImagesEnv: map[string]string{
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER": "quay.io/stolostron/multicluster-global-hub-manager:v0.6.0",
 				"RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_AGENT":   "quay.io/stolostron/multicluster-global-hub-agent:v0.6.0",
-				"RELATED_IMAGE_OAUTH_PROXY":                     "quay.io/stolostron/origin-oauth-proxy:4.9",
 			},
 			mghInstance: &globalhubv1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
@@ -122,5 +123,66 @@ func TestGetOauthSessionSecret(t *testing.T) {
 	}
 	if secret1 != secret2 {
 		t.Errorf("oauth session secret is not consistent")
+	}
+}
+
+func TestSetMulticlusterGlobalHubConfig(t *testing.T) {
+	oauthImage := "quay.io/testing/origin-oauth-proxy:4.9"
+	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: utils.GetDefaultNamespace(),
+			Name:      "test",
+			Annotations: map[string]string{
+				operatorconstants.AnnotationImageRepo: "quay.io/testing",
+			},
+		},
+		Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+	}
+
+	err := SetMulticlusterGlobalHubConfig(context.Background(), mghInstance, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if GetImage(OauthProxyImageKey) != oauthImage {
+		t.Fatalf("oauth proxy image is not expected one")
+	}
+
+	imageClient := &fakeimagev1client.FakeImageV1{Fake: &(fakeimageclient.NewSimpleClientset().Fake)}
+	err = SetMulticlusterGlobalHubConfig(context.Background(), mghInstance, imageClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if GetImage(OauthProxyImageKey) != oauthImage {
+		t.Fatalf("oauth proxy image is not expected one")
+	}
+
+	_, err = imageClient.ImageStreams(operatorconstants.OauthProxyImageStreamNamespace).Create(context.Background(),
+		&imagev1.ImageStream{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      operatorconstants.OauthProxyImageStreamName,
+				Namespace: operatorconstants.OauthProxyImageStreamNamespace,
+			},
+			Spec: imagev1.ImageStreamSpec{
+				Tags: []imagev1.TagReference{
+					{
+						Name: "v4.4",
+						From: &corev1.ObjectReference{
+							Kind: "DockerImage",
+							Name: "quay.io/openshift-release-dev/ocp-v4.0-art-dev",
+						},
+					},
+				},
+			},
+		}, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = SetMulticlusterGlobalHubConfig(context.Background(), mghInstance, imageClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if GetImage(OauthProxyImageKey) != "quay.io/openshift-release-dev/ocp-v4.0-art-dev" {
+		t.Fatalf("oauth proxy image is not expected one")
 	}
 }

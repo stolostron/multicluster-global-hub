@@ -79,10 +79,12 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 		return err
 	}
 
-	// update status of the global hub grafana deployment
-	if err := r.updateDeploymentStatus(ctx, mgh, config.CONDITION_TYPE_GRAFANA_AVAILABLE,
-		operatorconstants.GHGrafanaDeploymentName); err != nil {
-		return err
+	if config.IsACMResourceReady() {
+		// update status of the global hub grafana deployment
+		if err := r.updateDeploymentStatus(ctx, mgh, config.CONDITION_TYPE_GRAFANA_AVAILABLE,
+			operatorconstants.GHGrafanaDeploymentName); err != nil {
+			return err
+		}
 	}
 	return nil
 }
