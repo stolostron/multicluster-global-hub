@@ -91,7 +91,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 
 	transportConn := config.GetTransporterConn()
 	if transportConn == nil {
-		return fmt.Errorf("the transport connection must not be empty", transportConn)
+		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
 	}
 
 	storageConn := config.GetStorageConnection()
