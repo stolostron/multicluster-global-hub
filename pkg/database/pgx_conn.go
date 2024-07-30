@@ -55,14 +55,12 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, 
 	if err != nil && !strings.Contains(err.Error(), errMessageFileNotFound) {
 		return nil, fmt.Errorf("unable to read database cert file: %w", err)
 	}
-	if len(cert) > 0 {
+	if len(cert) > 0 { // #nosec G402
 		caCertPool := x509.NewCertPool()
 		caCertPool.AppendCertsFromPEM(cert)
-		/* #nosec G402*/
 		config.ConnConfig.TLSConfig = &tls.Config{
-			RootCAs: caCertPool,
-			//nolint:gosec
-			InsecureSkipVerify: true,
+			RootCAs:            caCertPool,
+			InsecureSkipVerify: true, // #nosec G402
 		}
 	}
 
