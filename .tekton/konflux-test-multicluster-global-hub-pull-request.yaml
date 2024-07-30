@@ -345,6 +345,80 @@ spec:
         operator: in
         values:
         - "false"
+    - name: sast-shellcheck
+      runAfter:
+        - build-container
+      when:
+        - input: $(params.skip-checks)
+          operator: in
+          values:
+            - "false"
+      params:
+      - name: image-digest
+        value: $(tasks.build-container.results.IMAGE_DIGEST)
+      - name: image-url
+        value: $(tasks.build-container.results.IMAGE_URL)
+      workspaces:
+        - name: workspace
+          workspace: workspace
+      taskSpec:
+        description: Scans source code for security vulnerabilities using ShellCheck, a Static Application Security Testing (SAST) tool.
+        params:
+          - description: Image URL.
+            name: image-url
+            type: string
+          - description: Image digest to report findings for.
+            name: image-digest
+            type: string
+        results:
+          - description: Tekton task test output.
+            name: TEST_OUTPUT
+        steps:
+          - image: quay.io/fedora/fedora:40
+            name: sast-shellcheck
+            script: |
+              #!/usr/bin/env bash
+              set -exuo pipefail
+
+              dnf install -y csdiff shellcheck
+
+              cd $(workspaces.source.path)
+
+              .ci/run-shellcheck.sh * > shellcheck-results.json
+              csgrep --mode=evtstat shellcheck-results.json
+              csgrep --mode=sarif shellcheck-results.json > $(workspaces.workspace.path)/hacbs/$(context.task.name)/shellcheck-results.sarif
+          - name: upload
+            image: quay.io/konflux-ci/oras:latest@sha256:04cbd5efbcf1a38944b050e3adbc3071218643f6aa92e95d5d25b173574bca5e
+            workingDir: $(workspaces.workspace.path)/hacbs/$(context.task.name)
+            env:
+              - name: IMAGE_URL
+                value: $(params.image-url)
+              - name: IMAGE_DIGEST
+                value: $(params.image-digest)
+            script: |
+              #!/usr/bin/env bash
+          
+              UPLOAD_FILE=shellcheck-results.sarif
+              MEDIA_TYPE=application/sarif+json
+
+              if [ -z "${IMAGE_URL}" ] || [ -z "${IMAGE_DIGEST}"  ]; then
+                echo 'No image-url or image-digest param provided. Skipping upload.'
+                exit 0;
+              fi
+
+              if [ ! -f "${UPLOAD_FILE}" ]; then
+                echo "No ${UPLOAD_FILE} exists. Skipping upload."
+                exit 0;
+              fi
+          
+              echo "Selecting auth"
+              select-oci-auth $IMAGE_URL > $HOME/auth.json
+              echo "Attaching to ${IMAGE_URL} via the OCI 1.1 Referrers API"
+              oras attach --no-tty --registry-config "$HOME/auth.json" --distribution-spec v1.1-referrers-api --artifact-type "${MEDIA_TYPE}" "${IMAGE_URL}" "${UPLOAD_FILE}:${MEDIA_TYPE}"
+              echo "Attaching to ${IMAGE_URL} via the OCI 1.1 Referrers Tag"
+              oras attach --no-tty --registry-config "$HOME/auth.json" --distribution-spec v1.1-referrers-tag --artifact-type "${MEDIA_TYPE}" "${IMAGE_URL}" "${UPLOAD_FILE}:${MEDIA_TYPE}"
+        workspaces:
+          - name: workspace
     - name: sast-snyk-check
       params:
       - name: image-digest
