@@ -49,7 +49,6 @@ type ManifestsConfig struct {
 	KafkaClientCertSecret  string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
-	KafkaEventTopic        string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -225,7 +224,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
-		KafkaEventTopic:        clusterTopic.EventTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),

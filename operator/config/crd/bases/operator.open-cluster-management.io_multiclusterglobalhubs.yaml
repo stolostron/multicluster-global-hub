@@ -262,7 +262,8 @@ spec:
                         default:
                           specTopic: gh-spec
                           statusTopic: gh-event.*
-                        description: KafkaTopics specifies the desired topics
+                        description: KafkaTopics specifies the desired topics. If
+                          statusTopic contains '*', it must be at the end
                         properties:
                           specTopic:
                             default: gh-spec

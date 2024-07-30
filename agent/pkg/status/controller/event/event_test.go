@@ -7,12 +7,10 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestVersion(t *testing.T) {
-	emitter := NewLocalRootPolicyEmitter(context.TODO(), nil, transport.GenericEventTopic)
+	emitter := NewLocalRootPolicyEmitter(context.TODO(), nil, "event")
 	assert.Equal(t, "0.0", emitter.currentVersion.String())
 	assert.Equal(t, "0.0", emitter.lastSentVersion.String())
 	assert.False(t, emitter.ShouldSend())

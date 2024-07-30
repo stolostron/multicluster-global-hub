@@ -11,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -43,9 +44,8 @@ func (s *BYOTransporter) EnsureUser(clusterName string) (string, error) {
 
 func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	return &transport.ClusterTopic{
-		SpecTopic:   transport.GenericSpecTopic,
-		StatusTopic: transport.GenericStatusTopic,
-		EventTopic:  transport.GenericEventTopic,
+		SpecTopic:   config.GetSpecTopic(),
+		StatusTopic: config.GetStatusTopic(clusterName),
 	}, nil
 }
 

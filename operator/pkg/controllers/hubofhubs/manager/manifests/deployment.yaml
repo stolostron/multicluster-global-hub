@@ -42,7 +42,6 @@ spec:
             - --kafka-cluster-identity={{.KafkaClusterIdentity}}
             - --kafka-consumer-topic={{.KafkaConsumerTopic}}
             - --kafka-producer-topic={{.KafkaProducerTopic}}
-            - --kafka-event-topic={{.KafkaEventTopic}}
             - --kafka-ca-cert-path=/kafka-certs/ca.crt
             - --kafka-client-cert-path=/kafka-certs/client.crt
             - --kafka-client-key-path=/kafka-certs/client.key

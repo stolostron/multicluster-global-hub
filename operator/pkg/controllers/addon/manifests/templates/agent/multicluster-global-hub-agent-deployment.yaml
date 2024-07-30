@@ -47,7 +47,6 @@ spec:
             - --kafka-client-key-path=/kafka-client-certs/tls.key
             - --kafka-consumer-topic={{.KafkaConsumerTopic}}
             - --kafka-producer-topic={{.KafkaProducerTopic}}
-            - --kafka-event-topic={{.KafkaEventTopic}}
             - --transport-message-compression-type={{.MessageCompressionType}}
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}

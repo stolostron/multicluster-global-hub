@@ -179,7 +179,7 @@ type PostgresConfig struct {
 
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
-	// KafkaTopics specifies the desired topics
+	// KafkaTopics specifies the desired topics. If statusTopic contains '*', it must be at the end
 	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-event.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 

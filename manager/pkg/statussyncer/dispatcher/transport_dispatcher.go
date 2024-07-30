@@ -28,7 +28,7 @@ func AddTransportDispatcher(mgr ctrl.Manager, managerConfig *config.ManagerConfi
 	// start a consumer
 	topics := managerConfig.TransportConfig.KafkaConfig.Topics
 	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
-		[]string{topics.EventTopic, topics.StatusTopic},
+		[]string{topics.StatusTopic},
 		genericconsumer.EnableDatabaseOffset(true))
 	if err != nil {
 		return fmt.Errorf("failed to initialize transport consumer: %w", err)

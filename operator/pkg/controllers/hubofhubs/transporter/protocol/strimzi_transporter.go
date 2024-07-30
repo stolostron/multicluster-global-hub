@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -224,14 +225,16 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{ConsumeGroupReadACL()}
 	clusterTopic := k.getClusterTopic(clusterName)
 	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
-	if clusterName == GlobalHubClusterName {
+
+	// if built-in global hub status topic
+	if strings.Contains(clusterTopic.StatusTopic, GlobalHubClusterName) {
 		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
 		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.SpecTopic))
-		simpleACLs = append(simpleACLs, ReadTopicACL(clusterTopic.EventTopic, false))
-		simpleACLs = append(simpleACLs, ReadTopicACL(transport.GenericStatusTopic, !k.sharedTopics))
+
+		statusTopicPrefix := strings.Replace(clusterTopic.StatusTopic, fmt.Sprintf(".%s", GlobalHubClusterName), "", -1)
+		simpleACLs = append(simpleACLs, ReadTopicACL(statusTopicPrefix, true))
 	} else {
 		simpleACLs = append(simpleACLs, ReadTopicACL(clusterTopic.SpecTopic, false))
-		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.EventTopic))
 		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.StatusTopic))
 	}
 	desiredKafkaUser := k.newKafkaUser(userName, authnType, simpleACLs)
@@ -266,21 +269,9 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
-	topicNames := []string{}
-	// only reconcile the status topic for the managed hub
-	if clusterName != GlobalHubClusterName && !k.sharedTopics {
-		topicNames = append(topicNames, clusterTopic.StatusTopic)
-	} else {
-		topicNames = append(topicNames, clusterTopic.SpecTopic)
-		topicNames = append(topicNames, clusterTopic.EventTopic)
-		topicNames = append(topicNames, clusterTopic.StatusTopic)
-	}
+	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
 
 	for _, topicName := range topicNames {
-		// if the topicName = "^status.*", convert it to status.global and create the placeholder topic
-		if topicName == StatusTopicRegex {
-			topicName = fmt.Sprintf(StatusTopicTemplate, "global")
-		}
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 			Name:      topicName,
@@ -338,7 +329,7 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 	// cleanup kafkaTopic
 	clusterTopic := k.getClusterTopic(clusterName)
-	if k.sharedTopics || clusterTopic.StatusTopic == transport.GenericStatusTopic {
+	if k.sharedTopics || strings.Contains(clusterTopic.StatusTopic, GlobalHubClusterName) {
 		return nil
 	}
 
@@ -363,16 +354,12 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:   transport.GenericSpecTopic,
-		StatusTopic: fmt.Sprintf(StatusTopicTemplate, clusterName),
-		EventTopic:  transport.GenericEventTopic,
+		SpecTopic:   config.GetSpecTopic(),
+		StatusTopic: config.GetStatusTopic(clusterName),
 	}
-	if clusterName == GlobalHubClusterName {
-		// the status topic for global hub manager should be "^status.*"
-		topic.StatusTopic = StatusTopicRegex
-	}
+
 	if k.sharedTopics {
-		topic.StatusTopic = transport.GenericStatusTopic
+		topic.StatusTopic = strings.Replace(topic.StatusTopic, fmt.Sprintf(".%s", clusterName), "", -1)
 	}
 	return topic
 }

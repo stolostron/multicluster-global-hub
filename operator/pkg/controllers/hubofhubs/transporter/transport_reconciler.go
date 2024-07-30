@@ -57,8 +57,10 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			return err
 		}
 		config.SetTransporterConn(conn)
-		clusterTopic, _ := trans.EnsureTopic(protocol.GlobalHubClusterName)
-		config.SetTransporterTopic(clusterTopic)
+		_, err = trans.EnsureTopic(protocol.GlobalHubClusterName)
+		if err != nil {
+			return err
+		}
 	}
 
 	// set kafka controller
@@ -95,11 +97,10 @@ func (r *TransportReconciler) reconcileKafkaResources(ctx context.Context, mgh *
 		return err
 	}
 
-	transportTopic, err := trans.EnsureTopic(protocol.GlobalHubClusterName)
+	_, err = trans.EnsureTopic(protocol.GlobalHubClusterName)
 	if err != nil {
 		return err
 	}
-	config.SetTransporterTopic(transportTopic)
 
 	transportConn, err := waitTransportConn(ctx, trans, protocol.GlobalHubClusterName)
 	if err != nil {
