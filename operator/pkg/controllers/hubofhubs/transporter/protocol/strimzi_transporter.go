@@ -55,11 +55,6 @@ const (
 	CommunityChannel           = "strimzi-0.40.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
-
-	// topic names
-	StatusTopicTemplate = "status.%s"
-	StatusTopicRegex    = "^status.*"
-	StatusTopicPrefix   = "status"
 )
 
 var (
