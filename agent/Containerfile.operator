@@ -1,0 +1,41 @@
+# Copyright Contributors to the Open Cluster Management project
+
+# Stage 1: build the target binaries
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.22 AS builder
+
+WORKDIR /workspace
+
+COPY go.mod go.sum ./
+COPY ./agent/ ./agent/
+COPY ./pkg/ ./pkg/
+
+RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime GOFLAGS="-p=4" go build -tags dynamic,strictfipsruntime -a -v -o bin/agent ./agent/cmd/agent/main.go
+
+# Stage 2: Copy the binaries from the image builder to the base image
+FROM registry.redhat.io/rhel9-2-els/rhel:9.2-1290
+ENV USER_UID=1001
+ENV USER_NAME=agent
+
+# install operator binary
+COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
+
+COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
+RUN  /usr/local/scripts/user_setup
+
+RUN microdnf update -y && \
+    microdnf clean all
+
+USER ${USER_UID}
+ENTRYPOINT ["/usr/local/bin/agent"]
+
+LABEL com.redhat.component="multicluster-globalhub-agent-container" \
+      name="multicluster-globalhub/multicluster-globalhub-agent-rhel9" \
+      version="${CI_CONTAINER_VERSION}" \
+      upstream-ref="${CI_MULTICLUSTER_GLOBAL_HUB_UPSTREAM_COMMIT}" \
+      upstream-url="${CI_MULTICLUSTER_GLOBAL_HUB_UPSTREAM_URL}" \
+      summary="multicluster-globalhub-agent" \
+      io.openshift.expose-services="" \
+      io.openshift.tags="data,images" \
+      io.k8s.display-name="multicluster-globalhub-agent" \
+      maintainer="['acm-component-maintainers@redhat.com']" \
+      description="multicluster-globalhub-agent"
