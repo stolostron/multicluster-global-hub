@@ -146,7 +146,7 @@ func TestManager(t *testing.T) {
 		defer cancel()
 		actualExit := doMain(ctx, cfg)
 		if tc.expectedExit != actualExit {
-			t.Errorf("Unexpected exit code for args: %v, expected: %v, got: %v",
+			t.Errorf("unexpected exit code for args: %v, expected: %v, got: %v",
 				tc.args, tc.expectedExit, actualExit)
 		}
 	}
