@@ -45,7 +45,7 @@ const (
 	CONDITION_MESSAGE_GRAFANA_AVAILABLE = "Multicluster Global Hub Grafana has been deployed"
 )
 
-// NOTE: the status of GrafanaInitialized can be True or False
+// NOTE: the topics for the manager and agent
 const (
 	CONDITION_TYPE_TOPIC_PARSED   = "TopicParsed"
 	CONDITION_REASON_TOPIC_PARSED = "TopicParsed"
