@@ -86,8 +86,7 @@ var _ = BeforeSuite(func() {
 			TransportType: string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
 				Topics: &transport.ClusterTopic{
-					EventTopic:  "event",
-					StatusTopic: "status",
+					StatusTopic: "event",
 				},
 			},
 		},

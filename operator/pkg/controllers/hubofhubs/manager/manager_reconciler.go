@@ -89,9 +89,9 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		replicas = 2
 	}
 
-	transportTopic, transportConn := config.GetTransporterTopic(), config.GetTransporterConn()
-	if transportTopic == nil || transportConn == nil {
-		return fmt.Errorf("failed to emtpy transport topic(%v) or connection(%v)", transportTopic, transportConn)
+	transportConn := config.GetTransporterConn()
+	if transportConn == nil {
+		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
 	}
 
 	storageConn := config.GetStorageConnection()
@@ -126,9 +126,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			KafkaClientCert:        transportConn.ClientCert,
 			KafkaClientKey:         transportConn.ClientKey,
 			KafkaBootstrapServer:   transportConn.BootstrapServer,
-			KafkaConsumerTopic:     transportTopic.StatusTopic,
-			KafkaProducerTopic:     transportTopic.SpecTopic,
-			KafkaEventTopic:        transportTopic.EventTopic,
+			KafkaConsumerTopic:     config.FuzzyStatusTopic(),
+			KafkaProducerTopic:     config.GetSpecTopic(),
 			Namespace:              mgh.Namespace,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
@@ -198,7 +197,6 @@ type ManagerVariables struct {
 	KafkaCACert            string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
-	KafkaEventTopic        string
 	KafkaClientCert        string
 	KafkaClientKey         string
 	KafkaBootstrapServer   string

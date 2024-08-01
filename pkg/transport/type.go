@@ -5,9 +5,8 @@ import (
 )
 
 const (
-	GenericSpecTopic   = "spec"
-	GenericStatusTopic = "status"
-	GenericEventTopic  = "event"
+	// GenericSpecTopic   = "gh-spec"
+	// GenericStatusTopic = "gh-event"
 
 	Broadcast      = "broadcast" // Broadcast can be used as destination when a bundle should be broadcasted.
 	ChunkSizeKey   = "extsize"   // ChunkSizeKey is the key used for total bundle size header.
@@ -75,7 +74,6 @@ type KafkaConsumerConfig struct {
 type ClusterTopic struct {
 	SpecTopic   string
 	StatusTopic string
-	EventTopic  string
 }
 
 // ConnCredential is used to connect the transporter instance

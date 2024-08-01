@@ -136,9 +136,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
 		"kafka-consumer-id", "multicluster-global-hub-manager", "ID for the kafka consumer.")
 	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.StatusTopic,
-		"kafka-consumer-topic", "status", "Topic for the kafka consumer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.EventTopic,
-		"kafka-event-topic", "event", "Event topic for the event message")
+		"kafka-consumer-topic", "event", "Topic for the kafka consumer.")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",

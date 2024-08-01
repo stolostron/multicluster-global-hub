@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,16 +19,23 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+const (
+	DEFAULT_SPEC_TOPIC          = "gh-spec"
+	DEFAULT_STATUS_TOPIC        = "gh-event.*"
+	DEFAULT_SHARED_STATUS_TOPIC = "gh-event"
+)
+
 var (
-	transporterProtocol   transport.TransportProtocol
-	transporterInstance   transport.Transporter
-	transporterConn       *transport.ConnCredential
-	transportClusterTopic *transport.ClusterTopic
-	isBYOKafka            = false
-	kafkaResourceReady    = false
-	acmResourceReady      = false
-	clientCAKey           []byte
-	clientCACert          []byte
+	transporterProtocol transport.TransportProtocol
+	transporterInstance transport.Transporter
+	transporterConn     *transport.ConnCredential
+	isBYOKafka          = false
+	specTopic           = ""
+	statusTopic         = ""
+	kafkaResourceReady  = false
+	acmResourceReady    = false
+	clientCAKey         []byte
+	clientCACert        []byte
 )
 
 func SetTransporterConn(conn *transport.ConnCredential) {
@@ -35,14 +44,6 @@ func SetTransporterConn(conn *transport.ConnCredential) {
 
 func GetTransporterConn() *transport.ConnCredential {
 	return transporterConn
-}
-
-func SetTransporterTopic(topic *transport.ClusterTopic) {
-	transportClusterTopic = topic
-}
-
-func GetTransporterTopic() *transport.ClusterTopic {
-	return transportClusterTopic
 }
 
 func SetTransporter(p transport.Transporter) {
@@ -77,7 +78,81 @@ func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return defaultKafkaStorageSize
 }
 
-func SetBYOKafka(ctx context.Context, runtimeClient client.Client, namespace string) error {
+// SetTransportConfig sets the kafka type, protocol and topics
+func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
+	if err := SetKafkaType(ctx, runtimeClient, mgh.Namespace); err != nil {
+		return err
+	}
+
+	// set the topic
+	specTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.SpecTopic
+	statusTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic
+
+	if !isValidKafkaTopicName(specTopic) {
+		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
+	}
+	if !isValidKafkaTopicName(statusTopic) {
+		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
+	}
+
+	// BYO Case:
+	// 1. change the default status topic from 'gh-event.*' to 'gh-event'
+	// 2. ensure the status topic must not contain '*'
+	if isBYOKafka {
+		if statusTopic == DEFAULT_STATUS_TOPIC {
+			mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic = DEFAULT_SHARED_STATUS_TOPIC
+			statusTopic = DEFAULT_SHARED_STATUS_TOPIC
+
+			if err := runtimeClient.Update(ctx, mgh); err != nil {
+				return fmt.Errorf("failed to update the topic from %s to %s", DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC)
+			}
+		}
+
+		if strings.Contains(statusTopic, "*") {
+			return fmt.Errorf("status topic(%s) must not contain '*'", statusTopic)
+		}
+	}
+	return nil
+}
+
+// isValidKafkaTopicName validates the Kafka topic name based on common rules.
+// ref: https://github.com/apache/kafka/blob/3.9/clients/src/main/java/org/apache/kafka/common/internals/Topic.java
+func isValidKafkaTopicName(name string) bool {
+	// Kafka topic name must be between 1 and 255 characters.
+	if len(name) < 1 || len(name) >= 255 {
+		return false
+	}
+
+	if name == "." || name == ".." {
+		return false
+	}
+
+	// Kafka topic names can contain letters, numbers, dots (.), underscores (_), and dashes (-).
+	// The rule is only for the GlobalHub: An asterisk (*) can be appended to the suffix.
+	re := regexp.MustCompile(`^[a-zA-Z0-9._-]+(\*)?$`)
+
+	return re.MatchString(name)
+}
+
+func GetSpecTopic() string {
+	return specTopic
+}
+
+// GetStatusTopic return the status topic with clusterName, like 'gh-event.<clusterName>'
+func GetStatusTopic(clusterName string) string {
+	return strings.Replace(statusTopic, "*", clusterName, -1)
+}
+
+// FuzzyStatusTopic return the regex topic with fuzzy matching, like '^gh-event.*'
+func FuzzyStatusTopic() string {
+	if strings.Contains(statusTopic, "*") {
+		return fmt.Sprintf("^%s", statusTopic)
+	}
+	return statusTopic
+}
+
+// SetKafkaType will assert whether it's a BYO case and also set the related transport protocol
+func SetKafkaType(ctx context.Context, runtimeClient client.Client, namespace string) error {
 	kafkaSecret := &corev1.Secret{}
 	err := runtimeClient.Get(ctx, types.NamespacedName{
 		Name:      constants.GHTransportSecretName,

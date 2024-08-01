@@ -49,7 +49,6 @@ type ManifestsConfig struct {
 	KafkaClientCertSecret  string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
-	KafkaEventTopic        string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -197,6 +196,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if err != nil {
 		return nil, err
 	}
+	// this controller might be triggered by global hub controller(like the topics changes), so we also need to
+	// update the authz for the topic
+	_, err = transporter.EnsureUser(cluster.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
+	}
 
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
 	agentRes := &Resources{}
@@ -225,7 +230,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
-		KafkaEventTopic:        clusterTopic.EventTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),

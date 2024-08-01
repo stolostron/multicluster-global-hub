@@ -69,7 +69,7 @@ var _ = Describe("transporter", Ordered, func() {
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 		// update the transport protocol configuration
-		err = config.SetBYOKafka(ctx, runtimeClient, mgh.Namespace)
+		err = config.SetKafkaType(ctx, runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
 
@@ -108,8 +108,9 @@ var _ = Describe("transporter", Ordered, func() {
 		// transport
 		// the crd resources is ready
 		config.SetKafkaResourceReady(true)
-		// update the transport protocol configuration
-		err := config.SetBYOKafka(ctx, runtimeClient, mgh.Namespace)
+
+		// update the transport protocol configuration, topic
+		err := config.SetTransportConfig(ctx, runtimeClient, mgh)
 		Expect(err).To(Succeed())
 		Expect(config.TransporterProtocol()).To(Equal(transport.StrimziTransporter))
 
@@ -347,7 +348,7 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		// user - round 2
 		userName, err = trans.EnsureUser(clusterName)
@@ -356,14 +357,13 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
-		Expect("spec").To(Equal(clusterTopic.SpecTopic))
-		Expect("event").To(Equal(clusterTopic.EventTopic))
-		Expect(fmt.Sprintf(protocol.StatusTopicTemplate, clusterName)).To(Equal(clusterTopic.StatusTopic))
+		Expect("gh-spec").To(Equal(clusterTopic.SpecTopic))
+		Expect(config.GetStatusTopic(clusterName)).To(Equal(clusterTopic.StatusTopic))
 
 		// topic: update
 		_, err = trans.EnsureTopic(clusterName)

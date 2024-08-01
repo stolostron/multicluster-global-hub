@@ -93,68 +93,63 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+	expectedAddon, err := expectedManagedClusterAddon(cluster)
+	if err != nil {
+		return err
+	}
+
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
 		},
 	}
-
-	err := r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
-	// create
+	err = r.Get(ctx, client.ObjectKeyFromObject(existingAddon), existingAddon)
+	// create is not found, update if err == nil
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-			return r.createResourcesAndAddon(ctx, cluster)
+			if e := r.Create(ctx, expectedAddon); e != nil {
+				return e
+			}
 		} else {
 			return fmt.Errorf("failed to get the addon: %v", err)
 		}
+	} else {
+		// delete
+		if !existingAddon.DeletionTimestamp.IsZero() {
+			r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+			return r.removeResourcesAndAddon(ctx, cluster)
+		}
+
+		// update
+		if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
+			existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
+			existingAddon.SetAnnotations(expectedAddon.Annotations)
+			existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
+			r.Log.Info("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
+			if e := r.Update(ctx, existingAddon); e != nil {
+				return e
+			}
+		}
 	}
 
-	// delete
-	if !existingAddon.DeletionTimestamp.IsZero() {
-		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
-		return r.removeResourcesAndAddon(ctx, cluster)
-	}
-
-	// update
-	expectedAddon, err := expectedManagedClusterAddon(cluster)
-	if err != nil {
-		return err
-	}
-	if !reflect.DeepEqual(expectedAddon.Annotations, existingAddon.Annotations) ||
-		existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
-		existingAddon.SetAnnotations(expectedAddon.Annotations)
-		existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
-		r.Log.Info("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
-		return r.Update(ctx, existingAddon)
-	}
-
-	return nil
+	// reconcile kafka resources
+	return ensureKafkaResource(cluster.Name)
 }
 
-func (r *AddonInstaller) createResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
-	expectedAddon, err := expectedManagedClusterAddon(cluster)
-	if err != nil {
-		return err
-	}
-
-	if err := r.Create(ctx, expectedAddon); err != nil {
-		return fmt.Errorf("failed to create the managedclusteraddon: %v", err)
-	}
-
+func ensureKafkaResource(clusterName string) error {
 	// create kafka resource: user and topic
 	trans := config.GetTransporter()
 	if trans == nil {
 		return fmt.Errorf("failed to get the transporter")
 	}
-	if _, err = trans.EnsureUser(cluster.Name); err != nil {
+	if _, err := trans.EnsureUser(clusterName); err != nil {
 		return err
 	}
-	if _, err = trans.EnsureTopic(cluster.Name); err != nil {
+	if _, err := trans.EnsureTopic(clusterName); err != nil {
 		return err
 	}
-
 	return nil
 }
 

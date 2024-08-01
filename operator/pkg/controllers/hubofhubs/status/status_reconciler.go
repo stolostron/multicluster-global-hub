@@ -41,20 +41,26 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 	}
 
 	// update the ready condition
-	readyStatus := metav1.ConditionTrue
-	readyReason := config.CONDITION_REASON_GLOBALHUB_READY
-	readyMessage := config.CONDITION_MESSAGE_GLOBALHUB_READY
-	if reconcileErr != nil {
-		readyStatus = metav1.ConditionFalse
-		readyReason = config.CONDITION_REASON_GLOBALHUB_FAILED
-		readyMessage = reconcileErr.Error()
+	readyCond := metav1.Condition{
+		Type:               config.CONDITION_TYPE_GLOBALHUB_READY,
+		Status:             metav1.ConditionTrue,
+		Reason:             config.CONDITION_REASON_GLOBALHUB_READY,
+		Message:            config.CONDITION_MESSAGE_GLOBALHUB_READY,
+		LastTransitionTime: metav1.Time{Time: time.Now()},
 	}
-	if err := config.SetCondition(ctx, r.Client, mgh,
-		config.CONDITION_TYPE_GLOBALHUB_READY,
-		readyStatus,
-		readyReason,
-		readyMessage,
-	); err != nil {
+	if reconcileErr != nil {
+		readyCond.Status = metav1.ConditionFalse
+		readyCond.Reason = config.CONDITION_REASON_GLOBALHUB_FAILED
+		readyCond.Message = reconcileErr.Error()
+	}
+	if err := config.UpdateCondition(ctx, r.Client, mgh, readyCond); err != nil {
+		return err
+	}
+
+	// update the topic condition
+	topicMessage := fmt.Sprintf("The topics is parsed: spec(%s), status(%s)", config.GetSpecTopic(),
+		config.FuzzyStatusTopic())
+	if err := config.SetConditionTopic(ctx, r.Client, mgh, config.CONDITION_STATUS_TRUE, topicMessage); err != nil {
 		return err
 	}
 

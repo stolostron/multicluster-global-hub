@@ -18,7 +18,7 @@ import (
 
 func TestCSRApprover(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build()
-	err := config.SetBYOKafka(context.Background(), fakeClient, "default")
+	err := config.SetKafkaType(context.Background(), fakeClient, "default")
 	assert.Nil(t, err)
 	assert.Equal(t, config.IsBYOKafka(), false)
 

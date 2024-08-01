@@ -243,18 +243,18 @@ func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
 	if err != nil {
 		return nil, err
 	}
-	err = SetBYOKafka(ctx, c, mgh.GetNamespace())
+	err = SetTransportConfig(ctx, c, mgh)
 	if err != nil {
 		return nil, err
 	}
-	err = SetBYOPostgres(ctx, c, mgh.GetNamespace())
+	err = SetPostgresType(ctx, c, mgh.GetNamespace())
 	if err != nil {
 		return nil, err
 	}
 	return mgh, nil
 }
 
-// SetMulticlusterGlobalHubConfig extract the namespacedName, image, and log configurations from CR
+// SetMulticlusterGlobalHubConfig extract the namespacedName, image info, and log configurations from CR
 func SetMulticlusterGlobalHubConfig(ctx context.Context,
 	mgh *v1alpha4.MulticlusterGlobalHub, imageClient imagev1client.ImageV1Interface,
 ) error {

@@ -44,7 +44,8 @@ type PostgresConnection struct {
 	CACert []byte
 }
 
-func SetBYOPostgres(ctx context.Context, runtimeClient client.Client, namespace string) error {
+// SetPostgresType assert the current storage is BYO or built-in, and cache the state to memeory
+func SetPostgresType(ctx context.Context, runtimeClient client.Client, namespace string) error {
 	pgSecret := &corev1.Secret{}
 	err := runtimeClient.Get(ctx, types.NamespacedName{
 		Name:      constants.GHStorageSecretName,

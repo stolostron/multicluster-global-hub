@@ -45,6 +45,12 @@ const (
 	CONDITION_MESSAGE_GRAFANA_AVAILABLE = "Multicluster Global Hub Grafana has been deployed"
 )
 
+// NOTE: the topics for the manager and agent
+const (
+	CONDITION_TYPE_TOPIC_PARSED   = "TopicParsed"
+	CONDITION_REASON_TOPIC_PARSED = "TopicParsed"
+)
+
 // NOTE: the status of DatabaseInitialized can be True or False
 const (
 	CONDITION_TYPE_DATABASE_INIT    = "DatabaseInitialized"
@@ -118,6 +124,12 @@ func SetConditionDataRetention(ctx context.Context, c client.Client, mgh *global
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_PARSED, status,
 		CONDITION_REASON_RETENTION_PARSED, msg)
+}
+
+func SetConditionTopic(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	status metav1.ConditionStatus, msg string,
+) error {
+	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TOPIC_PARSED, status, CONDITION_REASON_TOPIC_PARSED, msg)
 }
 
 func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,

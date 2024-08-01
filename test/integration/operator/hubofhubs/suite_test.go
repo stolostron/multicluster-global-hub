@@ -164,7 +164,6 @@ func CreateTestSecretTransport(c client.Client, namespace string) error {
 		return err
 	}
 	config.SetTransporterConn(conn)
-	clusterTopic, _ := trans.EnsureTopic(protocol.GlobalHubClusterName)
-	config.SetTransporterTopic(clusterTopic)
+	_, _ = trans.EnsureTopic(protocol.GlobalHubClusterName)
 	return nil
 }

@@ -1,7 +1,7 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: spec
+  name: gh-spec
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -13,7 +13,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: event
+  name: gh-event.global-hub
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -25,7 +25,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: status.hub1
+  name: gh-event.hub1
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -37,19 +37,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: status.hub2
-  labels:
-    strimzi.io/cluster: kafka
-spec:
-  partitions: 1
-  replicas: 1
-  config:
-    cleanup.policy: compact
----
-apiVersion: kafka.strimzi.io/v1beta2
-kind: KafkaTopic
-metadata:
-  name: status.global
+  name: gh-event.hub2
   labels:
     strimzi.io/cluster: kafka
 spec:
