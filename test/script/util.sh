@@ -98,15 +98,16 @@ check_kind() {
 }
 
 kind_cluster() {
-  dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-  cluster_name="$1"
+  local dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+  local cluster_name="$1"
   echo "dir $dir"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
     retry "kind create cluster --name $cluster_name --wait 5m"
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
-    node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
+    local node_ip
+    node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$cluster_name-control-plane")
     # context is changed but name not
     retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
