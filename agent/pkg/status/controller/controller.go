@@ -28,21 +28,34 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	}
 
 	// only use the cloudevents
-	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig,
-		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic)
+	topic := agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic
+	if agentConfig.Standalone {
+		topic = agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic
+	}
+	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig, topic)
 	if err != nil {
 		return fmt.Errorf("failed to init status transport producer: %w", err)
 	}
 
-	// managed cluster
-	if err := managedclusters.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, producer); err != nil {
-		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
+	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
+	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig); err != nil {
+		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
 
 	// event syncer
 	err = event.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
 	if err != nil {
 		return fmt.Errorf("failed to launch event syncer: %w", err)
+	}
+
+	// don't sync spec and other resources for the standalone mode
+	if agentConfig.Standalone {
+		return nil
+	}
+
+	// managed cluster
+	if err := managedclusters.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
 	}
 
 	// policy syncer(local and global)
@@ -79,9 +92,5 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 		return fmt.Errorf("failed to launch subscription report syncer: %w", err)
 	}
 
-	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
-	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNameSpace); err != nil {
-		return fmt.Errorf("failed to launch time filter: %w", err)
-	}
 	return nil
 }

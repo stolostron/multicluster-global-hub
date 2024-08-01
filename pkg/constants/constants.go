@@ -59,6 +59,7 @@ const (
 	GHStorageSecretName        = "multicluster-global-hub-storage"   // #nosec G101
 	GHBuiltInStorageSecretName = "multicluster-global-hub-postgres"  // #nosec G101
 	KafkaCertSecretName        = "kafka-certs-secret"                // #nosec G101
+	KafkaExporterSecretName    = "kafka-exporter-secret"             // #nosec G101
 	GHDefaultStorageRetention  = "18m"                               // 18 months
 	PostgresCAConfigMap        = "multicluster-global-hub-postgres-ca"
 )

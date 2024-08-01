@@ -39,12 +39,14 @@ import (
 )
 
 const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8384
-	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
+	metricsHost       = "0.0.0.0"
+	metricsPort int32 = 8384
 )
 
-var setupLog = ctrl.Log.WithName("setup")
+var (
+	setupLog             = ctrl.Log.WithName("setup")
+	leaderElectionLockID = config.AGETN_ELECTION_ID
+)
 
 func main() {
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
@@ -170,6 +172,7 @@ func parseFlags() *config.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+	pflag.BoolVar(&agentConfig.Standalone, "standalone", false, "Whether start running the agent on the standalone mode")
 	pflag.Parse()
 
 	// set zap logger
@@ -197,6 +200,26 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	agentConfig.TransportConfig.KafkaConfig.EnableTLS = true
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
+	}
+	namespace, ok := os.LookupEnv(config.POD_NAMESPACE)
+	if agentConfig.PodNameSpace == "" && ok {
+		agentConfig.PodNameSpace = namespace
+	}
+	if agentConfig.Standalone {
+		leaderElectionLockID = config.EXPORTER_ELECTION_ID
+		kafkaCred := agentConfig.TransportConfig.KafkaConfig
+		bootstrapServer, ok := os.LookupEnv(config.KAFKA_BOOTSTRAP_SERVERS)
+		if kafkaCred.BootstrapServer == "" && ok {
+			agentConfig.TransportConfig.KafkaConfig.BootstrapServer = bootstrapServer
+		}
+		statusTopic, ok := os.LookupEnv(config.STATUS_TOPIC)
+		if kafkaCred.Topics.StatusTopic == "" && ok {
+			agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic = statusTopic
+		}
+		eventTopic, ok := os.LookupEnv(config.EVENT_TOPIC)
+		if kafkaCred.Topics.EventTopic == "" && ok {
+			agentConfig.TransportConfig.KafkaConfig.Topics.EventTopic = eventTopic
+		}
 	}
 	return nil
 }
@@ -242,18 +265,23 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kubeclient: %w", err)
 	}
-	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
-	// we use the value to decide whether install the ACM or not
-	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
-	}
-
 	if err := controllers.AddCRDController(mgr, restConfig, agentConfig); err != nil {
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
 	}
 
 	if err := controllers.AddCertController(mgr, kubeClient); err != nil {
 		return nil, fmt.Errorf("failed to add crd controller: %w", err)
+	}
+
+	// if it is not standalone, then add claim information
+	if agentConfig.Standalone {
+		return mgr, nil
+	}
+
+	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
+	// we use the value to decide whether install the ACM or not
+	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
 	}
 
 	return mgr, nil
