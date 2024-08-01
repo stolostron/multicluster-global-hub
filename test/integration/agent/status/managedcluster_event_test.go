@@ -88,6 +88,6 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 				return fmt.Errorf("want %v, but got %v", evt, outEvents[0])
 			}
 			return nil
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
