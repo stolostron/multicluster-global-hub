@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -87,8 +88,11 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	specTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.SpecTopic
 	statusTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic
 
-	if specTopic == "" || statusTopic == "" {
-		return fmt.Errorf("specTopic (%s) and statusTopic (%s) must not be empty", specTopic, statusTopic)
+	if !isValidKafkaTopicName(specTopic) {
+		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
+	}
+	if !isValidKafkaTopicName(statusTopic) {
+		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
 	}
 
 	// BYO Case:
@@ -108,12 +112,26 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 			return fmt.Errorf("status topic(%s) must not contain '*'", statusTopic)
 		}
 	}
-
-	// kafka use the prefix topic for the authz
-	if strings.Contains(statusTopic, "*") && !strings.HasSuffix(statusTopic, "*") {
-		return fmt.Errorf("the status topic (%s) contains '*', it must be at the end", statusTopic)
-	}
 	return nil
+}
+
+// isValidKafkaTopicName validates the Kafka topic name based on common rules.
+// ref: https://github.com/apache/kafka/blob/3.9/clients/src/main/java/org/apache/kafka/common/internals/Topic.java
+func isValidKafkaTopicName(name string) bool {
+	// Kafka topic name must be between 1 and 255 characters.
+	if len(name) < 1 || len(name) >= 255 {
+		return false
+	}
+
+	if name == "." || name == ".." {
+		return false
+	}
+
+	// Kafka topic names can contain letters, numbers, dots (.), underscores (_), and dashes (-).
+	// The rule is only for the GlobalHub: An asterisk (*) can be appended to the suffix.
+	re := regexp.MustCompile(`^[a-zA-Z0-9._-]+(\*)?$`)
+
+	return re.MatchString(name)
 }
 
 func GetSpecTopic() string {

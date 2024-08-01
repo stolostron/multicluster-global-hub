@@ -194,10 +194,11 @@ type KafkaTopics struct {
 	// +kubebuilder:default="gh-spec"
 	SpecTopic string `json:"specTopic,omitempty"`
 
-	// StatusTopic defines the topic for the agent to report events and statuses to the manager.
-	// For the built-in Kafka, the default topic is "gh-event.*", where "*" is replaced by the managed hub cluster's name.
-	// For example, if the hub cluster is named "hub1", the default StatusTopic for it will be "gh-event.hub1".
-	// For BYO Kafka, the default topic is simply "gh-event" for all the managed hubs.
+	// StatusTopic specifies the topic where an agent reports events and status updates to a manager. Specially, the topic
+	// can end up with an asterisk '*', indicating topics for individual managed hubs.
+	// For example: the default value is "gh-event.*" for the global hub built-in kafka. Thus, the topic for hub cluster
+	// named "hub1" whould be "gh-event.hub1".
+	// As for the BYO case, the default value is simply "gh-event" for all the managed hubs.
 	// +kubebuilder:default="gh-event.*"
 	StatusTopic string `json:"statusTopic,omitempty"`
 }
