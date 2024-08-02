@@ -152,7 +152,7 @@ type ResourceRequirements struct {
 // DataLayerConfig is a discriminated union of data layer specific configuration.
 type DataLayerConfig struct {
 	// Kafka specifies the desired state of kafka
-	// +optional
+	// +kubebuilder:default={"topics": {"specTopic": "gh-spec", "statusTopic": "gh-event.*"}}
 	Kafka KafkaConfig `json:"kafka,omitempty"`
 	// Postgres specifies the desired state of postgres
 	// +kubebuilder:default={retention: "18m"}
@@ -179,7 +179,7 @@ type PostgresConfig struct {
 
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
-	// KafkaTopics specifies the desired topics. If statusTopic contains '*', it must be at the end
+	// KafkaTopics specifies the desired topics. It can endup with '*'
 	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-event.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 

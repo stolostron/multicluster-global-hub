@@ -147,7 +147,7 @@ func (cu *ConflationUnit) getNextReadyCompleteElement() *completeElement {
 	return nil
 }
 
-// getBundleStatues provides collections of the CU's bundle transport-metadata.
+// getMetadatas provides metadata collections of the element's transport-metadata from the CU.
 func (cu *ConflationUnit) getMetadatas() []ConflationMetadata {
 	cu.lock.Lock()
 	defer cu.lock.Unlock()

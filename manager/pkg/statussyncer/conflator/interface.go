@@ -44,6 +44,8 @@ type Handler interface {
 
 type ConflationElement interface {
 	Name() string
+
+	// Metadata give the current status of the element. Like if processed, then cache the transport offset
 	Metadata() ConflationMetadata
 	SyncMode() enum.EventSyncMode
 
