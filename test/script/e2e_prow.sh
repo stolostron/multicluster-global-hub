@@ -33,5 +33,14 @@ ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\"
 echo "setup e2e environment"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && sudo make e2e-dep && make e2e-setup" > >(tee "$ARTIFACT_DIR/e2e-setup.log") 2>&1
 
+trap 'echo "An error occurred" >&2; log_component_logs; exit 1;' ERR
+log_component_logs() {
+    ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-log/operator" > >(tee "$ARTIFACT_DIR/e2e-operator.log")
+    ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-log/manager" > >(tee "$ARTIFACT_DIR/e2e-manager.log")
+}
+
 echo "runn e2e tests"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-test-all && make e2e-test-prune" > >(tee "$ARTIFACT_DIR/e2e-test.log") 2>&1
+
+# If the script reaches this point, it means no error occurred
+trap - ERR

@@ -20,6 +20,12 @@ e2e-test-prune: tidy vendor
 e2e-prow-tests: 
 	./test/script/e2e_prow.sh
 
+e2e-log/operator:
+	./test/script/e2e_log.sh
+
+e2e-log/manager:
+	@COMPONENT=multicluster-global-hub-manager ./test/script/e2e_log.sh
+
 integration-test: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./test/integration/...`
 
