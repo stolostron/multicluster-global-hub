@@ -80,7 +80,8 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	}
 
 	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
-	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNameSpace); err != nil {
+	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNameSpace,
+		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
 	return nil
