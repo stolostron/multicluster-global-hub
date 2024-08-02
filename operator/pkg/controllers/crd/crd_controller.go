@@ -20,7 +20,6 @@ import (
 	"context"
 	"sync"
 
-	imagev1 "github.com/openshift/api/image/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/api/addon/v1alpha1"
@@ -36,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -222,36 +220,7 @@ func (r *CrdController) watchACMRelatedResources() error {
 		)); err != nil {
 		return err
 	}
-	if err := r.globalHubController.Watch(
-		source.Kind(r.Manager.GetCache(), &imagev1.ImageStream{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *imagev1.ImageStream,
-			) []reconcile.Request {
-				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
-			}), watchImageStreamPredict())); err != nil {
-		return err
-	}
 	return nil
-}
-
-func watchImageStreamPredict() predicate.TypedPredicate[*imagev1.ImageStream] {
-	return predicate.TypedFuncs[*imagev1.ImageStream]{
-		CreateFunc: func(e event.TypedCreateEvent[*imagev1.ImageStream]) bool {
-			if e.Object.GetName() == operatorconstants.OauthProxyImageStreamName {
-				return true
-			}
-			return false
-		},
-		UpdateFunc: func(e event.TypedUpdateEvent[*imagev1.ImageStream]) bool {
-			if e.ObjectNew.GetName() != operatorconstants.OauthProxyImageStreamName {
-				return false
-			}
-			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-		},
-		DeleteFunc: func(e event.TypedDeleteEvent[*imagev1.ImageStream]) bool {
-			return false
-		},
-	}
 }
 
 func watchClusterManagementAddOnPredict() predicate.TypedPredicate[*v1alpha1.ClusterManagementAddOn] {
