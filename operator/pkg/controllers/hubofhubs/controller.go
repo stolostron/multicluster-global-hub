@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -33,7 +34,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -117,7 +120,52 @@ func NewGlobalHubController(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		return nil, err
 	}
 
+	if err := addImageStreamWatch(mgr, globalHubController); err != nil {
+		return nil, err
+	}
+
 	return globalHubController, nil
+}
+
+// addImageStreamWatch adds watch oauth-proxy imagestream
+func addImageStreamWatch(mgr ctrl.Manager, globalHubController controller.Controller) error {
+	if _, err := mgr.GetRESTMapper().KindFor(schema.GroupVersionResource{
+		Group:    "image.openshift.io",
+		Version:  "v1",
+		Resource: "imagestreams",
+	}); err != nil {
+		if meta.IsNoMatchError(err) {
+			return nil
+		}
+		return err
+	}
+	if err := globalHubController.Watch(
+		source.Kind(mgr.GetCache(), &imagev1.ImageStream{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
+				c *imagev1.ImageStream,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchImageStreamPredict())); err != nil {
+		return err
+	}
+	return nil
+}
+
+func watchImageStreamPredict() predicate.TypedPredicate[*imagev1.ImageStream] {
+	return predicate.TypedFuncs[*imagev1.ImageStream]{
+		CreateFunc: func(e event.TypedCreateEvent[*imagev1.ImageStream]) bool {
+			return e.Object.GetName() == operatorconstants.OauthProxyImageStreamName
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*imagev1.ImageStream]) bool {
+			if e.ObjectNew.GetName() != operatorconstants.OauthProxyImageStreamName {
+				return false
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*imagev1.ImageStream]) bool {
+			return false
+		},
+	}
 }
 
 func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController controller.Controller) error {
