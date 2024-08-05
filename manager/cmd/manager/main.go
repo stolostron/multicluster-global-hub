@@ -26,6 +26,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/addons"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
@@ -154,6 +155,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"enable the global resource feature")
 	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
 		"run on Red Hat Advanced Cluster Management")
+	pflag.BoolVar(&managerConfig.ImportClusterInHosted, "import-in-hosted", false,
+		"Import the managedhub cluster in hosted mode")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.Parse()
 	// set zap logger
@@ -207,7 +210,7 @@ func createManager(ctx context.Context,
 		NewCache:                initCache,
 	}
 
-	if managerConfig.EnableGlobalResource {
+	if managerConfig.EnableGlobalResource || managerConfig.ImportClusterInHosted {
 		options.WebhookServer = &webhook.DefaultServer{
 			Options: webhook.Options{
 				Port:    webhookPort,
@@ -275,6 +278,15 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 	}
 
+	// Change addons namespaces for hosted mode
+	if managerConfig.ImportClusterInHosted {
+		addons := addons.NewAddonsReconciler(mgr)
+		err = addons.SetupWithManager(mgr)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// need lock DB for backup
 	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
 	err = backupPVC.SetupWithManager(mgr)
@@ -335,7 +347,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 		return 1
 	}
 
-	if managerConfig.EnableGlobalResource {
+	if managerConfig.EnableGlobalResource || managerConfig.ImportClusterInHosted {
 		hookServer := mgr.GetWebhookServer()
 		setupLog.Info("registering webhooks to the webhook server")
 		hookServer.Register("/mutating", &webhook.Admission{

@@ -127,8 +127,8 @@ func (a *HohAgentAddon) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
 ) {
 	annotations := cluster.GetAnnotations()
 	labels := cluster.GetLabels()
-	if annotations[operatorconstants.AnnotationClusterDeployMode] !=
-		operatorconstants.ClusterDeployModeHosted {
+	if annotations[constants.AnnotationClusterDeployMode] !=
+		constants.ClusterDeployModeHosted {
 		return
 	}
 	if labels[operatorconstants.GHAgentDeployModeLabelKey] !=
@@ -137,8 +137,8 @@ func (a *HohAgentAddon) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig.InstallHostedMode = true
-	if annotations[operatorconstants.AnnotationClusterKlusterletDeployNamespace] != "" {
-		manifestsConfig.KlusterletNamespace = annotations[operatorconstants.AnnotationClusterKlusterletDeployNamespace]
+	if annotations[constants.AnnotationClusterKlusterletDeployNamespace] != "" {
+		manifestsConfig.KlusterletNamespace = annotations[constants.AnnotationClusterKlusterletDeployNamespace]
 	}
 	manifestsConfig.KlusterletWorkSA = fmt.Sprintf("klusterlet-%s-work-sa", cluster.GetName())
 }

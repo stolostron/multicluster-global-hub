@@ -21,13 +21,23 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	addonapi "github.com/stolostron/klusterlet-addon-controller/pkg/apis"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -39,6 +49,7 @@ var (
 	testEnv *envtest.Environment
 	ctx     context.Context
 	cancel  context.CancelFunc
+	c       client.Client
 )
 
 func TestControllers(t *testing.T) {
@@ -68,14 +79,51 @@ var _ = BeforeSuite(func() {
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
+
+	// add scheme
+	err = placementrulesv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = clusterv1beta1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = addonapi.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	clusterv1.AddToScheme(scheme.Scheme)
+
+	m, err := manager.New(testEnv.Config, manager.Options{
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    testEnv.WebhookInstallOptions.LocalServingHost,
+			Port:    testEnv.WebhookInstallOptions.LocalServingPort,
+			CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
+		}),
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0", // disable the metrics serving
+		},
+	}) // we need manager here just to leverage manager.SetFields
+	Expect(err).NotTo(HaveOccurred())
+
+	c, err = client.New(testEnv.Config, client.Options{Scheme: scheme.Scheme})
+	Expect(err).NotTo(HaveOccurred())
+
+	server := m.GetWebhookServer()
+	server.Register("/mutating", &webhook.Admission{
+		Handler: mgrwebhook.NewAdmissionHandler(m.GetClient(), m.GetScheme()),
+	})
+
+	ctx, cancel = context.WithCancel(context.Background())
+	go func() {
+		_ = m.Start(ctx)
+	}()
 })
 
 var _ = AfterSuite(func() {
+	cancel()
 	Expect(testEnv.Stop()).NotTo(HaveOccurred())
 })
 
 func initializeWebhookInEnvironment() {
 	namespacedScopeV1 := admissionv1.NamespacedScope
+	clusterScope := admissionv1.ClusterScope
 	failedTypeV1 := admissionv1.Fail
 	equivalentTypeV1 := admissionv1.Equivalent
 	noSideEffectsV1 := admissionv1.SideEffectClassNone
@@ -106,6 +154,24 @@ func initializeWebhookInEnvironment() {
 									APIVersions: []string{"v1beta1"},
 									Resources:   []string{"placements"},
 									Scope:       &namespacedScopeV1,
+								},
+							},
+							{
+								Operations: []admissionv1.OperationType{"CREATE", "UPDATE"},
+								Rule: admissionv1.Rule{
+									APIGroups:   []string{"agent.open-cluster-management.io"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"klusterletaddonconfigs"},
+									Scope:       &namespacedScopeV1,
+								},
+							},
+							{
+								Operations: []admissionv1.OperationType{"CREATE", "UPDATE"},
+								Rule: admissionv1.Rule{
+									APIGroups:   []string{"cluster.open-cluster-management.io"},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"managedclusters"},
+									Scope:       &clusterScope,
 								},
 							},
 						},

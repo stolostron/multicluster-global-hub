@@ -240,6 +240,11 @@ func prepareBeforeTest() {
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
+		Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+			InstallStrategy: addonv1alpha1.InstallStrategy{
+				Type: "Manual",
+			},
+		},
 	}
 	Expect(runtimeClient.Create(ctx, clusterManagementAddon)).Should(Succeed())
 }

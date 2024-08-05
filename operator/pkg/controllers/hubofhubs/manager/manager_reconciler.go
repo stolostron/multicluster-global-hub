@@ -142,6 +142,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			RetentionMonth:         months,
 			StatisticLogInterval:   config.GetStatisticLogInterval(),
 			EnableGlobalResource:   r.operatorConfig.GlobalResourceEnabled,
+			ImportClusterInHosted:  config.GetImportClusterInHosted(),
 			EnablePprof:            r.operatorConfig.EnablePprof,
 			LogLevel:               r.operatorConfig.LogLevel,
 			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
@@ -214,6 +215,7 @@ type ManagerVariables struct {
 	RetentionMonth         int
 	StatisticLogInterval   string
 	EnableGlobalResource   bool
+	ImportClusterInHosted  bool
 	EnablePprof            bool
 	LogLevel               string
 	Resources              *corev1.ResourceRequirements

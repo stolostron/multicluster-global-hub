@@ -1,4 +1,4 @@
-{{ if .EnableGlobalResource }}
+{{- if or .EnableGlobalResource .ImportClusterInHosted}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -21,6 +21,7 @@ webhooks:
   matchPolicy: Equivalent
   sideEffects: None
   rules:
+{{- if .EnableGlobalResource}}
   - apiGroups:
     - apps.open-cluster-management.io
     apiVersions:
@@ -39,4 +40,24 @@ webhooks:
     - UPDATE
     resources:
     - placements
+{{ end }}
+{{- if .ImportClusterInHosted}}
+  - apiGroups:
+    - cluster.open-cluster-management.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - managedclusters
+  - apiGroups:
+    - agent.open-cluster-management.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - klusterletaddonconfigs
+{{ end }}
 {{ end }}

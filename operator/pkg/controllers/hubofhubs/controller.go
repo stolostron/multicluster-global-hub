@@ -96,7 +96,7 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		scheme:              mgr.GetScheme(),
 		recorder:            mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
 		operatorConfig:      operatorConfig,
-		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
+		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient(), operatorConfig),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
 		storageReconciler:   storage.NewStorageReconciler(mgr, operatorConfig.GlobalResourceEnabled),
 		transportReconciler: transporter.NewTransportReconciler(mgr),
@@ -570,7 +570,8 @@ func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admi
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=addondeploymentconfigs,verbs=create;delete;get;list;update;watch
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons/finalizers,verbs=update
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules;podmonitors,verbs=get;create;delete;update;list;watch
@@ -622,6 +623,8 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 		}
 	}
+
+	config.SetImportClusterInHosted(mgh)
 
 	// update status condition
 	defer func() {

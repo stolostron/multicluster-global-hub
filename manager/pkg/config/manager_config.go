@@ -26,6 +26,7 @@ type ManagerConfig struct {
 	WithACM               bool
 	LaunchJobNames        string
 	EnablePprof           bool
+	ImportClusterInHosted bool
 }
 
 type SyncerConfig struct {

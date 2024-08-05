@@ -116,9 +116,9 @@ func (a *AddonController) Start(ctx context.Context) error {
 		WithAgentHostedModeEnabledOption().
 		WithGetValuesFuncs(hohAgentAddon.GetValues,
 			addonfactory.GetValuesFromAddonAnnotation,
-			addonfactory.GetAddOnDeloymentConfigValues(
-				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
-				addonfactory.ToAddOnDeloymentConfigValues,
+			addonfactory.GetAddOnDeploymentConfigValues(
+				addonfactory.NewAddOnDeploymentConfigGetter(addonClient),
+				addonfactory.ToAddOnDeploymentConfigValues,
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
 		WithScheme(addonScheme)
