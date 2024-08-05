@@ -25,7 +25,7 @@ spec:
   selector:
     name: multicluster-global-hub-manager
 ---
-{{ if .EnableGlobalResource }}
+{{- if or .EnableGlobalResource .ImportClusterInHosted}}
 apiVersion: v1
 kind: Service
 metadata:

@@ -36,13 +36,15 @@ import (
 
 type PruneReconciler struct {
 	client.Client
-	log logr.Logger
+	log            logr.Logger
+	operatorConfig *config.OperatorConfig
 }
 
-func NewPruneReconciler(c client.Client) *PruneReconciler {
+func NewPruneReconciler(c client.Client, operatorConfig *config.OperatorConfig) *PruneReconciler {
 	return &PruneReconciler{
-		log:    ctrl.Log.WithName("global-hub-prune"),
-		Client: c,
+		log:            ctrl.Log.WithName("global-hub-prune"),
+		Client:         c,
+		operatorConfig: operatorConfig,
 	}
 }
 
@@ -61,11 +63,52 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 		return nil
 	}
 
+	// If webhook is no need to enable, should remove the related resources
+	if !config.GetImportClusterInHosted() && !r.operatorConfig.GlobalResourceEnabled {
+		if err := r.pruneWebhookResources(ctx); err != nil {
+			return err
+		}
+	}
+
 	// reconcile metrics
 	if config.IsBYOKafka() && config.IsBYOPostgres() {
 		mgh.Spec.EnableMetrics = false
 		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
 		if err := r.MetricsResources(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PruneReconciler) pruneWebhookResources(ctx context.Context) error {
+	listOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		}),
+	}
+	webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+	if err := r.Client.List(ctx, webhookList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range webhookList.Items {
+		if err := r.Client.Delete(ctx, &webhookList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	webhookServiceListOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			"service":                        "multicluster-global-hub-webhook",
+		}),
+	}
+	webhookServiceList := &corev1.ServiceList{}
+	if err := r.Client.List(ctx, webhookServiceList, webhookServiceListOpts...); err != nil {
+		return err
+	}
+	for idx := range webhookServiceList.Items {
+		if err := r.Client.Delete(ctx, &webhookServiceList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -293,7 +336,7 @@ func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 	}
 
 	for idx, managedHub := range clusters.Items {
-		if managedHub.Name == operatorconstants.LocalClusterName {
+		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
 		orgAnnotations := managedHub.GetAnnotations()

@@ -4,10 +4,12 @@
 package config
 
 import (
+	addonapi "github.com/stolostron/klusterlet-addon-controller/pkg/apis"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -34,5 +36,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(channelv1.AddToScheme(scheme))
 	utilruntime.Must(applicationv1beta1.AddToScheme(scheme))
 	utilruntime.Must(mchv1.AddToScheme(scheme))
+	utilruntime.Must(addonapi.AddToScheme(scheme))
+	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	return scheme
 }

@@ -24,7 +24,7 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
 .PHONY: controller-gen		##downloads controller-gen locally if necessary.
 controller-gen:
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0
 
 .PHONY: generate			##generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 generate: controller-gen
