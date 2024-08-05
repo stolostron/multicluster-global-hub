@@ -56,6 +56,9 @@ const (
 	AnnotationMGHSchedulerInterval = "mgh-scheduler-interval"
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
+	// AnnotationImportClusterInHosted will import a managedhub cluster in hosted mode,
+	// will disable application and policy related addons
+	AnnotationImportClusterInHosted = "global-hub.open-cluster-management.io/import-cluster-in-hosted"
 	// AnnotationStatisticInterval to log the interval of statistic log
 	AnnotationStatisticInterval = "mgh-statistic-interval"
 	// AnnotationMetricsScrapeInterval to set the scrape interval for metrics
@@ -68,8 +71,6 @@ const (
 
 // hub installation constants
 const (
-	LocalClusterName = "local-cluster"
-
 	OpenshiftMarketPlaceNamespace = "openshift-marketplace"
 	ACMSubscriptionPublicSource   = "redhat-operators"
 	ACMSubscriptionPrivateSource  = "acm-custom-registry"
@@ -90,14 +91,6 @@ const (
 )
 
 const (
-	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
-	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
-	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster
-	AnnotationClusterHostingClusterName        = "import.open-cluster-management.io/hosting-cluster-name"
-	AnnotationClusterDeployMode                = "import.open-cluster-management.io/klusterlet-deploy-mode"
-	AnnotationClusterKlusterletDeployNamespace = "import.open-cluster-management.io/klusterlet-namespace"
-	ClusterDeployModeHosted                    = "Hosted"
-	ClusterDeployModeDefault                   = "Default"
 
 	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
 	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"

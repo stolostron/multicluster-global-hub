@@ -82,7 +82,7 @@ spec:
             name: metrics
             protocol: TCP
           volumeMounts:
-          {{- if .EnableGlobalResource }}
+         {{- if .EnableGlobalResource}}
           - mountPath: /webhook-certs
             name: webhook-certs
             readOnly: true
@@ -90,7 +90,7 @@ spec:
           - mountPath: /postgres-credential
             name: postgres-credential
             readOnly: true
-        {{- if .EnableGlobalResource }}
+        {{- if .EnableGlobalResource}}
         - name: oauth-proxy
           image: {{.ProxyImage}}
           imagePullPolicy: {{.ImagePullPolicy}}
@@ -167,5 +167,5 @@ spec:
           secretName: nonk8s-apiserver-cookie-secret
       - name: webhook-certs
         secret:
-          secretName: multicluster-global-hub-webhook-certs
+          secretName: multicluster-global-hub-manager-webhook-certs
       {{- end }}

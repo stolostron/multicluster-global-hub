@@ -1,4 +1,4 @@
-package addon
+package agent
 
 import (
 	"fmt"
@@ -163,7 +163,7 @@ var _ = Describe("addon deploy", func() {
 				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
 			},
 			map[string]string{
-				operatorconstants.AnnotationClusterHostingClusterName: hostingClusterName,
+				constants.AnnotationClusterHostingClusterName: hostingClusterName,
 			},
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
@@ -209,9 +209,9 @@ var _ = Describe("addon deploy", func() {
 				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
 			},
 			map[string]string{
-				operatorconstants.AnnotationClusterDeployMode:                operatorconstants.ClusterDeployModeHosted,
-				operatorconstants.AnnotationClusterKlusterletDeployNamespace: "open-cluster-management-hub1",
-				operatorconstants.AnnotationClusterHostingClusterName:        hostingClusterName,
+				constants.AnnotationClusterDeployMode:                constants.ClusterDeployModeHosted,
+				constants.AnnotationClusterKlusterletDeployNamespace: "open-cluster-management-hub1",
+				constants.AnnotationClusterHostingClusterName:        hostingClusterName,
 			},
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
@@ -232,7 +232,7 @@ var _ = Describe("addon deploy", func() {
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(addon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
+		Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
@@ -270,9 +270,9 @@ var _ = Describe("addon deploy", func() {
 				operatorconstants.GHAgentACMHubInstallLabelKey: "",
 			},
 			map[string]string{
-				operatorconstants.AnnotationClusterDeployMode:                operatorconstants.ClusterDeployModeHosted,
-				operatorconstants.AnnotationClusterKlusterletDeployNamespace: "open-cluster-management-hub1",
-				operatorconstants.AnnotationClusterHostingClusterName:        hostingClusterName,
+				constants.AnnotationClusterDeployMode:                constants.ClusterDeployModeHosted,
+				constants.AnnotationClusterKlusterletDeployNamespace: "open-cluster-management-hub1",
+				constants.AnnotationClusterHostingClusterName:        hostingClusterName,
 			},
 			[]clusterv1.ManagedClusterClaim{
 				{
@@ -298,7 +298,7 @@ var _ = Describe("addon deploy", func() {
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(addon.GetAnnotations()[operatorconstants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
+		Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
 		work := &workv1.ManifestWork{}
@@ -351,7 +351,7 @@ var _ = Describe("addon deploy", func() {
 			[]clusterv1.ManagedClusterClaim{},
 		)
 		By("By preparing a local cluster")
-		clusterName4 := operatorconstants.LocalClusterName
+		clusterName4 := constants.LocalClusterName
 		prepareCluster(clusterName4, map[string]string{
 			"vendor": "OpenShift",
 			operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,

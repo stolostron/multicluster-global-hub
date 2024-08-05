@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package addon
+package agent
 
 import (
 	"context"
@@ -39,7 +39,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon installer to the manager")
-	err = (&addon.AddonInstaller{
+	err = (&agent.AddonInstaller{
 		Client: runtimeClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
 	}).SetupWithManager(ctx, k8sManager)
@@ -112,7 +112,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	addonController, err := addon.NewAddonController(k8sManager.GetConfig(), runtimeClient, &config.OperatorConfig{
+	addonController, err := agent.NewAddonController(k8sManager.GetConfig(), runtimeClient, &config.OperatorConfig{
 		GlobalResourceEnabled: true,
 		LogLevel:              "info",
 		EnablePprof:           false,
@@ -207,7 +207,7 @@ func prepareBeforeTest() {
 
 	// set fake packagemenifestwork configuration
 	By("By setting a fake packagemanifest configuration")
-	addon.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
+	agent.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
 		"stable-2.0", "multicluster-engine.v2.0.1",
 		map[string]string{"multiclusterhub-operator": "example.com/registration-operator:test"},
 		map[string]string{"registration-operator": "example.com/registration-operator:test"})
@@ -238,6 +238,11 @@ func prepareBeforeTest() {
 			Name: operatorconstants.GHClusterManagementAddonName,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+			InstallStrategy: addonv1alpha1.InstallStrategy{
+				Type: "Manual",
 			},
 		},
 	}

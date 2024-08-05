@@ -49,8 +49,11 @@ rules:
   resources:
   - addondeploymentconfigs
   verbs:
+  - create
+  - delete
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - addon.open-cluster-management.io
@@ -61,6 +64,7 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:

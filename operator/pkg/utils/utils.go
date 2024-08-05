@@ -47,9 +47,9 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // MergeObjects merge the desiredObj into the existingObj, then unmarshal to updatedObj
@@ -298,48 +298,48 @@ func GetResources(component string, advanced *v1alpha4.AdvancedConfig) *corev1.R
 	limits := corev1.ResourceList{}
 
 	switch component {
-	case constants.Grafana:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.GrafanaMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.GrafanaCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.GrafanaMemoryLimit)
-		limits[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.GrafanaCPULimit)
+	case operatorconstants.Grafana:
+		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.GrafanaMemoryRequest)
+		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.GrafanaCPURequest)
+		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.GrafanaMemoryLimit)
+		limits[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.GrafanaCPULimit)
 		if advanced != nil && advanced.Grafana != nil {
 			setResourcesFromCR(advanced.Grafana.Resources, requests, limits)
 		}
 
-	case constants.Postgres:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.PostgresMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.PostgresCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.PostgresMemoryLimit)
+	case operatorconstants.Postgres:
+		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.PostgresMemoryRequest)
+		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.PostgresCPURequest)
+		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.PostgresMemoryLimit)
 		if advanced != nil && advanced.Postgres != nil {
 			setResourcesFromCR(advanced.Postgres.Resources, requests, limits)
 		}
 
-	case constants.Manager:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.ManagerMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.ManagerCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.ManagerMemoryLimit)
+	case operatorconstants.Manager:
+		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ManagerMemoryRequest)
+		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ManagerCPURequest)
+		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ManagerMemoryLimit)
 		if advanced != nil && advanced.Manager != nil {
 			setResourcesFromCR(advanced.Manager.Resources, requests, limits)
 		}
-	case constants.Agent:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.AgentMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.AgentCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.AgentMemoryLimit)
+	case operatorconstants.Agent:
+		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.AgentMemoryRequest)
+		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.AgentCPURequest)
+		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.AgentMemoryLimit)
 		if advanced != nil && advanced.Agent != nil {
 			setResourcesFromCR(advanced.Agent.Resources, requests, limits)
 		}
-	case constants.Kafka:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.KafkaMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.KafkaCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.KafkaMemoryLimit)
+	case operatorconstants.Kafka:
+		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.KafkaMemoryRequest)
+		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.KafkaCPURequest)
+		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.KafkaMemoryLimit)
 		if advanced != nil && advanced.Kafka != nil {
 			setResourcesFromCR(advanced.Kafka.Resources, requests, limits)
 		}
-	case constants.Zookeeper:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.ZookeeperMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(constants.ZookeeperCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(constants.ZookeeperMemoryLimit)
+	case operatorconstants.Zookeeper:
+		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryRequest)
+		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ZookeeperCPURequest)
+		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryLimit)
 		if advanced != nil && advanced.Zookeeper != nil {
 			setResourcesFromCR(advanced.Zookeeper.Resources, requests, limits)
 		}
@@ -391,7 +391,7 @@ func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) erro
 			continue
 		}
 
-		if ok := controllerutil.RemoveFinalizer(managedHub, commonconstants.GlobalHubCleanupFinalizer); ok {
+		if ok := controllerutil.RemoveFinalizer(managedHub, constants.GlobalHubCleanupFinalizer); ok {
 			if err := c.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
 				return err
 			}
@@ -420,8 +420,8 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 		CopyMap(annotations, managedHub.GetAnnotations())
 
 		// set the annotations for the managed hub
-		orgAnnotations[constants.AnnotationONMulticlusterHub] = "true"
-		orgAnnotations[constants.AnnotationPolicyONMulticlusterHub] = "true"
+		orgAnnotations[operatorconstants.AnnotationONMulticlusterHub] = "true"
+		orgAnnotations[operatorconstants.AnnotationPolicyONMulticlusterHub] = "true"
 		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
 			if err := c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 				return err
@@ -440,7 +440,7 @@ func TriggerManagedHubAddons(ctx context.Context, c client.Client, addonManager 
 	for i := range clusters.Items {
 		cluster := clusters.Items[i]
 		if !FilterManagedCluster(&cluster) {
-			addonManager.Trigger(cluster.Name, constants.GHClusterManagementAddonName)
+			addonManager.Trigger(cluster.Name, operatorconstants.GHClusterManagementAddonName)
 		}
 	}
 	return nil
@@ -476,7 +476,7 @@ func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		labels[commonconstants.GlobalHubOwnerLabelKey] = commonconstants.GHOperatorOwnerLabelVal
+		labels[constants.GlobalHubOwnerLabelKey] = constants.GHOperatorOwnerLabelVal
 		obj.SetLabels(labels)
 
 		if err := hohDeployer.Deploy(obj); err != nil {

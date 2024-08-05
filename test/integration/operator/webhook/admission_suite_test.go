@@ -28,7 +28,6 @@ import (
 	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,7 +36,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
+	mgrwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -81,8 +80,6 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	// add scheme
-	err = placementrulesv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
 	err = clusterv1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = addonapi.AddToScheme(scheme.Scheme)
@@ -107,7 +104,7 @@ var _ = BeforeSuite(func() {
 
 	server := m.GetWebhookServer()
 	server.Register("/mutating", &webhook.Admission{
-		Handler: mgrwebhook.NewAdmissionHandler(m.GetScheme()),
+		Handler: mgrwebhook.NewAdmissionHandler(m.GetClient(), m.GetScheme()),
 	})
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -132,30 +129,12 @@ func initializeWebhookInEnvironment() {
 		MutatingWebhooks: []*admissionv1.MutatingWebhookConfiguration{
 			{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "multicluster-global-hub-mutator",
+					Name: "multicluster-global-hub-mutating",
 				},
 				Webhooks: []admissionv1.MutatingWebhook{
 					{
 						Name: "global-hub.open-cluster-management.io",
 						Rules: []admissionv1.RuleWithOperations{
-							{
-								Operations: []admissionv1.OperationType{"CREATE", "UPDATE"},
-								Rule: admissionv1.Rule{
-									APIGroups:   []string{"apps.open-cluster-management.io"},
-									APIVersions: []string{"v1"},
-									Resources:   []string{"placementrules"},
-									Scope:       &namespacedScopeV1,
-								},
-							},
-							{
-								Operations: []admissionv1.OperationType{"CREATE", "UPDATE"},
-								Rule: admissionv1.Rule{
-									APIGroups:   []string{"cluster.open-cluster-management.io"},
-									APIVersions: []string{"v1beta1"},
-									Resources:   []string{"placements"},
-									Scope:       &namespacedScopeV1,
-								},
-							},
 							{
 								Operations: []admissionv1.OperationType{"CREATE", "UPDATE"},
 								Rule: admissionv1.Rule{

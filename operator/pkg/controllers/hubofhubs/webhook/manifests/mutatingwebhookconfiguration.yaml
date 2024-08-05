@@ -1,8 +1,8 @@
-{{- if .EnableGlobalResource}}
+{{- if .ImportClusterInHosted}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: multicluster-global-hub-mutator
+  name: multicluster-global-hub-mutating
   annotations:
     service.beta.openshift.io/inject-cabundle: "true"
 webhooks:
@@ -11,7 +11,7 @@ webhooks:
   - v1beta1
   clientConfig:
     service:
-      name: multicluster-global-hub-global-webhook
+      name: multicluster-global-hub-webhook
       namespace: {{.Namespace}}
       port: 443
       path: /mutating
@@ -22,21 +22,21 @@ webhooks:
   sideEffects: None
   rules:
   - apiGroups:
-    - apps.open-cluster-management.io
+    - agent.open-cluster-management.io
     apiVersions:
     - v1
     operations:
     - CREATE
     - UPDATE
     resources:
-    - placementrules
+    - klusterletaddonconfigs
   - apiGroups:
     - cluster.open-cluster-management.io
     apiVersions:
-    - v1beta1
+    - v1
     operations:
     - CREATE
     - UPDATE
     resources:
-    - placements
+    - managedclusters
 {{ end }}

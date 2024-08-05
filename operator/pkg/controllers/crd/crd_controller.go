@@ -37,7 +37,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -66,9 +67,10 @@ type CrdController struct {
 	operatorConfig        *config.OperatorConfig
 	resources             map[string]bool
 	addonInstallerReady   bool
-	addonController       *addon.AddonController
+	agentController       *agent.AddonController
 	globalHubController   runtimeController.Controller
 	backupControllerReady bool
+	addonsControllerReady bool
 	mu                    sync.Mutex
 }
 
@@ -105,7 +107,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// start addon installer
 	if !r.addonInstallerReady {
-		if err := (&addon.AddonInstaller{
+		if err := (&agent.AddonInstaller{
 			Client: r.GetClient(),
 			Log:    ctrl.Log.WithName("addon-reconciler"),
 		}).SetupWithManager(ctx, r.Manager); err != nil {
@@ -115,16 +117,16 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon controller
-	if r.addonController == nil {
-		addonController, err := addon.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
+	if r.agentController == nil {
+		agentController, err := agent.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		err = r.Manager.Add(addonController)
+		err = r.Manager.Add(agentController)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		r.addonController = addonController
+		r.agentController = agentController
 	}
 
 	// backup controller
@@ -136,6 +138,13 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.backupControllerReady = true
 	}
 
+	if !r.addonsControllerReady {
+		err := addons.NewAddonsReconciler(r.Manager).SetupWithManager(r.Manager)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		r.addonsControllerReady = true
+	}
 	return ctrl.Result{}, nil
 }
 

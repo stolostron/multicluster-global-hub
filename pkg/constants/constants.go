@@ -49,6 +49,18 @@ const (
 )
 
 const (
+	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
+	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
+	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster
+	AnnotationClusterHostingClusterName        = "import.open-cluster-management.io/hosting-cluster-name"
+	AnnotationClusterDeployMode                = "import.open-cluster-management.io/klusterlet-deploy-mode"
+	AnnotationClusterKlusterletDeployNamespace = "import.open-cluster-management.io/klusterlet-namespace"
+	ClusterDeployModeHosted                    = "Hosted"
+	ClusterDeployModeDefault                   = "Default"
+)
+
+const (
+	LocalClusterName = "local-cluster"
 	// lock the database
 	LockId = "1"
 )
@@ -147,4 +159,9 @@ const (
 	PolicyEventRootPolicyNameLabelKey = "policy.open-cluster-management.io/root-policy"
 	// the label is from the reference object itself
 	PolicyEventClusterNameLabelKey = "policy.open-cluster-management.io/cluster-name"
+)
+
+const (
+	// Managedcluster imported status type
+	ManagedClusterImportSucceeded = "ManagedClusterImportSucceeded"
 )

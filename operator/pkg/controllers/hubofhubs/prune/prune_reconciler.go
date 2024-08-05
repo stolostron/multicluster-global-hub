@@ -52,6 +52,9 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil &&
 		operatorutils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+		if err := r.pruneWebhookResources(ctx); err != nil {
+			return err
+		}
 		if err := r.GlobalHubResources(ctx, mgh); err != nil {
 			return fmt.Errorf("failed to prune Global Hub resources %v", err)
 		}
@@ -60,12 +63,70 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 		}
 		return nil
 	}
+	// If webhook do not need to enable, should remove the related resources
+	if !config.GetImportClusterInHosted() {
+		if err := r.pruneWebhookResources(ctx); err != nil {
+			return err
+		}
+		if err := r.pruneHostedResources(ctx); err != nil {
+			return err
+		}
+	}
 
 	// reconcile metrics
 	if config.IsBYOKafka() && config.IsBYOPostgres() {
 		mgh.Spec.EnableMetrics = false
 		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
 		if err := r.MetricsResources(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PruneReconciler) pruneHostedResources(ctx context.Context) error {
+	addonDeployConfig := &addonv1alpha1.AddOnDeploymentConfig{}
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      "global-hub",
+	}, addonDeployConfig); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return r.Client.Delete(ctx, addonDeployConfig)
+}
+
+func (r *PruneReconciler) pruneWebhookResources(ctx context.Context) error {
+	listOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		}),
+	}
+	webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+	if err := r.Client.List(ctx, webhookList, listOpts...); err != nil {
+		return err
+	}
+
+	for idx := range webhookList.Items {
+		if err := r.Client.Delete(ctx, &webhookList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	webhookServiceListOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			"service":                        "multicluster-global-hub-webhook",
+		}),
+	}
+	webhookServiceList := &corev1.ServiceList{}
+	if err := r.Client.List(ctx, webhookServiceList, webhookServiceListOpts...); err != nil {
+		return err
+	}
+	for idx := range webhookServiceList.Items {
+		if err := r.Client.Delete(ctx, &webhookServiceList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -293,7 +354,7 @@ func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 	}
 
 	for idx, managedHub := range clusters.Items {
-		if managedHub.Name == operatorconstants.LocalClusterName {
+		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
 		orgAnnotations := managedHub.GetAnnotations()
