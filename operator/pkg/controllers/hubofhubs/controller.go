@@ -664,8 +664,8 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	if config.IsACMResourceReady() {
-		if err := utils.TriggerManagedHubAddons(ctx, r.client, r.config); err != nil {
+	if config.IsACMResourceReady() && config.GetAddonManager() != nil {
+		if err := utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
