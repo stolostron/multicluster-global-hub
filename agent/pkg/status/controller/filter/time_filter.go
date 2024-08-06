@@ -2,6 +2,7 @@ package filter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -17,6 +18,7 @@ const (
 )
 
 var (
+	topicName              = ""
 	eventTimeCache         = make(map[string]time.Time)
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
@@ -41,7 +43,8 @@ func Newer(key string, val time.Time) bool {
 
 // LaunchTimeFilter start a goroutine periodically sync the time filter cache to configMap
 // and also init the event time cache with configmap
-func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string) error {
+func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, topic string) error {
+	topicName = topic
 	agentStateConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      CACHE_CONFIG_NAME,
@@ -112,7 +115,7 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 			cm.Data = map[string]string{}
 		}
 		for key, val := range lastEventTimeCache {
-			cm.Data[key] = val.Format(CACHE_TIME_FORMAT)
+			cm.Data[cacheKey(key)] = val.Format(CACHE_TIME_FORMAT)
 		}
 		err = c.Update(ctx, cm, &client.UpdateOptions{})
 		if err != nil {
@@ -129,7 +132,7 @@ func RegisterTimeFilter(key string) {
 }
 
 func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
-	val, found := cm.Data[key]
+	val, found := cm.Data[cacheKey(key)]
 	if !found {
 		klog.Info("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
 		return nil
@@ -141,4 +144,9 @@ func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
 	}
 	eventTimeCache[key] = timeVal
 	return nil
+}
+
+// cacheKey is to add the topic prefix for the origin key, so if the topic is changed, it won't filter the the event
+func cacheKey(key string) string {
+	return fmt.Sprintf("%s--%s", topicName, key)
 }

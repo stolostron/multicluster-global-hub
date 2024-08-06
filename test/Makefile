@@ -29,6 +29,9 @@ e2e-log/manager:
 e2e-log/grafana:
 	@COMPONENT=multicluster-global-hub-grafana ./test/script/e2e_log.sh
 
+e2e-log/agent:
+	@export CLUSTER_NAME=hub1 COMPONENT=multicluster-global-hub-agent NAMESPACE=multicluster-global-hub-agent && ./test/script/e2e_log.sh
+
 integration-test: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./test/integration/...`
 

@@ -70,67 +70,75 @@ func TestMain(m *testing.M) {
 }
 
 func TestTimeFilter(t *testing.T) {
-	// init the time cache to configMap
-	initCtx, initCancel := context.WithCancel(context.Background())
+	// init the time cancel to configMap
+	ctx, cancel := context.WithCancel(context.Background())
+	eventType := "event.managedcluster"
 
 	eventTimeCacheInterval = 1 * time.Second
-	err := LaunchTimeFilter(initCtx, runtimeClient, "default")
+	err := LaunchTimeFilter(ctx, runtimeClient, "default", "topic1")
 	assert.Nil(t, err)
 
-	// the configMap can be created
+	fmt.Println(">> verify1: the filter create the configmap if it isn't exist")
 	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: CACHE_CONFIG_NAME, Namespace: "default"}}
-	err = runtimeClient.Get(initCtx, client.ObjectKeyFromObject(cm), cm)
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
 
-	// update the cache time
-	testTime := time.Now()
-	fmt.Println("test time", testTime)
-	CacheTime("test", testTime)
-
+	fmt.Println(">> verify2: the configmap cached the key with toipc prefix")
+	cacheTime := time.Now()
+	CacheTime(eventType, cacheTime)
 	time.Sleep(2 * time.Second)
-
 	// check the cache time is synced to the configMap
-	err = runtimeClient.Get(initCtx, client.ObjectKeyFromObject(cm), cm)
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 	assert.Nil(t, err)
-	cachedTimeStr := cm.Data["test"]
-	cachedTime, err := time.Parse(CACHE_TIME_FORMAT, cachedTimeStr)
+	utils.PrettyPrint(cm)
+	cachedTime, err := time.Parse(CACHE_TIME_FORMAT, cm.Data[cacheKey(eventType)])
 	assert.Nil(t, err)
-	fmt.Println("cached time", cachedTime)
-	assert.True(t, cachedTime.Equal(testTime))
-	initCancel()
+	assert.True(t, cachedTime.Equal(cacheTime))
+	cancel()
 
+	fmt.Println(">> verify3: update the cache with a expired time, verify the cached time isn't changed")
 	// reload the time from configMap
-	RegisterTimeFilter("test")
-	reloadCtx, reloadCancel := context.WithCancel(context.Background())
-	defer reloadCancel()
-
-	// update the configmap
-	updateTime := testTime.Add(5 * time.Second)
-	cm.Data["test"] = updateTime.Format(CACHE_TIME_FORMAT)
-	err = runtimeClient.Update(reloadCtx, cm)
+	ctx, cancel = context.WithCancel(context.Background())
+	RegisterTimeFilter(eventType)
+	err = LaunchTimeFilter(ctx, runtimeClient, "default", "topic1")
 	assert.Nil(t, err)
-
-	err = LaunchTimeFilter(reloadCtx, runtimeClient, "default")
-	assert.Nil(t, err)
-
-	err = runtimeClient.Get(reloadCtx, client.ObjectKeyFromObject(cm), cm)
-	assert.Nil(t, err)
-	cachedTimeStr = cm.Data["test"]
-	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cachedTimeStr)
-	assert.Nil(t, err)
-	fmt.Println("updated time1", cachedTime)
-	assert.True(t, cachedTime.Equal(updateTime))
 
 	// update the cache with a expired time, verify the cached time isn't changed
-	CacheTime("test", updateTime.Add(-10*time.Second))
+	expiredTime := cacheTime.Add(-10 * time.Second)
+	assert.False(t, Newer(eventType, expiredTime))
+
+	CacheTime(eventType, expiredTime)
 	time.Sleep(2 * time.Second)
 
-	err = runtimeClient.Get(reloadCtx, client.ObjectKeyFromObject(cm), cm)
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 	assert.Nil(t, err)
-	cachedTimeStr = cm.Data["test"]
-	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cachedTimeStr)
+	utils.PrettyPrint(cm)
+
+	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[cacheKey(eventType)])
 	assert.Nil(t, err)
-	fmt.Println("updated time2", cachedTime)
-	assert.True(t, cachedTime.Equal(updateTime))
+	assert.True(t, cachedTime.Equal(cacheTime))
+	cancel()
+
+	fmt.Println(">> verify4: update the cache with a new topic, the expired time, verify the cached time is change")
+	ctx, cancel = context.WithCancel(context.Background())
+	RegisterTimeFilter(eventType)
+	err = LaunchTimeFilter(ctx, runtimeClient, "default", "topic2")
+	assert.Nil(t, err)
+
+	// a new topic with init cache
+	assert.True(t, Newer(eventType, expiredTime))
+
+	// update the cache with a expired time
+	CacheTime(eventType, expiredTime)
+	time.Sleep(2 * time.Second)
+
+	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+	assert.Nil(t, err)
+	utils.PrettyPrint(cm)
+
+	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[cacheKey(eventType)])
+	assert.Nil(t, err)
+	assert.True(t, cachedTime.Equal(expiredTime))
+	cancel()
 }

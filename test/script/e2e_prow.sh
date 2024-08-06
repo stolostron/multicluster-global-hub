@@ -38,6 +38,7 @@ log_component_logs() {
     ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-log/operator" > >(tee "$ARTIFACT_DIR/e2e-operator.log")
     ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-log/manager" > >(tee "$ARTIFACT_DIR/e2e-manager.log")
     ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-log/grafana" > >(tee "$ARTIFACT_DIR/e2e-grafana.log")
+    ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-log/agent" > >(tee "$ARTIFACT_DIR/e2e-agent.log")
 }
 
 echo "runn e2e tests"
