@@ -64,6 +64,7 @@ func NewAddonController(kubeConfig *rest.Config, client client.Client, operatorC
 		log.Error(err, "failed to create addon manager")
 		return nil, err
 	}
+	config.SetAddonManager(addonMgr)
 	return &AddonController{
 		kubeConfig:     kubeConfig,
 		client:         client,
