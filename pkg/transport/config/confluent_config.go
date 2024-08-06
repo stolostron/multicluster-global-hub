@@ -25,7 +25,7 @@ func GetBasicConfigMap() *kafkav2.ConfigMap {
 func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
 	_ = kafkaConfigMap.SetKey("go.produce.channel.size", 1000)
 	_ = kafkaConfigMap.SetKey("acks", "1")
-	_ = kafkaConfigMap.SetKey("retries", "0")
+	_ = kafkaConfigMap.SetKey("retries", "3")
 	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
 }
 
@@ -76,10 +76,24 @@ func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, k
 	return nil
 }
 
+func SetTLSByRawData(kafkaConfigMap *kafkav2.ConfigMap, caCrt, clientCrt, clientKey string) error {
+	_ = kafkaConfigMap.SetKey("security.protocol", "ssl")
+	if err := kafkaConfigMap.SetKey("ssl.ca.pem", caCrt); err != nil {
+		return err
+	}
+	if err := kafkaConfigMap.SetKey("ssl.certificate.pem", clientCrt); err != nil {
+		return err
+	}
+	if err := kafkaConfigMap.SetKey("ssl.key.pem", clientKey); err != nil {
+		return err
+	}
+	return nil
+}
+
 // https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
 func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*kafkav2.ConfigMap, error) {
 	kafkaConfigMap := GetBasicConfigMap()
-	_ = kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.BootstrapServer)
+	_ = kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.ConnCredential.BootstrapServer)
 	if producer {
 		SetProducerConfig(kafkaConfigMap)
 	} else {
@@ -88,7 +102,11 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 	if !kafkaConfig.EnableTLS {
 		return kafkaConfigMap, nil
 	}
-	err := SetTLSByLocation(kafkaConfigMap, kafkaConfig.CaCertPath, kafkaConfig.ClientCertPath, kafkaConfig.ClientKeyPath)
+
+	err := SetTLSByRawData(kafkaConfigMap,
+		kafkaConfig.ConnCredential.CACert,
+		kafkaConfig.ConnCredential.ClientCert,
+		kafkaConfig.ConnCredential.ClientKey)
 	if err != nil {
 		return nil, err
 	}

@@ -100,7 +100,7 @@ func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster
 
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorconstants.GHManagedClusterAddonName,
+			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
 		},
 	}
@@ -157,7 +157,7 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorconstants.GHManagedClusterAddonName,
+			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
 		},
 	}
@@ -183,7 +183,7 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.ManagedClusterAddOn, error) {
 	expectedAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorconstants.GHManagedClusterAddonName,
+			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
@@ -241,7 +241,7 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
+			if e.ObjectNew.GetName() != constants.GHManagedClusterAddonName {
 				return false
 			}
 			if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
@@ -250,16 +250,16 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+			return e.Object.GetName() == constants.GHManagedClusterAddonName
 		},
 	}
 
 	clusterManagementAddonPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+			return e.Object.GetName() == constants.GHManagedClusterAddonName
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
+			if e.ObjectNew.GetName() != constants.GHManagedClusterAddonName {
 				return false
 			}
 			if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
@@ -268,7 +268,7 @@ func (r *AddonInstaller) SetupWithManager(ctx context.Context, mgr ctrl.Manager)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+			return e.Object.GetName() == constants.GHManagedClusterAddonName
 		},
 	}
 

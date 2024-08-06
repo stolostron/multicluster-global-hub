@@ -74,7 +74,7 @@ var _ = Describe("addon deploy", func() {
 	It("Should create HoH agent when an OCP without deployMode label is imported", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing an OCP Managed Clusters")
 		prepareCluster(clusterName,
@@ -87,7 +87,7 @@ var _ = Describe("addon deploy", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -103,13 +103,13 @@ var _ = Describe("addon deploy", func() {
 			}, work)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
+		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
 	})
 
 	It("Should create HoH agent and ACM when an OCP is imported", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing an OCP Managed Clusters")
 		prepareCluster(clusterName,
@@ -130,7 +130,7 @@ var _ = Describe("addon deploy", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -147,14 +147,14 @@ var _ = Describe("addon deploy", func() {
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
 		// contains both the ACM and the Global Hub manifests
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(18))
+		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(17))
 	})
 
 	It("Should create HoH addon when an OCP with deploy mode = default is imported in hosted mode", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing clusters")
 		prepareCluster(clusterName,
@@ -176,7 +176,7 @@ var _ = Describe("addon deploy", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -192,16 +192,16 @@ var _ = Describe("addon deploy", func() {
 			}, work)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
+		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
 	})
 
 	It("Should create HoH addon when an OCP with deploy mode = Hosted is imported in hosted mode", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 		hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
-			operatorconstants.GHManagedClusterAddonName, clusterName)
+			constants.GHManagedClusterAddonName, clusterName)
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
@@ -227,7 +227,7 @@ var _ = Describe("addon deploy", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -259,9 +259,9 @@ var _ = Describe("addon deploy", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 		hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
-			operatorconstants.GHManagedClusterAddonName, clusterName)
+			constants.GHManagedClusterAddonName, clusterName)
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
@@ -293,7 +293,7 @@ var _ = Describe("addon deploy", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())

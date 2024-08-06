@@ -467,8 +467,8 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.ConnCreden
 				clusterIdentity = *kafkaCluster.Status.ClusterId
 			}
 			credential := &transport.ConnCredential{
-				Identity:        clusterIdentity,
-				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
+				Identity:        base64.StdEncoding.EncodeToString([]byte(clusterIdentity)),
+				BootstrapServer: base64.StdEncoding.EncodeToString([]byte(*kafkaCluster.Status.Listeners[1].BootstrapServers)),
 				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
 			}
 			return credential, nil

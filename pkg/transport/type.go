@@ -41,24 +41,18 @@ const (
 )
 
 type TransportConfig struct {
-	TransportType          string
-	MessageCompressionType string
-	CommitterInterval      time.Duration
-	KafkaConfig            *KafkaConfig
-	Extends                map[string]interface{}
+	TransportType string
+	KafkaConfig   *KafkaConfig
+	Extends       map[string]interface{}
 }
 
 // Kafka Config
 type KafkaConfig struct {
-	ClusterIdentity string
-	BootstrapServer string
-	CaCertPath      string
-	ClientCertPath  string
-	ClientKeyPath   string
-	EnableTLS       bool
-	Topics          *ClusterTopic
-	ProducerConfig  *KafkaProducerConfig
-	ConsumerConfig  *KafkaConsumerConfig
+	ConnCredential *ConnCredential
+	EnableTLS      bool
+	Topics         *ClusterTopic
+	ProducerConfig *KafkaProducerConfig
+	ConsumerConfig *KafkaConsumerConfig
 }
 
 type KafkaProducerConfig struct {
@@ -67,7 +61,8 @@ type KafkaProducerConfig struct {
 }
 
 type KafkaConsumerConfig struct {
-	ConsumerID string
+	ConsumerID        string
+	CommitterInterval time.Duration
 }
 
 // topics

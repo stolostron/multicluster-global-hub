@@ -23,10 +23,10 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests/templates
@@ -36,40 +36,41 @@ import (
 var FS embed.FS
 
 type ManifestsConfig struct {
-	HoHAgentImage          string
-	ImagePullSecretName    string
-	ImagePullSecretData    string
-	ImagePullPolicy        string
-	LeafHubID              string
-	KafkaBootstrapServer   string
-	TransportType          string
-	KafkaCACert            string
-	KafkaClientCert        string
-	KafkaClientKey         string
-	KafkaClientCertSecret  string
-	KafkaConsumerTopic     string
-	KafkaProducerTopic     string
-	MessageCompressionType string
-	InstallACMHub          bool
-	Channel                string
-	CurrentCSV             string
-	Source                 string
-	SourceNamespace        string
-	InstallHostedMode      bool
-	LeaseDuration          string
-	RenewDeadline          string
-	RetryPeriod            string
-	KlusterletNamespace    string
-	KlusterletWorkSA       string
-	NodeSelector           map[string]string
-	Tolerations            []corev1.Toleration
-	AggregationLevel       string
-	EnableLocalPolicies    string
-	EnableGlobalResource   bool
-	AgentQPS               float32
-	AgentBurst             int
-	LogLevel               string
-	EnablePprof            bool
+	HoHAgentImage         string
+	ImagePullSecretName   string
+	ImagePullSecretData   string
+	ImagePullPolicy       string
+	LeafHubID             string
+	KafkaBootstrapServer  string
+	TransportType         string
+	TransportSecretName   string
+	KafkaClusterID        string
+	KafkaCACert           string
+	KafkaClientCert       string
+	KafkaClientKey        string
+	KafkaClientCertSecret string
+	KafkaSpecTopic        string
+	KafkaStatusTopic      string
+	InstallACMHub         bool
+	Channel               string
+	CurrentCSV            string
+	Source                string
+	SourceNamespace       string
+	InstallHostedMode     bool
+	LeaseDuration         string
+	RenewDeadline         string
+	RetryPeriod           string
+	KlusterletNamespace   string
+	KlusterletWorkSA      string
+	NodeSelector          map[string]string
+	Tolerations           []corev1.Toleration
+	AggregationLevel      string
+	EnableLocalPolicies   string
+	EnableGlobalResource  bool
+	AgentQPS              float32
+	AgentBurst            int
+	LogLevel              string
+	EnablePprof           bool
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
 	Resources *Resources
 }
@@ -220,29 +221,30 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:          image,
-		ImagePullPolicy:        string(imagePullPolicy),
-		LeafHubID:              cluster.Name,
-		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
-		KafkaCACert:            kafkaConnection.CACert,
-		KafkaClientCert:        kafkaConnection.ClientCert,
-		KafkaClientKey:         kafkaConnection.ClientKey,
-		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
-		KafkaConsumerTopic:     clusterTopic.SpecTopic,
-		KafkaProducerTopic:     clusterTopic.StatusTopic,
-		MessageCompressionType: string(operatorconstants.GzipCompressType),
-		TransportType:          string(transport.Kafka),
-		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
-		RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
-		RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
-		KlusterletNamespace:    "open-cluster-management-agent",
-		KlusterletWorkSA:       "klusterlet-work-sa",
-		EnableGlobalResource:   a.operatorConfig.GlobalResourceEnabled,
-		AgentQPS:               agentQPS,
-		AgentBurst:             agentBurst,
-		LogLevel:               a.operatorConfig.LogLevel,
-		EnablePprof:            a.operatorConfig.EnablePprof,
-		Resources:              agentRes,
+		HoHAgentImage:         image,
+		ImagePullPolicy:       string(imagePullPolicy),
+		LeafHubID:             cluster.Name,
+		TransportSecretName:   constants.GHAgentTransportSecret,
+		KafkaClusterID:        kafkaConnection.Identity,
+		KafkaBootstrapServer:  kafkaConnection.BootstrapServer,
+		KafkaCACert:           kafkaConnection.CACert,
+		KafkaClientCert:       kafkaConnection.ClientCert,
+		KafkaClientKey:        kafkaConnection.ClientKey,
+		KafkaClientCertSecret: base64.StdEncoding.EncodeToString([]byte(commonutils.AgentCertificateSecretName())),
+		KafkaSpecTopic:        base64.StdEncoding.EncodeToString([]byte(clusterTopic.SpecTopic)),
+		KafkaStatusTopic:      base64.StdEncoding.EncodeToString([]byte(clusterTopic.StatusTopic)),
+		TransportType:         base64.StdEncoding.EncodeToString([]byte(transport.Kafka)),
+		LeaseDuration:         strconv.Itoa(electionConfig.LeaseDuration),
+		RenewDeadline:         strconv.Itoa(electionConfig.RenewDeadline),
+		RetryPeriod:           strconv.Itoa(electionConfig.RetryPeriod),
+		KlusterletNamespace:   "open-cluster-management-agent",
+		KlusterletWorkSA:      "klusterlet-work-sa",
+		EnableGlobalResource:  a.operatorConfig.GlobalResourceEnabled,
+		AgentQPS:              agentQPS,
+		AgentBurst:            agentBurst,
+		LogLevel:              a.operatorConfig.LogLevel,
+		EnablePprof:           a.operatorConfig.EnablePprof,
+		Resources:             agentRes,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

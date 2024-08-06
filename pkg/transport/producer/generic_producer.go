@@ -10,6 +10,7 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
@@ -26,54 +27,20 @@ const (
 
 type GenericProducer struct {
 	log              logr.Logger
+	defaultTopic     string
+	clientPotocol    interface{}
 	client           cloudevents.Client
 	messageSizeLimit int
 }
 
 func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic string) (*GenericProducer, error) {
-	var sender interface{}
-	var err error
-	messageSize := DefaultMessageKBSize * 1000
-	log := ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType))
-
-	switch transportConfig.TransportType {
-	case string(transport.Kafka):
-		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
-			messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
-		}
-		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig, defaultTopic)
-		if err != nil {
-			return nil, err
-		}
-
-		eventChan, err := kafkaProtocol.Events()
-		if err != nil {
-			return nil, err
-		}
-		handleProducerEvents(log, eventChan)
-		sender = kafkaProtocol
-	case string(transport.Chan): // this go chan protocol is only use for test
-		if transportConfig.Extends == nil {
-			transportConfig.Extends = make(map[string]interface{})
-		}
-		if _, found := transportConfig.Extends[defaultTopic]; !found {
-			transportConfig.Extends[defaultTopic] = gochan.New()
-		}
-		sender = transportConfig.Extends[defaultTopic]
-	default:
-		return nil, fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
+	genericProducer := &GenericProducer{
+		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		messageSizeLimit: DefaultMessageKBSize * 1000,
+		defaultTopic:     defaultTopic,
 	}
-
-	client, err := cloudevents.NewClient(sender, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
-	if err != nil {
-		return nil, err
-	}
-
-	return &GenericProducer{
-		log:              log,
-		client:           client,
-		messageSizeLimit: messageSize,
-	}, nil
+	err := genericProducer.initClient(transportConfig)
+	return genericProducer, err
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
@@ -108,6 +75,55 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 	return nil
 }
 
+// Reconnect close the previous producer state and init a new producer
+func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
+	closer, ok := p.clientPotocol.(protocol.Closer)
+	if ok {
+		if err := closer.Close(context.Background()); err != nil {
+			return fmt.Errorf("failed to close the previous producer: %w", err)
+		}
+	}
+	return p.initClient(config)
+}
+
+// initClient will init/update the client, clientProtocol and messageLimitSize based on the transportConfig
+func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig) error {
+	switch transportConfig.TransportType {
+	case string(transport.Kafka):
+		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
+			p.messageSizeLimit = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
+		}
+		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig, p.defaultTopic)
+		if err != nil {
+			return err
+		}
+
+		eventChan, err := kafkaProtocol.Events()
+		if err != nil {
+			return err
+		}
+		handleProducerEvents(p.log, eventChan)
+		p.clientPotocol = kafkaProtocol
+	case string(transport.Chan): // this go chan protocol is only use for test
+		if transportConfig.Extends == nil {
+			transportConfig.Extends = make(map[string]interface{})
+		}
+		if _, found := transportConfig.Extends[p.defaultTopic]; !found {
+			transportConfig.Extends[p.defaultTopic] = gochan.New()
+		}
+		p.clientPotocol = transportConfig.Extends[p.defaultTopic]
+	default:
+		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
+	}
+
+	client, err := cloudevents.NewClient(p.clientPotocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	if err != nil {
+		return err
+	}
+	p.client = client
+	return nil
+}
+
 func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 	var chunk []byte
 	chunks := make([][]byte, 0, len(payload)/(p.messageSizeLimit)+1)
@@ -133,7 +149,7 @@ func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, default
 	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
 	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
 	saramaConfig.Producer.Return.Successes = true
-	sender, err := kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.BootstrapServer},
+	sender, err := kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.ConnCredential.BootstrapServer},
 		saramaConfig, defaultTopic)
 	if err != nil {
 		return nil, err

@@ -9,11 +9,15 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -23,6 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -36,6 +41,7 @@ var (
 
 type ManagerReconciler struct {
 	ctrl.Manager
+	runtimeClient  client.Client
 	kubeClient     kubernetes.Interface
 	operatorConfig *config.OperatorConfig
 }
@@ -44,6 +50,7 @@ func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface, con
 ) *ManagerReconciler {
 	return &ManagerReconciler{
 		Manager:        mgr,
+		runtimeClient:  mgr.GetClient(),
 		kubeClient:     kubeClient,
 		operatorConfig: conf,
 	}
@@ -94,17 +101,25 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
 	}
 
+	if updateTransportConn(transportConn) {
+		err = r.ensureTransportSecret(ctx, mgh.Namespace, transportConn)
+		if err != nil {
+			return fmt.Errorf("failed to create/update manager secret: %w", err)
+		}
+	}
+
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
 		return fmt.Errorf("the storage connection or database isn't ready")
 	}
 
-	if isMiddlewareUpdated(transportConn, storageConn) {
+	if updateStorageConn(storageConn) {
 		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
 		if err != nil {
 			return fmt.Errorf("failed to restart manager pod: %w", err)
 		}
 	}
+
 	electionConfig, err := config.GetElectionConfig()
 	if err != nil {
 		return fmt.Errorf("failed to get the electionConfig %w", err)
@@ -121,16 +136,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(storageConn.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(storageConn.CACert),
-			KafkaClusterIdentity:   transportConn.Identity,
-			KafkaCACert:            transportConn.CACert,
-			KafkaClientCert:        transportConn.ClientCert,
-			KafkaClientKey:         transportConn.ClientKey,
-			KafkaBootstrapServer:   transportConn.BootstrapServer,
-			KafkaConsumerTopic:     config.ManagerStatusTopic(),
-			KafkaProducerTopic:     config.GetSpecTopic(),
 			Namespace:              mgh.Namespace,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
-			TransportType:          string(transport.Kafka),
 			LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
 			RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
 			RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
@@ -157,31 +164,65 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	return nil
 }
 
-func isMiddlewareUpdated(transportConn *transport.ConnCredential, storageConn *config.PostgresConnection) bool {
-	updated := false
-	if transportConnectionCache == nil || storageConnectionCache == nil {
-		updated = true
+func updateTransportConn(conn *transport.ConnCredential) bool {
+	if conn == nil {
+		return false
 	}
-	if !reflect.DeepEqual(transportConn, transportConnectionCache) {
-		updated = true
+	if transportConnectionCache == nil || !reflect.DeepEqual(conn, transportConnectionCache) {
+		transportConnectionCache = conn
+		return true
 	}
-	if !reflect.DeepEqual(storageConn, storageConnectionCache) {
-		updated = true
-	}
-	if updated {
-		setMiddlewareCache(transportConn, storageConn)
-	}
-	return updated
+	return false
 }
 
-func setMiddlewareCache(transportConn *transport.ConnCredential, storageConn *config.PostgresConnection) {
-	if transportConn != nil {
-		transportConnectionCache = transportConn
+func updateStorageConn(conn *config.PostgresConnection) bool {
+	if conn == nil {
+		return false
 	}
+	if storageConnectionCache == nil || !reflect.DeepEqual(conn, storageConnectionCache) {
+		storageConnectionCache = conn
+		return true
+	}
+	return false
+}
 
-	if storageConn != nil {
-		storageConnectionCache = storageConn
+func (r *ManagerReconciler) ensureTransportSecret(ctx context.Context, namespace string,
+	conn *transport.ConnCredential,
+) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      constants.GHManagerTransportSecret,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
 	}
+	controller.LoadDataToSecret(secret, conn, &transport.ClusterTopic{
+		StatusTopic: config.FuzzyStatusTopic(),
+		SpecTopic:   config.GetSpecTopic(),
+	}, "")
+
+	// Try to get the existing secret
+	existingSecret := &corev1.Secret{}
+	err := r.runtimeClient.Get(ctx, client.ObjectKeyFromObject(secret), existingSecret)
+	if err != nil && errors.IsNotFound(err) {
+		klog.Infof("create the manager secret: %s", secret.Name)
+		if err := r.runtimeClient.Create(ctx, secret); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		if !reflect.DeepEqual(existingSecret.Data, secret.Data) {
+			existingSecret.Data = secret.Data
+			klog.Infof("update the manager secret: %s", secret.Name)
+			if err := r.runtimeClient.Update(ctx, existingSecret); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 type ManagerVariables struct {
@@ -193,15 +234,7 @@ type ManagerVariables struct {
 	ProxySessionSecret     string
 	DatabaseURL            string
 	PostgresCACert         string
-	KafkaClusterIdentity   string
-	KafkaCACert            string
-	KafkaConsumerTopic     string
-	KafkaProducerTopic     string
-	KafkaClientCert        string
-	KafkaClientKey         string
-	KafkaBootstrapServer   string
 	MessageCompressionType string
-	TransportType          string
 	Namespace              string
 	LeaseDuration          string
 	RenewDeadline          string

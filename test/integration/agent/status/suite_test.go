@@ -76,12 +76,14 @@ var _ = BeforeSuite(func() {
 	agentConfig := &config.AgentConfig{
 		LeafHubName: leafHubName,
 		TransportConfig: &transport.TransportConfig{
-			CommitterInterval: 1 * time.Second,
-			TransportType:     string(transport.Chan),
+			TransportType: string(transport.Chan),
 			KafkaConfig: &transport.KafkaConfig{
 				Topics: &transport.ClusterTopic{
 					StatusTopic: "event",
 					SpecTopic:   "spec",
+				},
+				ConsumerConfig: &transport.KafkaConsumerConfig{
+					CommitterInterval: 1 * time.Second,
 				},
 			},
 		},

@@ -25,8 +25,10 @@ func TestConsumerGroup(t *testing.T) {
 	defer kafkaCluster.Close()
 
 	kafkaConfig := &transport.KafkaConfig{
-		BootstrapServer: kafkaCluster.Addr(),
-		EnableTLS:       false,
+		ConnCredential: &transport.ConnCredential{
+			BootstrapServer: kafkaCluster.Addr(),
+		},
+		EnableTLS: false,
 		ConsumerConfig: &transport.KafkaConsumerConfig{
 			ConsumerID: "test-consumer",
 		},
@@ -52,7 +54,7 @@ func TestConsumerGroup(t *testing.T) {
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	group, err := sarama.NewConsumerGroup([]string{kafkaConfig.BootstrapServer}, "my-group", saramaConfig)
+	group, err := sarama.NewConsumerGroup([]string{kafkaConfig.ConnCredential.BootstrapServer}, "my-group", saramaConfig)
 	if err != nil {
 		t.Fatal(err)
 	}

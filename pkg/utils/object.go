@@ -13,6 +13,8 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -106,4 +108,10 @@ func PrettyPrint(obj interface{}) {
 	} else {
 		fmt.Println(string(payload))
 	}
+}
+
+// https://github.com/open-cluster-management-io/ocm/blob/main/pkg/registration/spoke/addon/configuration.go
+func AgentCertificateSecretName() string {
+	return fmt.Sprintf("%s-%s-client-cert", constants.GHManagedClusterAddonName,
+		strings.ReplaceAll(constants.GHAddonCertSignerName, "/", "-"))
 }
