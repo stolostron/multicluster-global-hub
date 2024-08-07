@@ -27,6 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -196,17 +197,12 @@ func (r *ManagerReconciler) ensureTransportSecret(ctx context.Context, namespace
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
-		Data: map[string][]byte{
-			"id":               []byte(conn.Identity),
-			"type":             []byte(transport.Kafka),
-			"bootstrap_server": []byte(conn.BootstrapServer),
-			"status_topic":     []byte(config.GetSpecTopic()),
-			"spec_topic":       []byte(config.FuzzyStatusTopic()),
-			"ca.crt":           []byte(conn.CACert),
-			"client.crt":       []byte(conn.ClientCert),
-			"client.key":       []byte(conn.ClientKey),
-		},
 	}
+	controller.LoadDataToSecret(secret, conn, &transport.ClusterTopic{
+		StatusTopic: config.FuzzyStatusTopic(),
+		SpecTopic:   config.GetSpecTopic(),
+	}, "")
+
 	// Try to get the existing secret
 	existingSecret := &corev1.Secret{}
 	err := r.runtimeClient.Get(ctx, client.ObjectKeyFromObject(secret), existingSecret)

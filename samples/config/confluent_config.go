@@ -9,9 +9,9 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -30,35 +30,14 @@ func GetConfluentConfigMapBySecret(isProducer bool) (*kafka.ConfigMap, error) {
 		log.Fatalf("failed to get transport secret: %v", err)
 		return nil, err
 	}
-	bootStrapServer := string(secret.Data["bootstrap_server"])
-
-	caCrtPath := "/tmp/ca.crt"
-	err = os.WriteFile(caCrtPath, secret.Data["ca.crt"], 0o600)
-	if err != nil {
-		log.Fatalf("failed to write ca.crt: %v", err)
-		return nil, err
-	}
-
-	clientCrtPath := "/tmp/client.crt"
-	err = os.WriteFile(clientCrtPath, secret.Data["client.crt"], 0o600)
-	if err != nil {
-		log.Fatalf("failed to write client.crt: %v", err)
-		return nil, err
-	}
-
-	clientKeyPath := "/tmp/client.key"
-	err = os.WriteFile(clientKeyPath, secret.Data["client.key"], 0o600)
-	if err != nil {
-		log.Fatalf("failed to write client.key: %v", err)
-		return nil, err
-	}
-
 	kafkaConfig := &transport.KafkaConfig{
-		BootstrapServer: bootStrapServer,
-		EnableTLS:       true,
-		CaCertPath:      caCrtPath,
-		ClientCertPath:  clientCrtPath,
-		ClientKeyPath:   clientKeyPath,
+		ConnCredential: &transport.ConnCredential{
+			BootstrapServer: string(secret.Data["bootstrap_server"]),
+			CACert:          string(secret.Data["ca.crt"]),
+			ClientCert:      string(secret.Data["client.crt"]),
+			ClientKey:       string(secret.Data["client.key"]),
+		},
+		EnableTLS: true,
 	}
 	configMap, err := config.GetConfluentConfigMap(kafkaConfig, isProducer)
 	if err != nil {
@@ -99,27 +78,13 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 
 	clientCertSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      certificates.AgentCertificateSecretName(),
+		Name:      utils.AgentCertificateSecretName(),
 		Namespace: namespace,
 	}, clientCertSecret)
 	if err != nil {
 		return nil, err
 	}
 	fmt.Println(">> client secret:", clientCertSecret.Name)
-
-	clientCrtPath := "/tmp/client.crt"
-	err = os.WriteFile(clientCrtPath, clientCertSecret.Data["tls.crt"], 0o600)
-	if err != nil {
-		log.Fatalf("failed to write client.crt: %v", err)
-		return nil, err
-	}
-
-	clientKeyPath := "/tmp/client.key"
-	err = os.WriteFile(clientKeyPath, clientCertSecret.Data["tls.key"], 0o600)
-	if err != nil {
-		log.Fatalf("failed to write client.key: %v", err)
-		return nil, err
-	}
 
 	caCertSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
@@ -132,20 +97,15 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 
 	fmt.Println(">> cluster ca secret:", caCertSecret.Name)
 
-	caCrtPath := "/tmp/ca.crt"
-	err = os.WriteFile(caCrtPath, caCertSecret.Data["ca.crt"], 0o600)
-	if err != nil {
-		log.Fatalf("failed to write ca.crt: %v", err)
-		return nil, err
-	}
-
 	consumerGroupId := "test-group-id-managed-hub"
 	kafkaConfig := &transport.KafkaConfig{
-		BootstrapServer: bootstrapSever,
-		EnableTLS:       true,
-		CaCertPath:      caCrtPath,
-		ClientCertPath:  clientCrtPath,
-		ClientKeyPath:   clientKeyPath,
+		EnableTLS: true,
+		ConnCredential: &transport.ConnCredential{
+			BootstrapServer: string(caCertSecret.Data["bootstrap_server"]),
+			CACert:          string(caCertSecret.Data["ca.crt"]),
+			ClientCert:      string(caCertSecret.Data["client.crt"]),
+			ClientKey:       string(caCertSecret.Data["client.key"]),
+		},
 		ConsumerConfig: &transport.KafkaConsumerConfig{
 			ConsumerID: consumerGroupId,
 		},

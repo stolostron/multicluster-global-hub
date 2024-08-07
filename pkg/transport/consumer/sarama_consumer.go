@@ -38,7 +38,8 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
 	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
-	client, err := sarama.NewConsumerGroup([]string{kafkaConfig.BootstrapServer}, kafkaConfig.ConsumerConfig.ConsumerID,
+	client, err := sarama.NewConsumerGroup([]string{kafkaConfig.ConnCredential.BootstrapServer},
+		kafkaConfig.ConsumerConfig.ConsumerID,
 		saramaConfig)
 	if err != nil {
 		return nil, err

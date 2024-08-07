@@ -25,9 +25,9 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
@@ -112,7 +112,7 @@ func (a *AddonController) Start(ctx context.Context) error {
 	}
 
 	agentAddon, err := addonfactory.NewAgentAddonFactory(
-		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
+		constants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
 		WithGetValuesFuncs(hohAgentAddon.GetValues,
 			addonfactory.GetValuesFromAddonAnnotation,
@@ -121,7 +121,7 @@ func (a *AddonController) Start(ctx context.Context) error {
 				addonfactory.ToAddOnDeloymentConfigValues,
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
-		WithAgentRegistrationOption(newRegistrationOption(operatorconstants.GHManagedClusterAddonName)).
+		WithAgentRegistrationOption(newRegistrationOption(constants.GHManagedClusterAddonName)).
 		WithScheme(addonScheme).
 		BuildTemplateAgentAddon()
 	if err != nil {

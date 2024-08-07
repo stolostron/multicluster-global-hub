@@ -23,10 +23,10 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests/templates
@@ -43,12 +43,13 @@ type ManifestsConfig struct {
 	LeafHubID              string
 	KafkaBootstrapServer   string
 	TransportType          string
+	TransportSecretName    string
 	KafkaCACert            string
 	KafkaClientCert        string
 	KafkaClientKey         string
 	KafkaClientCertSecret  string
-	KafkaConsumerTopic     string
-	KafkaProducerTopic     string
+	KafkaSpecTopic         string
+	KafkaStatusTopic       string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -223,13 +224,14 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
+		TransportSecretName:    constants.GHAgentTransportSecret,
 		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
-		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
-		KafkaConsumerTopic:     clusterTopic.SpecTopic,
-		KafkaProducerTopic:     clusterTopic.StatusTopic,
+		KafkaClientCertSecret:  commonutils.AgentCertificateSecretName(),
+		KafkaSpecTopic:         clusterTopic.SpecTopic,
+		KafkaStatusTopic:       clusterTopic.StatusTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
