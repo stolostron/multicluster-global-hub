@@ -38,7 +38,6 @@ spec:
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --postgres-ca-path=/postgres-credential/ca.crt
-            - --transport-message-compression-type={{.MessageCompressionType}}
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)
             - --lease-duration={{.LeaseDuration}}

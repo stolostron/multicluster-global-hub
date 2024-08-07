@@ -185,7 +185,9 @@ func updateStorageConn(conn *config.PostgresConnection) bool {
 	return false
 }
 
-func (r *ManagerReconciler) ensureTransportSecret(ctx context.Context, namespace string, conn *transport.ConnCredential) error {
+func (r *ManagerReconciler) ensureTransportSecret(ctx context.Context, namespace string,
+	conn *transport.ConnCredential,
+) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
