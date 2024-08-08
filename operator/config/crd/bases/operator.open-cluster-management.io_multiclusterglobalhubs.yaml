@@ -266,12 +266,11 @@ spec:
                         default:
                           specTopic: gh-spec
                           statusTopic: gh-event.*
-                        description: KafkaTopics specifies the desired topics. It
-                          can endup with '*'
+                        description: KafkaTopics specify the desired topics
                         properties:
                           specTopic:
                             default: gh-spec
-                            description: SpecTopic is the topic to distribute workload
+                            description: SpecTopic is the topic to distribute workloads
                               from global hub to managed hubs. The default value is
                               "gh-spec"
                             type: string
@@ -279,13 +278,13 @@ spec:
                             default: gh-event.*
                             description: 'StatusTopic specifies the topic where an
                               agent reports events and status updates to a manager.
-                              Specially, the topic can end up with an asterisk ''*'',
-                              indicating topics for individual managed hubs. For example:
-                              the default value is "gh-event.*" for the global hub
-                              built-in kafka. Thus, the topic for hub cluster named
-                              "hub1" whould be "gh-event.hub1". As for the BYO case,
-                              the default value is simply "gh-event" for all the managed
-                              hubs.'
+                              Specifically, the topic can end up with an asterisk
+                              (*), indicating topics for individual managed hubs.
+                              For example: the default value is "gh-event.*" for the
+                              global hub built-in kafka. Therefore, the topic for
+                              the hub cluster named "hub1" would be "gh-event.hub1";
+                              In the BYO case, the default value for all managed hubs
+                              is "gh-event"'
                             type: string
                         type: object
                     type: object
