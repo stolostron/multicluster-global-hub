@@ -216,22 +216,29 @@ func (k *strimziTransporter) ensureKafkaCluster(mgh *operatorv1alpha4.Multiclust
 // EnsureUser to reconcile the kafkaUser's setting(authn and authz)
 func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	userName := config.GetKafkaUserName(clusterName)
-
-	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{ConsumeGroupReadACL()}
 	clusterTopic := k.getClusterTopic(clusterName)
-	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
 
-	// if built-in global hub status topic
-	if strings.Contains(clusterTopic.StatusTopic, GlobalHubClusterName) {
+	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
+	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{ConsumeGroupReadACL()}
+	if clusterName == GlobalHubClusterName {
+		// internal kafka user
 		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
+
 		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.SpecTopic))
 
-		statusTopicPrefix := strings.Replace(clusterTopic.StatusTopic, fmt.Sprintf(".%s", GlobalHubClusterName), "", -1)
-		simpleACLs = append(simpleACLs, ReadTopicACL(statusTopicPrefix, true))
+		statusTopic := clusterTopic.StatusTopic
+		prefixPattern := false
+		// if the status contain wildcard, then authz the user with prefix topic
+		if strings.Contains(clusterTopic.StatusTopic, GlobalHubClusterName) {
+			statusTopic = strings.Replace(clusterTopic.StatusTopic, GlobalHubClusterName, "", -1)
+			prefixPattern = true
+		}
+		simpleACLs = append(simpleACLs, ReadTopicACL(statusTopic, prefixPattern))
 	} else {
 		simpleACLs = append(simpleACLs, ReadTopicACL(clusterTopic.SpecTopic, false))
 		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.StatusTopic))
 	}
+
 	desiredKafkaUser := k.newKafkaUser(userName, authnType, simpleACLs)
 
 	kafkaUser := &kafkav1beta2.KafkaUser{}
