@@ -63,8 +63,8 @@ func (s *BYOTransporter) GetConnCredential(username string) (*transport.ConnCred
 		return nil, err
 	}
 	return &transport.ConnCredential{
-		Identity:        string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
-		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		Identity:        base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		BootstrapServer: base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		CACert:          base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
 		ClientCert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
 		ClientKey:       base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),

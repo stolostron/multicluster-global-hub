@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type TransportCallback func(producer transport.Producer, consumer transport.Consumer) error
@@ -60,15 +62,17 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	var clientSecret *corev1.Secret
 	clientSecretName := string(secret.Data["client_secret"])
 	if clientSecretName != "" {
-		clientSecret = &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: c.secretNamespace,
-				Name:      clientSecretName,
-			},
-		}
-		if err := c.runtimeClient.Get(ctx, client.ObjectKeyFromObject(clientSecret), clientSecret); err != nil {
-			return ctrl.Result{}, err
-		}
+		clientSecretName = utils.AgentCertificateSecretName()
+	}
+	clientSecret = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: c.secretNamespace,
+			Name:      clientSecretName,
+		},
+	}
+	err := c.runtimeClient.Get(ctx, client.ObjectKeyFromObject(clientSecret), clientSecret)
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
 	}
 
 	if !c.updateKafkaConfig(secret, clientSecret) {
@@ -174,10 +178,9 @@ func (c *TransportCtrl) updateKafkaConfig(secret, clientSecret *corev1.Secret) b
 		ClientKey:       string(secret.Data["client.key"]),
 	}
 	// type := string(secret.Data["type"])
-
-	if clientSecret != nil {
-		expectedConn.ClientCert = string(secret.Data["tls.crt"])
-		expectedConn.ClientKey = string(secret.Data["tls.key"])
+	if clientSecret != nil && clientSecret.Data != nil {
+		expectedConn.ClientCert = string(clientSecret.Data["tls.crt"])
+		expectedConn.ClientKey = string(clientSecret.Data["tls.key"])
 	}
 	expectedTopics := &transport.ClusterTopic{
 		SpecTopic:   string(secret.Data["spec_topic"]),

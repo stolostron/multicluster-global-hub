@@ -44,6 +44,7 @@ type ManifestsConfig struct {
 	KafkaBootstrapServer  string
 	TransportType         string
 	TransportSecretName   string
+	KafkaClusterID        string
 	KafkaCACert           string
 	KafkaClientCert       string
 	KafkaClientKey        string
@@ -224,6 +225,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		ImagePullPolicy:       string(imagePullPolicy),
 		LeafHubID:             cluster.Name,
 		TransportSecretName:   constants.GHAgentTransportSecret,
+		KafkaClusterID:        kafkaConnection.Identity,
 		KafkaBootstrapServer:  kafkaConnection.BootstrapServer,
 		KafkaCACert:           kafkaConnection.CACert,
 		KafkaClientCert:       kafkaConnection.ClientCert,
