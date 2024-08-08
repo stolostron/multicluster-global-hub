@@ -105,7 +105,9 @@ var _ = BeforeSuite(func() {
 			SpecSyncInterval:              1 * time.Second,
 			DeletedLabelsTrimmingInterval: 2 * time.Second,
 		},
-
+		TransportConfig: &transport.TransportConfig{
+			TransportType: string(transport.Chan),
+		},
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
 		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
