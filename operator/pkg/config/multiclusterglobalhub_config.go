@@ -82,6 +82,7 @@ var (
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
 	addonMgr              addonmanager.AddonManager
+	importClusterInHosted = false
 )
 
 func SetAddonManager(addonManager addonmanager.AddonManager) {
@@ -186,6 +187,20 @@ func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 		}
 	}
 	return nil
+}
+
+func SetImportClusterInHosted(mgh *v1alpha4.MulticlusterGlobalHub) {
+	importClusterInHostedValue := getAnnotation(mgh, operatorconstants.AnnotationImportClusterInHosted)
+
+	if importClusterInHostedValue == "true" || importClusterInHostedValue == "True" {
+		importClusterInHosted = true
+		return
+	}
+	importClusterInHosted = false
+}
+
+func GetImportClusterInHosted() bool {
+	return importClusterInHosted
 }
 
 func SetOauthProxyImage(image string) {
