@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -107,23 +106,20 @@ func (r *StatusReconciler) updateDeploymentStatus(ctx context.Context,
 	}
 
 	deployment := &appsv1.Deployment{}
-	if err := r.Client.Get(ctx, types.NamespacedName{
+	err := r.Client.Get(ctx, types.NamespacedName{
 		Name:      deployName,
 		Namespace: mgh.Namespace,
-	}, deployment); err != nil && errors.IsNotFound(err) {
-		// deployment not found, ignore
-		r.log.Info("deployment not found", "name", deployName, "namespace", mgh.Namespace)
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	for _, cond := range deployment.Status.Conditions {
-		if cond.Type == appsv1.DeploymentAvailable {
-			desiredCondition.Status = metav1.ConditionStatus(cond.Status)
-			desiredCondition.Reason = cond.Reason
-			desiredCondition.Message = cond.Message
-			desiredCondition.LastTransitionTime = cond.LastTransitionTime
+	}, deployment)
+	if err != nil {
+		desiredCondition.Message = err.Error()
+	} else {
+		for _, cond := range deployment.Status.Conditions {
+			if cond.Type == appsv1.DeploymentAvailable {
+				desiredCondition.Status = metav1.ConditionStatus(cond.Status)
+				desiredCondition.Reason = cond.Reason
+				desiredCondition.Message = cond.Message
+				desiredCondition.LastTransitionTime = cond.LastTransitionTime
+			}
 		}
 	}
 
