@@ -1,3 +1,4 @@
+{{ if .EnableMetrics }}
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -85,3 +86,4 @@ spec:
       targetLabel: node_ip
       replacement: $1
       action: replace
+{{ end }}
