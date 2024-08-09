@@ -80,7 +80,6 @@ const (
 // global hub agent constants
 const (
 	GHClusterManagementAddonName = "multicluster-global-hub-controller"
-	GHManagedClusterAddonName    = "multicluster-global-hub-controller"
 )
 
 // global hub names

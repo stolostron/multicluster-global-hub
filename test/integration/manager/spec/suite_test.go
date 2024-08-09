@@ -106,8 +106,7 @@ var _ = BeforeSuite(func() {
 			DeletedLabelsTrimmingInterval: 2 * time.Second,
 		},
 		TransportConfig: &transport.TransportConfig{
-			TransportType:     string(transport.Chan),
-			CommitterInterval: 10 * time.Second,
+			TransportType: string(transport.Chan),
 		},
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},

@@ -26,13 +26,18 @@ import (
 var transportID string
 
 type GenericConsumer struct {
-	log                  logr.Logger
-	client               cloudevents.Client
-	assembler            *messageAssembler
-	eventChan            chan *cloudevents.Event
+	log logr.Logger
+
+	assembler    *messageAssembler
+	eventChan    chan *cloudevents.Event
+	consumerOpts []GenericConsumeOption
+
 	consumeTopics        []string
 	clusterIdentity      string
 	enableDatabaseOffset bool
+	consumerCtx          context.Context
+	consumerCancel       context.CancelFunc
+	client               cloudevents.Client
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
@@ -47,55 +52,15 @@ func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 func NewGenericConsumer(tranConfig *transport.TransportConfig, topics []string,
 	opts ...GenericConsumeOption,
 ) (*GenericConsumer, error) {
-	log := ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType))
-	var receiver interface{}
-	var err error
-	var clusterIdentity string
-	switch tranConfig.TransportType {
-	case string(transport.Kafka):
-		log.Info("transport consumer with cloudevents-kafka receiver")
-		receiver, err = getConfluentReceiverProtocol(tranConfig, topics)
-		if err != nil {
-			return nil, err
-		}
-		clusterIdentity = tranConfig.KafkaConfig.ClusterIdentity
-	case string(transport.Chan):
-		log.Info("transport consumer with go chan receiver")
-		if tranConfig.Extends == nil {
-			tranConfig.Extends = make(map[string]interface{})
-		}
-		topic := "event"
-		if topics != nil && len(topics) > 0 {
-			topic = topics[0]
-		}
-		if _, found := tranConfig.Extends[topic]; !found {
-			tranConfig.Extends[topic] = gochan.New()
-		}
-		receiver = tranConfig.Extends[topic]
-		clusterIdentity = "kafka-cluster-chan"
-	default:
-		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
-	}
-
-	client, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1))
-	if err != nil {
-		return nil, err
-	}
-
 	c := &GenericConsumer{
-		log:                  log,
-		client:               client,
-		clusterIdentity:      clusterIdentity,
+		log:                  ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType)),
+		consumerOpts:         opts,
+		consumeTopics:        topics,
 		eventChan:            make(chan *cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: false,
-		consumeTopics:        topics,
 	}
-	if err := c.applyOptions(opts...); err != nil {
-		return nil, err
-	}
-	transportID = clusterIdentity
-	return c, nil
+	return c, c.initClient(tranConfig, topics)
 }
 
 func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
@@ -146,6 +111,67 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 	return c.eventChan
+}
+
+func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.TransportConfig, topics []string) error {
+	err := c.initClient(tranConfig, topics)
+	if err != nil {
+		return err
+	}
+
+	// close the previous consumer
+	if c.consumerCancel != nil {
+		c.consumerCancel()
+	}
+	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
+	go func() {
+		if err := c.Start(c.consumerCtx); err != nil {
+			c.log.Error(err, "failed to reconnect(start) the consumer")
+		}
+	}()
+	return nil
+}
+
+// initClient will init the consumer identity, clientProtocol, client
+func (c *GenericConsumer) initClient(tranConfig *transport.TransportConfig, topics []string) error {
+	var err error
+	var clientProtocol interface{}
+	switch tranConfig.TransportType {
+	case string(transport.Kafka):
+		c.log.Info("transport consumer with cloudevents-kafka receiver")
+		c.clusterIdentity = tranConfig.KafkaConfig.ConnCredential.Identity
+		clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
+		if err != nil {
+			return err
+		}
+	case string(transport.Chan):
+		c.log.Info("transport consumer with go chan receiver")
+		if tranConfig.Extends == nil {
+			tranConfig.Extends = make(map[string]interface{})
+		}
+		topic := "event"
+		if topics != nil && len(topics) > 0 {
+			topic = topics[0]
+		}
+		if _, found := tranConfig.Extends[topic]; !found {
+			tranConfig.Extends[topic] = gochan.New()
+		}
+		clientProtocol = tranConfig.Extends[topic]
+		c.clusterIdentity = "kafka-cluster-chan"
+	default:
+		return fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
+	}
+
+	c.client, err = cloudevents.NewClient(clientProtocol, client.WithPollGoroutines(1))
+	if err != nil {
+		return err
+	}
+
+	// override by the options
+	if err := c.applyOptions(c.consumerOpts...); err != nil {
+		return err
+	}
+	return nil
 }
 
 func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {

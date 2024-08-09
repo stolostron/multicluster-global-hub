@@ -24,8 +24,10 @@ func TestGenerateConsumer(t *testing.T) {
 	transportConfig := &transport.TransportConfig{
 		TransportType: "kafka",
 		KafkaConfig: &transport.KafkaConfig{
-			BootstrapServer: mockKafkaCluster.BootstrapServers(),
-			EnableTLS:       false,
+			ConnCredential: &transport.ConnCredential{
+				BootstrapServer: mockKafkaCluster.BootstrapServers(),
+			},
+			EnableTLS: false,
 			ConsumerConfig: &transport.KafkaConsumerConfig{
 				ConsumerID: "test-consumer",
 			},

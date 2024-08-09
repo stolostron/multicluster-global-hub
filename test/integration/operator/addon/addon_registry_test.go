@@ -17,7 +17,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // go test ./test/integration/operator/addon -ginkgo.focus "addon registry" -v
@@ -26,7 +26,7 @@ var _ = Describe("addon registry", Ordered, func() {
 	})
 	It("Should update the image pull secret from the mgh cr", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
-		workName := fmt.Sprintf("addon-%s-deploy-0", operatorconstants.GHManagedClusterAddonName)
+		workName := fmt.Sprintf("addon-%s-deploy-0", constants.GHManagedClusterAddonName)
 
 		By("By preparing an OCP Managed Clusters")
 		prepareCluster(clusterName,
@@ -39,7 +39,7 @@ var _ = Describe("addon registry", Ordered, func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -77,7 +77,7 @@ var _ = Describe("addon registry", Ordered, func() {
 	It("Should update the image registry and pull secret from ManagedClusterImageRegistry", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing the image registry pull secret")
 		imageRegistrySecret := &corev1.Secret{
@@ -105,7 +105,7 @@ var _ = Describe("addon registry", Ordered, func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())

@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
@@ -100,8 +101,16 @@ var _ = BeforeSuite(func() {
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "event")
 	Expect(err).NotTo(HaveOccurred())
 
+	consumer, err := consumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"event"},
+		consumer.EnableDatabaseOffset(false))
+	Expect(err).NotTo(HaveOccurred())
+
+	// use manager to start the consumer
+	err = mgr.Add(consumer)
+	Expect(err).NotTo(HaveOccurred())
+
 	By("Add controllers to manager")
-	err = statussyncer.AddStatusSyncers(mgr, managerConfig)
+	err = statussyncer.AddStatusSyncers(mgr, consumer, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")
