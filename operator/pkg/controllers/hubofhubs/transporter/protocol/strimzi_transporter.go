@@ -34,12 +34,11 @@ import (
 
 const (
 	KafkaClusterName = "kafka"
-
-	// the default global hub cluster name
-	GlobalHubClusterName = "global-hub"
-
 	// kafka storage
 	DefaultKafkaDefaultStorageSize = "10Gi"
+
+	// Global hub kafkaUser name
+	DefaultGlobalHubKafkaUserName = "global-hub-kafka-user"
 
 	// subscription - common
 	DefaultKafkaSubName           = "strimzi-kafka-operator"
@@ -219,24 +218,10 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
 	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
-	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{ConsumeGroupReadACL()}
-	if clusterName == GlobalHubClusterName {
-		// internal kafka user
-		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
-
-		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.SpecTopic))
-
-		statusTopic := clusterTopic.StatusTopic
-		prefixPattern := false
-		// if the status contain wildcard, then authz the user with prefix topic
-		if strings.Contains(clusterTopic.StatusTopic, GlobalHubClusterName) {
-			statusTopic = strings.Replace(clusterTopic.StatusTopic, GlobalHubClusterName, "", -1)
-			prefixPattern = true
-		}
-		simpleACLs = append(simpleACLs, ReadTopicACL(statusTopic, prefixPattern))
-	} else {
-		simpleACLs = append(simpleACLs, ReadTopicACL(clusterTopic.SpecTopic, false))
-		simpleACLs = append(simpleACLs, WriteTopicACL(clusterTopic.StatusTopic))
+	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		ConsumeGroupReadACL(),
+		ReadTopicACL(clusterTopic.SpecTopic, false),
+		WriteTopicACL(clusterTopic.StatusTopic),
 	}
 
 	desiredKafkaUser := k.newKafkaUser(userName, authnType, simpleACLs)
@@ -309,10 +294,6 @@ func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.Cluster
 }
 
 func (k *strimziTransporter) Prune(clusterName string) error {
-	if clusterName == GlobalHubClusterName {
-		return nil
-	}
-
 	// cleanup kafkaUser
 	kafkaUser := &kafkav1beta2.KafkaUser{
 		ObjectMeta: metav1.ObjectMeta{
@@ -330,12 +311,11 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 	}
 
 	// cleanup kafkaTopic
-	clusterTopic := k.getClusterTopic(clusterName)
-	if k.sharedTopics || strings.Contains(clusterTopic.StatusTopic, GlobalHubClusterName) {
+	if k.sharedTopics || !strings.Contains(config.GetRawStatusTopic(), "*") {
 		return nil
 	}
 
-	// cleanup kafkaUser
+	clusterTopic := k.getClusterTopic(clusterName)
 	kafkaTopic := &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterTopic.StatusTopic,
@@ -359,10 +339,6 @@ func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.Clus
 		SpecTopic:   config.GetSpecTopic(),
 		StatusTopic: config.GetStatusTopic(clusterName),
 	}
-
-	if k.sharedTopics {
-		topic.StatusTopic = strings.Replace(topic.StatusTopic, fmt.Sprintf(".%s", clusterName), "", -1)
-	}
 	return topic
 }
 
@@ -373,28 +349,30 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.C
 		return nil, err
 	}
 
-	// don't need pass the client cert and key for the managed hub cluster
-	if clusterName != GlobalHubClusterName {
-		return credential, nil
-	}
-
 	userName := config.GetKafkaUserName(clusterName)
 	if !k.enableTLS {
 		k.log.Info("the kafka cluster hasn't enable tls for user", "username", userName)
 		return credential, nil
 	}
 
+	if err := k.loadUserCredentail(userName, credential); err != nil {
+		return nil, err
+	}
+	return credential, nil
+}
+
+func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.ConnCredential) error {
 	kafkaUserSecret := &corev1.Secret{}
-	err = k.runtimeClient.Get(k.ctx, types.NamespacedName{
-		Name:      userName,
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      kafkaUserName,
 		Namespace: k.namespace,
 	}, kafkaUserSecret)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	credential.ClientCert = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.crt"])
 	credential.ClientKey = base64.StdEncoding.EncodeToString(kafkaUserSecret.Data["user.key"])
-	return credential, nil
+	return nil
 }
 
 func (k *strimziTransporter) getConnCredentailByCluster() (*transport.ConnCredential, error) {

@@ -1,0 +1,35 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  labels:
+    strimzi.io/cluster: {{.KafkaCluster}}
+  name: {{.GlobalHubKafkaUser}}
+  namespace: {{.Namespace}}
+spec:
+  authentication:
+    type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - Read
+      resource:
+        name: '*'
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Write
+      resource:
+        name: {{.SpecTopic}}
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      resource:
+        name: {{.StatusTopic}}
+        patternType: {{.StatusTopicParttern}}
+        type: topic
+    type: simple

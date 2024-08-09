@@ -143,8 +143,13 @@ func GetStatusTopic(clusterName string) string {
 	return strings.Replace(statusTopic, "*", clusterName, -1)
 }
 
-// FuzzyStatusTopic return the regex topic with fuzzy matching, like '^gh-event.*'
-func FuzzyStatusTopic() string {
+// GetRawStatusTopic return the validated statusTopic from mgh CR
+func GetRawStatusTopic() string {
+	return statusTopic
+}
+
+// ManagerStatusTopic return the regex topic with fuzzy matching, like '^gh-event.*'
+func ManagerStatusTopic() string {
 	if strings.Contains(statusTopic, "*") {
 		return fmt.Sprintf("^%s", statusTopic)
 	}
