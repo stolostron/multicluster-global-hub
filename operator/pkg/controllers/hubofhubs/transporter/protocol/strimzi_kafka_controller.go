@@ -104,6 +104,10 @@ var mghPred = predicate.Funcs{
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager) (*KafkaController, error) {
 	r := &KafkaController{Manager: mgr}
 
+	if _, err := r.Reconcile(ctx, ctrl.Request{}); err != nil {
+		return nil, err
+	}
+
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("kafka_controller").
 		Watches(&v1alpha4.MulticlusterGlobalHub{},
