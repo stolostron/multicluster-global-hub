@@ -49,7 +49,12 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// kafkaCluster
+	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
+	if err := r.renderKafkaResources(mgh); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// kafkaCluster, it will be blocking until the status is ready
 	trans, err := NewStrimziTransporter(
 		r.GetClient(),
 		mgh,
@@ -57,10 +62,6 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		WithCommunity(operatorutils.IsCommunityMode()),
 	)
 	if err != nil {
-		return ctrl.Result{}, err
-	}
-	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-	if err := r.renderKafkaResources(mgh); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -104,14 +105,9 @@ var mghPred = predicate.Funcs{
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager) (*KafkaController, error) {
 	r := &KafkaController{Manager: mgr}
 
-	if _, err := r.Reconcile(ctx, ctrl.Request{}); err != nil {
-		return nil, err
-	}
-
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("kafka_controller").
-		Watches(&v1alpha4.MulticlusterGlobalHub{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(mghPred)).
+		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},

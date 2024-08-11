@@ -58,7 +58,7 @@ func EnsureCrunchyPostgresSub(ctx context.Context, c client.Client, mgh *v1alpha
 		Tolerations:  mgh.Spec.Tolerations,
 	}
 
-	existSub, err := operatorutils.GetSubscriptionByName(ctx, c, SubscriptionName)
+	existSub, err := operatorutils.GetSubscriptionByName(ctx, c, mgh.Namespace, SubscriptionName)
 	if err != nil {
 		return err
 	}

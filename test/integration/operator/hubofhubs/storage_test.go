@@ -127,7 +127,7 @@ var _ = Describe("storage", Ordered, func() {
 
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
 
-		sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, storage.SubscriptionName)
+		sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, namespace, storage.SubscriptionName)
 		Expect(err).To(Succeed())
 		Expect(sub).To(BeNil())
 
@@ -138,7 +138,7 @@ var _ = Describe("storage", Ordered, func() {
 
 		// the subscription
 		Eventually(func() error {
-			sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, storage.SubscriptionName)
+			sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, namespace, storage.SubscriptionName)
 			if err != nil {
 				return err
 			}

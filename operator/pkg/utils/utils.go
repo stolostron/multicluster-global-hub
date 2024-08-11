@@ -50,7 +50,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // MergeObjects merge the desiredObj into the existingObj, then unmarshal to updatedObj
@@ -122,13 +121,13 @@ func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.O
 }
 
 // Finds subscription by name. Returns nil if none found.
-func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, name string) (
+func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, namespace, name string) (
 	*subv1alpha1.Subscription, error,
 ) {
 	found := &subv1alpha1.Subscription{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
-		Namespace: utils.GetDefaultNamespace(),
+		Namespace: namespace,
 	}, found)
 	if err != nil {
 		if errors.IsNotFound(err) {

@@ -70,10 +70,10 @@ var (
 
 // install the strimzi kafka cluster by operator
 type strimziTransporter struct {
-	log       logr.Logger
-	ctx       context.Context
-	name      string
-	namespace string
+	log                   logr.Logger
+	ctx                   context.Context
+	kafkaClusterName      string
+	kafkaClusterNamespace string
 
 	// subscription properties
 	subName              string
@@ -100,10 +100,10 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 	opts ...KafkaOption,
 ) (*strimziTransporter, error) {
 	k := &strimziTransporter{
-		log:       ctrl.Log.WithName("strimzi-transporter"),
-		ctx:       context.TODO(),
-		name:      KafkaClusterName,
-		namespace: constants.GHDefaultNamespace,
+		log:                   ctrl.Log.WithName("strimzi-transporter"),
+		ctx:                   context.TODO(),
+		kafkaClusterName:      KafkaClusterName,
+		kafkaClusterNamespace: mgh.Namespace,
 
 		subName:              DefaultKafkaSubName,
 		subCommunity:         false,
@@ -140,7 +140,7 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 	}
 
 	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetClientCA(k.ctx, k.namespace, k.name, k.runtimeClient); err != nil {
+	if err := config.SetClientCA(k.ctx, mgh.Namespace, KafkaClusterName, k.runtimeClient); err != nil {
 		return nil, err
 	}
 	return k, err
@@ -148,8 +148,8 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 
 func WithNamespacedName(name types.NamespacedName) KafkaOption {
 	return func(sk *strimziTransporter) {
-		sk.name = name.Name
-		sk.namespace = name.Namespace
+		sk.kafkaClusterName = name.Name
+		sk.kafkaClusterNamespace = name.Namespace
 	}
 }
 
@@ -180,7 +180,6 @@ func WithWaitReady(wait bool) KafkaOption {
 // ensureKafkaCluster the kafka cluster, return nil if the instance is launched successfully!
 func (k *strimziTransporter) ensureKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	k.log.Info("reconcile global hub kafka transport...")
-	k.namespace = mgh.Namespace
 	err := k.ensureSubscription(mgh)
 	if err != nil {
 		return err
@@ -229,7 +228,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	kafkaUser := &kafkav1beta2.KafkaUser{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      userName,
-		Namespace: k.namespace,
+		Namespace: k.kafkaClusterNamespace,
 	}, kafkaUser)
 	if errors.IsNotFound(err) {
 		klog.Infof("create the kafakUser: %s", userName)
@@ -262,7 +261,7 @@ func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.Cluster
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
 		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 			Name:      topicName,
-			Namespace: k.namespace,
+			Namespace: k.kafkaClusterNamespace,
 		}, kafkaTopic)
 		if errors.IsNotFound(err) {
 			if e := k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
@@ -298,7 +297,7 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 	kafkaUser := &kafkav1beta2.KafkaUser{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      config.GetKafkaUserName(clusterName),
-			Namespace: k.namespace,
+			Namespace: k.kafkaClusterNamespace,
 		},
 	}
 	err := k.runtimeClient.Get(k.ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
@@ -319,7 +318,7 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 	kafkaTopic := &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clusterTopic.StatusTopic,
-			Namespace: k.namespace,
+			Namespace: k.kafkaClusterNamespace,
 		},
 	}
 	err = k.runtimeClient.Get(k.ctx, client.ObjectKeyFromObject(kafkaTopic), kafkaTopic)
@@ -365,7 +364,7 @@ func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential
 	kafkaUserSecret := &corev1.Secret{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      kafkaUserName,
-		Namespace: k.namespace,
+		Namespace: k.kafkaClusterNamespace,
 	}, kafkaUserSecret)
 	if err != nil {
 		return err
@@ -378,8 +377,8 @@ func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential
 func (k *strimziTransporter) getConnCredentailByCluster() (*transport.ConnCredential, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
-		Name:      k.name,
-		Namespace: k.namespace,
+		Name:      k.kafkaClusterName,
+		Namespace: k.kafkaClusterNamespace,
 	}, kafkaCluster)
 	if err != nil {
 		return nil, err
@@ -403,17 +402,17 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.ConnCreden
 			return credential, nil
 		}
 	}
-	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", k.namespace, k.name)
+	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", k.kafkaClusterNamespace, k.kafkaClusterName)
 }
 
 func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
 	return &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      topicName,
-			Namespace: k.namespace,
+			Namespace: k.kafkaClusterNamespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the topic will not be ready
-				"strimzi.io/cluster":             k.name,
+				"strimzi.io/cluster":             k.kafkaClusterName,
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
 		},
@@ -435,10 +434,10 @@ func (k *strimziTransporter) newKafkaUser(
 	return &kafkav1beta2.KafkaUser{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      userName,
-			Namespace: k.namespace,
+			Namespace: k.kafkaClusterNamespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the user will not be ready
-				"strimzi.io/cluster":             k.name,
+				"strimzi.io/cluster":             k.kafkaClusterName,
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
 		},
@@ -462,8 +461,8 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 		func(ctx context.Context) (bool, error) {
 			kafkaCluster := &kafkav1beta2.Kafka{}
 			err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
-				Name:      k.name,
-				Namespace: k.namespace,
+				Name:      k.kafkaClusterName,
+				Namespace: k.kafkaClusterNamespace,
 			}, kafkaCluster)
 			if err != nil {
 				k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
@@ -502,7 +501,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {
 	existingKafka := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
-		Name:      k.name,
+		Name:      k.kafkaClusterName,
 		Namespace: mgh.Namespace,
 	}, existingKafka)
 	if err != nil {
@@ -589,8 +588,8 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      k.name,
-			Namespace: k.namespace,
+			Name:      k.kafkaClusterName,
+			Namespace: k.kafkaClusterNamespace,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
