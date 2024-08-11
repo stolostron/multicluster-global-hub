@@ -265,7 +265,10 @@ func WaitGlobalHubReady(ctx context.Context,
 ) (*v1alpha4.MulticlusterGlobalHub, error) {
 	mgh := &v1alpha4.MulticlusterGlobalHub{}
 
-	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+	timeOutCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+
+	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
 		if errors.IsNotFound(err) {
 			klog.V(2).Info("wait until the mgh instance is created")
@@ -273,26 +276,18 @@ func WaitGlobalHubReady(ctx context.Context,
 		} else if err != nil {
 			return true, err
 		}
-		return true, nil
-	})
-	if err != nil {
-		return nil, err
-	}
 
-	err = wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
-		if err = client.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
-			klog.Error(err, "failed to get mgh instance")
-			return false, nil
-		}
 		if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
 			return true, nil
 		}
+
 		klog.V(2).Info("mgh instance ready condition is not true")
 		return false, nil
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	klog.Info("MulticlusterGlobalHub is ready")
 	return mgh, nil
 }

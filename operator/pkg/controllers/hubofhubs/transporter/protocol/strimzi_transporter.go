@@ -354,9 +354,10 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.C
 		return credential, nil
 	}
 
-	if err := k.loadUserCredentail(userName, credential); err != nil {
-		return nil, err
-	}
+	// don't need to load the client cert/key from the kafka user, since it use the external kafkaUser
+	// if err := k.loadUserCredentail(userName, credential); err != nil {
+	// 	return nil, err
+	// }
 	return credential, nil
 }
 
@@ -459,6 +460,15 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 
 	err := wait.PollUntilContextTimeout(k.ctx, 5*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
+			// if the mgh is deleted/deleting, then don't need to wait the kafka is ready
+			e := k.runtimeClient.Get(ctx, config.GetMGHNamespacedName(), k.mgh)
+			if e != nil {
+				return false, e
+			}
+			if k.mgh.DeletionTimestamp != nil {
+				return false, fmt.Errorf("deleting the mgh: %s, no need waiting the kafka ready", k.mgh.Namespace)
+			}
+
 			kafkaCluster := &kafkav1beta2.Kafka{}
 			err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 				Name:      k.kafkaClusterName,
@@ -487,6 +497,7 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 
 			for _, condition := range kafkaCluster.Status.Conditions {
 				if *condition.Type == "Ready" && *condition.Status == "True" {
+					k.log.Info("kafka cluster is ready")
 					return true, nil
 				}
 			}
@@ -494,7 +505,6 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 			k.log.V(2).Info("kafka cluster status condition is not ready")
 			return false, nil
 		})
-	k.log.Info("kafka cluster is ready")
 	return err
 }
 
