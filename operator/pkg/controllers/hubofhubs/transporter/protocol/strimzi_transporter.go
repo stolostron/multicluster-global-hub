@@ -20,14 +20,21 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -85,6 +92,7 @@ type strimziTransporter struct {
 	// global hub config
 	mgh           *operatorv1alpha4.MulticlusterGlobalHub
 	runtimeClient client.Client
+	manager       ctrl.Manager
 
 	// wait until kafka cluster status is ready when initialize
 	waitReady bool
@@ -96,7 +104,7 @@ type strimziTransporter struct {
 
 type KafkaOption func(*strimziTransporter)
 
-func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGlobalHub,
+func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
 ) (*strimziTransporter, error) {
 	k := &strimziTransporter{
@@ -116,7 +124,8 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		sharedTopics:           false,
 		topicPartitionReplicas: DefaultPartitionReplicas,
 
-		runtimeClient: c,
+		manager:       mgr,
+		runtimeClient: mgr.GetClient(),
 		mgh:           mgh,
 	}
 	// apply options
@@ -134,7 +143,7 @@ func NewStrimziTransporter(c client.Client, mgh *operatorv1alpha4.MulticlusterGl
 		k.topicPartitionReplicas = 1
 	}
 
-	err := k.ensureKafkaCluster(k.mgh)
+	err := k.ensureKafka(k.mgh)
 	if err != nil {
 		return nil, err
 	}
@@ -177,8 +186,8 @@ func WithWaitReady(wait bool) KafkaOption {
 	}
 }
 
-// ensureKafkaCluster the kafka cluster, return nil if the instance is launched successfully!
-func (k *strimziTransporter) ensureKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
+// ensureKafka the kafka subscription, cluster, metrics, global hub user and topic
+func (k *strimziTransporter) ensureKafka(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	k.log.Info("reconcile global hub kafka transport...")
 	err := k.ensureSubscription(mgh)
 	if err != nil {
@@ -191,9 +200,16 @@ func (k *strimziTransporter) ensureKafkaCluster(mgh *operatorv1alpha4.Multiclust
 			}
 			err, _ = k.CreateUpdateKafkaCluster(mgh)
 			if err != nil {
-				k.log.Info("the kafka instance is not created, retrying...", "message", err.Error())
+				k.log.Info("the kafka cluster is not created, retrying...", "message", err.Error())
 				return false, nil
 			}
+			// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
+			err = k.renderKafkaResources(mgh)
+			if err != nil {
+				k.log.Info("the kafka resources are not created, retrying...", "message", err.Error())
+				return false, nil
+			}
+
 			return true, nil
 		})
 	if err != nil {
@@ -208,6 +224,61 @@ func (k *strimziTransporter) ensureKafkaCluster(mgh *operatorv1alpha4.Multiclust
 		return err
 	}
 
+	return nil
+}
+
+// renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
+func (k *strimziTransporter) renderKafkaResources(mgh *v1alpha4.MulticlusterGlobalHub) error {
+	statusTopic := config.GetRawStatusTopic()
+	statusPlaceholderTopic := config.GetRawStatusTopic()
+	topicParttern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	if strings.Contains(config.GetRawStatusTopic(), "*") {
+		statusTopic = strings.Replace(config.GetRawStatusTopic(), "*", "", -1)
+		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
+		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
+	}
+	// render the kafka objects
+	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())
+	kafkaObjects, err := kafkaRenderer.Render("manifests", "",
+		func(profile string) (interface{}, error) {
+			return struct {
+				EnableMetrics          bool
+				Namespace              string
+				KafkaCluster           string
+				GlobalHubKafkaUser     string
+				SpecTopic              string
+				StatusTopic            string
+				StatusTopicParttern    string
+				StatusPlaceholderTopic string
+				TopicPartition         int32
+				TopicReplicas          int32
+			}{
+				EnableMetrics:          mgh.Spec.EnableMetrics,
+				Namespace:              mgh.GetNamespace(),
+				KafkaCluster:           KafkaClusterName,
+				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
+				SpecTopic:              config.GetSpecTopic(),
+				StatusTopic:            statusTopic,
+				StatusTopicParttern:    string(topicParttern),
+				StatusPlaceholderTopic: statusPlaceholderTopic,
+				TopicPartition:         DefaultPartition,
+				TopicReplicas:          DefaultPartitionReplicas,
+			}, nil
+		})
+	if err != nil {
+		return fmt.Errorf("failed to render kafka manifests: %w", err)
+	}
+	// create restmapper for deployer to find GVR
+	dc, err := discovery.NewDiscoveryClientForConfig(k.manager.GetConfig())
+	if err != nil {
+		return err
+	}
+	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
+
+	if err = operatorutils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
+		k.manager.GetScheme()); err != nil {
+		return fmt.Errorf("failed to create/update kafka objects: %w", err)
+	}
 	return nil
 }
 

@@ -6,16 +6,11 @@ package protocol
 import (
 	"context"
 	"embed"
-	"fmt"
-	"strings"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -25,8 +20,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -49,14 +42,9 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-	if err := r.renderKafkaResources(mgh); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// kafkaCluster, it will be blocking until the status is ready
 	trans, err := NewStrimziTransporter(
-		r.GetClient(),
+		r.Manager,
 		mgh,
 		WithContext(ctx),
 		WithCommunity(operatorutils.IsCommunityMode()),
@@ -152,59 +140,4 @@ func waitTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUser
 		return nil, err
 	}
 	return conn, nil
-}
-
-// renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
-func (r *KafkaController) renderKafkaResources(mgh *v1alpha4.MulticlusterGlobalHub) error {
-	statusTopic := config.GetRawStatusTopic()
-	statusPlaceholderTopic := config.GetRawStatusTopic()
-	topicParttern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	if strings.Contains(config.GetRawStatusTopic(), "*") {
-		statusTopic = strings.Replace(config.GetRawStatusTopic(), "*", "", -1)
-		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
-		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
-	}
-	// render the kafka objects
-	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(r.GetClient())
-	kafkaObjects, err := kafkaRenderer.Render("manifests", "",
-		func(profile string) (interface{}, error) {
-			return struct {
-				EnableMetrics          bool
-				Namespace              string
-				KafkaCluster           string
-				GlobalHubKafkaUser     string
-				SpecTopic              string
-				StatusTopic            string
-				StatusTopicParttern    string
-				StatusPlaceholderTopic string
-				TopicPartition         int32
-				TopicReplicas          int32
-			}{
-				EnableMetrics:          mgh.Spec.EnableMetrics,
-				Namespace:              mgh.GetNamespace(),
-				KafkaCluster:           KafkaClusterName,
-				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
-				SpecTopic:              config.GetSpecTopic(),
-				StatusTopic:            statusTopic,
-				StatusTopicParttern:    string(topicParttern),
-				StatusPlaceholderTopic: statusPlaceholderTopic,
-				TopicPartition:         DefaultPartition,
-				TopicReplicas:          DefaultPartitionReplicas,
-			}, nil
-		})
-	if err != nil {
-		return fmt.Errorf("failed to render kafka manifests: %w", err)
-	}
-	// create restmapper for deployer to find GVR
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
-	if err != nil {
-		return err
-	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
-	if err = operatorutils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
-		r.Manager.GetScheme()); err != nil {
-		return fmt.Errorf("failed to create/update kafka objects: %w", err)
-	}
-	return nil
 }

@@ -196,10 +196,8 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 
 	It("should pass the strimzi transport configuration", func() {
-		Skip("skip the ....2")
-
 		trans, err := protocol.NewStrimziTransporter(
-			runtimeClient,
+			runtimeManager,
 			mgh,
 			protocol.WithCommunity(false),
 			protocol.WithNamespacedName(types.NamespacedName{
@@ -384,7 +382,7 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		// test block
-		_, err = protocol.NewStrimziTransporter(runtimeClient, mgh, protocol.WithWaitReady(true))
+		_, err = protocol.NewStrimziTransporter(runtimeManager, mgh, protocol.WithWaitReady(true))
 		Expect(err).To(Succeed())
 	})
 
