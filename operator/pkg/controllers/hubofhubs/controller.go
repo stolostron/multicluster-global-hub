@@ -33,6 +33,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -179,15 +180,26 @@ func addGlobalHubControllerWatches(mgr ctrl.Manager, globalHubController control
 		return err
 	}
 
+	// Custom predicate to handle status changes
 	if err := globalHubController.Watch(
 		source.Kind(mgr.GetCache(), &appsv1.Deployment{},
 			handler.TypedEnqueueRequestForOwner[*appsv1.Deployment](
 				schema, restMapper, &v1alpha4.MulticlusterGlobalHub{}, handler.OnlyControllerOwner()),
 			[]predicate.TypedPredicate[*appsv1.Deployment]{
-				predicate.TypedGenerationChangedPredicate[*appsv1.Deployment]{},
-				// predicate.NewTypedPredicateFuncs[*appsv1.Deployment](func(node *appsv1.Deployment) bool {
-				// 	return handleDeployment(deployment)
-				// },
+				predicate.TypedFuncs[*appsv1.Deployment]{
+					CreateFunc: func(e event.TypedCreateEvent[*appsv1.Deployment]) bool {
+						return true
+					},
+					// status changes
+					UpdateFunc: func(e event.TypedUpdateEvent[*appsv1.Deployment]) bool {
+						oldDeployment := e.ObjectOld
+						newDeployment := e.ObjectNew
+						return !equality.Semantic.DeepEqual(oldDeployment.Status, newDeployment.Status)
+					},
+					DeleteFunc: func(e event.TypedDeleteEvent[*appsv1.Deployment]) bool {
+						return true
+					},
+				},
 			}...)); err != nil {
 		return err
 	}
