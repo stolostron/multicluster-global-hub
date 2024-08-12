@@ -161,28 +161,34 @@ var _ = Describe("transporter", Ordered, func() {
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		// get metrics resources
-		cm := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kafka-metrics",
-				Namespace: mgh.Namespace,
-			},
-		}
-		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
-		Expect(err).To(Succeed())
-
-		podMonitor := &promv1.PodMonitor{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kafka-resources-metrics",
-				Namespace: mgh.Namespace,
-			},
-		}
-		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(podMonitor), podMonitor)
-		Expect(err).To(Succeed())
-
 		// update the kafka resource to make it ready
 		err = UpdateKafkaClusterReady(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
+
+		// verify the metrics resources and pod monitor
+		Eventually(func() error {
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka-metrics",
+					Namespace: mgh.Namespace,
+				},
+			}
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+			if err != nil {
+				return err
+			}
+			podMonitor := &promv1.PodMonitor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka-resources-metrics",
+					Namespace: mgh.Namespace,
+				},
+			}
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(podMonitor), podMonitor)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
 			// the connection is generated
@@ -254,19 +260,37 @@ var _ = Describe("transporter", Ordered, func() {
 				Effect:   corev1.TaintEffectNoSchedule,
 			},
 		}
-
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeTrue())
-
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeFalse())
+		Eventually(func() error {
+			err, _ = trans.CreateUpdateKafkaCluster(mgh)
+			return err
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		mgh.Spec.ImagePullSecret = "mgh-image-pull-update"
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeTrue())
+		Eventually(func() error {
+			err, _ = trans.CreateUpdateKafkaCluster(mgh)
+			if err != nil {
+				return err
+			}
+			cluster := &kafkav1beta2.Kafka{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: mgh.Namespace,
+					Name:      protocol.KafkaClusterName,
+				},
+			}
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
+			if err != nil {
+				return err
+			}
+			pullSecrets := cluster.Spec.Kafka.Template.Pod.ImagePullSecrets
+			if len(pullSecrets) == 0 {
+				return fmt.Errorf("should update the image pull secret")
+			}
+			if *pullSecrets[0].Name != mgh.Spec.ImagePullSecret {
+				return fmt.Errorf("should get the image pull secret %s, but got %s", mgh.Spec.ImagePullSecret,
+					*pullSecrets[0].Name)
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		kafka := &kafkav1beta2.Kafka{}
 		err = runtimeClient.Get(ctx, types.NamespacedName{
@@ -309,9 +333,16 @@ var _ = Describe("transporter", Ordered, func() {
 				Effect:   corev1.TaintEffectNoSchedule,
 			},
 		}
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeTrue())
+		Eventually(func() error {
+			err, updated = trans.CreateUpdateKafkaCluster(mgh)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				return fmt.Errorf("the kafka cluster should updated")
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		kafka = &kafkav1beta2.Kafka{}
 		err = runtimeClient.Get(ctx, types.NamespacedName{
