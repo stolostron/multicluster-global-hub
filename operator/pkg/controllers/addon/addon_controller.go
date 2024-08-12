@@ -28,6 +28,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
@@ -110,8 +111,7 @@ func (a *AddonController) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	agentAddon, err := addonfactory.NewAgentAddonFactory(
+	factory := addonfactory.NewAgentAddonFactory(
 		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
 		WithGetValuesFuncs(hohAgentAddon.GetValues,
@@ -121,9 +121,11 @@ func (a *AddonController) Start(ctx context.Context) error {
 				addonfactory.ToAddOnDeloymentConfigValues,
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
-		WithAgentRegistrationOption(newRegistrationOption(operatorconstants.GHManagedClusterAddonName)).
-		WithScheme(addonScheme).
-		BuildTemplateAgentAddon()
+		WithScheme(addonScheme)
+	if config.TransporterProtocol() == transport.StrimziTransporter {
+		factory.WithAgentRegistrationOption(newRegistrationOption(operatorconstants.GHManagedClusterAddonName))
+	}
+	agentAddon, err := factory.BuildTemplateAgentAddon()
 	if err != nil {
 		a.log.Error(err, "failed to create agent addon")
 		return err
