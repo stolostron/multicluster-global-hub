@@ -50,7 +50,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // MergeObjects merge the desiredObj into the existingObj, then unmarshal to updatedObj
@@ -122,13 +121,13 @@ func UpdateObject(ctx context.Context, runtimeClient client.Client, obj client.O
 }
 
 // Finds subscription by name. Returns nil if none found.
-func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, name string) (
+func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, namespace, name string) (
 	*subv1alpha1.Subscription, error,
 ) {
 	found := &subv1alpha1.Subscription{}
 	err := k8sClient.Get(ctx, types.NamespacedName{
 		Name:      name,
-		Namespace: utils.GetDefaultNamespace(),
+		Namespace: namespace,
 	}, found)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -266,7 +265,10 @@ func WaitGlobalHubReady(ctx context.Context,
 ) (*v1alpha4.MulticlusterGlobalHub, error) {
 	mgh := &v1alpha4.MulticlusterGlobalHub{}
 
-	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+	timeOutCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+
+	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
 		if errors.IsNotFound(err) {
 			klog.V(2).Info("wait until the mgh instance is created")
@@ -274,26 +276,18 @@ func WaitGlobalHubReady(ctx context.Context,
 		} else if err != nil {
 			return true, err
 		}
-		return true, nil
-	})
-	if err != nil {
-		return nil, err
-	}
 
-	err = wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
-		if err = client.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
-			klog.Error(err, "failed to get mgh instance")
-			return false, nil
-		}
 		if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
 			return true, nil
 		}
+
 		klog.V(2).Info("mgh instance ready condition is not true")
 		return false, nil
 	})
 	if err != nil {
 		return nil, err
 	}
+
 	klog.Info("MulticlusterGlobalHub is ready")
 	return mgh, nil
 }

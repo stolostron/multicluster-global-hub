@@ -1,0 +1,12 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: {{.KafkaCluster}}
+  name: {{.StatusPlaceholderTopic}}
+  namespace: {{.Namespace}}
+spec:
+  config:
+    cleanup.policy: compact
+  partitions: {{.TopicPartition}}
+  replicas: {{.TopicReplicas}}

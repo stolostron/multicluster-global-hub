@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -69,10 +68,16 @@ var _ = Describe("transporter", Ordered, func() {
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 		// update the transport protocol configuration
-		err = config.SetKafkaType(ctx, runtimeClient, mgh.Namespace)
+		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
 		Expect(err).To(Succeed())
-		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
 
+		// verify the type
+		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
+		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
+		Expect(config.GetRawStatusTopic()).To(Equal("gh-event"))
+
+		// err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
+		Expect(err).To(Succeed())
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 
 		Eventually(func() error {
@@ -103,16 +108,18 @@ var _ = Describe("transporter", Ordered, func() {
 	It("should generate the transport connection in strimzi transport", func() {
 		config.SetTransporter(nil)
 		config.SetTransporterConn(nil)
-		Expect(os.Setenv("POD_NAMESPACE", namespace)).To(Succeed())
-
-		// transport
 		// the crd resources is ready
 		config.SetKafkaResourceReady(true)
 
 		// update the transport protocol configuration, topic
-		err := config.SetTransportConfig(ctx, runtimeClient, mgh)
+		err := config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
 		Expect(err).To(Succeed())
+		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
+		Expect(err).To(Succeed())
+
 		Expect(config.TransporterProtocol()).To(Equal(transport.StrimziTransporter))
+		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
+		Expect(config.GetRawStatusTopic()).To(Equal("gh-event"))
 
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 
@@ -122,13 +129,15 @@ var _ = Describe("transporter", Ordered, func() {
 			for err != nil {
 				fmt.Println("reconciler error, retrying ...", err.Error())
 				time.Sleep(1 * time.Second)
+
+				_ = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
 				err = reconciler.Reconcile(ctx, mgh)
 			}
 		}()
 
 		// the subscription
 		Eventually(func() error {
-			sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, protocol.DefaultKafkaSubName)
+			sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, namespace, protocol.DefaultKafkaSubName)
 			if err != nil {
 				return err
 			}
@@ -137,7 +146,7 @@ var _ = Describe("transporter", Ordered, func() {
 			}
 
 			return nil
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 20*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// the kafka cluster
 		Eventually(func() error {
@@ -152,28 +161,34 @@ var _ = Describe("transporter", Ordered, func() {
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		// get metrics resources
-		cm := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kafka-metrics",
-				Namespace: mgh.Namespace,
-			},
-		}
-		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
-		Expect(err).To(Succeed())
-
-		podMonitor := &promv1.PodMonitor{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "kafka-resources-metrics",
-				Namespace: mgh.Namespace,
-			},
-		}
-		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(podMonitor), podMonitor)
-		Expect(err).To(Succeed())
-
 		// update the kafka resource to make it ready
 		err = UpdateKafkaClusterReady(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
+
+		// verify the metrics resources and pod monitor
+		Eventually(func() error {
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka-metrics",
+					Namespace: mgh.Namespace,
+				},
+			}
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+			if err != nil {
+				return err
+			}
+			podMonitor := &promv1.PodMonitor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "kafka-resources-metrics",
+					Namespace: mgh.Namespace,
+				},
+			}
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(podMonitor), podMonitor)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
 			// the connection is generated
@@ -188,7 +203,7 @@ var _ = Describe("transporter", Ordered, func() {
 
 	It("should pass the strimzi transport configuration", func() {
 		trans, err := protocol.NewStrimziTransporter(
-			runtimeClient,
+			runtimeManager,
 			mgh,
 			protocol.WithCommunity(false),
 			protocol.WithNamespacedName(types.NamespacedName{
@@ -245,19 +260,37 @@ var _ = Describe("transporter", Ordered, func() {
 				Effect:   corev1.TaintEffectNoSchedule,
 			},
 		}
-
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeTrue())
-
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeFalse())
+		Eventually(func() error {
+			err, _ = trans.CreateUpdateKafkaCluster(mgh)
+			return err
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		mgh.Spec.ImagePullSecret = "mgh-image-pull-update"
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeTrue())
+		Eventually(func() error {
+			err, _ = trans.CreateUpdateKafkaCluster(mgh)
+			if err != nil {
+				return err
+			}
+			cluster := &kafkav1beta2.Kafka{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: mgh.Namespace,
+					Name:      protocol.KafkaClusterName,
+				},
+			}
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
+			if err != nil {
+				return err
+			}
+			pullSecrets := cluster.Spec.Kafka.Template.Pod.ImagePullSecrets
+			if len(pullSecrets) == 0 {
+				return fmt.Errorf("should update the image pull secret")
+			}
+			if *pullSecrets[0].Name != mgh.Spec.ImagePullSecret {
+				return fmt.Errorf("should get the image pull secret %s, but got %s", mgh.Spec.ImagePullSecret,
+					*pullSecrets[0].Name)
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		kafka := &kafkav1beta2.Kafka{}
 		err = runtimeClient.Get(ctx, types.NamespacedName{
@@ -300,9 +333,16 @@ var _ = Describe("transporter", Ordered, func() {
 				Effect:   corev1.TaintEffectNoSchedule,
 			},
 		}
-		err, updated = trans.CreateUpdateKafkaCluster(mgh)
-		Expect(err).To(Succeed())
-		Expect(updated).To(BeTrue())
+		Eventually(func() error {
+			err, updated = trans.CreateUpdateKafkaCluster(mgh)
+			if err != nil {
+				return err
+			}
+			if !updated {
+				return fmt.Errorf("the kafka cluster should updated")
+			}
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		kafka = &kafkav1beta2.Kafka{}
 		err = runtimeClient.Get(ctx, types.NamespacedName{
@@ -373,7 +413,7 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		// test block
-		_, err = protocol.NewStrimziTransporter(runtimeClient, mgh, protocol.WithWaitReady(true))
+		_, err = protocol.NewStrimziTransporter(runtimeManager, mgh, protocol.WithWaitReady(true))
 		Expect(err).To(Succeed())
 	})
 

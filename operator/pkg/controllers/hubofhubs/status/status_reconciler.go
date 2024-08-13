@@ -58,7 +58,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 
 	// update the topic condition
 	topicMessage := fmt.Sprintf("The topics is parsed: spec(%s), status(%s)", config.GetSpecTopic(),
-		config.FuzzyStatusTopic())
+		config.ManagerStatusTopic())
 	if err := config.SetConditionTopic(ctx, r.Client, mgh, config.CONDITION_STATUS_TRUE, topicMessage); err != nil {
 		return err
 	}

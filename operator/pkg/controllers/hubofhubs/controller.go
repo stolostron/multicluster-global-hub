@@ -736,7 +736,6 @@ var WatchedSecret = sets.NewString(
 	config.PostgresCertName,
 	constants.CustomGrafanaIniName,
 	config.GetImagePullSecretName(),
-	config.GetKafkaUserName(protocol.GlobalHubClusterName), // the cert secret name is the same as the kafka user name
 )
 
 var WatchedConfigMap = sets.NewString(

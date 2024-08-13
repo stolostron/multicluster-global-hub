@@ -1,11 +1,14 @@
 #!/bin/bash
 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
-KUBECONFIG=${1:-$KUBECONFIG}               # install the kafka 
-SECRET_KUBECONFIG=${2:-$KUBECONFIG}        # generate the crenditial secret 
+KUBECONFIG=${1:-$KUBECONFIG}        # install the kafka
+SECRET_KUBECONFIG=${2:-$KUBECONFIG} # generate the crenditial secret
 
 start_time=$(date +%s)
 echo -e "\r${BOLD_GREEN}[ START - $(date +"%T") ] Install Kafka $NC"
@@ -58,13 +61,11 @@ wait_cmd "kubectl get kafkatopic gh-spec -n multicluster-global-hub | grep -C 1 
 wait_cmd "kubectl get kafkatopic gh-event.hub1 -n multicluster-global-hub | grep -C 1 True"
 wait_cmd "kubectl get kafkatopic gh-event.hub2 -n multicluster-global-hub | grep -C 1 True"
 wait_cmd "kubectl get kafkauser global-hub-kafka-user -n multicluster-global-hub | grep -C 1 True"
-wait_cmd "kubectl get kafkauser hub1-kafka-user -n multicluster-global-hub | grep -C 1 True"
-wait_cmd "kubectl get kafkauser hub2-kafka-user -n multicluster-global-hub | grep -C 1 True"
 echo "Kafka topic/user are ready"
 
-# Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs 
+# Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs
 
-# # BYO: 1. create the topics; 2. create the user; 3. create the transport secret 
+# # BYO: 1. create the topics; 2. create the user; 3. create the transport secret
 # byo_user=global-hub-byo-user
 # wait_cmd "kubectl get kafkauser $byo_user -n $target_namespace | grep -C 1 True"
 
@@ -81,7 +82,7 @@ echo "Kafka topic/user are ready"
 #     --from-literal=bootstrap_server="$bootstrap_server" \
 #     --from-file=ca.crt="$CURRENT_DIR"/config/kafka-ca-cert.pem \
 #     --from-file=client.crt="$CURRENT_DIR"/config/kafka-client-cert.pem \
-#     --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem 
+#     --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
 # echo "transport secret is ready!"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"
