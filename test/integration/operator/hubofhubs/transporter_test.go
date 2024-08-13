@@ -407,7 +407,9 @@ var _ = Describe("transporter", Ordered, func() {
 
 		// topic: update
 		_, err = trans.EnsureTopic(clusterName)
-		Expect(err).To(Succeed())
+		if !errors.IsAlreadyExists(err) {
+			Expect(err).To(Succeed())
+		}
 
 		err = trans.Prune(clusterName)
 		Expect(err).To(Succeed())

@@ -121,7 +121,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(storageConn.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(storageConn.CACert),
-			KafkaManagerSecretName: constants.GHManagerTransportSecret,
+			ManagerTransportSecret: constants.GHManagerTransportSecret,
 			KafkaClusterIdentity:   transportConn.Identity,
 			KafkaClusterID:         base64.StdEncoding.EncodeToString([]byte(transportConn.Identity)),
 			KafkaBootstrapServer:   transportConn.BootstrapServer,
@@ -198,7 +198,7 @@ type ManagerVariables struct {
 	ProxySessionSecret     string
 	DatabaseURL            string
 	PostgresCACert         string
-	KafkaManagerSecretName string
+	ManagerTransportSecret string
 	KafkaClusterIdentity   string
 	KafkaClusterID         string
 	KafkaCACert            string
