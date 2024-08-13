@@ -76,7 +76,8 @@ type ClusterTopic struct {
 	StatusTopic string
 }
 
-// ConnCredential is used to connect the transporter instance
+// ConnCredential is used to connect the transporter instance. The field is persisted to secret
+// need to be encode with base64.StdEncoding.EncodeToString
 type ConnCredential struct {
 	Identity        string
 	BootstrapServer string

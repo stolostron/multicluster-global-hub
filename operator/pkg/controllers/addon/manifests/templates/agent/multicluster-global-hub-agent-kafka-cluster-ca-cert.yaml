@@ -6,6 +6,7 @@ metadata:
   namespace: {{ .AddonInstallNamespace }}
   labels:
     addon.open-cluster-management.io/hosted-manifest-location: none
+    name: {{.KafkaAgentSecretName}}
 type: Opaque
 data:
   "ca.crt": "{{.KafkaCACert}}"

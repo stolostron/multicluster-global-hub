@@ -41,7 +41,9 @@ type ManifestsConfig struct {
 	ImagePullSecretData    string
 	ImagePullPolicy        string
 	LeafHubID              string
+	KafkaAgentSecretName   string
 	KafkaBootstrapServer   string
+	KafkaBootstrapServers  string
 	TransportType          string
 	KafkaCACert            string
 	KafkaClientCert        string
@@ -49,6 +51,8 @@ type ManifestsConfig struct {
 	KafkaClientCertSecret  string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
+	KafkaSpecTopic         string
+	KafkaStatusTopic       string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -223,13 +227,17 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
+		KafkaAgentSecretName:   constants.GHAgentTransportSecret,
 		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
+		KafkaBootstrapServers:  base64.StdEncoding.EncodeToString([]byte(kafkaConnection.BootstrapServer)),
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
 		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
+		KafkaSpecTopic:         base64.StdEncoding.EncodeToString([]byte(clusterTopic.SpecTopic)),
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
+		KafkaStatusTopic:       base64.StdEncoding.EncodeToString([]byte(clusterTopic.StatusTopic)),
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),

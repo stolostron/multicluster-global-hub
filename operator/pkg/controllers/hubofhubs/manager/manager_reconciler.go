@@ -121,13 +121,18 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(storageConn.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(storageConn.CACert),
+			KafkaManagerSecretName: constants.GHManagerTransportSecret,
 			KafkaClusterIdentity:   transportConn.Identity,
+			KafkaClusterID:         base64.StdEncoding.EncodeToString([]byte(transportConn.Identity)),
+			KafkaBootstrapServer:   transportConn.BootstrapServer,
+			KafkaBootstrapServers:  base64.StdEncoding.EncodeToString([]byte(transportConn.BootstrapServer)),
+			KafkaConsumerTopic:     config.ManagerStatusTopic(),
+			KafkaStatusTopic:       base64.StdEncoding.EncodeToString([]byte(config.ManagerStatusTopic())),
+			KafkaProducerTopic:     config.GetSpecTopic(),
+			KafkaSpecTopic:         base64.StdEncoding.EncodeToString([]byte(config.GetSpecTopic())),
 			KafkaCACert:            transportConn.CACert,
 			KafkaClientCert:        transportConn.ClientCert,
 			KafkaClientKey:         transportConn.ClientKey,
-			KafkaBootstrapServer:   transportConn.BootstrapServer,
-			KafkaConsumerTopic:     config.ManagerStatusTopic(),
-			KafkaProducerTopic:     config.GetSpecTopic(),
 			Namespace:              mgh.Namespace,
 			MessageCompressionType: string(operatorconstants.GzipCompressType),
 			TransportType:          string(transport.Kafka),
@@ -193,13 +198,18 @@ type ManagerVariables struct {
 	ProxySessionSecret     string
 	DatabaseURL            string
 	PostgresCACert         string
+	KafkaManagerSecretName string
 	KafkaClusterIdentity   string
+	KafkaClusterID         string
 	KafkaCACert            string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
+	KafkaStatusTopic       string
+	KafkaSpecTopic         string
 	KafkaClientCert        string
 	KafkaClientKey         string
 	KafkaBootstrapServer   string
+	KafkaBootstrapServers  string
 	MessageCompressionType string
 	TransportType          string
 	Namespace              string
