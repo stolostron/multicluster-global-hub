@@ -65,8 +65,8 @@ const (
 
 // the global hub transport secret for manager and agent
 const (
-	GHManagerTransportSecret = "multicluster-global-hub-transport-manager" // #nosec G101
-	GHAgentTransportSecret   = "multicluster-global-hub-agent"             // #nosec G101
+	GHManagerTransportSecret = "multicluster-global-hub-manager-transport" // #nosec G101
+	GHAgentTransportSecret   = "multicluster-global-hub-agent-transport"   // #nosec G101
 )
 
 // global hub console secret/configmap names
