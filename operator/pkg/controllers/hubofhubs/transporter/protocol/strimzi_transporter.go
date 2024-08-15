@@ -423,7 +423,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 
 	// certificates
 	credential.CASecretName = GetClusterCASecret(k.kafkaClusterName)
-	credential.ClientCert = certificates.AgentCertificateSecretName()
+	credential.ClientSecretName = certificates.AgentCertificateSecretName()
 
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
