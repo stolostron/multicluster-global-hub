@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -49,6 +50,7 @@ type ManifestsConfig struct {
 	KafkaClientCert        string
 	KafkaClientKey         string
 	KafkaClientCertSecret  string
+	KafkaClusterCASecret   string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
 	KafkaSpecTopic         string
@@ -234,6 +236,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
 		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
+		KafkaClusterCASecret:   fmt.Sprintf("%s-cluster-ca-cert", protocol.KafkaClusterName),
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
 		KafkaSpecTopic:         base64.StdEncoding.EncodeToString([]byte(clusterTopic.SpecTopic)),
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
