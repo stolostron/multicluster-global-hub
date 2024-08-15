@@ -76,14 +76,20 @@ type ClusterTopic struct {
 	StatusTopic string
 }
 
-// ConnCredential is used to connect the transporter instance. The field is persisted to secret
+// KafkaConnCredential is used to connect the transporter instance. The field is persisted to secret
 // need to be encode with base64.StdEncoding.EncodeToString
-type ConnCredential struct {
-	Identity        string
-	BootstrapServer string
-	CACert          string
-	ClientCert      string
-	ClientKey       string
+type KafkaConnCredential struct {
+	BootstrapServer string `yaml:"bootstrap.server"`
+	StatusTopic     string `yaml:"topic.status,omitempty"`
+	SpecTopic       string `yaml:"topic.spec,omitempty"`
+	ClusterID       string `yaml:"cluster.id,omitempty"`
+	// the following fields are only for the manager, and the agent of byo/standalone kafka
+	CACert     string `yaml:"ca.key,omitempty"`
+	ClientCert string `yaml:"client.crt,omitempty"`
+	ClientKey  string `yaml:"client.key,omitempty"`
+	// the following fields are only for the agent of built-in kafka
+	CASecretName     string `yaml:"ca.secret,omitempty"`
+	ClientSecretName string `yaml:"client.secret,omitempty"`
 }
 
 type EventPosition struct {

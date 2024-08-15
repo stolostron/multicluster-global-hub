@@ -19,12 +19,12 @@ import (
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -42,19 +42,17 @@ type ManifestsConfig struct {
 	ImagePullSecretData    string
 	ImagePullPolicy        string
 	LeafHubID              string
-	KafkaAgentSecretName   string
+	TransportConfigSecret  string
+	KafkaConfigYaml        string
+	KafkaClusterCASecret   string
 	KafkaBootstrapServer   string
-	KafkaBootstrapServers  string
 	TransportType          string
 	KafkaCACert            string
 	KafkaClientCert        string
 	KafkaClientKey         string
 	KafkaClientCertSecret  string
-	KafkaClusterCASecret   string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
-	KafkaSpecTopic         string
-	KafkaStatusTopic       string
 	MessageCompressionType string
 	InstallACMHub          bool
 	Channel                string
@@ -209,6 +207,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
 	}
 
+	kafkaConfigYaml, err := yaml.Marshal(kafkaConnection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
+	}
+
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
 	agentRes := &Resources{}
 	jsonData, err := json.Marshal(agentResReq)
@@ -229,18 +232,16 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
-		KafkaAgentSecretName:   constants.GHAgentTransportSecret,
+		TransportConfigSecret:  constants.GHTransportConfigSecret,
+		KafkaConfigYaml:        string(kafkaConfigYaml),
 		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
-		KafkaBootstrapServers:  base64.StdEncoding.EncodeToString([]byte(kafkaConnection.BootstrapServer)),
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
 		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
-		KafkaClusterCASecret:   fmt.Sprintf("%s-cluster-ca-cert", protocol.KafkaClusterName),
+		KafkaClusterCASecret:   kafkaConnection.CASecretName,
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
-		KafkaSpecTopic:         base64.StdEncoding.EncodeToString([]byte(clusterTopic.SpecTopic)),
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
-		KafkaStatusTopic:       base64.StdEncoding.EncodeToString([]byte(clusterTopic.StatusTopic)),
 		MessageCompressionType: string(operatorconstants.GzipCompressType),
 		TransportType:          string(transport.Kafka),
 		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),

@@ -56,7 +56,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	config.SetTransporter(trans)
 
 	// update the transport connection
-	conn, err := waitTransportConn(ctx, trans, DefaultGlobalHubKafkaUserName)
+	conn, err := waitManagerTransportConn(ctx, trans, DefaultGlobalHubKafkaUserName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -116,20 +116,24 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager) (*KafkaControll
 	return r, nil
 }
 
-func waitTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
-	*transport.ConnCredential, error,
+func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
+	*transport.KafkaConnCredential, error,
 ) {
 	// set transporter connection
-	var conn *transport.ConnCredential
+	var conn *transport.KafkaConnCredential
 	var err error
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
+			// boostrapServer, clusterId, clusterCA
 			conn, err = trans.getConnCredentailByCluster()
 			if err != nil {
 				klog.Info("waiting the kafka cluster credential to be ready...", "message", err.Error())
 				return false, err
 			}
-
+			// topics
+			conn.SpecTopic = config.GetSpecTopic()
+			conn.StatusTopic = config.ManagerStatusTopic()
+			// clientCert and clientCA
 			if err := trans.loadUserCredentail(kafkaUserSecret, conn); err != nil {
 				klog.Info("waiting the kafka user credential to be ready...", "message", err.Error())
 				return false, err

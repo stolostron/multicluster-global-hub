@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -31,7 +32,7 @@ var fs embed.FS
 
 var (
 	storageConnectionCache   *config.PostgresConnection
-	transportConnectionCache *transport.ConnCredential
+	transportConnectionCache *transport.KafkaConnCredential
 )
 
 type ManagerReconciler struct {
@@ -110,6 +111,11 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("failed to get the electionConfig %w", err)
 	}
 
+	kafkaConfigYaml, err := yaml.Marshal(transportConn)
+	if err != nil {
+		return fmt.Errorf("failed to marshall kafka connetion for config: %w", err)
+	}
+
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
@@ -121,15 +127,12 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(storageConn.SuperuserDatabaseURI)),
 			PostgresCACert:         base64.StdEncoding.EncodeToString(storageConn.CACert),
-			ManagerTransportSecret: constants.GHManagerTransportSecret,
-			KafkaClusterIdentity:   transportConn.Identity,
-			KafkaClusterID:         base64.StdEncoding.EncodeToString([]byte(transportConn.Identity)),
+			TransportConfigSecret:  constants.GHTransportConfigSecret,
+			KafkaConfigYaml:        string(kafkaConfigYaml),
+			KafkaClusterIdentity:   transportConn.ClusterID,
 			KafkaBootstrapServer:   transportConn.BootstrapServer,
-			KafkaBootstrapServers:  base64.StdEncoding.EncodeToString([]byte(transportConn.BootstrapServer)),
 			KafkaConsumerTopic:     config.ManagerStatusTopic(),
-			KafkaStatusTopic:       base64.StdEncoding.EncodeToString([]byte(config.ManagerStatusTopic())),
 			KafkaProducerTopic:     config.GetSpecTopic(),
-			KafkaSpecTopic:         base64.StdEncoding.EncodeToString([]byte(config.GetSpecTopic())),
 			KafkaCACert:            transportConn.CACert,
 			KafkaClientCert:        transportConn.ClientCert,
 			KafkaClientKey:         transportConn.ClientKey,
@@ -162,7 +165,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	return nil
 }
 
-func isMiddlewareUpdated(transportConn *transport.ConnCredential, storageConn *config.PostgresConnection) bool {
+func isMiddlewareUpdated(transportConn *transport.KafkaConnCredential, storageConn *config.PostgresConnection) bool {
 	updated := false
 	if transportConnectionCache == nil || storageConnectionCache == nil {
 		updated = true
@@ -179,7 +182,7 @@ func isMiddlewareUpdated(transportConn *transport.ConnCredential, storageConn *c
 	return updated
 }
 
-func setMiddlewareCache(transportConn *transport.ConnCredential, storageConn *config.PostgresConnection) {
+func setMiddlewareCache(transportConn *transport.KafkaConnCredential, storageConn *config.PostgresConnection) {
 	if transportConn != nil {
 		transportConnectionCache = transportConn
 	}
@@ -198,18 +201,15 @@ type ManagerVariables struct {
 	ProxySessionSecret     string
 	DatabaseURL            string
 	PostgresCACert         string
-	ManagerTransportSecret string
+	TransportConfigSecret  string
+	KafkaConfigYaml        string
 	KafkaClusterIdentity   string
-	KafkaClusterID         string
 	KafkaCACert            string
 	KafkaConsumerTopic     string
 	KafkaProducerTopic     string
-	KafkaStatusTopic       string
-	KafkaSpecTopic         string
 	KafkaClientCert        string
 	KafkaClientKey         string
 	KafkaBootstrapServer   string
-	KafkaBootstrapServers  string
 	MessageCompressionType string
 	TransportType          string
 	Namespace              string

@@ -28,7 +28,7 @@ const (
 var (
 	transporterProtocol transport.TransportProtocol
 	transporterInstance transport.Transporter
-	transporterConn     *transport.ConnCredential
+	transporterConn     *transport.KafkaConnCredential
 	isBYOKafka          = false
 	specTopic           = ""
 	statusTopic         = ""
@@ -38,11 +38,11 @@ var (
 	clientCACert        []byte
 )
 
-func SetTransporterConn(conn *transport.ConnCredential) {
+func SetTransporterConn(conn *transport.KafkaConnCredential) {
 	transporterConn = conn
 }
 
-func GetTransporterConn() *transport.ConnCredential {
+func GetTransporterConn() *transport.KafkaConnCredential {
 	return transporterConn
 }
 
