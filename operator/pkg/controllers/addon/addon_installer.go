@@ -134,11 +134,11 @@ func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster
 		}
 	}
 
-	// reconcile kafka resources
-	return ensureKafkaResource(cluster.Name)
+	// reconcile transport resources
+	return ensureTransportResource(cluster.Name)
 }
 
-func ensureKafkaResource(clusterName string) error {
+func ensureTransportResource(clusterName string) error {
 	// create kafka resource: user and topic
 	trans := config.GetTransporter()
 	if trans == nil {

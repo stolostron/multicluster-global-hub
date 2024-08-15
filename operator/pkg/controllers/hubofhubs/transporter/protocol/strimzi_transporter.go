@@ -380,26 +380,26 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 		return err
 	}
 
-	// cleanup kafkaTopic
-	if k.sharedTopics || !strings.Contains(config.GetRawStatusTopic(), "*") {
-		return nil
-	}
+	// only delete the topic when removing the CR, otherwise the manager throws error like "Unknown topic or partition"
+	// if k.sharedTopics || !strings.Contains(config.GetRawStatusTopic(), "*") {
+	// 	return nil
+	// }
 
-	clusterTopic := k.getClusterTopic(clusterName)
-	kafkaTopic := &kafkav1beta2.KafkaTopic{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterTopic.StatusTopic,
-			Namespace: k.kafkaClusterNamespace,
-		},
-	}
-	err = k.runtimeClient.Get(k.ctx, client.ObjectKeyFromObject(kafkaTopic), kafkaTopic)
-	if err == nil {
-		if err := k.runtimeClient.Delete(k.ctx, kafkaTopic); err != nil {
-			return err
-		}
-	} else if !errors.IsNotFound(err) {
-		return err
-	}
+	// clusterTopic := k.getClusterTopic(clusterName)
+	// kafkaTopic := &kafkav1beta2.KafkaTopic{
+	// 	ObjectMeta: metav1.ObjectMeta{
+	// 		Name:      clusterTopic.StatusTopic,
+	// 		Namespace: k.kafkaClusterNamespace,
+	// 	},
+	// }
+	// err = k.runtimeClient.Get(k.ctx, client.ObjectKeyFromObject(kafkaTopic), kafkaTopic)
+	// if err == nil {
+	// 	if err := k.runtimeClient.Delete(k.ctx, kafkaTopic); err != nil {
+	// 		return err
+	// 	}
+	// } else if !errors.IsNotFound(err) {
+	// 	return err
+	// }
 
 	return nil
 }
