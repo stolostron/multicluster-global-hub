@@ -30,7 +30,7 @@ import (
 
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"

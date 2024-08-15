@@ -143,7 +143,7 @@ func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string) {
 
 	ticker := time.NewTicker(syncIntervalInSeconds * time.Second)
 
-	ctx, cancelContext := context.WithCancel(context.Background())
+	_, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
 	// TODO - add deleted field to the status.managed_clusters table
@@ -166,12 +166,12 @@ func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string) {
 				return
 			}
 
-			doHandleRowsForWatch(ctx, writer, managedClusterListQuery, preAddedManagedClusterNames)
+			doHandleRowsForWatch(writer, managedClusterListQuery, preAddedManagedClusterNames)
 		}
 	}
 }
 
-func doHandleRowsForWatch(ctx context.Context, writer io.Writer, managedClusterListQuery string,
+func doHandleRowsForWatch(writer io.Writer, managedClusterListQuery string,
 	preAddedManagedClusterNames set.Set,
 ) {
 	db := database.GetGorm()

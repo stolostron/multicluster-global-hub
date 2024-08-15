@@ -33,38 +33,41 @@ spec:
         name: multicluster-global-hub-operator
         version: v1
       specDescriptors:
-      - description: 'Specifies deployment replication for improved availability.
-          Options are: Basic and High (default)'
+      - description: 'AvailabilityType specifies deployment replication for improved
+          availability. Options are: Basic and High (default)'
         displayName: Availability Configuration
         path: availabilityConfig
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:High
         - urn:alm:descriptor:com.tectonic.ui:select:Basic
-      - description: DataLayer can be configured to use a different data layer.
+      - description: DataLayer can be configured to use a different data layer
         displayName: Data Layer
         path: dataLayer
-      - description: Pull policy of the multicluster global hub images
+      - description: EnableMetrics enables the metrics for the global hub created
+          kafka and postgres components. If the user provides the kafka and postgres,
+          then the enablemetrics variable is useless.
+        displayName: Enable Metrics
+        path: enableMetrics
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: ImagePullPolicy specifies the pull policy of the multicluster
+          global hub images
         displayName: Image Pull Policy
         path: imagePullPolicy
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
-      - description: Pull secret of the multicluster global hub images
+      - description: ImagePullSecret specifies the pull secret of the multicluster
+          global hub images
         displayName: Image Pull Secret
         path: imagePullSecret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: Tolerations causes all components to tolerate any taints.
+      - description: Tolerations causes all components to tolerate any taints
         displayName: Tolerations
         path: tolerations
-      - description: EnableMetrics enables the metrics for the global hub created
-          kafka and postgres components. If the user provides the kafka and postgres,
-          then the enablemetrics variable is useless.
-        displayName: Enable Metrics Collecting
-        path: enableMetrics
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       statusDescriptors:
-      - description: MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+      - description: Conditions represents the latest available observations of the
+          current state
         displayName: Conditions
         path: conditions
       version: v1alpha4

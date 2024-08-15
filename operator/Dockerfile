@@ -9,7 +9,7 @@ COPY go.sum go.mod ./
 COPY ./operator ./operator
 COPY ./pkg ./pkg
 
-RUN CGO_ENABLED=1 go build -a -installsuffix cgo -o bin/multicluster-global-hub-operator operator/main.go
+RUN CGO_ENABLED=1 go build -a -installsuffix cgo -o bin/multicluster-global-hub-operator operator/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
