@@ -71,6 +71,50 @@ spec:
         displayName: Conditions
         path: conditions
       version: v1alpha4
+    - description: MulticlusterGlobalHubMigration defines the configuration for migrating the managed clusters from one hub to another
+      displayName: Multicluster Global Hub Migration
+      kind: Migration
+      name: multiclusterglobalhubs.operator.open-cluster-management.io
+      resources:
+      - kind: Deployment
+        name: multicluster-global-hub-operator
+        version: v1
+      specDescriptors:
+      - description: 'Specifies deployment replication for improved availability.
+          Options are: Basic and High (default)'
+        displayName: Availability Configuration
+        path: availabilityConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:High
+        - urn:alm:descriptor:com.tectonic.ui:select:Basic
+      - description: DataLayer can be configured to use a different data layer.
+        displayName: Data Layer
+        path: dataLayer
+      - description: Pull policy of the multicluster global hub images
+        displayName: Image Pull Policy
+        path: imagePullPolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
+      - description: Pull secret of the multicluster global hub images
+        displayName: Image Pull Secret
+        path: imagePullSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Tolerations causes all components to tolerate any taints.
+        displayName: Tolerations
+        path: tolerations
+      - description: EnableMetrics enables the metrics for the global hub created
+          kafka and postgres components. If the user provides the kafka and postgres,
+          then the enablemetrics variable is useless.
+        displayName: Enable Metrics Collecting
+        path: enableMetrics
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      statusDescriptors:
+      - description: MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
+        displayName: Conditions
+        path: conditions
+      version: v1alpha4
   description: |
     The Multicluster Global Hub Operator contains the components of multicluster global hub. The Operator deploys all of the required components for global multicluster management. The components include `multicluster-global-hub-manager` and `multicluster-global-hub-grafana` in the global hub cluster and `multicluster-global-hub-agent` in the managed hub clusters.
     The Operator also deploys the strimzi kafka and crunchy postgres if you do not bring your own kafka and postgres.
