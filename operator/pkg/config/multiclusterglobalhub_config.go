@@ -134,7 +134,8 @@ func IsPaused(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 
 // WithInventory returns true means common inventory is deployed
 func WithInventory(mgh *v1alpha4.MulticlusterGlobalHub) bool {
-	return getAnnotation(mgh, operatorconstants.AnnotationMGHWithInventory) != ""
+	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithInventory]
+	return ok
 }
 
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history

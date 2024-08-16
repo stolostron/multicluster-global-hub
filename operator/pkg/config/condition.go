@@ -45,6 +45,11 @@ const (
 	CONDITION_MESSAGE_GRAFANA_AVAILABLE = "Multicluster Global Hub Grafana has been deployed"
 )
 
+// NOTE: the status of Inventory deploy
+const (
+	CONDITION_TYPE_INVENTORY_AVAILABLE = "InventoryAvailable"
+)
+
 // NOTE: the topics for the manager and agent
 const (
 	CONDITION_TYPE_TOPIC_PARSED   = "TopicParsed"

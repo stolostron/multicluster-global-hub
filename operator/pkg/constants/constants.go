@@ -68,7 +68,7 @@ const (
 	// AnnotationPolicyONMulticlusterHub indicates the policy spec sync is running on a hub cluster
 	AnnotationPolicyONMulticlusterHub = "policy.open-cluster-management.io/sync-policies-on-multicluster-hub"
 	// AnnotationMGHWithInventory indicates the inventory is deployed
-	AnnotationMGHWithInventory = "mgh-with-inventory"
+	AnnotationMGHWithInventory = "global-hub.open-cluster-management.io/with-inventory"
 )
 
 // hub installation constants

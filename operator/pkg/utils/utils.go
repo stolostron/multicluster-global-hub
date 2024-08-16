@@ -288,7 +288,6 @@ func WaitGlobalHubReady(ctx context.Context,
 		return nil, err
 	}
 
-	klog.Info("MulticlusterGlobalHub is ready")
 	return mgh, nil
 }
 
