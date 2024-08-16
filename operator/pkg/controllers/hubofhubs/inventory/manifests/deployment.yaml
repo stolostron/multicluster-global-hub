@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-api
+  namespace: {{.Namespace}}
+  labels:
+    app: inventory-api
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      app: inventory-api
+  template:
+    metadata:
+      labels:
+        app: inventory-api
+    spec:
+      serviceAccountName: inventory-api
+      containers:
+      - command:
+        - "/usr/local/bin/inventory-api"
+        - serve
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+          - name: INVENTORY_API_CONFIG
+            value: "/inventory/inventory-api-config.yaml"
+        image: {{.Image}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        livenessProbe:
+          httpGet:
+            path: /api/inventory/v1/livez
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: inventory-api
+        ports:
+        - containerPort: 8081
+          name: http-server
+          protocol: TCP
+        - containerPort: 9081
+          name: grpc-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /api/inventory/v1/readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: config-volume
+          mountPath: /inventory
+          readOnly: true
+      initContainers:
+      - command:
+        - "/usr/local/bin/inventory-api"
+        - migrate
+        env:
+        - name: INVENTORY_API_CONFIG
+          value: "/inventory/inventory-api-config.yaml"
+        name: migration
+        image: {{.Image}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        resources:
+          requests:
+            cpu: 1m
+            memory: 20Mi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /inventory
+          readOnly: true
+      volumes:
+      - name: config-volume
+        secret:
+          secretName: inventory-api-config
+      {{- if .ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{.ImagePullSecret}}
+      {{- end }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          value: "{{.Value}}"
+          effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
+          tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
+        {{- end}}
+      volumes:
+      - name: config-volume
+        secretName:
+          name: inventory-api-config

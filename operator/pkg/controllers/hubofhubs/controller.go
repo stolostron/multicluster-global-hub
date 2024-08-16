@@ -55,6 +55,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/inventory"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
@@ -84,6 +85,7 @@ type GlobalHubReconciler struct {
 	managerReconciler   *manager.ManagerReconciler
 	webhookReconciler   *webhook.WebhookReconciler
 	grafanaReconciler   *grafana.GrafanaReconciler
+	inventoryReconciler *inventory.InventoryReconciler
 	imageClient         *imagev1client.ImageV1Client
 }
 
@@ -105,6 +107,7 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		webhookReconciler:   webhook.NewWebhookReconciler(mgr),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
+		inventoryReconciler: inventory.NewInventoryReconciler(mgr, kubeClient),
 		imageClient:         imageClient,
 	}
 }
@@ -675,6 +678,13 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// reconcile manager
 	if err := r.managerReconciler.Reconcile(ctx, mgh); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if config.WithInventory(mgh) {
+		// reconcile inventory
+		if err := r.inventoryReconciler.Reconcile(ctx, mgh); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if config.IsACMResourceReady() {
