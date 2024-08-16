@@ -25,7 +25,7 @@ kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
 [ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
 
 echo ">>>> KafkaUsers"
-kubectl get kafkauser -oyaml
+kubectl get kafkauser -n "$NAMESPACE" -oyaml
 
 echo ">>>> KafkaTopics"
-kubectl get kafkatopics -oyaml
+kubectl get kafkatopics -n "$NAMESPACE" -oyaml
