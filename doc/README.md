@@ -340,6 +340,34 @@ For common Troubleshooting issues, see [Troubleshooting](troubleshooting.md).
 
 ## Known issues
 
-1. A managed cluster that is not created successfully (clusterclaim `id.k8s.io` does not exist in the managed cluster) is not counted in global hub policy compliance dashboards, but shows in the Red Hat Advanced Cluster Management policy console.
-2. If the Globalhub Operator installed in OCP 4.13, all hyperlink which link to RHACM ManagedClusters list/detail pages in dashboards may redirect to the RHACM home page. It is caused by [issue](https://issues.redhat.com/browse/OCPBUGS-19048)
-3. In `Global Hub - Policy Group Compliancy Overview` dashboards, we can check one data point by click the link of `View Offending Policies` for standard group: xxx, but after we click this link to go to the offending page, the standard group filter can not pass to the new page. The `Global Hub - Cluster Group Compliancy Overview` has the same issue.
+### Managed cluster does not exist in the dashboard
+
+If you do not successfully create a managed cluster, you cannot find it in the global hub policy compliance dashboards, but you can see it in the Red Hat Advanced Cluster Management policy console. When you create your managed cluster, note that the clusterclaim, `id.k8s.io`, does not exist in the managed cluster.
+
+### Links redirect to RHACM home page
+
+If you install the global hub operator in OCP 4.13, the links to the RHACM managed clusters dashboard pages might redirect you to the RHACM dashboard home page page instead.  For more details on this issue, see the [open issue](https://issues.redhat.com/browse/OCPBUGS-19048)
+
+### Standard group filer does not work
+
+In `Global Hub - Policy Group Compliancy Overview` dashboards, check your data point by clicking **View Offending Policies** for `standard group: xxx`. When you get to the offending page, the standard group filter does not continue to the new page. This same issue exists for the `Global Hub - Cluster Group Compliancy Overview` dashboard.
+
+### Upgrading from Global Hub 1.2 to 1.3 (only for BYO Kafka)
+
+There are 3 topics named `spec`, `status` and `event` in your kafka cluster. However the kafka topics can be configured after upgrading it to 1.3. Notably, we will only keep 2 topics in the for the system: one for spec path and the other for status path. The default external topic will be `gh-spec` and `gh-status`. So ensure these are aligned between your Kafka clusters and the Global Hub operand. You can either create these two topics in your Kafka cluster or modify the operand to use the existing topics in your Kafka cluster. For example, updating the operand using existing `spec` and `event` topics.
+
+```yaml
+apiVersion: operator.open-cluster-management.io/v1alpha4
+kind: MulticlusterGlobalHub
+...
+spec:
+  availabilityConfig: Basic
+  dataLayer:
+    kafka:
+      topics:
+        specTopic: spec
+        statusTopic: event
+    postgres:
+      retention: 18m
+  enableMetrics: false
+```
