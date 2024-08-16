@@ -17,9 +17,13 @@ kubectl create secret generic multicluster-global-hub-transport -n multicluster-
     --from-file=client.crt=<Client-cert-for-kafka-server> \
     --from-file=client.key=<Client-key-for-kafka-server> 
 ```
-Please note that:
-- Two topics `spec` `status`. If your Kafka is configured to allow creating topics automatically, you can skip this step. Otherwise, you need to create the topics manually. And ensure that the above Kafka user has the permission to read data from the topics and write data to the topics.
-- Kafka 3.3 or later is tested.
+
+*Prerequisite:*  See the following requirements for bringing your own Kafka: 
+
+- Unless you configured your Kafka to automatically create topics, you must manually create two topics for spec and status(The default topics are `gh-spec` and `gh-status`). When you create these topics, ensure that the Kafka user can to read and write data to the these topics. And also make sure the topic names in the Global Hub operand is aligned with the topics you created.
+
+- Kafka 3.3 or later is tested.\
+
 - Suggest to have persistent volume for your Kafka.
 
 ## Bring your own Postgres
