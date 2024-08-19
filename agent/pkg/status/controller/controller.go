@@ -18,20 +18,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
-	transportproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
+func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
+	agentConfig *config.AgentConfig,
+) error {
 	if err := agentstatusconfig.AddConfigController(mgr, agentConfig); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
-	}
-
-	// only use the cloudevents
-	producer, err := transportproducer.NewGenericProducer(agentConfig.TransportConfig,
-		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic)
-	if err != nil {
-		return fmt.Errorf("failed to init status transport producer: %w", err)
 	}
 
 	// managed cluster
@@ -40,7 +35,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 	}
 
 	// event syncer
-	err = event.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
+	err := event.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
 	if err != nil {
 		return fmt.Errorf("failed to launch event syncer: %w", err)
 	}
@@ -81,7 +76,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, agentConfig *config.A
 
 	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
 	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNameSpace,
-		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic); err != nil {
+		agentConfig.TransportConfig.KafkaCredential.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
 	return nil

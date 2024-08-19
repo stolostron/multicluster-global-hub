@@ -67,7 +67,6 @@ var _ = BeforeSuite(func() {
 
 	Expect(controllers.AddHubClusterClaimController(mgr)).NotTo(HaveOccurred())
 	Expect(controllers.AddVersionClusterClaimController(mgr)).NotTo(HaveOccurred())
-	Expect(controllers.AddCertController(mgr, kubeClient)).NotTo(HaveOccurred())
 
 	go func() {
 		Expect(mgr.Start(ctx)).To(Succeed())

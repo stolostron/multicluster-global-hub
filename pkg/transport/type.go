@@ -2,6 +2,8 @@ package transport
 
 import (
 	"time"
+
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 const (
@@ -38,11 +40,15 @@ const (
 )
 
 type TransportConfig struct {
-	TransportType          string
-	MessageCompressionType string
-	CommitterInterval      time.Duration
-	KafkaConfig            *KafkaConfig
-	Extends                map[string]interface{}
+	TransportType     string
+	CommitterInterval time.Duration
+	// set the following values when initialing the components
+	IsManager            bool
+	ConsumerGroupId      string
+	EnableDatabaseOffset bool
+	// set the credentail in the transport controller
+	KafkaCredential *KafkaConnCredential
+	Extends         map[string]interface{}
 }
 
 // Kafka Config
@@ -87,6 +93,35 @@ type KafkaConnCredential struct {
 	// the following fields are only for the agent of built-in kafka
 	CASecretName     string `yaml:"ca.secret,omitempty"`
 	ClientSecretName string `yaml:"client.secret,omitempty"`
+}
+
+func (k *KafkaConnCredential) YamlMarshal(attachCertSecrets bool) ([]byte, error) {
+	copy := k.DeepCopy()
+	if !attachCertSecrets {
+		copy.CASecretName = ""
+		copy.ClientSecretName = ""
+	} else {
+		copy.CACert = ""
+		copy.ClientCert = ""
+		copy.ClientKey = ""
+	}
+	bytes, err := yaml.Marshal(copy)
+	return bytes, err
+}
+
+// DeepCopy creates a deep copy of KafkaConnCredential
+func (k *KafkaConnCredential) DeepCopy() *KafkaConnCredential {
+	return &KafkaConnCredential{
+		BootstrapServer:  k.BootstrapServer,
+		StatusTopic:      k.StatusTopic,
+		SpecTopic:        k.SpecTopic,
+		ClusterID:        k.ClusterID,
+		CACert:           k.CACert,
+		ClientCert:       k.ClientCert,
+		ClientKey:        k.ClientKey,
+		CASecretName:     k.CASecretName,
+		ClientSecretName: k.ClientSecretName,
+	}
 }
 
 type EventPosition struct {

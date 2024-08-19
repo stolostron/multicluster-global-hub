@@ -78,11 +78,10 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
-			KafkaConfig: &transport.KafkaConfig{
-				Topics: &transport.ClusterTopic{
-					StatusTopic: "event",
-					SpecTopic:   "spec",
-				},
+			IsManager:         false,
+			KafkaCredential: &transport.KafkaConnCredential{
+				SpecTopic:   "spec",
+				StatusTopic: "event",
 			},
 		},
 		EnableGlobalResource: true,
@@ -221,18 +220,31 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportConfig, 
 		consumers: map[string]transport.Consumer{},
 		producers: map[string]transport.Producer{},
 	}
+
 	for _, topic := range topics {
-		consumer, err := genericconsumer.NewGenericConsumer(transConfig, []string{topic})
+
+		// mock the consumer in manager
+		transConfig.IsManager = true
+		transConfig.EnableDatabaseOffset = false
+		transConfig.KafkaCredential.StatusTopic = topic
+		consumer, err := genericconsumer.NewGenericConsumer(transConfig)
 		if err != nil {
 			return trans, err
 		}
-		if err = mgr.Add(consumer); err != nil {
-			return trans, err
-		}
-		producer, err := genericproducer.NewGenericProducer(transConfig, topic)
+		go func() {
+			if err := consumer.Start(ctx); err != nil {
+				logf.Log.Error(err, "error to start the chan consumer")
+			}
+		}()
+		Expect(err).NotTo(HaveOccurred())
+
+		// mock the producer in agent
+		transConfig.IsManager = false
+		producer, err := genericproducer.NewGenericProducer(transConfig)
 		if err != nil {
 			return trans, err
 		}
+
 		trans.consumers[topic] = consumer
 		trans.producers[topic] = producer
 	}

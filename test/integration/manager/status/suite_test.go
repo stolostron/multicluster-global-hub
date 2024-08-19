@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
@@ -84,10 +85,9 @@ var _ = BeforeSuite(func() {
 	managerConfig := &config.ManagerConfig{
 		TransportConfig: &transport.TransportConfig{
 			TransportType: string(transport.Chan),
-			KafkaConfig: &transport.KafkaConfig{
-				Topics: &transport.ClusterTopic{
-					StatusTopic: "event",
-				},
+			KafkaCredential: &transport.KafkaConnCredential{
+				SpecTopic:   "spec",
+				StatusTopic: "event",
 			},
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{
@@ -97,11 +97,17 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Start cloudevents producer and consumer")
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "event")
+	managerConfig.TransportConfig.IsManager = false
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
+	managerConfig.TransportConfig.IsManager = true
+	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(mgr.Add(consumer)).Should(Succeed())
+
 	By("Add controllers to manager")
-	err = statussyncer.AddStatusSyncers(mgr, managerConfig)
+	err = statussyncer.AddStatusSyncers(mgr, consumer, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

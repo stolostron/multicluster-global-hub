@@ -9,21 +9,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func AddToManager(mgr ctrl.Manager, agentConfig *config.AgentConfig) error {
-	// add consumer to manager
-	consumer, err := genericconsumer.NewGenericConsumer(agentConfig.TransportConfig,
-		[]string{agentConfig.TransportConfig.KafkaConfig.Topics.SpecTopic},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize transport consumer: %w", err)
-	}
-	if err := mgr.Add(consumer); err != nil {
-		return fmt.Errorf("failed to add transport consumer to manager: %w", err)
-	}
-
+func AddToManager(mgr ctrl.Manager, consumer transport.Consumer, agentConfig *config.AgentConfig) error {
 	// add worker pool to manager
 	workers := workers.NewWorkerPool(agentConfig.SpecWorkPoolSize, mgr.GetConfig())
 	if err := mgr.Add(workers); err != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// go test ./test/integration/agent/spec -v -ginkgo.focus "ManagerClusterLabelBundle"
 var _ = Describe("ManagerClusterLabelBundle", func() {
 	It("sync managedclusterlabel bundle", func() {
 		managedClusterName := "mc1"

@@ -18,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 type crdController struct {
@@ -25,6 +26,8 @@ type crdController struct {
 	log         logr.Logger
 	restConfig  *rest.Config
 	agentConfig *config.AgentConfig
+	producer    transport.Producer
+	consumer    transport.Consumer
 }
 
 func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -32,12 +35,12 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
 	// add spec controllers
-	if err := specController.AddToManager(c.mgr, c.agentConfig); err != nil {
+	if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 	reqLogger.V(2).Info("add spec controllers to manager")
 
-	if err := statusController.AddControllers(ctx, c.mgr, c.agentConfig); err != nil {
+	if err := statusController.AddControllers(ctx, c.mgr, c.producer, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
@@ -56,7 +59,9 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // this controller is used to watch the multiclusterhub crd or clustermanager crd
 // if the crd exists, then add controllers to the manager dynamically
-func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig) error {
+func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig,
+	producer transport.Producer, consumer transport.Consumer,
+) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
 			// trigger the reconciler only if the crd is created
@@ -77,6 +82,8 @@ func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *co
 			mgr:         mgr,
 			restConfig:  restConfig,
 			agentConfig: agentConfig,
+			producer:    producer,
+			consumer:    consumer,
 			log:         ctrl.Log.WithName("crd-controller"),
 		})
 }

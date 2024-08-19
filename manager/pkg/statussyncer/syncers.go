@@ -10,11 +10,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/dispatcher"
 	dbsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // AddStatusSyncers performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler to conflation manager
-func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) error {
+func AddStatusSyncers(mgr ctrl.Manager, consumer transport.Consumer, managerConfig *config.ManagerConfig) error {
 	// create statistics
 	stats := statistics.NewStatistics(managerConfig.StatisticsConfig)
 	if err := mgr.Add(stats); err != nil {
@@ -26,7 +27,7 @@ func AddStatusSyncers(mgr ctrl.Manager, managerConfig *config.ManagerConfig) err
 	registerHandler(conflationManager, managerConfig.EnableGlobalResource)
 
 	// start consume message from transport to conflation manager
-	if err := dispatcher.AddTransportDispatcher(mgr, managerConfig, conflationManager, stats); err != nil {
+	if err := dispatcher.AddTransportDispatcher(mgr, consumer, managerConfig, conflationManager, stats); err != nil {
 		return err
 	}
 

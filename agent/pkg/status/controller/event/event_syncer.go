@@ -37,7 +37,7 @@ var eventPredicateFunc = predicate.NewPredicateFuncs(func(obj client.Object) boo
 func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 	agentConfig *config.AgentConfig, producer transport.Producer,
 ) error {
-	eventTopic := agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic
+	eventTopic := agentConfig.TransportConfig.KafkaCredential.StatusTopic
 
 	instance := func() client.Object {
 		return &corev1.Event{}
