@@ -1,12 +1,20 @@
 package config
 
 import (
+	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	kafkav2 "github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -25,7 +33,7 @@ func GetBasicConfigMap() *kafkav2.ConfigMap {
 func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
 	_ = kafkaConfigMap.SetKey("go.produce.channel.size", 1000)
 	_ = kafkaConfigMap.SetKey("acks", "1")
-	_ = kafkaConfigMap.SetKey("retries", "0")
+	_ = kafkaConfigMap.SetKey("retries", "1")
 	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
 }
 
@@ -93,4 +101,104 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 		return nil, err
 	}
 	return kafkaConfigMap, nil
+}
+
+// GetConfluentConfigMapByConfig tries to connect the kafka with transport secret(ca.key, client.crt, client.key)
+func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Client, consumerGroupID string) (
+	*kafkav2.ConfigMap, error,
+) {
+	kafkaConfigMap := GetBasicConfigMap()
+	if consumerGroupID != "" {
+		SetConsumerConfig(kafkaConfigMap, consumerGroupID)
+	} else {
+		SetProducerConfig(kafkaConfigMap)
+	}
+	conn, err := GetTransportCredentailBySecret(transportConfig, c)
+	if err != nil {
+		return nil, err
+	}
+	_ = kafkaConfigMap.SetKey("bootstrap.servers", conn.BootstrapServer)
+	// if the certs is invalid
+	if conn.CACert == "" || conn.ClientCert == "" || conn.ClientKey == "" {
+		klog.Warning("Connect to Kafka without SSL")
+		return kafkaConfigMap, nil
+	}
+
+	_ = kafkaConfigMap.SetKey("security.protocol", "ssl")
+	if err := kafkaConfigMap.SetKey("ssl.ca.pem", conn.CACert); err != nil {
+		return nil, err
+	}
+
+	if err := kafkaConfigMap.SetKey("ssl.certificate.pem", conn.ClientCert); err != nil {
+		return nil, err
+	}
+
+	if err := kafkaConfigMap.SetKey("ssl.key.pem", conn.ClientKey); err != nil {
+		return nil, err
+	}
+
+	return kafkaConfigMap, nil
+}
+
+func GetTransportCredentailBySecret(transportConfig *corev1.Secret, c client.Client) (
+	*transport.KafkaConnCredential, error,
+) {
+	kafkaConfig, ok := transportConfig.Data["kafka.yaml"]
+	if !ok {
+		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportConfig.Name)
+	}
+	conn := &transport.KafkaConnCredential{}
+	if err := yaml.Unmarshal(kafkaConfig, conn); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
+	}
+
+	// decode the ca and client cert
+	if conn.CACert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.CACert)
+		if err != nil {
+			return nil, err
+		}
+		conn.CACert = string(bytes)
+	}
+	if conn.ClientCert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.ClientCert)
+		if err != nil {
+			return nil, err
+		}
+		conn.ClientCert = string(bytes)
+	}
+	if conn.ClientKey != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.ClientKey)
+		if err != nil {
+			return nil, err
+		}
+		conn.ClientKey = string(bytes)
+	}
+
+	if conn.CASecretName != "" {
+		caSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: transportConfig.Namespace,
+				Name:      conn.CASecretName,
+			},
+		}
+		if err := c.Get(context.Background(), client.ObjectKeyFromObject(caSecret), caSecret); err != nil {
+			return nil, err
+		}
+		conn.CACert = string(caSecret.Data["ca.crt"])
+	}
+	if conn.ClientSecretName != "" {
+		clientSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: transportConfig.Namespace,
+				Name:      conn.ClientSecretName,
+			},
+		}
+		if err := c.Get(context.Background(), client.ObjectKeyFromObject(clientSecret), clientSecret); err != nil {
+			return nil, fmt.Errorf("failed to get the client cert: %w", err)
+		}
+		conn.ClientCert = string(clientSecret.Data["tls.crt"])
+		conn.ClientKey = string(clientSecret.Data["tls.key"])
+	}
+	return conn, nil
 }

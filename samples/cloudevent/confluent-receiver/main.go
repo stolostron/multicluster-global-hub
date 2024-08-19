@@ -10,7 +10,6 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
-	transconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -26,13 +25,10 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	// export BOOTSTRAP_SERVER and HUB if running it on managed hub
-	configmap, err := config.GetConfluentConfigMap(false)
+	configmap, err := config.GetConfluentConfigMapByTranportConfig("", "test-consumer-Id")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
-	transconfig.SetConsumerConfig(configmap, "test-group-id")
-
 	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configmap),
 		kafka_confluent.WithReceiverTopics([]string{topic}))
 	if err != nil {

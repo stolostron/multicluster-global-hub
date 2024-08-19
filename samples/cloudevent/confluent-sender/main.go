@@ -10,7 +10,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
-	transconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -26,13 +25,10 @@ func main() {
 	topic := os.Args[1]
 
 	ctx, cancel := context.WithCancel(context.Background())
-
-	configmap, err := config.GetConfluentConfigMap(true)
+	configmap, err := config.GetConfluentConfigMapByTranportConfig("multicluster-global-hub-agent", "")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
-	transconfig.SetProducerConfig(configmap)
-
 	sender, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configmap),
 		kafka_confluent.WithSenderTopic(topic))
 	if err != nil {
