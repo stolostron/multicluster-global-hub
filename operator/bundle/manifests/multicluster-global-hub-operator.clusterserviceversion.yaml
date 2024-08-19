@@ -23,7 +23,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-08-08T01:35:13Z"
+    createdAt: "2024-08-19T23:12:40Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.2.0 <1.3.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -258,18 +258,6 @@ spec:
           - ""
           resources:
           - configmaps
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
           - events
           verbs:
           - create
@@ -284,6 +272,9 @@ spec:
           - ""
           resources:
           - namespaces
+          - secrets
+          - serviceaccounts
+          - services
           verbs:
           - create
           - delete
@@ -301,39 +292,6 @@ spec:
           - get
           - list
           - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - secrets
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - services
-          verbs:
-          - create
-          - delete
-          - get
-          - list
           - update
           - watch
         - apiGroups:
@@ -359,6 +317,7 @@ spec:
           - addon.open-cluster-management.io
           resources:
           - clustermanagementaddons/finalizers
+          - managedclusteraddons/finalizers
           verbs:
           - update
         - apiGroups:
@@ -374,12 +333,6 @@ spec:
           - patch
           - update
           - watch
-        - apiGroups:
-          - addon.open-cluster-management.io
-          resources:
-          - managedclusteraddons/finalizers
-          verbs:
-          - update
         - apiGroups:
           - addon.open-cluster-management.io
           resources:
@@ -420,16 +373,6 @@ spec:
           - apps
           resources:
           - deployments
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - apps
-          resources:
           - statefulsets
           verbs:
           - create
@@ -442,23 +385,7 @@ spec:
           - apps.open-cluster-management.io
           resources:
           - channels
-          verbs:
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - apps.open-cluster-management.io
-          resources:
           - placementrules
-          verbs:
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - apps.open-cluster-management.io
-          resources:
           - subscriptions
           verbs:
           - get
@@ -476,16 +403,6 @@ spec:
           - certificates.k8s.io
           resources:
           - certificatesigningrequests
-          verbs:
-          - create
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - certificates.k8s.io
-          resources:
           - certificatesigningrequests/approval
           verbs:
           - create
@@ -531,6 +448,7 @@ spec:
           - cluster.open-cluster-management.io
           resources:
           - managedclustersets
+          - placements
           verbs:
           - get
           - list
@@ -540,25 +458,10 @@ spec:
           - cluster.open-cluster-management.io
           resources:
           - managedclustersets/bind
-          verbs:
-          - create
-          - delete
-        - apiGroups:
-          - cluster.open-cluster-management.io
-          resources:
           - managedclustersets/join
           verbs:
           - create
           - delete
-        - apiGroups:
-          - cluster.open-cluster-management.io
-          resources:
-          - placements
-          verbs:
-          - get
-          - list
-          - patch
-          - update
         - apiGroups:
           - coordination.k8s.io
           resources:
@@ -679,14 +582,6 @@ spec:
           - policy.open-cluster-management.io
           resources:
           - placementbindings
-          verbs:
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - policy.open-cluster-management.io
-          resources:
           - policies
           verbs:
           - get
@@ -706,38 +601,8 @@ spec:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - clusterroles
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - rolebindings
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - roles
           verbs:
           - create

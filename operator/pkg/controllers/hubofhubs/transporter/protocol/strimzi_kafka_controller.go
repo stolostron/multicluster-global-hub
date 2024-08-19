@@ -100,7 +100,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager) (*KafkaControll
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
 	err = ctrl.NewControllerManagedBy(mgr).
-		Named("kafka_controller").
+		Named("strimzi_controller").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).

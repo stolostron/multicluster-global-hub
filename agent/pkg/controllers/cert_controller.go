@@ -38,7 +38,7 @@ func (c *certController) Reconcile(ctx context.Context, request ctrl.Request) (c
 }
 
 func AddCertController(mgr ctrl.Manager, kubeClient kubernetes.Interface) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).Named("cert-controller").
 		For(&corev1.Secret{}, builder.WithPredicates(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				return false

@@ -51,7 +51,7 @@ func AddVersionClusterClaimController(mgr ctrl.Manager) error {
 			constants.GlobalHubOwnerLabelKey: constants.GHAgentOwnerLabelValue,
 		},
 	})
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).Named("clusterclaim-controller").
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
 		Watches(&mchv1.MultiClusterHub{}, &handler.EnqueueRequestForObject{}).
 		Complete(&versionClusterClaimController{
