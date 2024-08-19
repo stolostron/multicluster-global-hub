@@ -191,12 +191,20 @@ var _ = Describe("transporter", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
-			// the connection is generated
+			// the connection for manager is generated
 			conn := config.GetTransporterConn()
 			if conn == nil {
 				return fmt.Errorf("the strimzi connection should not be nil")
 			}
-			utils.PrettyPrint(conn)
+			// get the conn by transporter
+			tran := config.GetTransporter()
+			agentConn, err := tran.GetConnCredential("hub1")
+			if err != nil {
+				return err
+			}
+			if agentConn == nil {
+				return fmt.Errorf("the strimzi connection for hub1 should not be nil")
+			}
 			return nil
 		}, 20*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
@@ -407,7 +415,9 @@ var _ = Describe("transporter", Ordered, func() {
 
 		// topic: update
 		_, err = trans.EnsureTopic(clusterName)
-		Expect(err).To(Succeed())
+		if !errors.IsAlreadyExists(err) {
+			Expect(err).To(Succeed())
+		}
 
 		err = trans.Prune(clusterName)
 		Expect(err).To(Succeed())

@@ -31,6 +31,7 @@ import (
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -413,26 +414,39 @@ func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.Clus
 }
 
 // the username is the kafkauser, it's the same as the secret name
-func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.ConnCredential, error) {
+func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.KafkaConnCredential, error) {
+	// bootstrapServer, clusterId, clusterCA
 	credential, err := k.getConnCredentailByCluster()
 	if err != nil {
 		return nil, err
 	}
 
-	userName := config.GetKafkaUserName(clusterName)
-	if !k.enableTLS {
-		k.log.Info("the kafka cluster hasn't enable tls for user", "username", userName)
-		return credential, nil
-	}
+	// certificates
+	credential.CASecretName = GetClusterCASecret(k.kafkaClusterName)
+	credential.ClientSecretName = certificates.AgentCertificateSecretName()
+
+	// topics
+	credential.StatusTopic = config.GetStatusTopic(clusterName)
+	credential.SpecTopic = config.GetSpecTopic()
 
 	// don't need to load the client cert/key from the kafka user, since it use the external kafkaUser
+	// userName := config.GetKafkaUserName(clusterName)
+	// if !k.enableTLS {
+	// 	k.log.Info("the kafka cluster hasn't enable tls for user", "username", userName)
+	// 	return credential, nil
+	// }
 	// if err := k.loadUserCredentail(userName, credential); err != nil {
 	// 	return nil, err
 	// }
 	return credential, nil
 }
 
-func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.ConnCredential) error {
+func GetClusterCASecret(clusterName string) string {
+	return fmt.Sprintf("%s-cluster-ca-cert", clusterName)
+}
+
+// loadUserCredentail add credential with client cert, and key
+func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.KafkaConnCredential) error {
 	kafkaUserSecret := &corev1.Secret{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      kafkaUserName,
@@ -446,7 +460,8 @@ func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential
 	return nil
 }
 
-func (k *strimziTransporter) getConnCredentailByCluster() (*transport.ConnCredential, error) {
+// getConnCredentailByCluster gets credential with clusterId, bootstrapServer, and serverCA
+func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConnCredential, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
@@ -466,8 +481,8 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.ConnCreden
 			if kafkaCluster.Status.ClusterId != nil {
 				clusterIdentity = *kafkaCluster.Status.ClusterId
 			}
-			credential := &transport.ConnCredential{
-				Identity:        clusterIdentity,
+			credential := &transport.KafkaConnCredential{
+				ClusterID:       clusterIdentity,
 				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
 				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
 			}

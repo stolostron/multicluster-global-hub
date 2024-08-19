@@ -28,6 +28,6 @@ type Transporter interface {
 	// Cleanup will delete the user or topic for the cluster
 	Prune(clusterName string) error
 
-	// get the connection credential by user
-	GetConnCredential(clusterName string) (*ConnCredential, error)
+	// get the connection credential by clusterName
+	GetConnCredential(clusterName string) (*KafkaConnCredential, error)
 }

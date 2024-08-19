@@ -53,7 +53,7 @@ func (s *BYOTransporter) Prune(clusterName string) error {
 	return nil
 }
 
-func (s *BYOTransporter) GetConnCredential(username string) (*transport.ConnCredential, error) {
+func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConnCredential, error) {
 	kafkaSecret := &corev1.Secret{}
 	err := s.runtimeClient.Get(s.ctx, types.NamespacedName{
 		Name:      s.name,
@@ -62,11 +62,14 @@ func (s *BYOTransporter) GetConnCredential(username string) (*transport.ConnCred
 	if err != nil {
 		return nil, err
 	}
-	return &transport.ConnCredential{
-		Identity:        string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+	return &transport.KafkaConnCredential{
+		ClusterID:       string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		CACert:          base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
 		ClientCert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
 		ClientKey:       base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+		// for the byo case, the status topic isn't change by the clusterName
+		StatusTopic: config.GetStatusTopic(""),
+		SpecTopic:   config.GetSpecTopic(),
 	}, nil
 }

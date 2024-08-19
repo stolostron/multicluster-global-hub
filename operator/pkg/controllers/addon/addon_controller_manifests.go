@@ -19,6 +19,7 @@ import (
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -41,6 +42,9 @@ type ManifestsConfig struct {
 	ImagePullSecretData    string
 	ImagePullPolicy        string
 	LeafHubID              string
+	TransportConfigSecret  string
+	KafkaConfigYaml        string
+	KafkaClusterCASecret   string
 	KafkaBootstrapServer   string
 	TransportType          string
 	KafkaCACert            string
@@ -203,6 +207,11 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
 	}
 
+	kafkaConfigYaml, err := yaml.Marshal(kafkaConnection)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
+	}
+
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
 	agentRes := &Resources{}
 	jsonData, err := json.Marshal(agentResReq)
@@ -223,11 +232,14 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		HoHAgentImage:          image,
 		ImagePullPolicy:        string(imagePullPolicy),
 		LeafHubID:              cluster.Name,
+		TransportConfigSecret:  constants.GHTransportConfigSecret,
+		KafkaConfigYaml:        base64.StdEncoding.EncodeToString(kafkaConfigYaml),
 		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
 		KafkaCACert:            kafkaConnection.CACert,
 		KafkaClientCert:        kafkaConnection.ClientCert,
 		KafkaClientKey:         kafkaConnection.ClientKey,
 		KafkaClientCertSecret:  certificates.AgentCertificateSecretName(),
+		KafkaClusterCASecret:   kafkaConnection.CASecretName,
 		KafkaConsumerTopic:     clusterTopic.SpecTopic,
 		KafkaProducerTopic:     clusterTopic.StatusTopic,
 		MessageCompressionType: string(operatorconstants.GzipCompressType),

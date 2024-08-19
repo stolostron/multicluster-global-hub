@@ -63,6 +63,11 @@ const (
 	PostgresCAConfigMap        = "multicluster-global-hub-postgres-ca"
 )
 
+// the global hub transport config secret for manager and agent
+const (
+	GHTransportConfigSecret = "transport-config" // #nosec G101
+)
+
 // global hub console secret/configmap names
 const (
 	CustomAlertName      = "multicluster-global-hub-custom-alerting"
