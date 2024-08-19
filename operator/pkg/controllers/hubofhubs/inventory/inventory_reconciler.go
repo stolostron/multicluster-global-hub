@@ -70,8 +70,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("the database isn't ready")
 	}
 
-	postgresURI, err := url.Parse(base64.StdEncoding.EncodeToString(
-		[]byte(storageConn.SuperuserDatabaseURI)))
+	postgresURI, err := url.Parse(string(storageConn.SuperuserDatabaseURI))
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 			NodeSelector     map[string]string
 			Tolerations      []corev1.Toleration
 		}{
-			Image:            config.GetImage(config.GlobalHubManagerImageKey),
+			Image:            config.GetImage(config.InventoryImageKey),
 			Replicas:         replicas,
 			ImagePullSecret:  mgh.Spec.ImagePullSecret,
 			ImagePullPolicy:  string(imagePullPolicy),
