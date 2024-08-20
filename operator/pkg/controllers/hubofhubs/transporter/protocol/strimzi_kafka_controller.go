@@ -33,6 +33,14 @@ type KafkaController struct {
 }
 
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	// If mgh is deleting, return
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
 	if err := r.trans.EnsureKafka(); err != nil {
 		return ctrl.Result{}, err
 	}

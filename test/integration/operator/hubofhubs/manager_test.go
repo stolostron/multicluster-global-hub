@@ -19,6 +19,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
 // go test ./test/integration/operator/hubofhubs -ginkgo.focus "manager" -v
@@ -93,10 +94,11 @@ var _ = Describe("manager", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		err = runtimeClient.Delete(ctx, &corev1.Secret{
+		err := runtimeClient.Delete(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.GHTransportSecretName,
 				Namespace: mgh.Namespace,

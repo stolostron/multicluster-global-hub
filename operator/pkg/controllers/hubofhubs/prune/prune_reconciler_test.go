@@ -15,6 +15,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -118,15 +119,39 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "kafkauser",
 						Namespace: utils.GetDefaultNamespace(),
+						Labels: map[string]string{
+							constants.GlobalHubOwnerLabelKey: "global-hub",
+						},
 					},
 				},
 				&kafkav1beta2.KafkaTopic{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "kafkatopic",
 						Namespace: utils.GetDefaultNamespace(),
+						Labels: map[string]string{
+							constants.GlobalHubOwnerLabelKey: "global-hub",
+						},
 					},
 				},
 			},
+		},
+		{
+			name: "remove kafka topics which has finalizer",
+			initObjects: []runtime.Object{
+				&kafkav1beta2.KafkaTopic{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "kafkatopic",
+						Namespace: utils.GetDefaultNamespace(),
+						Finalizers: []string{
+							"test-final",
+						},
+						Labels: map[string]string{
+							constants.GlobalHubOwnerLabelKey: "global-hub",
+						},
+					},
+				},
+			},
+			wantErr: true,
 		},
 		{
 			name: "remove subscription and csv",

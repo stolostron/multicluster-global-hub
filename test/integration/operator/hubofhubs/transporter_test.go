@@ -29,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
 // go test ./test/integration/operator/hubofhubs -ginkgo.focus "transporter" -v
@@ -112,7 +113,7 @@ var _ = Describe("transporter", Ordered, func() {
 		config.SetKafkaResourceReady(true)
 
 		// update the transport protocol configuration, topic
-		err := config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
+		err := config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
 		Expect(err).To(Succeed())
 		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
 		Expect(err).To(Succeed())
@@ -130,7 +131,7 @@ var _ = Describe("transporter", Ordered, func() {
 				fmt.Println("reconciler error, retrying ...", err.Error())
 				time.Sleep(1 * time.Second)
 
-				_ = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
+				_ = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
 				err = reconciler.Reconcile(ctx, mgh)
 			}
 		}()
@@ -413,10 +414,11 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		err = runtimeClient.Delete(ctx, &corev1.Namespace{
+		err := runtimeClient.Delete(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},

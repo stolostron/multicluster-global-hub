@@ -595,7 +595,7 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, req, r.client, r.imageClient)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.client)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -605,6 +605,10 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, nil
 		}
 		r.log.Error(err, "failed to get MulticlusterGlobalHub")
+		return ctrl.Result{}, err
+	}
+	err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, r.client, r.imageClient)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if config.IsPaused(mgh) {
@@ -632,7 +636,7 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// prune resources if deleting mgh or metrics is disabled
 	if err = r.pruneReconciler.Reconcile(ctx, mgh); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to prune Global Hub resources %v", err)
 	}
 	if mgh.GetDeletionTimestamp() != nil {
 		return ctrl.Result{}, nil

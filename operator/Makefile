@@ -108,9 +108,9 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
-	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./main.go ./apis/ ./pkg/
+	@gci write -s standard -s default -s "prefix(github.com/stolostron/multicluster-global-hub)" ./cmd/main.go ./api/ ./pkg/
 	@go fmt ./...
-	gofumpt -w ./main.go ./apis/ ./pkg/
+	gofumpt -w ./cmd/main.go ./api/ ./pkg/
 
 .PHONY: vet
 vet: ## Run go vet against code.
@@ -124,11 +124,11 @@ test: manifests generate fmt vet envtest ## Run tests.
 
 .PHONY: build
 build: generate fmt vet ## Build multicluster-global-hub-operator binary.
-	go build -o bin/multicluster-global-hub-operator main.go
+	go build -o bin/multicluster-global-hub-operator ./cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./main.go
+	go run ./cmd/main.go
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the multicluster-global-hub-operator.

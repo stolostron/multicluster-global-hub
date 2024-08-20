@@ -35,10 +35,17 @@ type AddonInstaller struct {
 }
 
 func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mgh, err := utils.WaitGlobalHubReady(ctx, r, 5*time.Second)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
 	if config.IsPaused(mgh) {
 		r.Log.Info("multiclusterglobalhub addon installer is paused, nothing more to do")
 		return ctrl.Result{}, nil

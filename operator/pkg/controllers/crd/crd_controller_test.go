@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/types"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -30,8 +31,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
@@ -49,10 +52,13 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+	clusterResourceFile := "operator.open-cluster-management.io_multiclusterglobalhubs.yaml"
+
 	// start testenv
 	testenv := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "..", "test", "manifest", "crd"),
+			filepath.Join("..", "..", "..", "config", "crd", "bases", clusterResourceFile),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -94,6 +100,24 @@ func TestCRDCtr(t *testing.T) {
 		Scheme: config.GetRuntimeScheme(),
 	})
 	assert.Nil(t, err)
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-mgh",
+			Namespace: utils.GetDefaultNamespace(),
+			Finalizers: []string{
+				"test-finalizer",
+			},
+		},
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{
+			DataLayer: v1alpha4.DataLayerConfig{
+				Postgres: v1alpha4.PostgresConfig{
+					Retention: "2y",
+				},
+			},
+		},
+	}
+	err = mgr.GetClient().Create(ctx, mgh)
+	assert.Nil(t, err)
 
 	instance, err := controller.New(constants.GlobalHubControllerName, mgr, controller.Options{
 		Reconciler: reconcile.Func(
@@ -101,24 +125,40 @@ func TestCRDCtr(t *testing.T) {
 				return reconcile.Result{}, nil
 			}),
 	})
+	assert.Nil(t, err)
 
-	_, err = AddCRDController(mgr, &config.OperatorConfig{}, nil, instance)
+	crdController, err := AddCRDController(mgr, &config.OperatorConfig{}, nil, instance)
 	assert.Nil(t, err)
 
 	go func() {
 		err := mgr.Start(ctx)
 		assert.Nil(t, err)
 	}()
-	assert.True(t, mgr.GetCache().WaitForCacheSync(ctx))
-
-	clusterResourceFile := "operator.open-cluster-management.io_multiclusterglobalhubs.yaml"
-
-	err = applyYaml(filepath.Join("..", "..", "..", "config", "crd", "bases", clusterResourceFile))
-	assert.Nil(t, err)
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      "test-mgh",
+	})
 	time.Sleep(1 * time.Second)
+	assert.True(t, mgr.GetCache().WaitForCacheSync(ctx))
 
 	assert.True(t, config.IsACMResourceReady())
 	assert.True(t, config.GetKafkaResourceReady())
+
+	err = crdController.GetClient().Delete(ctx, mgh)
+	assert.Nil(t, err)
+	time.Sleep(1 * time.Second)
+
+	_, err = crdController.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}})
+	assert.Nil(t, err)
+
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      "test-mgh-not-exist",
+	})
+
+	_, err = crdController.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}})
+	assert.Nil(t, err)
+
 	cancel()
 }
 

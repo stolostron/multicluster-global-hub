@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
 // go test ./test/integration/operator/hubofhubs -ginkgo.focus "storage" -v
@@ -89,8 +90,10 @@ var _ = Describe("storage", Ordered, func() {
 
 		err = runtimeClient.Delete(ctx, storageSecret)
 		Expect(err).To(Succeed())
-		err = runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		err = runtimeClient.Delete(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
@@ -162,8 +165,10 @@ var _ = Describe("storage", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// cleanup
-		err = runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		err = runtimeClient.Delete(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
@@ -219,8 +224,10 @@ var _ = Describe("storage", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// cleanup
-		err = runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		err = runtimeClient.Delete(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,

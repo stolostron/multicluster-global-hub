@@ -94,19 +94,6 @@ type HohAgentAddon struct {
 	operatorConfig *config.OperatorConfig
 }
 
-func (a *HohAgentAddon) getMulticlusterGlobalHub() (*globalhubv1alpha4.MulticlusterGlobalHub, error) {
-	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
-	err := a.client.List(a.ctx, mghList)
-	if err != nil {
-		return nil, err
-	}
-	if len(mghList.Items) != 1 {
-		return nil, fmt.Errorf("the count of the mgh instance is not 1 in the cluster.%v", len(mghList.Items))
-	}
-
-	return &mghList.Items[0], nil
-}
-
 func (a *HohAgentAddon) installACMHub(cluster *clusterv1.ManagedCluster) bool {
 	if _, exist := cluster.GetLabels()[operatorconstants.GHAgentACMHubInstallLabelKey]; !exist {
 		return false
@@ -166,7 +153,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	if len(installNamespace) == 0 {
 		installNamespace = operatorconstants.GHAgentInstallNamespace
 	}
-	mgh, err := a.getMulticlusterGlobalHub()
+	mgh, err := config.GetMulticlusterGlobalHub(a.ctx, a.client)
 	if err != nil {
 		log.Error(err, "failed to get MulticlusterGlobalHub")
 		return nil, err
