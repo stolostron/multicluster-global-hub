@@ -54,9 +54,6 @@ spec:
         - name: config-volume
           mountPath: /inventory
           readOnly: true
-        - name: inventory-api-certs
-          mountPath: /inventory/certs
-          readOnly: true
       initContainers:
       - command:
         - "/usr/local/bin/inventory-api"
@@ -101,7 +98,3 @@ spec:
       - name: config-volume
         secret:
           secretName: inventory-api-config
-      - name: inventory-api-certs
-        secret:
-          secretName: inventory-api-certs
-

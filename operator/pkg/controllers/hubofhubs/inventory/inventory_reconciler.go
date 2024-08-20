@@ -17,6 +17,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -43,6 +44,15 @@ func NewInventoryReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *
 func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
+
+	// start certificate controller
+	certctrl.Start(ctx, r.GetClient())
+
+	// create inventory certs
+	if err := certctrl.CreateInventoryCerts(r.GetClient(), r.GetScheme(), mgh); err != nil {
+		return err
+	}
+
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 

@@ -74,7 +74,7 @@ var (
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
-		// TODO: replace with quay.io/stolostro/grafana:globalhub-1.3 when it is ready
+		// TODO: replace with quay.io/stolostron/grafana:globalhub-1.3 when it is ready
 		GrafanaImageKey:          "quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/release-globalhub-1-3/glo-grafana-globalhub-1-3@sha256:c73fb10b1230c5e678d51fc609a5cfb8fb02ca2f4c12e4639cf7ad483f6a47a0",
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",

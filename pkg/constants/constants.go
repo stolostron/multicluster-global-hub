@@ -12,6 +12,7 @@ const (
 	AgentDeploymentName = "multicluster-global-hub-agent"
 	// InventoryDeploymentName define the common inventory api deployment name
 	InventoryDeploymentName = "inventory-api"
+	InventoryRouteName      = "inventory-api"
 
 	// GHAgentConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
