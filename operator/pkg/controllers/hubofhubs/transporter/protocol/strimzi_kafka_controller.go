@@ -92,15 +92,9 @@ var mghPred = predicate.Funcs{
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager) (*KafkaController, error) {
 	r := &KafkaController{Manager: mgr}
 
-	// we need to ensure the tranport it ready, then reconcile others(synchoronized)
-	_, err := r.Reconcile(ctx, ctrl.Request{})
-	if err != nil {
-		return nil, err
-	}
-
 	// even if the following controller will reconcile the transport, but it's asynchoronized
-	err = ctrl.NewControllerManagedBy(mgr).
-		Named("kafka_controller").
+	err := ctrl.NewControllerManagedBy(mgr).
+		Named("strimzi_controller").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).

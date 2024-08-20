@@ -34,6 +34,10 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			if err != nil {
 				return err
 			}
+			_, err := r.kafkaController.Reconcile(ctx, ctrl.Request{})
+			if err != nil {
+				return err
+			}
 		}
 	case transport.SecretTransporter:
 		trans = protocol.NewBYOTransporter(ctx, types.NamespacedName{
@@ -48,6 +52,5 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 		}
 		config.SetTransporterConn(conn)
 	}
-
 	return nil
 }

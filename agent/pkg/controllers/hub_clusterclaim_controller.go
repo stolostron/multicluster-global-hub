@@ -47,7 +47,7 @@ func AddHubClusterClaimController(mgr ctrl.Manager) error {
 		clusterClaim, _ := getClusterClaim(context.Background(), mgr.GetClient(), constants.HubClusterClaimName)
 		return clusterClaim == nil
 	})
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).Named("hubclusterclaim-controller").
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
 		Complete(&hubClusterClaimController{
 			client: mgr.GetClient(),
