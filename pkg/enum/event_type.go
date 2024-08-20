@@ -38,4 +38,7 @@ const (
 	LocalPlacementRuleSpecType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.localspec"
 	PlacementRuleSpecType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.spec"
 	PlacementSpecType          EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placement.spec"
+
+	// Used to send security alerts:
+	SecurityAlertCountsType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.security.alertcounts"
 )

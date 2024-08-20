@@ -10,6 +10,8 @@ const (
 	LocalSpecSchema = "local_spec"
 	// EventSchema schema for policy events
 	EventSchema = "event"
+	// SecuritySchemma schema for security updates.
+	SecuritySchema = "security"
 )
 
 // table names.
@@ -45,6 +47,9 @@ const (
 	// PolicyEvent table name of leaf_hubs.
 	LocalPolicyEventTableName     = "local_policies"
 	LocalRootPolicyEventTableName = "local_root_policies"
+
+	// SecurityAlertCountsTable is the name of the table for security alert counts.
+	SecurityAlertCountsTable = "alert_counts"
 )
 
 // default values.
