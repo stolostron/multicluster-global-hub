@@ -699,6 +699,7 @@ func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1al
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("r.transportReconciler.Reconcile")
 		err := r.transportReconciler.Reconcile(ctx, mgh)
 		if err != nil {
 			errorChan <- err
@@ -709,6 +710,7 @@ func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1al
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		fmt.Println("r.storageReconciler.Reconcile")
 		err := r.storageReconciler.Reconcile(ctx, mgh)
 		if err != nil {
 			errorChan <- err

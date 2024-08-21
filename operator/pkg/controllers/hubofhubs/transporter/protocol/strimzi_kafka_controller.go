@@ -43,13 +43,19 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	// kafkaCluster, it will be blocking until the status is ready
-	trans, err := NewStrimziTransporter(
+	trans := NewStrimziTransporter(
 		r.Manager,
 		mgh,
 		WithContext(ctx),
 		WithCommunity(operatorutils.IsCommunityMode()),
 	)
+	err := trans.ensureKafka(trans.mgh)
 	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// use the client ca to sign the csr for the managed hubs
+	if err := config.SetClientCA(trans.ctx, mgh.Namespace, KafkaClusterName, trans.runtimeClient); err != nil {
 		return ctrl.Result{}, err
 	}
 	// update the transporter

@@ -105,7 +105,7 @@ type KafkaOption func(*strimziTransporter)
 
 func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
-) (*strimziTransporter, error) {
+) *strimziTransporter {
 	k := &strimziTransporter{
 		log:                   ctrl.Log.WithName("strimzi-transporter"),
 		ctx:                   context.TODO(),
@@ -142,16 +142,7 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		k.topicPartitionReplicas = 1
 	}
 
-	err := k.ensureKafka(k.mgh)
-	if err != nil {
-		return nil, err
-	}
-
-	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetClientCA(k.ctx, mgh.Namespace, KafkaClusterName, k.runtimeClient); err != nil {
-		return nil, err
-	}
-	return k, err
+	return k
 }
 
 func WithNamespacedName(name types.NamespacedName) KafkaOption {
@@ -179,12 +170,6 @@ func WithSubName(name string) KafkaOption {
 	}
 }
 
-func WithWaitReady(wait bool) KafkaOption {
-	return func(sk *strimziTransporter) {
-		sk.waitReady = wait
-	}
-}
-
 // ensureKafka the kafka subscription, cluster, metrics, global hub user and topic
 func (k *strimziTransporter) ensureKafka(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	k.log.Info("reconcile global hub kafka transport...")
@@ -192,31 +177,17 @@ func (k *strimziTransporter) ensureKafka(mgh *operatorv1alpha4.MulticlusterGloba
 	if err != nil {
 		return err
 	}
-	err = wait.PollUntilContextTimeout(k.ctx, 2*time.Second, 30*time.Second, true,
-		func(ctx context.Context) (bool, error) {
-			if !config.GetKafkaResourceReady() {
-				return false, fmt.Errorf("the kafka crds is not ready")
-			}
-			err, _ = k.CreateUpdateKafkaCluster(mgh)
-			if err != nil {
-				k.log.Info("the kafka cluster is not created, retrying...", "message", err.Error())
-				return false, nil
-			}
-			// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-			err = k.renderKafkaResources(mgh)
-			if err != nil {
-				k.log.Info("the kafka resources are not created, retrying...", "message", err.Error())
-				return false, nil
-			}
-
-			return true, nil
-		})
+	if !config.GetKafkaResourceReady() {
+		return fmt.Errorf("the kafka crds is not ready")
+	}
+	err, _ = k.CreateUpdateKafkaCluster(mgh)
 	if err != nil {
 		return err
 	}
-
-	if !k.waitReady {
-		return nil
+	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
+	err = k.renderKafkaResources(mgh)
+	if err != nil {
+		return err
 	}
 
 	if err := k.kafkaClusterReady(); err != nil {

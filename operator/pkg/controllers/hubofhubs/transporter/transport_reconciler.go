@@ -9,6 +9,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -28,6 +29,20 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 	var trans transport.Transporter
 	switch config.TransporterProtocol() {
 	case transport.StrimziTransporter:
+		// initilize strimzi
+		// kafkaCluster, it will be blocking until the status is ready
+		trans := protocol.NewStrimziTransporter(
+			r.Manager,
+			mgh,
+			protocol.WithContext(ctx),
+			protocol.WithCommunity(operatorutils.IsCommunityMode()),
+		)
+		if err != nil {
+			return err
+		}
+		// update the transporter
+		config.SetTransporter(trans)
+
 		// this controller also will update the transport connection
 		if config.GetKafkaResourceReady() && r.kafkaController == nil {
 			r.kafkaController, err = protocol.StartKafkaController(ctx, r.Manager)
