@@ -51,10 +51,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			if err != nil {
 				return err
 			}
-			_, err := r.kafkaController.Reconcile(ctx, ctrl.Request{})
-			if err != nil {
-				return err
-			}
 		}
 	case transport.SecretTransporter:
 		if r.transporter == nil {

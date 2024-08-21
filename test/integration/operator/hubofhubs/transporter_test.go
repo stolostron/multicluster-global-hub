@@ -210,7 +210,7 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 
 	It("should pass the strimzi transport configuration", func() {
-		trans, err := protocol.NewStrimziTransporter(
+		trans := protocol.NewStrimziTransporter(
 			runtimeManager,
 			mgh,
 			protocol.WithCommunity(false),
@@ -218,9 +218,7 @@ var _ = Describe("transporter", Ordered, func() {
 				Name:      protocol.KafkaClusterName,
 				Namespace: mgh.Namespace,
 			}),
-			protocol.WithWaitReady(false),
 		)
-		Expect(err).To(Succeed())
 
 		customCPURequest := "1m"
 		customCPULimit := "2m"
@@ -422,9 +420,6 @@ var _ = Describe("transporter", Ordered, func() {
 		err = trans.Prune(clusterName)
 		Expect(err).To(Succeed())
 
-		// test block
-		_, err = protocol.NewStrimziTransporter(runtimeManager, mgh, protocol.WithWaitReady(true))
-		Expect(err).To(Succeed())
 	})
 
 	AfterAll(func() {

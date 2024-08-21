@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -691,42 +690,12 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // 3. wait for kafka and postgres ready
 func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	// initialize postgres and kafka at the same time
-	var wg sync.WaitGroup
+	if err := r.transportReconciler.Reconcile(ctx, mgh); err != nil {
+		return err
+	}
 
-	errorChan := make(chan error, 2)
-	// initialize transport
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		fmt.Println("r.transportReconciler.Reconcile")
-		err := r.transportReconciler.Reconcile(ctx, mgh)
-		if err != nil {
-			errorChan <- err
-			return
-		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		fmt.Println("r.storageReconciler.Reconcile")
-		err := r.storageReconciler.Reconcile(ctx, mgh)
-		if err != nil {
-			errorChan <- err
-			return
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		close(errorChan)
-	}()
-
-	for err := range errorChan {
-		if err != nil {
-			return fmt.Errorf("middleware not ready, Error: %v", err)
-		}
+	if err := r.storageReconciler.Reconcile(ctx, mgh); err != nil {
+		return err
 	}
 	return nil
 }
