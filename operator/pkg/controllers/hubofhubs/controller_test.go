@@ -143,7 +143,7 @@ func TestController(t *testing.T) {
 			if cond.Type == config.CONDITION_TYPE_GLOBALHUB_READY {
 				count++
 				Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-				Expect(cond.Message).To(ContainSubstring("middleware not ready"))
+				Expect(cond.Message).To(ContainSubstring("database not ready"))
 			}
 		}
 		if count != 2 {

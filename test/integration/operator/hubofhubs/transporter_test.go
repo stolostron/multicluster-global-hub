@@ -419,7 +419,6 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = trans.Prune(clusterName)
 		Expect(err).To(Succeed())
-
 	})
 
 	AfterAll(func() {
