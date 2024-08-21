@@ -85,7 +85,7 @@ func (h *HubManagement) update(ctx context.Context) error {
 		Find(&expiredHubs).Error; err != nil {
 		return err
 	}
-	if err := h.inactive(ctx, expiredHubs, thresholdTime); err != nil {
+	if err := h.inactive(ctx, expiredHubs); err != nil {
 		return fmt.Errorf("failed to inactive hubs %v", err)
 	}
 
@@ -94,13 +94,13 @@ func (h *HubManagement) update(ctx context.Context) error {
 		Find(&reactiveHubs).Error; err != nil {
 		return err
 	}
-	if err := h.reactive(ctx, reactiveHubs, thresholdTime); err != nil {
+	if err := h.reactive(ctx, reactiveHubs); err != nil {
 		return fmt.Errorf("failed to reactive hubs %v", err)
 	}
 	return nil
 }
 
-func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat, thresholdTime time.Time) error {
+func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	for _, hub := range hubs {
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
@@ -155,7 +155,7 @@ func (h *HubManagement) cleanup(hubName string) error {
 	})
 }
 
-func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeartbeat, thresholdTime time.Time) error {
+func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	// resync hub resources
 	db := database.GetGorm()
 	for _, hub := range hubs {

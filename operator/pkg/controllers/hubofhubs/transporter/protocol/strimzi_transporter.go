@@ -27,15 +27,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -229,7 +227,7 @@ func (k *strimziTransporter) ensureKafka(mgh *operatorv1alpha4.MulticlusterGloba
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
-func (k *strimziTransporter) renderKafkaResources(mgh *v1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	statusTopic := config.GetRawStatusTopic()
 	statusPlaceholderTopic := config.GetRawStatusTopic()
 	topicParttern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
@@ -276,7 +274,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *v1alpha4.MulticlusterGlob
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = operatorutils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
+	if err = utils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
 		k.manager.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update kafka objects: %w", err)
 	}

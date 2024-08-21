@@ -115,7 +115,7 @@ func (h *localRootPolicyEmitter) Update(obj client.Object) bool {
 			Message:        evt.Message,
 			Reason:         evt.Reason,
 			Count:          getEventCount(evt),
-			Source:         *getEventSource(evt),
+			Source:         evt.Source,
 			CreatedAt:      getEventLastTime(evt),
 		},
 		PolicyID:   string(policy.GetUID()),
@@ -210,12 +210,4 @@ func getEventCount(evt *corev1.Event) int32 {
 		count = evt.Series.Count
 	}
 	return count
-}
-
-func getEventSource(evt *corev1.Event) *corev1.EventSource {
-	eventSource := evt.Source
-	if evt.ReportingController != "" {
-		eventSource.Component = evt.ReportingController
-	}
-	return &evt.Source
 }

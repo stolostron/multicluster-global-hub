@@ -66,10 +66,10 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 
 		case <-labelsTrimmerTicker.C:
 
-			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx, watcher.intervalPolicy.GetMaxInterval())
+			_, cancelFunc := context.WithTimeout(ctx, watcher.intervalPolicy.GetMaxInterval())
 
 			// update the deleted label keys to label table by the managed cluster table
-			trimmed := watcher.updateDeletedLabelsByManagedCluster(ctxWithTimeout)
+			trimmed := watcher.updateDeletedLabelsByManagedCluster()
 
 			cancelFunc() // cancel child ctx and is used to cleanup resources once context expires or update is done.
 
@@ -94,17 +94,17 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 
 		case <-hubNameFillTicker.C:
 			// define timeout of max execution interval on the update function
-			ctxWithTimeout, cancelFunc := context.WithTimeout(ctx,
+			_, cancelFunc := context.WithTimeout(ctx,
 				watcher.intervalPolicy.GetMaxInterval())
-			watcher.fillMissingLeafHubNames(ctxWithTimeout)
+			watcher.fillMissingLeafHubNames()
 
 			cancelFunc() // cancel child ctx and is used to cleanup resources once context expires or update is done.
 		}
 	}
 }
 
-func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCluster(ctx context.Context) bool {
-	leafHubToLabelsSpecBundleMap, err := getLabelBundleWithDeletedKey(ctx)
+func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCluster() bool {
+	leafHubToLabelsSpecBundleMap, err := getLabelBundleWithDeletedKey()
 	if err != nil {
 		watcher.log.Error(err, "trimming cycle skipped")
 		return false
@@ -122,7 +122,7 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 	for _, managedClusterLabelsSpecBundle := range leafHubToLabelsSpecBundleMap {
 		// fetch actual labels status reflected in status DB
 		for _, managedClusterLabelsSpec := range managedClusterLabelsSpecBundle.Objects {
-			labelsStatus, err := getLabelsFromManagedCluster(ctx, managedClusterLabelsSpecBundle.LeafHubName,
+			labelsStatus, err := getLabelsFromManagedCluster(managedClusterLabelsSpecBundle.LeafHubName,
 				managedClusterLabelsSpec.ClusterName)
 			if err != nil {
 				watcher.log.Error(err, "failed to get the label from managed cluster")
@@ -144,7 +144,7 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 				continue
 			}
 
-			err = updateDeletedKeysToLabelTable(ctx,
+			err = updateDeletedKeysToLabelTable(
 				managedClusterLabelsSpec.Version, managedClusterLabelsSpecBundle.LeafHubName,
 				managedClusterLabelsSpec.ClusterName, deletedLabelKeysStillInStatus)
 			if err != nil {
@@ -162,8 +162,8 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 	return result
 }
 
-func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames(ctx context.Context) {
-	entities, err := getLabelsWithoutLeafHubName(ctx)
+func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames() {
+	entities, err := getLabelsWithoutLeafHubName()
 	if err != nil {
 		watcher.log.Error(err, "failed to fetch entries with no leaf-hub-name from spec db table")
 		return
@@ -190,7 +190,7 @@ func (watcher *managedClusterLabelsStatusWatcher) fillMissingLeafHubNames(ctx co
 
 // returns a map of leaf-hub -> ManagedClusterLabelsSpecBundle of objects that have a
 // none-empty deleted-label-keys column.
-func getLabelBundleWithDeletedKey(ctx context.Context) (
+func getLabelBundleWithDeletedKey() (
 	map[string]*spec.ManagedClusterLabelsSpecBundle, error,
 ) {
 	db := database.GetGorm()
@@ -205,7 +205,7 @@ func getLabelBundleWithDeletedKey(ctx context.Context) (
 }
 
 // Return the labels present in managed-cluster CR metadata from a specific table.
-func getLabelsFromManagedCluster(ctx context.Context, leafHubName string, managedClusterName string,
+func getLabelsFromManagedCluster(leafHubName string, managedClusterName string,
 ) (map[string]string, error) {
 	db := database.GetGorm()
 
@@ -228,7 +228,7 @@ func getLabelsFromManagedCluster(ctx context.Context, leafHubName string, manage
 
 // UpdateDeletedLabelKeys updates deleted_label_keys value for a managed cluster entry under
 // optimistic concurrency approach.
-func updateDeletedKeysToLabelTable(ctx context.Context, readVersion int64,
+func updateDeletedKeysToLabelTable(readVersion int64,
 	leafHubName string, managedClusterName string, deletedLabelKeys []string,
 ) error {
 	deletedLabelsJSON, err := json.Marshal(deletedLabelKeys)
@@ -247,7 +247,7 @@ func updateDeletedKeysToLabelTable(ctx context.Context, readVersion int64,
 }
 
 // getLabelsWithoutLeafHubName returns a slice of ManagedClusterLabelsSpec that are missing leaf hub name.
-func getLabelsWithoutLeafHubName(ctx context.Context) ([]*spec.ManagedClusterLabelsSpec, error) {
+func getLabelsWithoutLeafHubName() ([]*spec.ManagedClusterLabelsSpec, error) {
 	db := database.GetGorm()
 	rows, err := db.Raw(fmt.Sprintf(`SELECT managed_cluster_name, version FROM spec.%s WHERE 
 			leaf_hub_name = ''`, labelsTableName)).Rows()

@@ -27,7 +27,7 @@ import (
 	appsubV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
 
 func GetRuntimeScheme() *runtime.Scheme {

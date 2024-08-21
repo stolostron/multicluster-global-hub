@@ -71,17 +71,20 @@ type MulticlusterGlobalHubSpec struct {
 	// AvailabilityType specifies deployment replication for improved availability. Options are: Basic and High (default)
 	// +kubebuilder:default:="High"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Availability Configuration"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:High","urn:alm:descriptor:com.tectonic.ui:select:Basic"}
 	AvailabilityConfig AvailabilityType `json:"availabilityConfig,omitempty"`
 	// ImagePullPolicy specifies the pull policy of the multicluster global hub images
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:imagePullPolicy"}
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 	// ImagePullSecret specifies the pull secret of the multicluster global hub images
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	// +optional
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// NodeSelector specifies the desired state of NodeSelector
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// Tolerations causes all components to tolerate any taints
@@ -98,6 +101,8 @@ type MulticlusterGlobalHubSpec struct {
 	// EnableMetrics enables the metrics for the global hub created kafka and postgres components.
 	// If the user provides the kafka and postgres, then the enablemetrics variable is useless.
 	// +kubebuilder:default=true
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	// +optional
 	EnableMetrics bool `json:"enableMetrics"`
 }
