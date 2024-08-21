@@ -27,7 +27,7 @@ func TestApprove(t *testing.T) {
 			Username: "system:open-cluster-management:" + clusterName,
 		},
 	}
-	if !approve(cluster, nil, csr) {
+	if !approve(cluster, csr) {
 		t.Fatal("csr not approved automatically")
 	}
 	illCsr := &certificatesv1.CertificateSigningRequest{
@@ -35,7 +35,7 @@ func TestApprove(t *testing.T) {
 			Username: "illegal",
 		},
 	}
-	if approve(cluster, nil, illCsr) {
+	if approve(cluster, illCsr) {
 		t.Fatal("illegal csr approved automatically")
 	}
 }

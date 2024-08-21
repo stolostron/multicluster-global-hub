@@ -15,8 +15,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -70,7 +69,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	}
 
 	replicas := int32(1)
-	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
+	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
 		replicas = 2
 	}
 
