@@ -80,11 +80,12 @@ type strimziTransporter struct {
 	kafkaClusterNamespace string
 
 	// subscription properties
-	subName              string
-	subCommunity         bool
-	subChannel           string
-	subCatalogSourceName string
-	subPackageName       string
+	subName                   string
+	subCommunity              bool
+	subChannel                string
+	subCatalogSourceName      string
+	subCatalogSourceNamespace string
+	subPackageName            string
 
 	// global hub config
 	mgh           *operatorv1alpha4.MulticlusterGlobalHub
@@ -110,11 +111,12 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		kafkaClusterName:      KafkaClusterName,
 		kafkaClusterNamespace: mgh.Namespace,
 
-		subName:              DefaultKafkaSubName,
-		subCommunity:         false,
-		subChannel:           DefaultAMQChannel,
-		subPackageName:       DefaultAMQPackageName,
-		subCatalogSourceName: DefaultCatalogSourceName,
+		subName:                   DefaultKafkaSubName,
+		subCommunity:              false,
+		subChannel:                DefaultAMQChannel,
+		subPackageName:            DefaultAMQPackageName,
+		subCatalogSourceName:      DefaultCatalogSourceName,
+		subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
 
 		waitReady:              true,
 		enableTLS:              true,
@@ -134,6 +136,15 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		k.subChannel = CommunityChannel
 		k.subPackageName = CommunityPackageName
 		k.subCatalogSourceName = CommunityCatalogSourceName
+		// it will be operatorhubio-catalog to install kafka in KinD cluster
+		catalogSourceName, ok := mgh.Annotations[operatorconstants.CommunityCatalogSourceNameKey]
+		if ok && catalogSourceName != "" {
+			k.subCatalogSourceName = catalogSourceName
+		}
+		catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CommunityCatalogSourceNamespaceKey]
+		if ok && catalogSourceNamespace != "" {
+			k.subCatalogSourceNamespace = catalogSourceNamespace
+		}
 	}
 
 	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
@@ -630,6 +641,23 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayer.StorageClass
 	}
 
+	kafkaTLSListener := kafkav1beta2.KafkaSpecKafkaListenersElem{
+		Name: "tls",
+		Port: 9093,
+		Tls:  true,
+		Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
+		Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
+			Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
+		},
+	}
+	// Get the tls kafka listener if it is defined in annotation. it is only used for tests
+	listener, ok := mgh.Annotations[operatorconstants.GHKafkaTLSListener]
+	if ok && listener != "" {
+		if err := json.Unmarshal([]byte(listener), &kafkaTLSListener); err != nil {
+			klog.Infof("failed to unmarshal to KafkaSpecKafkaListenersElem: %s", err)
+		}
+	}
+
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.kafkaClusterName,
@@ -655,15 +683,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						Tls:  false,
 						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
 					},
-					{
-						Name: "tls",
-						Port: 9093,
-						Tls:  true,
-						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
-						Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
-							Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
-						},
-					},
+					kafkaTLSListener,
 				},
 				Resources: k.getKafkaResources(mgh),
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
@@ -985,7 +1005,7 @@ func (k *strimziTransporter) newSubscription(mgh *operatorv1alpha4.MulticlusterG
 			InstallPlanApproval:    DefaultInstallPlanApproval,
 			Package:                k.subPackageName,
 			CatalogSource:          k.subCatalogSourceName,
-			CatalogSourceNamespace: DefaultCatalogSourceNamespace,
+			CatalogSourceNamespace: k.subCatalogSourceNamespace,
 			Config:                 subConfig,
 		},
 	}

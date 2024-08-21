@@ -681,6 +681,7 @@ spec:
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
+                imagePullPolicy: IfNotPresent
                 livenessProbe:
                   httpGet:
                     path: /healthz

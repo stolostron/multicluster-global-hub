@@ -106,6 +106,15 @@ const (
 
 	// GHAgentInstallACMHubLabelKey is to indicate whether to install ACM hub on the agent
 	GHAgentACMHubInstallLabelKey = "global-hub.open-cluster-management.io/hub-cluster-install"
+
+	// CommunityCatalogSourceNameKey defines the catalog source name. it is mainly used for deploy kafka in KinD cluster.
+	CommunityCatalogSourceNameKey = "global-hub.open-cluster-management.io/catalog-source-name"
+	// CommunityCatalogSourceNamespaceKey defines the catalog source namespace. it is mainly used for deploy kafka in KinD cluster.
+	CommunityCatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/catalog-source-namespace"
+	// GHKafkaTLSListener define the tls listener.
+	// for example: {"authentication": { "type": "tls" }, "configuration": { "bootstrap": { "nodePort": 30095 }
+	// }, "name": "external", "port": 9095, "tls": true, "type": "nodeport" }
+	GHKafkaTLSListener = "global-hub.open-cluster-management.io/kafka-tls-listener"
 )
 
 // AggregationLevel specifies the level of aggregation leaf hubs should do before sending the information

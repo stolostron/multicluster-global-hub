@@ -41,6 +41,7 @@ spec:
         args:
         - --leader-election
         image: quay.io/stolostron/multicluster-global-hub-operator:latest
+        imagePullPolicy: IfNotPresent
         name: multicluster-global-hub-operator
         env:
         - name: POD_NAMESPACE
