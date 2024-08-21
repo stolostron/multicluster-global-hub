@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -19,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
@@ -506,56 +504,38 @@ func (k *strimziTransporter) newKafkaUser(
 
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
 func (k *strimziTransporter) kafkaClusterReady() error {
-	k.log.Info("waiting the kafka cluster instance to be ready...")
+	kafkaCluster := &kafkav1beta2.Kafka{}
+	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		Name:      k.kafkaClusterName,
+		Namespace: k.kafkaClusterNamespace,
+	}, kafkaCluster)
+	if err != nil {
+		k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
+		return err
+	}
+	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
+		return fmt.Errorf("kafka cluster status is not ready")
+	}
 
-	err := wait.PollUntilContextTimeout(k.ctx, 5*time.Second, 10*time.Minute, true,
-		func(ctx context.Context) (bool, error) {
-			// if the mgh is deleted/deleting, then don't need to wait the kafka is ready
-			e := k.runtimeClient.Get(ctx, config.GetMGHNamespacedName(), k.mgh)
-			if e != nil {
-				return false, e
+	if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
+		// if the kafka cluster is already created, check if the tls is enabled
+		enableTLS := false
+		for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
+			if listener.Tls {
+				enableTLS = true
+				break
 			}
-			if k.mgh.DeletionTimestamp != nil {
-				return false, fmt.Errorf("deleting the mgh: %s, no need waiting the kafka ready", k.mgh.Namespace)
-			}
+		}
+		k.enableTLS = enableTLS
+	}
 
-			kafkaCluster := &kafkav1beta2.Kafka{}
-			err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
-				Name:      k.kafkaClusterName,
-				Namespace: k.kafkaClusterNamespace,
-			}, kafkaCluster)
-			if err != nil {
-				k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
-				return false, nil
-			}
-			if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-				k.log.V(2).Info("kafka cluster status is not ready")
-				return false, nil
-			}
-
-			if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
-				// if the kafka cluster is already created, check if the tls is enabled
-				enableTLS := false
-				for _, listener := range kafkaCluster.Spec.Kafka.Listeners {
-					if listener.Tls {
-						enableTLS = true
-						break
-					}
-				}
-				k.enableTLS = enableTLS
-			}
-
-			for _, condition := range kafkaCluster.Status.Conditions {
-				if *condition.Type == "Ready" && *condition.Status == "True" {
-					k.log.Info("kafka cluster is ready")
-					return true, nil
-				}
-			}
-
-			k.log.V(2).Info("kafka cluster status condition is not ready")
-			return false, nil
-		})
-	return err
+	for _, condition := range kafkaCluster.Status.Conditions {
+		if *condition.Type == "Ready" && *condition.Status == "True" {
+			k.log.Info("kafka cluster is ready")
+			return nil
+		}
+	}
+	return fmt.Errorf("kafka cluster is not ready")
 }
 
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {

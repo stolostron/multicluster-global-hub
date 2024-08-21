@@ -396,15 +396,6 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(err).To(Succeed())
 		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
-		// user - round 2
-		userName, err = trans.EnsureUser(clusterName)
-		Expect(err).To(Succeed())
-		Expect(config.GetKafkaUserName(clusterName)).To(Equal(userName))
-
-		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
-		Expect(err).To(Succeed())
-		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
-
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())

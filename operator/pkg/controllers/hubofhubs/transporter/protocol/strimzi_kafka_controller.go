@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,14 +33,6 @@ type KafkaController struct {
 }
 
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	mgh := &v1alpha4.MulticlusterGlobalHub{}
-	if err := r.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
-	}
-
 	if err := r.trans.EnsureKafka(); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -51,7 +42,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetClientCA(r.trans.ctx, mgh.Namespace, KafkaClusterName, r.trans.runtimeClient); err != nil {
+	if err := config.SetClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName, r.trans.runtimeClient); err != nil {
 		return ctrl.Result{}, err
 	}
 	// update the transporter
