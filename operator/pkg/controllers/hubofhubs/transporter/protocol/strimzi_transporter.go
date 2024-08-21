@@ -33,7 +33,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -170,30 +170,25 @@ func WithSubName(name string) KafkaOption {
 	}
 }
 
-// ensureKafka the kafka subscription, cluster, metrics, global hub user and topic
-func (k *strimziTransporter) ensureKafka(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
-	k.log.Info("reconcile global hub kafka transport...")
-	err := k.ensureSubscription(mgh)
+// EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
+func (k *strimziTransporter) EnsureKafka() error {
+	k.log.V(2).Info("reconcile global hub kafka transport...")
+	err := k.ensureSubscription(k.mgh)
 	if err != nil {
 		return err
 	}
 	if !config.GetKafkaResourceReady() {
 		return fmt.Errorf("the kafka crds is not ready")
 	}
-	err, _ = k.CreateUpdateKafkaCluster(mgh)
+	err, _ = k.CreateUpdateKafkaCluster(k.mgh)
 	if err != nil {
 		return err
 	}
 	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-	err = k.renderKafkaResources(mgh)
+	err = k.renderKafkaResources(k.mgh)
 	if err != nil {
 		return err
 	}
-
-	if err := k.kafkaClusterReady(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -245,7 +240,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	if err = utils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
+	if err = operatorutils.ManipulateGlobalHubObjects(kafkaObjects, mgh, kafkaDeployer, mapper,
 		k.manager.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update kafka objects: %w", err)
 	}
@@ -279,7 +274,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	}
 
 	updatedKafkaUser := &kafkav1beta2.KafkaUser{}
-	err = utils.MergeObjects(kafkaUser, desiredKafkaUser, updatedKafkaUser)
+	err = operatorutils.MergeObjects(kafkaUser, desiredKafkaUser, updatedKafkaUser)
 	if err != nil {
 		return "", err
 	}
@@ -317,7 +312,7 @@ func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.Cluster
 		desiredTopic := k.newKafkaTopic(topicName)
 
 		updatedTopic := &kafkav1beta2.KafkaTopic{}
-		err = utils.MergeObjects(kafkaTopic, desiredTopic, updatedTopic)
+		err = operatorutils.MergeObjects(kafkaTopic, desiredTopic, updatedTopic)
 		if err != nil {
 			return nil, err
 		}
@@ -584,7 +579,7 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	desiredKafka := k.newKafkaCluster(mgh)
 
 	updatedKafka := &kafkav1beta2.Kafka{}
-	err = utils.MergeObjects(existingKafka, desiredKafka, updatedKafka)
+	err = operatorutils.MergeObjects(existingKafka, desiredKafka, updatedKafka)
 	if err != nil {
 		return err, false
 	}
@@ -601,7 +596,7 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 func (k *strimziTransporter) getKafkaResources(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 ) *kafkav1beta2.KafkaSpecKafkaResources {
-	kafkaRes := utils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedConfig)
+	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedConfig)
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
 	if err != nil {
@@ -618,7 +613,7 @@ func (k *strimziTransporter) getKafkaResources(
 func (k *strimziTransporter) getZookeeperResources(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 ) *kafkav1beta2.KafkaSpecZookeeperResources {
-	zookeeperRes := utils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedConfig)
+	zookeeperRes := operatorutils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedConfig)
 
 	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}
 	jsonData, err := json.Marshal(zookeeperRes)
