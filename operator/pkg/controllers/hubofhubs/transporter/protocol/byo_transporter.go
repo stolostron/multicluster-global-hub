@@ -49,6 +49,11 @@ func (s *BYOTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopi
 	}, nil
 }
 
+func (s *BYOTransporter) EnsureKafka() error {
+	// do nothing
+	return nil
+}
+
 func (s *BYOTransporter) Prune(clusterName string) error {
 	return nil
 }

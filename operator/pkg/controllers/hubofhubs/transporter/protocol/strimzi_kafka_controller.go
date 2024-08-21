@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -31,32 +29,27 @@ var manifests embed.FS
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
 	ctrl.Manager
+	trans *strimziTransporter
 }
 
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	mgh := &v1alpha4.MulticlusterGlobalHub{}
-	if err := r.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
-		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
+	if err := r.trans.EnsureKafka(); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// kafkaCluster, it will be blocking until the status is ready
-	trans, err := NewStrimziTransporter(
-		r.Manager,
-		mgh,
-		WithContext(ctx),
-		WithCommunity(operatorutils.IsCommunityMode()),
-	)
-	if err != nil {
+	if err := r.trans.kafkaClusterReady(); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// use the client ca to sign the csr for the managed hubs
+	if err := config.SetClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName, r.trans.runtimeClient); err != nil {
 		return ctrl.Result{}, err
 	}
 	// update the transporter
-	config.SetTransporter(trans)
+	config.SetTransporter(r.trans)
 
 	// update the transport connection
-	conn, err := waitManagerTransportConn(ctx, trans, DefaultGlobalHubKafkaUserName)
+	conn, err := waitManagerTransportConn(ctx, r.trans, DefaultGlobalHubKafkaUserName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -89,8 +82,11 @@ var mghPred = predicate.Funcs{
 	},
 }
 
-func StartKafkaController(ctx context.Context, mgr ctrl.Manager) (*KafkaController, error) {
-	r := &KafkaController{Manager: mgr}
+func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) (*KafkaController, error) {
+	r := &KafkaController{
+		Manager: mgr,
+		trans:   transporter.(*strimziTransporter),
+	}
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
 	err := ctrl.NewControllerManagedBy(mgr).
