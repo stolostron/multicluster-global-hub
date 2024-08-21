@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/apis/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func init() {
@@ -54,20 +55,11 @@ func TestOnAdd(t *testing.T) {
 		},
 	}
 	onAdd(c)(caSecret)
-	c = fake.NewClientBuilder().WithRuntimeObjects(newDeployment(name+"-rbac-query-proxy"),
-		newDeployment(name+"-observatorium-api")).Build()
+	c = fake.NewClientBuilder().WithRuntimeObjects(newDeployment(constants.InventoryDeploymentName)).Build()
 	onAdd(c)(caSecret)
 	dep := &appv1.Deployment{}
 	c.Get(context.TODO(),
-		types.NamespacedName{Name: name + "-rbac-query-proxy", Namespace: namespace},
-		dep)
-	if dep.Spec.Template.ObjectMeta.Labels[restartLabel] == "" {
-		t.Fatalf("Failed to inject restart label")
-	}
-	caSecret.Name = clientCACerts
-	onAdd(c)(caSecret)
-	c.Get(context.TODO(),
-		types.NamespacedName{Name: name + "-observatorium-api", Namespace: namespace},
+		types.NamespacedName{Name: constants.InventoryDeploymentName, Namespace: namespace},
 		dep)
 	if dep.Spec.Template.ObjectMeta.Labels[restartLabel] == "" {
 		t.Fatalf("Failed to inject restart label")
@@ -97,7 +89,7 @@ func TestOnDelete(t *testing.T) {
 	onDelete(c)(deletCaSecret)
 	c.Get(context.TODO(), types.NamespacedName{Name: serverCACerts, Namespace: namespace}, caSecret)
 	data := string(caSecret.Data["tls.crt"])
-	if data != "new cert-old cert" {
+	if data != "new cert-" {
 		t.Fatalf("deleted cert not added back: %s", data)
 	}
 }

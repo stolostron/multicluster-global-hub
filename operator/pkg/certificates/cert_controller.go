@@ -40,7 +40,6 @@ var (
 )
 
 func Start(ctx context.Context, c client.Client) {
-
 	if isCertControllerRunnning {
 		return
 	}

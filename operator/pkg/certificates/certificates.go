@@ -54,7 +54,6 @@ func CreateInventoryCerts(
 	scheme *runtime.Scheme,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-
 	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, serverCACerts, serverCACertificateCN)
 	if err != nil {
 		return err
@@ -81,7 +80,8 @@ func CreateInventoryCerts(
 
 func createCASecret(c client.Client,
 	scheme *runtime.Scheme, mgh *v1alpha4.MulticlusterGlobalHub,
-	isRenew bool, name string, cn string) (error, bool) {
+	isRenew bool, name string, cn string,
+) (error, bool) {
 	if isRenew {
 		log.Info("To renew CA certificates", "name", name)
 	}
@@ -192,7 +192,8 @@ func createCACertificate(cn string, caKey *rsa.PrivateKey) ([]byte, []byte, erro
 func createCertSecret(c client.Client,
 	scheme *runtime.Scheme, mgh *v1alpha4.MulticlusterGlobalHub,
 	isRenew bool, name string, isServer bool,
-	cn string, ou []string, dns []string, ips []net.IP) error {
+	cn string, ou []string, dns []string, ips []net.IP,
+) error {
 	if isRenew {
 		log.Info("To renew certificates", "name", name)
 	}
@@ -289,7 +290,8 @@ func createCertSecret(c client.Client,
 }
 
 func createCertificate(isServer bool, cn string, ou []string, dns []string, ips []net.IP,
-	caCert *x509.Certificate, caKey *rsa.PrivateKey, key *rsa.PrivateKey) ([]byte, []byte, error) {
+	caCert *x509.Certificate, caKey *rsa.PrivateKey, key *rsa.PrivateKey,
+) ([]byte, []byte, error) {
 	sn, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
 		log.Error(err, "failed to generate serial number")

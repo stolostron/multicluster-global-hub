@@ -34,6 +34,7 @@ spec:
           httpGet:
             path: /api/inventory/v1/livez
             port: 8081
+            scheme: HTTPS
           initialDelaySeconds: 15
           periodSeconds: 20
         name: inventory-api
@@ -48,11 +49,18 @@ spec:
           httpGet:
             path: /api/inventory/v1/readyz
             port: 8081
+            scheme: HTTPS
           initialDelaySeconds: 5
           periodSeconds: 10
         volumeMounts:
         - name: config-volume
           mountPath: /inventory
+          readOnly: true
+        - name: server-certs
+          mountPath: /inventory/certs
+          readOnly: true
+        - name: client-ca
+          mountPath: /inventory/client-certs
           readOnly: true
       initContainers:
       - command:
@@ -98,3 +106,9 @@ spec:
       - name: config-volume
         secret:
           secretName: inventory-api-config
+      - name: server-certs
+        secret:
+          secretName: inventory-api-server-certs
+      - name: client-ca
+        secret:
+          secretName: inventory-api-client-ca-certs

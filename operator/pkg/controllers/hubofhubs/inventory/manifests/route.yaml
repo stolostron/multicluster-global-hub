@@ -10,7 +10,7 @@ spec:
     targetPort: http-server
   tls:
     insecureEdgeTerminationPolicy: None
-    termination: edge
+    termination: passthrough
   to:
     kind: Service
     name: inventory-api

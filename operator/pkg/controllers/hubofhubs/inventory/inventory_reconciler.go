@@ -44,7 +44,6 @@ func NewInventoryReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *
 func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
-
 	// start certificate controller
 	certctrl.Start(ctx, r.GetClient())
 
