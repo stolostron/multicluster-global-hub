@@ -94,7 +94,7 @@ spec:
       volumes:
       - name: kafka-cluster-ca
         secret:
-          secretName: kafka-cluster-ca-cert
+          secretName: {{.KafkaClusterCASecret}}
       - name: kafka-client-certs
         secret:
           secretName: {{.KafkaClientCertSecret}}
