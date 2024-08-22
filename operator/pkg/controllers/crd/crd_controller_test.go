@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/types"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -30,8 +31,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
@@ -116,6 +119,28 @@ func TestCRDCtr(t *testing.T) {
 	err = applyYaml(filepath.Join("..", "..", "..", "config", "crd", "bases", clusterResourceFile))
 	assert.Nil(t, err)
 	time.Sleep(1 * time.Second)
+
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      "test-mgh",
+	})
+
+	mgh := &v1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-mgh",
+			Namespace: utils.GetDefaultNamespace(),
+		},
+		Spec: v1alpha4.MulticlusterGlobalHubSpec{
+			DataLayer: v1alpha4.DataLayerConfig{
+				Postgres: v1alpha4.PostgresConfig{
+					Retention: "2y",
+				},
+			},
+		},
+	}
+
+	err = mgr.GetClient().Create(ctx, mgh)
+	assert.Nil(t, err)
 
 	assert.True(t, config.IsACMResourceReady())
 	assert.True(t, config.GetKafkaResourceReady())

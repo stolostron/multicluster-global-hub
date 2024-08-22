@@ -21,7 +21,9 @@ import (
 	"sync"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
@@ -75,6 +78,22 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// the reconcile will update the resources map in multiple goroutines simultaneously
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	// Check if mgh exist or deleting
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err := r.GetClient().Get(ctx, config.GetMGHNamespacedName(), mgh)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.V(2).Info("wait until the mgh instance is created")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	if mgh.DeletionTimestamp != nil {
+		klog.V(2).Info("mgh instance is deleting")
+		return ctrl.Result{}, nil
+	}
+
 	// set resource as ready
 	r.resources[req.Name] = true
 
