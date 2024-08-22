@@ -100,7 +100,7 @@ func needsRenew(s v1.Secret) bool {
 	if !slices.Contains(certSecretNames, s.Name) {
 		return false
 	}
-	data := s.Data["tls.crt"]
+	data := s.Data[tlsCertName]
 	if len(data) == 0 {
 		log.Info("miss cert, need to recreate", "name", s.Name)
 		return true
@@ -132,41 +132,43 @@ func onAdd(c client.Client) func(obj interface{}) {
 func onDelete(c client.Client) func(obj interface{}) {
 	return func(obj interface{}) {
 		s := *obj.(*v1.Secret)
-		if slices.Contains(caSecretNames, s.Name) {
-			mgh := &v1alpha4.MulticlusterGlobalHub{}
-			err := c.Get(context.TODO(), config.GetMGHNamespacedName(), mgh)
+		if !slices.Contains(caSecretNames, s.Name) {
+			return
+		}
+		mgh := &v1alpha4.MulticlusterGlobalHub{}
+		err := c.Get(context.TODO(), config.GetMGHNamespacedName(), mgh)
+		if err != nil {
+			return
+		}
+		log.Info(
+			"secret for ca certificate deleted by mistake, add the cert back to the new created one",
+			"name",
+			s.Name,
+		)
+		i := 0
+		for {
+			caSecret := &v1.Secret{}
+			err = c.Get(context.TODO(), types.NamespacedName{
+				Name:      s.Name,
+				Namespace: utils.GetDefaultNamespace(),
+			}, caSecret)
 			if err == nil {
-				log.Info(
-					"secret for ca certificate deleted by mistake, add the cert back to the new created one",
-					"name",
-					s.Name,
-				)
-				i := 0
-				for {
-					caSecret := &v1.Secret{}
-					err = c.Get(context.TODO(), types.NamespacedName{
-						Name:      s.Name,
-						Namespace: utils.GetDefaultNamespace(),
-					}, caSecret)
-					if err == nil {
-						caSecret.Data["tls.crt"] = append(caSecret.Data["tls.crt"], s.Data["tls.crt"]...)
-						err = c.Update(context.TODO(), caSecret)
-						if err != nil {
-							log.Error(err, "Failed to update secret for ca certificate", "name", s.Name)
-							i++
-						} else {
-							break
-						}
-					} else {
-						// wait mgh operator recreate the ca certificate at most 30 seconds
-						if i < 6 {
-							time.Sleep(5 * time.Second)
-							i++
-						} else {
-							log.Info("new secret for ca certificate not created")
-							break
-						}
-					}
+				caSecret.Data[tlsCertName] = append(caSecret.Data[tlsCertName], s.Data[tlsCertName]...)
+				err = c.Update(context.TODO(), caSecret)
+				if err != nil {
+					log.Error(err, "Failed to update secret for ca certificate", "name", s.Name)
+					i++
+				} else {
+					break
+				}
+			} else {
+				// wait mgh operator recreate the ca certificate at most 30 seconds
+				if i < 6 {
+					time.Sleep(5 * time.Second)
+					i++
+				} else {
+					log.Info("new secret for ca certificate not created")
+					break
 				}
 			}
 		}
