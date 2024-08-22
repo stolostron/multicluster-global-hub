@@ -29,7 +29,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -54,23 +53,23 @@ func CreateInventoryCerts(
 	scheme *runtime.Scheme,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, serverCACerts, serverCACertificateCN)
+	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, serverCACerts, mgh.Namespace, serverCACertificateCN)
 	if err != nil {
 		return err
 	}
-	err, clientCrtUpdated := createCASecret(c, scheme, mgh, false, clientCACerts, clientCACertificateCN)
+	err, clientCrtUpdated := createCASecret(c, scheme, mgh, false, clientCACerts, mgh.Namespace, clientCACertificateCN)
 	if err != nil {
 		return err
 	}
-	hosts, err := getHosts(c)
+	hosts, err := getHosts(c, mgh.Namespace)
 	if err != nil {
 		return err
 	}
-	err = createCertSecret(c, scheme, mgh, serverCrtUpdated, serverCerts, true, serverCertificateCN, nil, hosts, nil)
+	err = createCertSecret(c, scheme, mgh, serverCrtUpdated, serverCerts, mgh.Namespace, true, serverCertificateCN, nil, hosts, nil)
 	if err != nil {
 		return err
 	}
-	err = createCertSecret(c, scheme, mgh, clientCrtUpdated, guestCerts, false, guestCertificateCN, nil, nil, nil)
+	err = createCertSecret(c, scheme, mgh, clientCrtUpdated, guestCerts, mgh.Namespace, false, guestCertificateCN, nil, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -80,13 +79,13 @@ func CreateInventoryCerts(
 
 func createCASecret(c client.Client,
 	scheme *runtime.Scheme, mgh *v1alpha4.MulticlusterGlobalHub,
-	isRenew bool, name string, cn string,
+	isRenew bool, name, namespace, cn string,
 ) (error, bool) {
 	if isRenew {
 		log.Info("To renew CA certificates", "name", name)
 	}
 	caSecret := &corev1.Secret{}
-	err := c.Get(context.TODO(), types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: name}, caSecret)
+	err := c.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, caSecret)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			log.Error(err, "Failed to check ca secret", "name", name)
@@ -100,7 +99,7 @@ func createCASecret(c client.Client,
 			caSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
-					Namespace: utils.GetDefaultNamespace(),
+					Namespace: namespace,
 					Labels: map[string]string{
 						constants.BackupKey: constants.BackupGlobalHubValue,
 					},
@@ -191,20 +190,20 @@ func createCACertificate(cn string, caKey *rsa.PrivateKey) ([]byte, []byte, erro
 //nolint:unparam
 func createCertSecret(c client.Client,
 	scheme *runtime.Scheme, mgh *v1alpha4.MulticlusterGlobalHub,
-	isRenew bool, name string, isServer bool,
+	isRenew bool, name string, namespace string, isServer bool,
 	cn string, ou []string, dns []string, ips []net.IP,
 ) error {
 	if isRenew {
 		log.Info("To renew certificates", "name", name)
 	}
 	crtSecret := &corev1.Secret{}
-	err := c.Get(context.TODO(), types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: name}, crtSecret)
+	err := c.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, crtSecret)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			log.Error(err, "Failed to check certificate secret", "name", name)
 			return err
 		} else {
-			caCert, caKey, caCertBytes, err := getCA(c, isServer)
+			caCert, caKey, caCertBytes, err := getCA(c, isServer, namespace)
 			if err != nil {
 				return err
 			}
@@ -216,7 +215,7 @@ func createCertSecret(c client.Client,
 			crtSecret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
-					Namespace: utils.GetDefaultNamespace(),
+					Namespace: namespace,
 					Labels: map[string]string{
 						constants.BackupKey: constants.BackupGlobalHubValue,
 					},
@@ -260,7 +259,7 @@ func createCertSecret(c client.Client,
 		}
 
 		if isRenew {
-			caCert, caKey, caCertBytes, err := getCA(c, isServer)
+			caCert, caKey, caCertBytes, err := getCA(c, isServer, mgh.Namespace)
 			if err != nil {
 				return err
 			}
@@ -344,7 +343,7 @@ func createCertificate(isServer bool, cn string, ou []string, dns []string, ips 
 	return keyBytes, caBytes, nil
 }
 
-func getCA(c client.Client, isServer bool) (*x509.Certificate, *rsa.PrivateKey, []byte, error) {
+func getCA(c client.Client, isServer bool, namespace string) (*x509.Certificate, *rsa.PrivateKey, []byte, error) {
 	caCertName := serverCACerts
 	if !isServer {
 		caCertName = clientCACerts
@@ -352,7 +351,7 @@ func getCA(c client.Client, isServer bool) (*x509.Certificate, *rsa.PrivateKey, 
 	caSecret := &corev1.Secret{}
 	err := c.Get(
 		context.TODO(),
-		types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: caCertName},
+		types.NamespacedName{Namespace: namespace, Name: caCertName},
 		caSecret,
 	)
 	if err != nil {
@@ -375,9 +374,9 @@ func getCA(c client.Client, isServer bool) (*x509.Certificate, *rsa.PrivateKey, 
 	return caCerts[0], caKey, caCertBytes, nil
 }
 
-func removeExpiredCA(c client.Client, name string) {
+func removeExpiredCA(c client.Client, name, namespace string) {
 	caSecret := &corev1.Secret{}
-	err := c.Get(context.TODO(), types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: name}, caSecret)
+	err := c.Get(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name}, caSecret)
 	if err != nil {
 		log.Error(err, "Failed to get ca secret", "name", name)
 		return
@@ -441,11 +440,11 @@ func pemEncode(cert []byte, key []byte) (*bytes.Buffer, *bytes.Buffer) {
 	return certPEM, keyPEM
 }
 
-func getHosts(c client.Client) ([]string, error) {
+func getHosts(c client.Client, namespace string) ([]string, error) {
 	found := &routev1.Route{}
 	err := c.Get(context.TODO(), types.NamespacedName{
 		Name:      constants.InventoryRouteName,
-		Namespace: utils.GetDefaultNamespace(),
+		Namespace: namespace,
 	}, found)
 	if err != nil {
 		return nil, err

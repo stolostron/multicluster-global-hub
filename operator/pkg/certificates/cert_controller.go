@@ -181,20 +181,20 @@ func onUpdate(c client.Client) func(oldObj, newObj interface{}) {
 			updateDeployLabel(c, true)
 		} else {
 			if slices.Contains(caSecretNames, newS.Name) {
-				removeExpiredCA(c, newS.Name)
+				removeExpiredCA(c, newS.Name, newS.Namespace)
 			}
 			if needsRenew(newS) {
 				var err error
 				var hosts []string
 				switch name := newS.Name; {
 				case name == serverCACerts:
-					err, _ = createCASecret(c, nil, nil, true, serverCACerts, serverCACertificateCN)
+					err, _ = createCASecret(c, nil, nil, true, serverCACerts, newS.Namespace, serverCACertificateCN)
 				case name == clientCACerts:
-					err, _ = createCASecret(c, nil, nil, true, clientCACerts, clientCACertificateCN)
+					err, _ = createCASecret(c, nil, nil, true, clientCACerts, newS.Namespace, clientCACertificateCN)
 				case name == serverCerts:
-					hosts, err = getHosts(c)
+					hosts, err = getHosts(c, newS.Namespace)
 					if err == nil {
-						err = createCertSecret(c, nil, nil, true, serverCerts, true, serverCertificateCN, nil, hosts, nil)
+						err = createCertSecret(c, nil, nil, true, serverCerts, newS.Namespace, true, serverCertificateCN, nil, hosts, nil)
 					}
 				default:
 					return

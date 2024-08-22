@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,20 +49,33 @@ var _ = Describe("inventory-api", Ordered, func() {
 		// update the middleware configuration
 		// storage
 		_ = config.SetStorageConnection(&config.PostgresConnection{
-			SuperuserDatabaseURI:    "test-url",
-			ReadonlyUserDatabaseURI: "test-url",
-			CACert:                  []byte("test-crt"),
+			SuperuserDatabaseURI: "postgresql://:@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh",
+			CACert:               []byte("test-crt"),
 		})
 		config.SetDatabaseReady(true)
 
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
+
+		route := &routev1.Route{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "inventory-api",
+				Namespace: namespace,
+			},
+			Spec: routev1.RouteSpec{
+				Host: "apiServerURL",
+				To: routev1.RouteTargetReference{
+					Kind: "Service",
+					Name: "inventory-api",
+				},
+			},
+		}
+		Expect(runtimeClient.Create(ctx, route)).To(Succeed())
 	})
 
 	It("should generate the inventory resources", func() {
 		reconciler := inventory.NewInventoryReconciler(runtimeManager, kubeClient)
-
 		err := reconciler.Reconcile(ctx, mgh)
 		Expect(err).To(Succeed())
 
@@ -81,14 +95,6 @@ var _ = Describe("inventory-api", Ordered, func() {
 
 	AfterAll(func() {
 		err := runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
-
-		err = runtimeClient.Delete(ctx, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHTransportSecretName,
-				Namespace: mgh.Namespace,
-			},
-		})
 		Expect(err).To(Succeed())
 
 		err = runtimeClient.Delete(ctx, &corev1.Namespace{

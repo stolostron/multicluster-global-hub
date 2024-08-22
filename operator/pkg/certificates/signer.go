@@ -46,12 +46,12 @@ func Sign(csr *certificatesv1.CertificateSigningRequest) []byte {
 		return nil
 	}
 	if os.Getenv("TEST") != "" {
-		err, _ := createCASecret(c, nil, nil, false, clientCACerts, clientCACertificateCN)
+		err, _ := createCASecret(c, nil, nil, false, clientCACerts, csr.Namespace, clientCACertificateCN)
 		if err != nil {
 			log.Error(err, "Failed to create CA")
 		}
 	}
-	caCert, caKey, _, err := getCA(c, false)
+	caCert, caKey, _, err := getCA(c, false, csr.Namespace)
 	if err != nil {
 		return nil
 	}

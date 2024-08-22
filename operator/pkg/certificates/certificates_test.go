@@ -33,7 +33,7 @@ var (
 func getMGH() *v1alpha4.MulticlusterGlobalHub {
 	return &v1alpha4.MulticlusterGlobalHub{
 		TypeMeta:   metav1.TypeMeta{Kind: "MulticlusterGlobalHub"},
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec:       v1alpha4.MulticlusterGlobalHubSpec{},
 	}
 }
@@ -94,12 +94,12 @@ func TestCreateCertificates(t *testing.T) {
 		t.Fatalf("Rerun CreateObservabilityCerts: (%v)", err)
 	}
 
-	err, _ = createCASecret(c, s, mgh, true, serverCACerts, serverCACertificateCN)
+	err, _ = createCASecret(c, s, mgh, true, serverCACerts, mgh.Namespace, serverCACertificateCN)
 	if err != nil {
 		t.Fatalf("Failed to renew server ca certificates: (%v)", err)
 	}
 
-	err = createCertSecret(c, s, mgh, true, guestCerts, false, guestCertificateCN, nil, nil, nil)
+	err = createCertSecret(c, s, mgh, true, guestCerts, mgh.Namespace, false, guestCertificateCN, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to renew server certificates: (%v)", err)
 	}
@@ -109,7 +109,7 @@ func TestRemoveExpiredCA(t *testing.T) {
 	caSecret := getExpiredCertSecret()
 	oldCertLength := len(caSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(caSecret).Build()
-	removeExpiredCA(c, serverCACerts)
+	removeExpiredCA(c, serverCACerts, namespace)
 	c.Get(context.TODO(),
 		types.NamespacedName{Name: serverCACerts, Namespace: namespace},
 		caSecret)
