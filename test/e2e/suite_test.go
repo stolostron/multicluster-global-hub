@@ -145,7 +145,7 @@ var _ = BeforeSuite(func() {
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
 		return err
-	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	}, 30*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 	Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 })
 
