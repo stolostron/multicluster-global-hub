@@ -123,7 +123,7 @@ func (a *AddonController) Start(ctx context.Context) error {
 			)).
 		WithScheme(addonScheme)
 	if config.TransporterProtocol() == transport.StrimziTransporter {
-		factory.WithAgentRegistrationOption(newRegistrationOption(operatorconstants.GHManagedClusterAddonName))
+		factory.WithAgentRegistrationOption(newRegistrationOption())
 	}
 	agentAddon, err := factory.BuildTemplateAgentAddon()
 	if err != nil {
@@ -145,7 +145,7 @@ func (a *AddonController) AddonManager() addonmanager.AddonManager {
 	return a.addonManager
 }
 
-func newRegistrationOption(addonName string) *agent.RegistrationOption {
+func newRegistrationOption() *agent.RegistrationOption {
 	return &agent.RegistrationOption{
 		CSRConfigurations: certificates.SignerAndCsrConfigurations,
 		CSRApproveCheck:   certificates.Approve,
