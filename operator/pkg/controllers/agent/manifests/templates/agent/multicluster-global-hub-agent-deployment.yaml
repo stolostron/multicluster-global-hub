@@ -46,6 +46,8 @@ spec:
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
             - --enable-pprof={{.EnablePprof}}
+            - --acs-poll-interval=1m
+            - --acs-integration=true
           env:
             - name: POD_NAMESPACE
               valueFrom:

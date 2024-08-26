@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = speccontroller.AddToManager(mgr, genericConsumer, agentConfig)
+	err = speccontroller.AddToManager(mgr, genericConsumer, agentConfig, genericProducer)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {

@@ -146,6 +146,8 @@ func parseFlags() *config.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+	pflag.BoolVar(&agentConfig.EnableStackroxIntegration, "acs-integration", false, "Enable ACS integration")
+	pflag.DurationVar(&agentConfig.ACSPollInterval, "acs-poll-interval", 30*time.Minute, "The interval between each ACS polling")
 	pflag.Parse()
 
 	// set zap logger
@@ -166,6 +168,7 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
+
 	return nil
 }
 
@@ -242,17 +245,15 @@ func transportCallback(mgr ctrl.Manager, agentConfig *config.AgentConfig,
 
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
-		&apiextensionsv1.CustomResourceDefinition{}: {
-			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
-		},
-		&policyv1.Policy{}:                  {},
-		&clusterv1.ManagedCluster{}:         {},
-		&clustersv1alpha1.ClusterClaim{}:    {},
-		&routev1.Route{}:                    {},
-		&placementrulev1.PlacementRule{}:    {},
-		&clusterv1beta1.Placement{}:         {},
-		&clusterv1beta1.PlacementDecision{}: {},
-		&appsv1alpha1.SubscriptionReport{}:  {},
+		&apiextensionsv1.CustomResourceDefinition{}: {},
+		&policyv1.Policy{}:                          {},
+		&clusterv1.ManagedCluster{}:                 {},
+		&clustersv1alpha1.ClusterClaim{}:            {},
+		&routev1.Route{}:                            {},
+		&placementrulev1.PlacementRule{}:            {},
+		&clusterv1beta1.Placement{}:                 {},
+		&clusterv1beta1.PlacementDecision{}:         {},
+		&appsv1alpha1.SubscriptionReport{}:          {},
 		&coordinationv1.Lease{}: {
 			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
 		},
