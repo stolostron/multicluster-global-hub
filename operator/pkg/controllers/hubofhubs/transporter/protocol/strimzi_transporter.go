@@ -200,6 +200,10 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
 		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
+	topicReplicas := DefaultPartitionReplicas
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		topicReplicas = 1
+	}
 	// render the kafka objects
 	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())
 	kafkaObjects, err := kafkaRenderer.Render("manifests", "",
@@ -225,7 +229,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusTopicParttern:    string(topicParttern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
 				TopicPartition:         DefaultPartition,
-				TopicReplicas:          DefaultPartitionReplicas,
+				TopicReplicas:          topicReplicas,
 			}, nil
 		})
 	if err != nil {
