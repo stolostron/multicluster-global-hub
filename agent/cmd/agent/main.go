@@ -204,10 +204,6 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
-	// we use the value to decide whether install the ACM or not
-	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
-	}
 
 	err = controller.NewTransportCtrl(
 		agentConfig.PodNameSpace,
