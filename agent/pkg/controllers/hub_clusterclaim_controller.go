@@ -24,6 +24,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var addedToMgr = false
+
 type hubClusterClaimController struct {
 	client client.Client
 	log    logr.Logger
@@ -40,6 +42,9 @@ func (c *hubClusterClaimController) Reconcile(ctx context.Context, request ctrl.
 func AddHubClusterClaimController(mgr ctrl.Manager) error {
 	// the controller is only to trigger create hub clusterClaim at the beginning
 	// do nothing if the hub clusterClaim existed
+	if addedToMgr {
+		return nil
+	}
 	clusterClaimPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		if object.GetName() == constants.HubClusterClaimName {
 			return false
@@ -47,12 +52,17 @@ func AddHubClusterClaimController(mgr ctrl.Manager) error {
 		clusterClaim, _ := getClusterClaim(context.Background(), mgr.GetClient(), constants.HubClusterClaimName)
 		return clusterClaim == nil
 	})
-	return ctrl.NewControllerManagedBy(mgr).Named("hubclusterclaim-controller").
+	err := ctrl.NewControllerManagedBy(mgr).Named("hubclusterclaim-controller").
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
 		Complete(&hubClusterClaimController{
 			client: mgr.GetClient(),
 			log:    ctrl.Log.WithName("hubclusterclaim-controller"),
 		})
+	if err != nil {
+		return err
+	}
+	addedToMgr = true
+	return nil
 }
 
 func updateHubClusterClaim(ctx context.Context, k8sClient client.Client,

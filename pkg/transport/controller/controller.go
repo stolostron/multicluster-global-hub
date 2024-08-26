@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +30,8 @@ type TransportCtrl struct {
 	transportConfig *transport.TransportConfig
 
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
-	callback TransportCallback
+	callback     TransportCallback
+	callbackMutx sync.Mutex
 
 	runtimeClient    client.Client
 	consumer         transport.Consumer
@@ -109,6 +111,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	}
 	klog.Info("the transport secret(producer, consumer) is created/updated")
 
+	c.callbackMutx.Lock()
+	defer c.callbackMutx.Unlock()
 	if c.callback != nil {
 		if err := c.callback(c.producer, c.consumer); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
@@ -116,7 +120,6 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		c.callback = nil
 	}
 
-	c.transportConfig.KafkaCredential = conn
 	return ctrl.Result{}, nil
 }
 

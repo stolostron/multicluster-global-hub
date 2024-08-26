@@ -28,6 +28,11 @@ type crdController struct {
 	agentConfig *config.AgentConfig
 	producer    transport.Producer
 	consumer    transport.Consumer
+
+	specReady           bool
+	statusReady         bool
+	clusterVersionReady bool
+	leaseReady          bool
 }
 
 func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -35,23 +40,35 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
 	// add spec controllers
-	if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
+	if !c.specReady {
+		if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
+		}
+		c.specReady = true
+		reqLogger.V(2).Info("add spec controllers to manager")
 	}
-	reqLogger.V(2).Info("add spec controllers to manager")
 
-	if err := statusController.AddControllers(ctx, c.mgr, c.producer, c.agentConfig); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
+	if !c.statusReady {
+		if err := statusController.AddControllers(ctx, c.mgr, c.producer, c.agentConfig); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
+		}
+		c.statusReady = true
 	}
 
 	// Need this controller to update the value of clusterclaim version.open-cluster-management.io
-	if err := AddVersionClusterClaimController(c.mgr); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
+	if !c.clusterVersionReady {
+		if err := AddVersionClusterClaimController(c.mgr); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
+		}
+		c.clusterVersionReady = true
 	}
 
-	if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
-		"multicluster-global-hub-controller"); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
+	if !c.leaseReady {
+		if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
+			"multicluster-global-hub-controller"); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
+		}
+		c.leaseReady = true
 	}
 
 	return ctrl.Result{}, nil
