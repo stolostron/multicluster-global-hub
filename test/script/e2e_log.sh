@@ -25,10 +25,10 @@ kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
 [ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
 
 echo ">>>> KafkaCluster"
-kubectl get kafka -n "$CONFIG_DIR/hub2" -oyaml
+kubectl get kafka -n "$NAMESPACE" --kubeconfig="$CONFIG_DIR/hub2" -oyaml
 
 echo ">>>> KafkaUsers"
-kubectl get kafkauser -n "$CONFIG_DIR/hub2" -oyaml
+kubectl get kafkauser -n "$NAMESPACE" --kubeconfig="$CONFIG_DIR/hub2" -oyaml
 
 echo ">>>> KafkaTopics"
-kubectl get kafkatopics -n "$CONFIG_DIR/hub2" -oyaml
+kubectl get kafkatopics -n "$NAMESPACE" --kubeconfig="$CONFIG_DIR/hub2" -oyaml
