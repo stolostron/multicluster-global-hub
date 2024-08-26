@@ -2,7 +2,10 @@
 
 set -euo pipefail
 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
@@ -30,7 +33,7 @@ enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 & # install postgres into hub1
 echo "$!" >"$CONFIG_DIR/PID"
 
-bash "$CURRENT_DIR/e2e_kafka.sh" "$GH_KUBECONFIG" "$GH_KUBECONFIG" 2>&1 &
+bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$CONFIG_DIR/PID"
 
 # init hubs
@@ -44,7 +47,7 @@ for i in $(seq 1 "${MH_NUM}"); do
   pids+=($!)
 done
 for pid in "${pids[@]}"; do
-    wait "$pid" || true
+  wait "$pid" || true
 done
 echo -e "${YELLOW} initializing hubs:${NC} $(($(date +%s) - start_time)) seconds"
 

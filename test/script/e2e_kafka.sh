@@ -65,24 +65,24 @@ echo "Kafka topic/user are ready"
 
 # Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs
 
-# # BYO: 1. create the topics; 2. create the user; 3. create the transport secret
-# byo_user=global-hub-byo-user
-# wait_cmd "kubectl get kafkauser $byo_user -n $target_namespace | grep -C 1 True"
+# BYO: 1. create the topics; 2. create the user; 3. create the transport secret
+byo_user=global-hub-byo-user
+wait_cmd "kubectl get kafkauser $byo_user -n $target_namespace | grep -C 1 True"
 
-# # generate transport secret
-# bootstrap_server=$(kubectl get kafka kafka -n "$target_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
-# kubectl get kafka kafka -n "$target_namespace" -o jsonpath='{.status.listeners[1].certificates[0]}' > "$CURRENT_DIR"/config/kafka-ca-cert.pem
-# kubectl get secret $byo_user -n "$target_namespace" -o jsonpath='{.data.user\.crt}' | base64 -d > "$CURRENT_DIR"/config/kafka-client-cert.pem
-# kubectl get secret $byo_user -n "$target_namespace" -o jsonpath='{.data.user\.key}' | base64 -d > "$CURRENT_DIR"/config/kafka-client-key.pem
+# generate transport secret
+bootstrap_server=$(kubectl get kafka kafka -n "$target_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
+kubectl get kafka kafka -n "$target_namespace" -o jsonpath='{.status.listeners[1].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
+kubectl get secret $byo_user -n "$target_namespace" -o jsonpath='{.data.user\.crt}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-cert.pem
+kubectl get secret $byo_user -n "$target_namespace" -o jsonpath='{.data.user\.key}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-key.pem
 
-# # generate the secret in the target cluster: SECRET_KUBECONFIG
+# generate the secret in the target cluster: SECRET_KUBECONFIG
 
-# kubectl create ns "$target_namespace" --dry-run=client -oyaml | kubectl --kubeconfig "$SECRET_KUBECONFIG" apply -f -
-# kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubeconfig "$SECRET_KUBECONFIG" \
-#     --from-literal=bootstrap_server="$bootstrap_server" \
-#     --from-file=ca.crt="$CURRENT_DIR"/config/kafka-ca-cert.pem \
-#     --from-file=client.crt="$CURRENT_DIR"/config/kafka-client-cert.pem \
-#     --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
-# echo "transport secret is ready!"
+kubectl create ns "$target_namespace" --dry-run=client -oyaml | kubectl --kubeconfig "$SECRET_KUBECONFIG" apply -f -
+kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubeconfig "$SECRET_KUBECONFIG" \
+  --from-literal=bootstrap_server="$bootstrap_server" \
+  --from-file=ca.crt="$CURRENT_DIR"/config/kafka-ca-cert.pem \
+  --from-file=client.crt="$CURRENT_DIR"/config/kafka-client-cert.pem \
+  --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
+echo "transport secret is ready!"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"
