@@ -46,6 +46,10 @@ spec:
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
             - --enable-pprof={{.EnablePprof}}
+            - --enable-stackrox-integration={{.EnableStackroxIntegration}}
+            {{- if .StackroxPollInterval}}
+            - --stackrox-poll-interval={{.StackroxPollInterval}}
+            {{- end}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

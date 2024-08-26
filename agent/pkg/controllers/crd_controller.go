@@ -18,7 +18,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	specController "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	statusController "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/security"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+)
+
+const (
+	clusterManagersCRDName = "clustermanagers.operator.open-cluster-management.io"
+	stackRoxCentralCRDName = "centrals.platform.stackrox.io"
 )
 
 var crdCtrlStarted = false
@@ -33,6 +39,17 @@ type crdController struct {
 }
 
 func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	switch {
+	case request.Name == clusterManagersCRDName:
+		return c.reconcileClusterManagers(ctx, request)
+	case request.Name == stackRoxCentralCRDName && c.agentConfig.EnableStackroxIntegration:
+		return c.reconcileStackRoxCentrals()
+	default:
+		return ctrl.Result{}, nil
+	}
+}
+
+func (c *crdController) reconcileClusterManagers(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
@@ -62,6 +79,37 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (c *crdController) reconcileStackRoxCentrals() (result ctrl.Result, err error) {
+	c.log.Info("Detected the presence of the StackRox central CRD")
+
+	// Create the object that polls the StackRox API and publishes the message, then add it to the controller
+	// manager so that it will be started automatically.
+	syncer, err := security.NewStackRoxSyncer().
+		SetLogger(c.log.WithName("stackrox-syncer")).
+		SetTopic(c.agentConfig.TransportConfig.KafkaCredential.StatusTopic).
+		SetProducer(c.producer).
+		SetKubernetesClient(c.mgr.GetClient()).
+		SetPollInterval(c.agentConfig.StackroxPollInterval).
+		Build()
+	if err != nil {
+		return
+	}
+	err = c.mgr.Add(syncer)
+	if err != nil {
+		return
+	}
+	c.log.Info("Added StackRox syncer")
+
+	// Create the controller that watches the StackRox instances and add it to the controller manager.
+	err = security.AddStacRoxController(c.mgr, syncer)
+	if err != nil {
+		return
+	}
+	c.log.Info("Added StackRox controller")
+
+	return
 }
 
 // this controller is used to watch the multiclusterhub crd or clustermanager crd
