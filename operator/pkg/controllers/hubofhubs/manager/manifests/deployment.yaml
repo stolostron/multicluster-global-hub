@@ -87,9 +87,6 @@ spec:
             name: webhook-certs
             readOnly: true
           {{- end }}
-          - mountPath: /kafka-certs
-            name: kafka-certs
-            readOnly: true
           - mountPath: /postgres-credential
             name: postgres-credential
             readOnly: true
@@ -158,9 +155,6 @@ spec:
           {{- end}}
         {{- end}}
       volumes:
-      - name: kafka-certs
-        secret:
-          secretName: kafka-certs-secret
       - name: postgres-credential
         secret:
           secretName: postgres-credential-secret

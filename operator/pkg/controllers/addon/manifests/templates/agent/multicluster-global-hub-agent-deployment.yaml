@@ -58,13 +58,6 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
-          volumeMounts:
-          - mountPath: /kafka-cluster-ca
-            name: kafka-cluster-ca
-            readOnly: true
-          - mountPath: /kafka-client-certs
-            name: kafka-client-certs
-            readOnly: true
       {{- if .ImagePullSecretName }}
       imagePullSecrets:
         - name: {{ .ImagePullSecretName }}
@@ -83,11 +76,4 @@ spec:
           tolerationSeconds: {{.TolerationSeconds}}
           {{- end}}
         {{- end}}
-      volumes:
-      - name: kafka-cluster-ca
-        secret:
-          secretName: {{.KafkaClusterCASecret}}
-      - name: kafka-client-certs
-        secret:
-          secretName: {{.KafkaClientCertSecret}}
 {{ end }}
