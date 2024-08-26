@@ -154,6 +154,7 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - get
   - list
   - watch
 - apiGroups:
@@ -185,4 +186,12 @@ rules:
   - list
   - watch
   - get
+- apiGroups:
+  - platform.stackrox.io
+  resources:
+  - centrals
+  verbs:
+  - get
+  - list
+  - watch
 {{- end -}}

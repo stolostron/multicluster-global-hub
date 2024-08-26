@@ -35,7 +35,8 @@ const (
 
 	PlacementDecisionType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementdecision"
 	//nolint: go:S103
-	LocalPlacementRuleSpecType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.localspec"
-	PlacementRuleSpecType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.spec"
-	PlacementSpecType          EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placement.spec"
+	LocalPlacementRuleSpecType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.localspec"
+	PlacementRuleSpecType         EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.spec"
+	PlacementSpecType             EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placement.spec"
+	AdvancedClusterSecurityAlerts EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.security.alertcounts"
 )

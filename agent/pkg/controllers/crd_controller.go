@@ -6,6 +6,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/go-logr/logr"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -21,7 +22,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var crdCtrlStarted = false
+var (
+	crdCtrlStarted bool
+	mutex          sync.Mutex
+)
 
 type crdController struct {
 	mgr         ctrl.Manager
@@ -37,7 +41,7 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
 	// add spec controllers
-	if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
+	if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig, c.producer); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 	reqLogger.V(2).Info("add spec controllers to manager")
@@ -64,6 +68,9 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig,
 	producer transport.Producer, consumer transport.Consumer,
 ) error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
 	if crdCtrlStarted {
 		return nil
 	}

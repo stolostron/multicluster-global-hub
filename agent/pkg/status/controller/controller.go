@@ -18,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/security"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -41,26 +42,22 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	}
 
 	// event syncer
-	err := event.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
-	if err != nil {
+	if err := event.LaunchEventSyncer(ctx, mgr, agentConfig, producer); err != nil {
 		return fmt.Errorf("failed to launch event syncer: %w", err)
 	}
 
 	// policy syncer(local and global)
-	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, producer)
-	if err != nil {
+	if err := policies.LaunchPolicySyncer(ctx, mgr, agentConfig, producer); err != nil {
 		return fmt.Errorf("failed to launch policy syncer: %w", err)
 	}
 
 	// hub cluster info
-	err = hubcluster.LaunchHubClusterInfoSyncer(mgr, producer)
-	if err != nil {
+	if err := hubcluster.LaunchHubClusterInfoSyncer(mgr, producer); err != nil {
 		return fmt.Errorf("failed to launch hub cluster info syncer: %w", err)
 	}
 
 	// hub cluster heartbeat
-	err = hubcluster.LaunchHubClusterHeartbeatSyncer(mgr, producer)
-	if err != nil {
+	if err := hubcluster.LaunchHubClusterHeartbeatSyncer(mgr, producer); err != nil {
 		return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
 	}
 
@@ -85,7 +82,13 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		agentConfig.TransportConfig.KafkaCredential.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
+	if agentConfig.EnableStackroxIntegration {
+		if err := security.LaunchStackroxCentralCRDController(ctx, mgr); err != nil {
+			return fmt.Errorf("failed to launch Stackrox Central CRD controller: %w", err)
+		}
+	}
 
 	statusCtrlStarted = true
+
 	return nil
 }
