@@ -70,6 +70,7 @@ byo_user=global-hub-byo-user
 wait_cmd "kubectl get kafkauser $byo_user -n $target_namespace | grep -C 1 True"
 
 # generate transport secret
+wait_cmd "kubectl get kafka kafka -n $target_namespace -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 bootstrap_server=$(kubectl get kafka kafka -n "$target_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
 kubectl get kafka kafka -n "$target_namespace" -o jsonpath='{.status.listeners[1].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
 kubectl get secret $byo_user -n "$target_namespace" -o jsonpath='{.data.user\.crt}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-cert.pem

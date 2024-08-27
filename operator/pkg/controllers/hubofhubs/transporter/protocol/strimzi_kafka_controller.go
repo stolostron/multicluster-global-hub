@@ -90,7 +90,9 @@ var mghPred = predicate.Funcs{
 	},
 }
 
-func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) (*KafkaController, error) {
+func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) (
+	*KafkaController, error,
+) {
 	r := &KafkaController{
 		Manager: mgr,
 		trans:   transporter.(*strimziTransporter),
