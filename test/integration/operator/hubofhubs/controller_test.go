@@ -3,6 +3,7 @@ package hubofhubs
 import (
 	"fmt"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -17,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
 // go test ./test/integration/operator/hubofhubs -ginkgo.focus "controller" -v
@@ -114,10 +116,11 @@ var _ = Describe("controller", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := runtimeClient.Delete(ctx, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
-		err = runtimeClient.Delete(ctx, &corev1.Secret{
+		err := runtimeClient.Delete(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      constants.GHTransportSecretName,
 				Namespace: mgh.Namespace,

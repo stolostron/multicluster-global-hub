@@ -318,15 +318,11 @@ func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 
 func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 	klog.Infof("Remove strimzi resources")
-
 	listOpts := []client.ListOption{
-		client.MatchingLabels(map[string]string{
-			constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
-		}),
+		client.HasLabels{constants.GlobalHubOwnerLabelKey},
 	}
 	kafkaUserList := &kafkav1beta2.KafkaUserList{}
 	klog.Infof("Delete kafkaUsers")
-
 	if err := r.Client.List(ctx, kafkaUserList, listOpts...); err != nil {
 		return err
 	}
@@ -336,7 +332,6 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 			return err
 		}
 	}
-	klog.Infof("kafkaUsers deleted")
 
 	kafkaTopicList := &kafkav1beta2.KafkaTopicList{}
 	klog.Infof("Delete kafkaTopics")
@@ -346,12 +341,17 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 	}
 	for idx := range kafkaTopicList.Items {
 		klog.Infof("Delete kafka topic %v", kafkaTopicList.Items[idx].Name)
-
 		if err := r.Client.Delete(ctx, &kafkaTopicList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
-	klog.Infof("kafkaTopic deleted")
+
+	if err := r.Client.List(ctx, kafkaTopicList, listOpts...); err != nil {
+		return err
+	}
+	if len(kafkaTopicList.Items) != 0 {
+		return fmt.Errorf("kafkatopics still exist, they should be removed. kafkaTopicList:%v", kafkaTopicList.Items)
+	}
 
 	kafka := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{

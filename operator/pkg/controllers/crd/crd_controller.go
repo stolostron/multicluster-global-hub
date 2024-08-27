@@ -19,9 +19,11 @@ package crd
 import (
 	"context"
 	"sync"
+	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,21 +62,30 @@ var KafkaCrds = []string{
 // https://github.com/kubernetes-sigs/controller-runtime/pull/2159
 type CrdController struct {
 	manager.Manager
-	kubeClient               *kubernetes.Clientset
-	operatorConfig           *config.OperatorConfig
-	resources                map[string]bool
-	addonInstallerReady      bool
-	addonController          *addon.AddonController
-	globalHubController      runtimeController.Controller
-	globalHubControllerReady bool
-	backupControllerReady    bool
-	mu                       sync.Mutex
+	kubeClient            *kubernetes.Clientset
+	operatorConfig        *config.OperatorConfig
+	resources             map[string]bool
+	addonInstallerReady   bool
+	addonController       *addon.AddonController
+	globalHubController   runtimeController.Controller
+	backupControllerReady bool
+	mu                    sync.Mutex
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// the reconcile will update the resources map in multiple goroutines simultaneously
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// Check if mgh exist or deleting
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	if mgh.DeletionTimestamp != nil {
+		klog.V(2).Info("mgh instance is deleting")
+		return ctrl.Result{}, nil
+	}
+
 	// set resource as ready
 	r.resources[req.Name] = true
 

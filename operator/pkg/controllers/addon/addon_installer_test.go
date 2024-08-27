@@ -101,7 +101,7 @@ func TestAddonInstaller(t *testing.T) {
 		Namespace: namespace,
 		Name:      name,
 	})
-
+	now := metav1.Now()
 	cases := []struct {
 		name            string
 		cluster         *v1.ManagedCluster
@@ -210,6 +210,38 @@ func TestAddonInstaller(t *testing.T) {
 				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",
 						addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName])
+				}
+			},
+		},
+		{
+			name: "mgh is deleting",
+			mgh: &operatorv1alpha4.MulticlusterGlobalHub{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              name,
+					Namespace:         namespace,
+					DeletionTimestamp: &now,
+					Finalizers: []string{
+						"test-finalizer",
+					},
+				},
+				Status: operatorv1alpha4.MulticlusterGlobalHubStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   config.CONDITION_TYPE_GLOBALHUB_READY,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			cluster:         fakeCluster("cluster1", "", operatorconstants.GHAgentDeployModeDefault),
+			managementAddon: nil,
+			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
+			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
+				if !errors.IsNotFound(err) {
+					t.Errorf("expected not found addon, but got err %v", err)
+				}
+				if addon != nil {
+					t.Errorf("expected nil addon, but got %v", addon)
 				}
 			},
 		},

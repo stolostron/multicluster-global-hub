@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -240,33 +239,9 @@ func GetImagePullSecretName() string {
 	return imagePullSecretName
 }
 
-// GetMulticlusterGlobalHub will get the CR and also update the configuration based on it
-func GetMulticlusterGlobalHub(ctx context.Context, req ctrl.Request,
-	c client.Client, imageClient *imagev1client.ImageV1Client,
-) (*v1alpha4.MulticlusterGlobalHub, error) {
-	mgh := &v1alpha4.MulticlusterGlobalHub{}
-	err := c.Get(ctx, req.NamespacedName, mgh)
-	if err != nil {
-		return nil, err
-	}
-	err = SetMulticlusterGlobalHubConfig(ctx, mgh, imageClient)
-	if err != nil {
-		return nil, err
-	}
-	err = SetTransportConfig(ctx, c, mgh)
-	if err != nil {
-		return nil, err
-	}
-	err = SetPostgresType(ctx, c, mgh.GetNamespace())
-	if err != nil {
-		return nil, err
-	}
-	return mgh, nil
-}
-
-// SetMulticlusterGlobalHubConfig extract the namespacedName, image info, and log configurations from CR
-func SetMulticlusterGlobalHubConfig(ctx context.Context,
-	mgh *v1alpha4.MulticlusterGlobalHub, imageClient imagev1client.ImageV1Interface,
+// Update imageoverride, ImagePullSecret, StatisticLogInterval, SetTransportConfig, PostgresType
+func SetMulticlusterGlobalHubConfig(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+	c client.Client, imageClient imagev1client.ImageV1Interface,
 ) error {
 	// set request name to be used in leafhub controller
 	SetMGHNamespacedName(types.NamespacedName{
@@ -305,5 +280,29 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context,
 	if err := SetStatisticLogInterval(mgh); err != nil {
 		return err
 	}
+
+	if c == nil {
+		return nil
+	}
+	err := SetTransportConfig(ctx, c, mgh)
+	if err != nil {
+		return err
+	}
+	err = SetPostgresType(ctx, c, mgh.GetNamespace())
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.MulticlusterGlobalHub, error) {
+	mghList := &v1alpha4.MulticlusterGlobalHubList{}
+	err := c.List(ctx, mghList)
+	if err != nil {
+		return nil, err
+	}
+	if len(mghList.Items) != 1 {
+		return nil, fmt.Errorf("mgh should only have 1 instance, but got %v", len(mghList.Items))
+	}
+	return &mghList.Items[0], nil
 }
