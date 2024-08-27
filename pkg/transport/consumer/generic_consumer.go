@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -35,6 +36,8 @@ type GenericConsumer struct {
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
 	client         cloudevents.Client
+
+	mutex sync.Mutex
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
@@ -114,6 +117,9 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 }
 
 func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.TransportConfig) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	err := c.initClient(tranConfig)
 	if err != nil {
 		return err

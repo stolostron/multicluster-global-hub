@@ -30,13 +30,14 @@ type TransportCtrl struct {
 	transportConfig *transport.TransportConfig
 
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
-	callback     TransportCallback
-	callbackMutx sync.Mutex
+	callback TransportCallback
 
 	runtimeClient    client.Client
 	consumer         transport.Consumer
 	producer         transport.Producer
 	extraSecretNames []string
+
+	mutex sync.Mutex
 }
 
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
@@ -52,6 +53,9 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 }
 
 func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: c.secretNamespace,
@@ -111,8 +115,6 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	}
 	klog.Info("the transport secret(producer, consumer) is created/updated")
 
-	c.callbackMutx.Lock()
-	defer c.callbackMutx.Unlock()
 	if c.callback != nil {
 		if err := c.callback(c.producer, c.consumer); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
