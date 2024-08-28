@@ -119,7 +119,6 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err := c.callback(c.producer, c.consumer); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
 		}
-		c.callback = nil
 	}
 
 	return ctrl.Result{}, nil

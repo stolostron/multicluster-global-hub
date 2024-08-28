@@ -31,6 +31,8 @@ const (
 	ProbeDuration = 2 * time.Minute // the duration to detect run the updating
 )
 
+var hubMgrStarted = false
+
 // manage the leaf hub lifecycle based on the heartbeat
 type HubManagement struct {
 	log           logr.Logger
@@ -49,7 +51,14 @@ func NewHubManagement(producer transport.Producer, probeDuration, activeTimeout 
 }
 
 func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
-	return mgr.Add(NewHubManagement(producer, ProbeDuration, ActiveTimeout))
+	if hubMgrStarted {
+		return nil
+	}
+	if err := mgr.Add(NewHubManagement(producer, ProbeDuration, ActiveTimeout)); err != nil {
+		return err
+	}
+	hubMgrStarted = true
+	return nil
 }
 
 func (h *HubManagement) Start(ctx context.Context) error {

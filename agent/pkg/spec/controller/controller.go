@@ -12,7 +12,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var specCtrlStarted = false
+
 func AddToManager(mgr ctrl.Manager, consumer transport.Consumer, agentConfig *config.AgentConfig) error {
+	if specCtrlStarted {
+		return nil
+	}
+
 	// add worker pool to manager
 	workers := workers.NewWorkerPool(agentConfig.SpecWorkPoolSize, mgr.GetConfig())
 	if err := mgr.Add(workers); err != nil {
@@ -34,5 +40,7 @@ func AddToManager(mgr ctrl.Manager, consumer transport.Consumer, agentConfig *co
 	}
 
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncSyncer())
+
+	specCtrlStarted = true
 	return nil
 }

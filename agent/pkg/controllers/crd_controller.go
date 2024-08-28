@@ -21,6 +21,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var crdCtrlStarted = false
+
 type crdController struct {
 	mgr         ctrl.Manager
 	log         logr.Logger
@@ -28,11 +30,6 @@ type crdController struct {
 	agentConfig *config.AgentConfig
 	producer    transport.Producer
 	consumer    transport.Consumer
-
-	specReady           bool
-	statusReady         bool
-	clusterVersionReady bool
-	leaseReady          bool
 }
 
 func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -40,35 +37,23 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
 	// add spec controllers
-	if !c.specReady {
-		if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
-		}
-		c.specReady = true
-		reqLogger.V(2).Info("add spec controllers to manager")
+	if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
+	reqLogger.V(2).Info("add spec controllers to manager")
 
-	if !c.statusReady {
-		if err := statusController.AddControllers(ctx, c.mgr, c.producer, c.agentConfig); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
-		}
-		c.statusReady = true
+	if err := statusController.AddControllers(ctx, c.mgr, c.producer, c.agentConfig); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
 	// Need this controller to update the value of clusterclaim version.open-cluster-management.io
-	if !c.clusterVersionReady {
-		if err := AddVersionClusterClaimController(c.mgr); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
-		}
-		c.clusterVersionReady = true
+	if err := AddVersionClusterClaimController(c.mgr); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if !c.leaseReady {
-		if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
-			"multicluster-global-hub-controller"); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
-		}
-		c.leaseReady = true
+	if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
+		"multicluster-global-hub-controller"); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -79,7 +64,10 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig,
 	producer transport.Producer, consumer transport.Consumer,
 ) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	if crdCtrlStarted {
+		return nil
+	}
+	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
 			// trigger the reconciler only if the crd is created
 			CreateFunc: func(e event.CreateEvent) bool {
@@ -102,5 +90,9 @@ func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *co
 			producer:    producer,
 			consumer:    consumer,
 			log:         ctrl.Log.WithName("crd-controller"),
-		})
+		}); err != nil {
+		return err
+	}
+	crdCtrlStarted = true
+	return nil
 }

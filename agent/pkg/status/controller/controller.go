@@ -21,10 +21,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var statusCtrlStarted = false
+
 // AddControllers adds all the controllers to the Manager.
 func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
 	agentConfig *config.AgentConfig,
 ) error {
+	if statusCtrlStarted {
+		return nil
+	}
+
 	if err := agentstatusconfig.AddConfigController(mgr, agentConfig); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
@@ -79,5 +85,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		agentConfig.TransportConfig.KafkaCredential.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
+
+	statusCtrlStarted = true
 	return nil
 }

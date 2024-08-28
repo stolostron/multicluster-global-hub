@@ -214,28 +214,37 @@ func createManager(ctx context.Context,
 	}
 
 	// TODO: refactor the manager to start the conflation manager so that it can handle the events from restful API
-	err = controller.NewTransportCtrl(
-		managerConfig.ManagerNamespace,
-		constants.GHTransportConfigSecret,
-		transportCallback(ctx, mgr, managerConfig, sqlConn),
+	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
+		transportCallback(mgr, managerConfig),
 		managerConfig.TransportConfig,
 	).SetupWithManager(mgr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add the transport controller")
 	}
+
+	// the cronjob can start without producer and consumer
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
+		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+	// need lock DB for backup
+	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
+	if err := backupPVC.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+	if managerConfig.EnableGlobalResource {
+		if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
+			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
+		}
+	}
 	return mgr, nil
 }
 
-func transportCallback(ctx context.Context, mgr ctrl.Manager, managerConfig *config.ManagerConfig, sqlConn *sql.Conn) controller.TransportCallback {
+func transportCallback(mgr ctrl.Manager, managerConfig *config.ManagerConfig) controller.TransportCallback {
 	return func(producer transport.Producer, consumer transport.Consumer) error {
 		if !managerConfig.WithACM {
 			return nil
 		}
-
 		if managerConfig.EnableGlobalResource {
-			if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
-				return fmt.Errorf("failed to add non-k8s-api-server: %w", err)
-			}
 			if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
 				return fmt.Errorf("failed to add global resource spec syncers: %w", err)
 			}
@@ -249,17 +258,6 @@ func transportCallback(ctx context.Context, mgr ctrl.Manager, managerConfig *con
 		if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
 			return fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 		}
-
-		// need lock DB for backup
-		backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
-		err := backupPVC.SetupWithManager(mgr)
-		if err != nil {
-			return err
-		}
-		if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
-			return fmt.Errorf("failed to add scheduler to manager: %w", err)
-		}
-
 		setupLog.Info("add the manager controllers to ctrl.Manager")
 		return nil
 	}

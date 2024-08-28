@@ -42,10 +42,12 @@ const (
 type TransportConfig struct {
 	TransportType     string
 	CommitterInterval time.Duration
-	// set the following values when initialing the components
-	IsManager            bool
-	ConsumerGroupId      string
+	// IsManager specifies the send/receive topics from specTopic and statusTopic
+	// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
+	IsManager bool
+	// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 	EnableDatabaseOffset bool
+	ConsumerGroupId      string
 	// set the credentail in the transport controller
 	KafkaCredential *KafkaConnCredential
 	Extends         map[string]interface{}
