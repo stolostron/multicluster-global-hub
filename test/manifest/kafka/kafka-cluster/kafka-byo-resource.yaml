@@ -1,7 +1,7 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: gh-event
+  name: gh-status
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -27,7 +27,7 @@ spec:
       - Read
       - Write
       resource:
-        name: gh-event
+        name: gh-status
         patternType: literal
         type: topic
     - host: '*'

@@ -261,7 +261,7 @@ spec:
                     default:
                       topics:
                         specTopic: gh-spec
-                        statusTopic: gh-event.*
+                        statusTopic: gh-status.*
                     description: Kafka specifies the desired state of kafka
                     properties:
                       storageSize:
@@ -270,7 +270,7 @@ spec:
                       topics:
                         default:
                           specTopic: gh-spec
-                          statusTopic: gh-event.*
+                          statusTopic: gh-status.*
                         description: KafkaTopics specify the desired topics
                         properties:
                           specTopic:
@@ -280,13 +280,13 @@ spec:
                               "gh-spec"
                             type: string
                           statusTopic:
-                            default: gh-event.*
+                            default: gh-status.*
                             description: |-
                               StatusTopic specifies the topic where an agent reports events and status updates to a manager.
                               Specifically, the topic can end up with an asterisk (*), indicating topics for individual managed hubs.
-                              For example: the default value is "gh-event.*" for the global hub built-in kafka. Therefore, the topic
-                              for the hub cluster named "hub1" would be "gh-event.hub1"; In the BYO case, the default value for all
-                              managed hubs is "gh-event"
+                              For example: the default value is "gh-status.*" for the global hub built-in kafka. Therefore, the topic
+                              for the hub cluster named "hub1" would be "gh-status.hub1"; In the BYO case, the default value for all
+                              managed hubs is "gh-status"
                             type: string
                         type: object
                     type: object

@@ -58,8 +58,8 @@ wait_cmd "kubectl get kafka kafka -n $target_namespace -o jsonpath='{.status.lis
 
 # kafka
 wait_cmd "kubectl get kafkatopic gh-spec -n multicluster-global-hub | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-event.hub1 -n multicluster-global-hub | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-event.hub2 -n multicluster-global-hub | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-status.hub1 -n multicluster-global-hub | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-status.hub2 -n multicluster-global-hub | grep -C 1 True"
 wait_cmd "kubectl get kafkauser global-hub-kafka-user -n multicluster-global-hub | grep -C 1 True"
 echo "Kafka topic/user are ready"
 

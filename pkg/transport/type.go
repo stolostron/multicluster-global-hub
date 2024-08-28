@@ -5,9 +5,6 @@ import (
 )
 
 const (
-	// GenericSpecTopic   = "gh-spec"
-	// GenericStatusTopic = "gh-event"
-
 	Broadcast      = "broadcast" // Broadcast can be used as destination when a bundle should be broadcasted.
 	ChunkSizeKey   = "extsize"   // ChunkSizeKey is the key used for total bundle size header.
 	ChunkOffsetKey = "extoffset" // ChunkOffsetKey is the key used for message fragment offset header.
