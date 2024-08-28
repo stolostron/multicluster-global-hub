@@ -76,12 +76,12 @@ function deployGlobalHub() {
   MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF="image-registry.testing/stolostron/multicluster-global-hub-manager:latest"
   MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF="image-registry.testing/stolostron/multicluster-global-hub-agent:latest"
   docker build . -t $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF -f operator/Dockerfile
-  docker build . -t $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF -f manager/Dockerfile
-  docker build . -t $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF -f agent/Dockerfile
+  #docker build . -t $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF -f manager/Dockerfile
+  #docker build . -t $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF -f agent/Dockerfile
 
   # load to kind cluster
   kind load docker-image $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF --name $2
-  kind load docker-image $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF --name $2
+  #kind load docker-image $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF --name $2
   #kind load docker-image $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF --name $2
 
   # replace to use the built images
@@ -112,8 +112,10 @@ spec:
       topics:
         specTopic: gh-spec
         statusTopic: gh-event.*
+      storageSize: 1Gi
     postgres:
       retention: 18m
+      storageSize: 1Gi
   enableMetrics: false
   imagePullPolicy: IfNotPresent
 EOF
@@ -148,10 +150,13 @@ wait_cmd() {
     echo -ne "\r ${signs[$index]} Waiting $elapsed seconds: $1"
     sleep $interval
     ((elapsed += interval))
+    kubectl get pod -A
+    kubectl get kafka -n multicluster-global-hub -oyaml
+    kubectl get mcgh -n multicluster-global-hub -oyaml
+    kubectl logs -n multicluster-global-hub  kafka-zookeeper-0
   done
 
   echo -e "\n$RED Timeout $seconds seconds $NC: $command"
-  kubectl get pod -n multicluster-global-hub --context $1
   return 1 # Return failure status code
 }
 

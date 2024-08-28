@@ -70,6 +70,10 @@ var (
 	KakfaMetricsConfigmapName       = "kafka-metrics"
 	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
 	ZooKeeperMetricsConfigmapKeyRef = "zookeeper-metrics-config.yml"
+
+	HostNameVerification       = "zookeeper.ssl.hostnameVerification"
+	HostNameVerificationValue  = "false"
+	QUORUMHostNameVerification = "zookeeper.ssl.quorum.hostnameVerification"
 )
 
 // install the strimzi kafka cluster by operator
@@ -669,12 +673,12 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
 				Config: &apiextensions.JSON{Raw: []byte(`{
-"default.replication.factor": 3,
+"default.replication.factor": 1,
 "inter.broker.protocol.version": "3.7",
-"min.insync.replicas": 2,
-"offsets.topic.replication.factor": 3,
-"transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
+"min.insync.replicas": 1,
+"offsets.topic.replication.factor": 1,
+"transaction.state.log.min.isr": 1,
+"transaction.state.log.replication.factor": 1
 }`)},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
@@ -689,7 +693,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
-				Replicas: 3,
+				Replicas: 1,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
@@ -699,9 +703,21 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Version: &KafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas:  3,
+				Replicas:  1,
 				Storage:   kafkaSpecZookeeperStorage,
 				Resources: k.getZookeeperResources(mgh),
+				JvmOptions: &kafkav1beta2.KafkaSpecZookeeperJvmOptions{
+					JavaSystemProperties: []kafkav1beta2.KafkaSpecZookeeperJvmOptionsJavaSystemPropertiesElem{
+						{
+							Name:  &HostNameVerification,
+							Value: &HostNameVerificationValue,
+						},
+						{
+							Name:  &QUORUMHostNameVerification,
+							Value: &HostNameVerificationValue,
+						},
+					},
+				},
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
 				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},
