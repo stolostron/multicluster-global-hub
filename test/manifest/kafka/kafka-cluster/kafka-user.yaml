@@ -11,14 +11,6 @@ spec:
     acls:
     - host: '*'
       operations:
-      - Describe
-      - Read
-      resource:
-        name: event
-        patternType: literal
-        type: topic
-    - host: '*'
-      operations:
       - Read
       resource:
         name: '*'
@@ -29,14 +21,14 @@ spec:
       - Describe
       - Read
       resource:
-        name: status
+        name: gh-status
         patternType: prefix
         type: topic
     - host: '*'
       operations:
       - Write
       resource:
-        name: spec
+        name: gh-spec
         patternType: literal
         type: topic
     type: simple
