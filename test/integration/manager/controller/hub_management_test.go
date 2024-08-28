@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var _ = Describe("hub management", func() {
@@ -100,5 +101,9 @@ var _ = Describe("hub management", func() {
 type tmpProducer struct{}
 
 func (p *tmpProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	return nil
+}
+
+func (p *tmpProducer) Reconnect(config *transport.TransportConfig) error {
 	return nil
 }

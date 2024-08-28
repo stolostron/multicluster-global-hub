@@ -56,7 +56,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // replicated policy
 		},
 		mgr.GetClient(),
-		agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic,
+		agentConfig.TransportConfig.KafkaCredential.StatusTopic,
 	)
 
 	// 4. local policy spec

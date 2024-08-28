@@ -18,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	speccontroller "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
@@ -34,6 +35,7 @@ var (
 	cancel          context.CancelFunc
 	runtimeClient   runtimeclient.Client
 	genericProducer transport.Producer
+	genericConsumer transport.Consumer
 )
 
 var _ = BeforeSuite(func() {
@@ -44,12 +46,12 @@ var _ = BeforeSuite(func() {
 	leafHubName = "spec-hub"
 	agentConfig = &config.AgentConfig{
 		TransportConfig: &transport.TransportConfig{
-			TransportType: string(transport.Chan),
-			KafkaConfig: &transport.KafkaConfig{
-				Topics: &transport.ClusterTopic{
-					SpecTopic: "spec",
-				},
-				ConsumerConfig: &transport.KafkaConsumerConfig{},
+			TransportType:   string(transport.Chan),
+			IsManager:       false,
+			ConsumerGroupId: "agent",
+			KafkaCredential: &transport.KafkaConnCredential{
+				SpecTopic:   "spec",
+				StatusTopic: "spec",
 			},
 		},
 		SpecWorkPoolSize:     2,
@@ -74,8 +76,24 @@ var _ = BeforeSuite(func() {
 		Scheme: config.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
+	runtimeClient = mgr.GetClient()
 
-	err = speccontroller.AddToManager(mgr, agentConfig)
+	agentConfig.TransportConfig.IsManager = false
+	genericConsumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	go func() {
+		if err := genericConsumer.Start(ctx); err != nil {
+			logf.Log.Error(err, "error to start the chan consumer")
+		}
+	}()
+	Expect(err).NotTo(HaveOccurred())
+
+	agentConfig.TransportConfig.IsManager = true
+	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = speccontroller.AddToManager(mgr, genericConsumer, agentConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -84,10 +102,6 @@ var _ = BeforeSuite(func() {
 
 	By("Waiting for the manager to be ready")
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
-
-	runtimeClient = mgr.GetClient()
-	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig, "spec")
-	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

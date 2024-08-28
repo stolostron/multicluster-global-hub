@@ -108,6 +108,10 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportConfig{
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,
+			KafkaCredential: &transport.KafkaConnCredential{
+				SpecTopic:   "spec",
+				StatusTopic: "event",
+			},
 		},
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
@@ -115,9 +119,11 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Create consumer/producer")
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig, "spec")
+	managerConfig.TransportConfig.IsManager = true
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
-	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig, []string{"spec"})
+	managerConfig.TransportConfig.IsManager = false
+	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add db to transport")

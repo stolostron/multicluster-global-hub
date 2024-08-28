@@ -11,7 +11,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // Get message from transport, convert it to bundle and forward it to conflation manager.
@@ -22,21 +21,9 @@ type TransportDispatcher struct {
 	statistic         *statistics.Statistics
 }
 
-func AddTransportDispatcher(mgr ctrl.Manager, managerConfig *config.ManagerConfig,
+func AddTransportDispatcher(mgr ctrl.Manager, consumer transport.Consumer, managerConfig *config.ManagerConfig,
 	conflationManager *conflator.ConflationManager, stats *statistics.Statistics,
 ) error {
-	// start a consumer
-	topics := managerConfig.TransportConfig.KafkaConfig.Topics
-	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
-		[]string{topics.StatusTopic},
-		genericconsumer.EnableDatabaseOffset(true))
-	if err != nil {
-		return fmt.Errorf("failed to initialize transport consumer: %w", err)
-	}
-	if err := mgr.Add(consumer); err != nil {
-		return fmt.Errorf("failed to add transport consumer to manager: %w", err)
-	}
-
 	transportDispatcher := &TransportDispatcher{
 		log:               ctrl.Log.WithName("conflation-dispatcher"),
 		consumer:          consumer,

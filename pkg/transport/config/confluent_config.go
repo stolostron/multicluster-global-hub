@@ -47,7 +47,7 @@ func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
 func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {
 	_, validCA := utils.Validate(caCertPath)
 	if !validCA {
-		return errors.New("invalid ca certificate")
+		return errors.New("invalid ca certificate for tls")
 	}
 	_, validCert := utils.Validate(certPath)
 	_, validKey := utils.Validate(keyPath)
@@ -107,15 +107,21 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Client, consumerGroupID string) (
 	*kafkav2.ConfigMap, error,
 ) {
+	conn, err := GetTransportCredentailBySecret(transportConfig, c)
+	if err != nil {
+		return nil, err
+	}
+	return GetConfluentConfigMapByKafkaCredential(conn, consumerGroupID)
+}
+
+func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConnCredential, consumerGroupID string) (
+	*kafkav2.ConfigMap, error,
+) {
 	kafkaConfigMap := GetBasicConfigMap()
 	if consumerGroupID != "" {
 		SetConsumerConfig(kafkaConfigMap, consumerGroupID)
 	} else {
 		SetProducerConfig(kafkaConfigMap)
-	}
-	conn, err := GetTransportCredentailBySecret(transportConfig, c)
-	if err != nil {
-		return nil, err
 	}
 	_ = kafkaConfigMap.SetKey("bootstrap.servers", conn.BootstrapServer)
 	// if the certs is invalid
@@ -136,7 +142,6 @@ func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Clie
 	if err := kafkaConfigMap.SetKey("ssl.key.pem", conn.ClientKey); err != nil {
 		return nil, err
 	}
-
 	return kafkaConfigMap, nil
 }
 

@@ -11,10 +11,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var specCtrlStarted = false
+
 func AddGlobalResourceSpecSyncers(mgr ctrl.Manager,
 	managerConfig *config.ManagerConfig,
 	producer transport.Producer,
 ) error {
+	if specCtrlStarted {
+		return nil
+	}
+
 	if err := spec2db.AddSpec2DBControllers(mgr); err != nil {
 		return fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
@@ -28,5 +34,6 @@ func AddGlobalResourceSpecSyncers(mgr ctrl.Manager,
 		return fmt.Errorf("failed to add status db watchers: %w", err)
 	}
 
+	specCtrlStarted = true
 	return nil
 }

@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -34,7 +33,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -106,11 +105,11 @@ func parseFlags() *config.AgentConfig {
 	agentConfig := &config.AgentConfig{
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		TransportConfig: &transport.TransportConfig{
-			KafkaConfig: &transport.KafkaConfig{
-				Topics:         &transport.ClusterTopic{},
-				ProducerConfig: &transport.KafkaProducerConfig{},
-				ConsumerConfig: &transport.KafkaConsumerConfig{},
-			},
+			// IsManager specifies the send/receive topics from specTopic and statusTopic
+			// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
+			IsManager: false,
+			// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
+			EnableDatabaseOffset: false,
 		},
 	}
 
@@ -121,24 +120,6 @@ func parseFlags() *config.AgentConfig {
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server", "",
-		"The bootstrap server for kafka.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.CaCertPath, "kafka-ca-cert-path", "",
-		"The path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ClientCertPath, "kafka-client-cert-path", "",
-		"The path of client certificate for kafka bootstrap server.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ClientKeyPath, "kafka-client-key-path", "",
-		"The path of client key for kafka bootstrap server.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id", "",
-		"Producer Id for the kafka, default is the leaf hub name.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.Topics.StatusTopic, "kafka-producer-topic",
-		"event", "Topic for the kafka producer.")
-	pflag.IntVar(&agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
-		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.Topics.SpecTopic, "kafka-consumer-topic",
-		"spec", "Topic for the kafka consumer.")
-	pflag.StringVar(&agentConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID, "kafka-consumer-id",
-		"multicluster-global-hub-agent", "ID for the kafka consumer.")
 	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
@@ -147,9 +128,6 @@ func parseFlags() *config.AgentConfig {
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
 		"enable hoh RBAC or not, default false")
-	pflag.StringVar(&agentConfig.TransportConfig.MessageCompressionType,
-		"transport-message-compression-type", "gzip",
-		"The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.IntVar(&agentConfig.StatusDeltaCountSwitchFactor,
 		"status-delta-count-switch-factor", 100,
 		"default with 100.")
@@ -180,19 +158,11 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.LeafHubName == "" {
 		return fmt.Errorf("flag managed-hub-name can't be empty")
 	}
-	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID == "" {
-		agentConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID = agentConfig.LeafHubName
-	}
+	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
 	if agentConfig.SpecWorkPoolSize < 1 ||
 		agentConfig.SpecWorkPoolSize > 100 {
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
-
-	if agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageKBLimit {
-		return fmt.Errorf("flag kafka-message-size-limit %d must not exceed %d",
-			agentConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, producer.MaxMessageKBLimit)
-	}
-	agentConfig.TransportConfig.KafkaConfig.EnableTLS = true
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
@@ -236,25 +206,38 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
-	kubeClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create kubeclient: %w", err)
-	}
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
-	// we use the value to decide whether install the ACM or not
-	if err := controllers.AddHubClusterClaimController(mgr); err != nil {
-		return nil, fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
-	}
 
-	if err := controllers.AddCRDController(mgr, restConfig, agentConfig); err != nil {
-		return nil, fmt.Errorf("failed to add crd controller: %w", err)
+	err = controller.NewTransportCtrl(
+		agentConfig.PodNameSpace,
+		constants.GHTransportConfigSecret,
+		transportCallback(mgr, agentConfig),
+		agentConfig.TransportConfig,
+	).SetupWithManager(mgr)
+	if err != nil {
+		return nil, err
 	}
-
-	if err := controllers.AddCertController(mgr, kubeClient); err != nil {
-		return nil, fmt.Errorf("failed to add crd controller: %w", err)
-	}
-
+	setupLog.Info("add the transport controller to agent")
 	return mgr, nil
+}
+
+// if the transport consumer and producer is ready then the func will be invoked by the transport controller
+func transportCallback(mgr ctrl.Manager, agentConfig *config.AgentConfig,
+) controller.TransportCallback {
+	return func(producer transport.Producer, consumer transport.Consumer) error {
+		// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
+		// we use the value to decide whether install the ACM or not
+		if err := controllers.AddHubClusterClaimController(mgr); err != nil {
+			return fmt.Errorf("failed to add hub.open-cluster-management.io clusterclaim controller: %w", err)
+		}
+
+		if err := controllers.AddCRDController(mgr, mgr.GetConfig(), agentConfig, producer, consumer); err != nil {
+			return fmt.Errorf("failed to add crd controller: %w", err)
+		}
+
+		setupLog.Info("add the agent controllers to manager")
+		return nil
+	}
 }
 
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {

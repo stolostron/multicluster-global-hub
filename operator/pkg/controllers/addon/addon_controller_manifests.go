@@ -19,7 +19,6 @@ import (
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -193,7 +192,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
 	}
 
-	kafkaConfigYaml, err := yaml.Marshal(kafkaConnection)
+	// if the credential is byo, don't need add secret certs
+	attachCertSecrets := true
+	if config.IsBYOKafka() {
+		attachCertSecrets = false
+	}
+	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(attachCertSecrets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
 	}

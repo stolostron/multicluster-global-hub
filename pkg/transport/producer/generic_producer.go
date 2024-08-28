@@ -10,6 +10,7 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-logr/logr"
@@ -26,54 +27,22 @@ const (
 
 type GenericProducer struct {
 	log              logr.Logger
+	clientPotocol    interface{}
 	client           cloudevents.Client
 	messageSizeLimit int
 }
 
-func NewGenericProducer(transportConfig *transport.TransportConfig, defaultTopic string) (*GenericProducer, error) {
-	var sender interface{}
-	var err error
-	messageSize := DefaultMessageKBSize * 1000
-	log := ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType))
-
-	switch transportConfig.TransportType {
-	case string(transport.Kafka):
-		if transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > 0 {
-			messageSize = transportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB * 1000
-		}
-		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig, defaultTopic)
-		if err != nil {
-			return nil, err
-		}
-
-		eventChan, err := kafkaProtocol.Events()
-		if err != nil {
-			return nil, err
-		}
-		handleProducerEvents(log, eventChan)
-		sender = kafkaProtocol
-	case string(transport.Chan): // this go chan protocol is only use for test
-		if transportConfig.Extends == nil {
-			transportConfig.Extends = make(map[string]interface{})
-		}
-		if _, found := transportConfig.Extends[defaultTopic]; !found {
-			transportConfig.Extends[defaultTopic] = gochan.New()
-		}
-		sender = transportConfig.Extends[defaultTopic]
-	default:
-		return nil, fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
+func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
+	genericProducer := &GenericProducer{
+		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		messageSizeLimit: DefaultMessageKBSize * 1000,
 	}
-
-	client, err := cloudevents.NewClient(sender, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	err := genericProducer.initClient(transportConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	return &GenericProducer{
-		log:              log,
-		client:           client,
-		messageSizeLimit: messageSize,
-	}, nil
+	return genericProducer, nil
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
@@ -108,6 +77,57 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 	return nil
 }
 
+// Reconnect close the previous producer state and init a new producer
+func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
+	closer, ok := p.clientPotocol.(protocol.Closer)
+	if ok {
+		if err := closer.Close(context.Background()); err != nil {
+			return fmt.Errorf("failed to close the previous producer: %w", err)
+		}
+	}
+	return p.initClient(config)
+}
+
+// initClient will init/update the client, clientProtocol and messageLimitSize based on the transportConfig
+func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig) error {
+	topic := transportConfig.KafkaCredential.SpecTopic
+	if !transportConfig.IsManager {
+		topic = transportConfig.KafkaCredential.StatusTopic
+	}
+
+	switch transportConfig.TransportType {
+	case string(transport.Kafka):
+		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
+		if err != nil {
+			return err
+		}
+
+		eventChan, err := kafkaProtocol.Events()
+		if err != nil {
+			return err
+		}
+		handleProducerEvents(p.log, eventChan)
+		p.clientPotocol = kafkaProtocol
+	case string(transport.Chan): // this go chan protocol is only use for test
+		if transportConfig.Extends == nil {
+			transportConfig.Extends = make(map[string]interface{})
+		}
+		if _, found := transportConfig.Extends[topic]; !found {
+			transportConfig.Extends[topic] = gochan.New()
+		}
+		p.clientPotocol = transportConfig.Extends[topic]
+	default:
+		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
+	}
+
+	client, err := cloudevents.NewClient(p.clientPotocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	if err != nil {
+		return err
+	}
+	p.client = client
+	return nil
+}
+
 func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 	var chunk []byte
 	chunks := make([][]byte, 0, len(payload)/(p.messageSizeLimit)+1)
@@ -125,15 +145,15 @@ func (p *GenericProducer) SetDataLimit(size int) {
 	p.messageSizeLimit = size
 }
 
-func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, defaultTopic string) (interface{}, error) {
-	saramaConfig, err := config.GetSaramaConfig(transportConfig.KafkaConfig)
+func getSaramaSenderProtocol(kafkaConfig *transport.KafkaConfig, defaultTopic string) (interface{}, error) {
+	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {
 		return nil, err
 	}
 	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
 	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
 	saramaConfig.Producer.Return.Successes = true
-	sender, err := kafka_sarama.NewSender([]string{transportConfig.KafkaConfig.BootstrapServer},
+	sender, err := kafka_sarama.NewSender([]string{kafkaConfig.BootstrapServer},
 		saramaConfig, defaultTopic)
 	if err != nil {
 		return nil, err
@@ -141,10 +161,10 @@ func getSaramaSenderProtocol(transportConfig *transport.TransportConfig, default
 	return sender, nil
 }
 
-func getConfluentSenderProtocol(transportConfig *transport.TransportConfig,
+func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConnCredential,
 	defaultTopic string,
 ) (*kafka_confluent.Protocol, error) {
-	configMap, err := config.GetConfluentConfigMap(transportConfig.KafkaConfig, true)
+	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "")
 	if err != nil {
 		return nil, err
 	}

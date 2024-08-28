@@ -22,16 +22,15 @@ func TestGenerateConsumer(t *testing.T) {
 		t.Errorf("failed to init mock kafka cluster - %v", err)
 	}
 	transportConfig := &transport.TransportConfig{
-		TransportType: "kafka",
-		KafkaConfig: &transport.KafkaConfig{
+		TransportType:   "kafka",
+		ConsumerGroupId: "test-consumer",
+		IsManager:       false,
+		KafkaCredential: &transport.KafkaConnCredential{
 			BootstrapServer: mockKafkaCluster.BootstrapServers(),
-			EnableTLS:       false,
-			ConsumerConfig: &transport.KafkaConsumerConfig{
-				ConsumerID: "test-consumer",
-			},
+			SpecTopic:       "test-topic",
 		},
 	}
-	_, err = NewGenericConsumer(transportConfig, []string{"test-topic"})
+	_, err = NewGenericConsumer(transportConfig)
 	if err != nil && !strings.Contains(err.Error(), "client has run out of available brokers") {
 		t.Errorf("failed to generate consumer - %v", err)
 	}

@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
@@ -39,7 +40,7 @@ import (
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -55,11 +56,10 @@ const (
 )
 
 var (
-	setupLog                     = ctrl.Log.WithName("setup")
-	managerNamespace             = constants.GHDefaultNamespace
-	enableSimulation             = false
-	errFlagParameterEmpty        = errors.New("flag parameter empty")
-	errFlagParameterIllegalValue = errors.New("flag parameter illegal value")
+	setupLog              = ctrl.Log.WithName("setup")
+	managerNamespace      = constants.GHDefaultNamespace
+	enableSimulation      = false
+	errFlagParameterEmpty = errors.New("flag parameter empty")
 )
 
 func init() {
@@ -71,12 +71,9 @@ func parseFlags() *managerconfig.ManagerConfig {
 		SyncerConfig:   &managerconfig.SyncerConfig{},
 		DatabaseConfig: &managerconfig.DatabaseConfig{},
 		TransportConfig: &transport.TransportConfig{
-			KafkaConfig: &transport.KafkaConfig{
-				EnableTLS:      true,
-				Topics:         &transport.ClusterTopic{},
-				ProducerConfig: &transport.KafkaProducerConfig{},
-				ConsumerConfig: &transport.KafkaConsumerConfig{},
-			},
+			IsManager:            true,
+			ConsumerGroupId:      "global-hub-manager",
+			EnableDatabaseOffset: true,
 		},
 		StatisticsConfig:      &statistics.StatisticsConfig{},
 		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
@@ -111,32 +108,10 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
 	pflag.StringVar(&managerConfig.TransportConfig.TransportType, "transport-type", "kafka",
 		"The transport type, 'kafka'.")
-	pflag.StringVar(&managerConfig.TransportConfig.MessageCompressionType, "transport-message-compression-type",
-		"gzip", "The message compression type for transport layer, 'gzip' or 'no-op'.")
 	pflag.DurationVar(&managerConfig.TransportConfig.CommitterInterval, "transport-committer-interval",
 		40*time.Second, "The committer interval for transport layer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.BootstrapServer, "kafka-bootstrap-server",
-		"kafka-kafka-bootstrap.kafka.svc:9092", "The bootstrap server for kafka.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClusterIdentity, "kafka-cluster-identity",
-		"", "The identity for kafka cluster.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.CaCertPath, "kafka-ca-cert-path", "",
-		"The path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClientCertPath, "kafka-client-cert-path", "",
-		"The path of client certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ClientKeyPath, "kafka-client-key-path", "",
-		"The path of client key for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
 		"The path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.ProducerID, "kafka-producer-id",
-		"multicluster-global-hub-manager", "ID for the kafka producer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.SpecTopic, "kafka-producer-topic",
-		"spec", "Topic for the kafka producer.")
-	pflag.IntVar(&managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB,
-		"kafka-message-size-limit", 940, "The limit for kafka message size in KB.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.ConsumerConfig.ConsumerID,
-		"kafka-consumer-id", "multicluster-global-hub-manager", "ID for the kafka consumer.")
-	pflag.StringVar(&managerConfig.TransportConfig.KafkaConfig.Topics.StatusTopic,
-		"kafka-consumer-topic", "event", "Topic for the kafka consumer.")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
@@ -172,10 +147,6 @@ func parseFlags() *managerconfig.ManagerConfig {
 func completeConfig(managerConfig *managerconfig.ManagerConfig) error {
 	if managerConfig.DatabaseConfig.ProcessDatabaseURL == "" {
 		return fmt.Errorf("database url for process user: %w", errFlagParameterEmpty)
-	}
-	if managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB > producer.MaxMessageKBLimit {
-		return fmt.Errorf("%w - size must not exceed %d : %s", errFlagParameterIllegalValue,
-			managerConfig.TransportConfig.KafkaConfig.ProducerConfig.MessageSizeLimitKB, "kafka-message-size-limit")
 	}
 	// the specified jobs(concatenate multiple jobs with ',') runs when the container starts
 	val, ok := os.LookupEnv(launchJobNamesEnv)
@@ -242,51 +213,54 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
-	producer, err := producer.NewGenericProducer(managerConfig.TransportConfig,
-		managerConfig.TransportConfig.KafkaConfig.Topics.SpecTopic)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init spec transport bridge: %w", err)
-	}
-
 	// TODO: refactor the manager to start the conflation manager so that it can handle the events from restful API
-
-	if !managerConfig.WithACM {
-		return mgr, nil
+	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
+		transportCallback(mgr, managerConfig),
+		managerConfig.TransportConfig,
+	).SetupWithManager(mgr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add the transport controller")
 	}
 
+	// the cronjob can start without producer and consumer
+	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
+		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
+	}
+	// need lock DB for backup
+	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
+	if err := backupPVC.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
 	if managerConfig.EnableGlobalResource {
 		if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
 			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 		}
 	}
-
-	if managerConfig.EnableGlobalResource {
-		if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
-			return nil, fmt.Errorf("failed to add global resource spec syncers: %w", err)
-		}
-	}
-
-	if err := statussyncer.AddStatusSyncers(mgr, managerConfig); err != nil {
-		return nil, fmt.Errorf("failed to add transport-to-db syncers: %w", err)
-	}
-
-	// add hub management
-	if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
-		return nil, fmt.Errorf("failed to add hubmanagement to manager - %w", err)
-	}
-
-	// need lock DB for backup
-	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
-	err = backupPVC.SetupWithManager(mgr)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
-		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
-	}
-
 	return mgr, nil
+}
+
+func transportCallback(mgr ctrl.Manager, managerConfig *config.ManagerConfig) controller.TransportCallback {
+	return func(producer transport.Producer, consumer transport.Consumer) error {
+		if !managerConfig.WithACM {
+			return nil
+		}
+		if managerConfig.EnableGlobalResource {
+			if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
+				return fmt.Errorf("failed to add global resource spec syncers: %w", err)
+			}
+		}
+
+		if err := statussyncer.AddStatusSyncers(mgr, consumer, managerConfig); err != nil {
+			return fmt.Errorf("failed to add transport-to-db syncers: %w", err)
+		}
+
+		// add hub management
+		if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
+			return fmt.Errorf("failed to add hubmanagement to manager - %w", err)
+		}
+		setupLog.Info("add the manager controllers to ctrl.Manager")
+		return nil
+	}
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.

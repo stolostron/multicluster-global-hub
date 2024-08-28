@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var leaseCtrlStarted bool
+
 const (
 	leaseUpdateJitterFactor     = 0.25
 	defaultLeaseDurationSeconds = 60
@@ -36,6 +38,10 @@ type leaseUpdater struct {
 
 // AddHoHLeaseUpdater creates a new LeaseUpdater instance aand add it to given manager
 func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) error {
+	if leaseCtrlStarted {
+		return nil
+	}
+
 	var config *rest.Config
 	if isAgentTesting, ok := os.LookupEnv("AGENT_TESTING"); ok && isAgentTesting == "true" {
 		config = mgr.GetConfig()
@@ -59,7 +65,7 @@ func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) erro
 		return err
 	}
 
-	return mgr.Add(&leaseUpdater{
+	err = mgr.Add(&leaseUpdater{
 		log:                  ctrl.Log.WithName("multicluster-global-hub-lease-updater"),
 		client:               c,
 		leaseName:            addonName,
@@ -72,6 +78,11 @@ func AddHoHLeaseUpdater(mgr ctrl.Manager, addonNamespace, addonName string) erro
 				"name=multicluster-global-hub-agent"),
 		},
 	})
+	if err != nil {
+		return err
+	}
+	leaseCtrlStarted = true
+	return nil
 }
 
 // Start starts a goroutine to update lease to implement controller-runtime Runnable interface

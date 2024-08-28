@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -91,7 +90,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	}
 
 	transportConn := config.GetTransporterConn()
-	if transportConn == nil {
+	if transportConn == nil || transportConn.BootstrapServer == "" {
 		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
 	}
 
@@ -111,7 +110,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("failed to get the electionConfig %w", err)
 	}
 
-	kafkaConfigYaml, err := yaml.Marshal(transportConn)
+	kafkaConfigYaml, err := transportConn.YamlMarshal(false)
 	if err != nil {
 		return fmt.Errorf("failed to marshall kafka connetion for config: %w", err)
 	}

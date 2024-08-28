@@ -20,6 +20,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+var clusterVersionCtrlStarted = false
+
 type versionClusterClaimController struct {
 	client client.Client
 	log    logr.Logger
@@ -46,16 +48,24 @@ func (c *versionClusterClaimController) Reconcile(ctx context.Context, request c
 }
 
 func AddVersionClusterClaimController(mgr ctrl.Manager) error {
+	if clusterVersionCtrlStarted {
+		return nil
+	}
 	clusterClaimPredicate, _ := predicate.LabelSelectorPredicate(metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHAgentOwnerLabelValue,
 		},
 	})
-	return ctrl.NewControllerManagedBy(mgr).Named("clusterclaim-controller").
+	err := ctrl.NewControllerManagedBy(mgr).Named("clusterclaim-controller").
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
 		Watches(&mchv1.MultiClusterHub{}, &handler.EnqueueRequestForObject{}).
 		Complete(&versionClusterClaimController{
 			client: mgr.GetClient(),
 			log:    ctrl.Log.WithName("clusterclaim-controller"),
 		})
+	if err != nil {
+		return err
+	}
+	clusterVersionCtrlStarted = true
+	return nil
 }

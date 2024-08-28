@@ -11,12 +11,14 @@ import (
 
 type Producer interface {
 	SendEvent(ctx context.Context, evt cloudevents.Event) error
+	Reconnect(config *TransportConfig) error
 }
 
 type Consumer interface {
 	// start the transport to consume message
 	Start(ctx context.Context) error
 	EventChan() chan *cloudevents.Event
+	Reconnect(ctx context.Context, config *TransportConfig) error
 }
 
 // init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
