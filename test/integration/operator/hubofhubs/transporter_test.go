@@ -75,7 +75,7 @@ var _ = Describe("transporter", Ordered, func() {
 		// verify the type
 		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
-		Expect(config.GetRawStatusTopic()).To(Equal("gh-event"))
+		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
 		// err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
 		Expect(err).To(Succeed())
@@ -120,7 +120,7 @@ var _ = Describe("transporter", Ordered, func() {
 
 		Expect(config.TransporterProtocol()).To(Equal(transport.StrimziTransporter))
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
-		Expect(config.GetRawStatusTopic()).To(Equal("gh-event"))
+		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 

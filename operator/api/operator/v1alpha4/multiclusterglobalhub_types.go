@@ -157,7 +157,7 @@ type ResourceRequirements struct {
 // DataLayerConfig is a discriminated union of data layer specific configuration.
 type DataLayerConfig struct {
 	// Kafka specifies the desired state of kafka
-	// +kubebuilder:default={"topics": {"specTopic": "gh-spec", "statusTopic": "gh-event.*"}}
+	// +kubebuilder:default={"topics": {"specTopic": "gh-spec", "statusTopic": "gh-status.*"}}
 	Kafka KafkaConfig `json:"kafka,omitempty"`
 	// Postgres specifies the desired state of postgres
 	// +kubebuilder:default={retention: "18m"}
@@ -185,7 +185,7 @@ type PostgresConfig struct {
 // KafkaConfig defines the desired state of kafka
 type KafkaConfig struct {
 	// KafkaTopics specify the desired topics
-	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-event.*"}
+	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-status.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 
 	// StorageSize specifies the size for storage
@@ -201,10 +201,10 @@ type KafkaTopics struct {
 
 	// StatusTopic specifies the topic where an agent reports events and status updates to a manager.
 	// Specifically, the topic can end up with an asterisk (*), indicating topics for individual managed hubs.
-	// For example: the default value is "gh-event.*" for the global hub built-in kafka. Therefore, the topic
-	// for the hub cluster named "hub1" would be "gh-event.hub1"; In the BYO case, the default value for all
-	// managed hubs is "gh-event"
-	// +kubebuilder:default="gh-event.*"
+	// For example: the default value is "gh-status.*" for the global hub built-in kafka. Therefore, the topic
+	// for the hub cluster named "hub1" would be "gh-status.hub1"; In the BYO case, the default value for all
+	// managed hubs is "gh-status"
+	// +kubebuilder:default="gh-status.*"
 	StatusTopic string `json:"statusTopic,omitempty"`
 }
 

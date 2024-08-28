@@ -13,7 +13,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: gh-event.global-hub
+  name: gh-status.global-hub
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -25,7 +25,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: gh-event.hub1
+  name: gh-status.hub1
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -37,7 +37,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: gh-event.hub2
+  name: gh-status.hub2
   labels:
     strimzi.io/cluster: kafka
 spec:

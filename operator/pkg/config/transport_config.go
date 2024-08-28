@@ -21,8 +21,8 @@ import (
 
 const (
 	DEFAULT_SPEC_TOPIC          = "gh-spec"
-	DEFAULT_STATUS_TOPIC        = "gh-event.*"
-	DEFAULT_SHARED_STATUS_TOPIC = "gh-event"
+	DEFAULT_STATUS_TOPIC        = "gh-status.*"
+	DEFAULT_SHARED_STATUS_TOPIC = "gh-status"
 )
 
 var (
@@ -96,7 +96,7 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	}
 
 	// BYO Case:
-	// 1. change the default status topic from 'gh-event.*' to 'gh-event'
+	// 1. change the default status topic from 'gh-status.*' to 'gh-status'
 	// 2. ensure the status topic must not contain '*'
 	if isBYOKafka {
 		if statusTopic == DEFAULT_STATUS_TOPIC {
@@ -138,7 +138,7 @@ func GetSpecTopic() string {
 	return specTopic
 }
 
-// GetStatusTopic return the status topic with clusterName, like 'gh-event.<clusterName>'
+// GetStatusTopic return the status topic with clusterName, like 'gh-status.<clusterName>'
 func GetStatusTopic(clusterName string) string {
 	return strings.Replace(statusTopic, "*", clusterName, -1)
 }
@@ -148,7 +148,7 @@ func GetRawStatusTopic() string {
 	return statusTopic
 }
 
-// ManagerStatusTopic return the regex topic with fuzzy matching, like '^gh-event.*'
+// ManagerStatusTopic return the regex topic with fuzzy matching, like '^gh-status.*'
 func ManagerStatusTopic() string {
 	if strings.Contains(statusTopic, "*") {
 		return fmt.Sprintf("^%s", statusTopic)
