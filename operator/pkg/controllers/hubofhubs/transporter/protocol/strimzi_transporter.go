@@ -221,7 +221,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	topicReplicas := DefaultPartitionReplicas
-	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic || enableKRaft {
 		topicReplicas = 1
 	}
 	// render the kafka objects
@@ -647,23 +647,6 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayer.StorageClass
 	}
 
-	kafkaTLSListener := kafkav1beta2.KafkaSpecKafkaListenersElem{
-		Name: "tls",
-		Port: 9093,
-		Tls:  true,
-		Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
-		Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
-			Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
-		},
-	}
-	// Get the tls kafka listener if it is defined in annotation. it is only used for tests
-	listener, ok := mgh.Annotations[operatorconstants.GHKafkaTLSListener]
-	if ok && listener != "" {
-		if err := json.Unmarshal([]byte(listener), &kafkaTLSListener); err != nil {
-			klog.Infof("failed to unmarshal to KafkaSpecKafkaListenersElem: %s", err)
-		}
-	}
-
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.kafkaClusterName,
@@ -689,7 +672,15 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						Tls:  false,
 						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
 					},
-					kafkaTLSListener,
+					{
+						Name: "tls",
+						Port: 9093,
+						Tls:  true,
+						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
+						Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
+							Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
+						},
+					},
 				},
 				Resources: k.getKafkaResources(mgh),
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{

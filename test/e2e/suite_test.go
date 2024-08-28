@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,7 +87,6 @@ func init() {
 
 var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.Background())
-
 	By("Init schemes")
 	operatorScheme = operatorconfig.GetRuntimeScheme()
 	agentScheme = agentconfig.GetRuntimeScheme()
@@ -105,18 +105,6 @@ var _ = BeforeSuite(func() {
 	healthy, err := testClients.KubeClient().Discovery().RESTClient().Get().AbsPath("/healthz").DoRaw(ctx)
 	Expect(err).ShouldNot(HaveOccurred())
 	Expect(string(healthy)).To(Equal("ok"))
-
-	By("Init postgres connection")
-	databaseSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
-		Get(ctx, "multicluster-global-hub-storage", metav1.GetOptions{})
-	Expect(err).Should(Succeed())
-	err = database.InitGormInstance(&database.DatabaseConfig{
-		URL:      strings.Replace(string(databaseSecret.Data["database_uri"]), "sslmode=verify-ca", "sslmode=require", -1),
-		Dialect:  database.PostgresDialect,
-		PoolSize: 5,
-	})
-	Expect(err).Should(Succeed())
-	db = database.GetGorm()
 
 	By("Deploy the global hub")
 	deployGlobalHub()
@@ -141,9 +129,61 @@ var _ = BeforeSuite(func() {
 	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
 	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
 
+	isPrune := os.Getenv("ISPRUNE")
+	klog.Infof("isPrune: %v", isPrune)
+
+	if isPrune != "true" {
+		isBYO := os.Getenv("ISBYO")
+		klog.Infof("Isbyo: %v", isBYO)
+		By("Init postgres connection")
+		if isBYO == "true" {
+			databaseBYOSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
+				Get(ctx, "multicluster-global-hub-storage", metav1.GetOptions{})
+			Expect(err).Should(Succeed())
+
+			err = database.InitGormInstance(&database.DatabaseConfig{
+				URL:      strings.Replace(string(databaseBYOSecret.Data["database_uri"]), "sslmode=verify-ca", "sslmode=require", -1),
+				Dialect:  database.PostgresDialect,
+				PoolSize: 5,
+			})
+			Expect(err).Should(Succeed())
+		} else {
+			err = createPostgresService(testOptions.GlobalHub.Namespace)
+			Expect(err).Should(Succeed())
+			time.Sleep(1 * time.Second)
+			databaseDefaultCaConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(testOptions.GlobalHub.Namespace).
+				Get(ctx, "multicluster-global-hub-postgres-ca", metav1.GetOptions{})
+			Expect(err).Should(Succeed())
+			caPath := "postgres.ca"
+			klog.Infof("postgres ca path: %v", caPath)
+
+			err = writeFile([]byte(databaseDefaultCaConfigMap.Data["service-ca.crt"]), caPath)
+			Expect(err).Should(Succeed())
+
+			databaseDefaultSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
+				Get(ctx, "multicluster-global-hub-postgres", metav1.GetOptions{})
+			Expect(err).Should(Succeed())
+			globalhubIp, err := getIP(testOptions.GlobalHub.ApiServer)
+			Expect(err).Should(Succeed())
+			superuserDatabaseURI := "postgresql://postgres" + ":" +
+				string(databaseDefaultSecret.Data["database-admin-password"]) + "@" + globalhubIp +
+				":32433/hoh?sslmode=verify-ca"
+			Eventually(func() (err error) {
+				err = database.InitGormInstance(&database.DatabaseConfig{
+					URL:        superuserDatabaseURI,
+					Dialect:    database.PostgresDialect,
+					PoolSize:   5,
+					CaCertPath: caPath,
+				})
+				return err
+			}, 1*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+		}
+		db = database.GetGorm()
+	}
 	By("Validate the clusters on database")
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
+		klog.Errorf("get managedcluster error:%v", err)
 		return err
 	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 	Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
@@ -153,6 +193,14 @@ var _ = AfterSuite(func() {
 	cancel()
 	utils.DeleteTestingRBAC(testOptions)
 })
+
+func getIP(apiserver string) (string, error) {
+	splitapi := strings.Split(apiserver, ":")
+	if len(splitapi) != 3 {
+		return "", fmt.Errorf("apiserver is not right")
+	}
+	return splitapi[1][2:], nil
+}
 
 func completeOptions() utils.Options {
 	testTimeout = time.Second * 30
@@ -243,11 +291,11 @@ func deployGlobalHub() {
 			Name:      "multiclusterglobalhub",
 			Namespace: "multicluster-global-hub",
 			Annotations: map[string]string{
-				constants.AnnotationMGHSkipAuth: "true",
-				"mgh-scheduler-interval":        "minute",
-				constants.CommunityCatalogSourceNameKey: "operatorhubio-catalog",
-				constants.CommunityCatalogSourceNamespaceKey: "olm",
-				constants.GHKafkaTLSListener: `{"authentication": { "type": "tls" }, "configuration": { "bootstrap": { "nodePort": 30095 } }, "name": "external", "port": 9095, "tls": true, "type": "nodeport" }"`
+				constants.AnnotationMGHSkipAuth:                                  "true",
+				"mgh-scheduler-interval":                                         "minute",
+				"global-hub.open-cluster-management.io/catalog-source-name":      "operatorhubio-catalog",
+				"global-hub.open-cluster-management.io/catalog-source-namespace": "olm",
+				"global-hub.open-cluster-management.io/enable-kraft":             "",
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
@@ -305,6 +353,44 @@ func deployGlobalHub() {
 	Expect(err).ShouldNot(HaveOccurred())
 }
 
+func createPostgresService(ns string) error {
+	externalPostServiceName := "multicluster-global-hub-postgres-external"
+	postgresService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      externalPostServiceName,
+			Namespace: ns,
+			Labels: map[string]string{
+				"name":    externalPostServiceName,
+				"service": "multicluster-global-hub-postgres-external",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "external",
+					NodePort:   32433,
+					TargetPort: intstr.FromInt(5432),
+					Port:       32433,
+				},
+			},
+			Selector: map[string]string{
+				"name": "multicluster-global-hub-postgres",
+			},
+			Type: corev1.ServiceTypeNodePort,
+		},
+	}
+	_, err := testClients.KubeClient().CoreV1().Services(ns).Get(ctx, externalPostServiceName, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			_, err := testClients.KubeClient().CoreV1().Services(ns).Create(ctx, postgresService, metav1.CreateOptions{})
+			return err
+		}
+		return err
+	}
+	_, err = testClients.KubeClient().CoreV1().Services(ns).Update(ctx, postgresService, metav1.UpdateOptions{})
+	return err
+}
+
 func checkDeployAvailable(runtimeClient client.Client, namespace, name string) error {
 	deployment := &appsv1.Deployment{}
 	err := runtimeClient.Get(ctx, client.ObjectKey{
@@ -335,4 +421,20 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	args := deployment.Spec.Template.Spec.Containers[0].Args
 	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
 	return runtimeClient.Update(ctx, deployment)
+}
+
+func writeFile(bytes []byte, file string) error {
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	// remember to close the file
+	defer f.Close()
+
+	// write bytes to the file
+	_, err = f.Write(bytes)
+	if err != nil {
+		return err
+	}
+	return nil
 }

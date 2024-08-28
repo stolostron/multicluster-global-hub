@@ -13,7 +13,7 @@ e2e-cleanup:
 
 e2e-test-all: tidy vendor
 	./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana" -v $(VERBOSE)
-    ./test/script/e2e_run_byo.sh
+	./test/script/e2e_run_byo.sh -v $(VERBOSE)
 
 e2e-test-cluster e2e-test-placement e2e-test-app e2e-test-policy e2e-test-localpolicy e2e-test-grafana: tidy vendor
 	./test/script/e2e_run.sh -f $@ -v $(VERBOSE)

@@ -15,7 +15,6 @@ OPTION_FILE="${CONFIG_DIR}/options.yaml"
 
 export MH_NUM=${MH_NUM:-2}
 export MC_NUM=${MC_NUM:-1}
-export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 export GH_NAME="global-hub" # the KinD name
 export GH_KUBECONFIG="${CONFIG_DIR}/${GH_NAME}"
 export GH_NAMESPACE="multicluster-global-hub"
@@ -41,16 +40,6 @@ options:
     operatorImageREF: ${MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF}
     managedhubs:
 EOF
-
-docker pull "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" &
-docker pull "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" &
-docker pull "$OAUTH_PROXY_IMG" &
-docker pull "$GRAFANA_IMG" &
-wait
-kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF" --name $GH_NAME
-kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF" --name $GH_NAME
-kind load docker-image "$OAUTH_PROXY_IMG" --name $GH_NAME
-kind load docker-image "$GRAFANA_IMG" --name $GH_NAME
 
 for i in $(seq 1 "${MH_NUM}"); do
   # leafhub
@@ -103,9 +92,18 @@ while getopts ":f:v:" opt; do
 done
 
 verbose=${verbose:=5}
+################# deploy byo kafka and postgres
+bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >"$CONFIG_DIR/PID"
 
-if [ -z "${filter}" ]; then
-  ginkgo --fail-fast --label-filter="!e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
+bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
+################################################### 
+
+if [ "${filter}" = "e2e-test-prune" ]; then
+  export ISPRUNE="true"
+  echo "run prune"
+  ginkgo --fail-fast --label-filter="e2e-test-prune" --output-dir="$CONFIG_DIR" --json-report=report.json \
     --junit-report=report.xml "$TEST_DIR/e2e" -- -options="$OPTION_FILE" -v="$verbose"
 else
   ginkgo --fail-fast --label-filter="${filter}" --output-dir="$CONFIG_DIR" --json-report=report.json \

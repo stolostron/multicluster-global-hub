@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,13 +53,20 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 	It("The pvc should have backup label", func() {
 		Eventually(func() bool {
 			pvcList := &corev1.PersistentVolumeClaimList{}
-			Expect(runtimeClient.List(ctx, pvcList)).Should(Succeed())
+			Expect(runtimeClient.List(ctx, pvcList, &client.ListOptions{
+				Namespace: Namespace,
+				LabelSelector: labels.SelectorFromSet(
+					labels.Set{
+						constants.PostgresPvcLabelKey: constants.PostgresPvcLabelValue,
+					},
+				),
+			})).Should(Succeed())
 			for _, v := range pvcList.Items {
 				if v.Namespace != Namespace {
 					continue
 				}
 				klog.Errorf("pvc:%v, label:%v", v.Name, v.Labels)
-				if !utils.HasItem(v.Labels, constants.BackupExcludeKey, "true") {
+				if !utils.HasItem(v.Labels, constants.BackupVolumnKey, constants.BackupGlobalHubValue) {
 					return false
 				}
 			}

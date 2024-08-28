@@ -7,8 +7,11 @@ CURRENT_DIR=$(
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
-KUBECONFIG=${1:-$KUBECONFIG}        # install the kafka
+KAFKA_KUBECONFIG=${1:-$KUBECONFIG}        # install the kafka
 SECRET_KUBECONFIG=${2:-$KUBECONFIG} # generate the crenditial secret
+
+echo "KAFKA_KUBECONFIG=$KAFKA_KUBECONFIG"
+echo "SECRET_KUBECONFIG=$SECRET_KUBECONFIG"
 
 start_time=$(date +%s)
 echo -e "\r${BOLD_GREEN}[ START - $(date +"%T") ] Install Kafka $NC"
@@ -23,49 +26,30 @@ if kubectl get secret "$transport_secret" -n "$target_namespace" --kubeconfig "$
 fi
 
 # create all the resource in cluster KUBECONFIG
-kubectl create namespace "$kafka_namespace" --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" --dry-run=client -o yaml | kubectl apply -f - --kubeconfig "$KAFKA_KUBECONFIG"
 
 # deploy kafka operator
-kubectl -n $kafka_namespace create -f "https://strimzi.io/install/latest?namespace=$kafka_namespace"
-retry "(kubectl get pods -n $kafka_namespace -l name=strimzi-cluster-operator | grep Running)" 60
+kubectl -n $kafka_namespace create -f "https://strimzi.io/install/latest?namespace=$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
+retry "(kubectl get pods -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" -l name=strimzi-cluster-operator | grep Running)" 60
 
 echo "Kafka operator is ready"
 
-node_port_host=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
+node_port_host=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' --kubeconfig "$KAFKA_KUBECONFIG" | sed -e 's#^https\?://##' -e 's/:.*//')
 sed -i -e "s;NODE_PORT_HOST;$node_port_host;" "$TEST_DIR"/manifest/kafka/kafka-cluster/kafka-cluster.yaml
 # deploy kafka cluster
-kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$kafka_namespace"
+kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
 
-wait_cmd "kubectl get kafka kafka -n $kafka_namespace -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
+wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 
 # kafka
-wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-status.hub1 -n $kafka_namespace | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-status.hub2 -n $kafka_namespace | grep -C 1 True"
-wait_cmd "kubectl get kafkauser global-hub-kafka-user -n $kafka_namespace | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-status.hub1 -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-status.hub2 -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" | grep -C 1 True"
+wait_cmd "kubectl get kafkauser global-hub-kafka-user -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" | grep -C 1 True"
 echo "Kafka topic/user are ready"
 
 # Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs
-
-# BYO: 1. create the topics; 2. create the user; 3. create the transport secret
 byo_user=global-hub-byo-user
-wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace | grep -C 1 True"
-
-# generate transport secret
-wait_cmd "kubectl get kafka kafka -n $kafka_namespace -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
-bootstrap_server=$(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
-kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[1].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
-kubectl get secret $byo_user -n "$kafka_namespace" -o jsonpath='{.data.user\.crt}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-cert.pem
-kubectl get secret $byo_user -n "$kafka_namespace" -o jsonpath='{.data.user\.key}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-key.pem
-
-# generate the secret in the target cluster: SECRET_KUBECONFIG
-
-kubectl create ns "$target_namespace" --dry-run=client -oyaml | kubectl --kubeconfig "$SECRET_KUBECONFIG" apply -f -
-kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubeconfig "$SECRET_KUBECONFIG" \
-  --from-literal=bootstrap_server="$bootstrap_server" \
-  --from-file=ca.crt="$CURRENT_DIR"/config/kafka-ca-cert.pem \
-  --from-file=client.crt="$CURRENT_DIR"/config/kafka-client-cert.pem \
-  --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
-echo "transport secret is ready!"
+wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" | grep -C 1 True"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"

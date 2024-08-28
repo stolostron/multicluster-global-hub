@@ -6,7 +6,7 @@ export PATH=$PATH:$INSTALL_DIR
 export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
-export KIND_VERSION=v0.23.0
+export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.22.4
 export GINKGO_VERSION=v2.17.2
@@ -17,7 +17,7 @@ export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres
 export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
 export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
 export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
-export GRAFANA_IMG="quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/release-globalhub-1-3/glo-grafana-globalhub-1-3@sha256:c73fb10b1230c5e678d51fc609a5cfb8fb02ca2f4c12e4639cf7ad483f6a47a0"
+export GRAFANA_IMG="quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25"
 
 # Environment Variables 
 CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
@@ -96,6 +96,7 @@ check_kind() {
     chmod +x ./kind-amd64
     sudo mv ./kind-amd64 $INSTALL_DIR/kind
   fi
+  echo "kind version: $(kind version)"
 }
 
 kind_cluster() {
@@ -103,7 +104,7 @@ kind_cluster() {
   cluster_name="$1"
   echo "dir $dir"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --wait 5m"
+    retry "kind create cluster --name $cluster_name --image=kindest/node:v1.23.0 --wait 5m"
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
@@ -112,6 +113,7 @@ kind_cluster() {
     retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
+  echo "kind clusters: $(kind get clusters)"
 }
 
 init_hub() {
@@ -334,6 +336,9 @@ install_crds() {
 
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
+  #proxy
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
 }
 
 enable_service_ca() {

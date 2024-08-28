@@ -63,7 +63,7 @@ done
 
 wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
-enableOLM kind-global-hub
+enable_olm global-hub
 
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
@@ -74,3 +74,4 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
 echo -e "${BOLD_GREEN}[ END ] ${NC} $(($(date +%s) - start)) seconds"
+

@@ -109,12 +109,11 @@ const (
 
 	// CommunityCatalogSourceNameKey defines the catalog source name. it is mainly used for deploy kafka in KinD cluster.
 	CommunityCatalogSourceNameKey = "global-hub.open-cluster-management.io/catalog-source-name"
-	// CommunityCatalogSourceNamespaceKey defines the catalog source namespace. it is mainly used for deploy kafka in KinD cluster.
+	// CommunityCatalogSourceNamespaceKey defines the catalog source namespace.
+	// It is mainly used for deploying kafka in KinD cluster.
 	CommunityCatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/catalog-source-namespace"
-	// GHKafkaTLSListener define the tls listener.
-	// for example: {"authentication": { "type": "tls" }, "configuration": { "bootstrap": { "nodePort": 30095 }
-	// }, "name": "external", "port": 9095, "tls": true, "type": "nodeport" }
-	GHKafkaTLSListener = "global-hub.open-cluster-management.io/kafka-tls-listener"
+	// EnableKRaft enables run kafka with kraft
+	EnableKRaft = "global-hub.open-cluster-management.io/enable-kraft"
 )
 
 // AggregationLevel specifies the level of aggregation leaf hubs should do before sending the information
