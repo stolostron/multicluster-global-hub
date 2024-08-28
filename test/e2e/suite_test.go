@@ -245,6 +245,9 @@ func deployGlobalHub() {
 			Annotations: map[string]string{
 				constants.AnnotationMGHSkipAuth: "true",
 				"mgh-scheduler-interval":        "minute",
+				constants.CommunityCatalogSourceNameKey: "operatorhubio-catalog",
+				constants.CommunityCatalogSourceNamespaceKey: "olm",
+				constants.GHKafkaTLSListener: `{"authentication": { "type": "tls" }, "configuration": { "bootstrap": { "nodePort": 30095 } }, "name": "external", "port": 9095, "tls": true, "type": "nodeport" }"`
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{

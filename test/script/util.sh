@@ -355,7 +355,7 @@ enable_olm() {
     exit 1
   fi
 
-  path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.22.0"
+  path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.28.0"
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/crds.yaml"
   kubectl --context "$1" wait --for=condition=Established -f "${path}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/olm.yaml"
