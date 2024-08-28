@@ -77,12 +77,16 @@ function deployGlobalHub() {
   MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF="image-registry.testing/stolostron/multicluster-global-hub-agent:latest"
   docker build . -t $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF -f operator/Dockerfile
   docker build . -t $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF -f manager/Dockerfile
-  #docker build . -t $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF -f agent/Dockerfile
+  docker build . -t $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF -f agent/Dockerfile
 
   # load to kind cluster
   kind load docker-image $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF --name $2
   kind load docker-image $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF --name $2
   #kind load docker-image $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF --name $2
+
+  # replace to use the built images
+  sed -i -e "s;quay.io/stolostron/multicluster-global-hub-manager:latest;$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF;" ./operator/config/manager/manager.yaml
+  sed -i -e "s;quay.io/stolostron/multicluster-global-hub-agent:latest;$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF;" ./operator/config/manager/manager.yaml
 
   # deploy serviceMonitor CRD
   kubectl --context "$1" apply -f ${CURRENT_DIR}/../../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
@@ -97,7 +101,7 @@ metadata:
     global-hub.open-cluster-management.io/catalog-source-name: operatorhubio-catalog
     global-hub.open-cluster-management.io/catalog-source-namespace: olm
     global-hub.open-cluster-management.io/with-inventory: ""
-    global-hub.open-cluster-management.io/kafka-tls-listener: |
+    global-hub.open-cluster-management.io/kafka-external-listener: |
       {"authentication": { "type": "tls" }, "configuration": { "bootstrap": { "nodePort": 30095 } }, "name": "external", "port": 9095, "tls": true, "type": "nodeport" }
   name: multiclusterglobalhub
   namespace: multicluster-global-hub
@@ -111,6 +115,7 @@ spec:
     postgres:
       retention: 18m
   enableMetrics: false
+  imagePullPolicy: IfNotPresent
 EOF
 }
 

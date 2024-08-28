@@ -141,7 +141,7 @@ func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, namespa
 
 // IsCommunityMode returns true if operator is running in community mode
 func IsCommunityMode() bool {
-	image := os.Getenv("RELATED_IMAGE_MULTICLUSTER_GLOBAL_HUB_MANAGER")
+	image := os.Getenv("RELATED_IMAGE_POSTGRESQL")
 	if strings.Contains(image, "quay.io/stolostron") {
 		// image has quay.io/stolostron treat as community version
 		return true

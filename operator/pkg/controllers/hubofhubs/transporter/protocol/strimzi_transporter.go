@@ -651,7 +651,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		},
 	}
 	// Get the tls kafka listener if it is defined in annotation. it is only used for tests
-	listener, ok := mgh.Annotations[operatorconstants.GHKafkaTLSListener]
+	listener, ok := mgh.Annotations[operatorconstants.GHKafkaExternalListener]
 	if ok && listener != "" {
 		if err := json.Unmarshal([]byte(listener), &kafkaTLSListener); err != nil {
 			klog.Infof("failed to unmarshal to KafkaSpecKafkaListenersElem: %s", err)
