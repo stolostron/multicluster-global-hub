@@ -312,6 +312,7 @@ func TestWebhookResources(t *testing.T) {
 			addonv1alpha1.AddToScheme(scheme.Scheme)
 
 			config.SetImportClusterInHosted(tt.mgh)
+			config.SetACMResourceReady(true)
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			r := NewPruneReconciler(fakeClient)

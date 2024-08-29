@@ -64,7 +64,7 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 		return nil
 	}
 	// If webhook do not need to enable, should remove the related resources
-	if !config.GetImportClusterInHosted() {
+	if config.IsACMResourceReady() && !config.GetImportClusterInHosted() {
 		if err := r.pruneWebhookResources(ctx); err != nil {
 			return err
 		}

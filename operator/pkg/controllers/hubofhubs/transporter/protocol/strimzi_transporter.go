@@ -88,9 +88,8 @@ type strimziTransporter struct {
 	subPackageName            string
 
 	// global hub config
-	mgh           *operatorv1alpha4.MulticlusterGlobalHub
-	runtimeClient client.Client
-	manager       ctrl.Manager
+	mgh     *operatorv1alpha4.MulticlusterGlobalHub
+	manager ctrl.Manager
 
 	// wait until kafka cluster status is ready when initialize
 	waitReady bool
@@ -123,9 +122,8 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		sharedTopics:           false,
 		topicPartitionReplicas: DefaultPartitionReplicas,
 
-		manager:       mgr,
-		runtimeClient: mgr.GetClient(),
-		mgh:           mgh,
+		manager: mgr,
+		mgh:     mgh,
 	}
 	// apply options
 	for _, opt := range opts {
@@ -285,13 +283,13 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	desiredKafkaUser := k.newKafkaUser(userName, authnType, simpleACLs)
 
 	kafkaUser := &kafkav1beta2.KafkaUser{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      userName,
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaUser)
 	if errors.IsNotFound(err) {
 		klog.Infof("create the kafakUser: %s", userName)
-		return userName, k.runtimeClient.Create(k.ctx, desiredKafkaUser, &client.CreateOptions{})
+		return userName, k.manager.GetClient().Create(k.ctx, desiredKafkaUser, &client.CreateOptions{})
 	} else if err != nil {
 		return "", err
 	}
@@ -304,7 +302,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 
 	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
 		klog.Infof("update the kafkaUser: %s", userName)
-		if err = k.runtimeClient.Update(k.ctx, updatedKafkaUser); err != nil {
+		if err = k.manager.GetClient().Update(k.ctx, updatedKafkaUser); err != nil {
 			return "", err
 		}
 	}
@@ -318,12 +316,12 @@ func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.Cluster
 
 	for _, topicName := range topicNames {
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
-		err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+		err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 			Name:      topicName,
 			Namespace: k.kafkaClusterNamespace,
 		}, kafkaTopic)
 		if errors.IsNotFound(err) {
-			if e := k.runtimeClient.Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
+			if e := k.manager.GetClient().Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
 				return nil, e
 			}
 			continue // reconcile the next topic
@@ -343,7 +341,7 @@ func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.Cluster
 		updatedTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
 
 		if !equality.Semantic.DeepDerivative(updatedTopic.Spec, kafkaTopic.Spec) {
-			if err = k.runtimeClient.Update(k.ctx, updatedTopic); err != nil {
+			if err = k.manager.GetClient().Update(k.ctx, updatedTopic); err != nil {
 				return nil, err
 			}
 		}
@@ -359,9 +357,9 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 			Namespace: k.kafkaClusterNamespace,
 		},
 	}
-	err := k.runtimeClient.Get(k.ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
+	err := k.manager.GetClient().Get(k.ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 	if err == nil {
-		if err := k.runtimeClient.Delete(k.ctx, kafkaUser); err != nil {
+		if err := k.manager.GetClient().Delete(k.ctx, kafkaUser); err != nil {
 			return err
 		}
 	} else if !errors.IsNotFound(err) {
@@ -380,9 +378,9 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 	// 		Namespace: k.kafkaClusterNamespace,
 	// 	},
 	// }
-	// err = k.runtimeClient.Get(k.ctx, client.ObjectKeyFromObject(kafkaTopic), kafkaTopic)
+	// err = k.manager.GetClient().Get(k.ctx, client.ObjectKeyFromObject(kafkaTopic), kafkaTopic)
 	// if err == nil {
-	// 	if err := k.runtimeClient.Delete(k.ctx, kafkaTopic); err != nil {
+	// 	if err := k.manager.GetClient().Delete(k.ctx, kafkaTopic); err != nil {
 	// 		return err
 	// 	}
 	// } else if !errors.IsNotFound(err) {
@@ -435,7 +433,7 @@ func GetClusterCASecret(clusterName string) string {
 // loadUserCredentail add credential with client cert, and key
 func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.KafkaConnCredential) error {
 	kafkaUserSecret := &corev1.Secret{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      kafkaUserName,
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaUserSecret)
@@ -450,7 +448,7 @@ func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential
 // getConnCredentailByCluster gets credential with clusterId, bootstrapServer, and serverCA
 func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConnCredential, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaCluster)
@@ -530,7 +528,7 @@ func (k *strimziTransporter) newKafkaUser(
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
 func (k *strimziTransporter) kafkaClusterReady() error {
 	kafkaCluster := &kafkav1beta2.Kafka{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaCluster)
@@ -565,13 +563,13 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {
 	existingKafka := &kafkav1beta2.Kafka{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
 		Namespace: mgh.Namespace,
 	}, existingKafka)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return k.runtimeClient.Create(k.ctx, k.newKafkaCluster(mgh)), true
+			return k.manager.GetClient().Create(k.ctx, k.newKafkaCluster(mgh)), true
 		}
 		return err, false
 	}
@@ -593,7 +591,7 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	updatedKafka.Spec.Zookeeper.MetricsConfig = desiredKafka.Spec.Zookeeper.MetricsConfig
 
 	if !reflect.DeepEqual(updatedKafka.Spec, existingKafka.Spec) {
-		return k.runtimeClient.Update(k.ctx, updatedKafka), true
+		return k.manager.GetClient().Update(k.ctx, updatedKafka), true
 	}
 	return nil, false
 }
@@ -953,7 +951,7 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	// get subscription
 	existingSub := &subv1alpha1.Subscription{}
-	err := k.runtimeClient.Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.subName,
 		Namespace: mgh.GetNamespace(),
 	}, existingSub)
@@ -963,7 +961,7 @@ func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.Multiclust
 
 	expectedSub := k.newSubscription(mgh)
 	if errors.IsNotFound(err) {
-		return k.runtimeClient.Create(k.ctx, expectedSub)
+		return k.manager.GetClient().Create(k.ctx, expectedSub)
 	} else {
 		startingCSV := expectedSub.Spec.StartingCSV
 		// if updating channel must remove startingCSV
@@ -974,7 +972,7 @@ func (k *strimziTransporter) ensureSubscription(mgh *operatorv1alpha4.Multiclust
 			existingSub.Spec = expectedSub.Spec
 		}
 		existingSub.Spec.StartingCSV = startingCSV
-		return k.runtimeClient.Update(k.ctx, existingSub)
+		return k.manager.GetClient().Update(k.ctx, existingSub)
 	}
 }
 
