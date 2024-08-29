@@ -149,6 +149,10 @@ wait_cmd() {
     echo -ne "\r ${signs[$index]} Waiting $elapsed seconds: $1"
     sleep $interval
     ((elapsed += interval))
+    kubectl get pod -A
+    kubectl get kafka -n multicluster-global-hub -oyaml || true
+    kubectl get mcgh -n multicluster-global-hub -oyaml || true
+    kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub
   done
 
   echo -e "\n$RED Timeout $seconds seconds $NC: $command"
