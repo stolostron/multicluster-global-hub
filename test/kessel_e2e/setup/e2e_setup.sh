@@ -76,12 +76,12 @@ function deployGlobalHub() {
   MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF="image-registry.testing/stolostron/multicluster-global-hub-manager:latest"
   MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF="image-registry.testing/stolostron/multicluster-global-hub-agent:latest"
   docker build . -t $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF -f operator/Dockerfile
-  #docker build . -t $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF -f manager/Dockerfile
-  #docker build . -t $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF -f agent/Dockerfile
+  docker build . -t $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF -f manager/Dockerfile
+  docker build . -t $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF -f agent/Dockerfile
 
   # load to kind cluster
   kind load docker-image $MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF --name $2
-  #kind load docker-image $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF --name $2
+  kind load docker-image $MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF --name $2
   #kind load docker-image $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF --name $2
 
   # replace to use the built images
@@ -101,8 +101,7 @@ metadata:
     global-hub.open-cluster-management.io/catalog-source-name: operatorhubio-catalog
     global-hub.open-cluster-management.io/catalog-source-namespace: olm
     global-hub.open-cluster-management.io/with-inventory: ""
-    global-hub.open-cluster-management.io/kafka-external-listener: |
-      {"authentication": { "type": "tls" }, "configuration": { "bootstrap": { "nodePort": 30095 } }, "name": "external", "port": 9095, "tls": true, "type": "nodeport" }
+    global-hub.open-cluster-management.io/enable-kraft: ""
   name: multiclusterglobalhub
   namespace: multicluster-global-hub
 spec:
@@ -150,16 +149,11 @@ wait_cmd() {
     echo -ne "\r ${signs[$index]} Waiting $elapsed seconds: $1"
     sleep $interval
     ((elapsed += interval))
-    kubectl get pod -A
-    kubectl get kafka -n multicluster-global-hub -oyaml
-    kubectl get mcgh -n multicluster-global-hub -oyaml
-    kubectl logs -n multicluster-global-hub  kafka-zookeeper-0
   done
 
   echo -e "\n$RED Timeout $seconds seconds $NC: $command"
   return 1 # Return failure status code
 }
-
 
 function wait_global_hub_ready() {
   wait_cmd "kubectl get deploy/multicluster-global-hub-manager -n multicluster-global-hub --context $1"

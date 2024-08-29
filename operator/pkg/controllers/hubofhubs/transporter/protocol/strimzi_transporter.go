@@ -55,7 +55,7 @@ const (
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
-	CommunityChannel           = "strimzi-0.40.x"
+	CommunityChannel           = "strimzi-0.41.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
 )
@@ -70,10 +70,6 @@ var (
 	KakfaMetricsConfigmapName       = "kafka-metrics"
 	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
 	ZooKeeperMetricsConfigmapKeyRef = "zookeeper-metrics-config.yml"
-
-	HostNameVerification       = "zookeeper.ssl.hostnameVerification"
-	HostNameVerificationValue  = "false"
-	QUORUMHostNameVerification = "zookeeper.ssl.quorum.hostnameVerification"
 )
 
 // install the strimzi kafka cluster by operator
@@ -193,12 +189,18 @@ func (k *strimziTransporter) EnsureKafka() error {
 	if !config.GetKafkaResourceReady() {
 		return fmt.Errorf("the kafka crds is not ready")
 	}
-	err, _ = k.CreateUpdateKafkaCluster(k.mgh)
-	if err != nil {
-		return err
+
+	_, enableKRaft := k.mgh.Annotations[operatorconstants.EnableKRaft]
+	if !enableKRaft {
+		// TODO: use manifest to create kafka cluster
+		err, _ = k.CreateUpdateKafkaCluster(k.mgh)
+		if err != nil {
+			return err
+		}
 	}
+
 	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-	err = k.renderKafkaResources(k.mgh)
+	err = k.renderKafkaResources(k.mgh, enableKRaft)
 	if err != nil {
 		return err
 	}
@@ -206,7 +208,9 @@ func (k *strimziTransporter) EnsureKafka() error {
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
-func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
+func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub,
+	enableKRaft bool,
+) error {
 	statusTopic := config.GetRawStatusTopic()
 	statusPlaceholderTopic := config.GetRawStatusTopic()
 	topicParttern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
@@ -234,6 +238,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusPlaceholderTopic string
 				TopicPartition         int32
 				TopicReplicas          int32
+				EnableKRaft            bool
 			}{
 				EnableMetrics:          mgh.Spec.EnableMetrics,
 				Namespace:              mgh.GetNamespace(),
@@ -245,6 +250,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusPlaceholderTopic: statusPlaceholderTopic,
 				TopicPartition:         DefaultPartition,
 				TopicReplicas:          topicReplicas,
+				EnableKRaft:            enableKRaft,
 			}, nil
 		})
 	if err != nil {
@@ -645,23 +651,6 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayer.StorageClass
 	}
 
-	kafkaTLSListener := kafkav1beta2.KafkaSpecKafkaListenersElem{
-		Name: "tls",
-		Port: 9093,
-		Tls:  true,
-		Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
-		Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
-			Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
-		},
-	}
-	// Get the tls kafka listener if it is defined in annotation. it is only used for tests
-	listener, ok := mgh.Annotations[operatorconstants.GHKafkaExternalListener]
-	if ok && listener != "" {
-		if err := json.Unmarshal([]byte(listener), &kafkaTLSListener); err != nil {
-			klog.Infof("failed to unmarshal to KafkaSpecKafkaListenersElem: %s", err)
-		}
-	}
-
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.kafkaClusterName,
@@ -673,12 +662,12 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
 				Config: &apiextensions.JSON{Raw: []byte(`{
-"default.replication.factor": 1,
+"default.replication.factor": 3,
 "inter.broker.protocol.version": "3.7",
-"min.insync.replicas": 1,
-"offsets.topic.replication.factor": 1,
-"transaction.state.log.min.isr": 1,
-"transaction.state.log.replication.factor": 1
+"min.insync.replicas": 2,
+"offsets.topic.replication.factor": 3,
+"transaction.state.log.min.isr": 2,
+"transaction.state.log.replication.factor": 3
 }`)},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
@@ -687,13 +676,21 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						Tls:  false,
 						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
 					},
-					kafkaTLSListener,
+					{
+						Name: "tls",
+						Port: 9093,
+						Tls:  true,
+						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
+						Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
+							Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
+						},
+					},
 				},
 				Resources: k.getKafkaResources(mgh),
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
-				Replicas: 1,
+				Replicas: 3,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
@@ -703,21 +700,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Version: &KafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas:  1,
+				Replicas:  3,
 				Storage:   kafkaSpecZookeeperStorage,
 				Resources: k.getZookeeperResources(mgh),
-				JvmOptions: &kafkav1beta2.KafkaSpecZookeeperJvmOptions{
-					JavaSystemProperties: []kafkav1beta2.KafkaSpecZookeeperJvmOptionsJavaSystemPropertiesElem{
-						{
-							Name:  &HostNameVerification,
-							Value: &HostNameVerificationValue,
-						},
-						{
-							Name:  &QUORUMHostNameVerification,
-							Value: &HostNameVerificationValue,
-						},
-					},
-				},
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
 				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},
