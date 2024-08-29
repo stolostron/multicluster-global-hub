@@ -1,4 +1,4 @@
-package addon_test
+package agent_test
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -39,8 +39,8 @@ func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluste
 
 	if hostingCluster != "" {
 		annotations := map[string]string{
-			operatorconstants.AnnotationClusterDeployMode:         operatorconstants.ClusterDeployModeHosted,
-			operatorconstants.AnnotationClusterHostingClusterName: hostingCluster,
+			constants.AnnotationClusterDeployMode:         constants.ClusterDeployModeHosted,
+			constants.AnnotationClusterHostingClusterName: hostingCluster,
 		}
 		cluster.SetAnnotations(annotations)
 	}
@@ -87,8 +87,8 @@ func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.M
 		},
 	}
 
-	if addonDeployMode == operatorconstants.ClusterDeployModeHosted {
-		addon.SetAnnotations(map[string]string{operatorconstants.AnnotationAddonHostingClusterName: "hostingcluster"})
+	if addonDeployMode == constants.ClusterDeployModeHosted {
+		addon.SetAnnotations(map[string]string{constants.AnnotationAddonHostingClusterName: "hostingcluster"})
 	}
 
 	return addon
@@ -186,9 +186,9 @@ func TestAddonInstaller(t *testing.T) {
 				if addon.Spec.InstallNamespace != "klusterlet-cluster1" {
 					t.Errorf("expected installname klusterlet-cluster1, but got %s", addon.Spec.InstallNamespace)
 				}
-				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
+				if addon.Annotations[constants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",
-						addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName])
+						addon.Annotations[constants.AnnotationAddonHostingClusterName])
 				}
 			},
 		},
@@ -207,9 +207,9 @@ func TestAddonInstaller(t *testing.T) {
 				if addon.Spec.InstallNamespace != "klusterlet-cluster1" {
 					t.Errorf("expected installname klusterlet-cluster1, but got %s", addon.Spec.InstallNamespace)
 				}
-				if addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName] != "cluster2" {
+				if addon.Annotations[constants.AnnotationAddonHostingClusterName] != "cluster2" {
 					t.Errorf("expected hosting cluster cluster2, but got %s",
-						addon.Annotations[operatorconstants.AnnotationAddonHostingClusterName])
+						addon.Annotations[constants.AnnotationAddonHostingClusterName])
 				}
 			},
 		},

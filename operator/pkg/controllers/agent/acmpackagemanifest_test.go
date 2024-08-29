@@ -1,4 +1,4 @@
-package addon_test
+package agent_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 )
 
 const acmPackageManifestJson = `{
@@ -104,7 +104,7 @@ func fakeMCEPackageManifests() *unstructured.Unstructured {
 func TestGetPackageManifestConfig(t *testing.T) {
 	scheme := runtime.NewScheme()
 	dynamicClient := dynamicfake.NewSimpleDynamicClient(scheme, fakeACMPackageManifests(), fakeMCEPackageManifests())
-	pm, err := addon.GetPackageManifestConfig(context.TODO(), dynamicClient)
+	pm, err := agent.GetPackageManifestConfig(context.TODO(), dynamicClient)
 	if err != nil {
 		t.Errorf("failed to get packageManfiestConfig. err = %v", err)
 	}

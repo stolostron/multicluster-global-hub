@@ -28,7 +28,7 @@ import (
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"

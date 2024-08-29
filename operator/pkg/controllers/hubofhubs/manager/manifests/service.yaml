@@ -25,17 +25,17 @@ spec:
   selector:
     name: multicluster-global-hub-manager
 ---
-{{ if .EnableGlobalResource }}
+{{- if .EnableGlobalResource}}
 apiVersion: v1
 kind: Service
 metadata:
-  name: multicluster-global-hub-webhook
+  name: multicluster-global-hub-global-webhook
   namespace: {{.Namespace}}
   labels:
-    name: multicluster-global-hub-webhook
-    service: multicluster-global-hub-webhook
+    name: multicluster-global-hub-global-webhook
+    service: multicluster-global-hub-global-webhook
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-webhook-certs
+    service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-manager-webhook-certs
 spec:
   ports:
   - port: 443

@@ -1,4 +1,4 @@
-package addon
+package agent
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addon/certificates"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -116,9 +116,9 @@ func (a *AddonController) Start(ctx context.Context) error {
 		WithAgentHostedModeEnabledOption().
 		WithGetValuesFuncs(hohAgentAddon.GetValues,
 			addonfactory.GetValuesFromAddonAnnotation,
-			addonfactory.GetAddOnDeloymentConfigValues(
-				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
-				addonfactory.ToAddOnDeloymentConfigValues,
+			addonfactory.GetAddOnDeploymentConfigValues(
+				addonfactory.NewAddOnDeploymentConfigGetter(addonClient),
+				addonfactory.ToAddOnDeploymentConfigValues,
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
 		WithScheme(addonScheme)

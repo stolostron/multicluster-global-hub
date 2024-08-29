@@ -62,6 +62,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -81,6 +82,7 @@ type GlobalHubReconciler struct {
 	transportReconciler *transporter.TransportReconciler
 	statusReconciler    *status.StatusReconciler
 	managerReconciler   *manager.ManagerReconciler
+	webhookReconciler   *webhook.WebhookReconciler
 	grafanaReconciler   *grafana.GrafanaReconciler
 	imageClient         *imagev1client.ImageV1Client
 }
@@ -101,6 +103,7 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		transportReconciler: transporter.NewTransportReconciler(mgr),
 		statusReconciler:    status.NewStatusReconciler(mgr.GetClient()),
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
+		webhookReconciler:   webhook.NewWebhookReconciler(mgr),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
 		imageClient:         imageClient,
 	}
@@ -569,7 +572,8 @@ func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admi
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=addondeploymentconfigs,verbs=create;delete;get;list;update;watch
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons/finalizers,verbs=update
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules;podmonitors,verbs=get;create;delete;update;list;watch
@@ -634,6 +638,8 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
+	config.SetImportClusterInHosted(mgh)
+
 	// prune resources if deleting mgh or metrics is disabled
 	if err = r.pruneReconciler.Reconcile(ctx, mgh); err != nil {
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to prune Global Hub resources %v", err)
@@ -672,6 +678,10 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	if config.IsACMResourceReady() {
+		// webhook required ACM
+		if err := r.webhookReconciler.Reconcile(ctx, mgh); err != nil {
+			return ctrl.Result{}, err
+		}
 		// Grafana is required for ACM global hub
 		// reconcile grafana
 		if err := r.grafanaReconciler.Reconcile(ctx, mgh); err != nil {

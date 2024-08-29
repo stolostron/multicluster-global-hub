@@ -1,4 +1,4 @@
-package addon
+package agent
 
 import (
 	"context"
@@ -205,12 +205,12 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.M
 	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
 	if deployMode == operatorconstants.GHAgentDeployModeHosted {
 		annotations := cluster.GetAnnotations()
-		if hostingCluster := annotations[operatorconstants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
-			expectedAddonAnnotations[operatorconstants.AnnotationAddonHostingClusterName] = hostingCluster
+		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
+			expectedAddonAnnotations[constants.AnnotationAddonHostingClusterName] = hostingCluster
 			expectedAddon.Spec.InstallNamespace = fmt.Sprintf("klusterlet-%s", cluster.Name)
 		} else {
 			return nil, fmt.Errorf("failed to get %s when addon in %s is installed in hosted mode",
-				operatorconstants.AnnotationClusterHostingClusterName, cluster.Name)
+				constants.AnnotationClusterHostingClusterName, cluster.Name)
 		}
 	}
 
@@ -375,5 +375,5 @@ func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, erro
 func filterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
 		obj.GetLabels()["openshiftVersion"] == "3" ||
-		obj.GetName() == operatorconstants.LocalClusterName
+		obj.GetName() == constants.LocalClusterName
 }

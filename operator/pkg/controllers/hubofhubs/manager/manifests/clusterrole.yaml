@@ -54,6 +54,16 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - "addon.open-cluster-management.io"
+  resources:
+  - clustermanagementaddons
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - patch
+- apiGroups:
   - "cluster.open-cluster-management.io"
   resources:
   - placements

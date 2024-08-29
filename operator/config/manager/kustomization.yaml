@@ -15,3 +15,5 @@ images:
 - name: quay.io/stolostron/multicluster-global-hub-operator
   newName: quay.io/stolostron/multicluster-global-hub-operator
   newTag: latest
+patches:
+- path: manager_webhook_patch.yaml

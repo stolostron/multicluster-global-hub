@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"os"
 	"time"
@@ -31,14 +32,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
+	globalhubwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
+
+const (
+	webhookPort    = 9443
+	webhookCertDir = "/webhook-certs"
+)
 
 func main() {
 	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
@@ -98,6 +106,12 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 		return 1
 	}
 
+	hookServer := mgr.GetWebhookServer()
+	setupLog.Info("registering webhooks to the webhook server")
+	hookServer.Register("/mutating", &webhook.Admission{
+		Handler: globalhubwebhook.NewAdmissionHandler(mgr.GetClient(), mgr.GetScheme()),
+	})
+
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
@@ -151,6 +165,16 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 		Scheme: config.GetRuntimeScheme(),
 		Metrics: metricsserver.Options{
 			BindAddress: operatorConfig.MetricsAddress,
+		},
+		WebhookServer: &webhook.DefaultServer{
+			Options: webhook.Options{
+				Port: webhookPort,
+				TLSOpts: []func(*tls.Config){
+					func(config *tls.Config) {
+						config.MinVersion = tls.VersionTLS12
+					},
+				},
+			},
 		},
 		HealthProbeBindAddress:  operatorConfig.ProbeAddress,
 		LeaderElection:          operatorConfig.LeaderElection,

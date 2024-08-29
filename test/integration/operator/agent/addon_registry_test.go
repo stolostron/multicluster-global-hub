@@ -1,4 +1,4 @@
-package addon
+package agent
 
 import (
 	"encoding/json"
