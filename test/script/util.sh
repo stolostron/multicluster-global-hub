@@ -10,14 +10,6 @@ export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.22.4
 export GINKGO_VERSION=v2.17.2
-# Image
-export KAFKA_OPERATOR_IMG="quay.io/strimzi/operator:latest"
-export KAFKA_IMG="quay.io/strimzi/kafka:latest-kafka-3.7.0"
-export PG_OPERATOR_IMG="registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.3.3-0"
-export PG_BACKUP_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.40-1"
-export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.5-1"
-export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
-export GRAFANA_IMG="quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25"
 
 # Environment Variables
 CURRENT_DIR=$(
@@ -25,8 +17,10 @@ CURRENT_DIR=$(
   pwd
 )
 TEST_DIR=$(dirname "$CURRENT_DIR")
+PROJECT_DIR=$(dirname "$TEST_DIR")
 export CURRENT_DIR
 export TEST_DIR
+export PROJECT_DIR
 export GH_NAME="global-hub"
 export MH_NUM=${MH_NUM:-2}
 export MC_NUM=${MC_NUM:-1}
@@ -69,6 +63,14 @@ check_kubectl() {
     fi
     chmod +x ./kubectl
     sudo mv ./kubectl ${INSTALL_DIR}/kubectl
+  fi
+  echo "kubectl version: $(kubectl version --client)"
+}
+
+check_helm() {
+  if ! command -v helm >/dev/null 2>&1; then
+    HELM_INSTALL_DIR=$INSTALL_DIR
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   fi
   echo "kubectl version: $(kubectl version --client)"
 }

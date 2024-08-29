@@ -79,7 +79,7 @@ datasources:
 2. Configure the datasource in your own Grafana
 
 In your Grafana, add a source such as Postgres. And fill the fields with the information you got previously.
-![datasource](./grafana-datasource.png)
+![datasource](./images/grafana-datasource.png)
 
 Required fields:
 - Name: xxxxx

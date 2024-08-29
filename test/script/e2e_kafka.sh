@@ -44,9 +44,10 @@ kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$kafka_namespace" 
 wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 echo "Kafka cluster is ready"
 
-# generate transport secret for standalone agent
-export KAFKA_NAMESPACE=$kafka_namespace
-bash "$TEST_DIR/manifest/standalone-agent/generate_transport_config.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
+# generate resource for standalone agent
+export KAFKA_NAMESPACE=kafka
+export SECRET_NAMESPACE=open-cluster-management
+bash "$CURRENT_DIR/standalone_agent_secret.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
 echo "Kafka standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"
