@@ -24,6 +24,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
@@ -53,6 +54,7 @@ type ManifestImage struct {
 const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
 	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
+	InventoryImageKey            = "inventory_api"
 	OauthProxyImageKey           = "oauth_proxy"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
@@ -72,16 +74,18 @@ var (
 		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
-		// TODO: replace with quay.io/stolostro/grafana:globalhub-1.3 when it is ready
+		// TODO: replace with quay.io/stolostron/grafana:globalhub-1.3 when it is ready
 		GrafanaImageKey:          "quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/release-globalhub-1-3/glo-grafana-globalhub-1-3@sha256:c73fb10b1230c5e678d51fc609a5cfb8fb02ca2f4c12e4639cf7ad483f6a47a0",
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
+		InventoryImageKey:        "quay.io/clyang82/inventory-api:latest",
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
 	addonMgr              addonmanager.AddonManager
 	importClusterInHosted = false
+	mu                    sync.Mutex
 )
 
 func SetAddonManager(addonManager addonmanager.AddonManager) {
@@ -132,6 +136,12 @@ func IsPaused(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	return false
 }
 
+// WithInventory returns true means common inventory is deployed
+func WithInventory(mgh *v1alpha4.MulticlusterGlobalHub) bool {
+	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithInventory]
+	return ok
+}
+
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history
 func GetSchedulerInterval(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)
@@ -167,6 +177,8 @@ func GetImageOverridesConfigmap(mgh *v1alpha4.MulticlusterGlobalHub) string {
 }
 
 func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
+	mu.Lock()
+	defer mu.Unlock()
 	// first check for environment variables containing the 'RELATED_IMAGE_' prefix
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
@@ -203,11 +215,15 @@ func GetImportClusterInHosted() bool {
 }
 
 func SetOauthProxyImage(image string) {
+	mu.Lock()
+	defer mu.Unlock()
 	imageOverrides[OauthProxyImageKey] = image
 }
 
 // GetImage is used to retrieve image for given component
 func GetImage(componentName string) string {
+	mu.Lock()
+	defer mu.Unlock()
 	return imageOverrides[componentName]
 }
 

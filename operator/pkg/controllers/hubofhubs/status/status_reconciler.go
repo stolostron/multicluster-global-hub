@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -88,6 +89,13 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 		// update status of the global hub grafana deployment
 		if err := r.updateDeploymentStatus(ctx, mgh, config.CONDITION_TYPE_GRAFANA_AVAILABLE,
 			operatorconstants.GHGrafanaDeploymentName); err != nil {
+			return err
+		}
+	}
+
+	if config.WithInventory(mgh) {
+		if err := r.updateDeploymentStatus(ctx, mgh, config.CONDITION_TYPE_INVENTORY_AVAILABLE,
+			constants.InventoryDeploymentName); err != nil {
 			return err
 		}
 	}
