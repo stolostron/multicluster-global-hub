@@ -1,6 +1,9 @@
 #!/bin/bash
 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
@@ -36,22 +39,22 @@ ps_user="hoh-pguser-postgres"
 pg_cert="hoh-cluster-cert"
 
 # step2: deploy postgres operator pgo
-retry "kubectl apply --server-side --kubeconfig "$POSTGRES_KUBECONFIG" -k $TEST_DIR/manifest/postgres/postgres-operator && (kubectl get pods -n postgres-operator --kubeconfig "$POSTGRES_KUBECONFIG" | grep pgo | grep Running)" 60
+retry "kubectl apply --server-side --kubeconfig $POSTGRES_KUBECONFIG -k $TEST_DIR/manifest/postgres/postgres-operator && (kubectl get pods -n postgres-operator --kubeconfig $POSTGRES_KUBECONFIG | grep pgo | grep Running)" 60
 
 # step3: deploy  postgres cluster
-retry "kubectl apply -k $TEST_DIR/manifest/postgres/postgres-cluster --kubeconfig "$POSTGRES_KUBECONFIG" && (kubectl get secret $ps_user -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG")"
+retry "kubectl apply -k $TEST_DIR/manifest/postgres/postgres-cluster --kubeconfig $POSTGRES_KUBECONFIG && (kubectl get secret $ps_user -n $pg_ns --kubeconfig $POSTGRES_KUBECONFIG)"
 
 # expose the postgres service as NodePort
-kubectl patch postgrescluster hoh -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}'  --type merge
+kubectl patch postgrescluster hoh -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -p '{"spec":{"service":{"type":"NodePort", "nodePort": 32432}}}' --type merge
 
 stss=$(kubectl get statefulset -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath={.items..metadata.name})
 for sts in ${stss}; do
   kubectl patch statefulset "$sts" -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -p '{"spec":{"template":{"spec":{"securityContext":{"fsGroup":26}}}}}'
 done
-kubectl delete pod -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" --all --ignore-not-found=true 2>/dev/null  
+kubectl delete pod -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" --all --ignore-not-found=true 2>/dev/null
 
 # postgres
-wait_cmd "kubectl get pods --kubeconfig "$POSTGRES_KUBECONFIG" -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns | grep Running"
+wait_cmd "kubectl get pods --kubeconfig $POSTGRES_KUBECONFIG -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns | grep Running"
 kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns--timeout=100s --kubeconfig "$POSTGRES_KUBECONFIG"
 echo "Postgres cluster is ready!"
 

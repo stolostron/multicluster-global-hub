@@ -95,8 +95,9 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		topic = transportConfig.KafkaCredential.StatusTopic
 	}
 
-	switch transportConfig.TransportType {
-	case string(transport.Kafka):
+	if (transportConfig.TransportType == string(transport.Kafka) ||
+		transportConfig.TransportType == string(transport.Multiple)) &&
+		transportConfig.KafkaCredential != nil {
 		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
 		if err != nil {
 			return err
@@ -108,7 +109,10 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		}
 		handleProducerEvents(p.log, eventChan)
 		p.clientProtocol = kafkaProtocol
-	case string(transport.Chan): // this go chan protocol is only use for test
+	}
+
+	// this go chan protocol is only use for test
+	if transportConfig.TransportType == string(transport.Chan) {
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
 		}
@@ -116,15 +120,19 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 			transportConfig.Extends[topic] = gochan.New()
 		}
 		p.clientProtocol = transportConfig.Extends[topic]
-	default:
-		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
 
+	// kafka or gochan protocol
 	client, err := cloudevents.NewClient(p.clientProtocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
 	if err != nil {
 		return err
 	}
 	p.client = client
+
+	// TODO: init the inventory api
+	if transportConfig.TransportType == string(transport.Multiple) && transportConfig.InventoryCredentail != nil {
+		p.log.Info("Init the REST API Client")
+	}
 	return nil
 }
 

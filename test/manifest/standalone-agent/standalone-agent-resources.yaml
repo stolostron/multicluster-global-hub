@@ -1,0 +1,40 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: gh-status.standalone
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  name: global-hub-standalone-user
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  authentication:
+    type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Write
+      resource:
+        name: gh-status.standalone
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Read
+      resource:
+        name: '*'
+        patternType: literal
+        type: group
+    type: simple

@@ -26,6 +26,8 @@ const (
 	// transportType values
 	Kafka TransportType = "kafka"
 	Chan  TransportType = "chan"
+	// Multiple indciates the agent maybe report the event to multiple target, like kafka and rest API
+	Multiple TransportType = "multiple"
 )
 
 // transport protocol
@@ -48,9 +50,22 @@ type TransportConfig struct {
 	// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 	EnableDatabaseOffset bool
 	ConsumerGroupId      string
-	// set the credentail in the transport controller
-	KafkaCredential *KafkaConnCredential
-	Extends         map[string]interface{}
+	// set the kafka credentail in the transport controller
+	KafkaCredential     *KafkaConnCredential
+	InventoryCredentail *InventoryConnCredentail
+	Extends             map[string]interface{}
+}
+
+type InventoryConnCredentail struct {
+	Host       string `yaml:"host"`
+	CACert     string `yaml:"ca.crt,omitempty"`
+	ClientCert string `yaml:"client.crt,omitempty"`
+	ClientKey  string `yaml:"client.key,omitempty"`
+}
+
+func (k *InventoryConnCredentail) YamlMarshal() ([]byte, error) {
+	bytes, err := yaml.Marshal(k)
+	return bytes, err
 }
 
 // Kafka Config

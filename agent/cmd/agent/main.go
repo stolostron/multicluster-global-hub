@@ -123,7 +123,7 @@ func parseFlags() *config.AgentConfig {
 	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
-		"The transport type, 'kafka'")
+		"The transport type: 'kafka', 'chan', and 'multiple'(kafka, restapi). ")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
@@ -146,6 +146,7 @@ func parseFlags() *config.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+	pflag.BoolVar(&agentConfig.Standalone, "standalone", false, "Whether to deploy the agent with standalone mode")
 	pflag.Parse()
 
 	// set zap logger
@@ -156,7 +157,7 @@ func parseFlags() *config.AgentConfig {
 
 func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.LeafHubName == "" {
-		return fmt.Errorf("flag managed-hub-name can't be empty")
+		return fmt.Errorf("flag leaf-hub-name can't be empty")
 	}
 	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
 	if agentConfig.SpecWorkPoolSize < 1 ||
@@ -166,6 +167,14 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
+	// if deploy the agent as a event exporter, then enable it reports event to multiple targets,
+	// disable the consumer features
+	if agentConfig.Standalone {
+		agentConfig.TransportConfig.TransportType = string(transport.Multiple)
+		agentConfig.TransportConfig.ConsumerGroupId = ""
+		agentConfig.SpecWorkPoolSize = 0
+	}
+	config.SetAgentConfig(agentConfig)
 	return nil
 }
 
@@ -240,7 +249,8 @@ func transportCallback(mgr ctrl.Manager, agentConfig *config.AgentConfig,
 	}
 }
 
-func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
+func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
+	namespace := config.GetAgentConfig().PodNameSpace
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&apiextensionsv1.CustomResourceDefinition{}: {
 			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
@@ -254,12 +264,12 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		&clusterv1beta1.PlacementDecision{}: {},
 		&appsv1alpha1.SubscriptionReport{}:  {},
 		&coordinationv1.Lease{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
+			Field: fields.OneTermEqualSelector("metadata.namespace", namespace),
 		},
 		&corev1.Event{}: {}, // TODO: need a filter for the target events
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", constants.GHAgentNamespace),
+			Field: fields.OneTermEqualSelector("metadata.namespace", namespace),
 		},
 	}
-	return cache.New(config, cacheOpts)
+	return cache.New(restConfig, cacheOpts)
 }

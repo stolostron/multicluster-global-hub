@@ -65,6 +65,15 @@ wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 enable_olm global-hub
 
+# apply standalone agent
+kubectl apply -f "$TEST_DIR/manifest/standalone-agent/workload" --kubeconfig="$GH_KUBECONFIG"
+if [ -n "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" ]; then
+  kubectl --kubeconfig="$GH_KUBECONFIG" set image "deployment/multicluster-global-hub-agent" \
+    multicluster-global-hub-agent="$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" \
+    -n open-cluster-management
+  echo "Updated container: multicluster-global-hub-agent with image $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
+fi
+
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
   echo -e "$CYAN [Access the ManagedHub]: export KUBECONFIG=$CONFIG_DIR/hub$i $NC"

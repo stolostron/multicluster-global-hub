@@ -19,8 +19,11 @@ export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:
 export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
 export GRAFANA_IMG="quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25"
 
-# Environment Variables 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+# Environment Variables
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 TEST_DIR=$(dirname "$CURRENT_DIR")
 export CURRENT_DIR
 export TEST_DIR
@@ -110,7 +113,7 @@ kind_cluster() {
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
     node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
     # context is changed but name not
-    retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
+    retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443"
     kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
   fi
   echo "kind clusters: $(kind get clusters)"
@@ -118,7 +121,7 @@ kind_cluster() {
 
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
-  clusteradm init --wait --context "$1" > /dev/null 2>&1 # not echo the senetive information
+  clusteradm init --wait --context "$1" >/dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
@@ -339,6 +342,9 @@ install_crds() {
 
   #proxy
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
+
+  # clusterclaim
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml
 }
 
 enable_service_ca() {
@@ -463,7 +469,7 @@ wait_cmd() {
 
   echo -e "\r${CYAN}$1 $NC "
   if eval "${command}"; then
-    return 0 
+    return 0
   fi
 
   while [ $elapsed -le "$seconds" ]; do
