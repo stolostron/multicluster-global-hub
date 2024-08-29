@@ -6,14 +6,21 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"reflect"
 
 	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
@@ -21,6 +28,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 //go:embed manifests
@@ -46,8 +55,13 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	// start certificate controller
 	certctrl.Start(ctx, r.GetClient())
 
+	// Need to create route so that the cert can use it
+	if err := createUpdateInventoryRoute(ctx, r.GetClient(), mgh); err != nil {
+		return err
+	}
+
 	// create inventory certs
-	if err := certctrl.CreateInventoryCerts(r.GetClient(), r.GetScheme(), mgh); err != nil {
+	if err := certctrl.CreateInventoryCerts(ctx, r.GetClient(), r.GetScheme(), mgh); err != nil {
 		return err
 	}
 
@@ -122,5 +136,60 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	if err = utils.ManipulateGlobalHubObjects(inventoryObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
 		return fmt.Errorf("failed to create/update inventory objects: %v", err)
 	}
+	return nil
+}
+
+func newInventoryRoute(mgh *globalhubv1alpha4.MulticlusterGlobalHub) *routev1.Route {
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InventoryRouteName,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				"name": constants.InventoryRouteName,
+			},
+		},
+		Spec: routev1.RouteSpec{
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromString("http-server"),
+			},
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: constants.InventoryRouteName,
+			},
+			TLS: &routev1.TLSConfig{
+				Termination:                   routev1.TLSTerminationPassthrough,
+				InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyNone,
+			},
+		},
+	}
+}
+
+func createUpdateInventoryRoute(ctx context.Context, c client.Client,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+) error {
+	existingRoute := &routev1.Route{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      constants.InventoryRouteName,
+		Namespace: mgh.Namespace,
+	}, existingRoute)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return c.Create(ctx, newInventoryRoute(mgh))
+		}
+		return err
+	}
+
+	desiredRoute := newInventoryRoute(mgh)
+
+	updatedRoute := &routev1.Route{}
+	err = operatorutils.MergeObjects(existingRoute, desiredRoute, updatedRoute)
+	if err != nil {
+		return err
+	}
+
+	if !reflect.DeepEqual(updatedRoute.Spec, existingRoute.Spec) {
+		return c.Update(ctx, updatedRoute)
+	}
+
 	return nil
 }

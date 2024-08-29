@@ -6,7 +6,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,21 +56,6 @@ var _ = Describe("inventory-api", Ordered, func() {
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
-
-		route := &routev1.Route{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "inventory-api",
-				Namespace: namespace,
-			},
-			Spec: routev1.RouteSpec{
-				Host: "apiServerURL",
-				To: routev1.RouteTargetReference{
-					Kind: "Service",
-					Name: "inventory-api",
-				},
-			},
-		}
-		Expect(runtimeClient.Create(ctx, route)).To(Succeed())
 	})
 
 	It("should generate the inventory resources", func() {
