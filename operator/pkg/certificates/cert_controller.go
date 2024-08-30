@@ -63,7 +63,7 @@ func Start(ctx context.Context, c client.Client) {
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc:    onAdd(c),
 			DeleteFunc: onDelete(c),
-			UpdateFunc: onUpdate(c),
+			UpdateFunc: onUpdate(ctx, c),
 		},
 	}
 	_, controller := cache.NewInformerWithOptions(options)
@@ -175,7 +175,7 @@ func onDelete(c client.Client) func(obj interface{}) {
 	}
 }
 
-func onUpdate(c client.Client) func(oldObj, newObj interface{}) {
+func onUpdate(ctx context.Context, c client.Client) func(oldObj, newObj interface{}) {
 	return func(oldObj, newObj interface{}) {
 		oldS := *oldObj.(*v1.Secret)
 		newS := *newObj.(*v1.Secret)
@@ -194,7 +194,7 @@ func onUpdate(c client.Client) func(oldObj, newObj interface{}) {
 				case name == clientCACerts:
 					err, _ = createCASecret(c, nil, nil, true, clientCACerts, newS.Namespace, clientCACertificateCN)
 				case name == serverCerts:
-					hosts, err = getHosts(c, newS.Namespace)
+					hosts, err = getHosts(ctx, c, newS.Namespace)
 					if err == nil {
 						err = createCertSecret(c, nil, nil, true, serverCerts, newS.Namespace, true, serverCertificateCN, nil, hosts, nil)
 					}

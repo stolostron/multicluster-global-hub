@@ -84,12 +84,12 @@ func TestCreateCertificates(t *testing.T) {
 
 	c := fake.NewClientBuilder().WithRuntimeObjects(route).Build()
 
-	err := CreateInventoryCerts(c, s, mgh)
+	err := CreateInventoryCerts(context.TODO(), c, s, mgh)
 	if err != nil {
 		t.Fatalf("CreateObservabilityCerts: (%v)", err)
 	}
 
-	err = CreateInventoryCerts(c, s, mgh)
+	err = CreateInventoryCerts(context.TODO(), c, s, mgh)
 	if err != nil {
 		t.Fatalf("Rerun CreateObservabilityCerts: (%v)", err)
 	}
