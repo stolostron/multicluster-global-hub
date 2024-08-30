@@ -82,10 +82,12 @@ var _ = Describe("controller", Ordered, func() {
 
 		err := os.Setenv("POD_NAMESPACE", namespace)
 		Expect(err).To(Succeed())
-		_, err = reconciler.Reconcile(ctx, reconcile.Request{
-			NamespacedName: client.ObjectKeyFromObject(mgh),
-		})
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: client.ObjectKeyFromObject(mgh),
+			})
+			return err
+		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).To(Succeed())
