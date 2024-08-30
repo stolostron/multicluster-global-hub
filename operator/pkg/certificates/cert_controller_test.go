@@ -98,13 +98,13 @@ func TestOnUpdate(t *testing.T) {
 	certSecret := getExpiredCertSecret()
 	oldCertLength := len(certSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(certSecret).Build()
-	onUpdate(c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c)(certSecret, certSecret)
 	certSecret.Name = clientCACerts
-	onUpdate(c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c)(certSecret, certSecret)
 	certSecret.Name = guestCerts
-	onUpdate(c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c)(certSecret, certSecret)
 	certSecret.Name = serverCerts
-	onUpdate(c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c)(certSecret, certSecret)
 	c.Get(context.TODO(), types.NamespacedName{Name: serverCACerts, Namespace: namespace}, certSecret)
 	if len(certSecret.Data["tls.crt"]) <= oldCertLength {
 		t.Fatal("certificate not renewed correctly")

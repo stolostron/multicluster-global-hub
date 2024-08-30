@@ -69,6 +69,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				Resources                    *corev1.ResourceRequirements
 				EnableMetrics                bool
 				EnablePostgresMetrics        bool
+				EnableInventoryAPI           bool
 			}{
 				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
@@ -89,6 +90,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 					mgh.Spec.AdvancedConfig),
 				EnableMetrics:         mgh.Spec.EnableMetrics,
 				EnablePostgresMetrics: (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
+				EnableInventoryAPI:    config.WithInventory(mgh),
 			}, nil
 		})
 	if err != nil {

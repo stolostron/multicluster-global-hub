@@ -52,6 +52,7 @@ var (
 )
 
 func CreateInventoryCerts(
+	ctx context.Context,
 	c client.Client,
 	scheme *runtime.Scheme,
 	mgh *v1alpha4.MulticlusterGlobalHub,
@@ -64,7 +65,7 @@ func CreateInventoryCerts(
 	if err != nil {
 		return err
 	}
-	hosts, err := getHosts(c, mgh.Namespace)
+	hosts, err := getHosts(ctx, c, mgh.Namespace)
 	if err != nil {
 		return err
 	}
@@ -437,9 +438,9 @@ func pemEncode(cert []byte, key []byte) (*bytes.Buffer, *bytes.Buffer) {
 	return certPEM, keyPEM
 }
 
-func getHosts(c client.Client, namespace string) ([]string, error) {
+func getHosts(ctx context.Context, c client.Client, namespace string) ([]string, error) {
 	found := &routev1.Route{}
-	err := c.Get(context.TODO(), types.NamespacedName{
+	err := c.Get(ctx, types.NamespacedName{
 		Name:      constants.InventoryRouteName,
 		Namespace: namespace,
 	}, found)
