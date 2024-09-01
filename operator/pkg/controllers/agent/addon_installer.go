@@ -39,9 +39,6 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	if mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}

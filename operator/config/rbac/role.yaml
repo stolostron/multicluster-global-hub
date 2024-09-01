@@ -238,6 +238,7 @@ rules:
 - apiGroups:
   - kafka.strimzi.io
   resources:
+  - kafkanodepools
   - kafkas
   - kafkatopics
   - kafkausers
