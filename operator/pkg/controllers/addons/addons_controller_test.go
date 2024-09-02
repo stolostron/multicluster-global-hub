@@ -17,6 +17,7 @@ limitations under the License.
 package addons
 
 import (
+	"reflect"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +28,10 @@ import (
 
 func Test_addAddonConfig(t *testing.T) {
 	tests := []struct {
-		name string
-		cma  *v1alpha1.ClusterManagementAddOn
-		want bool
+		name      string
+		cma       *v1alpha1.ClusterManagementAddOn
+		expectCma *v1alpha1.ClusterManagementAddOn
+		want      bool
 	}{
 		{
 			name: "empty spec",
@@ -37,6 +39,37 @@ func Test_addAddonConfig(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
+				},
+			},
+			expectCma: &v1alpha1.ClusterManagementAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "c1",
+				},
+				Spec: v1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: v1alpha1.InstallStrategy{
+						Type: "Manual",
+						Placements: []v1alpha1.PlacementStrategy{
+							{
+								PlacementRef: v1alpha1.PlacementRef{
+									Namespace: "open-cluster-management-global-set",
+									Name:      "global",
+								},
+								Configs: []v1alpha1.AddOnConfig{
+									{
+										ConfigReferent: v1alpha1.ConfigReferent{
+											Name:      "global-hub",
+											Namespace: constants.GHDefaultNamespace,
+										},
+										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+											Group:    "addon.open-cluster-management.io",
+											Resource: "addondeploymentconfigs",
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			want: true,
@@ -56,6 +89,43 @@ func Test_addAddonConfig(t *testing.T) {
 								PlacementRef: v1alpha1.PlacementRef{
 									Namespace: "ns",
 									Name:      "pl",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectCma: &v1alpha1.ClusterManagementAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "c1",
+				},
+				Spec: v1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: v1alpha1.InstallStrategy{
+						Type: "Manual",
+						Placements: []v1alpha1.PlacementStrategy{
+							{
+								PlacementRef: v1alpha1.PlacementRef{
+									Namespace: "ns",
+									Name:      "pl",
+								},
+							},
+							{
+								PlacementRef: v1alpha1.PlacementRef{
+									Namespace: "open-cluster-management-global-set",
+									Name:      "global",
+								},
+								Configs: []v1alpha1.AddOnConfig{
+									{
+										ConfigReferent: v1alpha1.ConfigReferent{
+											Name:      "global-hub",
+											Namespace: constants.GHDefaultNamespace,
+										},
+										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+											Group:    "addon.open-cluster-management.io",
+											Resource: "addondeploymentconfigs",
+										},
+									},
 								},
 							},
 						},
@@ -97,13 +167,48 @@ func Test_addAddonConfig(t *testing.T) {
 					},
 				},
 			},
+			expectCma: &v1alpha1.ClusterManagementAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "c1",
+				},
+				Spec: v1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: v1alpha1.InstallStrategy{
+						Type: "Manual",
+						Placements: []v1alpha1.PlacementStrategy{
+							{
+								PlacementRef: v1alpha1.PlacementRef{
+									Namespace: "open-cluster-management-global-set",
+									Name:      "global",
+								},
+								Configs: []v1alpha1.AddOnConfig{
+									{
+										ConfigReferent: v1alpha1.ConfigReferent{
+											Name:      "global-hub",
+											Namespace: constants.GHDefaultNamespace,
+										},
+										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+											Group:    "addon.open-cluster-management.io",
+											Resource: "addondeploymentconfigs",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := addAddonConfig(tt.cma); got != tt.want {
+			got := addAddonConfig(tt.cma)
+			if got != tt.want {
 				t.Errorf("addAddonConfig() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.expectCma.Spec.InstallStrategy.Placements, tt.cma.Spec.InstallStrategy.Placements) {
+				t.Errorf("expectCma() = %v, want %v", tt.expectCma.Spec, tt.cma.Spec)
 			}
 		})
 	}

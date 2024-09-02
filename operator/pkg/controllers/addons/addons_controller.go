@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
@@ -27,10 +28,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -77,6 +82,20 @@ func (r *AddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("AddonsController").
 		For(&v1alpha1.ClusterManagementAddOn{},
 			builder.WithPredicates(addonPred)).
+		// requeue all cma when mgh annotation changed.
+		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+				var requests []reconcile.Request
+				for v := range addonList {
+					request := reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Name: v,
+						},
+					}
+					requests = append(requests, request)
+				}
+				return requests
+			}), builder.WithPredicates(mghPred)).
 		Complete(r)
 }
 
@@ -86,6 +105,25 @@ var addonPred = predicate.Funcs{
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return addonList.Has(e.ObjectNew.GetName())
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
+var mghPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations()) {
+			return false
+		}
+		if e.ObjectNew.GetAnnotations()[operatorconstants.AnnotationImportClusterInHosted] !=
+			e.ObjectOld.GetAnnotations()[operatorconstants.AnnotationImportClusterInHosted] {
+			return true
+		}
+		return false
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -104,10 +142,10 @@ func (r *AddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	needUpdate := addAddonConfig(cma)
-
 	if !needUpdate {
 		return ctrl.Result{}, nil
 	}
+
 	err = r.Client.Update(ctx, cma)
 	if err != nil {
 		klog.Errorf("Failed to update cma, err:%v", err)
@@ -122,14 +160,14 @@ func addAddonConfig(cma *v1alpha1.ClusterManagementAddOn) bool {
 		cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, newNamespaceConfig)
 		return true
 	}
-	for _, pl := range cma.Spec.InstallStrategy.Placements {
+	for i, pl := range cma.Spec.InstallStrategy.Placements {
 		if !reflect.DeepEqual(pl.PlacementRef, newNamespaceConfig.PlacementRef) {
 			continue
 		}
 		if reflect.DeepEqual(pl.Configs, newNamespaceConfig.Configs) {
 			return false
 		}
-		pl.Configs = append(pl.Configs, newNamespaceConfig.Configs...)
+		cma.Spec.InstallStrategy.Placements[i].Configs = append(pl.Configs, newNamespaceConfig.Configs...)
 		return true
 	}
 	cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, newNamespaceConfig)
