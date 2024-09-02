@@ -151,7 +151,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		}
 	}
 
-	err := c.client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
+	c.consumerCtx, c.consumerCancel = context.WithCancel(receiveContext)
+	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		c.log.V(2).Info("received message", "event.Source", event.Source(), "event.Type", event.Type())
 
 		chunk, isChunk := c.assembler.messageChunk(event)
