@@ -1,3 +1,4 @@
+{{- if .EnableStackroxIntegration }}
 apiVersion: v1
 data:
   acm-global-security-alert-counts.json: |
@@ -796,3 +797,4 @@ kind: ConfigMap
 metadata:
   name: grafana-dashboard-acm-global-security-alert-counts
   namespace: {{.Namespace}}
+{{- end }}

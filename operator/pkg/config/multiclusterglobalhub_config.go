@@ -141,6 +141,12 @@ func WithInventory(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	return ok
 }
 
+// WithStackroxIntegration returns true if the integration with Stackrox is enabled.
+func WithStackroxIntegration(mgh *v1alpha4.MulticlusterGlobalHub) bool {
+	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithStackroxIntegration]
+	return ok
+}
+
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history
 func GetSchedulerInterval(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return getAnnotation(mgh, operatorconstants.AnnotationMGHSchedulerInterval)

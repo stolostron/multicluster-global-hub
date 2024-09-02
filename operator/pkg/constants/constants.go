@@ -69,6 +69,8 @@ const (
 	AnnotationPolicyONMulticlusterHub = "policy.open-cluster-management.io/sync-policies-on-multicluster-hub"
 	// AnnotationMGHWithInventory indicates the inventory is deployed
 	AnnotationMGHWithInventory = "global-hub.open-cluster-management.io/with-inventory"
+	// AnnotationMGHWithStackroxIntegration indicates that the integration with Stackrox is enabled.
+	AnnotationMGHWithStackroxIntegration = "global-hub.open-cluster-management.io/with-stackrox-integration"
 )
 
 // hub installation constants
