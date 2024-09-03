@@ -1,4 +1,4 @@
-{{- if not .InstallHostedMode -}}
+{{- if and (not .InstallHostedMode) .KafkaClusterCASecret -}}
 apiVersion: v1
 kind: Secret
 metadata:
