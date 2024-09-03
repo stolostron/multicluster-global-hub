@@ -189,6 +189,14 @@ func (k *strimziTransporter) EnsureKafka() error {
 	}
 
 	_, enableKRaft := k.mgh.Annotations[operatorconstants.EnableKRaft]
+
+	// Since the kafka cluster creation need the metric configmap, render the resource before creating the cluster
+	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
+	err = k.renderKafkaResources(k.mgh, enableKRaft)
+	if err != nil {
+		return err
+	}
+
 	if !enableKRaft {
 		// TODO: use manifest to create kafka cluster
 		err, _ = k.CreateUpdateKafkaCluster(k.mgh)
@@ -197,11 +205,6 @@ func (k *strimziTransporter) EnsureKafka() error {
 		}
 	}
 
-	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-	err = k.renderKafkaResources(k.mgh, enableKRaft)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
