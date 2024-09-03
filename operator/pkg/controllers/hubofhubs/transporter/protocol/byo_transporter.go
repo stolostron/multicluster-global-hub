@@ -76,8 +76,5 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 		// for the byo case, the status topic isn't change by the clusterName
 		StatusTopic: config.GetStatusTopic(""),
 		SpecTopic:   config.GetSpecTopic(),
-		// temporarily to fix the blocker. they should be removed after get the kafka configurations from a secret
-		CASecretName:     "kafka-cluster-ca-cert",
-		ClientSecretName: "kafka-certs-secret",
 	}, nil
 }

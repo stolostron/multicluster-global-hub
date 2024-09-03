@@ -161,5 +161,5 @@ func (c *TransportCtrl) credentialSecret(name string) bool {
 			return true
 		}
 	}
-	return true
+	return false
 }

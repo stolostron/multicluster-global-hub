@@ -145,12 +145,12 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConnCredential,
 	return kafkaConfigMap, nil
 }
 
-func GetTransportCredentailBySecret(transportConfig *corev1.Secret, c client.Client) (
+func GetTransportCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
 	*transport.KafkaConnCredential, error,
 ) {
-	kafkaConfig, ok := transportConfig.Data["kafka.yaml"]
+	kafkaConfig, ok := transportSecret.Data["kafka.yaml"]
 	if !ok {
-		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportConfig.Name)
+		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportSecret.Name)
 	}
 	conn := &transport.KafkaConnCredential{}
 	if err := yaml.Unmarshal(kafkaConfig, conn); err != nil {
@@ -183,7 +183,7 @@ func GetTransportCredentailBySecret(transportConfig *corev1.Secret, c client.Cli
 	if conn.CASecretName != "" {
 		caSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: transportConfig.Namespace,
+				Namespace: transportSecret.Namespace,
 				Name:      conn.CASecretName,
 			},
 		}
@@ -195,7 +195,7 @@ func GetTransportCredentailBySecret(transportConfig *corev1.Secret, c client.Cli
 	if conn.ClientSecretName != "" {
 		clientSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: transportConfig.Namespace,
+				Namespace: transportSecret.Namespace,
 				Name:      conn.ClientSecretName,
 			},
 		}
@@ -204,6 +204,9 @@ func GetTransportCredentailBySecret(transportConfig *corev1.Secret, c client.Cli
 		}
 		conn.ClientCert = string(clientSecret.Data["tls.crt"])
 		conn.ClientKey = string(clientSecret.Data["tls.key"])
+		if conn.ClientCert == "" || conn.ClientKey == "" {
+			return nil, fmt.Errorf("the client cert or key must not be empty: %s", conn.ClientSecretName)
+		}
 	}
 	return conn, nil
 }

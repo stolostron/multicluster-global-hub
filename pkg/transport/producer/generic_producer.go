@@ -27,7 +27,7 @@ const (
 
 type GenericProducer struct {
 	log              logr.Logger
-	clientPotocol    interface{}
+	clientProtocol   interface{}
 	client           cloudevents.Client
 	messageSizeLimit int
 }
@@ -79,7 +79,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 
 // Reconnect close the previous producer state and init a new producer
 func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
-	closer, ok := p.clientPotocol.(protocol.Closer)
+	closer, ok := p.clientProtocol.(protocol.Closer)
 	if ok {
 		if err := closer.Close(context.Background()); err != nil {
 			return fmt.Errorf("failed to close the previous producer: %w", err)
@@ -107,7 +107,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 			return err
 		}
 		handleProducerEvents(p.log, eventChan)
-		p.clientPotocol = kafkaProtocol
+		p.clientProtocol = kafkaProtocol
 	case string(transport.Chan): // this go chan protocol is only use for test
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -115,12 +115,12 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		if _, found := transportConfig.Extends[topic]; !found {
 			transportConfig.Extends[topic] = gochan.New()
 		}
-		p.clientPotocol = transportConfig.Extends[topic]
+		p.clientProtocol = transportConfig.Extends[topic]
 	default:
 		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
 
-	client, err := cloudevents.NewClient(p.clientPotocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+	client, err := cloudevents.NewClient(p.clientProtocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
 	if err != nil {
 		return err
 	}

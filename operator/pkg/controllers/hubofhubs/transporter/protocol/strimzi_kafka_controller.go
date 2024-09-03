@@ -47,7 +47,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	if err := r.trans.kafkaClusterReady(); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}
 
 	// use the client ca to sign the csr for the managed hubs
