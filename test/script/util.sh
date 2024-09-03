@@ -6,7 +6,7 @@ export PATH=$PATH:$INSTALL_DIR
 export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
-export KIND_VERSION=v0.23.0
+export KIND_VERSION=v0.24.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.22.4
 export GINKGO_VERSION=v2.17.2
@@ -90,12 +90,13 @@ check_clusteradm() {
 }
 
 check_kind() {
-  if ! command -v kind >/dev/null 2>&1; then
-    echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
-    curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
-    chmod +x ./kind-amd64
-    sudo mv ./kind-amd64 $INSTALL_DIR/kind
-  fi
+  echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
+  curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
+  chmod +x ./kind-amd64
+  sudo mv ./kind-amd64 $INSTALL_DIR/kind
+  sudo rm -f /usr/bin/kind
+  sudo mv -f ./kind-amd64 $INSTALL_DIR/kind
+  echo "kind version: $(kind version)"
 }
 
 kind_cluster() {
@@ -103,7 +104,7 @@ kind_cluster() {
   cluster_name="$1"
   echo "dir $dir"
   if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --wait 5m"
+    retry "kind create cluster --name $cluster_name --image=kindest/node:v1.31.0 --wait 5m" 
     # modify the context = KinD cluster name = kubeconfig name
     retry "kubectl config rename-context kind-$cluster_name $cluster_name"
     # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
@@ -549,7 +550,7 @@ check_docker() {
   if ! command -v docker >/dev/null 2>&1; then
     install_docker
   fi
-  version_compare $(docker version --format '{{.Client.Version}}') "20.10.0"
+  version_compare $(docker version --format '{{.Client.Version}}') "27.1.1"
   verCom=$?
   if [ $verCom -eq 2 ]; then
     # upgrade
