@@ -52,7 +52,6 @@ const (
 	mergedGrafanaIniName  = "multicluster-global-hub-grafana-config"
 	defaultGrafanaIniName = "multicluster-global-hub-default-grafana-config"
 	grafanaIniKey         = "grafana.ini"
-
 	grafanaDeploymentName = "multicluster-global-hub-grafana"
 )
 
