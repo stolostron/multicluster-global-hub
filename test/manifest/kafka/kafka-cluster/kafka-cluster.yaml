@@ -1,28 +1,34 @@
 apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  labels:
+    strimzi.io/cluster: kafka
+spec:
+  replicas: 1
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: 1Gi
+        deleteClaim: false
+        kraftMetadata: shared
+---
+apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: kafka
   annotations:
-    skip-patch-if-exist: ""
-  labels:
-    cluster.open-cluster-management.io/backup: globalhub
-    strimzi.io/cluster: kafka
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
 spec:
-  entityOperator:
-    topicOperator: {}
-    userOperator: {}
   kafka:
-    authorization:
-      type: simple
-    config:
-      auto.create.topics.enable: "false"
-      inter.broker.protocol.version: 3.7
-      offsets.topic.replication.factor: 1
-      ssl.cipher.suites: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-      ssl.enabled.protocols: TLSv1.2
-      ssl.protocol: TLSv1.2
-      transaction.state.log.min.isr: 1
-      transaction.state.log.replication.factor: 1
+    version: 3.7.0
+    metadataVersion: 3.7-IV4
     listeners:
     - configuration:
         useServiceDnsDomain: true
@@ -35,6 +41,9 @@ spec:
       configuration:
         bootstrap:
           nodePort: 30095
+        brokers:
+        - broker: 0
+          advertisedHost: "NODE_PORT_HOST"
       name: external
       port: 9095
       tls: true
@@ -49,15 +58,18 @@ spec:
     readinessProbe:
       initialDelaySeconds: 15
       timeoutSeconds: 5
-    replicas: 1
-    storage:
-      type: ephemeral
-    version: 3.7.0
-  zookeeper:
-    logging:
-      loggers:
-        zookeeper.root.logger: INFO
-      type: inline
-    replicas: 1
-    storage:
-      type: ephemeral
+    authorization:
+      type: simple
+    config:
+      offsets.topic.replication.factor: 1
+      transaction.state.log.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      auto.create.topics.enable: "false"
+      ssl.cipher.suites: TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+      ssl.enabled.protocols: TLSv1.2
+      ssl.protocol: TLSv1.2
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}
