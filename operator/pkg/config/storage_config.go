@@ -6,7 +6,6 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -103,7 +102,7 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 		Namespace: utils.GetDefaultNamespace(),
 	}, guestPostgresSecret)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("postgres guest user secret %s is nil", PostgresGuestUserSecretName)
 		}
 		return nil, err
@@ -115,7 +114,7 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 		Namespace: utils.GetDefaultNamespace(),
 	}, superuserPostgresSecret)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("postgres super user secret %s is nil", PostgresSuperUserSecretName)
 		}
 		return nil, err
@@ -127,7 +126,7 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 		Namespace: utils.GetDefaultNamespace(),
 	}, postgresCertName)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("postgres cert secret %s is nil", PostgresCertName)
 		}
 		return nil, err
