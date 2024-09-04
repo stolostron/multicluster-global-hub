@@ -56,7 +56,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 ) error {
 	// start certificate controller
-	certctrl.Start(ctx, r.GetClient())
+	certctrl.Start(ctx, r.GetClient(), r.kubeClient)
 
 	// Need to create route so that the cert can use it
 	if err := createUpdateInventoryRoute(ctx, r.GetClient(), r.GetScheme(), mgh); err != nil {

@@ -9,7 +9,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"os"
 	"reflect"
 	"time"
 
@@ -21,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -39,17 +37,12 @@ var (
 	isCertControllerRunnning = false
 )
 
-func Start(ctx context.Context, c client.Client) {
+func Start(ctx context.Context, c client.Client, kubeClient kubernetes.Interface) {
 	if isCertControllerRunnning {
 		return
 	}
 	isCertControllerRunnning = true
 
-	kubeClient, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
-	if err != nil {
-		log.Error(err, "Failed to create kube client")
-		os.Exit(1)
-	}
 	watchlist := cache.NewListWatchFromClient(
 		kubeClient.CoreV1().RESTClient(),
 		"secrets",
