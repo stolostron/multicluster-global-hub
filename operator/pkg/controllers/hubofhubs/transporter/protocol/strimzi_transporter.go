@@ -577,11 +577,6 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 		return err, false
 	}
 
-	// this is only for e2e test. patch the kafka needs more time to be ready
-	if _, ok := existingKafka.Annotations["skip-patch-if-exist"]; ok {
-		return nil, false
-	}
-
 	desiredKafka := k.newKafkaCluster(mgh)
 
 	updatedKafka := &kafkav1beta2.Kafka{}

@@ -30,29 +30,10 @@ retry "(kubectl get pods -n $target_namespace -l name=strimzi-cluster-operator |
 
 echo "Kafka operator is ready"
 
+node_port_host=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
+sed -i -e "s;NODE_PORT_HOST;$node_port_host;" "$TEST_DIR"/manifest/kafka/kafka-cluster/kafka-cluster.yaml
 # deploy kafka cluster
 kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$target_namespace"
-
-# patch the nodeport IP to the broker certificate Subject Alternative Name(SAN)
-# or node_port_host=$(kubectl -n "$target_namespace" get kafka.kafka.strimzi.io/kafka -o jsonpath='{.status.listeners[1].addresses[0].host}')
-node_port_host=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
-kubectl -n "$target_namespace" patch kafka.kafka.strimzi.io/kafka --type json -p '[
-  {
-    "op": "replace",
-    "path": "/spec/kafka/listeners/1/configuration",
-    "value": {
-      "bootstrap": {
-        "nodePort": 30095
-      },
-      "brokers": [
-        {
-          "broker": 0,
-          "advertisedHost": "'"$node_port_host"'", 
-        }
-      ]
-    }
-  }
-]'
 
 wait_cmd "kubectl get kafka kafka -n $target_namespace -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 
