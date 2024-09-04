@@ -110,7 +110,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("failed to get the electionConfig %w", err)
 	}
 
-	kafkaConfigYaml, err := transportConn.YamlMarshal(false)
+	kafkaConfigYaml, err := transportConn.YamlMarshal(true)
 	if err != nil {
 		return fmt.Errorf("failed to marshall kafka connetion for config: %w", err)
 	}
@@ -125,35 +125,27 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			ProxySessionSecret: proxySessionSecret,
 			DatabaseURL: base64.StdEncoding.EncodeToString(
 				[]byte(storageConn.SuperuserDatabaseURI)),
-			PostgresCACert:         base64.StdEncoding.EncodeToString(storageConn.CACert),
-			TransportConfigSecret:  constants.GHTransportConfigSecret,
-			KafkaConfigYaml:        base64.StdEncoding.EncodeToString(kafkaConfigYaml),
-			KafkaClusterIdentity:   transportConn.ClusterID,
-			KafkaBootstrapServer:   transportConn.BootstrapServer,
-			KafkaConsumerTopic:     config.ManagerStatusTopic(),
-			KafkaProducerTopic:     config.GetSpecTopic(),
-			KafkaCACert:            transportConn.CACert,
-			KafkaClientCert:        transportConn.ClientCert,
-			KafkaClientKey:         transportConn.ClientKey,
-			Namespace:              mgh.Namespace,
-			MessageCompressionType: string(operatorconstants.GzipCompressType),
-			TransportType:          string(transport.Kafka),
-			LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
-			RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
-			RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
-			SchedulerInterval:      config.GetSchedulerInterval(mgh),
-			SkipAuth:               config.SkipAuth(mgh),
-			LaunchJobNames:         config.GetLaunchJobNames(mgh),
-			NodeSelector:           mgh.Spec.NodeSelector,
-			Tolerations:            mgh.Spec.Tolerations,
-			RetentionMonth:         months,
-			StatisticLogInterval:   config.GetStatisticLogInterval(),
-			EnableGlobalResource:   r.operatorConfig.GlobalResourceEnabled,
-			ImportClusterInHosted:  config.GetImportClusterInHosted(),
-			EnablePprof:            r.operatorConfig.EnablePprof,
-			LogLevel:               r.operatorConfig.LogLevel,
-			Resources:              utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
-			WithACM:                config.IsACMResourceReady(),
+			PostgresCACert:        base64.StdEncoding.EncodeToString(storageConn.CACert),
+			TransportType:         string(transport.Kafka),
+			TransportConfigSecret: constants.GHTransportConfigSecret,
+			KafkaConfigYaml:       base64.StdEncoding.EncodeToString(kafkaConfigYaml),
+			Namespace:             mgh.Namespace,
+			LeaseDuration:         strconv.Itoa(electionConfig.LeaseDuration),
+			RenewDeadline:         strconv.Itoa(electionConfig.RenewDeadline),
+			RetryPeriod:           strconv.Itoa(electionConfig.RetryPeriod),
+			SchedulerInterval:     config.GetSchedulerInterval(mgh),
+			SkipAuth:              config.SkipAuth(mgh),
+			LaunchJobNames:        config.GetLaunchJobNames(mgh),
+			NodeSelector:          mgh.Spec.NodeSelector,
+			Tolerations:           mgh.Spec.Tolerations,
+			RetentionMonth:        months,
+			StatisticLogInterval:  config.GetStatisticLogInterval(),
+			EnableGlobalResource:  r.operatorConfig.GlobalResourceEnabled,
+			ImportClusterInHosted: config.GetImportClusterInHosted(),
+			EnablePprof:           r.operatorConfig.EnablePprof,
+			LogLevel:              r.operatorConfig.LogLevel,
+			Resources:             utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
+			WithACM:               config.IsACMResourceReady(),
 		}, nil
 	})
 	if err != nil {
@@ -193,40 +185,32 @@ func setMiddlewareCache(transportConn *transport.KafkaConnCredential, storageCon
 }
 
 type ManagerVariables struct {
-	Image                  string
-	Replicas               int32
-	ProxyImage             string
-	ImagePullSecret        string
-	ImagePullPolicy        string
-	ProxySessionSecret     string
-	DatabaseURL            string
-	PostgresCACert         string
-	TransportConfigSecret  string
-	KafkaConfigYaml        string
-	KafkaClusterIdentity   string
-	KafkaCACert            string
-	KafkaConsumerTopic     string
-	KafkaProducerTopic     string
-	KafkaClientCert        string
-	KafkaClientKey         string
-	KafkaBootstrapServer   string
-	MessageCompressionType string
-	TransportType          string
-	Namespace              string
-	LeaseDuration          string
-	RenewDeadline          string
-	RetryPeriod            string
-	SchedulerInterval      string
-	SkipAuth               bool
-	LaunchJobNames         string
-	NodeSelector           map[string]string
-	Tolerations            []corev1.Toleration
-	RetentionMonth         int
-	StatisticLogInterval   string
-	EnableGlobalResource   bool
-	ImportClusterInHosted  bool
-	EnablePprof            bool
-	LogLevel               string
-	Resources              *corev1.ResourceRequirements
-	WithACM                bool
+	Image                 string
+	Replicas              int32
+	ProxyImage            string
+	ImagePullSecret       string
+	ImagePullPolicy       string
+	ProxySessionSecret    string
+	DatabaseURL           string
+	PostgresCACert        string
+	TransportConfigSecret string
+	KafkaConfigYaml       string
+	TransportType         string
+	Namespace             string
+	LeaseDuration         string
+	RenewDeadline         string
+	RetryPeriod           string
+	SchedulerInterval     string
+	SkipAuth              bool
+	LaunchJobNames        string
+	NodeSelector          map[string]string
+	Tolerations           []corev1.Toleration
+	RetentionMonth        int
+	StatisticLogInterval  string
+	EnableGlobalResource  bool
+	ImportClusterInHosted bool
+	EnablePprof           bool
+	LogLevel              string
+	Resources             *corev1.ResourceRequirements
+	WithACM               bool
 }

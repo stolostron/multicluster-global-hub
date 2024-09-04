@@ -1,0 +1,12 @@
+{{- if and .InstallHostedMode .KafkaClusterCASecret -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{.KafkaClusterCASecret}}
+  namespace: {{ .AddonInstallNamespace }}
+  labels:
+    addon.open-cluster-management.io/hosted-manifest-location: none
+type: Opaque
+data:
+  "ca.crt": "{{.KafkaCACert}}"
+{{- end -}}

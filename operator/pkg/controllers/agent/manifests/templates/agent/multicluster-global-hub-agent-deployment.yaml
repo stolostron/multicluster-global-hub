@@ -39,7 +39,6 @@ spec:
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .LeafHubID }}
             - --enforce-hoh-rbac=false
-            - --transport-type={{ .TransportType }}
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
