@@ -479,7 +479,7 @@ wait_cmd() {
   done
 
   echo -e "\n$RED Timeout $seconds seconds $NC: $command"
-  return 1 # Return failure status code
+  exit 1 # exit for fast failure
 }
 
 version_compare() {
