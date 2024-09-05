@@ -89,7 +89,7 @@ type KafkaConnCredential struct {
 	SpecTopic       string `yaml:"topic.spec,omitempty"`
 	ClusterID       string `yaml:"cluster.id,omitempty"`
 	// the following fields are only for the manager, and the agent of byo/standalone kafka
-	CACert     string `yaml:"ca.key,omitempty"`
+	CACert     string `yaml:"ca.crt,omitempty"`
 	ClientCert string `yaml:"client.crt,omitempty"`
 	ClientKey  string `yaml:"client.key,omitempty"`
 	// the following fields are only for the agent of built-in kafka
@@ -97,9 +97,10 @@ type KafkaConnCredential struct {
 	ClientSecretName string `yaml:"client.secret,omitempty"`
 }
 
-func (k *KafkaConnCredential) YamlMarshal(attachCertSecrets bool) ([]byte, error) {
+// YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
+func (k *KafkaConnCredential) YamlMarshal(rawCert bool) ([]byte, error) {
 	copy := k.DeepCopy()
-	if !attachCertSecrets {
+	if rawCert {
 		copy.CASecretName = ""
 		copy.ClientSecretName = ""
 	} else {

@@ -25,7 +25,6 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests/templates
@@ -35,43 +34,35 @@ import (
 var FS embed.FS
 
 type ManifestsConfig struct {
-	HoHAgentImage          string
-	ImagePullSecretName    string
-	ImagePullSecretData    string
-	ImagePullPolicy        string
-	LeafHubID              string
-	TransportConfigSecret  string
-	KafkaConfigYaml        string
-	KafkaClusterCASecret   string
-	KafkaBootstrapServer   string
-	TransportType          string
-	KafkaCACert            string
-	KafkaClientCert        string
-	KafkaClientKey         string
-	KafkaClientCertSecret  string
-	KafkaConsumerTopic     string
-	KafkaProducerTopic     string
-	MessageCompressionType string
-	InstallACMHub          bool
-	Channel                string
-	CurrentCSV             string
-	Source                 string
-	SourceNamespace        string
-	InstallHostedMode      bool
-	LeaseDuration          string
-	RenewDeadline          string
-	RetryPeriod            string
-	KlusterletNamespace    string
-	KlusterletWorkSA       string
-	NodeSelector           map[string]string
-	Tolerations            []corev1.Toleration
-	AggregationLevel       string
-	EnableLocalPolicies    string
-	EnableGlobalResource   bool
-	AgentQPS               float32
-	AgentBurst             int
-	LogLevel               string
-	EnablePprof            bool
+	HoHAgentImage         string
+	ImagePullSecretName   string
+	ImagePullSecretData   string
+	ImagePullPolicy       string
+	LeafHubID             string
+	TransportConfigSecret string
+	KafkaConfigYaml       string
+	KafkaClusterCASecret  string
+	KafkaCACert           string
+	InstallACMHub         bool
+	Channel               string
+	CurrentCSV            string
+	Source                string
+	SourceNamespace       string
+	InstallHostedMode     bool
+	LeaseDuration         string
+	RenewDeadline         string
+	RetryPeriod           string
+	KlusterletNamespace   string
+	KlusterletWorkSA      string
+	NodeSelector          map[string]string
+	Tolerations           []corev1.Toleration
+	AggregationLevel      string
+	EnableLocalPolicies   string
+	EnableGlobalResource  bool
+	AgentQPS              float32
+	AgentBurst            int
+	LogLevel              string
+	EnablePprof           bool
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
 	Resources *Resources
 }
@@ -176,12 +167,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 	transporter := config.GetTransporter()
 
-	// will block until the credential is ready
-	kafkaConnection, err := transporter.GetConnCredential(cluster.Name)
-	if err != nil {
-		return nil, err
-	}
-	clusterTopic, err := transporter.EnsureTopic(cluster.Name)
+	_, err = transporter.EnsureTopic(cluster.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -192,12 +178,12 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
 	}
 
-	// if the credential is byo, don't need add secret certs
-	attachCertSecrets := true
-	if config.IsBYOKafka() {
-		attachCertSecrets = false
+	// will block until the credential is ready
+	kafkaConnection, err := transporter.GetConnCredential(cluster.Name)
+	if err != nil {
+		return nil, err
 	}
-	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(attachCertSecrets)
+	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(config.IsBYOKafka())
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
 	}
@@ -219,32 +205,25 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:          image,
-		ImagePullPolicy:        string(imagePullPolicy),
-		LeafHubID:              cluster.Name,
-		TransportConfigSecret:  constants.GHTransportConfigSecret,
-		KafkaConfigYaml:        base64.StdEncoding.EncodeToString(kafkaConfigYaml),
-		KafkaBootstrapServer:   kafkaConnection.BootstrapServer,
-		KafkaCACert:            kafkaConnection.CACert,
-		KafkaClientCert:        kafkaConnection.ClientCert,
-		KafkaClientKey:         kafkaConnection.ClientKey,
-		KafkaClientCertSecret:  kafkaConnection.ClientSecretName,
-		KafkaClusterCASecret:   kafkaConnection.CASecretName,
-		KafkaConsumerTopic:     clusterTopic.SpecTopic,
-		KafkaProducerTopic:     clusterTopic.StatusTopic,
-		MessageCompressionType: string(operatorconstants.GzipCompressType),
-		TransportType:          string(transport.Kafka),
-		LeaseDuration:          strconv.Itoa(electionConfig.LeaseDuration),
-		RenewDeadline:          strconv.Itoa(electionConfig.RenewDeadline),
-		RetryPeriod:            strconv.Itoa(electionConfig.RetryPeriod),
-		KlusterletNamespace:    "open-cluster-management-agent",
-		KlusterletWorkSA:       "klusterlet-work-sa",
-		EnableGlobalResource:   a.operatorConfig.GlobalResourceEnabled,
-		AgentQPS:               agentQPS,
-		AgentBurst:             agentBurst,
-		LogLevel:               a.operatorConfig.LogLevel,
-		EnablePprof:            a.operatorConfig.EnablePprof,
-		Resources:              agentRes,
+		HoHAgentImage:         image,
+		ImagePullPolicy:       string(imagePullPolicy),
+		LeafHubID:             cluster.Name,
+		TransportConfigSecret: constants.GHTransportConfigSecret,
+		KafkaConfigYaml:       base64.StdEncoding.EncodeToString(kafkaConfigYaml),
+		// render the cluster ca whether under the BYO cases
+		KafkaClusterCASecret: kafkaConnection.CASecretName,
+		KafkaCACert:          kafkaConnection.CACert,
+		LeaseDuration:        strconv.Itoa(electionConfig.LeaseDuration),
+		RenewDeadline:        strconv.Itoa(electionConfig.RenewDeadline),
+		RetryPeriod:          strconv.Itoa(electionConfig.RetryPeriod),
+		KlusterletNamespace:  "open-cluster-management-agent",
+		KlusterletWorkSA:     "klusterlet-work-sa",
+		EnableGlobalResource: a.operatorConfig.GlobalResourceEnabled,
+		AgentQPS:             agentQPS,
+		AgentBurst:           agentBurst,
+		LogLevel:             a.operatorConfig.LogLevel,
+		EnablePprof:          a.operatorConfig.EnablePprof,
+		Resources:            agentRes,
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
