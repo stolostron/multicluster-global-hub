@@ -104,33 +104,46 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
 	}
 
+	transportConn := config.GetTransporterConn()
+	if transportConn == nil || transportConn.BootstrapServer == "" {
+		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
+	}
+
 	inventoryObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
-			Image            string
-			Replicas         int32
-			ImagePullSecret  string
-			ImagePullPolicy  string
-			PostgresHost     string
-			PostgresPort     string
-			PostgresUser     string
-			PostgresPassword string
-			PostgresCACert   string
-			Namespace        string
-			NodeSelector     map[string]string
-			Tolerations      []corev1.Toleration
+			Image                string
+			Replicas             int32
+			ImagePullSecret      string
+			ImagePullPolicy      string
+			PostgresHost         string
+			PostgresPort         string
+			PostgresUser         string
+			PostgresPassword     string
+			PostgresCACert       string
+			Namespace            string
+			NodeSelector         map[string]string
+			Tolerations          []corev1.Toleration
+			KafkaBootstrapServer string
+			KafkaSSLCAPEM        string
+			KafkaSSLCertPEM      string
+			KafkaSSLKeyPEM       string
 		}{
-			Image:            config.GetImage(config.InventoryImageKey),
-			Replicas:         replicas,
-			ImagePullSecret:  mgh.Spec.ImagePullSecret,
-			ImagePullPolicy:  string(imagePullPolicy),
-			PostgresHost:     postgresURI.Hostname(),
-			PostgresPort:     postgresURI.Port(),
-			PostgresUser:     postgresURI.User.Username(),
-			PostgresPassword: postgresPassword,
-			PostgresCACert:   base64.StdEncoding.EncodeToString(storageConn.CACert),
-			Namespace:        mgh.Namespace,
-			NodeSelector:     mgh.Spec.NodeSelector,
-			Tolerations:      mgh.Spec.Tolerations,
+			Image:                config.GetImage(config.InventoryImageKey),
+			Replicas:             replicas,
+			ImagePullSecret:      mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:      string(imagePullPolicy),
+			PostgresHost:         postgresURI.Hostname(),
+			PostgresPort:         postgresURI.Port(),
+			PostgresUser:         postgresURI.User.Username(),
+			PostgresPassword:     postgresPassword,
+			PostgresCACert:       base64.StdEncoding.EncodeToString(storageConn.CACert),
+			Namespace:            mgh.Namespace,
+			NodeSelector:         mgh.Spec.NodeSelector,
+			Tolerations:          mgh.Spec.Tolerations,
+			KafkaBootstrapServer: transportConn.BootstrapServer,
+			KafkaSSLCAPEM:        transportConn.CACert,
+			KafkaSSLCertPEM:      transportConn.ClientCert,
+			KafkaSSLKeyPEM:       transportConn.ClientKey,
 		}, nil
 	})
 	if err != nil {
