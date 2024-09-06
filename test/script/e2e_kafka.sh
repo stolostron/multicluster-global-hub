@@ -32,7 +32,7 @@ kubectl create namespace "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" --d
 
 # deploy kafka operator
 kubectl -n $kafka_namespace create -f "https://strimzi.io/install/latest?namespace=$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG"
-retry "(kubectl get pods -n $kafka_namespace --kubeconfig "$KAFKA_KUBECONFIG" -l name=strimzi-cluster-operator | grep Running)" 60
+retry "(kubectl get pods -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -l name=strimzi-cluster-operator | grep Running)" 60
 
 echo "Kafka operator is ready"
 
@@ -55,7 +55,7 @@ byo_user=global-hub-byo-user
 wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 
 # generate transport secret for standalone agent
-bash "$TEST_DIR/manifest/standalone-agent/generate_transport_config.sh" "$KUBECONFIG" "$SECRET_KUBECONFIG"
+bash "$TEST_DIR/manifest/standalone-agent/generate_transport_config.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
 echo "standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"
