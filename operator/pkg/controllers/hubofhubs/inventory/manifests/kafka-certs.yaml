@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: inventory-api-kafka-certs
+  namespace: {{.Namespace}}
+type: Opaque
+data:
+  ca.crt: {{.KafkaSSLCAPEM}}
+  client.crt: {{.KafkaSSLCertPEM}}
+  client.key: {{.KafkaSSLKeyPEM}}
