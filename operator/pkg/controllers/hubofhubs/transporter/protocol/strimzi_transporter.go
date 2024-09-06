@@ -221,7 +221,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	topicReplicas := DefaultPartitionReplicas
-	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic || enableKRaft {
 		topicReplicas = 1
 	}
 	// render the kafka objects
