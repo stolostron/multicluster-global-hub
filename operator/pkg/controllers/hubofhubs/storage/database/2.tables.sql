@@ -142,3 +142,14 @@ CREATE TABLE IF NOT EXISTS status.transport (
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS security.alert_counts (
+    hub_name text PRIMARY KEY,
+    low integer NOT NULL,
+    medium integer NOT NULL,
+    high integer NOT NULL,
+    critical integer NOT NULL,
+    detail_url text NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL
+);

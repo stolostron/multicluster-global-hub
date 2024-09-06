@@ -6,11 +6,13 @@ DO $$ BEGIN
         GRANT USAGE ON SCHEMA history TO "$1";
         GRANT USAGE ON SCHEMA local_spec TO "$1";
         GRANT USAGE ON SCHEMA local_status TO "$1";
+        GRANT USAGE ON SCHEMA security TO "$1";
 
         GRANT SELECT ON ALL TABLES IN SCHEMA status TO "$1";
         GRANT SELECT ON ALL TABLES IN SCHEMA event TO "$1";
         GRANT SELECT ON ALL TABLES IN SCHEMA history TO "$1";
         GRANT SELECT ON ALL TABLES IN SCHEMA local_spec TO "$1";
         GRANT SELECT ON ALL TABLES IN SCHEMA local_status TO "$1";
+        GRANT SELECT ON ALL TABLES IN SCHEMA security TO "$1";
    END IF;
 END $$;

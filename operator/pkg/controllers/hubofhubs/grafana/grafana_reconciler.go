@@ -111,35 +111,37 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context,
 	grafanaRenderer, grafanaDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 	grafanaObjects, err := grafanaRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
-			Namespace             string
-			Replicas              int32
-			SessionSecret         string
-			ProxyImage            string
-			GrafanaImage          string
-			ImagePullSecret       string
-			ImagePullPolicy       string
-			DatasourceSecretName  string
-			NodeSelector          map[string]string
-			Tolerations           []corev1.Toleration
-			Resources             *corev1.ResourceRequirements
-			EnableKafkaMetrics    bool
-			EnablePostgresMetrics bool
-			EnableMetrics         bool
+			Namespace                 string
+			Replicas                  int32
+			SessionSecret             string
+			ProxyImage                string
+			GrafanaImage              string
+			ImagePullSecret           string
+			ImagePullPolicy           string
+			DatasourceSecretName      string
+			NodeSelector              map[string]string
+			Tolerations               []corev1.Toleration
+			Resources                 *corev1.ResourceRequirements
+			EnableKafkaMetrics        bool
+			EnablePostgresMetrics     bool
+			EnableMetrics             bool
+			EnableStackroxIntegration bool
 		}{
-			Namespace:             mgh.GetNamespace(),
-			Replicas:              replicas,
-			SessionSecret:         proxySessionSecret,
-			ProxyImage:            config.GetImage(config.OauthProxyImageKey),
-			GrafanaImage:          config.GetImage(config.GrafanaImageKey),
-			ImagePullSecret:       mgh.Spec.ImagePullSecret,
-			ImagePullPolicy:       string(imagePullPolicy),
-			DatasourceSecretName:  datasourceName,
-			NodeSelector:          mgh.Spec.NodeSelector,
-			Tolerations:           mgh.Spec.Tolerations,
-			EnableKafkaMetrics:    (!config.IsBYOKafka()) && mgh.Spec.EnableMetrics,
-			EnablePostgresMetrics: (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
-			EnableMetrics:         mgh.Spec.EnableMetrics,
-			Resources:             operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
+			Namespace:                 mgh.GetNamespace(),
+			Replicas:                  replicas,
+			SessionSecret:             proxySessionSecret,
+			ProxyImage:                config.GetImage(config.OauthProxyImageKey),
+			GrafanaImage:              config.GetImage(config.GrafanaImageKey),
+			ImagePullSecret:           mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:           string(imagePullPolicy),
+			DatasourceSecretName:      datasourceName,
+			NodeSelector:              mgh.Spec.NodeSelector,
+			Tolerations:               mgh.Spec.Tolerations,
+			EnableKafkaMetrics:        (!config.IsBYOKafka()) && mgh.Spec.EnableMetrics,
+			EnablePostgresMetrics:     (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
+			EnableMetrics:             mgh.Spec.EnableMetrics,
+			EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
+			Resources:                 operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
 		}, nil
 	})
 	if err != nil {

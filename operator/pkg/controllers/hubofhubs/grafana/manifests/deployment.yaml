@@ -92,6 +92,10 @@ spec:
           name: grafana-dashboard-acm-global-whats-changed-clusters
         - mountPath: /grafana-dashboards/0/acm-global-whats-changed-policies
           name: grafana-dashboard-acm-global-whats-changed-policies
+        {{- if .EnableStackroxIntegration }}
+        - mountPath: /grafana-dashboards/0/acm-global-security-alert-counts
+          name: grafana-dashboard-acm-global-security-alert-counts
+        {{- end }}
         - mountPath: /grafana-dashboards/3/acm-global-managedclusters
           name: grafana-dashboard-acm-global-managedclusters
         {{- if .EnableKafkaMetrics }}
@@ -210,6 +214,12 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-global-whats-changed-policies
         name: grafana-dashboard-acm-global-whats-changed-policies
+        {{- if .EnableStackroxIntegration }}
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-global-security-alert-counts
+        name: grafana-dashboard-acm-global-security-alert-counts
+        {{- end }}
       - configMap:
           defaultMode: 420
           name: grafana-dashboard-acm-global-overview

@@ -61,6 +61,7 @@ func registerHandler(cmr *conflator.ConflationManager, enableGlobalResource bool
 	dbsyncer.NewLocalRootPolicyEventHandler().RegisterHandler(cmr)
 	dbsyncer.NewLocalReplicatedPolicyEventHandler().RegisterHandler(cmr)
 	dbsyncer.NewLocalPlacementRuleSpecHandler().RegisterHandler(cmr)
+	dbsyncer.NewSecurityAlertCountsHandler().RegisterHandler(cmr)
 	if enableGlobalResource {
 		dbsyncer.NewPolicyComplianceHandler().RegisterHandler(cmr)
 		dbsyncer.NewPolicyCompleteHandler().RegisterHandler(cmr)
