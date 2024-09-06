@@ -340,10 +340,7 @@ install_crds() {
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
-  #proxy
-  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
-
-  # clusterclaim
+  # clusterclaim: agent
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml
 }
 
@@ -362,30 +359,33 @@ enable_olm() {
   NS=olm
   csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   if [[ "$csvPhase" == "Succeeded" ]]; then
-    echo "OLM is already installed in ${NS} namespace. Exiting..."
-    exit 1
+    echo "OLM is already installed in ${NS} namespace. Skipping..."
+    return
   fi
+
+  #proxy crd
+  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
 
   path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.28.0"
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/crds.yaml"
   kubectl --context "$1" wait --for=condition=Established -f "${path}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/olm.yaml"
 
-  retries=60
-  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+  retries=300
+  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' || echo "Waiting for CSV to appear")
   while [[ $retries -gt 0 && "$csvPhase" != "Succeeded" ]]; do
-    echo "csvPhase: ${csvPhase}"
+    echo "CSV packageserver(status.phase): ${csvPhase}"
     sleep 1
     retries=$((retries - 1))
-    csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+    csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' || echo "Waiting for CSV to appear")
   done
-  kubectl --context "$1" rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
-
   if [ $retries == 0 ]; then
-    echo "CSV \"packageserver\" failed to reach phase succeeded"
+    echo "CSV 'packageserver' failed to reach 'Succeeded' phase!"
     exit 1
   fi
-  echo "CSV \"packageserver\" install succeeded"
+
+  kubectl --context "$1" rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
+  echo "CSV 'packageserver' install succeeded"
 }
 
 wait_secret_ready() {

@@ -43,20 +43,18 @@ kubectl apply -k "$TEST_DIR"/manifest/kafka/kafka-cluster -n "$kafka_namespace" 
 
 wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 
-# kafka
-wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-status.hub1 -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
-wait_cmd "kubectl get kafkatopic gh-status.hub2 -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
-wait_cmd "kubectl get kafkauser global-hub-kafka-user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
-echo "Kafka topic/user are ready"
+echo "Kafka cluster is ready"
 
-# Note: skip to create the transport secret, trying to use the the internal multi users and topics for managed hubs
+# byo kafkatopic and kafkauser
+wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
+wait_cmd "kubectl get kafkatopic gh-status -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 byo_user=global-hub-byo-user
 wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
+echo "Kafka topic and user is ready"
 
 # generate transport secret for standalone agent
 export KAFKA_NAMESPACE=$kafka_namespace
 bash "$TEST_DIR/manifest/standalone-agent/generate_transport_config.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
-echo "standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
+echo "Kafka standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"

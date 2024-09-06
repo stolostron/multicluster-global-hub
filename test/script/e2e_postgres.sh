@@ -24,19 +24,10 @@ if kubectl get secret "$storage_secret" -n "$target_namespace" --kubeconfig "$SE
   exit 0
 fi
 
-# load all the image to kind cluster
-docker pull "$PG_OPERATOR_IMG"
-docker pull "$PG_BACKUP_IMG"
-docker pull "$PG_IMG"
-cluster_name=$(basename "$KUBECONFIG")
-kind load docker-image "$PG_OPERATOR_IMG" --name "$cluster_name"
-kind load docker-image "$PG_BACKUP_IMG" --name "$cluster_name"
-kind load docker-image "$PG_IMG" --name "$cluster_name"
-
 # installed credentials
 pg_ns="hoh-postgres"
 ps_user="hoh-pguser-postgres"
-pg_cert="hoh-cluster-cert"
+# pg_cert="hoh-cluster-cert"
 
 # step2: deploy postgres operator pgo
 retry "kubectl apply --server-side --kubeconfig $POSTGRES_KUBECONFIG -k $TEST_DIR/manifest/postgres/postgres-operator && (kubectl get pods -n postgres-operator --kubeconfig $POSTGRES_KUBECONFIG | grep pgo | grep Running)" 60

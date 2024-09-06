@@ -15,8 +15,7 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-
-# CleanUp globalhub 
+# CleanUp globalhub
 bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
 
 pg_ns="hoh-postgres"
@@ -34,27 +33,27 @@ if kubectl get secret "$storage_secret" -n "$target_namespace" --kubeconfig "$GH
   kubectl delete secret "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG"
 fi
 database_uri=$(kubectl get secrets -n "${pg_ns}" --kubeconfig "$POSTGRES_KUBECONFIG" "${ps_user}" -o go-template='{{index (.data) "uri" | base64decode}}')
-kubectl get secret $pg_cert -n $pg_ns  --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.ca\.crt}' |base64 -d > "$CONFIG_DIR/postgres-cluster-ca.crt"
+kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.ca\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
 
 # covert the database uri into external uri
-external_host=$(kubectl config view --minify  --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
+external_host=$(kubectl config view --minify --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
 external_port=32432
 database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_port|")
 
-# step4: generate storage secret 
+# step4: generate storage secret
 if kubectl get secret "$transport_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG"; then
   echo "transport_secret $transport_secret already exists in $target_namespace namespace"
   kubectl delete secret "$transport_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG"
 fi
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
 kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
-    --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
-    --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
+  --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
+  --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
 
-echo "Storage secret is ready in $target_namespace namespace!"
+echo "storage secret is ready in $target_namespace namespace!"
 
 ######################## apply kafka secret to globalhub###########
-wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig "$KAKFA_KUBECONFIG" -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
+wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAKFA_KUBECONFIG -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
 bootstrap_server=$(kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAKFA_KUBECONFIG" -o jsonpath='{.status.listeners[1].bootstrapServers}')
 kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAKFA_KUBECONFIG" -o jsonpath='{.status.listeners[1].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
 kubectl get secret $byo_user -n "$kafka_namespace" --kubeconfig "$KAKFA_KUBECONFIG" -o jsonpath='{.data.user\.crt}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-cert.pem

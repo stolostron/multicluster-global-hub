@@ -29,10 +29,14 @@ echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds
 # service-ca
 enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 
-# init hubs
+# Init hubs
 start_time=$(date +%s)
-
 pids=()
+
+# async install olm
+enable_olm "$GH_NAME" 2>&1 &
+pids+=($!)
+
 init_hub "$GH_NAME" 2>&1 &
 pids+=($!)
 for i in $(seq 1 "${MH_NUM}"); do
@@ -63,7 +67,6 @@ done
 
 wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
-enable_olm global-hub
 
 # apply standalone agent
 kubectl apply -f "$TEST_DIR/manifest/standalone-agent/workload" --kubeconfig="$GH_KUBECONFIG"
@@ -71,7 +74,7 @@ if [ -n "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" ]; then
   kubectl --kubeconfig="$GH_KUBECONFIG" set image "deployment/multicluster-global-hub-agent" \
     multicluster-global-hub-agent="$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" \
     -n open-cluster-management
-  echo "Updated container: multicluster-global-hub-agent with image $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
+  echo "updating standalone agent image with: $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
 fi
 
 # kubeconfig
@@ -83,4 +86,3 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
 echo -e "${BOLD_GREEN}[ END ] ${NC} $(($(date +%s) - start)) seconds"
-
