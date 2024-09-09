@@ -224,6 +224,9 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic || enableKRaft {
 		topicReplicas = 1
 	}
+	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
+	brokerAdvertisedHost, _ := mgh.Annotations[operatorconstants.KafkaBrokerAdvertisedHostKey]
+
 	// render the kafka objects
 	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())
 	kafkaObjects, err := kafkaRenderer.Render("manifests", "",
@@ -240,6 +243,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				TopicPartition         int32
 				TopicReplicas          int32
 				EnableKRaft            bool
+				KinDClusterIPAddress   string
 			}{
 				EnableMetrics:          mgh.Spec.EnableMetrics,
 				Namespace:              mgh.GetNamespace(),
@@ -252,6 +256,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				TopicPartition:         DefaultPartition,
 				TopicReplicas:          topicReplicas,
 				EnableKRaft:            enableKRaft,
+				KinDClusterIPAddress:   brokerAdvertisedHost,
 			}, nil
 		})
 	if err != nil {

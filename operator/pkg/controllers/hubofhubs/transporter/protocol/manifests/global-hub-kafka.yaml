@@ -21,6 +21,9 @@ spec:
         configuration:
           bootstrap:
             nodePort: 30095
+          brokers:
+          - broker: 0
+            advertisedHost: {{.KinDClusterIPAddress}}
         name: external
         port: 9095
         tls: true

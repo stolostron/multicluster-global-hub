@@ -87,10 +87,14 @@ function deployGlobalHub() {
   # replace to use the built images
   sed -i -e "s;quay.io/stolostron/multicluster-global-hub-manager:latest;$MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF;" ./operator/config/manager/manager.yaml
   sed -i -e "s;quay.io/stolostron/multicluster-global-hub-agent:latest;$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF;" ./operator/config/manager/manager.yaml
+  # update imagepullpolicy to IfNotPresent
+  sed -i -e "s;imagePullPolicy: Always;imagePullPolicy: IfNotPresent;" ./operator/config/manager/manager.yaml
 
   # deploy serviceMonitor CRD
   kubectl --context "$1" apply -f ${CURRENT_DIR}/../../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
   # deploy global hub operator
+  # Get KinD cluster IP Address
+  global_hub_node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' global-hub-control-plane)
   # patch imagePullSecret as IfNotPresent
   cd operator; make deploy IMG=$MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE_REF
   cat <<EOF | kubectl --context "$1" apply -f -
@@ -102,6 +106,7 @@ metadata:
     global-hub.open-cluster-management.io/catalog-source-namespace: olm
     global-hub.open-cluster-management.io/with-inventory: ""
     global-hub.open-cluster-management.io/enable-kraft: ""
+    global-hub.open-cluster-management.io/kafka-broker-advertised-host: "$global_hub_node_ip"
   name: multiclusterglobalhub
   namespace: multicluster-global-hub
 spec:

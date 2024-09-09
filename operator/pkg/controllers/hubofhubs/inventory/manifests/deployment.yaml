@@ -62,6 +62,9 @@ spec:
         - name: client-ca
           mountPath: /inventory/client-certs
           readOnly: true
+        - name: kafka-certs
+          mountPath: /inventory/kafka-certs
+          readOnly: true
       initContainers:
       - command:
         - "/usr/local/bin/inventory-api"
@@ -112,3 +115,6 @@ spec:
       - name: client-ca
         secret:
           secretName: inventory-api-client-ca-certs
+      - name: kafka-certs
+        secret:
+          secretName: inventory-api-kafka-certs
