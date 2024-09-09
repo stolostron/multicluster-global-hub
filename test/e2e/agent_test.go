@@ -7,7 +7,8 @@ import (
 	"sync"
 	"time"
 
-	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
+	"github.com/Shopify/sarama"
+	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	set "github.com/deckarep/golang-set"
@@ -20,7 +21,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	sampleconfig "github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
 const (
@@ -44,20 +45,22 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 			transportSecret)
 		Expect(err).To(Succeed())
 
-		configMap, err := config.GetConfluentConfigMapByConfig(transportSecret, globalHubClient,
-			STANDALONE_CONSUMER_GROUP_ID)
-		Expect(err).To(Succeed())
-
-		receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
-			kafka_confluent.WithReceiverTopics([]string{STANDALONE_TOPIC}))
-		Expect(err).To(Succeed())
-		defer receiver.Close(ctx)
-
-		c, err := cloudevents.NewClient(receiver, cloudevents.WithTimeNow(), cloudevents.WithUUIDs(),
-			client.WithPollGoroutines(1), client.WithBlockingCallback())
+		bootstrapServer, saramaConfig, err := sampleconfig.GetSaramaConfigByTranportConfig("")
 		if err != nil {
-			log.Fatalf("failed to create client, %v", err)
+			log.Fatalf("failed to get sarama config: %v", err)
 		}
+		// if set this to false, it will consume message from beginning when restart the client,
+		// otherwise it will consume message from the last committed offset.
+		saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
+		saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
+
+		receiver, err := kafka_sarama.NewConsumer([]string{bootstrapServer}, saramaConfig,
+			STANDALONE_CONSUMER_GROUP_ID, STANDALONE_TOPIC)
+		Expect(err).To(Succeed())
+		defer receiver.Close(context.Background())
+
+		c, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1), client.WithBlockingCallback())
+		Expect(err).To(Succeed())
 
 		clusters := set.NewSet()
 		var mutex sync.Mutex

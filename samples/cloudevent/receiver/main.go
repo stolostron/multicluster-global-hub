@@ -23,13 +23,13 @@ func main() {
 	}
 	topic := os.Args[1]
 
-	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigByTranportConfig("")
 	if err != nil {
 		log.Fatalf("failed to get sarama config: %v", err)
 	}
 	// if set this to false, it will consume message from beginning when restart the client,
 	// otherwise it will consume message from the last committed offset.
-	saramaConfig.Consumer.Offsets.AutoCommit.Enable = false
+	saramaConfig.Consumer.Offsets.AutoCommit.Enable = true
 	saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
 	receiver, err := kafka_sarama.NewConsumer([]string{bootstrapServer}, saramaConfig, groupId, topic)
@@ -54,5 +54,5 @@ func main() {
 }
 
 func receive(ctx context.Context, event cloudevents.Event) {
-	fmt.Printf("%s \n", event.Data())
+	fmt.Println(event)
 }
