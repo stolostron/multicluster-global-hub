@@ -87,7 +87,7 @@ data:
             "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
-          "description": "The distinct number of policies that were \"non compliant\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
+          "description": "The distinct number of policies that were \"violations\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -182,7 +182,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Non Compliant Policies",
+          "title": "Number of Policies with Violations ",
           "type": "stat"
         },
         {
@@ -190,7 +190,7 @@ data:
             "type": "grafana-postgresql-datasource",
             "uid": "${datasource}"
           },
-          "description": "The distinct number of policies that were \"compliant\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
+          "description": "The distinct number of policies that were \"no violations\" in the given time interval. The policies are calculated by policy uuid and not by the policy name; therefore, if a  policy with the same name exist across two different hubs, it is counted as two distinct policies.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -285,7 +285,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Compliant Policies",
+          "title": "Number of Policies with No Violations",
           "type": "stat"
         },
         {
@@ -620,7 +620,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Policy Status > Non Compliant",
+          "title": "Policy Status > Violations",
           "type": "row"
         },
         {
@@ -698,7 +698,7 @@ data:
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Non Compliant"
+                  "options": "Violations"
                 },
                 "properties": [
                   {
@@ -876,7 +876,7 @@ data:
                   "severity": "Severity",
                   "standard": "Standard",
                   "time": "Time",
-                  "value": "Non Compliant"
+                  "value": "Violations"
                 }
               }
             }

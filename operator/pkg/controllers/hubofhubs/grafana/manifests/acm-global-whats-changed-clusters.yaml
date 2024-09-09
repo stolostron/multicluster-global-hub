@@ -71,7 +71,7 @@ data:
                     "0": {
                       "color": "green",
                       "index": 3,
-                      "text": "Compliant"
+                      "text": "No Violations"
                     },
                     "1": {
                       "color": "yellow",
@@ -86,7 +86,7 @@ data:
                     "3": {
                       "color": "red",
                       "index": 0,
-                      "text": "NonCompliant"
+                      "text": "Violations"
                     }
                   },
                   "type": "value"
@@ -672,7 +672,7 @@ data:
                 },
                 "renameByName": {
                   "cluster_name": "Cluster",
-                  "compliance": "Compliance",
+                  "compliance": "No Violations",
                   "hub": "Hub",
                   "message": "Message",
                   "namespace": "Namespace",
@@ -794,7 +794,7 @@ data:
               "uid": "P244538DD76A4C61D"
             },
             "definition": "SELECT\n '1:5',\nCASE WHEN $maxtop > 5 THEN '$leftmaxtop:$maxtop'\nEND ",
-            "description": "Top N Non Compliance Policies",
+            "description": "Top N Policies with Violations",
             "hide": 1,
             "includeAll": false,
             "label": "Top",

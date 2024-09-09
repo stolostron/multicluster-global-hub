@@ -1101,12 +1101,12 @@ data:
                           "compliant": {
                             "color": "green",
                             "index": 0,
-                            "text": "Compliant"
+                            "text": "No Violations"
                           },
                           "non_compliant": {
                             "color": "red",
                             "index": 1,
-                            "text": "Not Compliant"
+                            "text": "Violations"
                           },
                           "pending": {
                             "color": "orange",

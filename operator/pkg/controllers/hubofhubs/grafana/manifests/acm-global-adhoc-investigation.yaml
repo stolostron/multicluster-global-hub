@@ -75,7 +75,7 @@ data:
             "type": "postgres",
             "uid": "P244538DD76A4C61D"
           },
-          "description": "The distinct number of managed clusters that were \"non compliant\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
+          "description": "The distinct number of managed clusters that were \"violations\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -178,7 +178,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Non Compliant Managed Clusters",
+          "title": "Number of Clusters with Violations",
           "type": "stat"
         },
         {
@@ -186,7 +186,7 @@ data:
             "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
-          "description": "The distinct number of managed clusters that were \"compliant\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
+          "description": "The distinct number of managed clusters that were \"no violations\" in the given time interval. The managed clusters are calculated by cluster id and not by the cluster name; therefore, if a cluster with the same name exist across two different hubs, it is counted as two distinct managed clusters.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -282,7 +282,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Compliant Managed Clusters",
+          "title": "Number of Cluster with No Violations",
           "type": "stat"
         },
         {
@@ -393,7 +393,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Pending Managed Clusters",
+          "title": "Number of Pending Clusters",
           "type": "stat"
         },
         {
@@ -504,7 +504,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Unknown Managed Clusters",
+          "title": "Number of Unknown Clusters",
           "type": "stat"
         },
         {
@@ -615,7 +615,7 @@ data:
               ]
             }
           ],
-          "title": "Number of Managed Clusters",
+          "title": "Number of Clusters",
           "type": "stat"
         },
         {
@@ -641,7 +641,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Cluster Status > Non Compliant",
+          "title": "Cluster Status > Violations",
           "type": "row"
         },
         {
@@ -649,7 +649,7 @@ data:
             "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
-          "description": "List of offending managed clusters count for one policy based on non compliant message.(If a policy has multiple templates, only show one failed message)",
+          "description": "List of offending managed clusters count for one policy based on violations message.(If a policy has multiple templates, only show one failed message)",
           "fieldConfig": {
             "defaults": {
               "color": {
