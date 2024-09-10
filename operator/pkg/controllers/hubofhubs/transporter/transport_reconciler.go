@@ -2,6 +2,7 @@ package transporter
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,10 +27,13 @@ func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
 
 // Resources reconcile the transport resources and also update transporter on the configuration
 func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (err error) {
+	defer func() {
+		config.UpdateTransportCondition(config.CONDITION_TRANSPORT_REASON_PROTOCOL, err)
+	}()
 	// set the transporter
 	switch config.TransporterProtocol() {
 	case transport.StrimziTransporter:
-		// initilize strimzi
+		// initialize strimzi
 		// kafkaCluster, it will be blocking until the status is ready
 		if r.transporter == nil {
 			r.transporter = protocol.NewStrimziTransporter(
@@ -38,12 +42,18 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 				protocol.WithContext(ctx),
 				protocol.WithCommunity(operatorutils.IsCommunityMode()),
 			)
-			if err := r.transporter.EnsureKafka(); err != nil {
+			if err = r.transporter.EnsureKafka(); err != nil {
 				return err
 			}
-			// update the transporter
-			config.SetTransporter(r.transporter)
+		} else {
+			strimziTran, ok := (r.transporter).(*protocol.StrimziTransporter)
+			if !ok {
+				return fmt.Errorf("the transport type should be Strimzi")
+			}
+			strimziTran.Update(mgh)
 		}
+		// update the transporter
+		config.SetTransporter(r.transporter)
 
 		// this controller also will update the transport connection
 		if config.GetKafkaResourceReady() && r.kafkaController == nil {
@@ -60,7 +70,8 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			}, r.GetClient())
 			config.SetTransporter(r.transporter)
 			// all of hubs will get the same credential
-			conn, err := r.transporter.GetConnCredential("")
+			var conn *transport.KafkaConnCredential
+			conn, err = r.transporter.GetConnCredential("")
 			if err != nil {
 				return err
 			}

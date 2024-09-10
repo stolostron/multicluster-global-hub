@@ -50,10 +50,12 @@ const (
 	CONDITION_TYPE_INVENTORY_AVAILABLE = "InventoryAvailable"
 )
 
-// NOTE: the topics for the manager and agent
+// NOTE: the transport status: if true, the message is the parsed topics
 const (
-	CONDITION_TYPE_TOPIC_PARSED   = "TopicParsed"
-	CONDITION_REASON_TOPIC_PARSED = "TopicParsed"
+	CONDITION_TRANSPORT_TYPE                 = "TransportReady"
+	CONDITION_TRANSPORT_REASON_TOPIC         = "TopicAvailable"
+	CONDITION_TRANSPORT_REASON_PROTOCOL      = "ProtocolAvailable"
+	CONDITION_TRANSPORT_REASON_STRIMZI_KAFKA = "StrimziKafkaAvailable"
 )
 
 // NOTE: the status of DatabaseInitialized can be True or False
@@ -129,12 +131,6 @@ func SetConditionDataRetention(ctx context.Context, c client.Client, mgh *global
 ) error {
 	return SetCondition(ctx, c, mgh, CONDITION_TYPE_RETENTION_PARSED, status,
 		CONDITION_REASON_RETENTION_PARSED, msg)
-}
-
-func SetConditionTopic(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	status metav1.ConditionStatus, msg string,
-) error {
-	return SetCondition(ctx, c, mgh, CONDITION_TYPE_TOPIC_PARSED, status, CONDITION_REASON_TOPIC_PARSED, msg)
 }
 
 func SetConditionManagerAvailable(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub,

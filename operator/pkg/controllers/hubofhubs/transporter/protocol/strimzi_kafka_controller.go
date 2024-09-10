@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,7 +29,7 @@ var manifests embed.FS
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
 	ctrl.Manager
-	trans *strimziTransporter
+	trans *StrimziTransporter
 }
 
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -42,16 +41,21 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
-	if err := r.trans.EnsureKafka(); err != nil {
+
+	defer func() {
+		config.UpdateTransportCondition(config.CONDITION_TRANSPORT_REASON_STRIMZI_KAFKA, err)
+	}()
+
+	if err = r.trans.EnsureKafka(); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err := r.trans.kafkaClusterReady(); err != nil {
+	if err = r.trans.kafkaClusterReady(); err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
 	}
 
 	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
+	if err = config.SetClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
 		r.trans.manager.GetClient()); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -59,22 +63,12 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	config.SetTransporter(r.trans)
 
 	// update the transport connection
-	conn, err := waitManagerTransportConn(ctx, r.trans, DefaultGlobalHubKafkaUserName)
+	var conn *transport.KafkaConnCredential
+	conn, err = waitManagerTransportConn(ctx, r.trans, DefaultGlobalHubKafkaUserName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	config.SetTransporterConn(conn)
-
-	// Update status to mgh so that it can trigger a GlobalHubReconciler
-	if err := config.UpdateCondition(ctx, r.GetClient(), mgh, metav1.Condition{
-		Type:               "KafkaClusterReady",
-		Status:             metav1.ConditionTrue,
-		Reason:             "KafkaClusterIsReady",
-		Message:            "Kafka cluster is ready",
-		LastTransitionTime: metav1.Time{Time: time.Now()},
-	}); err != nil {
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }
@@ -108,7 +102,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 ) {
 	r := &KafkaController{
 		Manager: mgr,
-		trans:   transporter.(*strimziTransporter),
+		trans:   transporter.(*StrimziTransporter),
 	}
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
@@ -129,7 +123,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	return r, nil
 }
 
-func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
+func waitManagerTransportConn(ctx context.Context, trans *StrimziTransporter, kafkaUserSecret string) (
 	*transport.KafkaConnCredential, error,
 ) {
 	// set transporter connection

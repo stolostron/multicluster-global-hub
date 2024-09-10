@@ -57,10 +57,8 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 		return err
 	}
 
-	// update the topic condition
-	topicMessage := fmt.Sprintf("The topics is parsed: spec(%s), status(%s)", config.GetSpecTopic(),
-		config.ManagerStatusTopic())
-	if err := config.SetConditionTopic(ctx, r.Client, mgh, config.CONDITION_STATUS_TRUE, topicMessage); err != nil {
+	// update the transport condition
+	if err := config.UpdateCondition(ctx, r.Client, mgh, *config.GetTransportCondition()); err != nil {
 		return err
 	}
 

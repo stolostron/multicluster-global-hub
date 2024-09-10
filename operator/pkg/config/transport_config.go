@@ -36,6 +36,9 @@ var (
 	acmResourceReady    = false
 	clientCAKey         []byte
 	clientCACert        []byte
+	transportCond       = &metav1.Condition{
+		Type: CONDITION_TRANSPORT_TYPE,
+	}
 )
 
 func SetTransporterConn(conn *transport.KafkaConnCredential) {
@@ -78,9 +81,35 @@ func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return defaultKafkaStorageSize
 }
 
+func UpdateTransportCondition(reason string, err error) {
+	if err != nil {
+		if transportCond.Status == metav1.ConditionTrue {
+			transportCond.Reason = reason
+			transportCond.Status = metav1.ConditionFalse
+			transportCond.Message = err.Error()
+		}
+	} else {
+		if transportCond.Status == metav1.ConditionFalse && transportCond.Reason == reason {
+			transportCond.Status = metav1.ConditionTrue
+			transportCond.Message = fmt.Sprintf("The topics is parsed: spec(%s), status(%s)", GetSpecTopic(),
+				ManagerStatusTopic())
+		}
+	}
+}
+
+func GetTransportCondition() *metav1.Condition {
+	return transportCond
+}
+
 // SetTransportConfig sets the kafka type, protocol and topics
 func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
-	if err := SetKafkaType(ctx, runtimeClient, mgh.Namespace); err != nil {
+	var err error
+
+	defer func() {
+		UpdateTransportCondition(CONDITION_TRANSPORT_REASON_TOPIC, err)
+	}()
+
+	if err = SetKafkaType(ctx, runtimeClient, mgh.Namespace); err != nil {
 		return err
 	}
 
@@ -92,7 +121,7 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
 	if !isValidKafkaTopicName(statusTopic) {
-		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
+		return fmt.Errorf("the statusTopic is invalid: %s", statusTopic)
 	}
 
 	// BYO Case:
@@ -103,13 +132,14 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 			mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic = DEFAULT_SHARED_STATUS_TOPIC
 			statusTopic = DEFAULT_SHARED_STATUS_TOPIC
 
-			if err := runtimeClient.Update(ctx, mgh); err != nil {
+			if err = runtimeClient.Update(ctx, mgh); err != nil {
 				return fmt.Errorf("failed to update the topic from %s to %s", DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC)
 			}
 		}
 
 		if strings.Contains(statusTopic, "*") {
-			return fmt.Errorf("status topic(%s) must not contain '*'", statusTopic)
+			err = fmt.Errorf("status topic(%s) must not contain '*'", statusTopic)
+			return err
 		}
 	}
 	return nil
