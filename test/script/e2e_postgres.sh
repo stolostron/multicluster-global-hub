@@ -44,9 +44,9 @@ for sts in ${stss}; do
 done
 kubectl delete pod -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" --all --ignore-not-found=true 2>/dev/null
 
-# postgres
-wait_cmd "kubectl get pods --kubeconfig $POSTGRES_KUBECONFIG -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns | grep Running"
-kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns--timeout=100s --kubeconfig "$POSTGRES_KUBECONFIG"
-echo "Postgres cluster is ready!"
+# wait the resources ready before testing byo db
+# wait_cmd "kubectl get pods --kubeconfig $POSTGRES_KUBECONFIG -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns | grep Running"
+# kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/instance-set=pgha1 -n $pg_ns --timeout=100s --kubeconfig "$POSTGRES_KUBECONFIG"
+# echo "Postgres cluster is ready!"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Postgres ${NC} $(($(date +%s) - start_time)) seconds"
