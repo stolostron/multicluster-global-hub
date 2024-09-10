@@ -65,6 +65,12 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
+# install the BYO (Bring Your Own) PostgreSQL and Kafka asynchronously during the OCMS installation
+bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >"$CONFIG_DIR/PID"
+bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
+
 wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
