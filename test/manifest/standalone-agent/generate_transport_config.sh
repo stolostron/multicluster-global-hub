@@ -14,6 +14,7 @@ secret_namespace=open-cluster-management
 standalone_user=global-hub-standalone-user
 status_topic="gh-status.standalone"
 kubectl apply -f "$CURRENT_DIR/standalone-agent-resources.yaml" -n "$kafka_namespace"
+wait_cmd "kubectl get kafkauser $standalone_user -n $kafka_namespace | grep -C 1 True"
 
 cat <<EOF >"$CURRENT_DIR/kafka.yaml"
 bootstrap.server: $(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
