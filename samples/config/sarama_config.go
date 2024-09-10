@@ -136,6 +136,10 @@ func GetSaramaConfigByTranportConfig(namespace string) (string, *sarama.Config, 
 		return "", nil, fmt.Errorf("failed to get runtime client")
 	}
 
+	return GetSaramaConfigByClient(namespace, c)
+}
+
+func GetSaramaConfigByClient(namespace string, c client.Client) (string, *sarama.Config, error) {
 	if namespace == "" {
 		namespace = KAFKA_NAMESPACE
 	}
@@ -146,7 +150,7 @@ func GetSaramaConfigByTranportConfig(namespace string) (string, *sarama.Config, 
 			Name:      constants.GHTransportConfigSecret,
 		},
 	}
-	err = c.Get(context.Background(), client.ObjectKeyFromObject(transportConfig), transportConfig)
+	err := c.Get(context.Background(), client.ObjectKeyFromObject(transportConfig), transportConfig)
 	if err != nil {
 		return "", nil, err
 	}

@@ -45,7 +45,7 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 			transportSecret)
 		Expect(err).To(Succeed())
 
-		bootstrapServer, saramaConfig, err := sampleconfig.GetSaramaConfigByTranportConfig("")
+		bootstrapServer, saramaConfig, err := sampleconfig.GetSaramaConfigByClient(STANDALONE_NAMESPACE, globalHubClient)
 		if err != nil {
 			log.Fatalf("failed to get sarama config: %v", err)
 		}
