@@ -252,12 +252,12 @@ data:
                           "compliant": {
                             "color": "green",
                             "index": 0,
-                            "text": "Compliant"
+                            "text": "No Violations"
                           },
                           "non_compliant": {
                             "color": "red",
                             "index": 1,
-                            "text": "Not Compliant"
+                            "text": "Violations"
                           },
                           "pending": {
                             "color": "orange",
@@ -568,12 +568,12 @@ data:
                           "compliant": {
                             "color": "green",
                             "index": 0,
-                            "text": "Compliant"
+                            "text": "No Violations"
                           },
                           "non_compliant": {
                             "color": "red",
                             "index": 1,
-                            "text": "Not Compliant"
+                            "text": "Violations"
                           },
                           "pending": {
                             "color": "orange",
@@ -999,7 +999,7 @@ data:
               }
             }
           ],
-          "title": "Compliant Clusters  For Each Hub",
+          "title": "Clusters with No Violations For Each Hub",
           "type": "bargauge"
         },
         {
@@ -1094,7 +1094,7 @@ data:
               }
             }
           ],
-          "title": "Compliant Policies  For Each Hub",
+          "title": "Policies with No Violations For Each Hub",
           "type": "bargauge"
         }
       ],
