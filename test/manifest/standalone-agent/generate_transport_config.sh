@@ -11,10 +11,26 @@ SECRET_KUBECONFIG=${2:-$KUBECONFIG} # generate the crenditial secret
 kafka_namespace=${KAFKA_NAMESPACE:-"kafka"}
 secret_namespace=open-cluster-management
 
-standalone_user=global-hub-standalone-user
+standalone_user="global-hub-standalone-user"
 status_topic="gh-status.standalone"
 kubectl apply -f "$CURRENT_DIR/standalone-agent-resources.yaml" -n "$kafka_namespace"
-wait_cmd "kubectl get kafkauser $standalone_user -n $kafka_namespace | grep -C 1 True"
+kubectl wait --for=condition=Ready kafkauser/$standalone_user --timeout=500s
+
+# Define a 5-minute timeout
+timeout=300
+end=$((SECONDS + timeout))
+while [[ $SECONDS -lt $end ]]; do
+  if kubectl get secret $standalone_user -n "$kafka_namespace" &>/dev/null; then
+    echo "Secret $kafka_namespace/$standalone_user is now available!"
+    break
+  fi
+  echo "Waiting for secret $kafka_namespace/$standalone_user to appear..."
+  sleep 5
+done
+if ! kubectl get secret $standalone_user -n "$kafka_namespace" &>/dev/null; then
+  echo "Timeout: Secret $kafka_namespace/$standalone_user did not appear within 5 minutes."
+  exit 1
+fi
 
 cat <<EOF >"$CURRENT_DIR/kafka.yaml"
 bootstrap.server: $(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
