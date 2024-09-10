@@ -41,8 +41,7 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 				Name:      constants.GHTransportConfigSecret,
 			},
 		}
-		err := globalHubClient.Get(context.Background(), runtimeclient.ObjectKeyFromObject(transportSecret),
-			transportSecret)
+		err := globalHubClient.Get(agentCtx, runtimeclient.ObjectKeyFromObject(transportSecret), transportSecret)
 		Expect(err).To(Succeed())
 
 		bootstrapServer, saramaConfig, err := sampleconfig.GetSaramaConfigByClient(STANDALONE_NAMESPACE, globalHubClient)
@@ -57,7 +56,6 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 		receiver, err := kafka_sarama.NewConsumer([]string{bootstrapServer}, saramaConfig,
 			STANDALONE_CONSUMER_GROUP_ID, STANDALONE_TOPIC)
 		Expect(err).To(Succeed())
-		defer receiver.Close(context.Background())
 
 		c, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1), client.WithBlockingCallback())
 		Expect(err).To(Succeed())
