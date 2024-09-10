@@ -32,4 +32,15 @@ spec:
         name: {{.StatusTopic}}
         patternType: {{.StatusTopicParttern}}
         type: topic
+{{ if .EnableInventoryAPI }}
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Write
+      resource:
+        name: {{.KafkaInventoryTopic}}
+        patternType: literal
+        type: topic
+{{ end }}
     type: simple
