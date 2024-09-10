@@ -105,18 +105,35 @@ check_kind() {
 kind_cluster() {
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local cluster_name="$1"
-  echo "dir $dir"
-  if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --image=kindest/node:v1.23.0 --wait 5m"
-    # modify the context = KinD cluster name = kubeconfig name
-    retry "kubectl config rename-context kind-$cluster_name $cluster_name"
-    # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
-    local node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
-    # context is changed but name not
-    retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443"
-    kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
-  fi
+  local kubeconfig="$dir/$cluster_name"
+  while [ ! -f "$kubeconfig" ]; do
+    ensure_cluster "$cluster_name" "$kubeconfig"
+    sleep 1
+  done
   echo "kind clusters: $(kind get clusters)"
+}
+
+ensure_cluster() {
+  local cluster_name="$1"
+  local kubeconfig="$2"
+  if [ -f "$kubeconfig" ]; then
+    return 0
+  fi
+
+  if kind get clusters | grep -q "^$cluster_name$"; then
+    kind delete cluster --name="$cluster_name"
+  fi
+
+  kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
+
+  # modify the context = KinD cluster name = kubeconfig name
+  kubectl config rename-context "kind-$cluster_name" "$cluster_name"
+
+  # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
+  local node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
+
+  kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443"
+  kubectl config view --context="$cluster_name" --minify --flatten >"$kubeconfig"
 }
 
 init_hub() {
