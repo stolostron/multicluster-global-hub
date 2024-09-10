@@ -57,11 +57,6 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 		return err
 	}
 
-	// update the transport condition
-	if err := config.UpdateCondition(ctx, r.Client, mgh, *config.GetTransportCondition()); err != nil {
-		return err
-	}
-
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
 	// update the MGH status and message of the condition if they are not set or changed
 	months, err := utils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
@@ -75,6 +70,11 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multiclu
 		}
 	} else {
 		klog.Info("failed to parse the retention month", "message", err.Error())
+	}
+
+	// update the transport condition
+	if err := config.UpdateCondition(ctx, r.Client, mgh, *config.GetTransportCondition()); err != nil {
+		return err
 	}
 
 	// update status of the global hub manager deployment
