@@ -103,8 +103,13 @@ aggregated by severity:
 
 ![StackRox Security Violations Dashboard](./images/stackrox-central-dashboard.png)
 
-The Global Hub can collect this information from the _Central_ instances that run inside the managed
-hubs. The information is aggregated and presented in a new _Security Violations_ Grafana dashboard:
+The Global Hub can collect this information from the _Central_ instances that
+run inside the managed hubs. The supported supported setup is to have a ACM
+Global Hub managing multiple instances of managed ACM hubs. And each of these
+managed ACM hubs has one instance of _Central running_.
+
+The information is aggregated and presented in a new _Security Violations_
+Grafana dashboard:
 
 ![Grafana Security Violations Dashboard](./images/stackrox-global-hub-dashboard.png)
 
