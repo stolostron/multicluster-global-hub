@@ -4,12 +4,13 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 )
 
 func TestAddCRDController(t *testing.T) {

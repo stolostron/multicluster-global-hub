@@ -6,8 +6,9 @@ package producer
 import (
 	"testing"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestGenericProducer(t *testing.T) {
