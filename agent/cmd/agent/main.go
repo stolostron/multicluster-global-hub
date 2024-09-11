@@ -248,7 +248,6 @@ func transportCallback(mgr ctrl.Manager, agentConfig *config.AgentConfig,
 }
 
 func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
-	namespace := config.GetAgentConfig().PodNamespace
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&apiextensionsv1.CustomResourceDefinition{}: {
 			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
@@ -262,11 +261,11 @@ func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, e
 		&clusterv1beta1.PlacementDecision{}: {},
 		&appsv1alpha1.SubscriptionReport{}:  {},
 		&coordinationv1.Lease{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", namespace),
+			Field: fields.OneTermEqualSelector("metadata.namespace", config.GetAgentConfig().PodNamespace),
 		},
 		&corev1.Event{}: {}, // TODO: need a filter for the target events
 		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector("metadata.namespace", namespace),
+			Field: fields.OneTermEqualSelector("metadata.namespace", config.GetAgentConfig().PodNamespace),
 		},
 	}
 	return cache.New(restConfig, cacheOpts)

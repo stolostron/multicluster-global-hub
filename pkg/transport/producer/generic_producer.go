@@ -97,9 +97,6 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
-		if transportConfig.KafkaCredential == nil {
-			return fmt.Errorf("the kafka credentail must not be nil")
-		}
 		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
 		if err != nil {
 			return err
@@ -123,7 +120,6 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		if transportConfig.RestfulCredentail == nil {
 			return fmt.Errorf("the restful credentail must not be nil")
 		}
-		p.log.Info("Init the REST API Client")
 	default:
 		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
