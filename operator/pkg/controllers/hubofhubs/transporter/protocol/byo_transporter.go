@@ -60,7 +60,12 @@ func (s *BYOTransporter) Prune(clusterName string) error {
 
 func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConnCredential, error) {
 	kafkaSecret := &corev1.Secret{}
-	err := s.runtimeClient.Get(s.ctx, types.NamespacedName{
+	var err error
+	defer func() {
+		config.UpdateTransportCondition(config.CONDITION_TRANSPORT_REASON_BYO_KAFKA, err)
+	}()
+
+	err = s.runtimeClient.Get(s.ctx, types.NamespacedName{
 		Name:      s.name,
 		Namespace: s.namespace,
 	}, kafkaSecret)

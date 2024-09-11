@@ -56,6 +56,7 @@ const (
 	CONDITION_TRANSPORT_REASON_TOPIC         = "TopicAvailable"
 	CONDITION_TRANSPORT_REASON_PROTOCOL      = "ProtocolAvailable"
 	CONDITION_TRANSPORT_REASON_STRIMZI_KAFKA = "StrimziKafkaAvailable"
+	CONDITION_TRANSPORT_REASON_BYO_KAFKA     = "YourOwenKafkaAvailable"
 )
 
 // NOTE: the status of DatabaseInitialized can be True or False
