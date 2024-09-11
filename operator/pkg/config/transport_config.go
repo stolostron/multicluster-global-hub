@@ -37,7 +37,8 @@ var (
 	clientCAKey         []byte
 	clientCACert        []byte
 	transportCond       = &metav1.Condition{
-		Type: CONDITION_TRANSPORT_TYPE,
+		Type:   CONDITION_TRANSPORT_TYPE,
+		Status: metav1.ConditionTrue,
 	}
 )
 
