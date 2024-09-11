@@ -56,7 +56,7 @@ func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
 	}
 
-	if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNameSpace,
+	if err := config.AddHoHLeaseUpdater(c.mgr, c.agentConfig.PodNamespace,
 		"multicluster-global-hub-controller"); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
 	}

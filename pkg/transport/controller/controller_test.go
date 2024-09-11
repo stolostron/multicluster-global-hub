@@ -56,7 +56,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
 	assert.NoError(t, err)
 
-	inventoryConn := &transport.InventoryConnCredentail{
+	inventoryConn := &transport.RestfulConnCredentail{
 		Host: "localhost:123",
 		// the following fields are only for the manager, and the agent of byo/standalone kafka
 		CACert:     base64.StdEncoding.EncodeToString([]byte("11")),
@@ -97,5 +97,5 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	result, err = secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
-	utils.PrettyPrint(secretController.transportConfig.InventoryCredentail)
+	utils.PrettyPrint(secretController.transportConfig.RestfulCredentail)
 }

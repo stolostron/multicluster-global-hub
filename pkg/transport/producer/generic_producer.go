@@ -95,9 +95,10 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		topic = transportConfig.KafkaCredential.StatusTopic
 	}
 
-	if (transportConfig.TransportType == string(transport.Kafka) ||
-		transportConfig.TransportType == string(transport.Multiple)) &&
-		transportConfig.KafkaCredential != nil {
+	if transportConfig.TransportType == string(transport.Kafka) {
+		if transportConfig.KafkaCredential == nil {
+			return fmt.Errorf("the kafka credentail must not be nil")
+		}
 		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
 		if err != nil {
 			return err
@@ -130,7 +131,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 	p.client = client
 
 	// TODO: init the inventory api
-	if transportConfig.TransportType == string(transport.Multiple) && transportConfig.InventoryCredentail != nil {
+	if transportConfig.TransportType == string(transport.Rest) && transportConfig.RestfulCredentail != nil {
 		p.log.Info("Init the REST API Client")
 	}
 	return nil

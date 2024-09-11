@@ -29,7 +29,7 @@ func TestParseFlags(t *testing.T) {
 	agentConfig := parseFlags()
 
 	assert.Equal(t, "test-hub", agentConfig.LeafHubName)
-	assert.Equal(t, "test-namespace", agentConfig.PodNameSpace)
+	assert.Equal(t, "test-namespace", agentConfig.PodNamespace)
 	assert.Equal(t, "kafka", agentConfig.TransportConfig.TransportType)
 	assert.Equal(t, 5, agentConfig.SpecWorkPoolSize)
 }
@@ -65,7 +65,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 				TransportConfig: &transport.TransportConfig{
 					ConsumerGroupId: "",
-					TransportType:   string(transport.Multiple),
+					TransportType:   string(transport.Rest),
 				},
 			},
 			expectErrorMsg: "",

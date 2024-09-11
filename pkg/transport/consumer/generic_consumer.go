@@ -79,7 +79,7 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportConfig) erro
 	}
 
 	switch tranConfig.TransportType {
-	case string(transport.Kafka), string(transport.Multiple):
+	case string(transport.Kafka):
 		c.log.Info("transport consumer with cloudevents-kafka receiver")
 		clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
 		if err != nil {

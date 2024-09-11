@@ -81,7 +81,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	}
 
 	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
-	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNameSpace,
+	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNamespace,
 		agentConfig.TransportConfig.KafkaCredential.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}

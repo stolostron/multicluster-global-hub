@@ -120,10 +120,10 @@ func parseFlags() *config.AgentConfig {
 	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
-	pflag.StringVar(&agentConfig.PodNameSpace, "pod-namespace", constants.GHAgentNamespace,
+	pflag.StringVar(&agentConfig.PodNamespace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
 	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
-		"The transport type: 'kafka', 'chan', and 'multiple'(kafka, restapi). ")
+		"The transport type, 'kafka'")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
@@ -170,7 +170,6 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	// if deploy the agent as a event exporter, then enable it reports event to multiple targets,
 	// disable the consumer features
 	if agentConfig.Standalone {
-		agentConfig.TransportConfig.TransportType = string(transport.Multiple)
 		agentConfig.TransportConfig.ConsumerGroupId = ""
 		agentConfig.SpecWorkPoolSize = 0
 	}
@@ -204,7 +203,7 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (
 		Scheme:                  config.GetRuntimeScheme(),
 		LeaderElectionConfig:    leaderElectionConfig,
 		LeaderElectionID:        leaderElectionLockID,
-		LeaderElectionNamespace: agentConfig.PodNameSpace,
+		LeaderElectionNamespace: agentConfig.PodNamespace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
@@ -218,7 +217,7 @@ func createManager(restConfig *rest.Config, agentConfig *config.AgentConfig) (
 	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
 
 	err = controller.NewTransportCtrl(
-		agentConfig.PodNameSpace,
+		agentConfig.PodNamespace,
 		constants.GHTransportConfigSecret,
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
@@ -250,7 +249,7 @@ func transportCallback(mgr ctrl.Manager, agentConfig *config.AgentConfig,
 }
 
 func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
-	namespace := config.GetAgentConfig().PodNameSpace
+	namespace := config.GetAgentConfig().PodNamespace
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
 		&apiextensionsv1.CustomResourceDefinition{}: {
 			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),

@@ -9,7 +9,7 @@ var agentConfigData *AgentConfig
 
 type AgentConfig struct {
 	LeafHubName                  string
-	PodNameSpace                 string
+	PodNamespace                 string
 	SpecWorkPoolSize             int
 	SpecEnforceHohRbac           bool
 	StatusDeltaCountSwitchFactor int

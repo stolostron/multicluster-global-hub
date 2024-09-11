@@ -89,11 +89,11 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 	// if credentials aren't updated, then return
 	if reflect.DeepEqual(c.transportConfig.KafkaCredential, kafkaConn) &&
-		reflect.DeepEqual(c.transportConfig.InventoryCredentail, inventoryConn) {
+		reflect.DeepEqual(c.transportConfig.RestfulCredentail, inventoryConn) {
 		return ctrl.Result{}, nil
 	}
 	c.transportConfig.KafkaCredential = kafkaConn
-	c.transportConfig.InventoryCredentail = inventoryConn
+	c.transportConfig.RestfulCredentail = inventoryConn
 
 	// transport config is changed, then create/update the consumer/producer
 	if c.producer == nil {
@@ -180,13 +180,13 @@ func (c *TransportCtrl) credentialSecret(name string) bool {
 }
 
 func (c *TransportCtrl) GetInventoryConnBySecret(transportConfig *corev1.Secret) (
-	*transport.InventoryConnCredentail, error,
+	*transport.RestfulConnCredentail, error,
 ) {
 	inventoryYaml, ok := transportConfig.Data["inventory.yaml"]
 	if !ok {
 		return nil, nil
 	}
-	inventoryConn := &transport.InventoryConnCredentail{}
+	inventoryConn := &transport.RestfulConnCredentail{}
 	if err := yaml.Unmarshal(inventoryYaml, inventoryConn); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
