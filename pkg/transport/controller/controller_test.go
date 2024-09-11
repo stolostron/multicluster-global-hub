@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func TestSecretCtrlReconcile(t *testing.T) {
@@ -29,7 +30,8 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		secretNamespace: "default",
 		secretName:      "test-secret",
 		transportConfig: &transport.TransportConfig{
-			TransportType: string(transport.Chan),
+			TransportType:   string(transport.Chan),
+			ConsumerGroupId: "test",
 		},
 		callback: func(p transport.Producer, c transport.Consumer) error {
 			callbackInvoked = true
@@ -54,6 +56,17 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
 	assert.NoError(t, err)
 
+	restfulConn := &transport.RestfulConnCredentail{
+		Host: "localhost:123",
+		// the following fields are only for the manager, and the agent of byo/standalone kafka
+		CACert:     base64.StdEncoding.EncodeToString([]byte("11")),
+		ClientCert: base64.StdEncoding.EncodeToString([]byte("12")),
+		ClientKey:  base64.StdEncoding.EncodeToString([]byte("13")),
+	}
+
+	restfulConnYaml, err := restfulConn.YamlMarshal()
+	assert.NoError(t, err)
+
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "default",
@@ -61,6 +74,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		},
 		Data: map[string][]byte{
 			"kafka.yaml": kafkaConnYaml,
+			"rest.yaml":  restfulConnYaml,
 		},
 	}
 	_ = fakeClient.Create(ctx, secret)
@@ -83,4 +97,5 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	result, err = secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
+	utils.PrettyPrint(secretController.transportConfig.RestfulCredentail)
 }

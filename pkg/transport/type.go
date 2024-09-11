@@ -26,6 +26,7 @@ const (
 	// transportType values
 	Kafka TransportType = "kafka"
 	Chan  TransportType = "chan"
+	Rest  TransportType = "rest"
 )
 
 // transport protocol
@@ -48,9 +49,22 @@ type TransportConfig struct {
 	// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 	EnableDatabaseOffset bool
 	ConsumerGroupId      string
-	// set the credentail in the transport controller
-	KafkaCredential *KafkaConnCredential
-	Extends         map[string]interface{}
+	// set the kafka credentail in the transport controller
+	KafkaCredential   *KafkaConnCredential
+	RestfulCredentail *RestfulConnCredentail
+	Extends           map[string]interface{}
+}
+
+type RestfulConnCredentail struct {
+	Host       string `yaml:"host"`
+	CACert     string `yaml:"ca.crt,omitempty"`
+	ClientCert string `yaml:"client.crt,omitempty"`
+	ClientKey  string `yaml:"client.key,omitempty"`
+}
+
+func (k *RestfulConnCredentail) YamlMarshal() ([]byte, error) {
+	bytes, err := yaml.Marshal(k)
+	return bytes, err
 }
 
 // Kafka Config

@@ -8,7 +8,11 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/Shopify/sarama"
+	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -120,4 +124,60 @@ func GetSaramaConfigFromKafkaUser() (string, *sarama.Config, error) {
 	saramaConfig.Net.TLS.Enable = true
 
 	return bootstrapServer, saramaConfig, nil
+}
+
+func GetSaramaConfigByTranportConfig(namespace string) (string, *sarama.Config, error) {
+	kubeconfig, err := DefaultKubeConfig()
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get kubeconfig")
+	}
+	c, err := client.New(kubeconfig, client.Options{Scheme: operatorconfig.GetRuntimeScheme()})
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get runtime client")
+	}
+
+	return GetSaramaConfigByClient(namespace, c)
+}
+
+func GetSaramaConfigByClient(namespace string, c client.Client) (string, *sarama.Config, error) {
+	if namespace == "" {
+		namespace = KAFKA_NAMESPACE
+	}
+
+	transportConfig := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      constants.GHTransportConfigSecret,
+		},
+	}
+	err := c.Get(context.Background(), client.ObjectKeyFromObject(transportConfig), transportConfig)
+	if err != nil {
+		return "", nil, err
+	}
+	conn, err := transportconfig.GetTransportCredentailBySecret(transportConfig, c)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// #nosec G402
+	tlsConfig := &tls.Config{}
+
+	// Load CA cert
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM([]byte(conn.CACert))
+	tlsConfig.RootCAs = caCertPool
+
+	// Load client cert
+	cert, err := tls.X509KeyPair([]byte(conn.ClientCert), []byte(conn.ClientKey))
+	if err != nil {
+		return "", nil, err
+	}
+	tlsConfig.Certificates = []tls.Certificate{cert}
+
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Version = sarama.V2_0_0_0
+	saramaConfig.Net.TLS.Config = tlsConfig
+	saramaConfig.Net.TLS.Enable = true
+
+	return conn.BootstrapServer, saramaConfig, nil
 }

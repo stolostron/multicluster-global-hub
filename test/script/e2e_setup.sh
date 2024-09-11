@@ -29,10 +29,14 @@ echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds
 # service-ca
 enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 
-# init hubs
+# Init hubs
 start_time=$(date +%s)
-
 pids=()
+
+# async install olm
+enable_olm "$GH_NAME" 2>&1 &
+pids+=($!)
+
 init_hub "$GH_NAME" 2>&1 &
 pids+=($!)
 for i in $(seq 1 "${MH_NUM}"); do
@@ -61,9 +65,23 @@ for i in $(seq 1 "${MH_NUM}"); do
   done
 done
 
+# install the BYO (Bring Your Own) PostgreSQL and Kafka asynchronously during the OCMS installation
+bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >"$CONFIG_DIR/PID"
+bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
+echo "$!" >>"$CONFIG_DIR/PID"
+
 wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
-enable_olm global-hub
+
+# apply standalone agent
+kubectl apply -f "$TEST_DIR/manifest/standalone-agent/workload" --kubeconfig="$GH_KUBECONFIG"
+if [ -n "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" ]; then
+  kubectl --kubeconfig="$GH_KUBECONFIG" set image "deployment/multicluster-global-hub-agent" \
+    multicluster-global-hub-agent="$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" \
+    -n open-cluster-management
+  echo "updating standalone agent image with: $MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
+fi
 
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do
@@ -74,4 +92,3 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
 echo -e "${BOLD_GREEN}[ END ] ${NC} $(($(date +%s) - start)) seconds"
-

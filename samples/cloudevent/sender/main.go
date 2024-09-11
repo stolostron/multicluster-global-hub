@@ -25,7 +25,7 @@ func main() {
 	topic := os.Args[1]
 
 	// bootstrapServer, saramaConfig, err := config.GetSaramaConfig()
-	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigByTranportConfig("")
 	if err != nil {
 		log.Fatalf("failed to get sarama config: %v", err)
 	}

@@ -92,13 +92,9 @@ while getopts ":f:v:" opt; do
 done
 
 verbose=${verbose:=5}
-################# deploy byo kafka and postgres
-bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >"$CONFIG_DIR/PID"
 
-bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >>"$CONFIG_DIR/PID"
-################################################### 
+# Go programs typically use dynamic linking for C libraries: confluent-kafka package is used in e2e test
+export CGO_ENABLED=1
 
 if [ "${filter}" = "e2e-test-prune" ]; then
   export ISPRUNE="true"

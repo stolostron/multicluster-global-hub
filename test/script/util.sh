@@ -19,8 +19,11 @@ export PG_IMG="registry.developers.crunchydata.com/crunchydata/crunchy-postgres:
 export OAUTH_PROXY_IMG="quay.io/stolostron/origin-oauth-proxy:4.9"
 export GRAFANA_IMG="quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25"
 
-# Environment Variables 
-CURRENT_DIR=$(cd "$(dirname "$0")" || exit; pwd)
+# Environment Variables
+CURRENT_DIR=$(
+  cd "$(dirname "$0")" || exit
+  pwd
+)
 TEST_DIR=$(dirname "$CURRENT_DIR")
 export CURRENT_DIR
 export TEST_DIR
@@ -101,24 +104,41 @@ check_kind() {
 
 kind_cluster() {
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-  cluster_name="$1"
-  echo "dir $dir"
-  if ! kind get clusters | grep -q "^$cluster_name$"; then
-    retry "kind create cluster --name $cluster_name --image=kindest/node:v1.23.0 --wait 5m"
-    # modify the context = KinD cluster name = kubeconfig name
-    retry "kubectl config rename-context kind-$cluster_name $cluster_name"
-    # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
-    node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
-    # context is changed but name not
-    retry "kubectl config set-cluster kind-$cluster_name --server=https://$node_ip:6443" 
-    kubectl config view --context="$cluster_name" --minify --flatten >"$dir/$cluster_name"
-  fi
+  local cluster_name="$1"
+  local kubeconfig="$dir/$cluster_name"
+  while [ ! -f "$kubeconfig" ]; do
+    ensure_cluster "$cluster_name" "$kubeconfig"
+    sleep 1
+  done
   echo "kind clusters: $(kind get clusters)"
+}
+
+ensure_cluster() {
+  local cluster_name="$1"
+  local kubeconfig="$2"
+  if [ -f "$kubeconfig" ]; then
+    return 0
+  fi
+
+  if kind get clusters | grep -q "^$cluster_name$"; then
+    kind delete cluster --name="$cluster_name"
+  fi
+
+  kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
+
+  # modify the context = KinD cluster name = kubeconfig name
+  kubectl config rename-context "kind-$cluster_name" "$cluster_name"
+
+  # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
+  local node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
+
+  kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443"
+  kubectl config view --context="$cluster_name" --minify --flatten >"$kubeconfig"
 }
 
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
-  clusteradm init --wait --context "$1" > /dev/null 2>&1 # not echo the senetive information
+  clusteradm init --wait --context "$1" >/dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
@@ -337,8 +357,8 @@ install_crds() {
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
-  #proxy
-  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
+  # clusterclaim: agent
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml
 }
 
 enable_service_ca() {
@@ -356,30 +376,33 @@ enable_olm() {
   NS=olm
   csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
   if [[ "$csvPhase" == "Succeeded" ]]; then
-    echo "OLM is already installed in ${NS} namespace. Exiting..."
-    exit 1
+    echo "OLM is already installed in ${NS} namespace. Skipping..."
+    return
   fi
+
+  #proxy crd
+  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
 
   path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.28.0"
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/crds.yaml"
   kubectl --context "$1" wait --for=condition=Established -f "${path}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
   kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/olm.yaml"
 
-  retries=60
-  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+  retries=300
+  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' || echo "Waiting for CSV to appear")
   while [[ $retries -gt 0 && "$csvPhase" != "Succeeded" ]]; do
-    echo "csvPhase: ${csvPhase}"
+    echo "CSV packageserver(status.phase): ${csvPhase}"
     sleep 1
     retries=$((retries - 1))
-    csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
+    csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' || echo "Waiting for CSV to appear")
   done
-  kubectl --context "$1" rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
-
   if [ $retries == 0 ]; then
-    echo "CSV \"packageserver\" failed to reach phase succeeded"
+    echo "CSV 'packageserver' failed to reach 'Succeeded' phase!"
     exit 1
   fi
-  echo "CSV \"packageserver\" install succeeded"
+
+  kubectl --context "$1" rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
+  echo "CSV 'packageserver' install succeeded"
 }
 
 wait_secret_ready() {
@@ -463,7 +486,7 @@ wait_cmd() {
 
   echo -e "\r${CYAN}$1 $NC "
   if eval "${command}"; then
-    return 0 
+    return 0
   fi
 
   while [ $elapsed -le "$seconds" ]; do

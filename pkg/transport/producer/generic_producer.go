@@ -108,7 +108,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		}
 		handleProducerEvents(p.log, eventChan)
 		p.clientProtocol = kafkaProtocol
-	case string(transport.Chan): // this go chan protocol is only use for test
+	case string(transport.Chan):
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
 		}
@@ -116,10 +116,15 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 			transportConfig.Extends[topic] = gochan.New()
 		}
 		p.clientProtocol = transportConfig.Extends[topic]
+	case string(transport.Rest):
+		if transportConfig.RestfulCredentail == nil {
+			return fmt.Errorf("the restful credentail must not be nil")
+		}
 	default:
 		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
 
+	// kafka or gochan protocol
 	client, err := cloudevents.NewClient(p.clientProtocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
 	if err != nil {
 		return err

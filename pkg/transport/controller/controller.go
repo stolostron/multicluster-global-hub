@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
@@ -65,24 +67,33 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	if err := c.runtimeClient.Get(ctx, client.ObjectKeyFromObject(secret), secret); err != nil {
 		return ctrl.Result{}, err
 	}
-	conn, err := config.GetTransportCredentailBySecret(secret, c.runtimeClient)
+
+	// load the kafka connection credentail based on the transport type. kafka, multiple
+	kafkaConn, err := config.GetTransportCredentailBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// update the credential secret colletions for the predicates
-	if conn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, conn.CASecretName) {
-		c.extraSecretNames = append(c.extraSecretNames, conn.CASecretName)
+	// update the kafka credential secret colletions for the predicates
+	if kafkaConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
+		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.CASecretName)
 	}
-	if conn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, conn.ClientSecretName) {
-		c.extraSecretNames = append(c.extraSecretNames, conn.ClientSecretName)
+	if kafkaConn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, kafkaConn.ClientSecretName) {
+		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.ClientSecretName)
 	}
 
-	// if credential not update, then return
-	if reflect.DeepEqual(c.transportConfig.KafkaCredential, conn) {
+	restfulConn, err := c.GetRestfulConnBySecret(secret)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// if credentials aren't updated, then return
+	if reflect.DeepEqual(c.transportConfig.KafkaCredential, kafkaConn) &&
+		reflect.DeepEqual(c.transportConfig.RestfulCredentail, restfulConn) {
 		return ctrl.Result{}, nil
 	}
-	c.transportConfig.KafkaCredential = conn
+	c.transportConfig.KafkaCredential = kafkaConn
+	c.transportConfig.RestfulCredentail = restfulConn
 
 	// transport config is changed, then create/update the consumer/producer
 	if c.producer == nil {
@@ -97,22 +108,26 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		}
 	}
 
-	if c.consumer == nil {
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create the consumer: %w", err)
-		}
-		c.consumer = receiver
-		go func() {
-			if err = c.consumer.Start(ctx); err != nil {
-				klog.Errorf("failed to start the consumser: %v", err)
+	// don't create the consumer when the consumer groupId is empty, that means the agent maybe in the standalone mode
+	if c.transportConfig.ConsumerGroupId != "" {
+		if c.consumer == nil {
+			receiver, err := consumer.NewGenericConsumer(c.transportConfig)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create the consumer: %w", err)
 			}
-		}()
-	} else {
-		if err := c.consumer.Reconnect(ctx, c.transportConfig); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconnect the consumer: %w", err)
+			c.consumer = receiver
+			go func() {
+				if err = c.consumer.Start(ctx); err != nil {
+					klog.Errorf("failed to start the consumser: %v", err)
+				}
+			}()
+		} else {
+			if err := c.consumer.Reconnect(ctx, c.transportConfig); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to reconnect the consumer: %w", err)
+			}
 		}
 	}
+
 	klog.Info("the transport secret(producer, consumer) is created/updated")
 
 	if c.callback != nil {
@@ -162,4 +177,41 @@ func (c *TransportCtrl) credentialSecret(name string) bool {
 		}
 	}
 	return false
+}
+
+func (c *TransportCtrl) GetRestfulConnBySecret(transportConfig *corev1.Secret) (
+	*transport.RestfulConnCredentail, error,
+) {
+	restfulYaml, ok := transportConfig.Data["rest.yaml"]
+	if !ok {
+		return nil, nil
+	}
+	restfulConn := &transport.RestfulConnCredentail{}
+	if err := yaml.Unmarshal(restfulYaml, restfulConn); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
+	}
+
+	// decode the ca and client cert
+	if restfulConn.CACert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(restfulConn.CACert)
+		if err != nil {
+			return nil, err
+		}
+		restfulConn.CACert = string(bytes)
+	}
+	if restfulConn.ClientCert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(restfulConn.ClientCert)
+		if err != nil {
+			return nil, err
+		}
+		restfulConn.ClientCert = string(bytes)
+	}
+	if restfulConn.ClientKey != "" {
+		bytes, err := base64.StdEncoding.DecodeString(restfulConn.ClientKey)
+		if err != nil {
+			return nil, err
+		}
+		restfulConn.ClientKey = string(bytes)
+	}
+	return restfulConn, nil
 }
