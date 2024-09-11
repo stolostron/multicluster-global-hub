@@ -87,8 +87,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -99,13 +98,13 @@ data:
             "y": 1
           },
           "id": 36,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "value",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "mean"
@@ -117,7 +116,7 @@ data:
             "textMode": "name",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -169,8 +168,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -181,13 +179,13 @@ data:
             "y": 1
           },
           "id": 38,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "mean"
@@ -199,7 +197,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -253,8 +251,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbytes",
-              "unitScale": true
+              "unit": "decbytes"
             },
             "overrides": []
           },
@@ -265,13 +262,13 @@ data:
             "y": 1
           },
           "id": 10,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -283,17 +280,19 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
+              "exemplar": false,
               "expr": "SUM(pg_stat_database_tup_fetched{datname=~\"$datname\", instance=~\"$instance\"})",
               "format": "time_series",
-              "intervalFactor": 2,
-              "range": true,
+              "instant": true,
+              "intervalFactor": 1,
+              "range": false,
               "refId": "A",
               "step": 4
             }
@@ -336,8 +335,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbytes",
-              "unitScale": true
+              "unit": "decbytes"
             },
             "overrides": []
           },
@@ -348,13 +346,13 @@ data:
             "y": 1
           },
           "id": 11,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -366,17 +364,19 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
+              "exemplar": false,
               "expr": "SUM(pg_stat_database_tup_inserted{release=\"$release\", datname=~\"$datname\", instance=~\"$instance\"})",
               "format": "time_series",
-              "intervalFactor": 2,
-              "range": true,
+              "instant": true,
+              "intervalFactor": 1,
+              "range": false,
               "refId": "A",
               "step": 4
             }
@@ -386,6 +386,7 @@ data:
         },
         {
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "description": "Number of rows updated by queries in this database",
@@ -418,8 +419,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbytes",
-              "unitScale": true
+              "unit": "decbytes"
             },
             "overrides": []
           },
@@ -430,13 +430,13 @@ data:
             "y": 1
           },
           "id": 12,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -448,15 +448,19 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
+              "editorMode": "code",
+              "exemplar": false,
               "expr": "SUM(pg_stat_database_tup_updated{datname=~\"$datname\", instance=~\"$instance\"})",
               "format": "time_series",
-              "intervalFactor": 2,
+              "instant": true,
+              "intervalFactor": 1,
+              "range": false,
               "refId": "A",
               "step": 4
             }
@@ -499,8 +503,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -511,13 +514,13 @@ data:
             "y": 1
           },
           "id": 76,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -529,17 +532,19 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
+              "exemplar": false,
               "expr": "process_open_fds{release=\"$release\", instance=\"$instance\"}",
               "format": "time_series",
-              "intervalFactor": 2,
-              "range": true,
+              "instant": true,
+              "intervalFactor": 1,
+              "range": false,
               "refId": "A",
               "step": 4
             }
@@ -614,8 +619,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -626,7 +630,6 @@ data:
             "y": 3
           },
           "id": 28,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "legend": {
@@ -649,7 +652,7 @@ data:
               "editorMode": "code",
               "expr": "sum(pg_database_size_bytes{instance=\"$instance\"})",
               "format": "time_series",
-              "intervalFactor": 2,
+              "intervalFactor": 1,
               "legendFormat": "Size",
               "range": true,
               "refId": "A"
@@ -716,8 +719,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -728,7 +730,6 @@ data:
             "y": 3
           },
           "id": 22,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -819,8 +820,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -831,7 +831,6 @@ data:
             "y": 3
           },
           "id": 24,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -926,8 +925,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -938,13 +936,13 @@ data:
             "y": 11
           },
           "id": 40,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -956,7 +954,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1008,8 +1006,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -1020,13 +1017,13 @@ data:
             "y": 11
           },
           "id": 42,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1038,7 +1035,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1090,8 +1087,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -1102,13 +1098,13 @@ data:
             "y": 11
           },
           "id": 44,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1120,7 +1116,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1172,8 +1168,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -1184,13 +1179,13 @@ data:
             "y": 11
           },
           "id": 46,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1202,7 +1197,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1256,8 +1251,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -1268,13 +1262,13 @@ data:
             "y": 11
           },
           "id": 48,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1286,7 +1280,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1338,8 +1332,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1350,13 +1343,13 @@ data:
             "y": 11
           },
           "id": 50,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1368,7 +1361,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1420,8 +1413,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1432,13 +1424,13 @@ data:
             "y": 11
           },
           "id": 52,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1450,7 +1442,7 @@ data:
             "textMode": "value",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1502,8 +1494,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1514,13 +1505,13 @@ data:
             "y": 11
           },
           "id": 54,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "mean"
@@ -1532,7 +1523,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1584,8 +1575,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1596,13 +1586,13 @@ data:
             "y": 11
           },
           "id": 56,
-          "links": [],
           "maxDataPoints": 100,
           "options": {
             "colorMode": "none",
             "graphMode": "none",
             "justifyMode": "auto",
             "orientation": "horizontal",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -1614,7 +1604,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1701,8 +1691,7 @@ data:
                   }
                 ]
               },
-              "unit": "s",
-              "unitScale": true
+              "unit": "s"
             },
             "overrides": []
           },
@@ -1803,8 +1792,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -1897,8 +1885,7 @@ data:
                   }
                 ]
               },
-              "unit": "s",
-              "unitScale": true
+              "unit": "s"
             },
             "overrides": []
           },
@@ -2031,8 +2018,7 @@ data:
                   }
                 ]
               },
-              "unit": "none",
-              "unitScale": true
+              "unit": "none"
             },
             "overrides": []
           },
@@ -2043,7 +2029,6 @@ data:
             "y": 24
           },
           "id": 1,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2138,8 +2123,7 @@ data:
                   }
                 ]
               },
-              "unit": "short",
-              "unitScale": true
+              "unit": "short"
             },
             "overrides": []
           },
@@ -2150,7 +2134,6 @@ data:
             "y": 24
           },
           "id": 4,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2243,8 +2226,7 @@ data:
                   }
                 ]
               },
-              "unit": "short",
-              "unitScale": true
+              "unit": "short"
             },
             "overrides": []
           },
@@ -2255,7 +2237,6 @@ data:
             "y": 24
           },
           "id": 60,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2359,8 +2340,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbits",
-              "unitScale": true
+              "unit": "decbits"
             },
             "overrides": []
           },
@@ -2371,7 +2351,6 @@ data:
             "y": 31
           },
           "id": 5,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2464,8 +2443,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbytes",
-              "unitScale": true
+              "unit": "decbytes"
             },
             "overrides": []
           },
@@ -2476,7 +2454,6 @@ data:
             "y": 31
           },
           "id": 6,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2569,8 +2546,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbytes",
-              "unitScale": true
+              "unit": "decbytes"
             },
             "overrides": []
           },
@@ -2581,7 +2557,6 @@ data:
             "y": 31
           },
           "id": 8,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2673,8 +2648,7 @@ data:
                   }
                 ]
               },
-              "unit": "bytes",
-              "unitScale": true
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -2685,7 +2659,6 @@ data:
             "y": 38
           },
           "id": 68,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2775,8 +2748,7 @@ data:
                   }
                 ]
               },
-              "unit": "decbytes",
-              "unitScale": true
+              "unit": "decbytes"
             },
             "overrides": []
           },
@@ -2787,7 +2759,6 @@ data:
             "y": 38
           },
           "id": 7,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2880,8 +2851,7 @@ data:
                   }
                 ]
               },
-              "unit": "short",
-              "unitScale": true
+              "unit": "short"
             },
             "overrides": []
           },
@@ -2892,7 +2862,6 @@ data:
             "y": 38
           },
           "id": 66,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -2993,8 +2962,7 @@ data:
                   }
                 ]
               },
-              "unit": "ms",
-              "unitScale": true
+              "unit": "ms"
             },
             "overrides": []
           },
@@ -3005,7 +2973,6 @@ data:
             "y": 45
           },
           "id": 70,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -3108,8 +3075,7 @@ data:
                   }
                 ]
               },
-              "unit": "short",
-              "unitScale": true
+              "unit": "short"
             },
             "overrides": []
           },
@@ -3120,7 +3086,6 @@ data:
             "y": 45
           },
           "id": 64,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -3252,8 +3217,7 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit",
-              "unitScale": true
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -3264,7 +3228,6 @@ data:
             "y": 45
           },
           "id": 62,
-          "links": [],
           "options": {
             "legend": {
               "calcs": [
@@ -3385,8 +3348,8 @@ data:
           {
             "current": {
               "selected": false,
-              "text": "10.128.1.164:9187",
-              "value": "10.128.1.164:9187"
+              "text": "10.128.0.189:9187",
+              "value": "10.128.0.189:9187"
             },
             "datasource": {
               "uid": "${DS_PROMETHEUS}"
