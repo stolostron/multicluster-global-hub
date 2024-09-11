@@ -82,18 +82,18 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.ClientSecretName)
 	}
 
-	inventoryConn, err := c.GetInventoryConnBySecret(secret)
+	restfulConn, err := c.GetRestfulConnBySecret(secret)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// if credentials aren't updated, then return
 	if reflect.DeepEqual(c.transportConfig.KafkaCredential, kafkaConn) &&
-		reflect.DeepEqual(c.transportConfig.RestfulCredentail, inventoryConn) {
+		reflect.DeepEqual(c.transportConfig.RestfulCredentail, restfulConn) {
 		return ctrl.Result{}, nil
 	}
 	c.transportConfig.KafkaCredential = kafkaConn
-	c.transportConfig.RestfulCredentail = inventoryConn
+	c.transportConfig.RestfulCredentail = restfulConn
 
 	// transport config is changed, then create/update the consumer/producer
 	if c.producer == nil {
@@ -179,39 +179,39 @@ func (c *TransportCtrl) credentialSecret(name string) bool {
 	return false
 }
 
-func (c *TransportCtrl) GetInventoryConnBySecret(transportConfig *corev1.Secret) (
+func (c *TransportCtrl) GetRestfulConnBySecret(transportConfig *corev1.Secret) (
 	*transport.RestfulConnCredentail, error,
 ) {
-	inventoryYaml, ok := transportConfig.Data["inventory.yaml"]
+	restfulYaml, ok := transportConfig.Data["rest.yaml"]
 	if !ok {
 		return nil, nil
 	}
-	inventoryConn := &transport.RestfulConnCredentail{}
-	if err := yaml.Unmarshal(inventoryYaml, inventoryConn); err != nil {
+	restfulConn := &transport.RestfulConnCredentail{}
+	if err := yaml.Unmarshal(restfulYaml, restfulConn); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
 
 	// decode the ca and client cert
-	if inventoryConn.CACert != "" {
-		bytes, err := base64.StdEncoding.DecodeString(inventoryConn.CACert)
+	if restfulConn.CACert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(restfulConn.CACert)
 		if err != nil {
 			return nil, err
 		}
-		inventoryConn.CACert = string(bytes)
+		restfulConn.CACert = string(bytes)
 	}
-	if inventoryConn.ClientCert != "" {
-		bytes, err := base64.StdEncoding.DecodeString(inventoryConn.ClientCert)
+	if restfulConn.ClientCert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(restfulConn.ClientCert)
 		if err != nil {
 			return nil, err
 		}
-		inventoryConn.ClientCert = string(bytes)
+		restfulConn.ClientCert = string(bytes)
 	}
-	if inventoryConn.ClientKey != "" {
-		bytes, err := base64.StdEncoding.DecodeString(inventoryConn.ClientKey)
+	if restfulConn.ClientKey != "" {
+		bytes, err := base64.StdEncoding.DecodeString(restfulConn.ClientKey)
 		if err != nil {
 			return nil, err
 		}
-		inventoryConn.ClientKey = string(bytes)
+		restfulConn.ClientKey = string(bytes)
 	}
-	return inventoryConn, nil
+	return restfulConn, nil
 }

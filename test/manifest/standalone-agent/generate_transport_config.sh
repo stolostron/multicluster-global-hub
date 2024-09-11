@@ -45,7 +45,7 @@ kubectl create secret generic transport-config -n $secret_namespace --kubeconfig
 echo "event exporter kafka configuration is ready!"
 
 host=$(kubectl get route inventory-api -n "$kafka_namespace" -ojsonpath='{.spec.host}')
-cat <<EOF >"$CURRENT_DIR/inventory.yaml"
+cat <<EOF >"$CURRENT_DIR/rest.yaml"
 host: https://$host
 ca.crt: $(kubectl get secret inventory-api-server-ca-certs -n "$kafka_namespace" -ojsonpath='{.data.ca\.crt}')
 client.crt: $(kubectl get secret inventory-api-guest-certs -n "$kafka_namespace" -ojsonpath='{.data.tls\.crt}')
@@ -54,7 +54,7 @@ EOF
 
 kubectl patch secret transport-config -n $secret_namespace --kubeconfig "$SECRET_KUBECONFIG" \
   --type='json' \
-  -p='[{"op": "add", "path": "/data/inventory.yaml", "value":"'"$(base64 -w 0 "$CURRENT_DIR/inventory.yaml")"'"}]'
+  -p='[{"op": "add", "path": "/data/rest.yaml", "value":"'"$(base64 -w 0 "$CURRENT_DIR/rest.yaml")"'"}]'
 
 rm "$CURRENT_DIR/kafka.yaml"
-rm "$CURRENT_DIR/inventory.yaml"
+rm "$CURRENT_DIR/rest.yaml"

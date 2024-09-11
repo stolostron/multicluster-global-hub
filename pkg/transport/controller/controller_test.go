@@ -56,7 +56,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
 	assert.NoError(t, err)
 
-	inventoryConn := &transport.RestfulConnCredentail{
+	restfulConn := &transport.RestfulConnCredentail{
 		Host: "localhost:123",
 		// the following fields are only for the manager, and the agent of byo/standalone kafka
 		CACert:     base64.StdEncoding.EncodeToString([]byte("11")),
@@ -64,7 +64,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		ClientKey:  base64.StdEncoding.EncodeToString([]byte("13")),
 	}
 
-	inventoryConnYaml, err := inventoryConn.YamlMarshal()
+	restfulConnYaml, err := restfulConn.YamlMarshal()
 	assert.NoError(t, err)
 
 	secret := &corev1.Secret{
@@ -73,8 +73,8 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			Name:      "test-secret",
 		},
 		Data: map[string][]byte{
-			"kafka.yaml":     kafkaConnYaml,
-			"inventory.yaml": inventoryConnYaml,
+			"kafka.yaml": kafkaConnYaml,
+			"rest.yaml":  restfulConnYaml,
 		},
 	}
 	_ = fakeClient.Create(ctx, secret)

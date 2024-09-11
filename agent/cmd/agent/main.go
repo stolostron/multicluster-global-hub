@@ -167,8 +167,7 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
-	// if deploy the agent as a event exporter, then enable it reports event to multiple targets,
-	// disable the consumer features
+	// if deploy the agent as a event exporter, then disable the consumer features
 	if agentConfig.Standalone {
 		agentConfig.TransportConfig.ConsumerGroupId = ""
 		agentConfig.SpecWorkPoolSize = 0
