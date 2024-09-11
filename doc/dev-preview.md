@@ -112,7 +112,7 @@ The information is aggregated and presented in a new _Security Violations_ Grafa
 
 ![Grafana Security Violations Dashboard](./images/rhacs-global-hub-dashboard.png)
 
-The integration requires one ACM Global Hub setup, with at least two ACM Managed Hubs and one
+The integration requires one ACM Global Hub setup, with at least one ACM Managed Hub and one
 RHACS _Central_ instance running inside each of the ACM Managed Hubs. Each RHACS _Central_
 instance needs to manage at least one cluster, otherwise there will be no violations to report and
 the dashboard will be empty.
@@ -231,5 +231,3 @@ the Global Hub Agent, typically `multicluster-global-hub-agent`.
 Once the secret is created and the _central_ object annotated, the Global Hub Agent will
 automatically detect the configuration, will apply it and will start to collect the information and
 send it to the Global Hub Manager to populate the dashboard.
-
-
