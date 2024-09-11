@@ -68,21 +68,25 @@ func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *co
 		return nil
 	}
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&apiextensionsv1.CustomResourceDefinition{}, builder.WithPredicates(predicate.Funcs{
-			// trigger the reconciler only if the crd is created
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return false
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return false
-			},
-			GenericFunc: func(e event.GenericEvent) bool {
-				return false
-			},
-		})).
+		For(
+			&apiextensionsv1.CustomResourceDefinition{},
+			builder.OnlyMetadata,
+			builder.WithPredicates(predicate.Funcs{
+				// trigger the reconciler only if the crd is created
+				CreateFunc: func(e event.CreateEvent) bool {
+					return true
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+				GenericFunc: func(e event.GenericEvent) bool {
+					return false
+				},
+			}),
+		).
 		Complete(&crdController{
 			mgr:         mgr,
 			restConfig:  restConfig,
