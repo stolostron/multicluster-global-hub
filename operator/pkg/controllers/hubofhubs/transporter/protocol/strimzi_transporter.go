@@ -225,7 +225,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		topicReplicas = 1
 	}
 	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
-	brokerAdvertisedHost, _ := mgh.Annotations[operatorconstants.KafkaBrokerAdvertisedHostKey]
+	brokerAdvertisedHost := mgh.Annotations[operatorconstants.KafkaBrokerAdvertisedHostKey]
 
 	// render the kafka objects
 	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())
@@ -244,6 +244,8 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				TopicReplicas          int32
 				EnableKRaft            bool
 				KinDClusterIPAddress   string
+				EnableInventoryAPI     bool
+				KafkaInventoryTopic    string
 			}{
 				EnableMetrics:          mgh.Spec.EnableMetrics,
 				Namespace:              mgh.GetNamespace(),
@@ -257,6 +259,8 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				TopicReplicas:          topicReplicas,
 				EnableKRaft:            enableKRaft,
 				KinDClusterIPAddress:   brokerAdvertisedHost,
+				EnableInventoryAPI:     config.WithInventory(mgh),
+				KafkaInventoryTopic:    "kessel-inventory",
 			}, nil
 		})
 	if err != nil {
