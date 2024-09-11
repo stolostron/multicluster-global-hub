@@ -56,6 +56,7 @@ func TestCompleteConfig(t *testing.T) {
 				SpecWorkPoolSize: 10,
 				TransportConfig: &transport.TransportConfig{
 					ConsumerGroupId: "test-hub",
+					TransportType:   string(transport.Kafka),
 				},
 			},
 			expectConfig: &config.AgentConfig{
@@ -65,7 +66,7 @@ func TestCompleteConfig(t *testing.T) {
 				MetricsAddress:   fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 				TransportConfig: &transport.TransportConfig{
 					ConsumerGroupId: "",
-					TransportType:   string(transport.Rest),
+					TransportType:   string(transport.Kafka),
 				},
 			},
 			expectErrorMsg: "",
