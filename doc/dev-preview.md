@@ -157,3 +157,7 @@ the Global Hub Agent, typically `multicluster-global-hub-agent`.
 Once the secret is created and the _central_ object annotated, the Global Hub Agent will
 automatically detect the configuration, will apply it and will start to collect the information and
 send it to the Global Hub Manager to populate the dashboard.
+
+### Event Exporter(Standalone Agent)
+
+To unlock the potential of the global hub agent and integrate ACM into the event-driven ecosystem, we propose running the agent in standalone mode environment. This will enable it to function as an event exporter, reporting resources to the specified target. For more detail, please [visit](./event-exporter/README.md)
