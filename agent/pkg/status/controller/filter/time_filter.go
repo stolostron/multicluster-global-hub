@@ -22,6 +22,7 @@ var (
 	eventTimeCache         = make(map[string]time.Time)
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
+	deltaDuration          = 5 * time.Second
 )
 
 // CacheTime cache the latest time
@@ -38,7 +39,10 @@ func Newer(key string, val time.Time) bool {
 	if !ok {
 		return true
 	}
-	return val.After(old)
+
+	// add noise to the time filter to ensure that events occurring very close together in time are not discarded
+	older := old.Add(-deltaDuration)
+	return val.After(older)
 }
 
 // LaunchTimeFilter start a goroutine periodically sync the time filter cache to configMap

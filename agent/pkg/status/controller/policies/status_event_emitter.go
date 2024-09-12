@@ -9,6 +9,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -102,6 +103,7 @@ func (h *statusEventEmitter) Update(obj client.Object) bool {
 			for _, evt := range detail.History {
 				// if the event time is older thant the filter cached sent event time, then skip it
 				if !filter.Newer(h.name, evt.LastTimestamp.Time) {
+					klog.Infof("skip the expired event: %s", evt.EventName)
 					continue
 				}
 
