@@ -152,3 +152,17 @@ func TestCompleteConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestDoMain(t *testing.T) {
+	os.Args = []string{
+		"cmd",
+		"--leaf-hub-name=test-hub",
+		"--pod-namespace=test-namespace",
+		"--transport-type=kafka",
+		"--consumer-worker-pool-size=5",
+	}
+	agentConfig := parseFlags()
+	code := doMain(context.Background(), nil, agentConfig, nil)
+	// failed to create the manager
+	assert.Equal(t, 1, code)
+}
