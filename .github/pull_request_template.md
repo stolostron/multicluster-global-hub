@@ -19,3 +19,9 @@ Please copy the appropriate `:text:` or icon to the beginning of your PR title:
 ## Related issue(s)
 
 Fixes #
+
+## Tests
+* [ ] Unit/function tests have been added and incorporated into `make unit-tests`.
+* [ ] Integration tests have been added and incorporated into `make integration-test`.
+* [ ] E2E tests have been added and incorporated into `make e2e-test-all`.
+* [ ] List other manual tests you have done.
