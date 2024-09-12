@@ -154,15 +154,17 @@ func TestCompleteConfig(t *testing.T) {
 }
 
 func TestDoMain(t *testing.T) {
-	os.Args = []string{
-		"cmd",
-		"--leaf-hub-name=test-hub",
-		"--pod-namespace=test-namespace",
-		"--transport-type=kafka",
-		"--consumer-worker-pool-size=5",
+	agentConfig := &config.AgentConfig{
+		LeafHubName:      "hub1",
+		Standalone:       false,
+		SpecWorkPoolSize: 0,
+		MetricsAddress:   "0.0.0.0:8384",
+		TransportConfig: &transport.TransportConfig{
+			ConsumerGroupId: "hub1",
+			TransportType:   string(transport.Kafka),
+		},
 	}
-	agentConfig := parseFlags()
 	code := doMain(context.Background(), nil, agentConfig, nil)
-	// failed to create the manager
+	// flag consumer-worker-pool-size should be in the scope [1, 100]
 	assert.Equal(t, 1, code)
 }
