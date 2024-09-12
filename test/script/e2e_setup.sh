@@ -75,7 +75,7 @@ wait
 echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
 # apply standalone agent
-helm install event-exporter "$PROJECT_DIR"/doc/event-exporter -n open-cluster-management --set image="$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" --kubeconfig "$GH_KUBECONFIG"
+helm install event-exporter "$PROJECT_DIR"/doc/event-exporter -n open-cluster-management --set image="$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" --set sourceName="event-exporter" --kubeconfig "$GH_KUBECONFIG"
 
 # kubeconfig
 for i in $(seq 1 "${MH_NUM}"); do

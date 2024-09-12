@@ -10,6 +10,9 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
+# sourceName is a unique value to identify the event-exporter
+sourceName: ""
+
 podAnnotations: {}
 podLabels: {}
 

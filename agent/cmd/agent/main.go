@@ -7,11 +7,13 @@ import (
 	"os"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -56,20 +58,21 @@ func main() {
 	restConfig.QPS = agentConfig.QPS
 	restConfig.Burst = agentConfig.Burst
 
-	if agentConfig.Terminating {
-		os.Exit(doTermination(ctrl.SetupSignalHandler(), restConfig))
-	}
-
-	os.Exit(doMain(ctrl.SetupSignalHandler(), restConfig, agentConfig))
-}
-
-func doTermination(ctx context.Context, restConfig *rest.Config) int {
-	client, err := client.New(restConfig, client.Options{})
+	c, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		setupLog.Error(err, "failed to int controller runtime client")
-		return 1
+		os.Exit(1)
 	}
-	if err := jobs.NewPruneFinalizer(ctx, client).Run(); err != nil {
+
+	if agentConfig.Terminating {
+		os.Exit(doTermination(ctrl.SetupSignalHandler(), c))
+	}
+
+	os.Exit(doMain(ctrl.SetupSignalHandler(), restConfig, agentConfig, c))
+}
+
+func doTermination(ctx context.Context, c client.Client) int {
+	if err := jobs.NewPruneFinalizer(ctx, c).Run(); err != nil {
 		setupLog.Error(err, "failed to prune resources finalizer")
 		return 1
 	}
@@ -77,8 +80,8 @@ func doTermination(ctx context.Context, restConfig *rest.Config) int {
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig) int {
-	if err := completeConfig(agentConfig); err != nil {
+func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.AgentConfig, c client.Client) int {
+	if err := completeConfig(ctx, c, agentConfig); err != nil {
 		setupLog.Error(err, "failed to get managed hub configuration from command line flags")
 		return 1
 	}
@@ -155,15 +158,23 @@ func parseFlags() *config.AgentConfig {
 	return agentConfig
 }
 
-func completeConfig(agentConfig *config.AgentConfig) error {
+func completeConfig(ctx context.Context, c client.Client, agentConfig *config.AgentConfig) error {
 	if agentConfig.LeafHubName == "" {
-		return fmt.Errorf("flag leaf-hub-name can't be empty")
+		clusterVersion := &configv1.ClusterVersion{
+			ObjectMeta: metav1.ObjectMeta{Name: "version"},
+		}
+		err := c.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+		if err != nil {
+			return fmt.Errorf("failed to get the ClusterVersion(version): %w", err)
+		}
+
+		clusterId := string(clusterVersion.Spec.ClusterID)
+		if clusterId == "" {
+			return fmt.Errorf("the clusterId from ClusterVersion must not be empty")
+		}
+		agentConfig.LeafHubName = clusterId
 	}
-	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
-	if agentConfig.SpecWorkPoolSize < 1 ||
-		agentConfig.SpecWorkPoolSize > 100 {
-		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
-	}
+
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
@@ -171,6 +182,11 @@ func completeConfig(agentConfig *config.AgentConfig) error {
 	if agentConfig.Standalone {
 		agentConfig.TransportConfig.ConsumerGroupId = ""
 		agentConfig.SpecWorkPoolSize = 0
+	} else {
+		agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
+		if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
+			return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
+		}
 	}
 	config.SetAgentConfig(agentConfig)
 	return nil
