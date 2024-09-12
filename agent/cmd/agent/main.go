@@ -159,6 +159,9 @@ func parseFlags() *config.AgentConfig {
 }
 
 func completeConfig(ctx context.Context, c client.Client, agentConfig *config.AgentConfig) error {
+	if !agentConfig.Standalone && agentConfig.LeafHubName == "" {
+		return fmt.Errorf("the leaf-hub-name must not be empty")
+	}
 	if agentConfig.LeafHubName == "" {
 		clusterVersion := &configv1.ClusterVersion{
 			ObjectMeta: metav1.ObjectMeta{Name: "version"},

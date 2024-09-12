@@ -46,9 +46,22 @@ func TestCompleteConfig(t *testing.T) {
 		expectErrorMsg string
 	}{
 		{
-			name: "Empty leaf-hub-name(clusterId)",
+			name: "Invalid leaf-hub-name without standalone mode",
 			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
+				Standalone:  false,
+			},
+			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(&configv1.ClusterVersion{
+				ObjectMeta: metav1.ObjectMeta{Name: "version"},
+				Spec:       configv1.ClusterVersionSpec{ClusterID: configv1.ClusterID("")},
+			}).Build(),
+			expectErrorMsg: "the leaf-hub-name must not be empty",
+		},
+		{
+			name: "Empty leaf-hub-name(clusterId) with standalone mode",
+			agentConfig: &config.AgentConfig{
+				LeafHubName: "",
+				Standalone:  true,
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(&configv1.ClusterVersion{
 				ObjectMeta: metav1.ObjectMeta{Name: "version"},
@@ -57,15 +70,16 @@ func TestCompleteConfig(t *testing.T) {
 			expectErrorMsg: "the clusterId from ClusterVersion must not be empty",
 		},
 		{
-			name: "Invalid leaf-hub-name(clusterId)",
+			name: "Invalid leaf-hub-name(clusterId) under standalone mode",
 			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
+				Standalone:  true,
 			},
 			fakeClient:     fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).Build(),
 			expectErrorMsg: "clusterversions.config.openshift.io \"version\" not found",
 		},
 		{
-			name: "Standalone mode agent(leaf-hub-name with clusterId)",
+			name: "Valid configuration under standalone mode",
 			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
 				Standalone:  true,
