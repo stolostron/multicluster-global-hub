@@ -22,7 +22,7 @@ var (
 	eventTimeCache         = make(map[string]time.Time)
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
-	deltaDuration          = 5 * time.Second
+	deltaDuration          = 3 * time.Second
 )
 
 // CacheTime cache the latest time

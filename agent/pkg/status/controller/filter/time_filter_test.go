@@ -141,4 +141,14 @@ func TestTimeFilter(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(expiredTime))
 	cancel()
+
+	fmt.Println(">> verify5: don't lose events with similar time")
+	similiarTime := time.Now().Add(10 * time.Second)
+	assert.True(t, Newer(eventType, similiarTime))
+	CacheTime(eventType, similiarTime)
+	assert.True(t, Newer(eventType, similiarTime))
+	CacheTime(eventType, similiarTime.Add(2*time.Second))
+	assert.True(t, Newer(eventType, similiarTime))
+	CacheTime(eventType, similiarTime.Add(5*time.Second))
+	assert.False(t, Newer(eventType, similiarTime))
 }
