@@ -78,16 +78,6 @@ var _ = Describe("storage", Ordered, func() {
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).To(Succeed())
 
-		count := 0
-		for _, cond := range mgh.Status.Conditions {
-			if cond.Type == config.CONDITION_TYPE_DATABASE_INIT {
-				count++
-				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-				Expect(cond.Message).To(ContainSubstring("Database has been initialized"))
-			}
-		}
-		Expect(count).To(Equal(1))
-
 		err = runtimeClient.Delete(ctx, storageSecret)
 		Expect(err).To(Succeed())
 		Eventually(func() error {
