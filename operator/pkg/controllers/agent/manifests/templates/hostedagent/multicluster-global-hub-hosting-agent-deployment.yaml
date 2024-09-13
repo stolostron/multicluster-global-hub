@@ -27,7 +27,6 @@ spec:
             - --leaf-hub-name={{ .LeafHubID }}
             - --kafka-consumer-id={{ .LeafHubID }}
             - --enforce-hoh-rbac=false
-            - --transport-type={{ .TransportType }}
             - --kafka-bootstrap-server={{ .KafkaBootstrapServer }}
             - --kafka-ca-cert-path=/kafka-certs/ca.crt
             - --kafka-client-cert-path=/kafka-certs/client.crt

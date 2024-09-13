@@ -37,7 +37,6 @@ spec:
             - --zap-log-level={{.LogLevel}}
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
-            - --transport-type={{.TransportType}}
             - --postgres-ca-path=/postgres-credential/ca.crt
             - --process-database-url=$(DATABASE_URL)
             - --transport-bridge-database-url=$(DATABASE_URL)

@@ -74,7 +74,7 @@ func GetConfluentConfigMapBySecret(isProducer bool) (*kafka.ConfigMap, error) {
 func GetConfluentConfigMap(producer bool) (*kafka.ConfigMap, error) {
 	bootstrapSever := os.Getenv("BOOTSTRAP_SEVER")
 	if bootstrapSever == "" {
-		return GetConfluentConfigMapFromGlobalHub(producer)
+		return GetConfluentConfigMapFromGlobalHub(KAFKA_USER, producer)
 	}
 	return GetConfluentConfigMapFromManagedHub(producer)
 }
@@ -164,7 +164,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 	return configMap, nil
 }
 
-func GetConfluentConfigMapFromGlobalHub(producer bool) (*kafka.ConfigMap, error) {
+func GetConfluentConfigMapFromGlobalHub(kafkaUser string, producer bool) (*kafka.ConfigMap, error) {
 	kubeconfig, err := DefaultKubeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubeconfig")
@@ -174,17 +174,12 @@ func GetConfluentConfigMapFromGlobalHub(producer bool) (*kafka.ConfigMap, error)
 		return nil, fmt.Errorf("failed to get runtime client")
 	}
 
-	kafkaUserName := KAFKA_USER
-	if user := os.Getenv("KAFKA_USER"); user != "" {
-		kafkaUserName = user
-	}
-
-	kafkaConfigMap, err := GetConfluentConfigMapByUser(c, KAFKA_NAMESPACE, KAFKA_CLUSTER, kafkaUserName)
+	kafkaConfigMap, err := GetConfluentConfigMapByUser(c, KAFKA_NAMESPACE, KAFKA_CLUSTER, kafkaUser)
 	if err != nil {
 		return nil, err
 	}
 
-	consumerGroupId := "test-group-id" + kafkaUserName
+	consumerGroupId := "test-group-id" + kafkaUser
 	fmt.Println(">> consumer group id:", consumerGroupId)
 
 	if producer {

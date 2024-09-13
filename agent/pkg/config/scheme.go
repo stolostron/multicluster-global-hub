@@ -6,6 +6,7 @@ package config
 import (
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -44,5 +45,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(channelv1.AddToScheme(scheme))
 	utilruntime.Must(appsubv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(appv1beta1.AddToScheme(scheme))
+	utilruntime.Must(clusterinfov1beta1.AddToScheme(scheme))
 	return scheme
 }

@@ -10,6 +10,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
+	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -58,7 +59,7 @@ func main() {
 	restConfig.QPS = agentConfig.QPS
 	restConfig.Burst = agentConfig.Burst
 
-	c, err := client.New(restConfig, client.Options{})
+	c, err := client.New(restConfig, client.Options{Scheme: config.GetRuntimeScheme()})
 	if err != nil {
 		setupLog.Error(err, "failed to int controller runtime client")
 		os.Exit(1)
@@ -125,8 +126,6 @@ func parseFlags() *config.AgentConfig {
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&agentConfig.PodNamespace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
-	pflag.StringVar(&agentConfig.TransportConfig.TransportType, "transport-type", "kafka",
-		"The transport type, 'kafka'")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
@@ -175,11 +174,11 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *config.Ag
 			return fmt.Errorf("failed to get the ClusterVersion(version): %w", err)
 		}
 
-		clusterId := string(clusterVersion.Spec.ClusterID)
-		if clusterId == "" {
+		clusterID := string(clusterVersion.Spec.ClusterID)
+		if clusterID == "" {
 			return fmt.Errorf("the clusterId from ClusterVersion must not be empty")
 		}
-		agentConfig.LeafHubName = clusterId
+		agentConfig.LeafHubName = clusterID
 	}
 
 	if agentConfig.MetricsAddress == "" {
@@ -275,6 +274,7 @@ func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, e
 		&apiextensionsv1.CustomResourceDefinition{}: {},
 		&policyv1.Policy{}:                          {},
 		&clusterv1.ManagedCluster{}:                 {},
+		&clusterinfov1beta1.ManagedClusterInfo{}:    {},
 		&clustersv1alpha1.ClusterClaim{}:            {},
 		&routev1.Route{}:                            {},
 		&placementrulev1.PlacementRule{}:            {},

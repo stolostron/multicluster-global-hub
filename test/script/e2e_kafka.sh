@@ -47,7 +47,7 @@ echo "Kafka cluster is ready"
 # generate resource for standalone agent
 export KAFKA_NAMESPACE=kafka
 export SECRET_NAMESPACE=open-cluster-management
-bash "$CURRENT_DIR/standalone_agent_secret.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
+bash "$CURRENT_DIR/event_exporter_kafka.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
 echo "Kafka standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] Install Kafka ${NC} $(($(date +%s) - start_time)) seconds"

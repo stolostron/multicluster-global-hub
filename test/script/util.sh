@@ -118,7 +118,7 @@ kind_cluster() {
 ensure_cluster() {
   local cluster_name="$1"
   local kubeconfig="$2"
-  if [ -f "$kubeconfig" ]; then
+  if [ -f "$kubeconfig" ] && kubectl config get-contexts -o name | grep -wq "$cluster_name"; then
     return 0
   fi
 
@@ -361,6 +361,11 @@ install_crds() {
 
   # clusterclaim: agent
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_02_clusters.open-cluster-management.io_clusterclaims.crd.yaml
+
+  # clusterinfo for rest
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_internal.open-cluster-management.io_managedclusterinfos.crd.yaml
+  # clusterID from clusterversion
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
 }
 
 enable_service_ca() {

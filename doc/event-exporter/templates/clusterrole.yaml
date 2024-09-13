@@ -182,3 +182,19 @@ rules:
   - list
   - watch
   - get
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - internal.open-cluster-management.io
+  resources:
+  - managedclusterinfos
+  verbs:
+  - get
+  - list
+  - watch

@@ -10,6 +10,7 @@ If you have your own Kafka, you can use it as the transport for multicluster glo
 - `client.key`: Required, see [User authentication](https://strimzi.io/docs/operators/latest/deploying.html#con-securing-client-authentication-str) in the STRIMZI documentation for the steps to extract the `user.key` from the secret.
 
 You can create the secret by running the following command:
+
 ```bash
 kubectl create secret generic multicluster-global-hub-transport -n multicluster-global-hub \
     --from-literal=bootstrap_server=<kafka-bootstrap-server-address> \
@@ -18,7 +19,7 @@ kubectl create secret generic multicluster-global-hub-transport -n multicluster-
     --from-file=client.key=<Client-key-for-kafka-server> 
 ```
 
-*Prerequisite:*  See the following requirements for bringing your own Kafka: 
+*Prerequisite:*  See the following requirements for bringing your own Kafka:
 
 - Unless you configured your Kafka to automatically create topics, you must manually create two topics for spec and status(The default topics are `gh-spec` and `gh-status`). When you create these topics, ensure that the Kafka user can to read and write data to the these topics. And also make sure the topic names in the Global Hub operand is aligned with the topics you created.
 
@@ -35,25 +36,32 @@ If you have your own postgres, you can use it as the storage for multicluster gl
 - `ca.crt` based on the [sslmode](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING). It is an optional.
 
 You can create the secret by running the following command:
+
 ```bash
 kubectl create secret generic multicluster-global-hub-storage -n multicluster-global-hub \
     --from-literal=database_uri=<postgresql-uri> \
     --from-literal=database_uri_with_readonlyuser=<postgresql-uri-with-readonlyuser> \
     --from-file=ca.crt=<CA-for-postgres-server>
 ```
+
 Please note that:
+
 - The `host` must be accessible from global hub cluster. If your postgres is in a Kubernetes cluster, you can consider to use the service type with `nodePort` or `LoadBalancer` to expose. For more information, please refer to [this document](./troubleshooting.md#access-to-the-provisioned-postgres-database).
 - Postgres 13 or later is tested.
 - Require the storage size is at least 20Gb (store 3 managed hubs with 250 managed clusters and 50 policies per managed hub for 18 months).
 
 ## Bring your own Grafana
+
 You have been relying on your own Grafana to get metrics from multiple sources (Prometheus) from different clusters and have to aggregate the metrics yourself. In order to get multicluster global hub data into your own Grafana, you need to configure the datasource and import the dashboards.
 
 1. Get the postgres connection information from the multicluster global hub Grafana datasource secret
+
 ```
 oc get secret multicluster-global-hub-grafana-datasources -n multicluster-global-hub -ojsonpath='{.data.datasources\.yaml}' | base64 -d
 ```
+
 the output likes:
+
 ```
 apiVersion: 1
 datasources:
@@ -76,12 +84,14 @@ datasources:
     password: xxxxx
     tlsCACert: xxxxx
 ```
+
 2. Configure the datasource in your own Grafana
 
 In your Grafana, add a source such as Postgres. And fill the fields with the information you got previously.
 ![datasource](./images/grafana-datasource.png)
 
 Required fields:
+
 - Name: xxxxx
 - Host: xxxxx
 - Database: hoh
@@ -92,17 +102,22 @@ Required fields:
 - CA Cert: xxxxx
 
 Notes:
-- if your own Grafana is not in the multicluster global hub cluster, you need to expose the postgres via loadbalancer so that the postgres can be accessed from outside. You can add 
+
+- if your own Grafana is not in the multicluster global hub cluster, you need to expose the postgres via loadbalancer so that the postgres can be accessed from outside. You can add
+
 ```
     service:
       type: LoadBalancer
 ```
-into `PostgresCluster` operand and then you can get the EXTERNAL-IP from `postgres-ha` service. for example: 
+
+into `PostgresCluster` operand and then you can get the EXTERNAL-IP from `postgres-ha` service. for example:
+
 ```
 oc get svc postgres-ha -n multicluster-global-hub
 NAME     TYPE           CLUSTER-IP      EXTERNAL-IP                                                               PORT(S)          AGE
 postgres-ha   LoadBalancer   172.30.227.58   xxxx.us-east-1.elb.amazonaws.com   5432:31442/TCP   128m
 ```
+
 After that, you can use `xxxx.us-east-1.elb.amazonaws.com:5432` as Postgres Connection Host.
 
 3. Import the existing dashboards

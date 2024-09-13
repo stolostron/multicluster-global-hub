@@ -106,8 +106,6 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"The URL of database server for the process user.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.TransportBridgeDatabaseURL,
 		"transport-bridge-database-url", "", "The URL of database server for the transport-bridge user.")
-	pflag.StringVar(&managerConfig.TransportConfig.TransportType, "transport-type", "kafka",
-		"The transport type, 'kafka'.")
 	pflag.DurationVar(&managerConfig.TransportConfig.CommitterInterval, "transport-committer-interval",
 		40*time.Second, "The committer interval for transport layer.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
