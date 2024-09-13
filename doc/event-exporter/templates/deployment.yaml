@@ -1,29 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-global-hub-agent
-  namespace: open-cluster-management
-  labels:
-    addon.open-cluster-management.io/hosted-manifest-location: none
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicluster-global-hub-agent
+      name: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        name: multicluster-global-hub-agent
+        name: {{ .Release.Name }}
     spec:
-      serviceAccountName: multicluster-global-hub-agent
+      serviceAccountName: {{ .Release.Name }}-serviceaccount
       containers:
-        - name: multicluster-global-hub-agent
-          image: quay.io/stolostron/multicluster-global-hub-agent:latest
+        - name: {{ .Release.Name }}
+          image: {{ .Values.image }}
           imagePullPolicy: Always
           args:
             - --zap-log-level=info
             - --pod-namespace=$(POD_NAMESPACE)
-            - --leaf-hub-name=event-exporter-cluster
+            - --leaf-hub-name={{ .Values.sourceName }}
             - --lease-duration=137
             - --renew-deadline=107
             - --retry-period=26

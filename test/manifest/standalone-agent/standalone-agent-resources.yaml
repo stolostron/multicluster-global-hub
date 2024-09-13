@@ -1,7 +1,7 @@
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: gh-status.standalone
+  name: gh-status.standalone-agent
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -13,7 +13,7 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaUser
 metadata:
-  name: global-hub-standalone-user
+  name: global-hub-standalone-agent-user
   labels:
     strimzi.io/cluster: kafka
 spec:
@@ -27,7 +27,7 @@ spec:
       - Read
       - Write
       resource:
-        name: gh-status.standalone
+        name: gh-status.standalone-agent
         patternType: literal
         type: topic
     - host: '*'

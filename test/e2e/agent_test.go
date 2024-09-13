@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	STANDALONE_NAMESPACE         = "open-cluster-management"
-	STANDALONE_CONSUMER_GROUP_ID = "standalone-consumer-group"
-	STANDALONE_TOPIC             = "gh-status.standalone"
+	STANDALONE_AGENT_NAMESPACE         = "open-cluster-management"
+	STANDALONE_AGENT_CONSUMER_GROUP_ID = "standalone-agent-consumer-group"
+	STANDALONE_AGENT_TOPIC             = "gh-status.standalone-agent"
 )
 
 var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
@@ -37,14 +37,14 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 
 		transportSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: STANDALONE_NAMESPACE,
+				Namespace: STANDALONE_AGENT_NAMESPACE,
 				Name:      constants.GHTransportConfigSecret,
 			},
 		}
 		err := globalHubClient.Get(agentCtx, runtimeclient.ObjectKeyFromObject(transportSecret), transportSecret)
 		Expect(err).To(Succeed())
 
-		bootstrapServer, saramaConfig, err := sampleconfig.GetSaramaConfigByClient(STANDALONE_NAMESPACE, globalHubClient)
+		bootstrapServer, saramaConfig, err := sampleconfig.GetSaramaConfigByClient(STANDALONE_AGENT_NAMESPACE, globalHubClient)
 		if err != nil {
 			log.Fatalf("failed to get sarama config: %v", err)
 		}
@@ -54,7 +54,7 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 		saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
 		receiver, err := kafka_sarama.NewConsumer([]string{bootstrapServer}, saramaConfig,
-			STANDALONE_CONSUMER_GROUP_ID, STANDALONE_TOPIC)
+			STANDALONE_AGENT_CONSUMER_GROUP_ID, STANDALONE_AGENT_TOPIC)
 		Expect(err).To(Succeed())
 
 		c, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1), client.WithBlockingCallback())

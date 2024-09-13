@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: multicluster-global-hub-agent-config
-  namespace: open-cluster-management
+  name: {{ .Release.Name }}-configmap
+  namespace: {{ .Release.Namespace }}
 data:
   managedClusters: "5s"
   policies: "5s"

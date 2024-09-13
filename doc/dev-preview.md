@@ -1,7 +1,7 @@
 ### Create a managed hub cluster (Developer Preview)
 Refer to the original [Create cluster](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.8/html/clusters/cluster_mce_overview#creating-a-cluster) document to create the managed cluster in the global hub cluster. Add the label of `global-hub.open-cluster-management.io/hub-cluster-install: ''` to the `managedcluster` custom resource and then the new created managed cluster can automatically be switched to be a managed hub cluster. In other words, the latest version of Red Hat Advanced Cluster Management for Kubernetes is installed in this managed cluster. You can get the Red Hat Advanced Cluster Management hub information in the cluster overview page.
 
-![cluster overview](cluster_overview.png)
+![cluster overview](./images/cluster_overview.png)
 
 ### Enable Strimzi and Postgres Metrics
 Collecting metrics is critical for understanding the health and performance of your Kafka deployment and postgres database. By monitoring metrics, you can actively identify issues before they become critical and make informed decisions about resource allocation and capacity planning. Without metrics, you may be left with limited visibility into the behavior of your Kafka deployment, which can make troubleshooting more difficult and time-consuming.
@@ -157,3 +157,7 @@ the Global Hub Agent, typically `multicluster-global-hub-agent`.
 Once the secret is created and the _central_ object annotated, the Global Hub Agent will
 automatically detect the configuration, will apply it and will start to collect the information and
 send it to the Global Hub Manager to populate the dashboard.
+
+### Event Exporter(Standalone Agent)
+
+To unlock the potential of the global hub agent and integrate ACM into the event-driven ecosystem, we propose running the agent in standalone mode environment. This will enable it to function as an event exporter, reporting resources to the specified target. For more detail, please [visit](./event-exporter/README.md)

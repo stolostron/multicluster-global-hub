@@ -4,6 +4,7 @@
 package config
 
 import (
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -33,6 +34,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(operatorv1.AddToScheme(scheme))
 	utilruntime.Must(apiregistrationv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(coordinationv1.AddToScheme(scheme))
 	utilruntime.Must(mchv1.AddToScheme(scheme))

@@ -23,7 +23,7 @@ func main() {
 	}
 	topic := os.Args[1]
 
-	bootstrapServer, saramaConfig, err := config.GetSaramaConfigByTranportConfig("")
+	bootstrapServer, saramaConfig, err := config.GetSaramaConfigByTranportConfig("open-cluster-management")
 	if err != nil {
 		log.Fatalf("failed to get sarama config: %v", err)
 	}
