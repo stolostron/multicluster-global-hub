@@ -23,6 +23,25 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: ManagedClusterMigration is a global hub resource that allows you
+        to migrate managed clusters from one hub to another
+      displayName: Managed Cluster Migration
+      kind: ManagedClusterMigration
+      name: managedclustermigrations.global-hub.open-cluster-management.io
+      specDescriptors:
+      - description: IncludedManagedClusters is a list of managed clusters that you
+          want to migrate
+        displayName: Included Managed Clusters
+        path: includedManagedClusters
+      - description: To defines which hub cluster the managed clusters migrate to
+        displayName: To
+        path: to
+      statusDescriptors:
+      - description: Conditions represents the latest available observations of the
+          current state
+        displayName: Conditions
+        path: conditions
+      version: v1alpha1
     - description: MulticlusterGlobalHub defines the configuration for an instance
         of the multiCluster global hub
       displayName: Multicluster Global Hub
@@ -68,50 +87,6 @@ spec:
       statusDescriptors:
       - description: Conditions represents the latest available observations of the
           current state
-        displayName: Conditions
-        path: conditions
-      version: v1alpha4
-    - description: MulticlusterGlobalHubMigration defines the configuration for migrating the managed clusters from one hub to another
-      displayName: Multicluster Global Hub Migration
-      kind: Migration
-      name: multiclusterglobalhubs.operator.open-cluster-management.io
-      resources:
-      - kind: Deployment
-        name: multicluster-global-hub-operator
-        version: v1
-      specDescriptors:
-      - description: 'Specifies deployment replication for improved availability.
-          Options are: Basic and High (default)'
-        displayName: Availability Configuration
-        path: availabilityConfig
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:select:High
-        - urn:alm:descriptor:com.tectonic.ui:select:Basic
-      - description: DataLayer can be configured to use a different data layer.
-        displayName: Data Layer
-        path: dataLayer
-      - description: Pull policy of the multicluster global hub images
-        displayName: Image Pull Policy
-        path: imagePullPolicy
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
-      - description: Pull secret of the multicluster global hub images
-        displayName: Image Pull Secret
-        path: imagePullSecret
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
-      - description: Tolerations causes all components to tolerate any taints.
-        displayName: Tolerations
-        path: tolerations
-      - description: EnableMetrics enables the metrics for the global hub created
-          kafka and postgres components. If the user provides the kafka and postgres,
-          then the enablemetrics variable is useless.
-        displayName: Enable Metrics Collecting
-        path: enableMetrics
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      statusDescriptors:
-      - description: MulticlusterGlobalHubStatus defines the observed state of MulticlusterGlobalHub
         displayName: Conditions
         path: conditions
       version: v1alpha4

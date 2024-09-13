@@ -21,4 +21,13 @@ resources:
   kind: MulticlusterGlobalHub
   path: github.com/stolostron/multicluster-global-hub-operator/operator/api/v1alpha4
   version: v1alpha4
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: open-cluster-management.io
+  group: global-hub
+  kind: ManagedClusterMigration
+  path: github.com/stolostron/multicluster-global-hub-operator/migration/api/v1alpha1
+  version: v1alpha1
 version: "3"
