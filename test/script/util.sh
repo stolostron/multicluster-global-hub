@@ -108,7 +108,7 @@ kind_cluster() {
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local cluster_name="$1"
   local kubeconfig="$dir/$cluster_name"
-  while [ ! -f "$kubeconfig" ]; do
+  while [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name"; do
     ensure_cluster "$cluster_name" "$kubeconfig"
     sleep 1
   done
