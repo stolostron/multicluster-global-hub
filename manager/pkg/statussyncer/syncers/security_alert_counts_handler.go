@@ -64,11 +64,13 @@ func (h *securityAlertCountsHandler) handleEvent(ctx context.Context, evt *cloud
 		High:      wireModel.High,
 		Critical:  wireModel.Critical,
 		DetailURL: wireModel.DetailURL,
+		Source:    wireModel.Source,
 	}
 
 	// Insert or update the data in the database:
 	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "hub_name"}, {Name: "source"}},
 		UpdateAll: true,
 	}).Create(dbModel).Error
 	if err != nil {

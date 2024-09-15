@@ -303,7 +303,8 @@ var _ = Describe("StackRox syncer", func() {
 							"medium": 2,
 							"high": 3,
 							"critical": 4,
-							"detail_url": "https://my-console.com/main/violations"
+							"detail_url": "https://my-console.com/main/violations",
+							"source": "rhacs-operator/stackrox-central-services"
 						}`))
 
 						return nil
@@ -622,7 +623,8 @@ var _ = Describe("StackRox syncer", func() {
 							"medium": 2,
 							"high": 3,
 							"critical": 4,
-							"detail_url": "https://my-console.com/main/violations"
+							"detail_url": "https://my-console.com/main/violations",
+							"source": "rhacs-operator/stackrox-central-services"
 						}`))
 
 						return nil

@@ -560,6 +560,27 @@ data:
               {
                 "matcher": {
                   "id": "byName",
+                  "options": "Source"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "color-text"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "fixedColor": "text",
+                      "mode": "fixed"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
                   "options": "Low"
                 },
                 "properties": [
@@ -698,7 +719,7 @@ data:
               "group": [],
               "metricColumn": "none",
               "rawQuery": true,
-              "rawSql": "select \n  hub_name as \"Hub\",\n  low as \"Low\",\n  medium as \"Medium\",\n  high as \"High\",\n  critical as \"Critical\",\n  detail_url as \"Detail\"\nfrom\n  security.alert_counts",
+              "rawSql": "select \n  hub_name as \"Hub\",\n  low as \"Low\",\n  medium as \"Medium\",\n  high as \"High\",\n  critical as \"Critical\",\n  detail_url as \"Detail\",\n source as \"Source\"\nfrom\n  security.alert_counts",
               "refId": "A",
               "select": [
                 [
