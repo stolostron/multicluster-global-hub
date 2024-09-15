@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -22,6 +24,8 @@ type AgentConfig struct {
 	Burst                        int
 	EnablePprof                  bool
 	Standalone                   bool
+	EnableStackroxIntegration    bool
+	StackroxPollInterval         time.Duration
 }
 
 func SetAgentConfig(agentConfig *AgentConfig) {

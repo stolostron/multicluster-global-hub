@@ -30,5 +30,5 @@ func TestAddCRDController(t *testing.T) {
 		Namespace: "hello",
 		Name:      "world",
 	}})
-	require.Contains(t, err.Error(), "failed to add status syncer")
+	require.NoError(t, err)
 }

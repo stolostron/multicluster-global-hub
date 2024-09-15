@@ -64,7 +64,9 @@ type ManifestsConfig struct {
 	LogLevel              string
 	EnablePprof           bool
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
-	Resources *Resources
+	Resources                 *Resources
+	EnableStackroxIntegration bool
+	StackroxPollInterval      time.Duration
 }
 
 type Resources struct {
@@ -211,19 +213,21 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		TransportConfigSecret: constants.GHTransportConfigSecret,
 		KafkaConfigYaml:       base64.StdEncoding.EncodeToString(kafkaConfigYaml),
 		// render the cluster ca whether under the BYO cases
-		KafkaClusterCASecret: kafkaConnection.CASecretName,
-		KafkaCACert:          kafkaConnection.CACert,
-		LeaseDuration:        strconv.Itoa(electionConfig.LeaseDuration),
-		RenewDeadline:        strconv.Itoa(electionConfig.RenewDeadline),
-		RetryPeriod:          strconv.Itoa(electionConfig.RetryPeriod),
-		KlusterletNamespace:  "open-cluster-management-agent",
-		KlusterletWorkSA:     "klusterlet-work-sa",
-		EnableGlobalResource: a.operatorConfig.GlobalResourceEnabled,
-		AgentQPS:             agentQPS,
-		AgentBurst:           agentBurst,
-		LogLevel:             a.operatorConfig.LogLevel,
-		EnablePprof:          a.operatorConfig.EnablePprof,
-		Resources:            agentRes,
+		KafkaClusterCASecret:      kafkaConnection.CASecretName,
+		KafkaCACert:               kafkaConnection.CACert,
+		LeaseDuration:             strconv.Itoa(electionConfig.LeaseDuration),
+		RenewDeadline:             strconv.Itoa(electionConfig.RenewDeadline),
+		RetryPeriod:               strconv.Itoa(electionConfig.RetryPeriod),
+		KlusterletNamespace:       "open-cluster-management-agent",
+		KlusterletWorkSA:          "klusterlet-work-sa",
+		EnableGlobalResource:      a.operatorConfig.GlobalResourceEnabled,
+		AgentQPS:                  agentQPS,
+		AgentBurst:                agentBurst,
+		LogLevel:                  a.operatorConfig.LogLevel,
+		EnablePprof:               a.operatorConfig.EnablePprof,
+		Resources:                 agentRes,
+		EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
+		StackroxPollInterval:      config.GetStackroxPollInterval(mgh),
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {

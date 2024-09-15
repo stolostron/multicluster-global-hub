@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -145,6 +146,25 @@ func WithInventory(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 func WithStackroxIntegration(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithStackroxIntegration]
 	return ok
+}
+
+// GetStackroxPollInterval returns the StackRox API poll interval specified in the annotations of the given object. The
+// value should be a string that can be parsed with the time.ParseDuration function. If it isn't specified or the format
+// isn't valid, then it returns zero.
+func GetStackroxPollInterval(mgh *v1alpha4.MulticlusterGlobalHub) time.Duration {
+	text, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithStackroxPollInterval]
+	if !ok {
+		return 0
+	}
+	value, err := time.ParseDuration(text)
+	if err != nil {
+		klog.Errorf(
+			"Failed to parse value '%s' of annotation '%s', will ignore it: %v",
+			text, operatorconstants.AnnotationMGHWithStackroxPollInterval, err,
+		)
+		return 0
+	}
+	return value
 }
 
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history

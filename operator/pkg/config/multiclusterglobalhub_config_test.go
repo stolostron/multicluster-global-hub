@@ -20,6 +20,7 @@ import (
 	"context"
 	"reflect"
 	"testing"
+	"time"
 
 	imagev1 "github.com/openshift/api/image/v1"
 	fakeimageclient "github.com/openshift/client-go/image/clientset/versioned/fake"
@@ -184,5 +185,81 @@ func TestSetMulticlusterGlobalHubConfig(t *testing.T) {
 	}
 	if GetImage(OauthProxyImageKey) != "quay.io/openshift-release-dev/ocp-v4.0-art-dev" {
 		t.Fatalf("oauth proxy image is not expected one")
+	}
+}
+
+func TestStackRoxIntegrationEnabled(t *testing.T) {
+	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				operatorconstants.AnnotationMGHWithStackroxIntegration: "",
+			},
+		},
+	}
+	if !WithStackroxIntegration(mghInstance) {
+		t.Fatalf("StackRox integration should be enable, but it isn't")
+	}
+}
+
+func TestStackRoxIntegrationDisabled(t *testing.T) {
+	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+	}
+	if WithStackroxIntegration(mghInstance) {
+		t.Fatalf("StackRox integration should be disabled, but it isn't")
+	}
+}
+
+func TestStackRoxPoolParsing(t *testing.T) {
+	type TestCase struct {
+		AnnotationValue string
+		ExpectedValue   time.Duration
+	}
+	testCases := []TestCase{
+		{
+			AnnotationValue: "1h",
+			ExpectedValue:   1 * time.Hour,
+		},
+		{
+			AnnotationValue: "broken",
+			ExpectedValue:   0,
+		},
+		{
+			AnnotationValue: "",
+			ExpectedValue:   0,
+		},
+	}
+	for _, testCase := range testCases {
+		mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					operatorconstants.AnnotationMGHWithStackroxPollInterval: testCase.AnnotationValue,
+				},
+			},
+		}
+		actualValue := GetStackroxPollInterval(mghInstance)
+		if actualValue != testCase.ExpectedValue {
+			t.Fatalf(
+				"expected poll interval from annotation '%s' to be %s, but it is %s",
+				testCase.AnnotationValue, testCase.ExpectedValue, actualValue,
+			)
+		}
+	}
+}
+
+func TestStackRoxPoolNotPresent(t *testing.T) {
+	mghInstance := &globalhubv1alpha4.MulticlusterGlobalHub{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+	}
+	actualValue := GetStackroxPollInterval(mghInstance)
+	if actualValue != 0 {
+		t.Fatalf(
+			"expected poll interval to be zero, but it is %s",
+			actualValue,
+		)
 	}
 }

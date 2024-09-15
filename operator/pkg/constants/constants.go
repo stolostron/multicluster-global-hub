@@ -71,6 +71,10 @@ const (
 	AnnotationMGHWithInventory = "global-hub.open-cluster-management.io/with-inventory"
 	// AnnotationMGHWithStackroxIntegration indicates that the integration with Stackrox is enabled.
 	AnnotationMGHWithStackroxIntegration = "global-hub.open-cluster-management.io/with-stackrox-integration"
+	// AnnotationMGHWithStackroxPollInterval specifies the StackRox API poll interval. This is intended mostly for
+	// development environments, where is is convenient to reduce the poll interval. The value should be a string
+	// that can be parsed with the time.ParseDuration function.
+	AnnotationMGHWithStackroxPollInterval = "global-hub.open-cluster-management.io/with-stackrox-poll-interval"
 )
 
 // hub installation constants

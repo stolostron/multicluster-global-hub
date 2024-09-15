@@ -150,6 +150,10 @@ func parseFlags() *config.AgentConfig {
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.BoolVar(&agentConfig.Standalone, "standalone", false, "Whether to deploy the agent with standalone mode")
+	pflag.BoolVar(&agentConfig.EnableStackroxIntegration, "enable-stackrox-integration", false,
+		"Enable StackRox integration")
+	pflag.DurationVar(&agentConfig.StackroxPollInterval, "stackrox-poll-interval", 30*time.Minute,
+		"The interval between each StackRox polling")
 	pflag.Parse()
 
 	// set zap logger
@@ -268,17 +272,15 @@ func transportCallback(mgr ctrl.Manager, agentConfig *config.AgentConfig,
 
 func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
-		&apiextensionsv1.CustomResourceDefinition{}: {
-			Field: fields.OneTermEqualSelector("metadata.name", "clustermanagers.operator.open-cluster-management.io"),
-		},
-		&policyv1.Policy{}:                  {},
-		&clusterv1.ManagedCluster{}:         {},
-		&clustersv1alpha1.ClusterClaim{}:    {},
-		&routev1.Route{}:                    {},
-		&placementrulev1.PlacementRule{}:    {},
-		&clusterv1beta1.Placement{}:         {},
-		&clusterv1beta1.PlacementDecision{}: {},
-		&appsv1alpha1.SubscriptionReport{}:  {},
+		&apiextensionsv1.CustomResourceDefinition{}: {},
+		&policyv1.Policy{}:                          {},
+		&clusterv1.ManagedCluster{}:                 {},
+		&clustersv1alpha1.ClusterClaim{}:            {},
+		&routev1.Route{}:                            {},
+		&placementrulev1.PlacementRule{}:            {},
+		&clusterv1beta1.Placement{}:                 {},
+		&clusterv1beta1.PlacementDecision{}:         {},
+		&appsv1alpha1.SubscriptionReport{}:          {},
 		&coordinationv1.Lease{}: {
 			Field: fields.OneTermEqualSelector("metadata.namespace", config.GetAgentConfig().PodNamespace),
 		},
