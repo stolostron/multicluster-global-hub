@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/operator.open-cluster-management.io_multiclusterglobalhubs.yaml
+- bases/global-hub.open-cluster-management.io_managedclustermigrations.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

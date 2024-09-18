@@ -23,6 +23,25 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - description: ManagedClusterMigration is a global hub resource that allows you
+        to migrate managed clusters from one hub to another
+      displayName: Managed Cluster Migration
+      kind: ManagedClusterMigration
+      name: managedclustermigrations.global-hub.open-cluster-management.io
+      specDescriptors:
+      - description: IncludedManagedClusters is a list of managed clusters that you
+          want to migrate
+        displayName: Included Managed Clusters
+        path: includedManagedClusters
+      - description: To defines which hub cluster the managed clusters migrate to
+        displayName: To
+        path: to
+      statusDescriptors:
+      - description: Conditions represents the latest available observations of the
+          current state
+        displayName: Conditions
+        path: conditions
+      version: v1alpha1
     - description: MulticlusterGlobalHub defines the configuration for an instance
         of the multiCluster global hub
       displayName: Multicluster Global Hub
