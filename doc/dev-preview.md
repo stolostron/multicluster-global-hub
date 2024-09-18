@@ -47,7 +47,7 @@ The integration is disabled by default. In order to enable it is necessary to ha
 setup, with at least one ACM Managed Global Hub and configure the Global Hub _multiclusterglobalhub_
 object and the RHACS _Central_ objects.
 
-### Enabling the integration in the ACM Global Hub
+#### Enabling the integration in the ACM Global Hub
 
 The _multiclusterglobalhub_ object needs to have the
 `global-hub.open-cluster-management.io/with-stackrox-integration` annotation. In a typical Global
@@ -61,9 +61,9 @@ global-hub.open-cluster-management.io/with-stackrox-integration=
 The value of the annotation, an empty string in this example, isn't relevant; it just needs to be
 present.
 
-### Configuring each ACM Managed Hub
+#### Configuring each ACM Managed Hub
 
-#### Create the RHACS API token
+##### Create the RHACS API token
 
 In each ACM Managed Hub the Global Hub Agent needs a API token to connect to the _Central_ instance.
 That token can be created using the _Central_ web application. Go to _Platform Configuration_,
@@ -93,7 +93,7 @@ that dialog.
 For more details about tokens check the [RHACS
 documentation](https://docs.openshift.com/acs/4.5/configuration/configure-api-token.html).
 
-#### Obtain the RHACS API CA certificate
+##### Obtain the RHACS API CA certificate
 
 In addition to the token you will also need to have the certificate of the CA that needs to be
 trusted in order to connect to the _Central_ API server. In a typical RHACS installation that CA
@@ -114,7 +114,7 @@ MIIB0zCCAXigAwIBAgIUVD2jLKbwVW4+2zuYVNPCbra6AUYwCgYIKoZIzj0EAwIw
 -----END CERTIFICATE-----
 ```
 
-#### Create the RHACS API connection details secret
+##### Create the RHACS API connection details secret
 
 Once you have the token and the CA certificate you will need to put them inside a Kubernetes secret,
 and annotate the `central` object with an annotation containing its location. The token should be in
