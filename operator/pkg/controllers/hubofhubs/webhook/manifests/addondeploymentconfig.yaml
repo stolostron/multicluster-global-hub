@@ -3,7 +3,7 @@ apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: AddOnDeploymentConfig
 metadata:
   name: global-hub
-  namespace: multicluster-global-hub
+  namespace: {{.Namespace}}
   labels:
     cluster.open-cluster-management.io/backup: globalhub
 spec:
