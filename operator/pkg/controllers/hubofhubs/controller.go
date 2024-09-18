@@ -391,7 +391,10 @@ func watchMulticlusterGlobalHubPredict() predicate.TypedPredicate[*v1alpha4.Mult
 			return true
 		},
 		UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
-			return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
+			if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+				return true
+			}
+			return !reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
 		},
 		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha4.MulticlusterGlobalHub]) bool {
 			return !e.DeleteStateUnknown
@@ -604,15 +607,11 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	r.log.V(2).Info("reconciling mgh instance", "namespace", req.Namespace, "name", req.Name)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.client)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			r.log.Info("mgh instance not found", "namespace", req.Namespace, "name", req.Name)
-			return ctrl.Result{}, nil
-		}
 		r.log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
+	}
+	if mgh == nil {
+		return ctrl.Result{}, nil
 	}
 	err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, r.client, r.imageClient)
 	if err != nil {
@@ -644,8 +643,12 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	config.SetImportClusterInHosted(mgh)
 
 	// prune resources if deleting mgh or metrics is disabled
-	if err = r.pruneReconciler.Reconcile(ctx, mgh); err != nil {
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, fmt.Errorf("failed to prune Global Hub resources %v", err)
+	needRequeue, err := r.pruneReconciler.Reconcile(ctx, mgh)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to prune Global Hub resources %v", err)
+	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if mgh.GetDeletionTimestamp() != nil {
 		return ctrl.Result{}, nil
@@ -666,8 +669,12 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// storage and transporter
-	if err = r.ReconcileMiddleware(ctx, mgh); err != nil {
-		return ctrl.Result{}, err
+	needRequeue, reconcileErr := r.ReconcileMiddleware(ctx, mgh)
+	if reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
+	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// reconcile metrics
@@ -676,8 +683,12 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// reconcile manager
-	if err := r.managerReconciler.Reconcile(ctx, mgh); err != nil {
-		return ctrl.Result{}, err
+	needRequeue, reconcileErr = r.managerReconciler.Reconcile(ctx, mgh)
+	if reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
+	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	if config.WithInventory(mgh) {
@@ -713,15 +724,18 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // 2. then create the kafka and postgres resources at the same time
 // 3. wait for kafka and postgres ready
 func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
-) error {
+) (bool, error) {
 	if err := r.transportReconciler.Reconcile(ctx, mgh); err != nil {
-		return err
+		return true, err
 	}
-
-	if err := r.storageReconciler.Reconcile(ctx, mgh); err != nil {
-		return err
+	needRequeue, err := r.storageReconciler.Reconcile(ctx, mgh)
+	if err != nil {
+		return true, err
 	}
-	return nil
+	if needRequeue {
+		return true, nil
+	}
+	return false, nil
 }
 
 var WatchedSecret = sets.NewString(

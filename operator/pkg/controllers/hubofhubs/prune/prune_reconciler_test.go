@@ -110,6 +110,7 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 		name        string
 		initObjects []runtime.Object
 		wantErr     bool
+		wantRequeue bool
 	}{
 		{
 			name: "remove kafka resources",
@@ -156,7 +157,8 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr:     false,
+			wantRequeue: true,
 		},
 		{
 			name: "remove subscription and csv",
@@ -186,8 +188,12 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 			subv1alpha1.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			r := NewPruneReconciler(fakeClient)
-			if err := r.pruneStrimziResources(ctx); (err != nil) != tt.wantErr {
-				t.Errorf("MulticlusterGlobalHubReconciler.pruneStrimziResources() error = %v, wantErr %v", err, tt.wantErr)
+			needRequeue, err := r.pruneStrimziResources(ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Case:%v, MulticlusterGlobalHubReconciler.pruneStrimziResources() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			}
+			if needRequeue != tt.wantRequeue {
+				t.Errorf("Case:%v, MulticlusterGlobalHubReconciler.pruneStrimziResources() needRequeue = %v, wantRequeue %v", tt.name, needRequeue, tt.wantRequeue)
 			}
 		})
 	}
@@ -316,7 +322,7 @@ func TestWebhookResources(t *testing.T) {
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			r := NewPruneReconciler(fakeClient)
-			if err := r.Reconcile(ctx, tt.mgh); err != nil {
+			if _, err := r.Reconcile(ctx, tt.mgh); err != nil {
 				t.Errorf("MulticlusterGlobalHubReconciler.reconcile() error = %v", err)
 			}
 			listOpts := []client.ListOption{

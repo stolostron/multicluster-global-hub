@@ -95,7 +95,7 @@ func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.M
 }
 
 func TestAddonInstaller(t *testing.T) {
-	namespace := "default"
+	namespace := "multicluster-global-hub"
 	name := "test"
 	config.SetMGHNamespacedName(types.NamespacedName{
 		Namespace: namespace,

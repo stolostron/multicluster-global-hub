@@ -36,7 +36,7 @@ type AddonInstaller struct {
 
 func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
-	if err != nil {
+	if err != nil || mgh == nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if mgh.DeletionTimestamp != nil {

@@ -28,7 +28,7 @@ type Transporter interface {
 	// CreateTopic creates/updates a kafka topic
 	EnsureTopic(clusterName string) (*ClusterTopic, error)
 	// EnsureKafka creates/updates a kafka
-	EnsureKafka() error
+	EnsureKafka() (bool, error)
 	// Cleanup will delete the user or topic for the cluster
 	Prune(clusterName string) error
 

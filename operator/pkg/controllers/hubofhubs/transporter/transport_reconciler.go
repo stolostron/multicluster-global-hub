@@ -38,7 +38,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 				protocol.WithContext(ctx),
 				protocol.WithCommunity(operatorutils.IsCommunityMode()),
 			)
-			if err := r.transporter.EnsureKafka(); err != nil {
+			if _, err := r.transporter.EnsureKafka(); err != nil {
 				return err
 			}
 			// update the transporter
