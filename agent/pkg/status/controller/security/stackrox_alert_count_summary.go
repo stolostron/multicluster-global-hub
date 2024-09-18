@@ -36,7 +36,7 @@ var AlertsSummeryCountsRequest = stackRoxRequest{
 	Body:        "",
 	CacheStruct: &AlertsSummeryCountsResponse{},
 	GenerateFromCache: func(values ...any) (any, error) {
-		if len(values) != 2 {
+		if len(values) != 4 {
 			return nil, fmt.Errorf("alert summery count cache struct or ACS base URL were not provided")
 		}
 
@@ -53,8 +53,20 @@ var AlertsSummeryCountsRequest = stackRoxRequest{
 		if !ok {
 			return nil, fmt.Errorf("ACS external URL is not valid")
 		}
+
+		acsCentralNamespace, ok := values[2].(string)
+		if !ok {
+			return nil, fmt.Errorf("ACS Central namespace was not provided")
+		}
+
+		acsCentralName, ok := values[3].(string)
+		if !ok {
+			return nil, fmt.Errorf("ACS Central name was not provided")
+		}
+
 		alertCount := wiremodels.SecurityAlertCounts{
 			DetailURL: fmt.Sprintf("%s%s", acsCentralExternalHostPort, stackRoxAlertsDetailsPath),
+			Source:    fmt.Sprintf("%s/%s", acsCentralNamespace, acsCentralName),
 		}
 
 		for _, count := range alertCountSummeryResponse.Groups[0].Counts {

@@ -25,6 +25,10 @@ type SecurityAlertCounts struct {
 	//	https://central-rhacs-operator.apps.../main/violations
 	DetailURL string `gorm:"column:detail_url;not null"`
 
+	// Source is the Central CR instance from which the data was retrieved.
+	// This should follow the format: "<namespace>/<name>"
+	Source string `gorm:"column:source;not null"`
+
 	// CreatedAt is the date and time when the row was created.
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime:true"`
 

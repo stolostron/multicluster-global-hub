@@ -416,7 +416,8 @@ func (s *StackRoxSyncer) sync(ctx context.Context, data *stackRoxData) error {
 			return fmt.Errorf("failed to make a request to central: %v", err)
 		}
 
-		messageStruct, err := request.GenerateFromCache(request.CacheStruct, data.consoleURL)
+		messageStruct, err := request.GenerateFromCache(
+			request.CacheStruct, data.consoleURL, data.key.Namespace, data.key.Name)
 		if err != nil {
 			return fmt.Errorf("failed to generate struct for kafka message: %v", err)
 		}

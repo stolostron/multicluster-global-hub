@@ -14,9 +14,13 @@ type SecurityAlertCounts struct {
 	// Critical is the total number of critical severity alerts.
 	Critical int `json:"critical,omitempty"`
 
-	// DetailURL is the URL where the user can see the details of the alerts of the hub. This
+	// DetailURL is the URL where the user can see the details of the alerts of the Central CR instance in the hub. This
 	// will typically be the URL of the violations tab of the Stackrox Central UI:
 	//
 	//	https://central-rhacs-operator.apps.../main/violations
 	DetailURL string `json:"detail_url,omitempty"`
+
+	// Source is the Central CR instance from which the data was retrieved.
+	// This should follow the format: "<namespace>/<name>"
+	Source string `json:"source,omitempty"`
 }

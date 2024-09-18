@@ -144,12 +144,14 @@ CREATE TABLE IF NOT EXISTS status.transport (
 );
 
 CREATE TABLE IF NOT EXISTS security.alert_counts (
-    hub_name text PRIMARY KEY,
+    hub_name text NOT NULL,
     low integer NOT NULL,
     medium integer NOT NULL,
     high integer NOT NULL,
     critical integer NOT NULL,
     detail_url text NOT NULL,
+    source text NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
-    updated_at timestamp without time zone DEFAULT now() NOT NULL
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    PRIMARY KEY (hub_name, source)
 );
