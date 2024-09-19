@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -52,19 +53,22 @@ func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageR
 	}
 }
 
-func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
+func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
 	storageConn, err := r.ReconcileStorage(ctx, mgh)
 	if err != nil {
-		return fmt.Errorf("storage not ready, Error: %v", err)
+		return true, fmt.Errorf("storage not ready, Error: %v", err)
 	}
 	_ = config.SetStorageConnection(storageConn)
 
-	err = r.reconcileDatabase(ctx, mgh)
+	needRequeue, err := r.reconcileDatabase(ctx, mgh)
 	if err != nil {
-		return fmt.Errorf("database not ready, Error: %v", err)
+		return true, fmt.Errorf("database not ready, Error: %v", err)
+	}
+	if needRequeue {
+		return true, nil
 	}
 	config.SetDatabaseReady(true)
-	return nil
+	return false, nil
 }
 
 func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
@@ -99,24 +103,25 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 	return pgConnection, nil
 }
 
-func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
+func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
 	log := r.log.WithName("database")
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
-		return fmt.Errorf("storage connection is nil")
+		return true, fmt.Errorf("storage connection is nil")
 	}
 
 	if config.ContainConditionStatus(mgh, config.CONDITION_TYPE_DATABASE_INIT, config.CONDITION_STATUS_TRUE) {
 		log.V(7).Info("database has been initialized, checking the reconcile counter")
 		// if the operator is restarted, reconcile the database again
 		if r.databaseReconcileCount > 0 {
-			return nil
+			return false, nil
 		}
 	}
 
 	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
 	if err != nil {
-		return fmt.Errorf("failed to connect to database: %v", err)
+		klog.Infof("wait database ready")
+		return true, nil
 	}
 	defer func() {
 		if err := conn.Close(ctx); err != nil {
@@ -128,7 +133,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	backupEnabled, err := utils.IsBackupEnabled(ctx, r.GetClient())
 	if err != nil {
 		log.Error(err, "failed to get backup status")
-		return err
+		return true, err
 	}
 
 	if backupEnabled || !r.upgrade {
@@ -143,7 +148,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 		_, err = conn.Exec(ctx, lockSql)
 		if err != nil {
 			log.Error(err, "failed to parse database_uri_with_readonlyuser")
-			return err
+			return true, err
 		}
 	}
 
@@ -154,12 +159,12 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	readonlyUsername := objURI.User.Username()
 
 	if err := applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
-		return err
+		return true, err
 	}
 
 	if r.enableGlobalResource {
 		if err := applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
-			return err
+			return true, err
 		}
 	}
 
@@ -167,7 +172,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 		err := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
 		if err != nil {
 			log.Error(err, "failed to exec the upgrade sql files")
-			return err
+			return true, err
 		}
 		r.upgrade = true
 	}
@@ -176,9 +181,9 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	r.databaseReconcileCount++
 	err = config.SetConditionDatabaseInit(ctx, r.GetClient(), mgh, config.CONDITION_STATUS_TRUE)
 	if err != nil {
-		return config.FailToSetConditionError(config.CONDITION_STATUS_TRUE, err)
+		return true, config.FailToSetConditionError(config.CONDITION_STATUS_TRUE, err)
 	}
-	return nil
+	return false, nil
 }
 
 func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir, username string) error {

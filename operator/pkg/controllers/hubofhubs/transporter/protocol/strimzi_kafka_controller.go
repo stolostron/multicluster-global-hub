@@ -39,15 +39,26 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if mgh == nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 	if mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
-	if err := r.trans.EnsureKafka(); err != nil {
+	needRequeue, err := r.trans.EnsureKafka()
+	if err != nil {
 		return ctrl.Result{}, err
 	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
 
-	if err := r.trans.kafkaClusterReady(); err != nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+	kafkaReady, reconcileErr := r.trans.kafkaClusterReady()
+	if reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
+	}
+	if !kafkaReady {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// use the client ca to sign the csr for the managed hubs

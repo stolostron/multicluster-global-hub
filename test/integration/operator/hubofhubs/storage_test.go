@@ -72,7 +72,8 @@ var _ = Describe("storage", Ordered, func() {
 
 		// the subscription
 		Eventually(func() error {
-			return storageReconciler.Reconcile(ctx, mgh)
+			_, err = storageReconciler.Reconcile(ctx, mgh)
+			return err
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)

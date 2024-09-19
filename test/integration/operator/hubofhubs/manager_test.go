@@ -69,8 +69,9 @@ var _ = Describe("manager", Ordered, func() {
 			GlobalResourceEnabled: true,
 		})
 
-		err := reconciler.Reconcile(ctx, mgh)
+		needRequeue, err := reconciler.Reconcile(ctx, mgh)
 		Expect(err).To(Succeed())
+		Expect(needRequeue).To(BeFalse())
 
 		// deployment
 		Eventually(func() error {

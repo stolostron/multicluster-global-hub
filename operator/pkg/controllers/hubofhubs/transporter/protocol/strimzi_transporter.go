@@ -178,14 +178,16 @@ func WithSubName(name string) KafkaOption {
 }
 
 // EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
-func (k *strimziTransporter) EnsureKafka() error {
+func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	k.log.V(2).Info("reconcile global hub kafka transport...")
 	err := k.ensureSubscription(k.mgh)
 	if err != nil {
-		return err
+		return true, err
 	}
+
 	if !config.GetKafkaResourceReady() {
-		return fmt.Errorf("the kafka crds is not ready")
+		klog.Infof("Wait kafka crd ready")
+		return true, nil
 	}
 
 	_, enableKRaft := k.mgh.Annotations[operatorconstants.EnableKRaft]
@@ -194,18 +196,18 @@ func (k *strimziTransporter) EnsureKafka() error {
 	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
 	err = k.renderKafkaResources(k.mgh, enableKRaft)
 	if err != nil {
-		return err
+		return true, err
 	}
 
 	if !enableKRaft {
 		// TODO: use manifest to create kafka cluster
 		err, _ = k.CreateUpdateKafkaCluster(k.mgh)
 		if err != nil {
-			return err
+			return true, err
 		}
 	}
 
-	return nil
+	return false, nil
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
@@ -538,7 +540,7 @@ func (k *strimziTransporter) newKafkaUser(
 }
 
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
-func (k *strimziTransporter) kafkaClusterReady() error {
+func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
@@ -546,10 +548,13 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 	}, kafkaCluster)
 	if err != nil {
 		k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
-		return err
+		if errors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
 	}
 	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-		return fmt.Errorf("kafka cluster status is not ready")
+		return false, nil
 	}
 
 	if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
@@ -565,12 +570,15 @@ func (k *strimziTransporter) kafkaClusterReady() error {
 	}
 
 	for _, condition := range kafkaCluster.Status.Conditions {
-		if *condition.Type == "Ready" && *condition.Status == "True" {
-			k.log.Info("kafka cluster is ready")
-			return nil
+		if *condition.Type == "Ready" {
+			if *condition.Status == "True" {
+				k.log.Info("kafka cluster is ready")
+				return true, nil
+			}
 		}
 	}
-	return fmt.Errorf("kafka cluster is not ready")
+	klog.Infof("Wait kafka cluster ready")
+	return false, nil
 }
 
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {

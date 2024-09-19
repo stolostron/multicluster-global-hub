@@ -48,28 +48,32 @@ func NewPruneReconciler(c client.Client) *PruneReconciler {
 
 func (r *PruneReconciler) Reconcile(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
+) (bool, error) {
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil &&
 		operatorutils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
 		if err := r.pruneWebhookResources(ctx); err != nil {
-			return err
+			return true, err
 		}
-		if err := r.GlobalHubResources(ctx, mgh); err != nil {
-			return fmt.Errorf("failed to prune Global Hub resources %v", err)
+		needRequeue, err := r.GlobalHubResources(ctx, mgh)
+		if err != nil {
+			return true, fmt.Errorf("failed to prune Global Hub resources %v", err)
+		}
+		if needRequeue {
+			return true, nil
 		}
 		if err := r.MetricsResources(ctx); err != nil {
-			return err
+			return true, err
 		}
-		return nil
+		return false, nil
 	}
 	// If webhook do not need to enable, should remove the related resources
 	if config.IsACMResourceReady() && !config.GetImportClusterInHosted() {
 		if err := r.pruneWebhookResources(ctx); err != nil {
-			return err
+			return true, err
 		}
 		if err := r.pruneHostedResources(ctx); err != nil {
-			return err
+			return true, err
 		}
 	}
 
@@ -78,10 +82,10 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 		mgh.Spec.EnableMetrics = false
 		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
 		if err := r.MetricsResources(ctx); err != nil {
-			return err
+			return true, err
 		}
 	}
-	return nil
+	return false, nil
 }
 
 func (r *PruneReconciler) pruneHostedResources(ctx context.Context) error {
@@ -156,32 +160,36 @@ func (r *PruneReconciler) pruneACMResources(ctx context.Context) error {
 
 func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
+) (bool, error) {
 	if config.IsACMResourceReady() {
 		if err := r.pruneACMResources(ctx); err != nil {
-			return err
+			return true, err
 		}
 	}
 
 	if !config.IsBYOKafka() {
-		if err := r.pruneStrimziResources(ctx); err != nil {
-			return err
+		needRequeue, err := r.pruneStrimziResources(ctx)
+		if err != nil {
+			return true, err
+		}
+		if needRequeue {
+			return true, nil
 		}
 	}
 
 	mgh.SetFinalizers(operatorutils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
 	if err := operatorutils.UpdateObject(ctx, r.Client, mgh); err != nil {
-		return err
+		return true, err
 	}
 
 	// clean up namesapced resources, eg. mgh system namespace, etc
 	if err := r.pruneNamespacedResources(ctx); err != nil {
-		return err
+		return true, err
 	}
 
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
-		return err
+		return true, err
 	}
 
 	if config.IsACMResourceReady() {
@@ -189,12 +197,12 @@ func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
 		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
 		if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
-			return err
+			return true, err
 		}
 		r.log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	}
 
-	return nil
+	return false, nil
 }
 
 func (r *PruneReconciler) MetricsResources(ctx context.Context) error {
@@ -377,7 +385,7 @@ func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 	return nil
 }
 
-func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
+func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) (bool, error) {
 	klog.Infof("Remove strimzi resources")
 	listOpts := []client.ListOption{
 		client.HasLabels{constants.GlobalHubOwnerLabelKey},
@@ -385,12 +393,12 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 	kafkaUserList := &kafkav1beta2.KafkaUserList{}
 	klog.Infof("Delete kafkaUsers")
 	if err := r.Client.List(ctx, kafkaUserList, listOpts...); err != nil {
-		return err
+		return true, err
 	}
 	for idx := range kafkaUserList.Items {
 		klog.Infof("Delete kafka user %v", kafkaUserList.Items[idx].Name)
 		if err := r.Client.Delete(ctx, &kafkaUserList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
+			return true, err
 		}
 	}
 
@@ -398,20 +406,21 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 	klog.Infof("Delete kafkaTopics")
 
 	if err := r.Client.List(ctx, kafkaTopicList, listOpts...); err != nil {
-		return err
+		return true, err
 	}
 	for idx := range kafkaTopicList.Items {
 		klog.Infof("Delete kafka topic %v", kafkaTopicList.Items[idx].Name)
 		if err := r.Client.Delete(ctx, &kafkaTopicList.Items[idx]); err != nil && !errors.IsNotFound(err) {
-			return err
+			return true, err
 		}
 	}
-
+	// Wait kafkatopic is removed
 	if err := r.Client.List(ctx, kafkaTopicList, listOpts...); err != nil {
-		return err
+		return true, err
 	}
+
 	if len(kafkaTopicList.Items) != 0 {
-		return fmt.Errorf("kafkatopics still exist, they should be removed. kafkaTopicList:%v", kafkaTopicList.Items)
+		return true, nil
 	}
 
 	kafka := &kafkav1beta2.Kafka{
@@ -423,7 +432,7 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 	klog.Infof("Delete kafka cluster %v", kafka.Name)
 
 	if err := r.Client.Delete(ctx, kafka); err != nil && !errors.IsNotFound(err) {
-		return err
+		return true, err
 	}
 	klog.Infof("kafka cluster deleted")
 
@@ -435,9 +444,9 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 	if err != nil {
 		klog.Errorf("Failed to get strimzi subscription, err:%v", err)
 		if errors.IsNotFound(err) {
-			return nil
+			return false, nil
 		}
-		return err
+		return true, err
 	}
 
 	if kafkaSub.Status.InstalledCSV != "" {
@@ -449,15 +458,15 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) error {
 		}
 		klog.Infof("Delete kafka csv %v", kafkaCsv.Name)
 		if err := r.Client.Delete(ctx, kafkaCsv); err != nil {
-			return err
+			return true, err
 		}
 		klog.Infof("kafka csv deleted")
 	}
 
 	if err := r.Client.Delete(ctx, kafkaSub); err != nil && !errors.IsNotFound(err) {
-		return err
+		return true, err
 	}
 	klog.Infof("kafka subscription deleted")
 
-	return nil
+	return false, nil
 }
