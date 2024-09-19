@@ -185,7 +185,9 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 	return trans.Prune(cluster.Name)
 }
 
-func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha1.ClusterManagementAddOn) (*v1alpha1.ManagedClusterAddOn, error) {
+func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha1.ClusterManagementAddOn) (
+	*v1alpha1.ManagedClusterAddOn, error,
+) {
 	expectedAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
