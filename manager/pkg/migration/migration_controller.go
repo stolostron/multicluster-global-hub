@@ -53,7 +53,7 @@ const (
 // SetupWithManager sets up the controller with the Manager.
 func (m *MigrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("migration-controller").
-		Owns(&migrationv1alpha1.ManagedClusterMigration{}).
+		For(&migrationv1alpha1.ManagedClusterMigration{}).
 		Watches(&v1beta1.ManagedServiceAccount{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				if !obj.GetDeletionTimestamp().IsZero() {

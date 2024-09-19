@@ -22,7 +22,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - secrets
   - serviceaccounts
   - services
   verbs:
@@ -36,6 +35,7 @@ rules:
   - ""
   resources:
   - persistentvolumeclaims
+  - secrets
   verbs:
   - create
   - delete

@@ -302,7 +302,6 @@ spec:
           - ""
           resources:
           - namespaces
-          - secrets
           - serviceaccounts
           - services
           verbs:
@@ -316,6 +315,7 @@ spec:
           - ""
           resources:
           - persistentvolumeclaims
+          - secrets
           verbs:
           - create
           - delete

@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
@@ -108,5 +109,36 @@ var _ = Describe("migration", Ordered, func() {
 			}
 			return nil
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("should have managedserviceaccount deleted when migration is deleted", func() {
+		Expect(mgr.GetClient().Delete(ctx, migrationInstance)).To(Succeed())
+		Expect(mgr.GetClient().Delete(ctx, &v1beta1.ManagedServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "migration",
+				Namespace: "hub2",
+			},
+		})).To(Succeed())
+
+		Eventually(func() bool {
+			msa := &v1beta1.ManagedServiceAccount{}
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name:      "migration",
+				Namespace: "hub2",
+			}, msa)
+			return apierrors.IsNotFound(err)
+		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+	})
+
+	It("should setup with manager without error", func() {
+		Expect(migration.NewMigrationReconciler(mgr).SetupWithManager(mgr)).To(Succeed())
+	})
+
+	AfterAll(func() {
+		mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
+		Expect(mgr.GetClient().Delete(ctx, mghSystemNamespace)).Should(Succeed())
+
+		hub2Namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "hub2"}}
+		Expect(mgr.GetClient().Delete(ctx, hub2Namespace)).Should(Succeed())
 	})
 })

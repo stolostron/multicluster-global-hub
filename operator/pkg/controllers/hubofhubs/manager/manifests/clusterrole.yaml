@@ -165,7 +165,6 @@ rules:
   - list
   - watch
   - update
-  - patch
   - delete
 - apiGroups:
   - "global-hub.open-cluster-management.io"
