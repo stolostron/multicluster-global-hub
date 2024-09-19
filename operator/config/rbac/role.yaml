@@ -147,6 +147,17 @@ rules:
   - patch
   - update
 - apiGroups:
+  - authentication.open-cluster-management.io
+  resources:
+  - managedserviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - authorization.k8s.io
   resources:
   - subjectaccessreviews
@@ -225,6 +236,15 @@ rules:
   - get
   - list
   - patch
+  - update
+  - watch
+- apiGroups:
+  - global-hub.open-cluster-management.io
+  resources:
+  - managedclustermigrations
+  verbs:
+  - get
+  - list
   - update
   - watch
 - apiGroups:

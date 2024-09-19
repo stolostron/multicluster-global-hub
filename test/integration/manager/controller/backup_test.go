@@ -10,7 +10,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -49,7 +48,7 @@ var (
 )
 
 var postgresPvc = &corev1.PersistentVolumeClaim{
-	ObjectMeta: v1.ObjectMeta{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      pvcName,
 		Namespace: pvcNamespace,
 	},
@@ -69,10 +68,10 @@ var _ = Describe("backup pvc", Ordered, func() {
 	var backupReconciler *backup.BackupPVCReconciler
 	BeforeAll(func() {
 		By("Creating the namespace")
-		mghSystemNamespace := &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: constants.GHDefaultNamespace}}
+		mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
 		err := mgr.GetClient().Create(ctx, mghSystemNamespace)
 		Expect(err).Should(Succeed())
-		mchNamespace := &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: "open-cluster-management"}}
+		mchNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "open-cluster-management"}}
 		err = mgr.GetClient().Create(ctx, mchNamespace)
 		Expect(err).Should(Succeed())
 
