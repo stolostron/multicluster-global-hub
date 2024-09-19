@@ -27,10 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
@@ -224,9 +224,18 @@ func createManager(ctx context.Context,
 	if err := cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, enableSimulation); err != nil {
 		return nil, fmt.Errorf("failed to add scheduler to manager: %w", err)
 	}
+	if !managerConfig.WithACM {
+		return mgr, nil
+	}
+
 	// need lock DB for backup
 	backupPVC := backup.NewBackupPVCReconciler(mgr, sqlConn)
 	if err := backupPVC.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+	// start managedclustermigration controller
+	migrationCtrl := migration.NewMigrationReconciler(mgr)
+	if err := migrationCtrl.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
 	if managerConfig.EnableGlobalResource {
@@ -237,7 +246,7 @@ func createManager(ctx context.Context,
 	return mgr, nil
 }
 
-func transportCallback(mgr ctrl.Manager, managerConfig *config.ManagerConfig) controller.TransportCallback {
+func transportCallback(mgr ctrl.Manager, managerConfig *managerconfig.ManagerConfig) controller.TransportCallback {
 	return func(producer transport.Producer, consumer transport.Consumer) error {
 		if !managerConfig.WithACM {
 			return nil

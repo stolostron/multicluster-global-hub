@@ -95,6 +95,7 @@ rules:
   - pods
   - configmaps
   - events
+  - secrets
   - persistentvolumeclaims
   verbs:
   - create
@@ -154,3 +155,24 @@ rules:
   - customresourcedefinitions
   verbs:
   - get
+- apiGroups:
+  - "authentication.open-cluster-management.io"
+  resources:
+  - managedserviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - "global-hub.open-cluster-management.io"
+  resources:
+  - managedclustermigrations
+  verbs:
+  - get
+  - list
+  - watch
+  - update
