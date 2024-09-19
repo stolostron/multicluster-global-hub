@@ -68,7 +68,6 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if !clusterManagementAddOn.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
-
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: req.NamespacedName.Name,
@@ -86,18 +85,20 @@ func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// delete the resources
 	if !cluster.DeletionTimestamp.IsZero() ||
 		deployMode == operatorconstants.GHAgentDeployModeNone {
-		r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "deployMode", deployMode)
+		r.Log.Info("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
 		}
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, r.reconclieAddonAndResources(ctx, cluster)
+	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 }
 
-func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
-	expectedAddon, err := expectedManagedClusterAddon(cluster)
+func (r *AddonInstaller) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster,
+	cma *v1alpha1.ClusterManagementAddOn,
+) error {
+	expectedAddon, err := expectedManagedClusterAddon(cluster, cma)
 	if err != nil {
 		return err
 	}
@@ -112,7 +113,7 @@ func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster
 	// create is not found, update if err == nil
 	if err != nil {
 		if errors.IsNotFound(err) {
-			r.Log.Info("creating resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+			r.Log.Info("creating resources and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
 			if e := r.Create(ctx, expectedAddon); e != nil {
 				return e
 			}
@@ -122,7 +123,7 @@ func (r *AddonInstaller) reconclieAddonAndResources(ctx context.Context, cluster
 	} else {
 		// delete
 		if !existingAddon.DeletionTimestamp.IsZero() {
-			r.Log.Info("deleting resourcs and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+			r.Log.Info("deleting resources and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
 			return r.removeResourcesAndAddon(ctx, cluster)
 		}
 
@@ -184,13 +185,21 @@ func (r *AddonInstaller) removeResourcesAndAddon(ctx context.Context, cluster *c
 	return trans.Prune(cluster.Name)
 }
 
-func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster) (*v1alpha1.ManagedClusterAddOn, error) {
+func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha1.ClusterManagementAddOn) (*v1alpha1.ManagedClusterAddOn, error) {
 	expectedAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "addon.open-cluster-management.io/v1alpha1",
+					Kind:       "ClusterManagementAddOn",
+					Name:       cma.Name,
+					UID:        cma.GetUID(),
+				},
 			},
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
