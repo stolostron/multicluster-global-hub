@@ -3,6 +3,7 @@ package prune
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -18,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,6 +29,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	addonController "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -52,6 +55,21 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 	// Deleting the multiclusterglobalhub instance
 	if mgh.GetDeletionTimestamp() != nil &&
 		operatorutils.Contains(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer) {
+		if config.GetImportClusterInHosted() {
+			hasmanagedHub, err := r.hasManagedHub(ctx)
+			if err != nil {
+				return true, err
+			}
+			if hasmanagedHub {
+				klog.Errorf("please detach all the managedhub clusters before uninstall globalhub")
+				return true, nil
+			}
+		}
+
+		if err := r.revertClusterManagementAddon(ctx); err != nil {
+			return true, err
+		}
+
 		if err := r.pruneWebhookResources(ctx); err != nil {
 			return true, err
 		}
@@ -86,6 +104,59 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 		}
 	}
 	return false, nil
+}
+
+func (r *PruneReconciler) hasManagedHub(ctx context.Context) (bool, error) {
+	mcaList := &v1alpha1.ManagedClusterAddOnList{}
+	err := r.Client.List(ctx, mcaList)
+	if err != nil {
+		return false, err
+	}
+	for _, mca := range mcaList.Items {
+		if mca.Name == operatorconstants.GHManagedClusterAddonName {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (r *PruneReconciler) revertClusterManagementAddon(ctx context.Context) error {
+	cmaList := &v1alpha1.ClusterManagementAddOnList{}
+	err := r.Client.List(ctx, cmaList)
+	if err != nil {
+		return err
+	}
+	for _, cma := range cmaList.Items {
+		if !addonController.AddonList.Has(cma.Name) {
+			continue
+		}
+		err = r.removeGlobalhubConfig(ctx, cma)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *PruneReconciler) removeGlobalhubConfig(ctx context.Context, cma v1alpha1.ClusterManagementAddOn) error {
+	if len(cma.Spec.InstallStrategy.Placements) == 0 {
+		return nil
+	}
+	var desiredPlacementStrategy []addonv1alpha1.PlacementStrategy
+	exist := false
+	for _, pl := range cma.Spec.InstallStrategy.Placements {
+		if reflect.DeepEqual(pl.PlacementRef, addonController.GlobalhubCmaConfig.PlacementRef) {
+			exist = true
+			continue
+		}
+		desiredPlacementStrategy = append(desiredPlacementStrategy, pl)
+	}
+	if !exist {
+		return nil
+	}
+	cma.Spec.InstallStrategy.Placements = desiredPlacementStrategy
+	return r.Client.Update(ctx, &cma)
 }
 
 func (r *PruneReconciler) pruneHostedResources(ctx context.Context) error {

@@ -2,6 +2,7 @@ package prune
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -12,12 +13,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	addonController "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -350,6 +354,176 @@ func TestWebhookResources(t *testing.T) {
 			}
 			if len(webhookServiceList.Items) != tt.webhookItem {
 				t.Errorf("Name:%v,Existing webhookServiceList:%v, want webhook items:%v", tt.name, len(webhookServiceList.Items), tt.webhookItem)
+			}
+		})
+	}
+}
+
+func TestPruneReconciler_hasManagedHub(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmas    []runtime.Object
+		want    bool
+		wantErr bool
+	}{
+		{
+			name:    "no mca",
+			cmas:    []runtime.Object{},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "has mca",
+			cmas: []runtime.Object{
+				&addonv1alpha1.ManagedClusterAddOn{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      operatorconstants.GHManagedClusterAddonName,
+						Namespace: "mh1",
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addonv1alpha1.AddToScheme(scheme.Scheme)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.cmas...).Build()
+			r := NewPruneReconciler(fakeClient)
+			ctx := context.Background()
+			got, err := r.hasManagedHub(ctx)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PruneReconciler.hasManagedHub() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("PruneReconciler.hasManagedHub() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmas    []runtime.Object
+		wantErr bool
+	}{
+		{
+			name:    "no cma",
+			cmas:    []runtime.Object{},
+			wantErr: false,
+		},
+		{
+			name: "cma do not have placements",
+			cmas: []runtime.Object{
+				&v1alpha1.ClusterManagementAddOn{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "work-manager",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "cma do not have target placements",
+			cmas: []runtime.Object{
+				&v1alpha1.ClusterManagementAddOn{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "work-manager",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+					Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+						InstallStrategy: addonv1alpha1.InstallStrategy{
+							Placements: []addonv1alpha1.PlacementStrategy{
+								v1alpha1.PlacementStrategy{
+									PlacementRef: v1alpha1.PlacementRef{
+										Namespace: constants.GHDefaultNamespace,
+										Name:      "global",
+									},
+									Configs: []v1alpha1.AddOnConfig{
+										{
+											ConfigReferent: v1alpha1.ConfigReferent{
+												Name:      "global-hub",
+												Namespace: constants.GHDefaultNamespace,
+											},
+											ConfigGroupResource: v1alpha1.ConfigGroupResource{
+												Group:    "addon.open-cluster-management.io",
+												Resource: "addondeploymentconfigs",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "cma have target placements",
+			cmas: []runtime.Object{
+				&v1alpha1.ClusterManagementAddOn{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "work-manager",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+					Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+						InstallStrategy: addonv1alpha1.InstallStrategy{
+							Placements: []addonv1alpha1.PlacementStrategy{
+								v1alpha1.PlacementStrategy{
+									PlacementRef: v1alpha1.PlacementRef{
+										Namespace: constants.GHDefaultNamespace,
+										Name:      "non-local-cluster",
+									},
+									Configs: []v1alpha1.AddOnConfig{
+										{
+											ConfigReferent: v1alpha1.ConfigReferent{
+												Name:      "global-hub",
+												Namespace: constants.GHDefaultNamespace,
+											},
+											ConfigGroupResource: v1alpha1.ConfigGroupResource{
+												Group:    "addon.open-cluster-management.io",
+												Resource: "addondeploymentconfigs",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addonv1alpha1.AddToScheme(scheme.Scheme)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.cmas...).Build()
+			r := NewPruneReconciler(fakeClient)
+			ctx := context.Background()
+			if err := r.revertClusterManagementAddon(ctx); (err != nil) != tt.wantErr {
+				t.Errorf("PruneReconciler.revertClusterManagementAddon() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			cmaList := &v1alpha1.ClusterManagementAddOnList{}
+
+			err := r.Client.List(ctx, cmaList)
+			if err != nil {
+				t.Errorf("Failed to list cma:%v", err)
+			}
+			for _, cma := range cmaList.Items {
+				if !addonController.AddonList.Has(cma.Name) {
+					continue
+				}
+				for _, pl := range cma.Spec.InstallStrategy.Placements {
+					if reflect.DeepEqual(pl.PlacementRef, addonController.GlobalhubCmaConfig.PlacementRef) {
+						t.Errorf("Failed to revert cma")
+					}
+				}
 			}
 		})
 	}

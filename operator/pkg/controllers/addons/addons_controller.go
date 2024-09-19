@@ -19,6 +19,7 @@ package addons
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -39,16 +40,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-var addonList = sets.NewString(
+var AddonList = sets.NewString(
 	"work-manager",
 	"cluster-proxy",
 	"managed-serviceaccount",
 )
 
-var newNamespaceConfig = v1alpha1.PlacementStrategy{
+var GlobalhubCmaConfig = v1alpha1.PlacementStrategy{
 	PlacementRef: v1alpha1.PlacementRef{
-		Namespace: "open-cluster-management-global-set",
-		Name:      "global",
+		Namespace: constants.GHDefaultNamespace,
+		Name:      "non-local-cluster",
 	},
 	Configs: []v1alpha1.AddOnConfig{
 		{
@@ -86,7 +87,7 @@ func (r *AddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
-				for v := range addonList {
+				for v := range AddonList {
 					request := reconcile.Request{
 						NamespacedName: types.NamespacedName{
 							Name: v,
@@ -101,10 +102,10 @@ func (r *AddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 var addonPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return addonList.Has(e.Object.GetName())
+		return AddonList.Has(e.Object.GetName())
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return addonList.Has(e.ObjectNew.GetName())
+		return AddonList.Has(e.ObjectNew.GetName())
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -135,8 +136,15 @@ func (r *AddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !config.GetImportClusterInHosted() {
 		return ctrl.Result{}, nil
 	}
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
+	if err != nil || mgh == nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	if mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
 	cma := &v1alpha1.ClusterManagementAddOn{}
-	err := r.Client.Get(ctx, req.NamespacedName, cma)
+	err = r.Client.Get(ctx, req.NamespacedName, cma)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -157,19 +165,19 @@ func (r *AddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // addAddonConfig add the config to cma, will return true if the cma updated
 func addAddonConfig(cma *v1alpha1.ClusterManagementAddOn) bool {
 	if len(cma.Spec.InstallStrategy.Placements) == 0 {
-		cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, newNamespaceConfig)
+		cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, GlobalhubCmaConfig)
 		return true
 	}
 	for i, pl := range cma.Spec.InstallStrategy.Placements {
-		if !reflect.DeepEqual(pl.PlacementRef, newNamespaceConfig.PlacementRef) {
+		if !reflect.DeepEqual(pl.PlacementRef, GlobalhubCmaConfig.PlacementRef) {
 			continue
 		}
-		if reflect.DeepEqual(pl.Configs, newNamespaceConfig.Configs) {
+		if reflect.DeepEqual(pl.Configs, GlobalhubCmaConfig.Configs) {
 			return false
 		}
-		cma.Spec.InstallStrategy.Placements[i].Configs = append(pl.Configs, newNamespaceConfig.Configs...)
+		cma.Spec.InstallStrategy.Placements[i].Configs = append(pl.Configs, GlobalhubCmaConfig.Configs...)
 		return true
 	}
-	cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, newNamespaceConfig)
+	cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, GlobalhubCmaConfig)
 	return true
 }
