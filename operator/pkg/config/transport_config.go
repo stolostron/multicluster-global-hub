@@ -29,6 +29,7 @@ var (
 	transporterProtocol transport.TransportProtocol
 	transporterInstance transport.Transporter
 	transporterConn     *transport.KafkaConnCredential
+	enableInventory     = false
 	isBYOKafka          = false
 	specTopic           = ""
 	statusTopic         = ""
@@ -80,14 +81,17 @@ func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 
 // SetTransportConfig sets the kafka type, protocol and topics
 func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
+	// set the transport type
 	if err := SetKafkaType(ctx, runtimeClient, mgh.Namespace); err != nil {
 		return err
 	}
 
+	// set the inventory
+	enableInventory = WithInventory(mgh)
+
 	// set the topic
 	specTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.SpecTopic
 	statusTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic
-
 	if !isValidKafkaTopicName(specTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
@@ -191,6 +195,11 @@ func GetClientCA() ([]byte, []byte) {
 }
 
 func SetClientCA(ctx context.Context, namespace, name string, c client.Client) error {
+	// if enable the inventory api, should use the inventory client ca
+	if EnableInventory() {
+		return nil
+	}
+
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca", name),
@@ -225,7 +234,27 @@ func SetClientCA(ctx context.Context, namespace, name string, c client.Client) e
 	return nil
 }
 
+func EnableInventory() bool {
+	return enableInventory
+}
+
+// GetTransportConfigClientName gives the client name based on the cluster name, it could be kafkauser or inventory name
+func GetTransportConfigClientName(clusterName string) string {
+	if TransporterProtocol() == transport.StrimziTransporter {
+		return GetKafkaUserName(clusterName)
+	}
+	if EnableInventory() {
+		return GetInventoryClientName(clusterName)
+	}
+	return ""
+}
+
 // GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate
 func GetKafkaUserName(clusterName string) string {
 	return fmt.Sprintf("%s-kafka-user", clusterName)
+}
+
+// GetInventoryClientName gives a inventory client name based on the cluster name, it's also the CN of the certificate
+func GetInventoryClientName(clusterName string) string {
+	return fmt.Sprintf("%s-client", clusterName)
 }
