@@ -78,7 +78,7 @@ spec:
           limits:
             # cpu: 50m
             # https://home.robusta.dev/blog/stop-using-cpu-limits
-            memory: 200Mi
+            memory: 500Mi
           requests:
             cpu: 1m
             memory: 100Mi
