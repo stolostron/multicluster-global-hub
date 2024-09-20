@@ -195,6 +195,7 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
+			// The OwnerReferences will be added automatically by the addon-manager(OCM) in the production evnvironment.
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: "addon.open-cluster-management.io/v1alpha1",
