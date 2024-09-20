@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -39,4 +43,23 @@ func GetTransportSecret() (*v1.Secret, error) {
 		return nil, fmt.Errorf("failed to get secret %v", err)
 	}
 	return secret, nil
+}
+
+func GetTransportConfigSecret(namespace, name string) (*corev1.Secret, error) {
+	kubeconfig, err := DefaultKubeConfig()
+	if err != nil {
+		return nil, err
+	}
+	c, err := client.New(kubeconfig, client.Options{Scheme: operatorconfig.GetRuntimeScheme()})
+	if err != nil {
+		return nil, err
+	}
+
+	transportConfig := &corev1.Secret{}
+
+	err = c.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, transportConfig)
+	if err != nil {
+		return nil, err
+	}
+	return transportConfig, nil
 }

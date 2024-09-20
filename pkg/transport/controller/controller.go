@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"reflect"
 	"sync"
@@ -15,7 +14,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
@@ -68,13 +66,79 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// load the kafka connection credentail based on the transport type. kafka, multiple
-	kafkaConn, err := config.GetTransportCredentailBySecret(secret, c.runtimeClient)
+	_, isKafka := secret.Data["kafka.yaml"]
+	if isKafka {
+		c.transportConfig.TransportType = string(transport.Kafka)
+	}
+
+	_, isRestful := secret.Data["rest.yaml"]
+	if isRestful {
+		c.transportConfig.TransportType = string(transport.Rest)
+	}
+
+	var updated bool
+	var err error
+	switch c.transportConfig.TransportType {
+	case string(transport.Kafka):
+		updated, err = c.ReconcileKafkaCredentail(ctx, secret)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	case string(transport.Rest):
+		updated, err = c.ReconcileRestfulCredentail(ctx, secret)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	default:
+		return ctrl.Result{}, fmt.Errorf("unsupported transport type: %s", c.transportConfig.TransportType)
+	}
+
+	if !updated {
+		return ctrl.Result{}, nil
+	}
+
+	// secret is changed, then create/update the producer
+	err = c.ReconcileProducer()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	klog.Info("the transport producer is created/updated")
 
-	// update the kafka credential secret colletions for the predicates
+	if c.producer != nil && c.callback != nil {
+		if err := c.callback(c.producer, c.consumer); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// ReconcileProducer, transport config is changed, then create/update the producer
+func (c *TransportCtrl) ReconcileProducer() error {
+	if c.producer == nil {
+		sender, err := producer.NewGenericProducer(c.transportConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create/update the producer: %w", err)
+		}
+		c.producer = sender
+	} else {
+		if err := c.producer.Reconnect(c.transportConfig); err != nil {
+			return fmt.Errorf("failed to reconnect the producer: %w", err)
+		}
+	}
+	return nil
+}
+
+// ReconcileKafkaCredentail update the kafka connection credentail based on the secret, return true if the kafka
+// credentail is updated, It also create/update the consumer if not in the standalone mode
+func (c *TransportCtrl) ReconcileKafkaCredentail(ctx context.Context, secret *corev1.Secret) (updated bool, err error) {
+	// load the kafka connection credentail based on the transport type. kafka, multiple
+	kafkaConn, err := config.GetTransportCredentailBySecret(secret, c.runtimeClient)
+	if err != nil {
+		return updated, err
+	}
+
+	// update the wathing secret lits
 	if kafkaConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.CASecretName)
 	}
@@ -82,61 +146,54 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.ClientSecretName)
 	}
 
-	restfulConn, err := c.GetRestfulConnBySecret(secret)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// if credentials aren't updated, then return
-	if reflect.DeepEqual(c.transportConfig.KafkaCredential, kafkaConn) &&
-		reflect.DeepEqual(c.transportConfig.RestfulCredentail, restfulConn) {
-		return ctrl.Result{}, nil
+	if reflect.DeepEqual(c.transportConfig.KafkaCredential, kafkaConn) {
+		return
 	}
 	c.transportConfig.KafkaCredential = kafkaConn
-	c.transportConfig.RestfulCredentail = restfulConn
+	updated = true
 
-	// transport config is changed, then create/update the consumer/producer
-	if c.producer == nil {
-		sender, err := producer.NewGenericProducer(c.transportConfig)
+	// if the consumer groupId is empty, then it's means the agent is in the standalone mode, don't create the consumer
+	if c.transportConfig.ConsumerGroupId == "" {
+		return
+	}
+
+	// create/update the consumer with the kafka transport
+	if c.consumer == nil {
+		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create/update the producer: %w", err)
+			return updated, fmt.Errorf("failed to create the consumer: %w", err)
 		}
-		c.producer = sender
+		c.consumer = receiver
+		go func() {
+			if err = c.consumer.Start(ctx); err != nil {
+				klog.Errorf("failed to start the consumser: %v", err)
+			}
+		}()
 	} else {
-		if err := c.producer.Reconnect(c.transportConfig); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconnect the producer: %w", err)
+		if err := c.consumer.Reconnect(ctx, c.transportConfig); err != nil {
+			return updated, fmt.Errorf("failed to reconnect the consumer: %w", err)
 		}
 	}
+	klog.Info("the transport(kafka) onsumer is created/updated")
 
-	// don't create the consumer when the consumer groupId is empty, that means the agent maybe in the standalone mode
-	if c.transportConfig.ConsumerGroupId != "" {
-		if c.consumer == nil {
-			receiver, err := consumer.NewGenericConsumer(c.transportConfig)
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to create the consumer: %w", err)
-			}
-			c.consumer = receiver
-			go func() {
-				if err = c.consumer.Start(ctx); err != nil {
-					klog.Errorf("failed to start the consumser: %v", err)
-				}
-			}()
-		} else {
-			if err := c.consumer.Reconnect(ctx, c.transportConfig); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to reconnect the consumer: %w", err)
-			}
-		}
+	return updated, nil
+}
+
+func (c *TransportCtrl) ReconcileRestfulCredentail(ctx context.Context, secret *corev1.Secret) (
+	updated bool, err error,
+) {
+	restfulConn, err := config.GetRestfulConnBySecret(secret)
+	if err != nil {
+		return updated, err
 	}
 
-	klog.Info("the transport secret(producer, consumer) is created/updated")
-
-	if c.callback != nil {
-		if err := c.callback(c.producer, c.consumer); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
-		}
+	if reflect.DeepEqual(c.transportConfig.RestfulCredentail, restfulConn) {
+		return
 	}
-
-	return ctrl.Result{}, nil
+	updated = true
+	c.transportConfig.RestfulCredentail = restfulConn
+	return
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -177,41 +234,4 @@ func (c *TransportCtrl) credentialSecret(name string) bool {
 		}
 	}
 	return false
-}
-
-func (c *TransportCtrl) GetRestfulConnBySecret(transportConfig *corev1.Secret) (
-	*transport.RestfulConnCredentail, error,
-) {
-	restfulYaml, ok := transportConfig.Data["rest.yaml"]
-	if !ok {
-		return nil, nil
-	}
-	restfulConn := &transport.RestfulConnCredentail{}
-	if err := yaml.Unmarshal(restfulYaml, restfulConn); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
-	}
-
-	// decode the ca and client cert
-	if restfulConn.CACert != "" {
-		bytes, err := base64.StdEncoding.DecodeString(restfulConn.CACert)
-		if err != nil {
-			return nil, err
-		}
-		restfulConn.CACert = string(bytes)
-	}
-	if restfulConn.ClientCert != "" {
-		bytes, err := base64.StdEncoding.DecodeString(restfulConn.ClientCert)
-		if err != nil {
-			return nil, err
-		}
-		restfulConn.ClientCert = string(bytes)
-	}
-	if restfulConn.ClientKey != "" {
-		bytes, err := base64.StdEncoding.DecodeString(restfulConn.ClientKey)
-		if err != nil {
-			return nil, err
-		}
-		restfulConn.ClientKey = string(bytes)
-	}
-	return restfulConn, nil
 }

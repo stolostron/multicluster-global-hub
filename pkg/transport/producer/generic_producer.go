@@ -18,6 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/client"
 )
 
 const (
@@ -27,8 +28,9 @@ const (
 
 type GenericProducer struct {
 	log              logr.Logger
-	clientProtocol   interface{}
-	client           cloudevents.Client
+	ceProtocol       interface{}
+	ceClient         cloudevents.Client
+	inventoryClient  *client.InventoryClient
 	messageSizeLimit int
 }
 
@@ -46,17 +48,21 @@ func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericPro
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	// inventory client
+	if p.inventoryClient != nil {
+		return p.inventoryClient.Request(ctx, evt)
+	}
+	// cloudevent kafka/gochan client
 	// message key
 	evtCtx := ctx
 	if kafka_confluent.MessageKeyFrom(ctx) == "" {
 		evtCtx = kafka_confluent.WithMessageKey(ctx, evt.Type())
 	}
-
 	// data
 	payloadBytes := evt.Data()
 	chunks := p.splitPayloadIntoChunks(payloadBytes)
 	if len(chunks) == 1 {
-		if ret := p.client.Send(evtCtx, evt); cloudevents.IsUndelivered(ret) {
+		if ret := p.ceClient.Send(evtCtx, evt); cloudevents.IsUndelivered(ret) {
 			return fmt.Errorf("failed to send event to transport: %v", ret)
 		}
 		return nil
@@ -70,7 +76,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 		if err := evt.SetData(cloudevents.ApplicationJSON, chunk); err != nil {
 			return fmt.Errorf("failed to set cloudevents data: %v", evt)
 		}
-		if result := p.client.Send(evtCtx, evt); cloudevents.IsUndelivered(result) {
+		if result := p.ceClient.Send(evtCtx, evt); cloudevents.IsUndelivered(result) {
 			return fmt.Errorf("failed to send events to transport: %v", result)
 		}
 	}
@@ -79,7 +85,12 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 
 // Reconnect close the previous producer state and init a new producer
 func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
-	closer, ok := p.clientProtocol.(protocol.Closer)
+	// invenory client
+	if config.TransportType == string(transport.Rest) {
+		return p.inventoryClient.RefreshCredential(context.Background(), config.RestfulCredentail)
+	}
+	// cloudevent kafka/gochan client
+	closer, ok := p.ceProtocol.(protocol.Closer)
 	if ok {
 		if err := closer.Close(context.Background()); err != nil {
 			return fmt.Errorf("failed to close the previous producer: %w", err)
@@ -90,9 +101,13 @@ func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
 
 // initClient will init/update the client, clientProtocol and messageLimitSize based on the transportConfig
 func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig) error {
-	topic := transportConfig.KafkaCredential.SpecTopic
-	if !transportConfig.IsManager {
-		topic = transportConfig.KafkaCredential.StatusTopic
+	topic := ""
+	if transportConfig.TransportType == string(transport.Kafka) ||
+		transportConfig.TransportType == string(transport.Chan) {
+		topic = transportConfig.KafkaCredential.SpecTopic
+		if !transportConfig.IsManager {
+			topic = transportConfig.KafkaCredential.StatusTopic
+		}
 	}
 
 	switch transportConfig.TransportType {
@@ -107,7 +122,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 			return err
 		}
 		handleProducerEvents(p.log, eventChan)
-		p.clientProtocol = kafkaProtocol
+		p.ceProtocol = kafkaProtocol
 	case string(transport.Chan):
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -115,21 +130,28 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		if _, found := transportConfig.Extends[topic]; !found {
 			transportConfig.Extends[topic] = gochan.New()
 		}
-		p.clientProtocol = transportConfig.Extends[topic]
+		p.ceProtocol = transportConfig.Extends[topic]
 	case string(transport.Rest):
 		if transportConfig.RestfulCredentail == nil {
 			return fmt.Errorf("the restful credentail must not be nil")
 		}
+		inventoryClient, err := client.NewInventoryClient(context.Background(), transportConfig.RestfulCredentail)
+		if err != nil {
+			return fmt.Errorf("initial the inventory client error %w", err)
+		}
+		p.inventoryClient = inventoryClient
 	default:
 		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}
 
 	// kafka or gochan protocol
-	client, err := cloudevents.NewClient(p.clientProtocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
-	if err != nil {
-		return err
+	if p.ceProtocol != nil {
+		client, err := cloudevents.NewClient(p.ceProtocol, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
+		if err != nil {
+			return err
+		}
+		p.ceClient = client
 	}
-	p.client = client
 	return nil
 }
 

@@ -30,6 +30,16 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	if statusCtrlStarted {
 		return nil
 	}
+	// managed cluster info
+	if err := managedclusters.LaunchManagedClusterInfoSyncer(ctx, mgr, agentConfig, producer); err != nil {
+		return fmt.Errorf("failed to launch managedclusterinfo syncer: %w", err)
+	}
+
+	// if it's rest transport, skip the following controllers
+	if agentConfig.TransportConfig.TransportType == string(transport.Rest) {
+		statusCtrlStarted = true
+		return nil
+	}
 
 	if err := agentstatusconfig.AddConfigController(mgr, agentConfig); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
@@ -86,6 +96,5 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
 
-	statusCtrlStarted = true
 	return nil
 }

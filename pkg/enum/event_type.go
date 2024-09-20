@@ -8,6 +8,7 @@ const (
 	HubClusterInfoType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info"
 	HubClusterHeartbeatType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat"
 	ManagedClusterType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+	ManagedClusterInfoType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedclusterinfo"
 	SubscriptionReportType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.report"
 	SubscriptionStatusType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.status"
 

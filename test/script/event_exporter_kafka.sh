@@ -9,7 +9,7 @@ CURRENT_DIR=$(
 source "$CURRENT_DIR/util.sh"
 
 KUBECONFIG=${1:-$KUBECONFIG}        # the kubeconfig for running the kafka
-SECRET_KUBECONFIG=${2:-$KUBECONFIG} # generate the crenditial secret
+SECRET_KUBECONFIG=${2:-$KUBECONFIG} # the kubeconfig for generating the kafka connection secret
 
 kafka_namespace=${KAFKA_NAMESPACE:-"kafka"}
 secret_namespace=${SECRET_NAMESPACE:-"open-cluster-management"}
@@ -48,16 +48,3 @@ kubectl create secret generic transport-config -n "$secret_namespace" --kubeconf
   --from-file=kafka.yaml="$CURRENT_DIR/kafka.yaml"
 rm "$CURRENT_DIR/kafka.yaml"
 echo "kafka configuration is ready!"
-
-# host=$(kubectl get route inventory-api -n "$kafka_namespace" -ojsonpath='{.spec.host}')
-# cat <<EOF >"$CURRENT_DIR/inventory.yaml"
-# host: https://$host
-# ca.crt: $(kubectl get secret inventory-api-server-ca-certs -n "$kafka_namespace" -ojsonpath='{.data.ca\.crt}')
-# client.crt: $(kubectl get secret inventory-api-guest-certs -n "$kafka_namespace" -ojsonpath='{.data.tls\.crt}')
-# client.key: $(kubectl get secret inventory-api-guest-certs -n "$kafka_namespace" -ojsonpath='{.data.tls\.key}')
-# EOF
-
-# kubectl patch secret transport-config -n "$secret_namespace" --kubeconfig "$SECRET_KUBECONFIG" \
-#   --type='json' \
-#   -p='[{"op": "add", "path": "/data/inventory.yaml", "value":"'"$(base64 -w 0 "$CURRENT_DIR/inventory.yaml")"'"}]'
-# rm "$CURRENT_DIR/inventory.yaml"

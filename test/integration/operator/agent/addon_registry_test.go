@@ -20,7 +20,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
-// go test ./test/integration/operator/addon -ginkgo.focus "addon registry" -v
+// go test ./test/integration/operator/agent -ginkgo.focus "addon registry" -v
 var _ = Describe("addon registry", Ordered, func() {
 	BeforeAll(func() {
 	})

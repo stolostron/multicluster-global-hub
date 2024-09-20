@@ -25,7 +25,6 @@ func TestParseFlags(t *testing.T) {
 		"cmd",
 		"--leaf-hub-name=test-hub",
 		"--pod-namespace=test-namespace",
-		"--transport-type=kafka",
 		"--consumer-worker-pool-size=5",
 	}
 
@@ -33,7 +32,6 @@ func TestParseFlags(t *testing.T) {
 
 	assert.Equal(t, "test-hub", agentConfig.LeafHubName)
 	assert.Equal(t, "test-namespace", agentConfig.PodNamespace)
-	assert.Equal(t, "kafka", agentConfig.TransportConfig.TransportType)
 	assert.Equal(t, 5, agentConfig.SpecWorkPoolSize)
 }
 
