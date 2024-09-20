@@ -5,6 +5,14 @@ metadata:
     alm-examples: |-
       [
         {
+          "apiVersion": "global-hub.open-cluster-management.io/v1alpha1",
+          "kind": "ManagedClusterMigration",
+          "metadata": {
+            "name": "migration-sample"
+          },
+          "spec": {}
+        },
+        {
           "apiVersion": "operator.open-cluster-management.io/v1alpha4",
           "kind": "MulticlusterGlobalHub",
           "metadata": {
@@ -23,7 +31,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-09-13T07:24:35Z"
+    createdAt: "2024-09-20T09:06:18Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.2.0 <1.3.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
