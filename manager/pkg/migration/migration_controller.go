@@ -29,6 +29,7 @@ import (
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // MigrationReconciler reconciles a ManagedClusterMigration object
@@ -62,7 +63,7 @@ func (m *MigrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 						{
 							NamespacedName: types.NamespacedName{
 								Name:      obj.GetName(),
-								Namespace: constants.GHDefaultNamespace,
+								Namespace: utils.GetDefaultNamespace(),
 							},
 						},
 					}
@@ -104,7 +105,7 @@ func (m *MigrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (m *MigrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	if req.Namespace == constants.GHDefaultNamespace {
+	if req.Namespace == utils.GetDefaultNamespace() {
 		// create managedserviceaccount
 		migration := &migrationv1alpha1.ManagedClusterMigration{}
 		err := m.Get(ctx, req.NamespacedName, migration)

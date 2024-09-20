@@ -14,19 +14,16 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var _ = Describe("migration", Ordered, func() {
 	var migrationInstance *migrationv1alpha1.ManagedClusterMigration
+	var migrationReconciler *migration.MigrationReconciler
 	BeforeAll(func() {
-		mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
-		Expect(mgr.GetClient().Create(ctx, mghSystemNamespace)).Should(Succeed())
-
 		hub2Namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "hub2"}}
 		Expect(mgr.GetClient().Create(ctx, hub2Namespace)).Should(Succeed())
 
@@ -34,7 +31,7 @@ var _ = Describe("migration", Ordered, func() {
 		migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "migration",
-				Namespace: constants.GHDefaultNamespace,
+				Namespace: utils.GetDefaultNamespace(),
 			},
 			Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
 				IncludedManagedClusters: []string{"cluster1"},
@@ -74,10 +71,8 @@ var _ = Describe("migration", Ordered, func() {
 		Expect(mgr.GetClient().Create(ctx, secret)).To(Succeed())
 	})
 	It("should have managedserviceaccount created", func() {
-		_, err := migration.NewMigrationReconciler(mgr).Reconcile(ctx, ctrl.Request{
-			NamespacedName: client.ObjectKeyFromObject(migrationInstance),
-		})
-		Expect(err).To(Succeed())
+		migrationReconciler = migration.NewMigrationReconciler(mgr)
+		Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 		Eventually(func() error {
 			return mgr.GetClient().Get(ctx, types.NamespacedName{
@@ -88,8 +83,7 @@ var _ = Describe("migration", Ordered, func() {
 	})
 
 	It("should have bootstrap secret generated", func() {
-		reconciler := migration.NewMigrationReconciler(mgr)
-		_, err := reconciler.Reconcile(ctx, ctrl.Request{
+		_, err := migrationReconciler.Reconcile(ctx, ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      "migration",
 				Namespace: "hub2",
@@ -98,7 +92,7 @@ var _ = Describe("migration", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			kubeconfigBytes := reconciler.BootstrapSecret.Data["kubeconfig"]
+			kubeconfigBytes := migrationReconciler.BootstrapSecret.Data["kubeconfig"]
 			if string(kubeconfigBytes) == "" {
 				return fmt.Errorf("failed to generate kubeconfig")
 			}
@@ -130,14 +124,7 @@ var _ = Describe("migration", Ordered, func() {
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 	})
 
-	It("should setup with manager without error", func() {
-		Expect(migration.NewMigrationReconciler(mgr).SetupWithManager(mgr)).To(Succeed())
-	})
-
 	AfterAll(func() {
-		mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}
-		Expect(mgr.GetClient().Delete(ctx, mghSystemNamespace)).Should(Succeed())
-
 		hub2Namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "hub2"}}
 		Expect(mgr.GetClient().Delete(ctx, hub2Namespace)).Should(Succeed())
 	})
