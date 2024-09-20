@@ -20,7 +20,6 @@ func TestGetK8SCluster(t *testing.T) {
 	// Assert the results
 	assert.NotNil(t, result)
 	assert.Equal(t, "k8s-cluster", result.K8SCluster.Metadata.ResourceType)
-	assert.Equal(t, "test-cluster", result.K8SCluster.Metadata.Workspace)
 	assert.Equal(t, kessel.ReporterData_ACM, result.K8SCluster.ReporterData.ReporterType)
 	assert.Equal(t, "https://api.test-cluster.example.com", result.K8SCluster.ReporterData.ApiHref)
 	assert.Equal(t, "https://console.test-cluster.example.com", result.K8SCluster.ReporterData.ConsoleHref)
@@ -74,7 +73,6 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			result := GetK8SCluster(tc.clusterInfo)
 
 			assert.NotNil(t, result)
-			assert.Equal(t, tc.clusterInfo.Name, result.K8SCluster.Metadata.Workspace)
 			assert.Equal(t, tc.expectedVendor, result.K8SCluster.ResourceData.KubeVendor)
 			assert.Equal(t, tc.expectedVersion, result.K8SCluster.ResourceData.VendorVersion)
 			// Add more assertions for common fields
