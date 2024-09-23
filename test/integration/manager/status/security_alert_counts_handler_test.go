@@ -21,6 +21,9 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 		DetailURL   = "https://hub1/violations"
 	)
 
+	version := eventversion.NewVersion()
+	version.Incr()
+
 	BeforeEach(func() {
 		// truncate table
 		db := database.GetSqlDb()
@@ -31,8 +34,6 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 
 	It("Should be able to sync security alert counts event from one central instance in hub", func() {
 		By("Create event")
-		version := eventversion.NewVersion()
-		version.Incr()
 		data := &wiremodels.SecurityAlertCounts{
 			Low:       1,
 			Medium:    2,
@@ -44,8 +45,10 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 		event := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, data)
 
 		By("Sync event with transport")
+		version.Incr()
 		err := producer.SendEvent(ctx, *event)
 		Expect(err).To(Succeed())
+		version.Next()
 
 		By("Check the table")
 		db := database.GetSqlDb()
@@ -90,8 +93,6 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 
 	It("Should be able to sync security alert counts event from multiple central instances in hub", func() {
 		By("Create event")
-		version1 := eventversion.NewVersion()
-		version1.Incr()
 		dataEvent1 := &wiremodels.SecurityAlertCounts{
 			Low:       1,
 			Medium:    2,
@@ -100,10 +101,15 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source1,
 		}
-		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version1, dataEvent1)
+		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent1)
 
-		version2 := eventversion.NewVersion()
-		version2.Incr()
+		By("Sync event1 with transport")
+		version.Incr()
+		err := producer.SendEvent(ctx, *event1)
+		Expect(err).To(Succeed())
+
+		version.Next()
+
 		dataEvent2 := &wiremodels.SecurityAlertCounts{
 			Low:       1,
 			Medium:    2,
@@ -112,16 +118,13 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source2,
 		}
-		event2 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version2, dataEvent2)
+		event2 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent2)
 
-		By("Sync events with transport")
-		err := producer.SendEvent(ctx, *event1)
-		Expect(err).To(Succeed())
-
-		time.Sleep(100 * time.Millisecond)
-
+		By("Sync event2 with transport")
+		version.Incr()
 		err = producer.SendEvent(ctx, *event2)
 		Expect(err).To(Succeed())
+		version.Next()
 
 		By("Check the table")
 		db := database.GetSqlDb()
@@ -197,8 +200,6 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		By("Create event")
-		version1 := eventversion.NewVersion()
-		version1.Incr()
 		dataEvent1 := &wiremodels.SecurityAlertCounts{
 			Low:       4,
 			Medium:    4,
@@ -207,11 +208,13 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source1,
 		}
-		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version1, dataEvent1)
+		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent1)
 
 		By("Sync events with transport")
+		version.Incr()
 		err = producer.SendEvent(ctx, *event1)
 		Expect(err).To(Succeed())
+		version.Next()
 
 		By("Check the table")
 		sql = fmt.Sprintf(

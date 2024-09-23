@@ -56,6 +56,7 @@ type StackRoxSyncer struct {
 	dataLock     *sync.Mutex
 	dataMap      map[types.NamespacedName]*stackRoxData
 	requests     []stackRoxRequest
+	version      *version.Version
 }
 
 // stackRoxConnDetails contains the details of the StackRox central.
@@ -139,6 +140,9 @@ func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 		return
 	}
 
+	version := version.NewVersion()
+	version.Incr()
+
 	// Create and populate the object:
 	result = &StackRoxSyncer{
 		logger:       b.logger,
@@ -149,6 +153,7 @@ func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 		dataLock:     &sync.Mutex{},
 		dataMap:      map[types.NamespacedName]*stackRoxData{},
 		requests:     stackRoxRequests,
+		version:      version,
 	}
 	return
 }
@@ -431,15 +436,11 @@ func (s *StackRoxSyncer) sync(ctx context.Context, data *stackRoxData) error {
 }
 
 func (s *StackRoxSyncer) produce(ctx context.Context, messageStruct any) error {
-	version, err := version.VersionFrom("0.1")
-	if err != nil {
-		return fmt.Errorf("failed to get version instance: %v", err)
-	}
 	emitter := generic.NewGenericEmitter(
 		enum.SecurityAlertCountsType,
 		messageStruct,
 		generic.WithTopic(s.topic),
-		generic.WithVersion(version),
+		generic.WithVersion(s.version),
 	)
 
 	evt, err := emitter.ToCloudEvent()
@@ -458,6 +459,10 @@ func (s *StackRoxSyncer) produce(ctx context.Context, messageStruct any) error {
 	if err = s.producer.SendEvent(cloudEventsContext, *evt); err != nil {
 		return fmt.Errorf("failed to send event %s: %v", *evt, err)
 	}
+
+	s.dataLock.Lock()
+	defer s.dataLock.Unlock()
+	emitter.PostSend()
 
 	return nil
 }
