@@ -481,8 +481,19 @@ spec:
         - apiGroups:
           - cluster.open-cluster-management.io
           resources:
-          - managedclustersets
+          - managedclustersetbindings
           - placements
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resources:
+          - managedclustersets
           verbs:
           - get
           - list

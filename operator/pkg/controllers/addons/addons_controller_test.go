@@ -52,8 +52,8 @@ func Test_addAddonConfig(t *testing.T) {
 						Placements: []v1alpha1.PlacementStrategy{
 							{
 								PlacementRef: v1alpha1.PlacementRef{
-									Namespace: "open-cluster-management-global-set",
-									Name:      "global",
+									Namespace: constants.GHDefaultNamespace,
+									Name:      "non-local-cluster",
 								},
 								Configs: []v1alpha1.AddOnConfig{
 									{
@@ -112,8 +112,8 @@ func Test_addAddonConfig(t *testing.T) {
 							},
 							{
 								PlacementRef: v1alpha1.PlacementRef{
-									Namespace: "open-cluster-management-global-set",
-									Name:      "global",
+									Namespace: constants.GHDefaultNamespace,
+									Name:      "non-local-cluster",
 								},
 								Configs: []v1alpha1.AddOnConfig{
 									{
@@ -147,8 +147,8 @@ func Test_addAddonConfig(t *testing.T) {
 						Placements: []v1alpha1.PlacementStrategy{
 							{
 								PlacementRef: v1alpha1.PlacementRef{
-									Namespace: "open-cluster-management-global-set",
-									Name:      "global",
+									Namespace: constants.GHDefaultNamespace,
+									Name:      "non-local-cluster",
 								},
 								Configs: []v1alpha1.AddOnConfig{
 									{
@@ -178,8 +178,8 @@ func Test_addAddonConfig(t *testing.T) {
 						Placements: []v1alpha1.PlacementStrategy{
 							{
 								PlacementRef: v1alpha1.PlacementRef{
-									Namespace: "open-cluster-management-global-set",
-									Name:      "global",
+									Namespace: constants.GHDefaultNamespace,
+									Name:      "non-local-cluster",
 								},
 								Configs: []v1alpha1.AddOnConfig{
 									{
