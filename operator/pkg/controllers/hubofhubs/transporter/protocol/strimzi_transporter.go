@@ -664,6 +664,11 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayerSpec.StorageClass
 	}
 
+	replicas := int32(3)
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		replicas = 1
+	}
+
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.kafkaClusterName,
@@ -703,7 +708,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
-				Replicas: 3,
+				Replicas: replicas,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
@@ -713,7 +718,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Version: &KafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas:  3,
+				Replicas:  replicas,
 				Storage:   kafkaSpecZookeeperStorage,
 				Resources: k.getZookeeperResources(mgh),
 			},
