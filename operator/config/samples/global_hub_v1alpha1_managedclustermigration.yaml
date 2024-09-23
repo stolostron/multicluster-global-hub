@@ -1,0 +1,5 @@
+apiVersion: global-hub.open-cluster-management.io/v1alpha1
+kind: ManagedClusterMigration
+metadata:
+  name: migration-sample
+spec: {}
