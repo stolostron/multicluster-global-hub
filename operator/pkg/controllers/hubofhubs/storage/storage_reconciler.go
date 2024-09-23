@@ -105,21 +105,21 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 
 func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
 	log := r.log.WithName("database")
+
+	var reconcileErr error
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
-		return true, fmt.Errorf("storage connection is nil")
+		reconcileErr = fmt.Errorf("storage connection is nil")
+		return true, reconcileErr
 	}
-
-	if config.ContainConditionStatus(mgh, config.CONDITION_TYPE_DATABASE_INIT, config.CONDITION_STATUS_TRUE) {
-		log.V(7).Info("database has been initialized, checking the reconcile counter")
-		// if the operator is restarted, reconcile the database again
-		if r.databaseReconcileCount > 0 {
-			return false, nil
-		}
+	// if the operator is restarted, reconcile the database again
+	if r.databaseReconcileCount > 0 {
+		return false, nil
 	}
 
 	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
 	if err != nil {
+		reconcileErr = fmt.Errorf("failed to connect to database: %v", err)
 		klog.Infof("wait database ready")
 		return true, nil
 	}
@@ -130,25 +130,26 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	}()
 
 	// Check if backup is enabled
-	backupEnabled, err := utils.IsBackupEnabled(ctx, r.GetClient())
-	if err != nil {
-		log.Error(err, "failed to get backup status")
-		return true, err
+	var backupEnabled bool
+	backupEnabled, reconcileErr = utils.IsBackupEnabled(ctx, r.GetClient())
+	if reconcileErr != nil {
+		log.Error(reconcileErr, "failed to get backup status")
+		return true, reconcileErr
 	}
 
 	if backupEnabled || !r.upgrade {
 		lockSql := fmt.Sprintf("select pg_advisory_lock(%s)", constants.LockId)
 		unLockSql := fmt.Sprintf("select pg_advisory_unlock(%s)", constants.LockId)
 		defer func() {
-			_, err = conn.Exec(ctx, unLockSql)
-			if err != nil {
-				log.Error(err, "failed to unlock db")
+			_, reconcileErr = conn.Exec(ctx, unLockSql)
+			if reconcileErr != nil {
+				log.Error(reconcileErr, "failed to unlock db")
 			}
 		}()
-		_, err = conn.Exec(ctx, lockSql)
-		if err != nil {
-			log.Error(err, "failed to parse database_uri_with_readonlyuser")
-			return true, err
+		_, reconcileErr = conn.Exec(ctx, lockSql)
+		if reconcileErr != nil {
+			log.Error(reconcileErr, "failed to parse database_uri_with_readonlyuser")
+			return true, reconcileErr
 		}
 	}
 
@@ -158,31 +159,28 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	}
 	readonlyUsername := objURI.User.Username()
 
-	if err := applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
-		return true, err
+	if reconcileErr = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); reconcileErr != nil {
+		return true, reconcileErr
 	}
 
 	if r.enableGlobalResource {
-		if err := applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
-			return true, err
+		if reconcileErr = applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); reconcileErr != nil {
+			return true, reconcileErr
 		}
 	}
 
 	if !r.upgrade {
-		err := applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
-		if err != nil {
-			log.Error(err, "failed to exec the upgrade sql files")
-			return true, err
+		reconcileErr = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
+		if reconcileErr != nil {
+			log.Error(reconcileErr, "failed to exec the upgrade sql files")
+			return true, reconcileErr
 		}
 		r.upgrade = true
 	}
 
 	log.V(7).Info("database initialized")
 	r.databaseReconcileCount++
-	err = config.SetConditionDatabaseInit(ctx, r.GetClient(), mgh, config.CONDITION_STATUS_TRUE)
-	if err != nil {
-		return true, config.FailToSetConditionError(config.CONDITION_STATUS_TRUE, err)
-	}
+
 	return false, nil
 }
 

@@ -55,19 +55,22 @@ var (
 	managedClusters []clusterv1.ManagedCluster
 	clusterClients  []client.Client
 
-	operatorScheme *runtime.Scheme
-	managerScheme  *runtime.Scheme
-	agentScheme    *runtime.Scheme
-
-	db     *gorm.DB
-	ctx    context.Context
-	cancel context.CancelFunc
+	operatorScheme        *runtime.Scheme
+	managerScheme         *runtime.Scheme
+	agentScheme           *runtime.Scheme
+	expectComponentsCount int
+	db                    *gorm.DB
+	ctx                   context.Context
+	cancel                context.CancelFunc
+	isPrune               string
+	isBYO                 string
 )
 
 const (
 	ExpectedMH              = 2
 	ExpectedMC              = 1
-	Namespace               = "multicluster-global-hub"
+	GlobalhubNamespace      = "multicluster-global-hub"
+	MghName                 = "multiclusterglobalhub"
 	ServiceMonitorNamespace = "openshift-monitoring"
 )
 
@@ -91,6 +94,15 @@ var _ = BeforeSuite(func() {
 	operatorScheme = operatorconfig.GetRuntimeScheme()
 	agentScheme = agentconfig.GetRuntimeScheme()
 	managerScheme = managerconfig.GetRuntimeScheme()
+	isBYO = os.Getenv("ISBYO")
+	klog.Infof("Isbyo: %v", isBYO)
+	if isBYO == "true" {
+		expectComponentsCount = 2
+	} else {
+		expectComponentsCount = 4
+	}
+	isPrune = os.Getenv("ISPRUNE")
+	klog.Infof("isPrune: %v", isPrune)
 
 	By("Complete the options and init clients")
 	testOptions = completeOptions()
@@ -129,12 +141,7 @@ var _ = BeforeSuite(func() {
 	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
 	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
 
-	isPrune := os.Getenv("ISPRUNE")
-	klog.Infof("isPrune: %v", isPrune)
-
 	if isPrune != "true" {
-		isBYO := os.Getenv("ISBYO")
-		klog.Infof("Isbyo: %v", isBYO)
 		By("Init postgres connection")
 		if isBYO == "true" {
 			databaseBYOSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
@@ -288,8 +295,8 @@ func deployGlobalHub() {
 	By("Deploying operand")
 	mcgh := &v1alpha4.MulticlusterGlobalHub{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "multiclusterglobalhub",
-			Namespace: "multicluster-global-hub",
+			Name:      MghName,
+			Namespace: GlobalhubNamespace,
 			Annotations: map[string]string{
 				constants.AnnotationMGHSkipAuth:                                  "true",
 				"mgh-scheduler-interval":                                         "minute",
@@ -318,7 +325,7 @@ func deployGlobalHub() {
 
 	// patch global hub operator to enable global resources
 	Eventually(func() error {
-		return patchGHDeployment(runtimeClient, Namespace, "multicluster-global-hub-operator")
+		return patchGHDeployment(runtimeClient, GlobalhubNamespace, "multicluster-global-hub-operator")
 	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 	err = runtimeClient.Create(ctx, mcgh)
@@ -333,12 +340,12 @@ func deployGlobalHub() {
 	components["multicluster-global-hub-grafana"] = 0
 	Eventually(func() error {
 		for name, count := range components {
-			err := checkDeployAvailable(runtimeClient, Namespace, name)
+			err := checkDeployAvailable(runtimeClient, GlobalhubNamespace, name)
 			if err != nil {
 				components[name] += 1
 				// restart it if the blocking time exceeds 30 seconds
 				if count > 120 {
-					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), Namespace, name)
+					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), GlobalhubNamespace, name)
 					components[name] = 0
 				}
 				return err
@@ -346,6 +353,14 @@ func deployGlobalHub() {
 		}
 		return nil
 	}, 5*time.Minute, 1*time.Second).Should(Succeed())
+
+	if isPrune != "true" {
+		// check components avaibable and phase
+		Eventually(func() error {
+			return checkComponentsAvailableAndPhase(runtimeClient)
+		}, 2*time.Minute, 1*time.Second).Should(Succeed())
+		Expect(err).ShouldNot(HaveOccurred())
+	}
 
 	// Before run test, the mgh should be ready
 	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
@@ -407,6 +422,29 @@ func checkDeployAvailable(runtimeClient client.Client, namespace, name string) e
 		fmt.Printf("deployment image: %s/%s: %s\n", deployment.Name, container.Name, container.Image)
 	}
 	return fmt.Errorf("deployment: %s is not ready", deployment.Name)
+}
+
+func checkComponentsAvailableAndPhase(runtimeClient client.Client) error {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err := runtimeClient.Get(ctx, client.ObjectKey{
+		Namespace: GlobalhubNamespace,
+		Name:      MghName,
+	}, mgh)
+	if err != nil {
+		return err
+	}
+	if len(mgh.Status.Components) != expectComponentsCount {
+		return fmt.Errorf("expected components is %v, but current components: %v", expectComponentsCount, len(mgh.Status.Components))
+	}
+	for _, v := range mgh.Status.Components {
+		if v.Status != metav1.ConditionTrue {
+			return fmt.Errorf("component %v is not available.", v)
+		}
+	}
+	if mgh.Status.Phase != v1alpha4.GlobalHubRunning {
+		return fmt.Errorf("expected mgh status running, but got: %v", mgh.Status.Phase)
+	}
+	return nil
 }
 
 func patchGHDeployment(runtimeClient client.Client, namespace, name string) error {

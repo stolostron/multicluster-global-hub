@@ -94,26 +94,6 @@ var _ = Describe("controller", Ordered, func() {
 
 		utils.PrettyPrint(mgh)
 
-		count := 0
-		for _, cond := range mgh.Status.Conditions {
-			if cond.Type == config.CONDITION_REASON_RETENTION_PARSED {
-				count++
-				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-				Expect(cond.Message).To(Equal("The data will be kept in the database for 24 months."))
-			}
-			if cond.Type == config.CONDITION_TYPE_DATABASE_INIT {
-				count++
-				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-				Expect(cond.Message).To(ContainSubstring("Database has been initialized"))
-			}
-			if cond.Type == config.CONDITION_TYPE_GLOBALHUB_READY {
-				count++
-				Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-				Expect(cond.Message).To(ContainSubstring("Multicluster Global Hub is ready"))
-			}
-		}
-		Expect(count).To(Equal(3))
-
 		Expect(utils.ContainsString(mgh.Finalizers, constants.GlobalHubCleanupFinalizer)).To(BeTrue())
 	})
 

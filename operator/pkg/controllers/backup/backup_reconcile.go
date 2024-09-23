@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -108,14 +110,18 @@ func addDisableCondition(ctx context.Context, client client.Client,
 	if err != nil {
 		msg = fmt.Sprintf("Backup is diabled with error: %v.", err.Error())
 	}
-	if err := config.SetCondition(ctx, client, mgh,
-		config.CONDITION_TYPE_BACKUP,
-		config.CONDITION_STATUS_FALSE,
-		config.CONDITION_REASON_BACKUP_DISABLED,
-		msg,
-	); err != nil {
+	if err := config.UpdateCondition(ctx, client, types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      mgh.Name,
+	}, metav1.Condition{
+		Type:    config.CONDITION_TYPE_BACKUP,
+		Status:  config.CONDITION_STATUS_FALSE,
+		Reason:  config.CONDITION_REASON_BACKUP_DISABLED,
+		Message: msg,
+	}, ""); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -126,14 +132,18 @@ func addBackupCondition(ctx context.Context, client client.Client,
 	if err != nil {
 		msg = fmt.Sprintf("Added backup labels with error: %v.", err.Error())
 	}
-	if err := config.SetCondition(ctx, client, mgh,
-		config.CONDITION_TYPE_BACKUP,
-		config.CONDITION_STATUS_TRUE,
-		config.CONDITION_REASON_BACKUP,
-		msg,
-	); err != nil {
+	if err := config.UpdateCondition(ctx, client, types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      mgh.Name,
+	}, metav1.Condition{
+		Type:    config.CONDITION_TYPE_BACKUP,
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  config.CONDITION_REASON_BACKUP,
+		Message: msg,
+	}, ""); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 

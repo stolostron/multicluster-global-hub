@@ -53,6 +53,8 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={mgh,mcgh}
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="The overall status of the MulticlusterGlobalHub"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,multicluster-global-hub-operator}}
 // MulticlusterGlobalHub defines the configuration for an instance of the multiCluster global hub
 type MulticlusterGlobalHub struct {
@@ -213,6 +215,51 @@ type MulticlusterGlobalHubStatus struct {
 	// Conditions represents the latest available observations of the current state
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Components list the globalhub components status
+	// +optional
+	Components map[string]StatusCondition `json:"components,omitempty"`
+
+	// Represents the running phase of the MulticlusterGlobalHub
+	// +kubebuilder:default:="Progressing"
+	// +optional
+	Phase GlobalHubPhaseType `json:"phase"`
+}
+type GlobalHubPhaseType string
+
+const (
+	GlobalHubRunning      GlobalHubPhaseType = "Running"
+	GlobalHubProgressing  GlobalHubPhaseType = "Progressing"
+	GlobalHubUninstalling GlobalHubPhaseType = "Uninstalling"
+	GlobalHubError        GlobalHubPhaseType = "Error"
+)
+
+// StatusCondition contains condition information.
+type StatusCondition struct {
+	// The component name
+	Name string `json:"name,omitempty"`
+
+	// The resource kind this condition represents
+	Kind string `json:"kind,omitempty"`
+
+	// Type is the type of the cluster condition.
+	// +required
+	Type string `json:"type,omitempty"`
+
+	// Status is the status of the condition. One of True, False, Unknown.
+	// +required
+	Status metav1.ConditionStatus `json:"status,omitempty"`
+
+	// LastTransitionTime is the last time the condition changed from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+
+	// Reason is a (brief) reason for the condition's last status change.
+	// +required
+	Reason string `json:"reason,omitempty"`
+
+	// Message is a human-readable message indicating details about the last status change.
+	// +required
+	Message string `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true

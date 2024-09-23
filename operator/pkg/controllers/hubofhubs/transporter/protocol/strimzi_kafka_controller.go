@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -45,6 +44,9 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
+	var reconcileErr error
+	var kafkaReady bool
+
 	needRequeue, err := r.trans.EnsureKafka()
 	if err != nil {
 		return ctrl.Result{}, err
@@ -53,7 +55,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	kafkaReady, reconcileErr := r.trans.kafkaClusterReady()
+	kafkaReady, reconcileErr = r.trans.kafkaClusterReady()
 	if reconcileErr != nil {
 		return ctrl.Result{}, reconcileErr
 	}
@@ -75,17 +77,6 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	config.SetTransporterConn(conn)
-
-	// Update status to mgh so that it can trigger a GlobalHubReconciler
-	if err := config.UpdateCondition(ctx, r.GetClient(), mgh, metav1.Condition{
-		Type:               "KafkaClusterReady",
-		Status:             metav1.ConditionTrue,
-		Reason:             "KafkaClusterIsReady",
-		Message:            "Kafka cluster is ready",
-		LastTransitionTime: metav1.Time{Time: time.Now()},
-	}); err != nil {
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }

@@ -169,6 +169,7 @@ func getPostgresCommand(username string, postgresPort uint32) (*exec.Cmd, error)
 	go func() {
 		for {
 			line, err := errPipReader.ReadString('\n')
+
 			if err == io.EOF {
 				break
 			} else if err != nil {
