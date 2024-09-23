@@ -5,6 +5,8 @@ package migration
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/utils/ptr"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
@@ -34,15 +35,13 @@ import (
 
 // MigrationReconciler reconciles a ManagedClusterMigration object
 type MigrationReconciler struct {
-	manager.Manager
 	client.Client
 	BootstrapSecret *corev1.Secret // only for test. should be deleted during integration
 }
 
 func NewMigrationReconciler(mgr manager.Manager) *MigrationReconciler {
 	return &MigrationReconciler{
-		Manager: mgr,
-		Client:  mgr.GetClient(),
+		Client: mgr.GetClient(),
 	}
 }
 
@@ -82,20 +81,22 @@ func (m *MigrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					ownerReferences := e.ObjectNew.GetOwnerReferences()
-					for _, reference := range ownerReferences {
-						if kind := reference.Kind; kind == constants.ManagedClusterMigrationKind {
+					labels := e.ObjectNew.GetLabels()
+					if value, ok := labels["owner"]; ok {
+						if value == strings.ToLower(constants.ManagedClusterMigrationKind) {
 							return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
 						}
+						return false
 					}
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
-					ownerReferences := e.Object.GetOwnerReferences()
-					for _, reference := range ownerReferences {
-						if kind := reference.Kind; kind == constants.ManagedClusterMigrationKind {
+					labels := e.Object.GetLabels()
+					if value, ok := labels["owner"]; ok {
+						if value == strings.ToLower(constants.ManagedClusterMigrationKind) {
 							return !e.DeleteStateUnknown
 						}
+						return false
 					}
 					return false
 				},
@@ -117,7 +118,7 @@ func (m *MigrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 				return ctrl.Result{}, nil
 			}
 			// Error reading the object - requeue the request.
-			log.Error(err, "Failed to get managedclustermigration")
+			log.Error(err, "failed to get managedclustermigration")
 			return ctrl.Result{}, err
 		}
 		if err := m.ensureManagedServiceAccount(ctx, migration); err != nil {
@@ -224,14 +225,15 @@ func (m *MigrationReconciler) ensureManagedServiceAccount(ctx context.Context,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      migration.GetName(),
 			Namespace: migration.Spec.To,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         migrationv1alpha1.GroupVersion.String(),
-					Kind:               constants.ManagedClusterMigrationKind,
-					Name:               migration.GetName(),
-					UID:                migration.GetUID(),
-					BlockOwnerDeletion: ptr.To(true),
-					Controller:         ptr.To(true),
+			Labels: map[string]string{
+				"owner": strings.ToLower(constants.ManagedClusterMigrationKind),
+			},
+		},
+		Spec: v1beta1.ManagedServiceAccountSpec{
+			Rotation: v1beta1.ManagedServiceAccountRotation{
+				Enabled: true,
+				Validity: metav1.Duration{
+					Duration: 86400 * time.Hour,
 				},
 			},
 		},

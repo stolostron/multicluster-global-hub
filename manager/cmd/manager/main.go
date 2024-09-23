@@ -339,9 +339,6 @@ func main() {
 
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {
 	cacheOpts.ByObject = map[client.Object]cache.ByObject{
-		&corev1.Secret{}: {
-			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
-		},
 		&corev1.ConfigMap{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
 		},

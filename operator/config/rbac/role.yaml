@@ -228,6 +228,18 @@ rules:
   - create
   - delete
 - apiGroups:
+  - config.open-cluster-management.io
+  resources:
+  - klusterletconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -295,6 +307,17 @@ rules:
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - clustermanagers
+  - multiclusterhubs
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
   - multiclusterglobalhubs
   verbs:
   - create
@@ -318,16 +341,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - operator.open-cluster-management.io
-  resources:
-  - multiclusterhubs
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - operators.coreos.com
   resources:
