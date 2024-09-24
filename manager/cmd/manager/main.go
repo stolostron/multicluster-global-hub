@@ -127,6 +127,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"enable the global resource feature")
 	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
 		"run on Red Hat Advanced Cluster Management")
+	pflag.BoolVar(&managerConfig.ImportClusterInHosted, "import-cluster-in-hosted", false,
+		"import cluster in hosted mode")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.Parse()
 	// set zap logger
@@ -262,7 +264,8 @@ func transportCallback(mgr ctrl.Manager, managerConfig *managerconfig.ManagerCon
 		}
 
 		// start managedclustermigration controller
-		if err := migration.NewMigrationReconciler(mgr.GetClient(), producer).SetupWithManager(mgr); err != nil {
+		if err := migration.NewMigrationReconciler(mgr.GetClient(), producer,
+			managerConfig.ImportClusterInHosted).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
 

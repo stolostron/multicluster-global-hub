@@ -41,9 +41,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.
 	}
 
 	dispatcher.RegisterSyncer(constants.CloudEventTypeManagedClusterMigrationFrom,
-		syncers.NewManagedClusterMigrationSyncer(context, mgr.GetClient()))
+		syncers.NewManagedClusterMigrationFromSyncer(context, mgr.GetClient()))
 	dispatcher.RegisterSyncer(constants.CloudEventTypeManagedClusterMigrationTo,
-		syncers.NewManagedClusterMigrationSyncer(context, mgr.GetClient()))
+		syncers.NewManagedClusterMigrationToSyncer(context, mgr.GetClient()))
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncSyncer())
 
 	specCtrlStarted = true

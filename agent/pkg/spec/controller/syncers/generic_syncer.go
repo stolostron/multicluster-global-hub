@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/workers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	helper "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.
@@ -87,7 +86,7 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 			}
 
 			delete(unstructuredObject.Object, "status")
-			err := helper.UpdateObject(ctx, k8sClient, unstructuredObject)
+			err := utils.UpdateObject(ctx, k8sClient, unstructuredObject)
 			if err != nil {
 				syncer.log.Error(err, "failed to update object", "name", unstructuredObject.GetName(),
 					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
@@ -113,7 +112,7 @@ func (syncer *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstruct
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
 			// syncer.deleteObject(ctx, k8sClient, obj.(*unstructured.Unstructured))
-			if deleted, err := helper.DeleteObject(ctx, k8sClient, unstructuredObject); err != nil {
+			if deleted, err := utils.DeleteObject(ctx, k8sClient, unstructuredObject); err != nil {
 				syncer.log.Error(err, "failed to delete object", "name",
 					unstructuredObject.GetName(), "namespace",
 					unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())

@@ -5,8 +5,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-type ManagedClusterMigrationEvent struct {
+type ManagedClusterMigrationFromEvent struct {
 	ManagedClusters  []string                             `json:"managedclusters"`
 	BootstrapSecret  *corev1.Secret                       `json:"bootstrapsecret"`
 	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletconfig"`
+}
+
+type ManagedClusterMigrationToEvent struct {
+	ManagedServiceAccountName      string `json:"managedserviceaccountname"`
+	ManagedServiceAccountNamespace string `json:"managedserviceaccountnamespace"`
 }

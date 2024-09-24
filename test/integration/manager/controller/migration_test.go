@@ -125,7 +125,7 @@ var _ = Describe("migration", Ordered, func() {
 	It("should have managedserviceaccount created", func() {
 		genericProducer, err := genericproducer.NewGenericProducer(transportConfig)
 		Expect(err).NotTo(HaveOccurred())
-		migrationReconciler = migration.NewMigrationReconciler(mgr.GetClient(), genericProducer)
+		migrationReconciler = migration.NewMigrationReconciler(mgr.GetClient(), genericProducer, false)
 		Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 		Eventually(func() error {
@@ -207,14 +207,14 @@ var _ = Describe("migration", Ordered, func() {
 			if len(fromEvent.Data()) == 0 {
 				return fmt.Errorf("fromEvent data is empty")
 			}
-			managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationEvent{}
-			if err := json.Unmarshal(fromEvent.Data(), managedClusterMigrationEvent); err != nil {
+			managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
+			if err := json.Unmarshal(fromEvent.Data(), managedClusterMigrationFromEvent); err != nil {
 				return fmt.Errorf("failed to unmarshal fromEvent data: %v", err)
 			}
-			if len(managedClusterMigrationEvent.ManagedClusters) != 1 || managedClusterMigrationEvent.ManagedClusters[0] != "cluster1" {
+			if len(managedClusterMigrationFromEvent.ManagedClusters) != 1 || managedClusterMigrationFromEvent.ManagedClusters[0] != "cluster1" {
 				return fmt.Errorf("managedClusters is not correct")
 			}
-			bootstrapSecret := managedClusterMigrationEvent.BootstrapSecret
+			bootstrapSecret := managedClusterMigrationFromEvent.BootstrapSecret
 			if bootstrapSecret == nil {
 				return fmt.Errorf("bootstrapSecret is nil")
 			}
@@ -226,7 +226,7 @@ var _ = Describe("migration", Ordered, func() {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client config: %v", err)
 			}
-			klusterletConfig := managedClusterMigrationEvent.KlusterletConfig
+			klusterletConfig := managedClusterMigrationFromEvent.KlusterletConfig
 			if klusterletConfig == nil {
 				return fmt.Errorf("klusterletConfig is nil")
 			}

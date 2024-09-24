@@ -22,27 +22,24 @@ const (
 	bootstrapSecretBackupSuffix = "-backup"
 )
 
-type managedClusterMigrationSyncer struct {
+type managedClusterMigrationFromSyncer struct {
 	log     logr.Logger
 	client  client.Client
 	context context.Context
 }
 
-func NewManagedClusterMigrationSyncer(context context.Context, client client.Client) *managedClusterMigrationSyncer {
-	return &managedClusterMigrationSyncer{
-		log:     ctrl.Log.WithName("managed-cluster-migration-syncer"),
+func NewManagedClusterMigrationFromSyncer(context context.Context, client client.Client) *managedClusterMigrationFromSyncer {
+	return &managedClusterMigrationFromSyncer{
+		log:     ctrl.Log.WithName("managed-cluster-migration-from-syncer"),
 		client:  client,
 		context: context,
 	}
 }
 
-func (syncer *managedClusterMigrationSyncer) Sync(payload []byte) error {
-	if len(payload) == 0 {
-		return syncer.patchClusterManager()
-	}
+func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 
 	// handle migration.from cloud event
-	managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationEvent{}
+	managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 		return err
 	}
@@ -150,57 +147,5 @@ func (syncer *managedClusterMigrationSyncer) Sync(payload []byte) error {
 		}
 	}
 
-	return nil
-}
-
-func (syncer *managedClusterMigrationSyncer) patchClusterManager() error {
-	clusterManager := &operatorv1.ClusterManager{}
-	namespacedName := types.NamespacedName{Name: "cluster-manager"}
-	if err := syncer.client.Get(syncer.context, namespacedName, clusterManager); err != nil {
-		return err
-	}
-
-	// check if ManagedClusterAutoApproval feature gate and auto approve user are enabled
-	if clusterManager.Spec.RegistrationConfiguration != nil {
-		featureGateEnabled := false
-		for _, featureGate := range clusterManager.Spec.RegistrationConfiguration.FeatureGates {
-			if featureGate.Feature == "ManagedClusterAutoApproval" {
-				if featureGate.Mode == operatorv1.FeatureGateModeTypeEnable {
-					featureGateEnabled = true
-					break
-				}
-			}
-		}
-		autoApproveUserEnabled := false
-		for _, autoApproveUser := range clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers {
-			if autoApproveUser == "system:serviceaccount:open-cluster-management:agent-registration-bootstrap" {
-				autoApproveUserEnabled = true
-				break
-			}
-		}
-		if featureGateEnabled && autoApproveUserEnabled {
-			return nil
-		}
-	}
-
-	patchObject := []byte(`
-apiVersion: operator.open-cluster-management.io/v1
-kind: ClusterManager
-metadata:
-  name: cluster-manager
-spec:
-  registrationConfiguration:
-    featureGates:
-      - feature: ManagedClusterAutoApproval
-        mode: Enable
-    autoApproveUsers:
-      - system:serviceaccount:open-cluster-management:agent-registration-bootstrap
-`)
-	// patch cluster-manager to enable ManagedClusterAutoApproval
-	if err := syncer.client.Patch(syncer.context, clusterManager, client.RawPatch(types.ApplyPatchType, patchObject), &client.PatchOptions{
-		FieldManager: "multicluster-global-hub-agent",
-	}); err != nil {
-		return err
-	}
 	return nil
 }

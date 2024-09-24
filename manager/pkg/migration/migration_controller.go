@@ -40,13 +40,16 @@ import (
 type MigrationReconciler struct {
 	client.Client
 	transport.Producer
-	BootstrapSecret *corev1.Secret // only for test. should be deleted during integration
+	BootstrapSecret       *corev1.Secret
+	importClusterInHosted bool
 }
 
-func NewMigrationReconciler(client client.Client, producer transport.Producer) *MigrationReconciler {
+func NewMigrationReconciler(client client.Client, producer transport.Producer,
+	importClusterInHosted bool) *MigrationReconciler {
 	return &MigrationReconciler{
-		Client:   client,
-		Producer: producer,
+		Client:                client,
+		Producer:              producer,
+		importClusterInHosted: importClusterInHosted,
 	}
 }
 
@@ -170,10 +173,6 @@ func (m *MigrationReconciler) generateKlusterConfig(req ctrl.Request) *klusterle
 						{
 							Name: bootstrapSecretNamePrefix + req.Namespace,
 						},
-						// need remove one when import controller
-						{
-							Name: bootstrapSecretNamePrefix + req.Namespace,
-						},
 					},
 				},
 			},
@@ -271,12 +270,12 @@ func (m *MigrationReconciler) ensureManagedServiceAccount(ctx context.Context,
 }
 
 func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migrationv1alpha1.ManagedClusterMigration, klusterletConfig *klusterletv1alpha1.KlusterletConfig) error {
-	managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationEvent{
+	managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{
 		ManagedClusters:  migration.Spec.IncludedManagedClusters,
 		BootstrapSecret:  m.BootstrapSecret,
 		KlusterletConfig: klusterletConfig,
 	}
-	payloadBytes, err := json.Marshal(managedClusterMigrationEvent)
+	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)
 	if err != nil {
 		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w", migration.Namespace, migration.Name, err)
 	}
@@ -289,9 +288,22 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migr
 			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
 	}
 
+	msaNamespace := "open-cluster-management-agent-addon"
+	if m.importClusterInHosted {
+		msaNamespace = "open-cluster-management-global-hub-agent-addon"
+	}
+	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{
+		ManagedServiceAccountName:      migration.Name,
+		ManagedServiceAccountNamespace: msaNamespace,
+	}
+	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
+	if err != nil {
+		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w", migration.Namespace, migration.Name, err)
+	}
+
 	// send the event to the destination managed hub
 	eventType = constants.CloudEventTypeManagedClusterMigrationTo
-	evt = utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, []byte{})
+	evt = utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, payloadToBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managed cluster migration message(%s) from source(%s) to destination(%s) - %w", eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
 	}
