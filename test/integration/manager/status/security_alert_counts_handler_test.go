@@ -22,7 +22,6 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 	)
 
 	version := eventversion.NewVersion()
-	version.Incr()
 
 	BeforeEach(func() {
 		// truncate table
@@ -42,10 +41,10 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source1,
 		}
+		version.Incr()
 		event := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, data)
 
 		By("Sync event with transport")
-		version.Incr()
 		err := producer.SendEvent(ctx, *event)
 		Expect(err).To(Succeed())
 		version.Next()
@@ -101,13 +100,12 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source1,
 		}
+		version.Incr()
 		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent1)
 
 		By("Sync event1 with transport")
-		version.Incr()
 		err := producer.SendEvent(ctx, *event1)
 		Expect(err).To(Succeed())
-
 		version.Next()
 
 		dataEvent2 := &wiremodels.SecurityAlertCounts{
@@ -118,10 +116,10 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source2,
 		}
+		version.Incr()
 		event2 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent2)
 
 		By("Sync event2 with transport")
-		version.Incr()
 		err = producer.SendEvent(ctx, *event2)
 		Expect(err).To(Succeed())
 		version.Next()
@@ -208,10 +206,10 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			DetailURL: DetailURL,
 			Source:    source1,
 		}
+		version.Incr()
 		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent1)
 
 		By("Sync events with transport")
-		version.Incr()
 		err = producer.SendEvent(ctx, *event1)
 		Expect(err).To(Succeed())
 		version.Next()
