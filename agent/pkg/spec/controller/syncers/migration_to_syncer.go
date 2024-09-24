@@ -49,29 +49,6 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 		return err
 	}
 
-	// check if ManagedClusterAutoApproval feature gate and auto approve user are enabled
-	if clusterManager.Spec.RegistrationConfiguration != nil {
-		featureGateEnabled := false
-		for _, featureGate := range clusterManager.Spec.RegistrationConfiguration.FeatureGates {
-			if featureGate.Feature == "ManagedClusterAutoApproval" {
-				if featureGate.Mode == operatorv1.FeatureGateModeTypeEnable {
-					featureGateEnabled = true
-					break
-				}
-			}
-		}
-		autoApproveUserEnabled := false
-		for _, autoApproveUser := range clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers {
-			if autoApproveUser == "system:serviceaccount:open-cluster-management:agent-registration-bootstrap" {
-				autoApproveUserEnabled = true
-				break
-			}
-		}
-		if featureGateEnabled && autoApproveUserEnabled {
-			return nil
-		}
-	}
-
 	patchObject := []byte(fmt.Sprintf(`
 apiVersion: operator.open-cluster-management.io/v1
 kind: ClusterManager
@@ -83,8 +60,8 @@ spec:
       - feature: ManagedClusterAutoApproval
         mode: Enable
     autoApproveUsers:
-      - system:serviceaccount:open-cluster-management-global-hub-agent-addon:%s
-`, msaName))
+      - system:serviceaccount:%s:%s
+`, msaNamespace, msaName))
 	// patch cluster-manager to enable ManagedClusterAutoApproval
 	if err := syncer.client.Patch(syncer.context, clusterManager, client.RawPatch(types.ApplyPatchType, patchObject), &client.PatchOptions{
 		FieldManager: "multicluster-global-hub-agent",
