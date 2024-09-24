@@ -288,13 +288,19 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migr
 			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
 	}
 
+	// default managedserviceaccount addon namespace
 	msaNamespace := "open-cluster-management-agent-addon"
 	if m.importClusterInHosted {
+		// hosted mode, the  managedserviceaccount addon namespace
 		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}
+	// if user specifies the managedserviceaccount addon namespace, then use it
+	if val, ok := migration.Annotations["global-hub.open-cluster-management.io/serviceaccount-namespace"]; ok {
+		msaNamespace = val
+	}
 	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{
-		ManagedServiceAccountName:      migration.Name,
-		ManagedServiceAccountNamespace: msaNamespace,
+		ManagedServiceAccountName: migration.Name,
+		ServiceAccountNamespace:   msaNamespace,
 	}
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
 	if err != nil {

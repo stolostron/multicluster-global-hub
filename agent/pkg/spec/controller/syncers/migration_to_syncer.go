@@ -41,7 +41,7 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 	}
 
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
-	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountNamespace
+	msaNamespace := managedClusterMigrationToEvent.ServiceAccountNamespace
 
 	clusterManager := &operatorv1.ClusterManager{}
 	namespacedName := types.NamespacedName{Name: "cluster-manager"}

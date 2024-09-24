@@ -12,6 +12,6 @@ type ManagedClusterMigrationFromEvent struct {
 }
 
 type ManagedClusterMigrationToEvent struct {
-	ManagedServiceAccountName      string `json:"managedserviceaccountname"`
-	ManagedServiceAccountNamespace string `json:"managedserviceaccountnamespace"`
+	ManagedServiceAccountName string `json:"managedserviceaccountname"`
+	ServiceAccountNamespace   string `json:"serviceaccountnamespace"`
 }
