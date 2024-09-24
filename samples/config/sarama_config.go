@@ -154,7 +154,7 @@ func GetSaramaConfigByClient(namespace string, c client.Client) (string, *sarama
 	if err != nil {
 		return "", nil, err
 	}
-	conn, err := transportconfig.GetTransportCredentailBySecret(transportConfig, c)
+	conn, err := transportconfig.GetKafkaCredentailBySecret(transportConfig, c)
 	if err != nil {
 		return "", nil, err
 	}

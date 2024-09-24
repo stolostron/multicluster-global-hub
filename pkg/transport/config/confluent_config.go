@@ -107,7 +107,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Client, consumerGroupID string) (
 	*kafkav2.ConfigMap, error,
 ) {
-	conn, err := GetTransportCredentailBySecret(transportConfig, c)
+	conn, err := GetKafkaCredentailBySecret(transportConfig, c)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConnCredential,
 	return kafkaConfigMap, nil
 }
 
-func GetTransportCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
+func GetKafkaCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
 	*transport.KafkaConnCredential, error,
 ) {
 	kafkaConfig, ok := transportSecret.Data["kafka.yaml"]

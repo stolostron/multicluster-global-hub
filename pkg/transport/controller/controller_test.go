@@ -89,7 +89,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	result, err = secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
-	utils.PrettyPrint(secretController.transportConfig.RestfulCredentail)
+	utils.PrettyPrint(secretController.transportConfig.RestfulCredential)
 }
 
 func TestInventorySecretCtrlReconcile(t *testing.T) {
@@ -122,7 +122,7 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		ClientKey:  base64.StdEncoding.EncodeToString(keyPem),
 	}
 
-	restfulConnYaml, err := restfulConn.YamlMarshal()
+	restfulConnYaml, err := restfulConn.YamlMarshal(true)
 	assert.NoError(t, err)
 
 	secret := &corev1.Secret{
@@ -155,7 +155,7 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	result, err = secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
-	utils.PrettyPrint(secretController.transportConfig.RestfulCredentail)
+	utils.PrettyPrint(secretController.transportConfig.RestfulCredential)
 }
 
 var rootPEM = []byte(`

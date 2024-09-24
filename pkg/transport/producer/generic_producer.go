@@ -87,7 +87,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
 	// invenory client
 	if config.TransportType == string(transport.Rest) {
-		return p.inventoryClient.RefreshCredential(context.Background(), config.RestfulCredentail)
+		return p.inventoryClient.RefreshCredential(context.Background(), config.RestfulCredential)
 	}
 	// cloudevent kafka/gochan client
 	closer, ok := p.ceProtocol.(protocol.Closer)
@@ -132,10 +132,10 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig)
 		}
 		p.ceProtocol = transportConfig.Extends[topic]
 	case string(transport.Rest):
-		if transportConfig.RestfulCredentail == nil {
+		if transportConfig.RestfulCredential == nil {
 			return fmt.Errorf("the restful credentail must not be nil")
 		}
-		inventoryClient, err := client.NewInventoryClient(context.Background(), transportConfig.RestfulCredentail)
+		inventoryClient, err := client.NewInventoryClient(context.Background(), transportConfig.RestfulCredential)
 		if err != nil {
 			return fmt.Errorf("initial the inventory client error %w", err)
 		}

@@ -197,9 +197,36 @@ func GetClientCA() ([]byte, []byte) {
 func SetClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	// if enable the inventory api, should use the inventory client ca
 	if EnableInventory() {
-		return nil
+		return setInventoryClientCA(ctx, namespace, name, c)
+	} else {
+		return setKafkaClientCA(ctx, namespace, name, c)
+	}
+}
+
+func setInventoryClientCA(ctx context.Context, namespace, name string, c client.Client) error {
+	clientCASecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	err := c.Get(ctx, client.ObjectKeyFromObject(clientCASecret), clientCASecret)
+	if err != nil {
+		return err
 	}
 
+	if clientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], clientCAKey) {
+		klog.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
+		clientCAKey = clientCASecret.Data["tls.key"]
+	}
+	if clientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], clientCACert) {
+		klog.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
+		clientCACert = clientCASecret.Data["tls.crt"]
+	}
+	return nil
+}
+
+func setKafkaClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca", name),
@@ -230,7 +257,6 @@ func SetClientCA(ctx context.Context, namespace, name string, c client.Client) e
 		klog.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
 		clientCACert = clientCACertSecret.Data["ca.crt"]
 	}
-
 	return nil
 }
 

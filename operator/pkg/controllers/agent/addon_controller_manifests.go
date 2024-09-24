@@ -206,6 +206,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		log.Error(err, "failed to get election config")
 	}
 
+	// TODO: generate the invenotry server ca secret, RestConfigYaml
 	manifestsConfig := ManifestsConfig{
 		HoHAgentImage:         image,
 		ImagePullPolicy:       string(imagePullPolicy),

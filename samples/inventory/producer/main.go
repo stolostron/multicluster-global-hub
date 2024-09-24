@@ -26,7 +26,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to get transport config secret: %v", err)
 	}
-	restfulConn, err := transportconfig.GetRestfulConnBySecret(transportConfigSecret)
+
+	c, err := getRuntimeClient()
+	if err != nil {
+		panic(err)
+	}
+	restfulConn, err := transportconfig.GetRestfulConnBySecret(transportConfigSecret, c)
 	if err != nil {
 		log.Fatalf("failed to extract rest credentail: %v", err)
 	}

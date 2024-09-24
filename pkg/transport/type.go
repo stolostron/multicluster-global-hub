@@ -51,7 +51,7 @@ type TransportConfig struct {
 	ConsumerGroupId      string
 	// set the kafka credentail in the transport controller
 	KafkaCredential   *KafkaConnCredential
-	RestfulCredentail *RestfulConnCredentail
+	RestfulCredential *RestfulConnCredentail
 	Extends           map[string]interface{}
 }
 
@@ -60,11 +60,35 @@ type RestfulConnCredentail struct {
 	CACert     string `yaml:"ca.crt,omitempty"`
 	ClientCert string `yaml:"client.crt,omitempty"`
 	ClientKey  string `yaml:"client.key,omitempty"`
+	// the following fields are only for the singing client
+	CASecretName     string `yaml:"ca.secret,omitempty"`
+	ClientSecretName string `yaml:"client.secret,omitempty"`
 }
 
-func (k *RestfulConnCredentail) YamlMarshal() ([]byte, error) {
-	bytes, err := yaml.Marshal(k)
+// YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
+func (k *RestfulConnCredentail) YamlMarshal(rawCert bool) ([]byte, error) {
+	copy := k.DeepCopy()
+	if rawCert {
+		copy.CASecretName = ""
+		copy.ClientSecretName = ""
+	} else {
+		copy.CACert = ""
+		copy.ClientCert = ""
+		copy.ClientKey = ""
+	}
+	bytes, err := yaml.Marshal(copy)
 	return bytes, err
+}
+
+func (k *RestfulConnCredentail) DeepCopy() *RestfulConnCredentail {
+	return &RestfulConnCredentail{
+		Host:             k.Host,
+		CACert:           k.CACert,
+		ClientCert:       k.ClientCert,
+		ClientKey:        k.ClientKey,
+		CASecretName:     k.CASecretName,
+		ClientSecretName: k.ClientSecretName,
+	}
 }
 
 // Kafka Config

@@ -32,15 +32,15 @@ import (
 )
 
 const (
-	serverCACertificateCN = "inventory-api-server-ca-certificate"
-	serverCACerts         = "inventory-api-server-ca-certs"
-	serverCertificateCN   = "inventory-api-server-certificate"
-	serverCerts           = "inventory-api-server-certs"
+	serverCACertificateCN       = "inventory-api-server-ca-certificate"
+	InventoryServerCASecretName = "inventory-api-server-ca-certs"
+	serverCertificateCN         = "inventory-api-server-certificate"
+	serverCerts                 = "inventory-api-server-certs"
 
-	clientCACertificateCN = "inventory-api-client-ca-certificate"
-	clientCACerts         = "inventory-api-client-ca-certs"
-	guestCertificateCN    = "guest"
-	guestCerts            = "inventory-api-guest-certs"
+	clientCACertificateCN       = "inventory-api-client-ca-certificate"
+	InventoryClientCASecretName = "inventory-api-client-ca-certs"
+	guestCertificateCN          = "guest"
+	guestCerts                  = "inventory-api-guest-certs"
 )
 
 var (
@@ -57,11 +57,13 @@ func CreateInventoryCerts(
 	scheme *runtime.Scheme,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, serverCACerts, mgh.Namespace, serverCACertificateCN)
+	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, InventoryServerCASecretName,
+		mgh.Namespace, serverCACertificateCN)
 	if err != nil {
 		return err
 	}
-	err, clientCrtUpdated := createCASecret(c, scheme, mgh, false, clientCACerts, mgh.Namespace, clientCACertificateCN)
+	err, clientCrtUpdated := createCASecret(c, scheme, mgh, false, InventoryClientCASecretName,
+		mgh.Namespace, clientCACertificateCN)
 	if err != nil {
 		return err
 	}
@@ -342,9 +344,9 @@ func createCertificate(isServer bool, cn string, ou []string, dns []string, ips 
 }
 
 func getCA(c client.Client, isServer bool, namespace string) (*x509.Certificate, *rsa.PrivateKey, []byte, error) {
-	caCertName := serverCACerts
+	caCertName := InventoryServerCASecretName
 	if !isServer {
-		caCertName = clientCACerts
+		caCertName = InventoryClientCASecretName
 	}
 	caSecret := &corev1.Secret{}
 	err := c.Get(
