@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
@@ -17,6 +18,11 @@ var specCtrlStarted = false
 
 func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.Consumer, agentConfig *config.AgentConfig) error {
 	if specCtrlStarted {
+		return nil
+	}
+
+	if consumer == nil {
+		klog.Info("the consumer is not initialized for the spec controller")
 		return nil
 	}
 

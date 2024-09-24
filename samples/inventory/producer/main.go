@@ -10,6 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/client"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,7 +23,7 @@ func main() {
 		log.Fatalf("failed to get cluster info list: %v", err)
 	}
 
-	transportConfigSecret, err := config.GetTransportConfigSecret("open-cluster-management", "transport-config")
+	transportConfigSecret, err := config.GetTransportConfigSecret("multicluster-global-hub-agent", "transport-config")
 	if err != nil {
 		log.Fatalf("failed to get transport config secret: %v", err)
 	}
@@ -35,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to extract rest credentail: %v", err)
 	}
-	// utils.PrettyPrint(restfulConn)
+	utils.PrettyPrint(restfulConn)
 
 	inventoryClient, err := client.NewInventoryClient(context.Background(), restfulConn)
 	if err != nil {

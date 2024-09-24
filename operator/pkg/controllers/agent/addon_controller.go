@@ -154,7 +154,10 @@ func newRegistrationOption() *agent.RegistrationOption {
 			return nil
 		},
 		CSRSign: func(csr *certificatesv1.CertificateSigningRequest) []byte {
-			key, cert := config.GetClientCA()
+			key, cert := config.GetKafkaClientCA()
+			if config.EnableInventory() {
+				key, cert = config.GetInventoryClientCA()
+			}
 			return certificates.Sign(csr, key, cert)
 		},
 	}

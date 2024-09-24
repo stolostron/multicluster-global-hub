@@ -26,17 +26,20 @@ const (
 )
 
 var (
-	transporterProtocol transport.TransportProtocol
-	transporterInstance transport.Transporter
-	transporterConn     *transport.KafkaConnCredential
-	enableInventory     = false
-	isBYOKafka          = false
-	specTopic           = ""
-	statusTopic         = ""
-	kafkaResourceReady  = false
-	acmResourceReady    = false
-	clientCAKey         []byte
-	clientCACert        []byte
+	transporterProtocol   transport.TransportProtocol
+	transporterInstance   transport.Transporter
+	transporterConn       *transport.KafkaConnCredential
+	enableInventory       = false
+	isBYOKafka            = false
+	specTopic             = ""
+	statusTopic           = ""
+	kafkaResourceReady    = false
+	acmResourceReady      = false
+	kafkaClientCAKey      []byte
+	kafkaClientCACert     []byte
+	inventoryClientCAKey  []byte
+	inventoryClientCACert []byte
+	inventoryConn         *transport.RestfulConnCredentail
 )
 
 func SetTransporterConn(conn *transport.KafkaConnCredential) {
@@ -189,21 +192,16 @@ func TransporterProtocol() transport.TransportProtocol {
 	return transporterProtocol
 }
 
-// GetClientCA the raw([]byte) of client ca key and ca cert
-func GetClientCA() ([]byte, []byte) {
-	return clientCAKey, clientCACert
+// GetKafkaClientCA the raw([]byte) of client ca key and ca cert
+func GetKafkaClientCA() ([]byte, []byte) {
+	return kafkaClientCAKey, kafkaClientCACert
 }
 
-func SetClientCA(ctx context.Context, namespace, name string, c client.Client) error {
-	// if enable the inventory api, should use the inventory client ca
-	if EnableInventory() {
-		return setInventoryClientCA(ctx, namespace, name, c)
-	} else {
-		return setKafkaClientCA(ctx, namespace, name, c)
-	}
+func GetInventoryClientCA() ([]byte, []byte) {
+	return inventoryClientCAKey, inventoryClientCACert
 }
 
-func setInventoryClientCA(ctx context.Context, namespace, name string, c client.Client) error {
+func SetInventoryClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCASecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -215,18 +213,18 @@ func setInventoryClientCA(ctx context.Context, namespace, name string, c client.
 		return err
 	}
 
-	if clientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], clientCAKey) {
+	if inventoryClientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
 		klog.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
-		clientCAKey = clientCASecret.Data["tls.key"]
+		inventoryClientCAKey = clientCASecret.Data["tls.key"]
 	}
-	if clientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], clientCACert) {
+	if inventoryClientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
 		klog.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
-		clientCACert = clientCASecret.Data["tls.crt"]
+		inventoryClientCACert = clientCASecret.Data["tls.crt"]
 	}
 	return nil
 }
 
-func setKafkaClientCA(ctx context.Context, namespace, name string, c client.Client) error {
+func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca", name),
@@ -237,9 +235,9 @@ func setKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 	if err != nil {
 		return err
 	}
-	if clientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], clientCAKey) {
+	if kafkaClientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], kafkaClientCAKey) {
 		klog.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
-		clientCAKey = clientCAKeySecret.Data["ca.key"]
+		kafkaClientCAKey = clientCAKeySecret.Data["ca.key"]
 	}
 
 	clientCACertSecret := &corev1.Secret{
@@ -253,9 +251,9 @@ func setKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 		return err
 	}
 
-	if clientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], clientCACert) {
+	if kafkaClientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], kafkaClientCACert) {
 		klog.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
-		clientCACert = clientCACertSecret.Data["ca.crt"]
+		kafkaClientCACert = clientCACertSecret.Data["ca.crt"]
 	}
 	return nil
 }
@@ -266,11 +264,11 @@ func EnableInventory() bool {
 
 // GetTransportConfigClientName gives the client name based on the cluster name, it could be kafkauser or inventory name
 func GetTransportConfigClientName(clusterName string) string {
-	if TransporterProtocol() == transport.StrimziTransporter {
-		return GetKafkaUserName(clusterName)
-	}
 	if EnableInventory() {
 		return GetInventoryClientName(clusterName)
+	}
+	if TransporterProtocol() == transport.StrimziTransporter {
+		return GetKafkaUserName(clusterName)
 	}
 	return ""
 }

@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -348,30 +349,48 @@ func getCA(c client.Client, isServer bool, namespace string) (*x509.Certificate,
 	if !isServer {
 		caCertName = InventoryClientCASecretName
 	}
-	caSecret := &corev1.Secret{}
-	err := c.Get(
-		context.TODO(),
-		types.NamespacedName{Namespace: namespace, Name: caCertName},
-		caSecret,
-	)
+
+	key, cert, err := GetKeyAndCert(c, namespace, caCertName)
 	if err != nil {
 		log.Error(err, "Failed to get ca secret", "name", caCertName)
 		return nil, nil, nil, err
 	}
-	block1, rest := pem.Decode(caSecret.Data[tlsCertName])
-	caCertBytes := caSecret.Data[tlsCertName][:len(caSecret.Data[tlsCertName])-len(rest)]
+	block1, rest := pem.Decode(cert)
+	caCertBytes := cert[:len(cert)-len(rest)]
 	caCerts, err := x509.ParseCertificates(block1.Bytes)
 	if err != nil {
 		log.Error(err, "Failed to parse ca cert", "name", caCertName)
 		return nil, nil, nil, err
 	}
-	block2, _ := pem.Decode(caSecret.Data[tlsKeyName])
+	block2, _ := pem.Decode(key)
 	caKey, err := x509.ParsePKCS1PrivateKey(block2.Bytes)
 	if err != nil {
 		log.Error(err, "Failed to parse ca key", "name", caCertName)
 		return nil, nil, nil, err
 	}
 	return caCerts[0], caKey, caCertBytes, nil
+}
+
+func GetKeyAndCert(c client.Client, namespace string, name string) ([]byte, []byte, error) {
+	certSecret := &corev1.Secret{}
+	err := c.Get(
+		context.TODO(),
+		types.NamespacedName{Namespace: namespace, Name: name},
+		certSecret,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	key, containKey := certSecret.Data[tlsKeyName]
+	if !containKey {
+		return nil, nil, fmt.Errorf("the cert secret %s must have %s", name, tlsKeyName)
+	}
+	cert, containCert := certSecret.Data[tlsCertName]
+	if !containCert {
+		return nil, nil, fmt.Errorf("the cert secret %s must have %s", name, tlsCertName)
+	}
+
+	return key, cert, nil
 }
 
 func removeExpiredCA(c client.Client, name, namespace string) {
