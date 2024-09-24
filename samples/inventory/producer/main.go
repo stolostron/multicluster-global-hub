@@ -23,6 +23,7 @@ func main() {
 		log.Fatalf("failed to get cluster info list: %v", err)
 	}
 
+	leafHubName := "hub1"
 	transportConfigSecret, err := config.GetTransportConfigSecret("multicluster-global-hub-agent", "transport-config")
 	if err != nil {
 		log.Fatalf("failed to get transport config secret: %v", err)
@@ -45,7 +46,7 @@ func main() {
 
 	evt := cloudevents.NewEvent()
 	evt.SetType(string(enum.ManagedClusterInfoType))
-	evt.SetSource("test")
+	evt.SetSource(leafHubName)
 	evt.SetData(cloudevents.ApplicationJSON, clusterInfoList)
 
 	err = inventoryClient.Request(context.Background(), evt)

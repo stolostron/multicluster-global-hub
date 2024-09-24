@@ -71,6 +71,10 @@ func GetLeafHubName() string {
 	return leafHubName
 }
 
+func SetLeafHubName(name string) {
+	leafHubName = name
+}
+
 func GetAggregationLevel() AgentConfigValue {
 	return agentConfigs[AgentAggregationKey]
 }

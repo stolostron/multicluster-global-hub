@@ -69,7 +69,7 @@ func (c *InventoryClient) Request(ctx context.Context, evt cloudevents.Event) er
 	}
 
 	for _, clusterInfo := range data {
-		clusterRequest := transfer.GetK8SCluster(&clusterInfo)
+		clusterRequest := transfer.GetK8SCluster(&clusterInfo, transfer.GetInventoryClientName(evt.Source()))
 		if clusterRequest != nil {
 			if _, err := client.K8sClusterService.CreateK8SCluster(ctx, clusterRequest); err != nil {
 				return err

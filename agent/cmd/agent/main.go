@@ -32,6 +32,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
+	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
@@ -180,6 +181,7 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *config.Ag
 		}
 		agentConfig.LeafHubName = clusterID
 	}
+	statusconfig.SetLeafHubName(agentConfig.LeafHubName)
 
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
