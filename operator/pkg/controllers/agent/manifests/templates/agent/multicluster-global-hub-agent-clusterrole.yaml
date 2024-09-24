@@ -230,4 +230,21 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclusters
+  verbs:
+  - get
+  - create
+  - update
 {{- end -}}
