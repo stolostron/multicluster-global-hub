@@ -82,7 +82,7 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
-	`, msaName))
+`, msaName))
 
 	clusterroleObj := &unstructured.Unstructured{}
 	if err := yaml.Unmarshal(clusterroleBytes, clusterroleObj); err != nil {
@@ -148,7 +148,7 @@ roleRef:
   kind: ClusterRole
   name: multicluster-global-hub-migration:%s
   apiGroup: rbac.authorization.k8s.io
-	`, msaName, msaName, msaNamespace, msaName))
+`, msaName, msaName, msaNamespace, msaName))
 
 	sarClusterRoleBindingObj := &unstructured.Unstructured{}
 	if err := yaml.Unmarshal(sarClusterRolebBindingBytes, sarClusterRoleBindingObj); err != nil {
