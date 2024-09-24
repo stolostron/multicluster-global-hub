@@ -31,7 +31,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-09-20T09:06:18Z"
+    createdAt: "2024-09-23T15:30:14Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     olm.skipRange: '>=1.2.0 <1.3.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
@@ -302,7 +302,6 @@ spec:
           - ""
           resources:
           - namespaces
-          - secrets
           - serviceaccounts
           - services
           verbs:
@@ -316,6 +315,7 @@ spec:
           - ""
           resources:
           - persistentvolumeclaims
+          - secrets
           verbs:
           - create
           - delete
@@ -427,6 +427,17 @@ spec:
           - patch
           - update
         - apiGroups:
+          - authentication.open-cluster-management.io
+          resources:
+          - managedserviceaccounts
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - authorization.k8s.io
           resources:
           - subjectaccessreviews
@@ -508,6 +519,18 @@ spec:
           - create
           - delete
         - apiGroups:
+          - config.open-cluster-management.io
+          resources:
+          - klusterletconfigs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - coordination.k8s.io
           resources:
           - leases
@@ -516,6 +539,15 @@ spec:
           - get
           - list
           - patch
+          - update
+          - watch
+        - apiGroups:
+          - global-hub.open-cluster-management.io
+          resources:
+          - managedclustermigrations
+          verbs:
+          - get
+          - list
           - update
           - watch
         - apiGroups:
@@ -566,6 +598,17 @@ spec:
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - clustermanagers
+          - multiclusterhubs
+          verbs:
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - operator.open-cluster-management.io
+          resources:
           - multiclusterglobalhubs
           verbs:
           - create
@@ -589,16 +632,6 @@ spec:
           - get
           - patch
           - update
-        - apiGroups:
-          - operator.open-cluster-management.io
-          resources:
-          - multiclusterhubs
-          verbs:
-          - get
-          - list
-          - patch
-          - update
-          - watch
         - apiGroups:
           - operators.coreos.com
           resources:

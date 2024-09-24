@@ -8,6 +8,7 @@ WORKDIR /workspace
 
 COPY go.mod go.sum ./
 COPY ./manager/ ./manager/
+COPY ./operator/api ./operator/api
 COPY ./pkg/ ./pkg/
 
 RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -tags strictfipsruntime -a -v -o bin/manager ./manager/cmd/manager/main.go

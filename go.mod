@@ -53,6 +53,7 @@ require (
 	open-cluster-management.io/addon-framework v0.10.0
 	open-cluster-management.io/api v0.14.1-0.20240627145512-bd6f2229b53c
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
+	open-cluster-management.io/managed-serviceaccount v0.6.0
 	open-cluster-management.io/multicloud-operators-channel v0.13.1-0.20240423040139-ad986cafc6e8
 	open-cluster-management.io/multicloud-operators-subscription v0.14.0
 	sigs.k8s.io/application v0.8.3

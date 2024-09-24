@@ -22,7 +22,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - secrets
   - serviceaccounts
   - services
   verbs:
@@ -36,6 +35,7 @@ rules:
   - ""
   resources:
   - persistentvolumeclaims
+  - secrets
   verbs:
   - create
   - delete
@@ -147,6 +147,17 @@ rules:
   - patch
   - update
 - apiGroups:
+  - authentication.open-cluster-management.io
+  resources:
+  - managedserviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - authorization.k8s.io
   resources:
   - subjectaccessreviews
@@ -228,6 +239,18 @@ rules:
   - create
   - delete
 - apiGroups:
+  - config.open-cluster-management.io
+  resources:
+  - klusterletconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -236,6 +259,15 @@ rules:
   - get
   - list
   - patch
+  - update
+  - watch
+- apiGroups:
+  - global-hub.open-cluster-management.io
+  resources:
+  - managedclustermigrations
+  verbs:
+  - get
+  - list
   - update
   - watch
 - apiGroups:
@@ -286,6 +318,17 @@ rules:
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - clustermanagers
+  - multiclusterhubs
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.open-cluster-management.io
+  resources:
   - multiclusterglobalhubs
   verbs:
   - create
@@ -309,16 +352,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - operator.open-cluster-management.io
-  resources:
-  - multiclusterhubs
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - operators.coreos.com
   resources:

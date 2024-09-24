@@ -166,6 +166,8 @@ rules:
   - get
   - list
   - watch
+  - patch
+  - update
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
@@ -209,5 +211,17 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - config.open-cluster-management.io
+  resources:
+  - klusterletconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 {{- end -}}
