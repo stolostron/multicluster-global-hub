@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -39,7 +40,6 @@ func (syncer *managedClusterMigrationSyncer) Sync(payload []byte) error {
 		return err
 	}
 
-	// managedClusters := managedClusterMigrationEvent.ManagedClusters
 	bootstrapSecret := managedClusterMigrationEvent.BootstrapSecret
 
 	foundBootstrapSecret := &corev1.Secret{}
@@ -70,6 +70,26 @@ func (syncer *managedClusterMigrationSyncer) Sync(payload []byte) error {
 				return err
 			}
 		} else {
+			return err
+		}
+	}
+
+	// update managed cluster annotations to point to the new klusterlet config
+	managedClusters := managedClusterMigrationEvent.ManagedClusters
+	for _, managedCluster := range managedClusters {
+		mcl := &clusterv1.ManagedCluster{}
+		if err := syncer.client.Get(context.TODO(), types.NamespacedName{
+			Name: managedCluster,
+		}, mcl); err != nil {
+			return err
+		}
+		annotations := mcl.Annotations
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
+		mcl.SetAnnotations(annotations)
+		if err := syncer.client.Update(context.TODO(), mcl); err != nil {
 			return err
 		}
 	}
