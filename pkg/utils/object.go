@@ -13,6 +13,8 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -91,10 +93,11 @@ func GetObjectKey(obj client.Object) string {
 	return obj.GetObjectKind().GroupVersionKind().String()
 }
 
-func ToCloudEvent(evtType string, source string, data interface{}) cloudevents.Event {
+func ToCloudEvent(evtType, source, clusterName string, data interface{}) cloudevents.Event {
 	e := cloudevents.NewEvent()
 	e.SetType(evtType)
 	e.SetSource(source)
+	e.SetExtension(constants.CloudEventExtensionKeyClusterName, clusterName)
 	_ = e.SetData(cloudevents.ApplicationJSON, data)
 	return e
 }

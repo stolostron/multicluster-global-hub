@@ -51,7 +51,18 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			return
 		case evt := <-d.consumer.EventChan():
 			// if destination is explicitly specified and does not match, drop bundle
-			if evt.Source() != transport.Broadcast && evt.Source() != d.agentConfig.LeafHubName {
+			clusterNameVal, err := evt.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)
+			if err != nil {
+				d.log.Info("dropping bundle due to error in getting cluster name", "error", err)
+				continue
+			}
+			clusterName, ok := clusterNameVal.(string)
+			if !ok {
+				d.log.Info("dropping bundle due to invalid cluster name", "clusterName", clusterNameVal)
+				continue
+			}
+			if clusterName != transport.Broadcast && clusterName != d.agentConfig.LeafHubName {
+				d.log.Info("dropping bundle due to cluster name mismatch", "clusterName", clusterName)
 				continue
 			}
 			syncer, found := d.syncers[evt.Type()]
