@@ -70,11 +70,14 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	return &transport.KafkaConnCredential{
 		ClusterID:       string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
-		CACert:          base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
-		ClientCert:      base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
-		ClientKey:       base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+
 		// for the byo case, the status topic isn't change by the clusterName
 		StatusTopic: config.GetStatusTopic(""),
 		SpecTopic:   config.GetSpecTopic(),
+		CommonConnCredential: transport.CommonConnCredential{
+			CACert:     base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("ca.crt")]),
+			ClientCert: base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.crt")]),
+			ClientKey:  base64.StdEncoding.EncodeToString(kafkaSecret.Data[filepath.Join("client.key")]),
+		},
 	}, nil
 }
