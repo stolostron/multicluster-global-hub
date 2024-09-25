@@ -42,30 +42,69 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 
-	clusterManager := &operatorv1.ClusterManager{}
+	foundClusterManager := &operatorv1.ClusterManager{}
 	namespacedName := types.NamespacedName{Name: "cluster-manager"}
-	if err := syncer.client.Get(syncer.context, namespacedName, clusterManager); err != nil {
+	if err := syncer.client.Get(syncer.context, namespacedName, foundClusterManager); err != nil {
 		return err
 	}
 
-	patchObject := []byte(fmt.Sprintf(`
-apiVersion: operator.open-cluster-management.io/v1
-kind: ClusterManager
-metadata:
-  name: cluster-manager
-spec:
-  registrationConfiguration:
-    featureGates:
-      - feature: ManagedClusterAutoApproval
-        mode: Enable
-    autoApproveUsers:
-      - system:serviceaccount:%s:%s
-`, msaNamespace, msaName))
-	// patch cluster-manager to enable ManagedClusterAutoApproval
-	if err := syncer.client.Patch(syncer.context, clusterManager, client.RawPatch(types.ApplyPatchType, patchObject), &client.PatchOptions{
-		FieldManager: "multicluster-global-hub-agent",
-	}); err != nil {
-		return err
+	clusterManager := foundClusterManager.DeepCopy()
+
+	// check if the ManagedClusterAutoApproval feature is enabled and the service account is added to the auto-approve list
+	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", msaNamespace, msaName)
+	autoApproveFeatureEnabled := false
+	autoApproveUserAdded := false
+	clusterManagerChanged := false
+	if clusterManager.Spec.RegistrationConfiguration != nil {
+		for _, featureGate := range clusterManager.Spec.RegistrationConfiguration.FeatureGates {
+			if featureGate.Feature == "ManagedClusterAutoApproval" {
+				autoApproveFeatureEnabled = true
+				if featureGate.Mode == operatorv1.FeatureGateModeTypeEnable {
+					break
+				} else {
+					featureGate.Mode = operatorv1.FeatureGateModeTypeEnable
+					clusterManagerChanged = true
+					break
+				}
+			}
+		}
+		if !autoApproveFeatureEnabled {
+			clusterManager.Spec.RegistrationConfiguration.FeatureGates = append(clusterManager.Spec.RegistrationConfiguration.FeatureGates, operatorv1.FeatureGate{
+				Feature: "ManagedClusterAutoApproval",
+				Mode:    operatorv1.FeatureGateModeTypeEnable,
+			})
+			clusterManagerChanged = true
+		}
+		for _, user := range clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers {
+			if user == autoApproveUser {
+				autoApproveUserAdded = true
+				break
+			}
+		}
+		if !autoApproveUserAdded {
+			clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = append(clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers, autoApproveUser)
+			clusterManagerChanged = true
+		}
+	} else {
+		clusterManager.Spec.RegistrationConfiguration = &operatorv1.RegistrationHubConfiguration{
+			FeatureGates: []operatorv1.FeatureGate{
+				{
+					Feature: "ManagedClusterAutoApproval",
+					Mode:    operatorv1.FeatureGateModeTypeEnable,
+				},
+			},
+			AutoApproveUsers: []string{
+				autoApproveUser,
+			},
+		}
+		clusterManagerChanged = true
+	}
+
+	// patch cluster-manager only if it has changed
+	if clusterManagerChanged {
+		if err := syncer.client.Update(syncer.context, clusterManager); err != nil {
+			return err
+		}
 	}
 
 	// create clusterrolebinding for the service account
