@@ -22,6 +22,7 @@ import (
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,multicluster-global-hub-manager}}
 // ManagedClusterMigration is a global hub resource that allows you to migrate managed clusters from one hub to another
 type ManagedClusterMigration struct {
 	metav1.TypeMeta   `json:",inline"`
