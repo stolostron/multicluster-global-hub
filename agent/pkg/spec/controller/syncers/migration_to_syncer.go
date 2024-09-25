@@ -33,7 +33,6 @@ func NewManagedClusterMigrationToSyncer(context context.Context, client client.C
 }
 
 func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
-
 	// handle migration.to cloud event
 	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationToEvent); err != nil {
@@ -41,7 +40,7 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 	}
 
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
-	msaNamespace := managedClusterMigrationToEvent.ServiceAccountNamespace
+	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 
 	clusterManager := &operatorv1.ClusterManager{}
 	namespacedName := types.NamespacedName{Name: "cluster-manager"}

@@ -37,7 +37,6 @@ func NewManagedClusterMigrationFromSyncer(context context.Context, client client
 }
 
 func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
-
 	// handle migration.from cloud event
 	managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {

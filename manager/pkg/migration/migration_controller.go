@@ -45,7 +45,8 @@ type MigrationReconciler struct {
 }
 
 func NewMigrationReconciler(client client.Client, producer transport.Producer,
-	importClusterInHosted bool) *MigrationReconciler {
+	importClusterInHosted bool,
+) *MigrationReconciler {
 	return &MigrationReconciler{
 		Client:                client,
 		Producer:              producer,
@@ -295,12 +296,12 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migr
 		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}
 	// if user specifies the managedserviceaccount addon namespace, then use it
-	if val, ok := migration.Annotations["global-hub.open-cluster-management.io/serviceaccount-namespace"]; ok {
+	if val, ok := migration.Annotations["global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"]; ok {
 		msaNamespace = val
 	}
 	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{
-		ManagedServiceAccountName: migration.Name,
-		ServiceAccountNamespace:   msaNamespace,
+		ManagedServiceAccountName:             migration.Name,
+		ManagedServiceAccountInstallNamespace: msaNamespace,
 	}
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
 	if err != nil {

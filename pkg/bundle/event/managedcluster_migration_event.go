@@ -6,12 +6,12 @@ import (
 )
 
 type ManagedClusterMigrationFromEvent struct {
-	ManagedClusters  []string                             `json:"managedclusters"`
-	BootstrapSecret  *corev1.Secret                       `json:"bootstrapsecret"`
-	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletconfig"`
+	ManagedClusters  []string                             `json:"managedClusters"`
+	BootstrapSecret  *corev1.Secret                       `json:"bootstrapSecret"`
+	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig"`
 }
 
 type ManagedClusterMigrationToEvent struct {
-	ManagedServiceAccountName string `json:"managedserviceaccountname"`
-	ServiceAccountNamespace   string `json:"serviceaccountnamespace"`
+	ManagedServiceAccountName             string `json:"managedServiceAccountName"`
+	ManagedServiceAccountInstallNamespace string `json:"managedServiceAccountInstallNamespace"`
 }

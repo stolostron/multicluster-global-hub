@@ -201,7 +201,7 @@ var _ = Describe("migration", Ordered, func() {
 			if clusterName != "hub2" {
 				return fmt.Errorf("toEvent cluster name is not correct")
 			}
-			if len(toEvent.Data()) != 0 {
+			if len(toEvent.Data()) == 0 {
 				return fmt.Errorf("toEvent data is not empty")
 			}
 			if len(fromEvent.Data()) == 0 {
@@ -236,16 +236,23 @@ var _ = Describe("migration", Ordered, func() {
 			if klusterletConfig.Spec.BootstrapKubeConfigs.Type != operatorv1.LocalSecrets {
 				return fmt.Errorf("klusterletConfig bootstrap kubeconfig type is not correct")
 			}
-			if len(klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets) != 2 {
+			if len(klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets) != 1 {
 				return fmt.Errorf("klusterletConfig bootstrap kubeconfig secrets is not correct")
 			}
 			if klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets[0].Name != "bootstrap-hub2" {
 				return fmt.Errorf("klusterletConfig bootstrap kubeconfig secret name 0 is not correct")
 			}
-			if klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets[1].Name != "bootstrap-hub2" {
-				return fmt.Errorf("klusterletConfig bootstrap kubeconfig secret name 1 is not correct")
-			}
 
+			managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{}
+			if err := json.Unmarshal(toEvent.Data(), managedClusterMigrationToEvent); err != nil {
+				return fmt.Errorf("failed to unmarshal fromEvent data: %v", err)
+			}
+			if managedClusterMigrationToEvent.ManagedServiceAccountName != "migration" {
+				return fmt.Errorf("Managed serviceaccount name is not correct")
+			}
+			if managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace != "open-cluster-management-agent-addon" {
+				return fmt.Errorf("Managed serviceaccount install namespace is not correct")
+			}
 			return nil
 		}, 10*time.Second, time.Second).Should(Succeed())
 	})
