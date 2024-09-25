@@ -78,7 +78,7 @@ var (
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
 		PostgresImageKey:         "quay.io/stolostron/postgresql-13:1-101",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
-		InventoryImageKey:        "quay.io/clyang82/inventory-api:latest",
+		InventoryImageKey:        "quay.io/stolostron/inventory-api:latest",
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
