@@ -69,7 +69,8 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	}
 
 	// set the client ca to signing the inventory client cert
-	if err := config.SetInventoryClientCA(ctx, mgh.Namespace, certctrl.InventoryClientCASecretName, r.GetClient()); err != nil {
+	if err := config.SetInventoryClientCA(ctx, mgh.Namespace, certctrl.InventoryClientCASecretName,
+		r.GetClient()); err != nil {
 		return err
 	}
 

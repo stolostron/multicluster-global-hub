@@ -1,8 +1,14 @@
 package transport
 
 import (
+	"context"
+	"encoding/base64"
+	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -56,13 +62,8 @@ type TransportConfig struct {
 }
 
 type RestfulConnCredentail struct {
-	Host       string `yaml:"host"`
-	CACert     string `yaml:"ca.crt,omitempty"`
-	ClientCert string `yaml:"client.crt,omitempty"`
-	ClientKey  string `yaml:"client.key,omitempty"`
-	// the following fields are only for the singing client
-	CASecretName     string `yaml:"ca.secret,omitempty"`
-	ClientSecretName string `yaml:"client.secret,omitempty"`
+	Host                 string `yaml:"host"`
+	CommonConnCredential        // Embed common fields
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
@@ -82,12 +83,8 @@ func (k *RestfulConnCredentail) YamlMarshal(rawCert bool) ([]byte, error) {
 
 func (k *RestfulConnCredentail) DeepCopy() *RestfulConnCredentail {
 	return &RestfulConnCredentail{
-		Host:             k.Host,
-		CACert:           k.CACert,
-		ClientCert:       k.ClientCert,
-		ClientKey:        k.ClientKey,
-		CASecretName:     k.CASecretName,
-		ClientSecretName: k.ClientSecretName,
+		Host:                 k.Host,
+		CommonConnCredential: *k.CommonConnCredential.DeepCopy(),
 	}
 }
 
@@ -119,20 +116,90 @@ type ClusterTopic struct {
 	StatusTopic string
 }
 
+type CommonConnCredential struct {
+	CACert           string `yaml:"ca.crt,omitempty"`
+	ClientCert       string `yaml:"client.crt,omitempty"`
+	ClientKey        string `yaml:"client.key,omitempty"`
+	CASecretName     string `yaml:"ca.secret,omitempty"`
+	ClientSecretName string `yaml:"client.secret,omitempty"`
+}
+
+func (c *CommonConnCredential) DeepCopy() *CommonConnCredential {
+	return &CommonConnCredential{
+		CACert:           c.CACert,
+		ClientCert:       c.ClientCert,
+		ClientKey:        c.ClientKey,
+		CASecretName:     c.CASecretName,
+		ClientSecretName: c.ClientSecretName,
+	}
+}
+
+func (conn *CommonConnCredential) ParseCommonCredentailFromSecret(namespace string, c client.Client,
+) error {
+	// decode the ca cert, client key and cert
+	if conn.CACert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.CACert)
+		if err != nil {
+			return err
+		}
+		conn.CACert = string(bytes)
+	}
+	if conn.ClientCert != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.ClientCert)
+		if err != nil {
+			return err
+		}
+		conn.ClientCert = string(bytes)
+	}
+	if conn.ClientKey != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.ClientKey)
+		if err != nil {
+			return err
+		}
+		conn.ClientKey = string(bytes)
+	}
+
+	// load the ca cert from secret
+	if conn.CASecretName != "" {
+		caSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      conn.CASecretName,
+			},
+		}
+		if err := c.Get(context.Background(), client.ObjectKeyFromObject(caSecret), caSecret); err != nil {
+			return err
+		}
+		conn.CACert = string(caSecret.Data["ca.crt"])
+	}
+	// load the client key and cert from secret
+	if conn.ClientSecretName != "" {
+		clientSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: namespace,
+				Name:      conn.ClientSecretName,
+			},
+		}
+		if err := c.Get(context.Background(), client.ObjectKeyFromObject(clientSecret), clientSecret); err != nil {
+			return fmt.Errorf("failed to get the client cert: %w", err)
+		}
+		conn.ClientCert = string(clientSecret.Data["tls.crt"])
+		conn.ClientKey = string(clientSecret.Data["tls.key"])
+		if conn.ClientCert == "" || conn.ClientKey == "" {
+			return fmt.Errorf("the client cert or key must not be empty: %s", conn.ClientSecretName)
+		}
+	}
+	return nil
+}
+
 // KafkaConnCredential is used to connect the transporter instance. The field is persisted to secret
 // need to be encode with base64.StdEncoding.EncodeToString
 type KafkaConnCredential struct {
-	BootstrapServer string `yaml:"bootstrap.server"`
-	StatusTopic     string `yaml:"topic.status,omitempty"`
-	SpecTopic       string `yaml:"topic.spec,omitempty"`
-	ClusterID       string `yaml:"cluster.id,omitempty"`
-	// the following fields are only for the manager, and the agent of byo/standalone kafka
-	CACert     string `yaml:"ca.crt,omitempty"`
-	ClientCert string `yaml:"client.crt,omitempty"`
-	ClientKey  string `yaml:"client.key,omitempty"`
-	// the following fields are only for the agent of built-in kafka
-	CASecretName     string `yaml:"ca.secret,omitempty"`
-	ClientSecretName string `yaml:"client.secret,omitempty"`
+	BootstrapServer      string `yaml:"bootstrap.server"`
+	StatusTopic          string `yaml:"topic.status,omitempty"`
+	SpecTopic            string `yaml:"topic.spec,omitempty"`
+	ClusterID            string `yaml:"cluster.id,omitempty"`
+	CommonConnCredential        // Embed common fields
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
@@ -153,15 +220,11 @@ func (k *KafkaConnCredential) YamlMarshal(rawCert bool) ([]byte, error) {
 // DeepCopy creates a deep copy of KafkaConnCredential
 func (k *KafkaConnCredential) DeepCopy() *KafkaConnCredential {
 	return &KafkaConnCredential{
-		BootstrapServer:  k.BootstrapServer,
-		StatusTopic:      k.StatusTopic,
-		SpecTopic:        k.SpecTopic,
-		ClusterID:        k.ClusterID,
-		CACert:           k.CACert,
-		ClientCert:       k.ClientCert,
-		ClientKey:        k.ClientKey,
-		CASecretName:     k.CASecretName,
-		ClientSecretName: k.ClientSecretName,
+		BootstrapServer:      k.BootstrapServer,
+		StatusTopic:          k.StatusTopic,
+		SpecTopic:            k.SpecTopic,
+		ClusterID:            k.ClusterID,
+		CommonConnCredential: *k.CommonConnCredential.DeepCopy(),
 	}
 }
 

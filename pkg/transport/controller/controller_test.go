@@ -52,9 +52,11 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		SpecTopic:       "spec",
 		ClusterID:       "123",
 		// the following fields are only for the manager, and the agent of byo/standalone kafka
-		CACert:     base64.StdEncoding.EncodeToString([]byte("11")),
-		ClientCert: base64.StdEncoding.EncodeToString([]byte("12")),
-		ClientKey:  base64.StdEncoding.EncodeToString([]byte("13")),
+		CommonConnCredential: transport.CommonConnCredential{
+			CACert:     base64.StdEncoding.EncodeToString([]byte("11")),
+			ClientCert: base64.StdEncoding.EncodeToString([]byte("12")),
+			ClientKey:  base64.StdEncoding.EncodeToString([]byte("13")),
+		},
 	}
 
 	kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
@@ -116,10 +118,12 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 
 	restfulConn := &transport.RestfulConnCredentail{
 		Host: "localhost:123",
-		// the following fields are only for the manager, and the agent of byo/standalone kafka
-		CACert:     base64.StdEncoding.EncodeToString(rootPEM),
-		ClientCert: base64.StdEncoding.EncodeToString(certPem),
-		ClientKey:  base64.StdEncoding.EncodeToString(keyPem),
+		CommonConnCredential: transport.CommonConnCredential{
+			// the following fields are only for the manager, and the agent of byo/standalone kafka
+			CACert:     base64.StdEncoding.EncodeToString(rootPEM),
+			ClientCert: base64.StdEncoding.EncodeToString(certPem),
+			ClientKey:  base64.StdEncoding.EncodeToString(keyPem),
+		},
 	}
 
 	restfulConnYaml, err := restfulConn.YamlMarshal(true)
