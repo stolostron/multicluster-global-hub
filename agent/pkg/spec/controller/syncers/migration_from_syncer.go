@@ -28,7 +28,9 @@ type managedClusterMigrationFromSyncer struct {
 	context context.Context
 }
 
-func NewManagedClusterMigrationFromSyncer(context context.Context, client client.Client) *managedClusterMigrationFromSyncer {
+func NewManagedClusterMigrationFromSyncer(context context.Context,
+	client client.Client,
+) *managedClusterMigrationFromSyncer {
 	return &managedClusterMigrationFromSyncer{
 		log:     ctrl.Log.WithName("managed-cluster-migration-from-syncer"),
 		client:  client,

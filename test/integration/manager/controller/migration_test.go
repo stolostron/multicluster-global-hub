@@ -173,10 +173,10 @@ var _ = Describe("migration", Ordered, func() {
 			if toEvent.Source() != constants.CloudEventSourceGlobalHub {
 				return fmt.Errorf("toEvent source is not correct")
 			}
-			if fromEvent.Type() != constants.CloudEventTypeManagedClusterMigrationFrom {
+			if fromEvent.Type() != constants.CloudEventTypeMigrationFrom {
 				return fmt.Errorf("fromEvent type is not correct")
 			}
-			if toEvent.Type() != constants.CloudEventTypeManagedClusterMigrationTo {
+			if toEvent.Type() != constants.CloudEventTypeMigrationTo {
 				return fmt.Errorf("toEvent type is not correct")
 			}
 			clusterNameVal, err := fromEvent.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)

@@ -40,9 +40,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.
 			syncers.NewManagedClusterLabelSyncer(workers))
 	}
 
-	dispatcher.RegisterSyncer(constants.CloudEventTypeManagedClusterMigrationFrom,
+	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationFrom,
 		syncers.NewManagedClusterMigrationFromSyncer(context, mgr.GetClient()))
-	dispatcher.RegisterSyncer(constants.CloudEventTypeManagedClusterMigrationTo,
+	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationTo,
 		syncers.NewManagedClusterMigrationToSyncer(context, mgr.GetClient()))
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncSyncer())
 

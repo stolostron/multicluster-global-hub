@@ -176,7 +176,7 @@ const (
 	// cloudevent extension keys
 	CloudEventExtensionKeyClusterName = "clustername"
 	// CloudEventTypeManagedClusterMigrationFrom is the cloud event type for managed cluster migration from
-	CloudEventTypeManagedClusterMigrationFrom = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.from"
+	CloudEventTypeMigrationFrom = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.from"
 	// CloudEventTypeManagedClusterMigrationTo is the cloud event type for managed cluster migration to
-	CloudEventTypeManagedClusterMigrationTo = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.to"
+	CloudEventTypeMigrationTo = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.to"
 )

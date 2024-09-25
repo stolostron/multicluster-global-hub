@@ -24,7 +24,9 @@ type managedClusterMigrationToSyncer struct {
 	context context.Context
 }
 
-func NewManagedClusterMigrationToSyncer(context context.Context, client client.Client) *managedClusterMigrationToSyncer {
+func NewManagedClusterMigrationToSyncer(context context.Context,
+	client client.Client,
+) *managedClusterMigrationToSyncer {
 	return &managedClusterMigrationToSyncer{
 		log:     ctrl.Log.WithName("managed-cluster-migration-to-syncer"),
 		client:  client,
@@ -50,7 +52,8 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 
 	clusterManager := foundClusterManager.DeepCopy()
 
-	// check if the ManagedClusterAutoApproval feature is enabled and the service account is added to the auto-approve list
+	// check if the ManagedClusterAutoApproval feature is enabled and
+	// the service account is added to the auto-approve list
 	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", msaNamespace, msaName)
 	autoApproveFeatureEnabled := false
 	autoApproveUserAdded := false
@@ -69,10 +72,12 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 			}
 		}
 		if !autoApproveFeatureEnabled {
-			clusterManager.Spec.RegistrationConfiguration.FeatureGates = append(clusterManager.Spec.RegistrationConfiguration.FeatureGates, operatorv1.FeatureGate{
-				Feature: "ManagedClusterAutoApproval",
-				Mode:    operatorv1.FeatureGateModeTypeEnable,
-			})
+			clusterManager.Spec.RegistrationConfiguration.FeatureGates = append(
+				clusterManager.Spec.RegistrationConfiguration.FeatureGates,
+				operatorv1.FeatureGate{
+					Feature: "ManagedClusterAutoApproval",
+					Mode:    operatorv1.FeatureGateModeTypeEnable,
+				})
 			clusterManagerChanged = true
 		}
 		for _, user := range clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers {
@@ -82,7 +87,9 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 			}
 		}
 		if !autoApproveUserAdded {
-			clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = append(clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers, autoApproveUser)
+			clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = append(
+				clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers,
+				autoApproveUser)
 			clusterManagerChanged = true
 		}
 	} else {
@@ -197,7 +204,8 @@ roleRef:
 			Name: msaName + "-subjectaccessreviews-clusterrolebinding",
 		}, &rbacv1.ClusterRole{}); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating clusterrolebing", "clusterrolebing", msaName+"-subjectaccessreviews-clusterrolebinding")
+			syncer.log.Info("creating clusterrolebing", "clusterrolebing",
+				msaName+"-subjectaccessreviews-clusterrolebinding")
 			if err := syncer.client.Create(syncer.context, sarClusterRoleBindingObj); err != nil {
 				return err
 			}
