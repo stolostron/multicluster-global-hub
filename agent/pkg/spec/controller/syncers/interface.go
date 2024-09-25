@@ -5,7 +5,7 @@ import (
 )
 
 type Syncer interface {
-	Sync(payload []byte) error
+	Sync(ctx context.Context, payload []byte) error
 }
 
 type Dispatcher interface {

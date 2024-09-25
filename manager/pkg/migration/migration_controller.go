@@ -23,6 +23,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -100,6 +101,7 @@ func (m *MigrationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
+					e.Object.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
 					labels := e.Object.GetLabels()
 					if value, ok := labels["owner"]; ok {
 						if value == strings.ToLower(constants.ManagedClusterMigrationKind) {
@@ -130,6 +132,29 @@ func (m *MigrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Error(err, "failed to get managedclustermigration")
 			return ctrl.Result{}, err
 		}
+
+		if migration.DeletionTimestamp.IsZero() {
+			if !controllerutil.ContainsFinalizer(migration, constants.ManagedClusterMigrationFinalizer) {
+				controllerutil.AddFinalizer(migration, constants.ManagedClusterMigrationFinalizer)
+				if err := m.Update(ctx, migration); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+		} else {
+			// The migration object is being deleted
+			if controllerutil.ContainsFinalizer(migration, constants.ManagedClusterMigrationFinalizer) {
+				if err := m.deleteManagedServiceAccount(ctx, migration); err != nil {
+					return ctrl.Result{}, err
+				}
+
+				controllerutil.RemoveFinalizer(migration, constants.ManagedClusterMigrationFinalizer)
+				if err := m.Update(ctx, migration); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			return ctrl.Result{}, nil
+		}
+
 		if err := m.ensureManagedServiceAccount(ctx, migration); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -270,7 +295,26 @@ func (m *MigrationReconciler) ensureManagedServiceAccount(ctx context.Context,
 	return nil
 }
 
-func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migrationv1alpha1.ManagedClusterMigration, klusterletConfig *klusterletv1alpha1.KlusterletConfig) error {
+func (m *MigrationReconciler) deleteManagedServiceAccount(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration,
+) error {
+	msa := &v1beta1.ManagedServiceAccount{}
+	if err := m.Get(ctx, types.NamespacedName{
+		Name:      migration.Name,
+		Namespace: migration.Spec.To,
+	}, msa); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return m.Delete(ctx, msa)
+}
+
+func (m *MigrationReconciler) syncMigration(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration,
+	klusterletConfig *klusterletv1alpha1.KlusterletConfig,
+) error {
 	managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{
 		ManagedClusters:  migration.Spec.IncludedManagedClusters,
 		BootstrapSecret:  m.BootstrapSecret,
@@ -278,14 +322,15 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migr
 	}
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)
 	if err != nil {
-		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w", migration.Namespace, migration.Name, err)
+		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w",
+			migration.Namespace, migration.Name, err)
 	}
 
 	// send the event to the source and destination managed hub
 	eventType := constants.CloudEventTypeMigrationFrom
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.From, payloadBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
-		return fmt.Errorf("failed to sync managed cluster migration message(%s) from source(%s) to destination(%s) - %w",
+		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
 	}
 
@@ -295,8 +340,9 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migr
 		// hosted mode, the  managedserviceaccount addon namespace
 		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}
+	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
 	// if user specifies the managedserviceaccount addon namespace, then use it
-	if val, ok := migration.Annotations["global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"]; ok {
+	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
 		msaNamespace = val
 	}
 	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{
@@ -305,14 +351,16 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context, migration *migr
 	}
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
 	if err != nil {
-		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w", migration.Namespace, migration.Name, err)
+		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w",
+			migration.Namespace, migration.Name, err)
 	}
 
 	// send the event to the destination managed hub
 	eventType = constants.CloudEventTypeMigrationTo
 	evt = utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, payloadToBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
-		return fmt.Errorf("failed to sync managed cluster migration message(%s) from source(%s) to destination(%s) - %w", eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
+		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
+			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
 	}
 
 	return nil

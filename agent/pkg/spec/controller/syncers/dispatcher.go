@@ -75,7 +75,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			if err := syncer.Sync(evt.Data()); err != nil {
+			if err := syncer.Sync(ctx, evt.Data()); err != nil {
 				d.log.Error(err, "submit to syncer error", "eventType", evt.Type())
 			}
 		}

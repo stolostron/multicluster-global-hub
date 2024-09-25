@@ -18,7 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestMigrationSyncer(t *testing.T) {
+func TestMigrationToSyncer(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
@@ -77,14 +77,14 @@ func TestMigrationSyncer(t *testing.T) {
 				Rules: []rbacv1.PolicyRule{
 					{
 						APIGroups: []string{"authorization.k8s.io"},
-						Resources: []string{"selfsubjectaccessreviews"},
+						Resources: []string{"subjectaccessreviews"},
 						Verbs:     []string{"create"},
 					},
 				},
 			},
 			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-clusterrolebinding",
+					Name: "agent-registration-clusterrolebinding:test",
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -280,14 +280,262 @@ func TestMigrationSyncer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "migration with existing clusterrole and clusterrolebinding",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multicluster-global-hub-migration:test",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"subjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "agent-registration-clusterrolebinding:test",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-subjectaccessreviews-clusterrolebinding",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "multicluster-global-hub-migration:test",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+					},
+				},
+			},
+			expectedClusterRole: &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "multicluster-global-hub-migration:test",
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{"authorization.k8s.io"},
+						Resources: []string{"subjectaccessreviews"},
+						Verbs:     []string{"create"},
+					},
+				},
+			},
+			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "agent-registration-clusterrolebinding:test",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-subjectaccessreviews-clusterrolebinding",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "multicluster-global-hub-migration:test",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+		},
+		{
+			name: "migration with changed clusterrole and clusterrolebinding",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multicluster-global-hub-migration:test",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"selfsubjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "agent-registration-clusterrolebinding:test",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "foo",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-subjectaccessreviews-clusterrolebinding",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "foo",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "multicluster-global-hub-migration:test",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+					},
+				},
+			},
+			expectedClusterRole: &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "multicluster-global-hub-migration:test",
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{"authorization.k8s.io"},
+						Resources: []string{"subjectaccessreviews"},
+						Verbs:     []string{"create"},
+					},
+				},
+			},
+			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "agent-registration-clusterrolebinding:test",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-subjectaccessreviews-clusterrolebinding",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "multicluster-global-hub-migration:test",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(ctx, client)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client)
 
-			err := managedClusterMigrationSyncer.Sync(testPayload)
+			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)
 			}
@@ -297,8 +545,8 @@ func TestMigrationSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterManager.Name}, foundClusterManager); err != nil {
 					t.Errorf("Failed to get cluster manager: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundClusterManager, c.expectedClusterManager) {
-					t.Errorf("Expected managed cluster %v, but got %v", c.expectedClusterManager, foundClusterManager)
+				if !apiequality.Semantic.DeepDerivative(c.expectedClusterManager, foundClusterManager) {
+					t.Errorf("Expected cluster manager %#v, but got %#v", c.expectedClusterManager, foundClusterManager)
 				}
 			}
 
@@ -307,7 +555,7 @@ func TestMigrationSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterRole.Name}, foundClusterRole); err != nil {
 					t.Errorf("Failed to get cluster role: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundClusterRole, c.expectedClusterRole) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedClusterRole, foundClusterRole) {
 					t.Errorf("Expected cluster role %v, but got %v", c.expectedClusterRole, foundClusterRole)
 				}
 			}
@@ -317,7 +565,7 @@ func TestMigrationSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterRoleBinding.Name}, foundClusterRoleBinding); err != nil {
 					t.Errorf("Failed to get cluster role binding: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundClusterRoleBinding, c.expectedClusterRoleBinding) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedClusterRoleBinding, foundClusterRoleBinding) {
 					t.Errorf("Expected cluster role binding %v, but got %v", c.expectedClusterRoleBinding, foundClusterRoleBinding)
 				}
 			}
@@ -327,7 +575,7 @@ func TestMigrationSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedSARClusterRoleBinding.Name}, foundSARClusterRoleBinding); err != nil {
 					t.Errorf("Failed to get cluster role binding: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundSARClusterRoleBinding, c.expectedSARClusterRoleBinding) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedSARClusterRoleBinding, foundSARClusterRoleBinding) {
 					t.Errorf("Expected cluster role binding %v, but got %v", c.expectedSARClusterRoleBinding, foundSARClusterRoleBinding)
 				}
 			}
