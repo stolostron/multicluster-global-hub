@@ -7,11 +7,13 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
+	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	apiregistrationv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
@@ -28,6 +30,7 @@ import (
 
 func GetRuntimeScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(clusterv1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(clusterv1beta1.AddToScheme(scheme))
@@ -46,5 +49,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(appsubv1.SchemeBuilder.AddToScheme(scheme))
 	utilruntime.Must(appv1beta1.AddToScheme(scheme))
 	utilruntime.Must(clusterinfov1beta1.AddToScheme(scheme))
+	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
 	return scheme
 }

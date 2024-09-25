@@ -63,7 +63,7 @@ func (c *crdController) reconcileClusterManagers(ctx context.Context, request ct
 	}
 
 	// add spec controllers
-	if err := specController.AddToManager(c.mgr, c.consumer, c.agentConfig); err != nil {
+	if err := specController.AddToManager(ctx, c.mgr, c.consumer, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 	reqLogger.V(2).Info("add spec controllers to manager")

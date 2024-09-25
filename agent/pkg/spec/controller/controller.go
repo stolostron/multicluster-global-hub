@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -14,7 +15,7 @@ import (
 
 var specCtrlStarted = false
 
-func AddToManager(mgr ctrl.Manager, consumer transport.Consumer, agentConfig *config.AgentConfig) error {
+func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.Consumer, agentConfig *config.AgentConfig) error {
 	if specCtrlStarted {
 		return nil
 	}
@@ -39,6 +40,10 @@ func AddToManager(mgr ctrl.Manager, consumer transport.Consumer, agentConfig *co
 			syncers.NewManagedClusterLabelSyncer(workers))
 	}
 
+	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationFrom,
+		syncers.NewManagedClusterMigrationFromSyncer(context, mgr.GetClient()))
+	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationTo,
+		syncers.NewManagedClusterMigrationToSyncer(context, mgr.GetClient()))
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncSyncer())
 
 	specCtrlStarted = true

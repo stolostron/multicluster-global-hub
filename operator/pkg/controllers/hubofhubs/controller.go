@@ -563,7 +563,7 @@ func watchMutatingWebhookConfigurationPredicate() predicate.TypedPredicate[*admi
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=placements,verbs=create;get;list;patch;update;delete
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=create;get;list;patch;update;delete
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets,verbs=get;list;patch;update
-// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;update
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;update;create
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete

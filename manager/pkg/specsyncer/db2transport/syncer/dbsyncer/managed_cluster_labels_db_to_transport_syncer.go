@@ -71,10 +71,10 @@ func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Pro
 			return false, fmt.Errorf("failed to sync marshal bundle(%s)", transportBundleKey)
 		}
 
-		evt := utils.ToCloudEvent(transportBundleKey, leafHubName, payloadBytes)
+		evt := utils.ToCloudEvent(transportBundleKey, constants.CloudEventSourceGlobalHub, leafHubName, payloadBytes)
 		if err := producer.SendEvent(ctx, evt); err != nil {
 			return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
-				transportBundleKey, dbTableName, transport.Broadcast, err)
+				leafHubName, dbTableName, transport.Broadcast, err)
 		}
 	}
 

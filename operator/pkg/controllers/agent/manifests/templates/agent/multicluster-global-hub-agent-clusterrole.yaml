@@ -224,4 +224,27 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclusters
+  verbs:
+  - get
+  - create
+  - update
 {{- end -}}

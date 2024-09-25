@@ -169,3 +169,14 @@ const (
 	// Managedcluster imported status type
 	ManagedClusterImportSucceeded = "ManagedClusterImportSucceeded"
 )
+
+const (
+	// cloudevent source for global hub
+	CloudEventSourceGlobalHub = "global-hub"
+	// cloudevent extension keys
+	CloudEventExtensionKeyClusterName = "clustername"
+	// CloudEventTypeManagedClusterMigrationFrom is the cloud event type for managed cluster migration from
+	CloudEventTypeMigrationFrom = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.from"
+	// CloudEventTypeManagedClusterMigrationTo is the cloud event type for managed cluster migration to
+	CloudEventTypeMigrationTo = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.to"
+)

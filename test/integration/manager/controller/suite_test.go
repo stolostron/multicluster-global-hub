@@ -21,17 +21,19 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (
-	testenv      *envtest.Environment
-	cfg          *rest.Config
-	ctx          context.Context
-	cancel       context.CancelFunc
-	testPostgres *testpostgres.TestPostgres
-	db           *gorm.DB
-	mgr          manager.Manager
+	testenv         *envtest.Environment
+	transportConfig *transport.TransportConfig
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	testPostgres    *testpostgres.TestPostgres
+	db              *gorm.DB
+	mgr             manager.Manager
 )
 
 func TestController(t *testing.T) {
@@ -44,6 +46,15 @@ var _ = BeforeSuite(func() {
 	Expect(os.Setenv("POD_NAMESPACE", "default")).To(Succeed())
 
 	ctx, cancel = context.WithCancel(context.Background())
+
+	transportConfig = &transport.TransportConfig{
+		TransportType: string(transport.Chan),
+		IsManager:     true,
+		KafkaCredential: &transport.KafkaConnCredential{
+			SpecTopic:   "spec",
+			StatusTopic: "spec",
+		},
+	}
 
 	By("Prepare envtest environment")
 	var err error

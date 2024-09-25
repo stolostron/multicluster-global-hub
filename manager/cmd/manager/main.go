@@ -30,7 +30,7 @@ import (
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
+	migration "github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer"
 	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
@@ -127,6 +127,8 @@ func parseFlags() *managerconfig.ManagerConfig {
 		"enable the global resource feature")
 	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
 		"run on Red Hat Advanced Cluster Management")
+	pflag.BoolVar(&managerConfig.ImportClusterInHosted, "import-cluster-in-hosted", false,
+		"import cluster in hosted mode")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.Parse()
 	// set zap logger
@@ -233,11 +235,6 @@ func createManager(ctx context.Context,
 	if err := backupPVC.SetupWithManager(mgr); err != nil {
 		return nil, err
 	}
-	// start managedclustermigration controller
-	migrationCtrl := migration.NewMigrationReconciler(mgr)
-	if err := migrationCtrl.SetupWithManager(mgr); err != nil {
-		return nil, err
-	}
 	if managerConfig.EnableGlobalResource {
 		if err := nonk8sapi.AddNonK8sApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
 			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
@@ -265,6 +262,13 @@ func transportCallback(mgr ctrl.Manager, managerConfig *managerconfig.ManagerCon
 		if err := hubmanagement.AddHubManagement(mgr, producer); err != nil {
 			return fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 		}
+
+		// start managedclustermigration controller
+		if err := migration.NewMigrationReconciler(mgr.GetClient(), producer,
+			managerConfig.ImportClusterInHosted).SetupWithManager(mgr); err != nil {
+			return fmt.Errorf("failed to add migration controller to manager - %w", err)
+		}
+
 		setupLog.Info("add the manager controllers to ctrl.Manager")
 		return nil
 	}

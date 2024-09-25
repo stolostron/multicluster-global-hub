@@ -61,7 +61,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 	// data
 	payloadBytes := evt.Data()
 	chunks := p.splitPayloadIntoChunks(payloadBytes)
-	if len(chunks) == 1 {
+	if len(chunks) <= 1 {
 		if ret := p.ceClient.Send(evtCtx, evt); cloudevents.IsUndelivered(ret) {
 			return fmt.Errorf("failed to send event to transport: %v", ret)
 		}
