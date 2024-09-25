@@ -185,13 +185,13 @@ func prepareBeforeTest() {
 
 	Expect(runtimeClient.Status().Update(ctx, mgh)).Should(Succeed())
 
-	err := config.SetCondition(ctx, runtimeClient, mgh,
-		config.CONDITION_TYPE_GLOBALHUB_READY,
-		metav1.ConditionTrue,
-		config.CONDITION_REASON_GLOBALHUB_READY,
-		config.CONDITION_MESSAGE_GLOBALHUB_READY,
-	)
-
+	err := config.UpdateCondition(ctx, runtimeClient, config.GetMGHNamespacedName(),
+		metav1.Condition{
+			Type:    config.CONDITION_TYPE_GLOBALHUB_READY,
+			Status:  config.CONDITION_STATUS_TRUE,
+			Reason:  config.CONDITION_REASON_GLOBALHUB_READY,
+			Message: config.CONDITION_MESSAGE_GLOBALHUB_READY,
+		}, "")
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// 	After creating this MGH instance, check that the MGH instance's Spec fields are failed with default values.

@@ -104,7 +104,8 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 			statusTopic = DEFAULT_SHARED_STATUS_TOPIC
 
 			if err := runtimeClient.Update(ctx, mgh); err != nil {
-				return fmt.Errorf("failed to update the topic from %s to %s", DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC)
+				return fmt.Errorf("failed to update the topic from %s to %s",
+					DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC)
 			}
 		}
 
