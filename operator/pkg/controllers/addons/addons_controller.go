@@ -37,7 +37,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var AddonList = sets.NewString(
@@ -48,14 +48,14 @@ var AddonList = sets.NewString(
 
 var GlobalhubCmaConfig = v1alpha1.PlacementStrategy{
 	PlacementRef: v1alpha1.PlacementRef{
-		Namespace: constants.GHDefaultNamespace,
+		Namespace: utils.GetDefaultNamespace(),
 		Name:      "non-local-cluster",
 	},
 	Configs: []v1alpha1.AddOnConfig{
 		{
 			ConfigReferent: v1alpha1.ConfigReferent{
 				Name:      "global-hub",
-				Namespace: constants.GHDefaultNamespace,
+				Namespace: utils.GetDefaultNamespace(),
 			},
 			ConfigGroupResource: v1alpha1.ConfigGroupResource{
 				Group:    "addon.open-cluster-management.io",
