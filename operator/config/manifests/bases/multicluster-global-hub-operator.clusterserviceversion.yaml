@@ -28,6 +28,10 @@ spec:
       displayName: Managed Cluster Migration
       kind: ManagedClusterMigration
       name: managedclustermigrations.global-hub.open-cluster-management.io
+      resources:
+      - kind: Deployment
+        name: multicluster-global-hub-manager
+        version: v1
       specDescriptors:
       - description: IncludedManagedClusters is a list of managed clusters that you
           want to migrate
