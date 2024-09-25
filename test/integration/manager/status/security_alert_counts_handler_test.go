@@ -13,6 +13,7 @@ import (
 	wiremodels "github.com/stolostron/multicluster-global-hub/pkg/wire/models"
 )
 
+// go test ./test/integration/manager/status -v -ginkgo.focus "SecurityAlertCountsHandler"
 var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 	const (
 		leafHubName = "hub1"
