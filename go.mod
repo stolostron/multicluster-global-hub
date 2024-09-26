@@ -7,7 +7,7 @@ require (
 	github.com/Shopify/sarama v1.38.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-682f3a9684e4
-	github.com/cloudevents/sdk-go/v2 v2.15.2
+	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/confluentinc/confluent-kafka-go/v2 v2.5.3
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
@@ -50,7 +50,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.31.0
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	open-cluster-management.io/addon-framework v0.10.0
+	open-cluster-management.io/addon-framework v0.10.1-0.20240925123215-6bccee1ffd80
 	open-cluster-management.io/api v0.14.1-0.20240627145512-bd6f2229b53c
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
 	open-cluster-management.io/managed-serviceaccount v0.6.0
@@ -238,7 +238,7 @@ require (
 	k8s.io/component-base v0.31.0 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240411171206-dc4e619f62f3 // indirect
-	open-cluster-management.io/sdk-go v0.13.1-0.20240416062924-20307e6fe090 // indirect
+	open-cluster-management.io/sdk-go v0.14.1-0.20240628095929-9ffb1b19e566 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
