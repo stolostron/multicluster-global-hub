@@ -20,11 +20,21 @@ import (
 func TestMigrationFromSyncer(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	_ = corev1.AddToScheme(scheme)
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = clusterv1.AddToScheme(scheme)
-	_ = operatorv1.AddToScheme(scheme)
-	_ = klusterletv1alpha1.AddToScheme(scheme)
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
+	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+	if err := operatorv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add operatorv1 to scheme: %v", err)
+	}
+	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add klusterletv1alpha1 to scheme: %v", err)
+	}
 	testPayload := []byte(`
 {
 	"managedclusters": [
