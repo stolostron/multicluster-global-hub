@@ -26,7 +26,6 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
 
@@ -39,7 +38,7 @@ const (
 const (
 	COMPONENTS_AVAILABLE = "Available"
 	COMPONENTS_CREATING  = "ComponentsCreating"
-	MESSAGE_WAIT_CREATED = "Wait resource created"
+	MESSAGE_WAIT_CREATED = "Waiting for the resource to be created"
 )
 
 const (
@@ -75,16 +74,7 @@ const (
 	MINIMUM_REPLICAS_AVAILABLE          = "MinimumReplicasAvailable"
 	MINIMUM_REPLICAS_UNAVAILABLE        = "MinimumReplicasUnavailable"
 	CONDITION_REASON_MANAGER_AVAILABLE  = "DeployedButNotReady"
-	CONDITION_MESSAGE_MANAGER_AVAILABLE = "Multicluster Global Hub Manager has been deployed"
-)
-
-// NOTE: the status of LeafHubDeployed can only be True; otherwise there is no condition
-const (
-	CONDITION_TYPE_LEAFHUB_DEPLOY           = "LeafHubDeployed"
-	CONDITION_REASON_LEAFHUB_DEPLOY         = "LeafHubDeployed"
-	CONDITION_MESSAGE_LEAFHUB_DEPLOY        = "Leaf Hub Deployed"
-	CONDITION_REASON_LEAFHUB_DEPLOY_FAILED  = "LeafHubDeployFailed"
-	CONDITION_MESSAGE_LEAFHUB_DEPLOY_FAILED = "Leaf Hub Deployed FAILED"
+	CONDITION_MESSAGE_MANAGER_AVAILABLE = "The multicluster global hub manager has been deployed"
 )
 
 const (
@@ -96,15 +86,15 @@ const (
 
 	CONDITION_REASON_GLOBALHUB_FAILED     = "MulticlusterGlobalHubFailed"
 	CONDITION_REASON_GLOBALHUB_UNINSTALL  = "MulticlusterGlobalUninstalling"
-	CONDITION_MESSAGE_GLOBALHUB_UNINSTALL = "The Multicluster Global Hub is uninstalling"
+	CONDITION_MESSAGE_GLOBALHUB_UNINSTALL = "The multicluster global hub is uninstalling"
 )
 
 const (
 	CONDITION_TYPE_BACKUP             = "BackupLabelAdded"
 	CONDITION_REASON_BACKUP           = "BackupLabelAdded"
-	CONDITION_MESSAGE_BACKUP          = "Added Backup Label To Global Hub Resources"
+	CONDITION_MESSAGE_BACKUP          = "Added backup label to the global hub resources"
 	CONDITION_REASON_BACKUP_DISABLED  = "BackupDisabled"
-	CONDITION_MESSAGE_BACKUP_DISABLED = "Backup Disabled In RHACM"
+	CONDITION_MESSAGE_BACKUP_DISABLED = "Backup is disabled in RHACM"
 )
 
 // SetConditionFunc is function type that receives the concrete condition method
@@ -162,7 +152,7 @@ func UpdateCondition(ctx context.Context, c client.Client, mghNamespacedName typ
 }
 
 func UpdateConditionWithErr(ctx context.Context, c client.Client, err error,
-	mgh *v1alpha4.MulticlusterGlobalHub,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 	conditionType string, conditionReason string, conditionMessage string,
 ) {
 	if err != nil {
@@ -174,9 +164,9 @@ func UpdateConditionWithErr(ctx context.Context, c client.Client, err error,
 			Status:  CONDITION_STATUS_FALSE,
 			Reason:  conditionReason,
 			Message: err.Error(),
-		}, v1alpha4.GlobalHubError)
+		}, globalhubv1alpha4.GlobalHubError)
 		if err != nil {
-			klog.Errorf("Failed to update mgh condition:%v", err)
+			klog.Errorf("failed to update mgh condition:%v", err)
 		}
 		return
 	}
@@ -190,7 +180,7 @@ func UpdateConditionWithErr(ctx context.Context, c client.Client, err error,
 		Message: conditionMessage,
 	}, "")
 	if err != nil {
-		klog.Errorf("Failed to update mgh condition:%v", err)
+		klog.Errorf("failed to update mgh condition:%v", err)
 	}
 }
 

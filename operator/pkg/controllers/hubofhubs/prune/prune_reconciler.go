@@ -122,6 +122,9 @@ func (r *PruneReconciler) hasManagedHub(ctx context.Context) (bool, error) {
 }
 
 func (r *PruneReconciler) revertClusterManagementAddon(ctx context.Context) error {
+	if !config.IsACMResourceReady() {
+		return nil
+	}
 	cmaList := &v1alpha1.ClusterManagementAddOnList{}
 	err := r.Client.List(ctx, cmaList)
 	if err != nil {
