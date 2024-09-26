@@ -209,8 +209,6 @@ github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-
 github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-682f3a9684e4/go.mod h1:xiar5+gk13WqyAUQ/cpcxcjD1IhLe/PeilSfCdPcfMU=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.13.0 h1:9pmrGMlV4iTh6xuwujjZVWV2Z7la6mVWYc/0PLAhrrE=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.13.0/go.mod h1:qbC/i+d6hP3jDpbLQpdh4l9/cB8+eqKWrazkriLCMTM=
-github.com/cloudevents/sdk-go/v2 v2.15.2 h1:54+I5xQEnI73RBhWHxbI1XJcqOFOVJN85vb41+8mHUc=
-github.com/cloudevents/sdk-go/v2 v2.15.2/go.mod h1:lL7kSWAE/V8VI4Wh0jbL2v/jvqsm6tjmaQBSvxcv4uE=
 github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf h1:91HOb+vxZZQ1rJTJtvhJPRl2qyQa5bqh7lrIYhQSDnQ=
 github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf/go.mod h1:lL7kSWAE/V8VI4Wh0jbL2v/jvqsm6tjmaQBSvxcv4uE=
 github.com/cloudflare/cfssl v1.6.5 h1:46zpNkm6dlNkMZH/wMW22ejih6gIaJbzL2du6vD7ZeI=
@@ -2227,8 +2225,6 @@ modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
 modernc.org/strutil v1.0.0/go.mod h1:lstksw84oURvj9y3tn8lGvRxyRC1S2+g5uuIzNfIOBs=
 modernc.org/xc v1.0.0/go.mod h1:mRNCo0bvLjGhHO9WsyuKVU4q0ceiDDDoEeWDJHrNx8I=
-open-cluster-management.io/addon-framework v0.10.0 h1:bwI1XujcbkDoqlCFG1mKuwXNzoED4im/9/9BVu4xpRo=
-open-cluster-management.io/addon-framework v0.10.0/go.mod h1:HayKCznnlyW+0dUJQGj5sNR6i3tvylSySD3YnvZkBtY=
 open-cluster-management.io/addon-framework v0.10.1-0.20240925123215-6bccee1ffd80 h1:uy+5gO5rVFrWOmzsCzBbq2QqY7cZdFYAY5xshbbU9Uk=
 open-cluster-management.io/addon-framework v0.10.1-0.20240925123215-6bccee1ffd80/go.mod h1:C1VETu/CIQKYfMiVAgNzPEUHjCpL9P1Z/KsGhHa4kl4=
 open-cluster-management.io/api v0.14.1-0.20240627145512-bd6f2229b53c h1:gYfgkX/U6fv2d3Ly8D6N1GM9zokORupLSgCxx791zZw=
@@ -2241,8 +2237,6 @@ open-cluster-management.io/multicloud-operators-channel v0.13.1-0.20240423040139
 open-cluster-management.io/multicloud-operators-channel v0.13.1-0.20240423040139-ad986cafc6e8/go.mod h1:OgoSFC50ADV76QRBL6Tm0CGK9oZ2mTmR3nH9702djrw=
 open-cluster-management.io/multicloud-operators-subscription v0.14.0 h1:cNxzjsi/+ZhpUBVa3+jdfYYd0N/8Wk7t5SloBpm5Jcw=
 open-cluster-management.io/multicloud-operators-subscription v0.14.0/go.mod h1:lDMnGyFWoyWFjrAJRrnnWz5Gz2IUsqRsvPV44ll7zXc=
-open-cluster-management.io/sdk-go v0.13.1-0.20240416062924-20307e6fe090 h1:zFmHuW+ztdfUUNslqNW+H1WEcfdEUQHoRDbmdajX340=
-open-cluster-management.io/sdk-go v0.13.1-0.20240416062924-20307e6fe090/go.mod h1:w2OaxtCyegxeyFLU42UQ3oxUz01QdsBQkcHI17T/l48=
 open-cluster-management.io/sdk-go v0.14.1-0.20240628095929-9ffb1b19e566 h1:8dgPiM3byX/rtOrFJIsea2haV4hSFTND65Tlj1EdK18=
 open-cluster-management.io/sdk-go v0.14.1-0.20240628095929-9ffb1b19e566/go.mod h1:xFmN3Db5nN68oLGnstmIRv4us8HJCdXFnBNMXVp0jWY=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
