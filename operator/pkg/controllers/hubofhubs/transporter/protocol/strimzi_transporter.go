@@ -108,10 +108,9 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 ) *strimziTransporter {
 	if transporter == nil {
 		transporter = &strimziTransporter{
-			log:                   ctrl.Log.WithName("strimzi-transporter"),
-			ctx:                   context.TODO(),
-			kafkaClusterName:      KafkaClusterName,
-			kafkaClusterNamespace: mgh.Namespace,
+			log:              ctrl.Log.WithName("strimzi-transporter"),
+			ctx:              context.TODO(),
+			kafkaClusterName: KafkaClusterName,
 
 			subName:                   DefaultKafkaSubName,
 			subCommunity:              false,
@@ -126,9 +125,11 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 			topicPartitionReplicas: DefaultPartitionReplicas,
 
 			manager: mgr,
-			mgh:     mgh,
 		}
 	}
+
+	transporter.mgh = mgh
+	transporter.kafkaClusterNamespace = mgh.Namespace
 	// apply options
 	for _, opt := range opts {
 		opt(transporter)
