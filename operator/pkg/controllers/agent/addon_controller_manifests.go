@@ -188,7 +188,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
 	}
 
-	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
+	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedSpec)
 	agentRes := &Resources{}
 	jsonData, err := json.Marshal(agentResReq)
 	if err != nil {
@@ -321,8 +321,8 @@ func (a *HohAgentAddon) getOverrideImage(cluster *clusterv1.ManagedCluster) (str
 	return image, nil
 }
 
-func getInventoryCredential(c client.Client) (*transport.RestfulConnCredentail, error) {
-	inventoryCredential := &transport.RestfulConnCredentail{}
+func getInventoryCredential(c client.Client) (*transport.RestfulConfig, error) {
+	inventoryCredential := &transport.RestfulConfig{}
 
 	// add ca
 	serverCASecretName := certificates.InventoryServerCASecretName

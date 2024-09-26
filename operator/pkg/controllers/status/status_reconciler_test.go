@@ -637,8 +637,8 @@ func Test_updateRetentionConditions(t *testing.T) {
 					Namespace: namespace,
 				},
 				Spec: v1alpha4.MulticlusterGlobalHubSpec{
-					DataLayer: v1alpha4.DataLayerConfig{
-						Postgres: v1alpha4.PostgresConfig{
+					DataLayerSpec: v1alpha4.DataLayerSpec{
+						Postgres: v1alpha4.PostgresSpec{
 							Retention: "10m",
 						},
 					},

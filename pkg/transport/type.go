@@ -8,13 +8,6 @@ const (
 	Broadcast      = "broadcast" // Broadcast can be used as destination when a bundle should be broadcasted.
 	ChunkSizeKey   = "extsize"   // ChunkSizeKey is the key used for total bundle size header.
 	ChunkOffsetKey = "extoffset" // ChunkOffsetKey is the key used for message fragment offset header.
-
-	// Deprecated
-	// CompressionType is the key used for compression type header.
-	CompressionType = "content-encoding"
-	// FragmentationTimestamp is the key used for bundle fragmentation time header.
-	FragmentationTimestamp = "fragmentation-timestamp"
-	DestinationKey         = "destination"
 )
 
 // indicate the transport type, only support kafka or go chan
@@ -38,7 +31,7 @@ const (
 	SecretTransporter
 )
 
-type TransportConfig struct {
+type TransportInternalConfig struct {
 	TransportType     string
 	CommitterInterval time.Duration
 	// IsManager specifies the send/receive topics from specTopic and statusTopic
@@ -48,13 +41,13 @@ type TransportConfig struct {
 	EnableDatabaseOffset bool
 	ConsumerGroupId      string
 	// set the kafka credentail in the transport controller
-	KafkaCredential   *KafkaConnCredential
-	RestfulCredential *RestfulConnCredentail
+	KafkaCredential   *KafkaConfig
+	RestfulCredential *RestfulConfig
 	Extends           map[string]interface{}
 }
 
-// Kafka Config
-type KafkaConfig struct {
+// KafkaInternalConfig specifics the configuration for the global hub manager, agent, or even inventory
+type KafkaInternalConfig struct {
 	ClusterIdentity string
 	BootstrapServer string
 	CaCertPath      string
@@ -79,17 +72,6 @@ type KafkaConsumerConfig struct {
 type ClusterTopic struct {
 	SpecTopic   string
 	StatusTopic string
-}
-
-type CommonCredential interface {
-	GetCACert() string
-	SetCACert(string)
-	GetClientCert() string
-	SetClientCert(string)
-	GetClientKey() string
-	SetClientKey(string)
-	GetCASecretName() string
-	GetClientSecretName() string
 }
 
 type EventPosition struct {

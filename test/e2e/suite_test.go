@@ -311,9 +311,9 @@ func deployGlobalHub() {
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			// the topic partition replicas(depend on the HA) should less than broker replicas
 			AvailabilityConfig: v1alpha4.HABasic,
-			DataLayer: v1alpha4.DataLayerConfig{
-				Kafka: v1alpha4.KafkaConfig{},
-				Postgres: v1alpha4.PostgresConfig{
+			DataLayerSpec: v1alpha4.DataLayerSpec{
+				Kafka: v1alpha4.KafkaSpec{},
+				Postgres: v1alpha4.PostgresSpec{
 					Retention: "18m",
 				},
 			},

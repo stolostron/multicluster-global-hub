@@ -2,9 +2,9 @@ package transport
 
 import "sigs.k8s.io/kustomize/kyaml/yaml"
 
-// KafkaConnCredential is used to connect the transporter instance. The field is persisted to secret
+// KafkaConfig is used to connect the transporter instance. The field is persisted to secret
 // need to be encode with base64.StdEncoding.EncodeToString
-type KafkaConnCredential struct {
+type KafkaConfig struct {
 	BootstrapServer  string `yaml:"bootstrap.server"`
 	StatusTopic      string `yaml:"topic.status,omitempty"`
 	SpecTopic        string `yaml:"topic.spec,omitempty"`
@@ -17,7 +17,7 @@ type KafkaConnCredential struct {
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
-func (k *KafkaConnCredential) YamlMarshal(rawCert bool) ([]byte, error) {
+func (k *KafkaConfig) YamlMarshal(rawCert bool) ([]byte, error) {
 	copy := k.DeepCopy()
 	if rawCert {
 		copy.CASecretName = ""
@@ -32,8 +32,8 @@ func (k *KafkaConnCredential) YamlMarshal(rawCert bool) ([]byte, error) {
 }
 
 // DeepCopy creates a deep copy of KafkaConnCredential
-func (k *KafkaConnCredential) DeepCopy() *KafkaConnCredential {
-	return &KafkaConnCredential{
+func (k *KafkaConfig) DeepCopy() *KafkaConfig {
+	return &KafkaConfig{
 		BootstrapServer:  k.BootstrapServer,
 		StatusTopic:      k.StatusTopic,
 		SpecTopic:        k.SpecTopic,
@@ -46,34 +46,34 @@ func (k *KafkaConnCredential) DeepCopy() *KafkaConnCredential {
 	}
 }
 
-func (k *KafkaConnCredential) GetCACert() string {
+func (k *KafkaConfig) GetCACert() string {
 	return k.CACert
 }
 
-func (k *KafkaConnCredential) SetCACert(cert string) {
+func (k *KafkaConfig) SetCACert(cert string) {
 	k.CACert = cert
 }
 
-func (k *KafkaConnCredential) GetClientCert() string {
+func (k *KafkaConfig) GetClientCert() string {
 	return k.ClientCert
 }
 
-func (k *KafkaConnCredential) SetClientCert(cert string) {
+func (k *KafkaConfig) SetClientCert(cert string) {
 	k.ClientCert = cert
 }
 
-func (k *KafkaConnCredential) GetClientKey() string {
+func (k *KafkaConfig) GetClientKey() string {
 	return k.ClientKey
 }
 
-func (k *KafkaConnCredential) SetClientKey(key string) {
+func (k *KafkaConfig) SetClientKey(key string) {
 	k.ClientKey = key
 }
 
-func (k *KafkaConnCredential) GetCASecretName() string {
+func (k *KafkaConfig) GetCASecretName() string {
 	return k.CASecretName
 }
 
-func (k *KafkaConnCredential) GetClientSecretName() string {
+func (k *KafkaConfig) GetClientSecretName() string {
 	return k.ClientSecretName
 }

@@ -141,7 +141,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context,
 			EnablePostgresMetrics:     (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
 			EnableMetrics:             mgh.Spec.EnableMetrics,
 			EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
-			Resources:                 operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedConfig),
+			Resources:                 operatorutils.GetResources(operatorconstants.Grafana, mgh.Spec.AdvancedSpec),
 		}, nil
 	})
 	if err != nil {

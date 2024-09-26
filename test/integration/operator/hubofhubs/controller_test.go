@@ -42,8 +42,8 @@ var _ = Describe("controller", Ordered, func() {
 			},
 			Spec: v1alpha4.MulticlusterGlobalHubSpec{
 				EnableMetrics: true,
-				DataLayer: v1alpha4.DataLayerConfig{
-					Postgres: v1alpha4.PostgresConfig{
+				DataLayerSpec: v1alpha4.DataLayerSpec{
+					Postgres: v1alpha4.PostgresSpec{
 						Retention: "2y",
 					},
 				},

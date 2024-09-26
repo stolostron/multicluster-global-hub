@@ -1,4 +1,4 @@
-// Copyright (c) 2023 Red Hat, Inc.
+// Copyright (c) 2024 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
 package transport
@@ -11,17 +11,18 @@ import (
 
 type Producer interface {
 	SendEvent(ctx context.Context, evt cloudevents.Event) error
-	Reconnect(config *TransportConfig) error
+	Reconnect(config *TransportInternalConfig) error
 }
 
 type Consumer interface {
 	// start the transport to consume message
 	Start(ctx context.Context) error
 	EventChan() chan *cloudevents.Event
-	Reconnect(ctx context.Context, config *TransportConfig) error
+	Reconnect(ctx context.Context, config *TransportInternalConfig) error
 }
 
-// init the transport with different implementation/protocol: secret, strimzi operator or plain deployment
+// Transporter used to innitialize the infras, it has different implementation/protocol:
+// byo_secret, strimzi operator or plain deployment
 type Transporter interface {
 	// CreateUser creates/updates a kafka user for the cluster, the kafka user name is also the CN of cert
 	EnsureUser(clusterName string) (string, error)
@@ -33,5 +34,16 @@ type Transporter interface {
 	Prune(clusterName string) error
 
 	// get the connection credential by clusterName
-	GetConnCredential(clusterName string) (*KafkaConnCredential, error)
+	GetConnCredential(clusterName string) (*KafkaConfig, error)
+}
+
+type TransportCerticiate interface {
+	GetCACert() string
+	SetCACert(string)
+	GetClientCert() string
+	SetClientCert(string)
+	GetClientKey() string
+	SetClientKey(string)
+	GetCASecretName() string
+	GetClientSecretName() string
 }

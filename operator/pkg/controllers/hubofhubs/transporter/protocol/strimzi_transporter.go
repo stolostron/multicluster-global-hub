@@ -413,7 +413,7 @@ func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.Clus
 }
 
 // the username is the kafkauser, it's the same as the secret name
-func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.KafkaConnCredential, error) {
+func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
 	// bootstrapServer, clusterId, clusterCA
 	credential, err := k.getConnCredentailByCluster()
 	if err != nil {
@@ -445,7 +445,7 @@ func GetClusterCASecret(clusterName string) string {
 }
 
 // loadUserCredentail add credential with client cert, and key
-func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.KafkaConnCredential) error {
+func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.KafkaConfig) error {
 	kafkaUserSecret := &corev1.Secret{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      kafkaUserName,
@@ -460,7 +460,7 @@ func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential
 }
 
 // getConnCredentailByCluster gets credential with clusterId, bootstrapServer, and serverCA
-func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConnCredential, error) {
+func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConfig, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
@@ -480,7 +480,7 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConnC
 			if kafkaCluster.Status.ClusterId != nil {
 				clusterIdentity = *kafkaCluster.Status.ClusterId
 			}
-			credential := &transport.KafkaConnCredential{
+			credential := &transport.KafkaConfig{
 				ClusterID:       clusterIdentity,
 				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
 				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
@@ -614,7 +614,7 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 func (k *strimziTransporter) getKafkaResources(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 ) *kafkav1beta2.KafkaSpecKafkaResources {
-	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedConfig)
+	kafkaRes := operatorutils.GetResources(operatorconstants.Kafka, mgh.Spec.AdvancedSpec)
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
 	if err != nil {
@@ -631,7 +631,7 @@ func (k *strimziTransporter) getKafkaResources(
 func (k *strimziTransporter) getZookeeperResources(
 	mgh *operatorv1alpha4.MulticlusterGlobalHub,
 ) *kafkav1beta2.KafkaSpecZookeeperResources {
-	zookeeperRes := operatorutils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedConfig)
+	zookeeperRes := operatorutils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedSpec)
 
 	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}
 	jsonData, err := json.Marshal(zookeeperRes)
@@ -659,9 +659,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		DeleteClaim: &KafkaStorageDeleteClaim,
 	}
 
-	if mgh.Spec.DataLayer.StorageClass != "" {
-		kafkaSpecKafkaStorageVolumesElem.Class = &mgh.Spec.DataLayer.StorageClass
-		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayer.StorageClass
+	if mgh.Spec.DataLayerSpec.StorageClass != "" {
+		kafkaSpecKafkaStorageVolumesElem.Class = &mgh.Spec.DataLayerSpec.StorageClass
+		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayerSpec.StorageClass
 	}
 
 	kafkaCluster := &kafkav1beta2.Kafka{

@@ -45,11 +45,11 @@ var _ = BeforeSuite(func() {
 
 	leafHubName = "spec-hub"
 	agentConfig = &config.AgentConfig{
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			TransportType:   string(transport.Chan),
 			IsManager:       false,
 			ConsumerGroupId: "agent",
-			KafkaCredential: &transport.KafkaConnCredential{
+			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
 				StatusTopic: "spec",
 			},

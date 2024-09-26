@@ -10,12 +10,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func GetRestfulConnBySecret(transportSecret *corev1.Secret, c client.Client) (*transport.RestfulConnCredentail, error) {
+func GetRestfulConnBySecret(transportSecret *corev1.Secret, c client.Client) (*transport.RestfulConfig, error) {
 	restfulYaml, ok := transportSecret.Data["rest.yaml"]
 	if !ok {
 		return nil, fmt.Errorf("must set the `rest.yaml` in the transport secret(%s)", transportSecret.Name)
 	}
-	conn := &transport.RestfulConnCredentail{}
+	conn := &transport.RestfulConfig{}
 	if err := yaml.Unmarshal(restfulYaml, conn); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}

@@ -279,8 +279,8 @@ func GetMetricsScrapeInterval(mgh *v1alpha4.MulticlusterGlobalHub) string {
 }
 
 func GetPostgresStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
-	if mgh.Spec.DataLayer.Postgres.StorageSize != "" {
-		return mgh.Spec.DataLayer.Postgres.StorageSize
+	if mgh.Spec.DataLayerSpec.Postgres.StorageSize != "" {
+		return mgh.Spec.DataLayerSpec.Postgres.StorageSize
 	}
 	return GHPostgresDefaultStorageSize
 }

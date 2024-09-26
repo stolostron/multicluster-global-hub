@@ -137,7 +137,7 @@ func TestGenerateAlertConfigMap(t *testing.T) {
 			Namespace: "multicluster-global-hub",
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
-			DataLayer: v1alpha4.DataLayerConfig{},
+			DataLayerSpec: v1alpha4.DataLayerSpec{},
 		},
 	}
 	tests := []struct {
@@ -355,7 +355,7 @@ func TestGenerateGranafaIni(t *testing.T) {
 			Namespace: "multicluster-global-hub",
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
-			DataLayer: v1alpha4.DataLayerConfig{},
+			DataLayerSpec: v1alpha4.DataLayerSpec{},
 		},
 	}
 	tests := []struct {

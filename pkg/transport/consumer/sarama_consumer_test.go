@@ -24,7 +24,7 @@ func TestConsumerGroup(t *testing.T) {
 	kafkaCluster := MockSaramaCluster(t, responses)
 	defer kafkaCluster.Close()
 
-	kafkaConfig := &transport.KafkaConfig{
+	kafkaConfig := &transport.KafkaInternalConfig{
 		BootstrapServer: kafkaCluster.Addr(),
 		EnableTLS:       false,
 		ConsumerConfig: &transport.KafkaConsumerConfig{

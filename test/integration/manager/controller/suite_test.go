@@ -27,7 +27,7 @@ import (
 
 var (
 	testenv         *envtest.Environment
-	transportConfig *transport.TransportConfig
+	transportConfig *transport.TransportInternalConfig
 	cfg             *rest.Config
 	ctx             context.Context
 	cancel          context.CancelFunc
@@ -47,10 +47,10 @@ var _ = BeforeSuite(func() {
 
 	ctx, cancel = context.WithCancel(context.Background())
 
-	transportConfig = &transport.TransportConfig{
+	transportConfig = &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
 		IsManager:     true,
-		KafkaCredential: &transport.KafkaConnCredential{
+		KafkaCredential: &transport.KafkaConfig{
 			SpecTopic:   "spec",
 			StatusTopic: "spec",
 		},

@@ -27,7 +27,7 @@ type TransportCallback func(producer transport.Producer, consumer transport.Cons
 type TransportCtrl struct {
 	secretNamespace string
 	secretName      string
-	transportConfig *transport.TransportConfig
+	transportConfig *transport.TransportInternalConfig
 
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
 	callback TransportCallback
@@ -41,7 +41,7 @@ type TransportCtrl struct {
 }
 
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
-	transportConfig *transport.TransportConfig,
+	transportConfig *transport.TransportInternalConfig,
 ) *TransportCtrl {
 	return &TransportCtrl{
 		secretNamespace:  namespace,

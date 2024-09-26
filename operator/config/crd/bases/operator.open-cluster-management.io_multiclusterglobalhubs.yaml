@@ -56,8 +56,8 @@ spec:
             description: Spec specifies the desired state of multicluster global hub
             properties:
               advanced:
-                description: AdvancedConfig specifies the advanced configurations
-                  for the multicluster global hub
+                description: AdvancedSpec specifies the advanced configurations for
+                  the multicluster global hub
                 properties:
                   agent:
                     description: Agent specifies the desired state of multicluster
@@ -263,7 +263,8 @@ spec:
                 default:
                   postgres:
                     retention: 18m
-                description: DataLayer can be configured to use a different data layer
+                description: DataLayerSpec can be configured to use a different data
+                  layer
                 properties:
                   kafka:
                     default:

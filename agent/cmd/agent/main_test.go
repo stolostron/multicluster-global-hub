@@ -81,7 +81,7 @@ func TestCompleteConfig(t *testing.T) {
 			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
 				Standalone:  true,
-				TransportConfig: &transport.TransportConfig{
+				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "test-hub",
 					TransportType:   string(transport.Kafka),
 				},
@@ -95,7 +95,7 @@ func TestCompleteConfig(t *testing.T) {
 				Standalone:       true,
 				SpecWorkPoolSize: 0,
 				MetricsAddress:   "0.0.0.0:8384",
-				TransportConfig: &transport.TransportConfig{
+				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "",
 					TransportType:   string(transport.Kafka),
 				},
@@ -106,7 +106,7 @@ func TestCompleteConfig(t *testing.T) {
 			agentConfig: &config.AgentConfig{
 				LeafHubName: "hub1",
 				Standalone:  false,
-				TransportConfig: &transport.TransportConfig{
+				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
 				},
 			},
@@ -119,7 +119,7 @@ func TestCompleteConfig(t *testing.T) {
 				LeafHubName:      "hub1",
 				Standalone:       false,
 				SpecWorkPoolSize: 5,
-				TransportConfig: &transport.TransportConfig{
+				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
 				},
 			},
@@ -129,7 +129,7 @@ func TestCompleteConfig(t *testing.T) {
 				Standalone:       false,
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
-				TransportConfig: &transport.TransportConfig{
+				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "hub1",
 					TransportType:   string(transport.Kafka),
 				},
@@ -157,7 +157,7 @@ func TestDoMain(t *testing.T) {
 		Standalone:       false,
 		SpecWorkPoolSize: 0,
 		MetricsAddress:   "0.0.0.0:8384",
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			ConsumerGroupId: "hub1",
 			TransportType:   string(transport.Kafka),
 		},

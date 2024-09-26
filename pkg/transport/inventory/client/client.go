@@ -20,7 +20,7 @@ type InventoryClient struct {
 	tlsConfig *tls.Config
 }
 
-func NewInventoryClient(ctx context.Context, restfulConn *transport.RestfulConnCredentail) (*InventoryClient, error) {
+func NewInventoryClient(ctx context.Context, restfulConn *transport.RestfulConfig) (*InventoryClient, error) {
 	client := &InventoryClient{}
 	err := client.RefreshCredential(ctx, restfulConn)
 	if err != nil {
@@ -29,7 +29,7 @@ func NewInventoryClient(ctx context.Context, restfulConn *transport.RestfulConnC
 	return client, nil
 }
 
-func (c *InventoryClient) RefreshCredential(ctx context.Context, restfulConn *transport.RestfulConnCredentail) error {
+func (c *InventoryClient) RefreshCredential(ctx context.Context, restfulConn *transport.RestfulConfig) error {
 	clientCert, err := tls.X509KeyPair([]byte(restfulConn.ClientCert), []byte(restfulConn.ClientKey))
 	if err != nil {
 		return fmt.Errorf("failed the load client cert from raw data: %w", err)

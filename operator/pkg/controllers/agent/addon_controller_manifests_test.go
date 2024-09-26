@@ -144,7 +144,7 @@ func TestGetInventoryCredential(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, result)
 
-	expectedCredential := &transport.RestfulConnCredentail{
+	expectedCredential := &transport.RestfulConfig{
 		Host:             "https://inventory.example.com:443",
 		CASecretName:     certificates.InventoryServerCASecretName,
 		CACert:           base64.StdEncoding.EncodeToString([]byte("test-ca-cert")),

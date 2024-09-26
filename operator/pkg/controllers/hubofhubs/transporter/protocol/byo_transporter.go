@@ -58,7 +58,7 @@ func (s *BYOTransporter) Prune(clusterName string) error {
 	return nil
 }
 
-func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConnCredential, error) {
+func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
 	kafkaSecret := &corev1.Secret{}
 	err := s.runtimeClient.Get(s.ctx, types.NamespacedName{
 		Name:      s.name,
@@ -67,7 +67,7 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	if err != nil {
 		return nil, err
 	}
-	return &transport.KafkaConnCredential{
+	return &transport.KafkaConfig{
 		ClusterID:       string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 

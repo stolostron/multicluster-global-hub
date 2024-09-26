@@ -14,12 +14,12 @@ import (
 func TestConfluentConfig(t *testing.T) {
 	cases := []struct {
 		desc        string
-		kafkaConfig *transport.KafkaConfig
+		kafkaConfig *transport.KafkaInternalConfig
 		expectedErr error
 	}{
 		{
 			desc: "kafka config with tls",
-			kafkaConfig: &transport.KafkaConfig{
+			kafkaConfig: &transport.KafkaInternalConfig{
 				BootstrapServer: "localhost:9092",
 				EnableTLS:       true,
 				CaCertPath:      "/tmp/ca.crt",
@@ -30,7 +30,7 @@ func TestConfluentConfig(t *testing.T) {
 		},
 		{
 			desc: "kafka config without tls",
-			kafkaConfig: &transport.KafkaConfig{
+			kafkaConfig: &transport.KafkaInternalConfig{
 				BootstrapServer: "localhost:9092",
 				EnableTLS:       false,
 			},
@@ -60,7 +60,7 @@ func TestConfluentConfig(t *testing.T) {
 }
 
 func TestGetSaramaConfig(t *testing.T) {
-	kafkaConfig := &transport.KafkaConfig{
+	kafkaConfig := &transport.KafkaInternalConfig{
 		EnableTLS:      false,
 		ClientCertPath: "/tmp/client.crt",
 		ClientKeyPath:  "/tmp/client.key",

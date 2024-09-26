@@ -109,7 +109,7 @@ func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *config.Ag
 func parseFlags() *config.AgentConfig {
 	agentConfig := &config.AgentConfig{
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			// IsManager specifies the send/receive topics from specTopic and statusTopic
 			// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
 			IsManager: false,
