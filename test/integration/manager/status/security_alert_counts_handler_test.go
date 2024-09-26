@@ -1,14 +1,17 @@
 package status
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	wiremodels "github.com/stolostron/multicluster-global-hub/pkg/wire/models"
 )
@@ -22,19 +25,22 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 		DetailURL   = "https://hub1/violations"
 	)
 
-	version := eventversion.NewVersion()
-
+	var (
+		version        = eventversion.NewVersion()
+		statusTopicCtx context.Context
+	)
 	BeforeEach(func() {
-		// truncate table
 		db := database.GetSqlDb()
 		sql := fmt.Sprintf(`TRUNCATE TABLE %s.%s`, database.SecuritySchema, database.SecurityAlertCountsTable)
 		_, err := db.Query(sql)
 		Expect(err).To(Succeed())
+
+		statusTopicCtx = cecontext.WithTopic(ctx, "event")
 	})
 
 	It("Should be able to sync security alert counts event from one central instance in hub", func() {
 		By("Create event")
-		data := &wiremodels.SecurityAlertCounts{
+		expectedAlert := &wiremodels.SecurityAlertCounts{
 			Low:       1,
 			Medium:    2,
 			High:      3,
@@ -43,57 +49,31 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			Source:    source1,
 		}
 		version.Incr()
-		event := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, data)
+		event := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, expectedAlert)
 
 		By("Sync event with transport")
-		err := producer.SendEvent(ctx, *event)
+		err := producer.SendEvent(statusTopicCtx, *event)
 		Expect(err).To(Succeed())
 		version.Next()
 
 		By("Check the table")
-		db := database.GetSqlDb()
-		Expect(db).ToNot(BeNil())
-		sql := fmt.Sprintf(
-			`
-				SELECT
-					low,
-					medium,
-					high,
-					critical,
-					detail_url,
-					source
-				FROM
-					%s.%s
-				WHERE
-					hub_name = $1
-			`,
-			database.SecuritySchema, database.SecurityAlertCountsTable,
-		)
-		check := func(g Gomega) {
-			var (
-				low       int
-				medium    int
-				high      int
-				critical  int
-				detailURL string
-				source    string
-			)
-			row := db.QueryRow(sql, leafHubName)
-			err := row.Scan(&low, &medium, &high, &critical, &detailURL, &source)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(low).To(Equal(1))
-			g.Expect(medium).To(Equal(2))
-			g.Expect(high).To(Equal(3))
-			g.Expect(critical).To(Equal(4))
-			g.Expect(detailURL).To(Equal(detailURL))
-			g.Expect(source).To(Equal(source1))
-		}
-		Eventually(check, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+		Eventually(func() error {
+			db := database.GetGorm()
+			gotAlert := &models.SecurityAlertCounts{}
+			err = db.First(&gotAlert).Error
+			if err != nil {
+				return err
+			}
+			if !assertAlert(expectedAlert, gotAlert) {
+				return fmt.Errorf("want %v, but got %v", expectedAlert, gotAlert)
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("Should be able to sync security alert counts event from multiple central instances in hub", func() {
 		By("Create event")
-		dataEvent1 := &wiremodels.SecurityAlertCounts{
+		expectAlert1 := &wiremodels.SecurityAlertCounts{
 			Low:       1,
 			Medium:    2,
 			High:      3,
@@ -102,14 +82,32 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			Source:    source1,
 		}
 		version.Incr()
-		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent1)
+		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, expectAlert1)
 
 		By("Sync event1 with transport")
-		err := producer.SendEvent(ctx, *event1)
+		err := producer.SendEvent(statusTopicCtx, *event1)
 		Expect(err).To(Succeed())
 		version.Next()
 
-		dataEvent2 := &wiremodels.SecurityAlertCounts{
+		// Since the security syncer(agent) doesn't use the bundle to sync message, the bundle contain several alert
+		// count. then it might cause race condition when sending a lot of events at the same time.
+		// Solution: we can migrate the security syncer to use the generic syncer implementation.
+		By("Check the table")
+		Eventually(func() error {
+			db := database.GetGorm()
+			// check source 1
+			gotAlert1 := &models.SecurityAlertCounts{}
+			err = db.Where(&models.SecurityAlertCounts{HubName: leafHubName, Source: source1}).First(&gotAlert1).Error
+			if err != nil {
+				return err
+			}
+			if !assertAlert(expectAlert1, gotAlert1) {
+				return fmt.Errorf("want %v, but got %v", expectAlert1, gotAlert1)
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+
+		expectAlert2 := &wiremodels.SecurityAlertCounts{
 			Low:       1,
 			Medium:    2,
 			High:      3,
@@ -118,65 +116,27 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			Source:    source2,
 		}
 		version.Incr()
-		event2 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent2)
+		event2 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, expectAlert2)
 
 		By("Sync event2 with transport")
-		err = producer.SendEvent(ctx, *event2)
+		err = producer.SendEvent(statusTopicCtx, *event2)
 		Expect(err).To(Succeed())
 		version.Next()
 
 		By("Check the table")
-		db := database.GetSqlDb()
-		Expect(db).ToNot(BeNil())
-		sql := fmt.Sprintf(
-			`
-				SELECT
-					low,
-					medium,
-					high,
-					critical,
-					detail_url,
-					source
-				FROM
-					%s.%s
-				WHERE
-					hub_name = $1 AND source = $2
-			`,
-			database.SecuritySchema, database.SecurityAlertCountsTable,
-		)
-		check := func(g Gomega) {
-			var (
-				low       int
-				medium    int
-				high      int
-				critical  int
-				detailURL string
-				source    string
-			)
-
-			// verify first event added
-			row := db.QueryRow(sql, leafHubName, source1)
-			err = row.Scan(&low, &medium, &high, &critical, &detailURL, &source)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(low).To(Equal(1))
-			g.Expect(medium).To(Equal(2))
-			g.Expect(high).To(Equal(3))
-			g.Expect(critical).To(Equal(4))
-			g.Expect(detailURL).To(Equal(detailURL))
-			g.Expect(source).To(Equal(source1))
-
-			// verify second event added
-			row = db.QueryRow(sql, leafHubName, source2)
-			err = row.Scan(&low, &medium, &high, &critical, &detailURL, &source)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(low).To(Equal(1))
-			g.Expect(medium).To(Equal(2))
-			g.Expect(high).To(Equal(3))
-			g.Expect(critical).To(Equal(4))
-			g.Expect(detailURL).To(Equal(detailURL))
-			g.Expect(source).To(Equal(source2))
-		}
-		Eventually(check, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+		Eventually(func() error {
+			db := database.GetGorm()
+			// check source 2
+			gotAlert2 := &models.SecurityAlertCounts{}
+			err = db.Where(&models.SecurityAlertCounts{HubName: leafHubName, Source: source2}).First(&gotAlert2).Error
+			if err != nil {
+				return err
+			}
+			if !assertAlert(expectAlert2, gotAlert2) {
+				return fmt.Errorf("want %v, but got %v", expectAlert1, gotAlert2)
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("Should be able to sync security alert counts event from multiple central instances in hub by updating only the necessary record", func() {
@@ -195,11 +155,19 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 		_, err := db.Query(sql, leafHubName, DetailURL, source1)
 		Expect(err).To(Succeed())
 
-		_, err = db.Query(sql, leafHubName, DetailURL, source2)
+		expectAlert2 := &wiremodels.SecurityAlertCounts{
+			Low:       1,
+			Medium:    2,
+			High:      3,
+			Critical:  4,
+			DetailURL: DetailURL,
+			Source:    source2,
+		}
+		_, err = db.Query(sql, leafHubName, expectAlert2.DetailURL, expectAlert2.Source)
 		Expect(err).To(Succeed())
 
 		By("Create event")
-		dataEvent1 := &wiremodels.SecurityAlertCounts{
+		expectAlert1 := &wiremodels.SecurityAlertCounts{
 			Low:       4,
 			Medium:    4,
 			High:      4,
@@ -208,62 +176,46 @@ var _ = Describe("SecurityAlertCountsHandler", Ordered, func() {
 			Source:    source1,
 		}
 		version.Incr()
-		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, dataEvent1)
+		event1 := ToCloudEvent(leafHubName, string(enum.SecurityAlertCountsType), version, expectAlert1)
 
 		By("Sync events with transport")
-		err = producer.SendEvent(ctx, *event1)
+		err = producer.SendEvent(statusTopicCtx, *event1)
 		Expect(err).To(Succeed())
 		version.Next()
 
 		By("Check the table")
-		sql = fmt.Sprintf(
-			`
-				SELECT
-					low,
-					medium,
-					high,
-					critical,
-					detail_url,
-					source
-				FROM
-					%s.%s
-				WHERE
-					hub_name = $1 AND source = $2
-			`,
-			database.SecuritySchema, database.SecurityAlertCountsTable,
-		)
-		check := func(g Gomega) {
-			var (
-				low       int
-				medium    int
-				high      int
-				critical  int
-				detailURL string
-				source    string
-			)
+		Eventually(func() error {
+			db := database.GetGorm()
 
-			// verify first event changed
-			row := db.QueryRow(sql, leafHubName, source1)
-			err := row.Scan(&low, &medium, &high, &critical, &detailURL, &source)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(low).To(Equal(4))
-			g.Expect(medium).To(Equal(4))
-			g.Expect(high).To(Equal(4))
-			g.Expect(critical).To(Equal(4))
-			g.Expect(detailURL).To(Equal(detailURL))
-			g.Expect(source).To(Equal(source1))
+			// check source1 has been modified
+			gotAlert1 := &models.SecurityAlertCounts{}
+			err = db.Where(&models.SecurityAlertCounts{HubName: leafHubName, Source: source1}).First(&gotAlert1).Error
+			if err != nil {
+				return err
+			}
+			if !assertAlert(expectAlert1, gotAlert1) {
+				return fmt.Errorf("want %v, but got %v", expectAlert1, gotAlert1)
+			}
 
-			// verify second event not changed
-			row = db.QueryRow(sql, leafHubName, source2)
-			err = row.Scan(&low, &medium, &high, &critical, &detailURL, &source)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(low).To(Equal(1))
-			g.Expect(medium).To(Equal(2))
-			g.Expect(high).To(Equal(3))
-			g.Expect(critical).To(Equal(4))
-			g.Expect(detailURL).To(Equal(detailURL))
-			g.Expect(source).To(Equal(source2))
-		}
-		Eventually(check, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+			// check sources hasn't been modified
+			gotAlert2 := &models.SecurityAlertCounts{}
+			err = db.Where(&models.SecurityAlertCounts{HubName: leafHubName, Source: source2}).First(&gotAlert2).Error
+			if err != nil {
+				return err
+			}
+			if !assertAlert(expectAlert2, gotAlert2) {
+				return fmt.Errorf("want %v, but got %v", expectAlert1, gotAlert2)
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 })
+
+func assertAlert(expected *wiremodels.SecurityAlertCounts, got *models.SecurityAlertCounts) bool {
+	return expected.Low == got.Low &&
+		expected.Medium == got.Medium &&
+		expected.High == got.High &&
+		expected.Critical == got.Critical &&
+		expected.DetailURL == got.DetailURL &&
+		expected.Source == got.Source
+}
