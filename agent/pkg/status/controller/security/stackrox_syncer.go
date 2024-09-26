@@ -16,7 +16,6 @@ import (
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	cr "sigs.k8s.io/controller-runtime"
@@ -428,10 +427,10 @@ func (s *StackRoxSyncer) sync(ctx context.Context, data *stackRoxData) error {
 			return fmt.Errorf("failed to generate struct for kafka message: %v", err)
 		}
 
-		// If the payload not updated since the previous one, then don't need sync it again
-		if equality.Semantic.DeepEqual(messageStruct, s.lastSentData) {
-			return nil
-		}
+		// TODO: If the payload not updated since the previous one, then don't need sync it again
+		// if equality.Semantic.DeepEqual(messageStruct, s.lastSentData) {
+		// 	return nil
+		// }
 
 		s.currentVersion.Incr()
 		if err := s.produce(ctx, messageStruct); err != nil {
