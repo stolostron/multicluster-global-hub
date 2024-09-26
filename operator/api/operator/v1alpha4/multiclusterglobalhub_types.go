@@ -93,13 +93,13 @@ type MulticlusterGlobalHubSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// DataLayer can be configured to use a different data layer
+	// DataLayerSpec can be configured to use a different data layer
 	// +kubebuilder:default={postgres: {retention: "18m"}}
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	DataLayer DataLayerConfig `json:"dataLayer"`
-	// AdvancedConfig specifies the advanced configurations for the multicluster global hub
+	DataLayerSpec DataLayerSpec `json:"dataLayer"`
+	// AdvancedSpec specifies the advanced configurations for the multicluster global hub
 	// +optional
-	AdvancedConfig *AdvancedConfig `json:"advanced,omitempty"`
+	AdvancedSpec *AdvancedSpec `json:"advanced,omitempty"`
 	// EnableMetrics enables the metrics for the global hub created kafka and postgres components.
 	// If the user provides the kafka and postgres, then the enablemetrics variable is useless.
 	// +kubebuilder:default=true
@@ -109,7 +109,7 @@ type MulticlusterGlobalHubSpec struct {
 	EnableMetrics bool `json:"enableMetrics"`
 }
 
-type AdvancedConfig struct {
+type AdvancedSpec struct {
 	// Grafana specifies the desired state of grafana
 	// +optional
 	Grafana *CommonSpec `json:"grafana,omitempty"`
@@ -156,21 +156,21 @@ type ResourceRequirements struct {
 	Requests corev1.ResourceList `json:"requests,omitempty"`
 }
 
-// DataLayerConfig is a discriminated union of data layer specific configuration.
-type DataLayerConfig struct {
+// DataLayerSpec is a discriminated union of data layer specific configuration.
+type DataLayerSpec struct {
 	// Kafka specifies the desired state of kafka
 	// +kubebuilder:default={"topics": {"specTopic": "gh-spec", "statusTopic": "gh-status.*"}}
-	Kafka KafkaConfig `json:"kafka,omitempty"`
+	Kafka KafkaSpec `json:"kafka,omitempty"`
 	// Postgres specifies the desired state of postgres
 	// +kubebuilder:default={retention: "18m"}
-	Postgres PostgresConfig `json:"postgres,omitempty"`
+	Postgres PostgresSpec `json:"postgres,omitempty"`
 	// StorageClass specifies the class for storage
 	// +optional
 	StorageClass string `json:"storageClass,omitempty"`
 }
 
-// PostgresConfig defines the desired state of postgres
-type PostgresConfig struct {
+// PostgresSpec defines the desired state of postgres
+type PostgresSpec struct {
 	// Retention is a duration string, defining how long to keep the data in the database.
 	// The recommended minimum value is 1 month, and the default value is 18 months.
 	// A duration string is a signed sequence of decimal numbers,
@@ -184,8 +184,8 @@ type PostgresConfig struct {
 	StorageSize string `json:"storageSize,omitempty"`
 }
 
-// KafkaConfig defines the desired state of kafka
-type KafkaConfig struct {
+// KafkaSpec defines the desired state of kafka
+type KafkaSpec struct {
 	// KafkaTopics specify the desired topics
 	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-status.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`

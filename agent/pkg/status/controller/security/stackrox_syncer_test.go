@@ -309,7 +309,7 @@ var _ = Describe("StackRox syncer", func() {
 
 						return nil
 					},
-					ReconnectFunc: func(config *transport.TransportConfig) error {
+					ReconnectFunc: func(config *transport.TransportInternalConfig) error {
 						return nil
 					},
 				}
@@ -357,7 +357,7 @@ var _ = Describe("StackRox syncer", func() {
 						messages.Add(1)
 						return nil
 					},
-					ReconnectFunc: func(config *transport.TransportConfig) error {
+					ReconnectFunc: func(config *transport.TransportInternalConfig) error {
 						return nil
 					},
 				}
@@ -422,7 +422,7 @@ var _ = Describe("StackRox syncer", func() {
 						messages.Add(1)
 						return nil
 					},
-					ReconnectFunc: func(config *transport.TransportConfig) error {
+					ReconnectFunc: func(config *transport.TransportInternalConfig) error {
 						return nil
 					},
 				}
@@ -629,7 +629,7 @@ var _ = Describe("StackRox syncer", func() {
 
 						return nil
 					},
-					ReconnectFunc: func(config *transport.TransportConfig) error {
+					ReconnectFunc: func(config *transport.TransportInternalConfig) error {
 						return nil
 					},
 				}
@@ -1031,7 +1031,7 @@ var _ = Describe("StackRox syncer", func() {
 					SendEventFunc: func(ctx context.Context, evt cloudevents.Event) error {
 						return errors.New("failed to produce")
 					},
-					ReconnectFunc: func(config *transport.TransportConfig) error {
+					ReconnectFunc: func(config *transport.TransportInternalConfig) error {
 						return nil
 					},
 				}

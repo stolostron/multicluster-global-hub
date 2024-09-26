@@ -32,7 +32,7 @@ var fs embed.FS
 
 var (
 	storageConnectionCache   *config.PostgresConnection
-	transportConnectionCache *transport.KafkaConnCredential
+	transportConnectionCache *transport.KafkaConfig
 )
 
 type ManagerReconciler struct {
@@ -77,7 +77,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	}
 
 	// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
+	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayerSpec.Postgres.Retention)
 	if err != nil {
 		return true, fmt.Errorf("failed to parse month retention: %v", err)
 	}
@@ -146,7 +146,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			ImportClusterInHosted: config.GetImportClusterInHosted(),
 			EnablePprof:           r.operatorConfig.EnablePprof,
 			LogLevel:              r.operatorConfig.LogLevel,
-			Resources:             utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedConfig),
+			Resources:             utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedSpec),
 			WithACM:               config.IsACMResourceReady(),
 		}, nil
 	})
@@ -159,7 +159,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	return false, nil
 }
 
-func isMiddlewareUpdated(transportConn *transport.KafkaConnCredential, storageConn *config.PostgresConnection) bool {
+func isMiddlewareUpdated(transportConn *transport.KafkaConfig, storageConn *config.PostgresConnection) bool {
 	updated := false
 	if transportConnectionCache == nil || storageConnectionCache == nil {
 		updated = true
@@ -176,7 +176,7 @@ func isMiddlewareUpdated(transportConn *transport.KafkaConnCredential, storageCo
 	return updated
 }
 
-func setMiddlewareCache(transportConn *transport.KafkaConnCredential, storageConn *config.PostgresConnection) {
+func setMiddlewareCache(transportConn *transport.KafkaConfig, storageConn *config.PostgresConnection) {
 	if transportConn != nil {
 		transportConnectionCache = transportConn
 	}

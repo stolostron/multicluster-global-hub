@@ -15,7 +15,7 @@ import (
 func TestLaunchManagedClusterInfoSyncer(t *testing.T) {
 	ctx := context.Background()
 	agentConfig := &config.AgentConfig{
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			TransportType: string(transport.Rest),
 		},
 	}

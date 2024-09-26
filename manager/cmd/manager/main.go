@@ -70,7 +70,7 @@ func parseFlags() *managerconfig.ManagerConfig {
 	managerConfig := &managerconfig.ManagerConfig{
 		SyncerConfig:   &managerconfig.SyncerConfig{},
 		DatabaseConfig: &managerconfig.DatabaseConfig{},
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			IsManager:            true,
 			ConsumerGroupId:      "global-hub-manager",
 			EnableDatabaseOffset: true,

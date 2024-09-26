@@ -132,10 +132,10 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 }
 
 func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
-	*transport.KafkaConnCredential, error,
+	*transport.KafkaConfig, error,
 ) {
 	// set transporter connection
-	var conn *transport.KafkaConnCredential
+	var conn *transport.KafkaConfig
 	var err error
 	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
 		func(ctx context.Context) (bool, error) {

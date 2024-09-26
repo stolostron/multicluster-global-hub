@@ -55,7 +55,7 @@ func GetConfluentConfigMapBySecret(isProducer bool) (*kafka.ConfigMap, error) {
 		return nil, err
 	}
 
-	kafkaConfig := &transport.KafkaConfig{
+	kafkaConfig := &transport.KafkaInternalConfig{
 		BootstrapServer: bootStrapServer,
 		EnableTLS:       true,
 		CaCertPath:      caCrtPath,
@@ -142,7 +142,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 	}
 
 	consumerGroupId := "test-group-id-managed-hub"
-	kafkaConfig := &transport.KafkaConfig{
+	kafkaConfig := &transport.KafkaInternalConfig{
 		BootstrapServer: bootstrapSever,
 		EnableTLS:       true,
 		CaCertPath:      caCrtPath,

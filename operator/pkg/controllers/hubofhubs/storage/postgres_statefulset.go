@@ -83,11 +83,11 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
-				StorageClass:                 mgh.Spec.DataLayer.StorageClass,
+				StorageClass:                 mgh.Spec.DataLayerSpec.StorageClass,
 				PostgresURI: "multicluster-global-hub-postgres." +
 					utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=disable",
 				Resources: operatorutils.GetResources(operatorconstants.Postgres,
-					mgh.Spec.AdvancedConfig),
+					mgh.Spec.AdvancedSpec),
 				EnableMetrics:         mgh.Spec.EnableMetrics,
 				EnablePostgresMetrics: (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
 				EnableInventoryAPI:    config.WithInventory(mgh),

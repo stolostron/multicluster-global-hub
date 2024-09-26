@@ -13,9 +13,9 @@ import (
 
 func TestGenericProducer(t *testing.T) {
 	p := &GenericProducer{}
-	tranConfig := &transport.TransportConfig{
+	tranConfig := &transport.TransportInternalConfig{
 		TransportType: string(transport.Rest),
-		KafkaCredential: &transport.KafkaConnCredential{
+		KafkaCredential: &transport.KafkaConfig{
 			SpecTopic:   "gh-spec",
 			StatusTopic: "gh-status",
 		},

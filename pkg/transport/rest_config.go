@@ -2,7 +2,7 @@ package transport
 
 import "sigs.k8s.io/kustomize/kyaml/yaml"
 
-type RestfulConnCredentail struct {
+type RestfulConfig struct {
 	Host             string `yaml:"host"`
 	CACert           string `yaml:"ca.crt,omitempty"`
 	ClientCert       string `yaml:"client.crt,omitempty"`
@@ -12,7 +12,7 @@ type RestfulConnCredentail struct {
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
-func (k *RestfulConnCredentail) YamlMarshal(rawCert bool) ([]byte, error) {
+func (k *RestfulConfig) YamlMarshal(rawCert bool) ([]byte, error) {
 	copy := k.DeepCopy()
 	if rawCert {
 		copy.CASecretName = ""
@@ -26,8 +26,8 @@ func (k *RestfulConnCredentail) YamlMarshal(rawCert bool) ([]byte, error) {
 	return bytes, err
 }
 
-func (k *RestfulConnCredentail) DeepCopy() *RestfulConnCredentail {
-	return &RestfulConnCredentail{
+func (k *RestfulConfig) DeepCopy() *RestfulConfig {
+	return &RestfulConfig{
 		Host:             k.Host,
 		CACert:           k.CACert,
 		ClientCert:       k.ClientCert,
@@ -37,34 +37,34 @@ func (k *RestfulConnCredentail) DeepCopy() *RestfulConnCredentail {
 	}
 }
 
-func (k *RestfulConnCredentail) GetCACert() string {
+func (k *RestfulConfig) GetCACert() string {
 	return k.CACert
 }
 
-func (k *RestfulConnCredentail) SetCACert(cert string) {
+func (k *RestfulConfig) SetCACert(cert string) {
 	k.CACert = cert
 }
 
-func (k *RestfulConnCredentail) GetClientCert() string {
+func (k *RestfulConfig) GetClientCert() string {
 	return k.ClientCert
 }
 
-func (k *RestfulConnCredentail) SetClientCert(cert string) {
+func (k *RestfulConfig) SetClientCert(cert string) {
 	k.ClientCert = cert
 }
 
-func (k *RestfulConnCredentail) GetClientKey() string {
+func (k *RestfulConfig) GetClientKey() string {
 	return k.ClientKey
 }
 
-func (k *RestfulConnCredentail) SetClientKey(key string) {
+func (k *RestfulConfig) SetClientKey(key string) {
 	k.ClientKey = key
 }
 
-func (k *RestfulConnCredentail) GetCASecretName() string {
+func (k *RestfulConfig) GetCASecretName() string {
 	return k.CASecretName
 }
 
-func (k *RestfulConnCredentail) GetClientSecretName() string {
+func (k *RestfulConfig) GetClientSecretName() string {
 	return k.ClientSecretName
 }

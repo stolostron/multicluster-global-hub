@@ -105,10 +105,10 @@ var _ = BeforeSuite(func() {
 			SpecSyncInterval:              1 * time.Second,
 			DeletedLabelsTrimmingInterval: 2 * time.Second,
 		},
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,
-			KafkaCredential: &transport.KafkaConnCredential{
+			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
 				StatusTopic: "event",
 			},

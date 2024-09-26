@@ -162,7 +162,7 @@ var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 	},
 	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
 		ImagePullSecret: "test-pull-secret",
-		DataLayer:       globalhubv1alpha4.DataLayerConfig{},
+		DataLayerSpec:   globalhubv1alpha4.DataLayerSpec{},
 	},
 	Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
 		Conditions: []metav1.Condition{

@@ -354,7 +354,7 @@ func updateReadyConditions(conds []metav1.Condition, phase v1alpha4.GlobalHubPha
 
 // dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
 func updateRetentionConditions(mgh *v1alpha4.MulticlusterGlobalHub) (bool, []metav1.Condition) {
-	months, err := utils.ParseRetentionMonth(mgh.Spec.DataLayer.Postgres.Retention)
+	months, err := utils.ParseRetentionMonth(mgh.Spec.DataLayerSpec.Postgres.Retention)
 	if err != nil {
 		err = fmt.Errorf("failed to parse the retention month, err:%v", err)
 		return config.NeedUpdateConditions(mgh.Status.Conditions, metav1.Condition{

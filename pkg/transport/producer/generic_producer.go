@@ -34,7 +34,7 @@ type GenericProducer struct {
 	messageSizeLimit int
 }
 
-func NewGenericProducer(transportConfig *transport.TransportConfig) (*GenericProducer, error) {
+func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
 		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
 		messageSizeLimit: DefaultMessageKBSize * 1000,
@@ -84,7 +84,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 }
 
 // Reconnect close the previous producer state and init a new producer
-func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
+func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig) error {
 	// invenory client
 	if config.TransportType == string(transport.Rest) {
 		return p.inventoryClient.RefreshCredential(context.Background(), config.RestfulCredential)
@@ -100,7 +100,7 @@ func (p *GenericProducer) Reconnect(config *transport.TransportConfig) error {
 }
 
 // initClient will init/update the client, clientProtocol and messageLimitSize based on the transportConfig
-func (p *GenericProducer) initClient(transportConfig *transport.TransportConfig) error {
+func (p *GenericProducer) initClient(transportConfig *transport.TransportInternalConfig) error {
 	topic := ""
 	if transportConfig.TransportType == string(transport.Kafka) ||
 		transportConfig.TransportType == string(transport.Chan) {
@@ -172,7 +172,7 @@ func (p *GenericProducer) SetDataLimit(size int) {
 	p.messageSizeLimit = size
 }
 
-func getSaramaSenderProtocol(kafkaConfig *transport.KafkaConfig, defaultTopic string) (interface{}, error) {
+func getSaramaSenderProtocol(kafkaConfig *transport.KafkaInternalConfig, defaultTopic string) (interface{}, error) {
 	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func getSaramaSenderProtocol(kafkaConfig *transport.KafkaConfig, defaultTopic st
 	return sender, nil
 }
 
-func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConnCredential,
+func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 	defaultTopic string,
 ) (*kafka_confluent.Protocol, error) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "")

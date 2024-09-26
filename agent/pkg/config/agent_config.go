@@ -15,7 +15,7 @@ type AgentConfig struct {
 	SpecWorkPoolSize             int
 	SpecEnforceHohRbac           bool
 	StatusDeltaCountSwitchFactor int
-	TransportConfig              *transport.TransportConfig
+	TransportConfig              *transport.TransportInternalConfig
 	ElectionConfig               *commonobjects.LeaderElectionConfig
 	Terminating                  bool
 	MetricsAddress               string

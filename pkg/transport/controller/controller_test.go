@@ -29,10 +29,10 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	secretController := &TransportCtrl{
 		secretNamespace: "default",
 		secretName:      "test-secret",
-		transportConfig: &transport.TransportConfig{
+		transportConfig: &transport.TransportInternalConfig{
 			TransportType:   string(transport.Chan),
 			ConsumerGroupId: "test",
-			KafkaCredential: &transport.KafkaConnCredential{
+			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
 				StatusTopic: "status",
 			},
@@ -46,7 +46,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 
 	ctx := context.TODO()
 
-	kafkaConn := &transport.KafkaConnCredential{
+	kafkaConn := &transport.KafkaConfig{
 		BootstrapServer: "localhost:3031",
 		StatusTopic:     "event",
 		SpecTopic:       "spec",
@@ -103,7 +103,7 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	secretController := &TransportCtrl{
 		secretNamespace: "default",
 		secretName:      "test-secret",
-		transportConfig: &transport.TransportConfig{},
+		transportConfig: &transport.TransportInternalConfig{},
 		callback: func(p transport.Producer, c transport.Consumer) error {
 			callbackInvoked = true
 			return nil
@@ -113,7 +113,7 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 
 	ctx := context.TODO()
 
-	restfulConn := &transport.RestfulConnCredentail{
+	restfulConn := &transport.RestfulConfig{
 		Host:       "localhost:123",
 		CACert:     base64.StdEncoding.EncodeToString(rootPEM),
 		ClientCert: base64.StdEncoding.EncodeToString(certPem),

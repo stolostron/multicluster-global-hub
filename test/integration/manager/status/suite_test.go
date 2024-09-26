@@ -83,9 +83,9 @@ var _ = BeforeSuite(func() {
 
 	By("Create test postgres")
 	managerConfig := &config.ManagerConfig{
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			TransportType: string(transport.Chan),
-			KafkaCredential: &transport.KafkaConnCredential{
+			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
 				StatusTopic: "event",
 			},

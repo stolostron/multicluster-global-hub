@@ -63,8 +63,8 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:High
         - urn:alm:descriptor:com.tectonic.ui:select:Basic
-      - description: DataLayer can be configured to use a different data layer
-        displayName: Data Layer
+      - description: DataLayerSpec can be configured to use a different data layer
+        displayName: Data Layer Spec
         path: dataLayer
       - description: EnableMetrics enables the metrics for the global hub created
           kafka and postgres components. If the user provides the kafka and postgres,

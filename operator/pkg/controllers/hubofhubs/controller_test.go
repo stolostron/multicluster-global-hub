@@ -113,8 +113,8 @@ func TestController(t *testing.T) {
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
-			DataLayer: v1alpha4.DataLayerConfig{
-				Postgres: v1alpha4.PostgresConfig{
+			DataLayerSpec: v1alpha4.DataLayerSpec{
+				Postgres: v1alpha4.PostgresSpec{
 					Retention: "2y",
 				},
 			},

@@ -15,9 +15,9 @@ import (
 )
 
 func TestAssembler(t *testing.T) {
-	transportConfig := &transport.TransportConfig{
+	transportConfig := &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
-		KafkaCredential: &transport.KafkaConnCredential{
+		KafkaCredential: &transport.KafkaConfig{
 			SpecTopic:   "spec",
 			StatusTopic: "status",
 		},

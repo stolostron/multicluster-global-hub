@@ -53,8 +53,8 @@ var _ = Describe("transporter", Ordered, func() {
 			},
 			Spec: v1alpha4.MulticlusterGlobalHubSpec{
 				EnableMetrics: true,
-				DataLayer: v1alpha4.DataLayerConfig{
-					Postgres: v1alpha4.PostgresConfig{
+				DataLayerSpec: v1alpha4.DataLayerSpec{
+					Postgres: v1alpha4.PostgresSpec{
 						Retention: "2y",
 					},
 				},
@@ -225,7 +225,7 @@ var _ = Describe("transporter", Ordered, func() {
 		customCPULimit := "2m"
 		customMemoryRequest := "1Mi"
 		customMemoryLimit := "2Mi"
-		mgh.Spec.AdvancedConfig = &v1alpha4.AdvancedConfig{
+		mgh.Spec.AdvancedSpec = &v1alpha4.AdvancedSpec{
 			Kafka: &v1alpha4.CommonSpec{
 				Resources: &v1alpha4.ResourceRequirements{
 					Limits: corev1.ResourceList{

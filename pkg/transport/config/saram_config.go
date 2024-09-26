@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func GetSaramaConfig(kafkaConfig *transport.KafkaConfig) (*sarama.Config, error) {
+func GetSaramaConfig(kafkaConfig *transport.KafkaInternalConfig) (*sarama.Config, error) {
 	saramaConfig := sarama.NewConfig()
 	saramaConfig.Version = sarama.V2_0_0_0
 

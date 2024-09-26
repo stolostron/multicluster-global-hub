@@ -49,7 +49,7 @@ func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 	}
 }
 
-func NewGenericConsumer(tranConfig *transport.TransportConfig,
+func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
 	opts ...GenericConsumeOption,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
@@ -68,7 +68,7 @@ func NewGenericConsumer(tranConfig *transport.TransportConfig,
 }
 
 // initClient will init the consumer identity, clientProtocol, client
-func (c *GenericConsumer) initClient(tranConfig *transport.TransportConfig) error {
+func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig) error {
 	var err error
 	var clientProtocol interface{}
 
@@ -116,7 +116,7 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 	return nil
 }
 
-func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.TransportConfig) error {
+func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.TransportInternalConfig) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -219,7 +219,9 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 // 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
 // }
 
-func getConfluentReceiverProtocol(transportConfig *transport.TransportConfig, topics []string) (interface{}, error) {
+func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (
+	interface{}, error,
+) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
 		transportConfig.ConsumerGroupId)
 	if err != nil {

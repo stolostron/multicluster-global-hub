@@ -29,7 +29,7 @@ const (
 var (
 	transporterProtocol   transport.TransportProtocol
 	transporterInstance   transport.Transporter
-	transporterConn       *transport.KafkaConnCredential
+	transporterConn       *transport.KafkaConfig
 	enableInventory       = false
 	isBYOKafka            = false
 	specTopic             = ""
@@ -40,14 +40,14 @@ var (
 	kafkaClientCACert     []byte
 	inventoryClientCAKey  []byte
 	inventoryClientCACert []byte
-	inventoryConn         *transport.RestfulConnCredentail
+	inventoryConn         *transport.RestfulConfig
 )
 
-func SetTransporterConn(conn *transport.KafkaConnCredential) {
+func SetTransporterConn(conn *transport.KafkaConfig) {
 	transporterConn = conn
 }
 
-func GetTransporterConn() *transport.KafkaConnCredential {
+func GetTransporterConn() *transport.KafkaConfig {
 	return transporterConn
 }
 
@@ -77,8 +77,8 @@ func SetACMResourceReady(ready bool) {
 
 func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	defaultKafkaStorageSize := "10Gi"
-	if mgh.Spec.DataLayer.Kafka.StorageSize != "" {
-		return mgh.Spec.DataLayer.Kafka.StorageSize
+	if mgh.Spec.DataLayerSpec.Kafka.StorageSize != "" {
+		return mgh.Spec.DataLayerSpec.Kafka.StorageSize
 	}
 	return defaultKafkaStorageSize
 }
@@ -94,8 +94,8 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	enableInventory = WithInventory(mgh)
 
 	// set the topic
-	specTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.SpecTopic
-	statusTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic
+	specTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
+	statusTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
 	if !isValidKafkaTopicName(specTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
@@ -108,7 +108,7 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	// 2. ensure the status topic must not contain '*'
 	if isBYOKafka {
 		if statusTopic == DEFAULT_STATUS_TOPIC {
-			mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic = DEFAULT_SHARED_STATUS_TOPIC
+			mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic = DEFAULT_SHARED_STATUS_TOPIC
 			statusTopic = DEFAULT_SHARED_STATUS_TOPIC
 
 			if err := runtimeClient.Update(ctx, mgh); err != nil {

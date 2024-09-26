@@ -75,11 +75,11 @@ var _ = BeforeSuite(func() {
 
 	agentConfig := &config.AgentConfig{
 		LeafHubName: leafHubName,
-		TransportConfig: &transport.TransportConfig{
+		TransportConfig: &transport.TransportInternalConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
 			IsManager:         false,
-			KafkaCredential: &transport.KafkaConnCredential{
+			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
 				StatusTopic: "event",
 			},
@@ -213,7 +213,7 @@ func (t *ChanTransport) Producer(topic string) transport.Producer {
 	return t.producers[topic]
 }
 
-func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportConfig, topics []string) (
+func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternalConfig, topics []string) (
 	*ChanTransport, error,
 ) {
 	trans := &ChanTransport{

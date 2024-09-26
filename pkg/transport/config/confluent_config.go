@@ -85,7 +85,7 @@ func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, k
 }
 
 // https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
-func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*kafkav2.ConfigMap, error) {
+func GetConfluentConfigMap(kafkaConfig *transport.KafkaInternalConfig, producer bool) (*kafkav2.ConfigMap, error) {
 	kafkaConfigMap := GetBasicConfigMap()
 	_ = kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.BootstrapServer)
 	if producer {
@@ -114,7 +114,7 @@ func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Clie
 	return GetConfluentConfigMapByKafkaCredential(conn, consumerGroupID)
 }
 
-func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConnCredential, consumerGroupID string) (
+func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig, consumerGroupID string) (
 	*kafkav2.ConfigMap, error,
 ) {
 	kafkaConfigMap := GetBasicConfigMap()
@@ -146,14 +146,14 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConnCredential,
 }
 
 func GetKafkaCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
-	*transport.KafkaConnCredential, error,
+	*transport.KafkaConfig, error,
 ) {
 	kafkaConfig, ok := transportSecret.Data["kafka.yaml"]
 	if !ok {
 		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportSecret.Name)
 	}
 
-	conn := &transport.KafkaConnCredential{}
+	conn := &transport.KafkaConfig{}
 	if err := yaml.Unmarshal(kafkaConfig, conn); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
@@ -165,7 +165,7 @@ func GetKafkaCredentailBySecret(transportSecret *corev1.Secret, c client.Client)
 	return conn, nil
 }
 
-func ParseCredentailConn(namespace string, c client.Client, conn transport.CommonCredential) error {
+func ParseCredentailConn(namespace string, c client.Client, conn transport.TransportCerticiate) error {
 	// decode the ca cert, client key and cert
 	if conn.GetCACert() != "" {
 		bytes, err := base64.StdEncoding.DecodeString(conn.GetCACert())

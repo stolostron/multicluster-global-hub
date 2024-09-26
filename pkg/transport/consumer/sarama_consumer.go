@@ -20,14 +20,14 @@ type SaramaConsumer interface {
 type saramaConsumer struct {
 	ctx           context.Context
 	log           logr.Logger
-	kafkaConfig   *transport.KafkaConfig
+	kafkaConfig   *transport.KafkaInternalConfig
 	client        sarama.ConsumerGroup
 	messageChan   chan *sarama.ConsumerMessage
 	processedChan chan *sarama.ConsumerMessage
 	topics        []string
 }
 
-func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaConfig,
+func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaInternalConfig,
 	topics []string,
 ) (SaramaConsumer, error) {
 	log := ctrl.Log.WithName("sarama-consumer")

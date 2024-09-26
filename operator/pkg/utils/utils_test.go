@@ -365,7 +365,7 @@ func Test_GetResources(t *testing.T) {
 	tests := []struct {
 		name          string
 		component     string
-		advanced      func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig
+		advanced      func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec
 		cpuRequest    string
 		cpuLimit      string
 		memoryRequest string
@@ -383,8 +383,8 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Grafana with customized values",
 			component: constants.Grafana,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
-				return &v1alpha4.AdvancedConfig{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+				return &v1alpha4.AdvancedSpec{
 					Grafana: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
@@ -403,8 +403,8 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Postgres with customized values",
 			component: constants.Postgres,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
-				return &v1alpha4.AdvancedConfig{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+				return &v1alpha4.AdvancedSpec{
 					Postgres: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
@@ -423,8 +423,8 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Agent with customized values",
 			component: constants.Agent,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
-				return &v1alpha4.AdvancedConfig{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+				return &v1alpha4.AdvancedSpec{
 					Agent: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
@@ -443,8 +443,8 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Manager with customized values",
 			component: constants.Manager,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
-				return &v1alpha4.AdvancedConfig{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+				return &v1alpha4.AdvancedSpec{
 					Manager: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
@@ -463,8 +463,8 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Kafka with customized values",
 			component: constants.Kafka,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
-				return &v1alpha4.AdvancedConfig{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+				return &v1alpha4.AdvancedSpec{
 					Kafka: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
@@ -483,8 +483,8 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Zookeeper with customized values",
 			component: constants.Zookeeper,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedConfig {
-				return &v1alpha4.AdvancedConfig{
+			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+				return &v1alpha4.AdvancedSpec{
 					Zookeeper: &v1alpha4.CommonSpec{
 						Resources: resReq,
 					},
@@ -507,7 +507,7 @@ func Test_GetResources(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var advanced *v1alpha4.AdvancedConfig
+			var advanced *v1alpha4.AdvancedSpec
 			if tt.custom {
 				advanced = tt.advanced(resReq)
 				tt.cpuRequest = customCPURequest

@@ -18,7 +18,7 @@ type ManagerConfig struct {
 	SchedulerInterval     string
 	SyncerConfig          *SyncerConfig
 	DatabaseConfig        *DatabaseConfig
-	TransportConfig       *transport.TransportConfig
+	TransportConfig       *transport.TransportInternalConfig
 	StatisticsConfig      *statistics.StatisticsConfig
 	NonK8sAPIServerConfig *nonk8sapi.NonK8sAPIServerConfig
 	ElectionConfig        *commonobjects.LeaderElectionConfig
