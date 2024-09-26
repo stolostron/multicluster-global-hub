@@ -34,7 +34,7 @@ func NewGenericSyncer(workerPool *workers.WorkerPool, config *config.AgentConfig
 	}
 }
 
-func (syncer *genericBundleSyncer) Sync(payload []byte) error {
+func (syncer *genericBundleSyncer) Sync(ctx context.Context, payload []byte) error {
 	genericBundle := &spec.GenericSpecBundle{}
 	if err := json.Unmarshal(payload, genericBundle); err != nil {
 		return err

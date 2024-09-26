@@ -46,7 +46,7 @@ func NewManagedClusterLabelSyncer(workers *workers.WorkerPool) *managedClusterLa
 	}
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) Sync(payload []byte) error {
+func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, payload []byte) error {
 	bundle := &specbundle.ManagedClusterLabelsSpecBundle{}
 	if err := json.Unmarshal(payload, bundle); err != nil {
 		return err

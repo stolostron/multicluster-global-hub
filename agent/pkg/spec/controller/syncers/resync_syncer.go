@@ -1,6 +1,7 @@
 package syncers
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/go-logr/logr"
@@ -23,7 +24,7 @@ func NewResyncSyncer() *resyncSyncer {
 	}
 }
 
-func (syncer *resyncSyncer) Sync(payload []byte) error {
+func (syncer *resyncSyncer) Sync(ctx context.Context, payload []byte) error {
 	syncer.log.Info("resync resource")
 	eventTypes := []string{}
 	if err := json.Unmarshal(payload, &eventTypes); err != nil {

@@ -17,7 +17,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
@@ -136,16 +135,21 @@ var _ = Describe("migration", Ordered, func() {
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
-	It("should have bootstrap secret generated", func() {
-		_, err := migrationReconciler.Reconcile(ctx, ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      "migration",
-				Namespace: "hub2",
-			},
-		})
-		Expect(err).To(Succeed())
+	It("should have bootstrap secret generated after managedserviceaccount is reconciled", func() {
+		msa := &v1beta1.ManagedServiceAccount{}
+		Expect(mgr.GetClient().Get(ctx, types.NamespacedName{
+			Name:      "migration",
+			Namespace: "hub2",
+		}, msa)).To(Succeed())
+
+		// mimic the managedserviceaccount is reconciled
+		msa.Spec.Rotation.Validity = metav1.Duration{Duration: 3600 * time.Hour}
+		Expect(mgr.GetClient().Update(ctx, msa)).To(Succeed())
 
 		Eventually(func() error {
+			if migrationReconciler.BootstrapSecret == nil {
+				return fmt.Errorf("bootstrap secret is nil")
+			}
 			kubeconfigBytes := migrationReconciler.BootstrapSecret.Data["kubeconfig"]
 			if string(kubeconfigBytes) == "" {
 				return fmt.Errorf("failed to generate kubeconfig")
@@ -257,14 +261,24 @@ var _ = Describe("migration", Ordered, func() {
 		}, 10*time.Second, time.Second).Should(Succeed())
 	})
 
-	It("should have managedserviceaccount deleted when migration is deleted", func() {
-		Expect(mgr.GetClient().Delete(ctx, migrationInstance)).To(Succeed())
+	It("should recreate managedserviceaccount when it is deleted", func() {
 		Expect(mgr.GetClient().Delete(ctx, &v1beta1.ManagedServiceAccount{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "migration",
 				Namespace: "hub2",
 			},
 		})).To(Succeed())
+
+		Eventually(func() error {
+			return mgr.GetClient().Get(ctx, types.NamespacedName{
+				Name:      "migration",
+				Namespace: "hub2",
+			}, &v1beta1.ManagedServiceAccount{})
+		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("should have managedserviceaccount deleted when migration is deleted", func() {
+		Expect(mgr.GetClient().Delete(ctx, migrationInstance)).To(Succeed())
 
 		Eventually(func() bool {
 			msa := &v1beta1.ManagedServiceAccount{}

@@ -23,22 +23,18 @@ const (
 )
 
 type managedClusterMigrationFromSyncer struct {
-	log     logr.Logger
-	client  client.Client
-	context context.Context
+	log    logr.Logger
+	client client.Client
 }
 
-func NewManagedClusterMigrationFromSyncer(context context.Context,
-	client client.Client,
-) *managedClusterMigrationFromSyncer {
+func NewManagedClusterMigrationFromSyncer(client client.Client) *managedClusterMigrationFromSyncer {
 	return &managedClusterMigrationFromSyncer{
-		log:     ctrl.Log.WithName("managed-cluster-migration-from-syncer"),
-		client:  client,
-		context: context,
+		log:    ctrl.Log.WithName("managed-cluster-migration-from-syncer"),
+		client: client,
 	}
 }
 
-func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
+func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.from cloud event
 	managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
@@ -48,14 +44,14 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 	// create or update bootstrap secret
 	bootstrapSecret := managedClusterMigrationEvent.BootstrapSecret
 	foundBootstrapSecret := &corev1.Secret{}
-	if err := syncer.client.Get(syncer.context,
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
 			Name:      bootstrapSecret.Name,
 			Namespace: bootstrapSecret.Namespace,
 		}, foundBootstrapSecret); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating bootstrap secret", "bootstrap secret", bootstrapSecret)
-			if err := syncer.client.Create(syncer.context, bootstrapSecret); err != nil {
+			s.log.Info("creating bootstrap secret", "bootstrap secret", bootstrapSecret)
+			if err := s.client.Create(ctx, bootstrapSecret); err != nil {
 				return err
 			}
 		} else {
@@ -63,8 +59,8 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 		}
 	} else {
 		// update the bootstrap secret if it already exists
-		syncer.log.Info("updating bootstrap secret", "bootstrap secret", bootstrapSecret)
-		if err := syncer.client.Update(syncer.context, bootstrapSecret); err != nil {
+		s.log.Info("updating bootstrap secret", "bootstrap secret", bootstrapSecret)
+		if err := s.client.Update(ctx, bootstrapSecret); err != nil {
 			return err
 		}
 	}
@@ -78,14 +74,14 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 		Data: bootstrapSecret.Data,
 	}
 	foundBootstrapSecretBackup := &corev1.Secret{}
-	if err := syncer.client.Get(syncer.context,
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
 			Name:      bootstrapSecretBackup.Name,
 			Namespace: bootstrapSecretBackup.Namespace,
 		}, foundBootstrapSecretBackup); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating bootstrap backup secret", "bootstrap backup secret", bootstrapSecretBackup)
-			if err := syncer.client.Create(syncer.context, bootstrapSecretBackup); err != nil {
+			s.log.Info("creating bootstrap backup secret", "bootstrap backup secret", bootstrapSecretBackup)
+			if err := s.client.Create(ctx, bootstrapSecretBackup); err != nil {
 				return err
 			}
 		} else {
@@ -93,8 +89,8 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 		}
 	} else {
 		// update the bootstrap backup secret if it already exists
-		syncer.log.Info("updating bootstrap backup secret", "bootstrap backup secret", bootstrapSecretBackup)
-		if err := syncer.client.Update(syncer.context, bootstrapSecret); err != nil {
+		s.log.Info("updating bootstrap backup secret", "bootstrap backup secret", bootstrapSecretBackup)
+		if err := s.client.Update(ctx, bootstrapSecret); err != nil {
 			return err
 		}
 	}
@@ -111,13 +107,13 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 		},
 	}
 	foundKlusterletConfig := &klusterletv1alpha1.KlusterletConfig{}
-	if err := syncer.client.Get(syncer.context,
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
 			Name: klusterletConfig.Name,
 		}, foundKlusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating klusterlet config", "klusterlet config", klusterletConfig)
-			if err := syncer.client.Create(syncer.context, klusterletConfig); err != nil {
+			s.log.Info("creating klusterlet config", "klusterlet config", klusterletConfig)
+			if err := s.client.Create(ctx, klusterletConfig); err != nil {
 				return err
 			}
 		} else {
@@ -129,7 +125,7 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 	managedClusters := managedClusterMigrationEvent.ManagedClusters
 	for _, managedCluster := range managedClusters {
 		mcl := &clusterv1.ManagedCluster{}
-		if err := syncer.client.Get(syncer.context, types.NamespacedName{
+		if err := s.client.Get(ctx, types.NamespacedName{
 			Name: managedCluster,
 		}, mcl); err != nil {
 			return err
@@ -143,7 +139,7 @@ func (syncer *managedClusterMigrationFromSyncer) Sync(payload []byte) error {
 		}
 		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
 		mcl.SetAnnotations(annotations)
-		if err := syncer.client.Update(syncer.context, mcl); err != nil {
+		if err := s.client.Update(ctx, mcl); err != nil {
 			return err
 		}
 	}

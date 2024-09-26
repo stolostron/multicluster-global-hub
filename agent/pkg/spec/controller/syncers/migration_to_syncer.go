@@ -7,34 +7,30 @@ import (
 
 	"github.com/go-logr/logr"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 )
 
 type managedClusterMigrationToSyncer struct {
-	log     logr.Logger
-	client  client.Client
-	context context.Context
+	log    logr.Logger
+	client client.Client
 }
 
-func NewManagedClusterMigrationToSyncer(context context.Context,
-	client client.Client,
-) *managedClusterMigrationToSyncer {
+func NewManagedClusterMigrationToSyncer(client client.Client) *managedClusterMigrationToSyncer {
 	return &managedClusterMigrationToSyncer{
-		log:     ctrl.Log.WithName("managed-cluster-migration-to-syncer"),
-		client:  client,
-		context: context,
+		log:    ctrl.Log.WithName("managed-cluster-migration-to-syncer"),
+		client: client,
 	}
 }
 
-func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
+func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.to cloud event
 	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationToEvent); err != nil {
@@ -44,14 +40,35 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 
+	if err := s.ensureClusterManager(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+
+	if err := s.ensureMigrationClusterRole(ctx, msaName); err != nil {
+		return err
+	}
+
+	if err := s.ensureRegistrationClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+
+	if err := s.ensureSARClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Context,
+	msaName, msaNamespace string,
+) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
-	namespacedName := types.NamespacedName{Name: "cluster-manager"}
-	if err := syncer.client.Get(syncer.context, namespacedName, foundClusterManager); err != nil {
+	if err := s.client.Get(ctx,
+		types.NamespacedName{Name: "cluster-manager"}, foundClusterManager); err != nil {
 		return err
 	}
 
 	clusterManager := foundClusterManager.DeepCopy()
-
 	// check if the ManagedClusterAutoApproval feature is enabled and
 	// the service account is added to the auto-approve list
 	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", msaNamespace, msaName)
@@ -59,36 +76,37 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 	autoApproveUserAdded := false
 	clusterManagerChanged := false
 	if clusterManager.Spec.RegistrationConfiguration != nil {
-		for _, featureGate := range clusterManager.Spec.RegistrationConfiguration.FeatureGates {
+		registrationConfiguration := clusterManager.Spec.RegistrationConfiguration
+		for i, featureGate := range registrationConfiguration.FeatureGates {
 			if featureGate.Feature == "ManagedClusterAutoApproval" {
 				autoApproveFeatureEnabled = true
 				if featureGate.Mode == operatorv1.FeatureGateModeTypeEnable {
 					break
 				} else {
-					featureGate.Mode = operatorv1.FeatureGateModeTypeEnable
+					registrationConfiguration.FeatureGates[i].Mode = operatorv1.FeatureGateModeTypeEnable
 					clusterManagerChanged = true
 					break
 				}
 			}
 		}
 		if !autoApproveFeatureEnabled {
-			clusterManager.Spec.RegistrationConfiguration.FeatureGates = append(
-				clusterManager.Spec.RegistrationConfiguration.FeatureGates,
+			registrationConfiguration.FeatureGates = append(
+				registrationConfiguration.FeatureGates,
 				operatorv1.FeatureGate{
 					Feature: "ManagedClusterAutoApproval",
 					Mode:    operatorv1.FeatureGateModeTypeEnable,
 				})
 			clusterManagerChanged = true
 		}
-		for _, user := range clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers {
+		for _, user := range registrationConfiguration.AutoApproveUsers {
 			if user == autoApproveUser {
 				autoApproveUserAdded = true
 				break
 			}
 		}
 		if !autoApproveUserAdded {
-			clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = append(
-				clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers,
+			registrationConfiguration.AutoApproveUsers = append(
+				registrationConfiguration.AutoApproveUsers,
 				autoApproveUser)
 			clusterManagerChanged = true
 		}
@@ -109,108 +127,149 @@ func (syncer *managedClusterMigrationToSyncer) Sync(payload []byte) error {
 
 	// patch cluster-manager only if it has changed
 	if clusterManagerChanged {
-		if err := syncer.client.Update(syncer.context, clusterManager); err != nil {
+		if err := s.client.Update(ctx, clusterManager); err != nil {
 			return err
 		}
 	}
 
-	// create clusterrolebinding for the service account
-	clusterroleBytes := []byte(fmt.Sprintf(`
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: multicluster-global-hub-migration:%s
-rules:
-- apiGroups:
-  - authorization.k8s.io
-  resources:
-  - subjectaccessreviews
-  verbs:
-  - create
-`, msaName))
+	return nil
+}
 
-	clusterroleObj := &unstructured.Unstructured{}
-	if err := yaml.Unmarshal(clusterroleBytes, clusterroleObj); err != nil {
-		return err
+func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context.Context, msaName string) error {
+	// create or update clusterrole for the migration service account
+	migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+	migrationClusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: migrationClusterRoleName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"authorization.k8s.io"},
+				Resources: []string{"subjectaccessreviews"},
+				Verbs:     []string{"create"},
+			},
+		},
 	}
-	if err := syncer.client.Get(syncer.context,
+
+	foundMigrationClusterRole := &rbacv1.ClusterRole{}
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
-			Name: "multicluster-global-hub-migration:" + msaName,
-		}, &rbacv1.ClusterRole{}); err != nil {
+			Name: migrationClusterRoleName,
+		}, foundMigrationClusterRole); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating clusterrole", "clusterrole", "multicluster-global-hub-migration:"+msaName)
-			if err := syncer.client.Create(syncer.context, clusterroleObj); err != nil {
+			s.log.Info("creating migration clusterrole", "clusterrole", migrationClusterRoleName)
+			if err := s.client.Create(ctx, migrationClusterRole); err != nil {
 				return err
 			}
 		} else {
 			return err
 		}
+	} else {
+		if !apiequality.Semantic.DeepDerivative(migrationClusterRole, foundMigrationClusterRole) {
+			s.log.Info("updating migration clusterrole", "clusterrole", migrationClusterRoleName)
+			if err := s.client.Update(ctx, migrationClusterRole); err != nil {
+				return err
+			}
+		}
 	}
 
-	clusterRoleBindingBytes := []byte(fmt.Sprintf(`
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: %s-clusterrolebinding
-subjects:
-- kind: ServiceAccount
-  name:  %s
-  namespace: %s
-roleRef:
-  kind: ClusterRole
-  name: system:open-cluster-management:managedcluster:bootstrap:agent-registration
-  apiGroup: rbac.authorization.k8s.io
-`, msaName, msaName, msaNamespace))
+	return nil
+}
 
-	clusterRoleBindingObj := &unstructured.Unstructured{}
-	if err := yaml.Unmarshal(clusterRoleBindingBytes, clusterRoleBindingObj); err != nil {
-		return err
+func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
+	msaName, msaNamespace string,
+) error {
+	registrationClusterRoleName := "system:open-cluster-management:managedcluster:bootstrap:agent-registration"
+	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
+	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: registrationClusterRoleBindingName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      msaName,
+				Namespace: msaNamespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     registrationClusterRoleName,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
 	}
-	if err := syncer.client.Get(syncer.context,
+
+	foundRegistrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
-			Name: msaName + "-clusterrolebinding",
-		}, &rbacv1.ClusterRole{}); err != nil {
+			Name: registrationClusterRoleBindingName,
+		}, foundRegistrationClusterRoleBinding); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating clusterrolebing", "clusterrolebing", msaName+"-clusterrolebinding")
-			if err := syncer.client.Create(syncer.context, clusterRoleBindingObj); err != nil {
+			s.log.Info("creating agent registration clusterrolebinding",
+				"clusterrolebinding", registrationClusterRoleBindingName)
+			if err := s.client.Create(ctx, registrationClusterRoleBinding); err != nil {
 				return err
 			}
 		} else {
 			return err
 		}
+	} else {
+		if !apiequality.Semantic.DeepDerivative(registrationClusterRoleBinding, foundRegistrationClusterRoleBinding) {
+			s.log.Info("updating agent registration clusterrolebinding",
+				"clusterrolebinding", registrationClusterRoleBindingName)
+			if err := s.client.Update(ctx, registrationClusterRoleBinding); err != nil {
+				return err
+			}
+		}
 	}
 
-	sarClusterRolebBindingBytes := []byte(fmt.Sprintf(`
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: %s-subjectaccessreviews-clusterrolebinding
-subjects:
-- kind: ServiceAccount
-  name:  %s
-  namespace: %s
-roleRef:
-  kind: ClusterRole
-  name: multicluster-global-hub-migration:%s
-  apiGroup: rbac.authorization.k8s.io
-`, msaName, msaName, msaNamespace, msaName))
+	return nil
+}
 
-	sarClusterRoleBindingObj := &unstructured.Unstructured{}
-	if err := yaml.Unmarshal(sarClusterRolebBindingBytes, sarClusterRoleBindingObj); err != nil {
-		return err
+func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx context.Context,
+	msaName, msaNamespace string,
+) error {
+	migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+	sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
+	sarMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: sarMigrationClusterRoleBindingName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      msaName,
+				Namespace: msaNamespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     migrationClusterRoleName,
+			APIGroup: "rbac.authorization.k8s.io",
+		},
 	}
-	if err := syncer.client.Get(syncer.context,
+
+	foundSAMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
-			Name: msaName + "-subjectaccessreviews-clusterrolebinding",
-		}, &rbacv1.ClusterRole{}); err != nil {
+			Name: sarMigrationClusterRoleBindingName,
+		}, foundSAMigrationClusterRoleBinding); err != nil {
 		if apierrors.IsNotFound(err) {
-			syncer.log.Info("creating clusterrolebing", "clusterrolebing",
-				msaName+"-subjectaccessreviews-clusterrolebinding")
-			if err := syncer.client.Create(syncer.context, sarClusterRoleBindingObj); err != nil {
+			s.log.Info("creating subjectaccessreviews clusterrolebinding",
+				"clusterrolebinding", sarMigrationClusterRoleBindingName)
+			if err := s.client.Create(ctx, sarMigrationClusterRoleBinding); err != nil {
 				return err
 			}
 		} else {
 			return err
+		}
+	} else {
+		if !apiequality.Semantic.DeepDerivative(sarMigrationClusterRoleBinding, foundSAMigrationClusterRoleBinding) {
+			s.log.Info("updating subjectaccessreviews clusterrolebinding",
+				"clusterrolebinding", sarMigrationClusterRoleBindingName)
+			if err := s.client.Update(ctx, sarMigrationClusterRoleBinding); err != nil {
+				return err
+			}
 		}
 	}
 

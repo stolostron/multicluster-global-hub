@@ -20,11 +20,21 @@ import (
 func TestMigrationFromSyncer(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	_ = corev1.AddToScheme(scheme)
-	_ = clientgoscheme.AddToScheme(scheme)
-	_ = clusterv1.AddToScheme(scheme)
-	_ = operatorv1.AddToScheme(scheme)
-	_ = klusterletv1alpha1.AddToScheme(scheme)
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
+	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+	if err := operatorv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add operatorv1 to scheme: %v", err)
+	}
+	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add klusterletv1alpha1 to scheme: %v", err)
+	}
 	testPayload := []byte(`
 {
 	"managedclusters": [
@@ -125,7 +135,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"open-cluster-management.io/klusterlet": "test",
+						"agent.open-cluster-management.io/klusterlet-config": "test",
 					},
 				},
 				Spec: clusterv1.ManagedClusterSpec{
@@ -198,7 +208,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"open-cluster-management.io/klusterlet": "test",
+						"agent.open-cluster-management.io/klusterlet-config": "test",
 					},
 				},
 				Spec: clusterv1.ManagedClusterSpec{
@@ -282,7 +292,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"open-cluster-management.io/klusterlet": "test",
+						"agent.open-cluster-management.io/klusterlet-config": "test",
 					},
 				},
 				Spec: clusterv1.ManagedClusterSpec{
@@ -349,7 +359,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test",
 					Annotations: map[string]string{
-						"open-cluster-management.io/klusterlet": "test",
+						"agent.open-cluster-management.io/klusterlet-config": "test",
 					},
 				},
 				Spec: clusterv1.ManagedClusterSpec{
@@ -363,9 +373,9 @@ func TestMigrationFromSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(ctx, client)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client)
 
-			err := managedClusterMigrationSyncer.Sync(testPayload)
+			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)
 			}
@@ -375,7 +385,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedBootstrapSecret.Name, Namespace: c.expectedBootstrapSecret.Namespace}, foundBootstrapSecret); err != nil {
 					t.Errorf("Failed to get bootstrap secret: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundBootstrapSecret, c.expectedBootstrapSecret) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedBootstrapSecret, foundBootstrapSecret) {
 					t.Errorf("Expected bootstrap secret %v, but got %v", c.expectedBootstrapSecret, foundBootstrapSecret)
 				}
 			}
@@ -385,7 +395,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedBootstrapBackupSecret.Name, Namespace: c.expectedBootstrapBackupSecret.Namespace}, foundBootstrapBackupSecret); err != nil {
 					t.Errorf("Failed to get bootstrap backup secret: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundBootstrapBackupSecret, c.expectedBootstrapBackupSecret) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedBootstrapBackupSecret, foundBootstrapBackupSecret) {
 					t.Errorf("Expected bootstrap backup secret %v, but got %v", c.expectedBootstrapBackupSecret, foundBootstrapBackupSecret)
 				}
 			}
@@ -395,7 +405,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedKlusterletConfig.Name}, foundKlusterletConfig); err != nil {
 					t.Errorf("Failed to get klusterlet config: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundKlusterletConfig, c.expectedKlusterletConfig) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedKlusterletConfig, foundKlusterletConfig) {
 					t.Errorf("Expected klusterlet config %v, but got %v", c.expectedKlusterletConfig, foundKlusterletConfig)
 				}
 			}
@@ -405,7 +415,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedManagedCluster.Name}, foundManagedCluster); err != nil {
 					t.Errorf("Failed to get managed cluster: %v", err)
 				}
-				if apiequality.Semantic.DeepDerivative(foundManagedCluster, c.expectedManagedCluster) {
+				if !apiequality.Semantic.DeepDerivative(c.expectedManagedCluster, foundManagedCluster) {
 					t.Errorf("Expected managed cluster %v, but got %v", c.expectedManagedCluster, foundManagedCluster)
 				}
 			}

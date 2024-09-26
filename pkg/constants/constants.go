@@ -171,6 +171,8 @@ const (
 )
 
 const (
+	// ManagedClusterMigrationFinalizer is the finalizer for managed cluster migration
+	ManagedClusterMigrationFinalizer = "global-hub.open-cluster-management.io/migration-cleanup"
 	// cloudevent source for global hub
 	CloudEventSourceGlobalHub = "global-hub"
 	// cloudevent extension keys
