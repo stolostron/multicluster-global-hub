@@ -219,7 +219,9 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 // 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
 // }
 
-func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (interface{}, error) {
+func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (
+	interface{}, error,
+) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
 		transportConfig.ConsumerGroupId)
 	if err != nil {
