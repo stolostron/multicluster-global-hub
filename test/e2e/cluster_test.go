@@ -13,9 +13,11 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -88,6 +90,76 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 
 			By("Delete the cluster event from the leafhub")
 			Expect(hubClient.Delete(ctx, clusterEvent)).To(Succeed())
+		})
+	})
+
+	Context("Cluster Managedcluster, should have some annotation", func() {
+		It("create managedhub cluster, should have annotation", func() {
+			By("Create the managed cluster")
+			mh_name := "test-mc-annotation"
+			mh := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: mh_name,
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient:     true,
+					LeaseDurationSeconds: 60,
+				},
+			}
+
+			Expect(globalHubClient.Create(ctx, mh)).To(Succeed())
+
+			Eventually(func() error {
+				curMh := &clusterv1.ManagedCluster{}
+				Expect(globalHubClient.Get(ctx, types.NamespacedName{
+					Name: mh_name,
+				}, curMh)).To(Succeed())
+
+				if len(curMh.Annotations) == 0 {
+					return fmt.Errorf("failed to add annotation to managedhub")
+				}
+				_, ok := curMh.GetAnnotations()[operatorconstants.AnnotationONMulticlusterHub]
+				if !ok {
+					return fmt.Errorf("failed to add annotation to managedhub, %v", curMh.GetAnnotations())
+				}
+				_, ok = curMh.GetAnnotations()[operatorconstants.AnnotationPolicyONMulticlusterHub]
+				if !ok {
+					return fmt.Errorf("failed to add annotation to managedhub%v", curMh.GetAnnotations())
+				}
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			// remove the annotaiton, and they should be added
+			Eventually(func() error {
+				curMh := &clusterv1.ManagedCluster{}
+				Expect(globalHubClient.Get(ctx, types.NamespacedName{
+					Name: mh_name,
+				}, curMh)).To(Succeed())
+				curMh.Annotations = nil
+				return globalHubClient.Update(ctx, curMh)
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			Eventually(func() error {
+				curMh := &clusterv1.ManagedCluster{}
+				Expect(globalHubClient.Get(ctx, types.NamespacedName{
+					Name: mh_name,
+				}, curMh)).To(Succeed())
+
+				if len(curMh.Annotations) == 0 {
+					return fmt.Errorf("failed to add annotation to managedhub")
+				}
+				_, ok := curMh.GetAnnotations()[operatorconstants.AnnotationONMulticlusterHub]
+				if !ok {
+					return fmt.Errorf("failed to add annotation to managedhub, %v", curMh.GetAnnotations())
+				}
+				_, ok = curMh.GetAnnotations()[operatorconstants.AnnotationPolicyONMulticlusterHub]
+				if !ok {
+					return fmt.Errorf("failed to add annotation to managedhub%v", curMh.GetAnnotations())
+				}
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			Expect(globalHubClient.Delete(ctx, mh)).To(Succeed())
 		})
 	})
 })

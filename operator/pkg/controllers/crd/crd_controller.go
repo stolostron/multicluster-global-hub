@@ -18,6 +18,7 @@ package crd
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
@@ -269,22 +270,16 @@ func watchClusterManagementAddOnPredict() predicate.TypedPredicate[*v1alpha1.Clu
 func watchManagedClusterPredict() predicate.TypedPredicate[*clusterv1.ManagedCluster] {
 	return predicate.TypedFuncs[*clusterv1.ManagedCluster]{
 		CreateFunc: func(e event.TypedCreateEvent[*clusterv1.ManagedCluster]) bool {
-			return false
+			return true
 		},
 		UpdateFunc: func(e event.TypedUpdateEvent[*clusterv1.ManagedCluster]) bool {
-			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
-				constants.GHOperatorOwnerLabelVal {
-				return false
-			}
-			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
-			if e.ObjectNew.GetGeneration() == 0 {
+			if !reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations()) {
 				return true
 			}
 			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 		},
 		DeleteFunc: func(e event.TypedDeleteEvent[*clusterv1.ManagedCluster]) bool {
-			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-				constants.GHOperatorOwnerLabelVal
+			return !e.DeleteStateUnknown
 		},
 	}
 }
