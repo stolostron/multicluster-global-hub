@@ -68,6 +68,12 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return err
 	}
 
+	// set the client ca to signing the inventory client cert
+	if err := config.SetInventoryClientCA(ctx, mgh.Namespace, certctrl.InventoryClientCASecretName,
+		r.GetClient()); err != nil {
+		return err
+	}
+
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 

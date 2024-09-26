@@ -17,6 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/transfer"
 )
 
 const (
@@ -26,16 +27,20 @@ const (
 )
 
 var (
-	transporterProtocol transport.TransportProtocol
-	transporterInstance transport.Transporter
-	transporterConn     *transport.KafkaConnCredential
-	isBYOKafka          = false
-	specTopic           = ""
-	statusTopic         = ""
-	kafkaResourceReady  = false
-	acmResourceReady    = false
-	clientCAKey         []byte
-	clientCACert        []byte
+	transporterProtocol   transport.TransportProtocol
+	transporterInstance   transport.Transporter
+	transporterConn       *transport.KafkaConnCredential
+	enableInventory       = false
+	isBYOKafka            = false
+	specTopic             = ""
+	statusTopic           = ""
+	kafkaResourceReady    = false
+	acmResourceReady      = false
+	kafkaClientCAKey      []byte
+	kafkaClientCACert     []byte
+	inventoryClientCAKey  []byte
+	inventoryClientCACert []byte
+	inventoryConn         *transport.RestfulConnCredentail
 )
 
 func SetTransporterConn(conn *transport.KafkaConnCredential) {
@@ -80,14 +85,17 @@ func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 
 // SetTransportConfig sets the kafka type, protocol and topics
 func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
+	// set the transport type
 	if err := SetKafkaType(ctx, runtimeClient, mgh.Namespace); err != nil {
 		return err
 	}
 
+	// set the inventory
+	enableInventory = WithInventory(mgh)
+
 	// set the topic
 	specTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.SpecTopic
 	statusTopic = mgh.Spec.DataLayer.Kafka.KafkaTopics.StatusTopic
-
 	if !isValidKafkaTopicName(specTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
@@ -185,12 +193,39 @@ func TransporterProtocol() transport.TransportProtocol {
 	return transporterProtocol
 }
 
-// GetClientCA the raw([]byte) of client ca key and ca cert
-func GetClientCA() ([]byte, []byte) {
-	return clientCAKey, clientCACert
+// GetKafkaClientCA the raw([]byte) of client ca key and ca cert
+func GetKafkaClientCA() ([]byte, []byte) {
+	return kafkaClientCAKey, kafkaClientCACert
 }
 
-func SetClientCA(ctx context.Context, namespace, name string, c client.Client) error {
+func GetInventoryClientCA() ([]byte, []byte) {
+	return inventoryClientCAKey, inventoryClientCACert
+}
+
+func SetInventoryClientCA(ctx context.Context, namespace, name string, c client.Client) error {
+	clientCASecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	err := c.Get(ctx, client.ObjectKeyFromObject(clientCASecret), clientCASecret)
+	if err != nil {
+		return err
+	}
+
+	if inventoryClientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
+		klog.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
+		inventoryClientCAKey = clientCASecret.Data["tls.key"]
+	}
+	if inventoryClientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
+		klog.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
+		inventoryClientCACert = clientCASecret.Data["tls.crt"]
+	}
+	return nil
+}
+
+func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Client) error {
 	clientCAKeySecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-clients-ca", name),
@@ -201,9 +236,9 @@ func SetClientCA(ctx context.Context, namespace, name string, c client.Client) e
 	if err != nil {
 		return err
 	}
-	if clientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], clientCAKey) {
+	if kafkaClientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], kafkaClientCAKey) {
 		klog.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
-		clientCAKey = clientCAKeySecret.Data["ca.key"]
+		kafkaClientCAKey = clientCAKeySecret.Data["ca.key"]
 	}
 
 	clientCACertSecret := &corev1.Secret{
@@ -217,12 +252,26 @@ func SetClientCA(ctx context.Context, namespace, name string, c client.Client) e
 		return err
 	}
 
-	if clientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], clientCACert) {
+	if kafkaClientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], kafkaClientCACert) {
 		klog.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
-		clientCACert = clientCACertSecret.Data["ca.crt"]
+		kafkaClientCACert = clientCACertSecret.Data["ca.crt"]
 	}
-
 	return nil
+}
+
+func EnableInventory() bool {
+	return enableInventory
+}
+
+// GetTransportConfigClientName gives the client name based on the cluster name, it could be kafkauser or inventory name
+func GetTransportConfigClientName(clusterName string) string {
+	if EnableInventory() {
+		return transfer.GetInventoryClientName(clusterName)
+	}
+	if TransporterProtocol() == transport.StrimziTransporter {
+		return GetKafkaUserName(clusterName)
+	}
+	return ""
 }
 
 // GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate

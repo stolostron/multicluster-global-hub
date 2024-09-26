@@ -15,14 +15,15 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // default: https://github.com/open-cluster-management-io/addon-framework/blob/main/pkg/utils/csr_helpers.go#L132
 func Approve(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedClusterAddOn,
 	csr *certificatesv1.CertificateSigningRequest,
 ) bool {
-	// if BYO case, then not approve
-	if config.IsBYOKafka() {
+	// only if use the built-in kafka or inventory, then approve the csr
+	if config.TransporterProtocol() != transport.StrimziTransporter && !config.EnableInventory() {
 		return false
 	}
 
@@ -40,16 +41,16 @@ func Approve(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedC
 	}
 
 	// check commonName field
-	defaultUser := config.GetKafkaUserName(cluster.Name)
+	defaultUser := config.GetTransportConfigClientName(cluster.Name)
 	if defaultUser != x509cr.Subject.CommonName {
-		klog.Infof("CSR Approve Check Failed commonName not right; request %s get %s", x509cr.Subject.CommonName, defaultUser)
+		klog.Infof("CSR Approve Check Failed CN not right; request %s get %s", x509cr.Subject.CommonName, defaultUser)
 		return false
 	}
 
 	// check userName
 	userName := "system:open-cluster-management:" + cluster.Name
 	if strings.HasPrefix(csr.Spec.Username, userName) {
-		klog.Info("CSR approved")
+		klog.Infof("CSR approved for user: %s", defaultUser)
 		return true
 	} else {
 		klog.Infof("CSR not approved due to illegal requester; want %s get %s", csr.Spec.Username, userName)

@@ -21,11 +21,11 @@ import (
 func TestMigrationSyncer(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	clientgoscheme.AddToScheme(scheme)
-	clusterv1.AddToScheme(scheme)
-	operatorv1.AddToScheme(scheme)
-	klusterletv1alpha1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
+	_ = clientgoscheme.AddToScheme(scheme)
+	_ = clusterv1.AddToScheme(scheme)
+	_ = operatorv1.AddToScheme(scheme)
+	_ = klusterletv1alpha1.AddToScheme(scheme)
 	testPayload := []byte(`
 {
 	"managedServiceAccountName": "test",

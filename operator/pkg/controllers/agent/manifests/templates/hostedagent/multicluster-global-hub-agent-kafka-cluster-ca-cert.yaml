@@ -8,5 +8,5 @@ metadata:
     addon.open-cluster-management.io/hosted-manifest-location: none
 type: Opaque
 data:
-  "ca.crt": "{{.KafkaCACert}}"
+  "ca.crt": "{{.KafkaClusterCACert}}"
 {{- end -}}

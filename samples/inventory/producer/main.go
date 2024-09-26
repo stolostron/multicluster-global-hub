@@ -10,6 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/client"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -22,15 +23,21 @@ func main() {
 		log.Fatalf("failed to get cluster info list: %v", err)
 	}
 
-	transportConfigSecret, err := config.GetTransportConfigSecret("open-cluster-management", "transport-config")
+	leafHubName := "hub1"
+	transportConfigSecret, err := config.GetTransportConfigSecret("multicluster-global-hub-agent", "transport-config")
 	if err != nil {
 		log.Fatalf("failed to get transport config secret: %v", err)
 	}
-	restfulConn, err := transportconfig.GetRestfulConnBySecret(transportConfigSecret)
+
+	c, err := getRuntimeClient()
+	if err != nil {
+		panic(err)
+	}
+	restfulConn, err := transportconfig.GetRestfulConnBySecret(transportConfigSecret, c)
 	if err != nil {
 		log.Fatalf("failed to extract rest credentail: %v", err)
 	}
-	// utils.PrettyPrint(restfulConn)
+	utils.PrettyPrint(restfulConn)
 
 	inventoryClient, err := client.NewInventoryClient(context.Background(), restfulConn)
 	if err != nil {
@@ -39,7 +46,7 @@ func main() {
 
 	evt := cloudevents.NewEvent()
 	evt.SetType(string(enum.ManagedClusterInfoType))
-	evt.SetSource("test")
+	evt.SetSource(leafHubName)
 	evt.SetData(cloudevents.ApplicationJSON, clusterInfoList)
 
 	err = inventoryClient.Request(context.Background(), evt)

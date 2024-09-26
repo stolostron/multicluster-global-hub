@@ -49,7 +49,7 @@ func TestOnAdd(t *testing.T) {
 	c := fake.NewClientBuilder().Build()
 	caSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              serverCACerts,
+			Name:              InventoryServerCASecretName,
 			Namespace:         namespace,
 			CreationTimestamp: metav1.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC),
 		},
@@ -69,7 +69,7 @@ func TestOnAdd(t *testing.T) {
 func TestOnDelete(t *testing.T) {
 	caSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serverCACerts,
+			Name:      InventoryServerCASecretName,
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
@@ -78,7 +78,7 @@ func TestOnDelete(t *testing.T) {
 	}
 	deletCaSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serverCACerts,
+			Name:      InventoryServerCASecretName,
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
@@ -87,7 +87,7 @@ func TestOnDelete(t *testing.T) {
 	}
 	c := fake.NewClientBuilder().WithRuntimeObjects(caSecret, getMGH()).Build()
 	onDelete(c)(deletCaSecret)
-	c.Get(context.TODO(), types.NamespacedName{Name: serverCACerts, Namespace: namespace}, caSecret)
+	c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, caSecret)
 	data := string(caSecret.Data["tls.crt"])
 	if data != "new cert-" {
 		t.Fatalf("deleted cert not added back: %s", data)
@@ -99,13 +99,13 @@ func TestOnUpdate(t *testing.T) {
 	oldCertLength := len(certSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(certSecret).Build()
 	onUpdate(context.TODO(), c)(certSecret, certSecret)
-	certSecret.Name = clientCACerts
+	certSecret.Name = InventoryClientCASecretName
 	onUpdate(context.TODO(), c)(certSecret, certSecret)
 	certSecret.Name = guestCerts
 	onUpdate(context.TODO(), c)(certSecret, certSecret)
 	certSecret.Name = serverCerts
 	onUpdate(context.TODO(), c)(certSecret, certSecret)
-	c.Get(context.TODO(), types.NamespacedName{Name: serverCACerts, Namespace: namespace}, certSecret)
+	c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, certSecret)
 	if len(certSecret.Data["tls.crt"]) <= oldCertLength {
 		t.Fatal("certificate not renewed correctly")
 	}

@@ -1,13 +1,17 @@
 package transfer
 
 import (
+	"fmt"
+
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
-func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo) *kessel.CreateK8SClusterRequest {
+func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
+	resourceInstanceId string,
+) *kessel.CreateK8SClusterRequest {
 	clusterRequest := &kessel.CreateK8SClusterRequest{
 		K8SCluster: &kessel.K8SCluster{
 			Metadata: &kessel.Metadata{
@@ -15,7 +19,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo) *kessel.C
 			},
 			ReporterData: &kessel.ReporterData{
 				ReporterType:       kessel.ReporterData_ACM,
-				ReporterInstanceId: "guest",
+				ReporterInstanceId: resourceInstanceId,
 				ReporterVersion:    "0.1",
 				LocalResourceId:    "1",
 				ApiHref:            clusterInfo.Spec.MasterEndpoint,
@@ -94,4 +98,9 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo) *kessel.C
 		clusterRequest.K8SCluster.ResourceData.Nodes = append(clusterRequest.K8SCluster.ResourceData.Nodes, kesselNode)
 	}
 	return clusterRequest
+}
+
+// GetInventoryClientName gives a inventory client name based on the cluster name, it's also the CN of the certificate
+func GetInventoryClientName(managedHubName string) string {
+	return fmt.Sprintf("%s-client", managedHubName)
 }

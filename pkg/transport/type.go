@@ -2,8 +2,6 @@ package transport
 
 import (
 	"time"
-
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 const (
@@ -51,20 +49,8 @@ type TransportConfig struct {
 	ConsumerGroupId      string
 	// set the kafka credentail in the transport controller
 	KafkaCredential   *KafkaConnCredential
-	RestfulCredentail *RestfulConnCredentail
+	RestfulCredential *RestfulConnCredentail
 	Extends           map[string]interface{}
-}
-
-type RestfulConnCredentail struct {
-	Host       string `yaml:"host"`
-	CACert     string `yaml:"ca.crt,omitempty"`
-	ClientCert string `yaml:"client.crt,omitempty"`
-	ClientKey  string `yaml:"client.key,omitempty"`
-}
-
-func (k *RestfulConnCredentail) YamlMarshal() ([]byte, error) {
-	bytes, err := yaml.Marshal(k)
-	return bytes, err
 }
 
 // Kafka Config
@@ -95,50 +81,15 @@ type ClusterTopic struct {
 	StatusTopic string
 }
 
-// KafkaConnCredential is used to connect the transporter instance. The field is persisted to secret
-// need to be encode with base64.StdEncoding.EncodeToString
-type KafkaConnCredential struct {
-	BootstrapServer string `yaml:"bootstrap.server"`
-	StatusTopic     string `yaml:"topic.status,omitempty"`
-	SpecTopic       string `yaml:"topic.spec,omitempty"`
-	ClusterID       string `yaml:"cluster.id,omitempty"`
-	// the following fields are only for the manager, and the agent of byo/standalone kafka
-	CACert     string `yaml:"ca.crt,omitempty"`
-	ClientCert string `yaml:"client.crt,omitempty"`
-	ClientKey  string `yaml:"client.key,omitempty"`
-	// the following fields are only for the agent of built-in kafka
-	CASecretName     string `yaml:"ca.secret,omitempty"`
-	ClientSecretName string `yaml:"client.secret,omitempty"`
-}
-
-// YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
-func (k *KafkaConnCredential) YamlMarshal(rawCert bool) ([]byte, error) {
-	copy := k.DeepCopy()
-	if rawCert {
-		copy.CASecretName = ""
-		copy.ClientSecretName = ""
-	} else {
-		copy.CACert = ""
-		copy.ClientCert = ""
-		copy.ClientKey = ""
-	}
-	bytes, err := yaml.Marshal(copy)
-	return bytes, err
-}
-
-// DeepCopy creates a deep copy of KafkaConnCredential
-func (k *KafkaConnCredential) DeepCopy() *KafkaConnCredential {
-	return &KafkaConnCredential{
-		BootstrapServer:  k.BootstrapServer,
-		StatusTopic:      k.StatusTopic,
-		SpecTopic:        k.SpecTopic,
-		ClusterID:        k.ClusterID,
-		CACert:           k.CACert,
-		ClientCert:       k.ClientCert,
-		ClientKey:        k.ClientKey,
-		CASecretName:     k.CASecretName,
-		ClientSecretName: k.ClientSecretName,
-	}
+type CommonCredential interface {
+	GetCACert() string
+	SetCACert(string)
+	GetClientCert() string
+	SetClientCert(string)
+	GetClientKey() string
+	SetClientKey(string)
+	GetCASecretName() string
+	GetClientSecretName() string
 }
 
 type EventPosition struct {

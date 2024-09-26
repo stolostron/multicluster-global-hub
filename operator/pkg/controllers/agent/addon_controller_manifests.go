@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	routev1 "github.com/openshift/api/route/v1"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
@@ -21,10 +23,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	agentcerts "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 //go:embed manifests/templates
@@ -34,35 +39,38 @@ import (
 var FS embed.FS
 
 type ManifestsConfig struct {
-	HoHAgentImage         string
-	ImagePullSecretName   string
-	ImagePullSecretData   string
-	ImagePullPolicy       string
-	LeafHubID             string
-	TransportConfigSecret string
-	KafkaConfigYaml       string
-	KafkaClusterCASecret  string
-	KafkaCACert           string
-	InstallACMHub         bool
-	Channel               string
-	CurrentCSV            string
-	Source                string
-	SourceNamespace       string
-	InstallHostedMode     bool
-	LeaseDuration         string
-	RenewDeadline         string
-	RetryPeriod           string
-	KlusterletNamespace   string
-	KlusterletWorkSA      string
-	NodeSelector          map[string]string
-	Tolerations           []corev1.Toleration
-	AggregationLevel      string
-	EnableLocalPolicies   string
-	EnableGlobalResource  bool
-	AgentQPS              float32
-	AgentBurst            int
-	LogLevel              string
-	EnablePprof           bool
+	HoHAgentImage           string
+	ImagePullSecretName     string
+	ImagePullSecretData     string
+	ImagePullPolicy         string
+	LeafHubID               string
+	TransportConfigSecret   string
+	KafkaConfigYaml         string
+	KafkaClusterCASecret    string
+	KafkaClusterCACert      string
+	InventoryConfigYaml     string
+	InventoryServerCASecret string
+	InventoryServerCACert   string
+	InstallACMHub           bool
+	Channel                 string
+	CurrentCSV              string
+	Source                  string
+	SourceNamespace         string
+	InstallHostedMode       bool
+	LeaseDuration           string
+	RenewDeadline           string
+	RetryPeriod             string
+	KlusterletNamespace     string
+	KlusterletWorkSA        string
+	NodeSelector            map[string]string
+	Tolerations             []corev1.Toleration
+	AggregationLevel        string
+	EnableLocalPolicies     string
+	EnableGlobalResource    bool
+	AgentQPS                float32
+	AgentBurst              int
+	LogLevel                string
+	EnablePprof             bool
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
 	Resources                 *Resources
 	EnableStackroxIntegration bool
@@ -180,16 +188,6 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
 	}
 
-	// will block until the credential is ready
-	kafkaConnection, err := transporter.GetConnCredential(cluster.Name)
-	if err != nil {
-		return nil, err
-	}
-	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(config.IsBYOKafka())
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
-	}
-
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedConfig)
 	agentRes := &Resources{}
 	jsonData, err := json.Marshal(agentResReq)
@@ -207,14 +205,10 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 	}
 
 	manifestsConfig := ManifestsConfig{
-		HoHAgentImage:         image,
-		ImagePullPolicy:       string(imagePullPolicy),
-		LeafHubID:             cluster.Name,
-		TransportConfigSecret: constants.GHTransportConfigSecret,
-		KafkaConfigYaml:       base64.StdEncoding.EncodeToString(kafkaConfigYaml),
-		// render the cluster ca whether under the BYO cases
-		KafkaClusterCASecret:      kafkaConnection.CASecretName,
-		KafkaCACert:               kafkaConnection.CACert,
+		HoHAgentImage:             image,
+		ImagePullPolicy:           string(imagePullPolicy),
+		LeafHubID:                 cluster.Name,
+		TransportConfigSecret:     constants.GHTransportConfigSecret,
 		LeaseDuration:             strconv.Itoa(electionConfig.LeaseDuration),
 		RenewDeadline:             strconv.Itoa(electionConfig.RenewDeadline),
 		RetryPeriod:               strconv.Itoa(electionConfig.RetryPeriod),
@@ -228,6 +222,34 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		Resources:                 agentRes,
 		EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
 		StackroxPollInterval:      config.GetStackroxPollInterval(mgh),
+	}
+
+	if config.EnableInventory() {
+		inventoryConn, err := getInventoryCredential(a.client)
+		if err != nil {
+			return nil, err
+		}
+		inventoryConfigYaml, err := inventoryConn.YamlMarshal(false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshalling the inventory config yaml: %w", err)
+		}
+		manifestsConfig.InventoryConfigYaml = base64.StdEncoding.EncodeToString(inventoryConfigYaml)
+		manifestsConfig.InventoryServerCASecret = inventoryConn.CASecretName
+		manifestsConfig.InventoryServerCACert = inventoryConn.CACert
+	} else {
+		// will block until the credential is ready
+		kafkaConnection, err := transporter.GetConnCredential(cluster.Name)
+		if err != nil {
+			return nil, err
+		}
+		kafkaConfigYaml, err := kafkaConnection.YamlMarshal(config.IsBYOKafka())
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
+		}
+		manifestsConfig.KafkaConfigYaml = base64.StdEncoding.EncodeToString(kafkaConfigYaml)
+		// render the cluster ca whether under the BYO cases
+		manifestsConfig.KafkaClusterCASecret = kafkaConnection.CASecretName
+		manifestsConfig.KafkaClusterCACert = kafkaConnection.CACert
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
@@ -297,4 +319,35 @@ func (a *HohAgentAddon) getOverrideImage(cluster *clusterv1.ManagedCluster) (str
 		return "", err
 	}
 	return image, nil
+}
+
+func getInventoryCredential(c client.Client) (*transport.RestfulConnCredentail, error) {
+	inventoryCredential := &transport.RestfulConnCredentail{}
+
+	// add ca
+	serverCASecretName := certificates.InventoryServerCASecretName
+	inventoryNamespace := config.GetMGHNamespacedName().Namespace
+	_, serverCACert, err := certificates.GetKeyAndCert(c, inventoryNamespace, serverCASecretName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the inventory server ca: %w", err)
+	}
+	inventoryCredential.CASecretName = serverCASecretName
+	inventoryCredential.CACert = base64.StdEncoding.EncodeToString(serverCACert)
+
+	// add client
+	inventoryCredential.ClientSecretName = agentcerts.AgentCertificateSecretName()
+
+	inventoryRoute := &routev1.Route{}
+	err = c.Get(context.Background(), types.NamespacedName{
+		Name:      constants.InventoryRouteName,
+		Namespace: inventoryNamespace,
+	}, inventoryRoute)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inventory route: %s/%s", inventoryNamespace, constants.InventoryRouteName)
+	}
+
+	// host
+	inventoryCredential.Host = fmt.Sprintf("https://%s:443", inventoryRoute.Spec.Host)
+
+	return inventoryCredential, nil
 }

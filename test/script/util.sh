@@ -366,6 +366,9 @@ install_crds() {
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_internal.open-cluster-management.io_managedclusterinfos.crd.yaml
   # clusterID from clusterversion
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
+  # managedserviceaccount
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_authentication.open-cluster-management.io_managedserviceaccounts.crd.yaml
+
 }
 
 enable_service_ca() {

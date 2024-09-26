@@ -1,12 +1,12 @@
-{{- if and (not .InstallHostedMode) .KafkaClusterCASecret -}}
+{{- if and (not .InstallHostedMode) .InventoryServerCACert -}}
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{.KafkaClusterCASecret}}
+  name: {{.InventoryServerCASecret}}
   namespace: {{ .AddonInstallNamespace }}
   labels:
     addon.open-cluster-management.io/hosted-manifest-location: none
 type: Opaque
 data:
-  "ca.crt": "{{.KafkaClusterCACert}}"
+  "ca.crt": "{{.InventoryServerCACert}}"
 {{- end -}}

@@ -107,7 +107,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaConfig, producer bool) (*
 func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Client, consumerGroupID string) (
 	*kafkav2.ConfigMap, error,
 ) {
-	conn, err := GetTransportCredentailBySecret(transportConfig, c)
+	conn, err := GetKafkaCredentailBySecret(transportConfig, c)
 	if err != nil {
 		return nil, err
 	}
@@ -145,68 +145,79 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConnCredential,
 	return kafkaConfigMap, nil
 }
 
-func GetTransportCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
+func GetKafkaCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
 	*transport.KafkaConnCredential, error,
 ) {
 	kafkaConfig, ok := transportSecret.Data["kafka.yaml"]
 	if !ok {
 		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportSecret.Name)
 	}
+
 	conn := &transport.KafkaConnCredential{}
 	if err := yaml.Unmarshal(kafkaConfig, conn); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
 
-	// decode the ca and client cert
-	if conn.CACert != "" {
-		bytes, err := base64.StdEncoding.DecodeString(conn.CACert)
-		if err != nil {
-			return nil, err
-		}
-		conn.CACert = string(bytes)
+	err := ParseCredentailConn(transportSecret.Namespace, c, conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the cert credentail: %w", err)
 	}
-	if conn.ClientCert != "" {
-		bytes, err := base64.StdEncoding.DecodeString(conn.ClientCert)
+	return conn, nil
+}
+
+func ParseCredentailConn(namespace string, c client.Client, conn transport.CommonCredential) error {
+	// decode the ca cert, client key and cert
+	if conn.GetCACert() != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.GetCACert())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		conn.ClientCert = string(bytes)
+		conn.SetCACert(string(bytes))
 	}
-	if conn.ClientKey != "" {
-		bytes, err := base64.StdEncoding.DecodeString(conn.ClientKey)
+	if conn.GetClientCert() != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.GetClientCert())
 		if err != nil {
-			return nil, err
+			return err
 		}
-		conn.ClientKey = string(bytes)
+		conn.SetClientCert(string(bytes))
+	}
+	if conn.GetClientKey() != "" {
+		bytes, err := base64.StdEncoding.DecodeString(conn.GetClientKey())
+		if err != nil {
+			return err
+		}
+		conn.SetClientKey(string(bytes))
 	}
 
-	if conn.CASecretName != "" {
+	// load the ca cert from secret
+	if conn.GetCASecretName() != "" {
 		caSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: transportSecret.Namespace,
-				Name:      conn.CASecretName,
+				Namespace: namespace,
+				Name:      conn.GetCASecretName(),
 			},
 		}
 		if err := c.Get(context.Background(), client.ObjectKeyFromObject(caSecret), caSecret); err != nil {
-			return nil, err
+			return err
 		}
-		conn.CACert = string(caSecret.Data["ca.crt"])
+		conn.SetCACert(string(caSecret.Data["ca.crt"]))
 	}
-	if conn.ClientSecretName != "" {
+	// load the client key and cert from secret
+	if conn.GetClientSecretName() != "" {
 		clientSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: transportSecret.Namespace,
-				Name:      conn.ClientSecretName,
+				Namespace: namespace,
+				Name:      conn.GetClientSecretName(),
 			},
 		}
 		if err := c.Get(context.Background(), client.ObjectKeyFromObject(clientSecret), clientSecret); err != nil {
-			return nil, fmt.Errorf("failed to get the client cert: %w", err)
+			return fmt.Errorf("failed to get the client cert: %w", err)
 		}
-		conn.ClientCert = string(clientSecret.Data["tls.crt"])
-		conn.ClientKey = string(clientSecret.Data["tls.key"])
-		if conn.ClientCert == "" || conn.ClientKey == "" {
-			return nil, fmt.Errorf("the client cert or key must not be empty: %s", conn.ClientSecretName)
+		conn.SetClientCert(string(clientSecret.Data["tls.crt"]))
+		conn.SetClientKey(string(clientSecret.Data["tls.key"]))
+		if conn.GetClientCert() == "" || conn.GetClientKey() == "" {
+			return fmt.Errorf("the client cert or key must not be empty: %s", conn.GetClientSecretName())
 		}
 	}
-	return conn, nil
+	return nil
 }

@@ -55,7 +55,7 @@ func getExpiredCertSecret() *v1.Secret {
 	certPEM, keyPEM := pemEncode(caBytes, x509.MarshalPKCS1PrivateKey(caKey))
 	caSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      serverCACerts,
+			Name:      InventoryServerCASecretName,
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
@@ -94,7 +94,7 @@ func TestCreateCertificates(t *testing.T) {
 		t.Fatalf("Rerun CreateObservabilityCerts: (%v)", err)
 	}
 
-	err, _ = createCASecret(c, s, mgh, true, serverCACerts, mgh.Namespace, serverCACertificateCN)
+	err, _ = createCASecret(c, s, mgh, true, InventoryServerCASecretName, mgh.Namespace, serverCACertificateCN)
 	if err != nil {
 		t.Fatalf("Failed to renew server ca certificates: (%v)", err)
 	}
@@ -109,9 +109,9 @@ func TestRemoveExpiredCA(t *testing.T) {
 	caSecret := getExpiredCertSecret()
 	oldCertLength := len(caSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(caSecret).Build()
-	removeExpiredCA(c, serverCACerts, namespace)
+	removeExpiredCA(c, InventoryServerCASecretName, namespace)
 	c.Get(context.TODO(),
-		types.NamespacedName{Name: serverCACerts, Namespace: namespace},
+		types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace},
 		caSecret)
 	if len(caSecret.Data["tls.crt"]) != oldCertLength/2 {
 		t.Fatal("Expired certificate not removed correctly")

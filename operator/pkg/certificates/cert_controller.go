@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	caSecretNames            = []string{serverCACerts, clientCACerts}
+	caSecretNames            = []string{InventoryServerCASecretName, InventoryClientCASecretName}
 	isCertControllerRunnning = false
 )
 
@@ -89,7 +89,7 @@ func updateDeployLabel(c client.Client, isUpdate bool) {
 }
 
 func needsRenew(s v1.Secret) bool {
-	certSecretNames := []string{serverCACerts, clientCACerts, serverCerts, guestCerts}
+	certSecretNames := []string{InventoryServerCASecretName, InventoryClientCASecretName, serverCerts, guestCerts}
 	if !slices.Contains(certSecretNames, s.Name) {
 		return false
 	}
@@ -182,10 +182,10 @@ func onUpdate(ctx context.Context, c client.Client) func(oldObj, newObj interfac
 				var err error
 				var hosts []string
 				switch name := newS.Name; {
-				case name == serverCACerts:
-					err, _ = createCASecret(c, nil, nil, true, serverCACerts, newS.Namespace, serverCACertificateCN)
-				case name == clientCACerts:
-					err, _ = createCASecret(c, nil, nil, true, clientCACerts, newS.Namespace, clientCACertificateCN)
+				case name == InventoryServerCASecretName:
+					err, _ = createCASecret(c, nil, nil, true, InventoryServerCASecretName, newS.Namespace, serverCACertificateCN)
+				case name == InventoryClientCASecretName:
+					err, _ = createCASecret(c, nil, nil, true, InventoryClientCASecretName, newS.Namespace, clientCACertificateCN)
 				case name == serverCerts:
 					hosts, err = getHosts(ctx, c, newS.Namespace)
 					if err == nil {

@@ -12,6 +12,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"time"
@@ -32,15 +33,15 @@ import (
 )
 
 const (
-	serverCACertificateCN = "inventory-api-server-ca-certificate"
-	serverCACerts         = "inventory-api-server-ca-certs"
-	serverCertificateCN   = "inventory-api-server-certificate"
-	serverCerts           = "inventory-api-server-certs"
+	serverCACertificateCN       = "inventory-api-server-ca-certificate"
+	InventoryServerCASecretName = "inventory-api-server-ca-certs"
+	serverCertificateCN         = "inventory-api-server-certificate"
+	serverCerts                 = "inventory-api-server-certs"
 
-	clientCACertificateCN = "inventory-api-client-ca-certificate"
-	clientCACerts         = "inventory-api-client-ca-certs"
-	guestCertificateCN    = "guest"
-	guestCerts            = "inventory-api-guest-certs"
+	clientCACertificateCN       = "inventory-api-client-ca-certificate"
+	InventoryClientCASecretName = "inventory-api-client-ca-certs"
+	guestCertificateCN          = "guest"
+	guestCerts                  = "inventory-api-guest-certs"
 )
 
 var (
@@ -57,11 +58,13 @@ func CreateInventoryCerts(
 	scheme *runtime.Scheme,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
-	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, serverCACerts, mgh.Namespace, serverCACertificateCN)
+	err, serverCrtUpdated := createCASecret(c, scheme, mgh, false, InventoryServerCASecretName,
+		mgh.Namespace, serverCACertificateCN)
 	if err != nil {
 		return err
 	}
-	err, clientCrtUpdated := createCASecret(c, scheme, mgh, false, clientCACerts, mgh.Namespace, clientCACertificateCN)
+	err, clientCrtUpdated := createCASecret(c, scheme, mgh, false, InventoryClientCASecretName,
+		mgh.Namespace, clientCACertificateCN)
 	if err != nil {
 		return err
 	}
@@ -342,34 +345,52 @@ func createCertificate(isServer bool, cn string, ou []string, dns []string, ips 
 }
 
 func getCA(c client.Client, isServer bool, namespace string) (*x509.Certificate, *rsa.PrivateKey, []byte, error) {
-	caCertName := serverCACerts
+	caCertName := InventoryServerCASecretName
 	if !isServer {
-		caCertName = clientCACerts
+		caCertName = InventoryClientCASecretName
 	}
-	caSecret := &corev1.Secret{}
-	err := c.Get(
-		context.TODO(),
-		types.NamespacedName{Namespace: namespace, Name: caCertName},
-		caSecret,
-	)
+
+	key, cert, err := GetKeyAndCert(c, namespace, caCertName)
 	if err != nil {
 		log.Error(err, "Failed to get ca secret", "name", caCertName)
 		return nil, nil, nil, err
 	}
-	block1, rest := pem.Decode(caSecret.Data[tlsCertName])
-	caCertBytes := caSecret.Data[tlsCertName][:len(caSecret.Data[tlsCertName])-len(rest)]
+	block1, rest := pem.Decode(cert)
+	caCertBytes := cert[:len(cert)-len(rest)]
 	caCerts, err := x509.ParseCertificates(block1.Bytes)
 	if err != nil {
 		log.Error(err, "Failed to parse ca cert", "name", caCertName)
 		return nil, nil, nil, err
 	}
-	block2, _ := pem.Decode(caSecret.Data[tlsKeyName])
+	block2, _ := pem.Decode(key)
 	caKey, err := x509.ParsePKCS1PrivateKey(block2.Bytes)
 	if err != nil {
 		log.Error(err, "Failed to parse ca key", "name", caCertName)
 		return nil, nil, nil, err
 	}
 	return caCerts[0], caKey, caCertBytes, nil
+}
+
+func GetKeyAndCert(c client.Client, namespace string, name string) ([]byte, []byte, error) {
+	certSecret := &corev1.Secret{}
+	err := c.Get(
+		context.TODO(),
+		types.NamespacedName{Namespace: namespace, Name: name},
+		certSecret,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	key, containKey := certSecret.Data[tlsKeyName]
+	if !containKey {
+		return nil, nil, fmt.Errorf("the cert secret %s must have %s", name, tlsKeyName)
+	}
+	cert, containCert := certSecret.Data[tlsCertName]
+	if !containCert {
+		return nil, nil, fmt.Errorf("the cert secret %s must have %s", name, tlsCertName)
+	}
+
+	return key, cert, nil
 }
 
 func removeExpiredCA(c client.Client, name, namespace string) {

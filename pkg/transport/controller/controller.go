@@ -80,12 +80,12 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	var err error
 	switch c.transportConfig.TransportType {
 	case string(transport.Kafka):
-		updated, err = c.ReconcileKafkaCredentail(ctx, secret)
+		updated, err = c.ReconcileKafkaCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	case string(transport.Rest):
-		updated, err = c.ReconcileRestfulCredentail(ctx, secret)
+		updated, err = c.ReconcileRestfulCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -129,11 +129,11 @@ func (c *TransportCtrl) ReconcileProducer() error {
 	return nil
 }
 
-// ReconcileKafkaCredentail update the kafka connection credentail based on the secret, return true if the kafka
+// ReconcileKafkaCredential update the kafka connection credentail based on the secret, return true if the kafka
 // credentail is updated, It also create/update the consumer if not in the standalone mode
-func (c *TransportCtrl) ReconcileKafkaCredentail(ctx context.Context, secret *corev1.Secret) (updated bool, err error) {
+func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *corev1.Secret) (updated bool, err error) {
 	// load the kafka connection credentail based on the transport type. kafka, multiple
-	kafkaConn, err := config.GetTransportCredentailBySecret(secret, c.runtimeClient)
+	kafkaConn, err := config.GetKafkaCredentailBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return updated, err
 	}
@@ -180,19 +180,27 @@ func (c *TransportCtrl) ReconcileKafkaCredentail(ctx context.Context, secret *co
 	return updated, nil
 }
 
-func (c *TransportCtrl) ReconcileRestfulCredentail(ctx context.Context, secret *corev1.Secret) (
+func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *corev1.Secret) (
 	updated bool, err error,
 ) {
-	restfulConn, err := config.GetRestfulConnBySecret(secret)
+	restfulConn, err := config.GetRestfulConnBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return updated, err
 	}
 
-	if reflect.DeepEqual(c.transportConfig.RestfulCredentail, restfulConn) {
+	// update the wathing secret lits
+	if restfulConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, restfulConn.CASecretName) {
+		c.extraSecretNames = append(c.extraSecretNames, restfulConn.CASecretName)
+	}
+	if restfulConn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, restfulConn.ClientSecretName) {
+		c.extraSecretNames = append(c.extraSecretNames, restfulConn.ClientSecretName)
+	}
+
+	if reflect.DeepEqual(c.transportConfig.RestfulCredential, restfulConn) {
 		return
 	}
 	updated = true
-	c.transportConfig.RestfulCredentail = restfulConn
+	c.transportConfig.RestfulCredential = restfulConn
 	return
 }
 

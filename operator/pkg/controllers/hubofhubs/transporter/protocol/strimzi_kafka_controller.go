@@ -64,7 +64,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 
 	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
+	if err := config.SetKafkaClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
 		r.trans.manager.GetClient()); err != nil {
 		return ctrl.Result{}, err
 	}

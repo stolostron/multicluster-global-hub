@@ -122,7 +122,8 @@ func (a *AddonController) Start(ctx context.Context) error {
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
 		WithScheme(addonScheme)
-	if config.TransporterProtocol() == transport.StrimziTransporter {
+	// enable the certificate signing feature: strimzi kafka, inventory api
+	if config.TransporterProtocol() == transport.StrimziTransporter || config.EnableInventory() {
 		factory.WithAgentRegistrationOption(newRegistrationOption())
 	}
 	agentAddon, err := factory.BuildTemplateAgentAddon()
@@ -153,7 +154,10 @@ func newRegistrationOption() *agent.RegistrationOption {
 			return nil
 		},
 		CSRSign: func(csr *certificatesv1.CertificateSigningRequest) []byte {
-			key, cert := config.GetClientCA()
+			key, cert := config.GetKafkaClientCA()
+			if config.EnableInventory() {
+				key, cert = config.GetInventoryClientCA()
+			}
 			return certificates.Sign(csr, key, cert)
 		},
 	}

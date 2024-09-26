@@ -15,7 +15,7 @@ func TestGetK8SCluster(t *testing.T) {
 		clusterinfov1beta1.CloudVendorAWS)
 
 	// Call the function
-	result := GetK8SCluster(clusterInfo)
+	result := GetK8SCluster(clusterInfo, "guest")
 
 	// Assert the results
 	assert.NotNil(t, result)
@@ -70,7 +70,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := GetK8SCluster(tc.clusterInfo)
+			result := GetK8SCluster(tc.clusterInfo, "guest")
 
 			assert.NotNil(t, result)
 			assert.Equal(t, tc.expectedVendor, result.K8SCluster.ResourceData.KubeVendor)
