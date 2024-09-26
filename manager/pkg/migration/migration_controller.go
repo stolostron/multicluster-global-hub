@@ -136,9 +136,7 @@ func (m *MigrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if migration.DeletionTimestamp.IsZero() {
 			if !controllerutil.ContainsFinalizer(migration, constants.ManagedClusterMigrationFinalizer) {
 				controllerutil.AddFinalizer(migration, constants.ManagedClusterMigrationFinalizer)
-				if err := m.Update(ctx, migration); err != nil {
-					return ctrl.Result{}, err
-				}
+				return ctrl.Result{}, m.Update(ctx, migration)
 			}
 		} else {
 			// The migration object is being deleted
@@ -159,6 +157,18 @@ func (m *MigrationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 	} else {
+		// check if the secret is created by managedserviceaccount, if not, requeue after 1 second
+		desiredSecret := &corev1.Secret{}
+		if err := m.Client.Get(ctx, types.NamespacedName{
+			Name:      req.Name,
+			Namespace: req.Namespace,
+		}, desiredSecret); err != nil {
+			if apierrors.IsNotFound(err) {
+				return ctrl.Result{Requeue: true, RequeueAfter: time.Second}, nil
+			}
+			return ctrl.Result{}, err
+		}
+
 		// create kubeconfig based on the secret of managedserviceaccount
 		kubeconfig, err := m.generateKubeconfig(ctx, req)
 		if err != nil {
