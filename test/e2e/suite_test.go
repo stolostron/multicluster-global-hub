@@ -434,7 +434,7 @@ func checkComponentsAvailableAndPhase(runtimeClient client.Client) error {
 		return err
 	}
 	if len(mgh.Status.Components) != expectComponentsCount {
-		return fmt.Errorf("expected components is %v, but current components: %v", expectComponentsCount, len(mgh.Status.Components))
+		return fmt.Errorf("expected components is %v, but current components: %v, mgh.Status.Components: %v", expectComponentsCount, len(mgh.Status.Components), mgh.Status.Components)
 	}
 	for _, v := range mgh.Status.Components {
 		if v.Status != metav1.ConditionTrue {
