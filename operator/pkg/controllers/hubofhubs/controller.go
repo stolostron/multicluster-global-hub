@@ -613,6 +613,9 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
+	if mgh == nil {
+		return ctrl.Result{}, nil
+	}
 	var reconcileErr error
 	var needRequeue bool
 	// update status condition
