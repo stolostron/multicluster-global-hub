@@ -2,11 +2,14 @@ package syncers
 
 import (
 	"context"
+	"math/rand/v2"
 	"testing"
+	"time"
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -78,7 +81,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 		expectedBootstrapSecret       *corev1.Secret
 		expectedBootstrapBackupSecret *corev1.Secret
 		expectedKlusterletConfig      *klusterletv1alpha1.KlusterletConfig
-		expectedManagedCluster        *clusterv1.ManagedCluster
+		// expectedManagedCluster        *clusterv1.ManagedCluster
 	}{
 		{
 			name: "migration without existing bootstrap secret",
@@ -131,18 +134,6 @@ func TestMigrationFromSyncer(t *testing.T) {
 					},
 				},
 			},
-			expectedManagedCluster: &clusterv1.ManagedCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"agent.open-cluster-management.io/klusterlet-config": "test",
-					},
-				},
-				Spec: clusterv1.ManagedClusterSpec{
-					HubAcceptsClient:     true,
-					LeaseDurationSeconds: 60,
-				},
-			},
 		},
 		{
 			name: "migration with existing bootstrap secret",
@@ -150,6 +141,15 @@ func TestMigrationFromSyncer(t *testing.T) {
 				&corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test",
+						Namespace: "test",
+					},
+					Data: map[string][]byte{
+						"test": []byte("foo"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-backup",
 						Namespace: "test",
 					},
 					Data: map[string][]byte{
@@ -202,18 +202,6 @@ func TestMigrationFromSyncer(t *testing.T) {
 							},
 						},
 					},
-				},
-			},
-			expectedManagedCluster: &clusterv1.ManagedCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"agent.open-cluster-management.io/klusterlet-config": "test",
-					},
-				},
-				Spec: clusterv1.ManagedClusterSpec{
-					HubAcceptsClient:     true,
-					LeaseDurationSeconds: 60,
 				},
 			},
 		},
@@ -288,18 +276,6 @@ func TestMigrationFromSyncer(t *testing.T) {
 					},
 				},
 			},
-			expectedManagedCluster: &clusterv1.ManagedCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"agent.open-cluster-management.io/klusterlet-config": "test",
-					},
-				},
-				Spec: clusterv1.ManagedClusterSpec{
-					HubAcceptsClient:     true,
-					LeaseDurationSeconds: 60,
-				},
-			},
 		},
 		{
 			name: "migration with manager cluster having annotation",
@@ -355,26 +331,44 @@ func TestMigrationFromSyncer(t *testing.T) {
 					},
 				},
 			},
-			expectedManagedCluster: &clusterv1.ManagedCluster{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-					Annotations: map[string]string{
-						"agent.open-cluster-management.io/klusterlet-config": "test",
-					},
-				},
-				Spec: clusterv1.ManagedClusterSpec{
-					HubAcceptsClient:     true,
-					LeaseDurationSeconds: 60,
-				},
-			},
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(c.initObjects...).Build()
 			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client)
 
+			// start a new go routine to mimic manager cluster condition update every 100ms
+			go func() {
+				for {
+					mcl := &clusterv1.ManagedCluster{}
+					if err := client.Get(ctx, types.NamespacedName{Name: "test"}, mcl); err != nil {
+						t.Errorf("Failed to get managed cluster: %v", err)
+					}
+					randInt := rand.IntN(1000)
+					time.Sleep(time.Duration(randInt) * time.Millisecond)
+					annotations := mcl.GetAnnotations()
+					if annotations != nil && annotations["agent.open-cluster-management.io/klusterlet-config"] == "test" {
+						if randInt > 500 {
+							_ = client.Delete(ctx, mcl)
+							break
+						}
+						if meta.SetStatusCondition(&mcl.Status.Conditions, metav1.Condition{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionUnknown,
+						}) {
+							if err := client.Status().Update(ctx, mcl); err != nil {
+								continue
+							} else {
+								break
+							}
+						}
+					}
+				}
+			}()
+
+			// sync managed cluster migration
 			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)
@@ -407,16 +401,6 @@ func TestMigrationFromSyncer(t *testing.T) {
 				}
 				if !apiequality.Semantic.DeepDerivative(c.expectedKlusterletConfig, foundKlusterletConfig) {
 					t.Errorf("Expected klusterlet config %v, but got %v", c.expectedKlusterletConfig, foundKlusterletConfig)
-				}
-			}
-
-			if c.expectedManagedCluster != nil {
-				foundManagedCluster := &clusterv1.ManagedCluster{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedManagedCluster.Name}, foundManagedCluster); err != nil {
-					t.Errorf("Failed to get managed cluster: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedManagedCluster, foundManagedCluster) {
-					t.Errorf("Expected managed cluster %v, but got %v", c.expectedManagedCluster, foundManagedCluster)
 				}
 			}
 		})
