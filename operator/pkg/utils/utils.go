@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -407,7 +409,29 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 		return err
 	}
 
+	globalHubAddons := &addonapiv1alpha1.ManagedClusterAddOnList{}
+	if err := c.List(ctx, globalHubAddons, &client.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{"name": operatorconstants.GHManagedClusterAddonName}),
+	}); err != nil {
+		return err
+	}
+	// no global hub agent installed in the managed hub clusters, just return
+	if len(globalHubAddons.Items) == 0 {
+		return nil
+	}
+
 	for idx, managedHub := range clusters.Items {
+		hasGlobalHubAgentInstalled := false
+		for _, addon := range globalHubAddons.Items {
+			if addon.GetNamespace() == managedHub.Name {
+				hasGlobalHubAgentInstalled = true
+				break
+			}
+		}
+		if !hasGlobalHubAgentInstalled {
+			break
+		}
+
 		if managedHub.Name == constants.LocalClusterName {
 			continue
 		}
