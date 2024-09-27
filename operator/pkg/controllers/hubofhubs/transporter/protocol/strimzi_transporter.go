@@ -101,55 +101,61 @@ type strimziTransporter struct {
 
 type KafkaOption func(*strimziTransporter)
 
+var transporter *strimziTransporter
+
 func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
 ) *strimziTransporter {
-	k := &strimziTransporter{
-		log:                   ctrl.Log.WithName("strimzi-transporter"),
-		ctx:                   context.TODO(),
-		kafkaClusterName:      KafkaClusterName,
-		kafkaClusterNamespace: mgh.Namespace,
+	if transporter == nil {
+		transporter = &strimziTransporter{
+			log:              ctrl.Log.WithName("strimzi-transporter"),
+			ctx:              context.TODO(),
+			kafkaClusterName: KafkaClusterName,
 
-		subName:                   DefaultKafkaSubName,
-		subCommunity:              false,
-		subChannel:                DefaultAMQChannel,
-		subPackageName:            DefaultAMQPackageName,
-		subCatalogSourceName:      DefaultCatalogSourceName,
-		subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
+			subName:                   DefaultKafkaSubName,
+			subCommunity:              false,
+			subChannel:                DefaultAMQChannel,
+			subPackageName:            DefaultAMQPackageName,
+			subCatalogSourceName:      DefaultCatalogSourceName,
+			subCatalogSourceNamespace: DefaultCatalogSourceNamespace,
 
-		waitReady:              true,
-		enableTLS:              true,
-		sharedTopics:           false,
-		topicPartitionReplicas: DefaultPartitionReplicas,
+			waitReady:              true,
+			enableTLS:              true,
+			sharedTopics:           false,
+			topicPartitionReplicas: DefaultPartitionReplicas,
 
-		manager: mgr,
-		mgh:     mgh,
+			manager: mgr,
+		}
+		config.SetTransporter(transporter)
 	}
+
+	transporter.mgh = mgh
+	transporter.kafkaClusterNamespace = mgh.Namespace
 	// apply options
 	for _, opt := range opts {
-		opt(k)
+		opt(transporter)
 	}
 
-	if k.subCommunity {
-		k.subChannel = CommunityChannel
-		k.subPackageName = CommunityPackageName
-		k.subCatalogSourceName = CommunityCatalogSourceName
+	if transporter.subCommunity {
+		transporter.subChannel = CommunityChannel
+		transporter.subPackageName = CommunityPackageName
+		transporter.subCatalogSourceName = CommunityCatalogSourceName
 		// it will be operatorhubio-catalog to install kafka in KinD cluster
 		catalogSourceName, ok := mgh.Annotations[operatorconstants.CommunityCatalogSourceNameKey]
 		if ok && catalogSourceName != "" {
-			k.subCatalogSourceName = catalogSourceName
+			transporter.subCatalogSourceName = catalogSourceName
 		}
 		catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CommunityCatalogSourceNamespaceKey]
 		if ok && catalogSourceNamespace != "" {
-			k.subCatalogSourceNamespace = catalogSourceNamespace
+			transporter.subCatalogSourceNamespace = catalogSourceNamespace
 		}
 	}
 
 	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-		k.topicPartitionReplicas = 1
+		transporter.topicPartitionReplicas = 1
 	}
 
-	return k
+	return transporter
 }
 
 func WithNamespacedName(name types.NamespacedName) KafkaOption {

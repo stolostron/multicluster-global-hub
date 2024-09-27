@@ -29,20 +29,16 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 	// set the transporter
 	switch config.TransporterProtocol() {
 	case transport.StrimziTransporter:
-		// initilize strimzi
+		// initialize strimzi
 		// kafkaCluster, it will be blocking until the status is ready
-		if r.transporter == nil {
-			r.transporter = protocol.NewStrimziTransporter(
-				r.Manager,
-				mgh,
-				protocol.WithContext(ctx),
-				protocol.WithCommunity(operatorutils.IsCommunityMode()),
-			)
-			if _, err := r.transporter.EnsureKafka(); err != nil {
-				return err
-			}
-			// update the transporter
-			config.SetTransporter(r.transporter)
+		r.transporter = protocol.NewStrimziTransporter(
+			r.Manager,
+			mgh,
+			protocol.WithContext(ctx),
+			protocol.WithCommunity(operatorutils.IsCommunityMode()),
+		)
+		if _, err := r.transporter.EnsureKafka(); err != nil {
+			return err
 		}
 
 		// this controller also will update the transport connection
@@ -53,19 +49,16 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			}
 		}
 	case transport.SecretTransporter:
-		if r.transporter == nil {
-			r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{
-				Namespace: mgh.Namespace,
-				Name:      constants.GHTransportSecretName,
-			}, r.GetClient())
-			config.SetTransporter(r.transporter)
-			// all of hubs will get the same credential
-			conn, err := r.transporter.GetConnCredential("")
-			if err != nil {
-				return err
-			}
-			config.SetTransporterConn(conn)
+		r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{
+			Namespace: mgh.Namespace,
+			Name:      constants.GHTransportSecretName,
+		}, r.GetClient())
+		// all of hubs will get the same credential
+		conn, err := r.transporter.GetConnCredential("")
+		if err != nil {
+			return err
 		}
+		config.SetTransporterConn(conn)
 	}
 	return nil
 }
