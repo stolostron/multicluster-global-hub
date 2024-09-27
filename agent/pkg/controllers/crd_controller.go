@@ -30,30 +30,29 @@ const (
 var crdCtrlStarted = false
 
 type crdController struct {
-	mgr         ctrl.Manager
-	log         logr.Logger
-	restConfig  *rest.Config
-	agentConfig *config.AgentConfig
-	producer    transport.Producer
-	consumer    transport.Consumer
+	mgr             ctrl.Manager
+	log             logr.Logger
+	restConfig      *rest.Config
+	agentConfig     *config.AgentConfig
+	transportClient transport.TransportClient
 }
 
 func (c *crdController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	switch {
 	case request.Name == clusterManagersCRDName:
-		return c.reconcileClusterManagers(ctx, request)
+		return c.addACMController(ctx, request)
 	case request.Name == stackRoxCentralCRDName && c.agentConfig.EnableStackroxIntegration:
-		return c.reconcileStackRoxCentrals()
+		return c.addStackRoxCentrals()
 	default:
 		return ctrl.Result{}, nil
 	}
 }
 
-func (c *crdController) reconcileClusterManagers(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+func (c *crdController) addACMController(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("crd controller", "NamespacedName:", request.NamespacedName)
 
-	if err := statusController.AddControllers(ctx, c.mgr, c.producer, c.agentConfig); err != nil {
+	if err := statusController.AddControllers(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
 	}
 
@@ -63,7 +62,7 @@ func (c *crdController) reconcileClusterManagers(ctx context.Context, request ct
 	}
 
 	// add spec controllers
-	if err := specController.AddToManager(ctx, c.mgr, c.consumer, c.agentConfig); err != nil {
+	if err := specController.AddToManager(ctx, c.mgr, c.transportClient.GetConsumer(), c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 	reqLogger.V(2).Info("add spec controllers to manager")
@@ -81,7 +80,7 @@ func (c *crdController) reconcileClusterManagers(ctx context.Context, request ct
 	return ctrl.Result{}, nil
 }
 
-func (c *crdController) reconcileStackRoxCentrals() (result ctrl.Result, err error) {
+func (c *crdController) addStackRoxCentrals() (result ctrl.Result, err error) {
 	c.log.Info("Detected the presence of the StackRox central CRD")
 
 	// Create the object that polls the StackRox API and publishes the message, then add it to the controller
@@ -89,7 +88,7 @@ func (c *crdController) reconcileStackRoxCentrals() (result ctrl.Result, err err
 	syncer, err := security.NewStackRoxSyncer().
 		SetLogger(c.log.WithName("stackrox-syncer")).
 		SetTopic(c.agentConfig.TransportConfig.KafkaCredential.StatusTopic).
-		SetProducer(c.producer).
+		SetProducer(c.transportClient.GetProducer()).
 		SetKubernetesClient(c.mgr.GetClient()).
 		SetPollInterval(c.agentConfig.StackroxPollInterval).
 		Build()
@@ -115,7 +114,7 @@ func (c *crdController) reconcileStackRoxCentrals() (result ctrl.Result, err err
 // this controller is used to watch the multiclusterhub crd or clustermanager crd
 // if the crd exists, then add controllers to the manager dynamically
 func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *config.AgentConfig,
-	producer transport.Producer, consumer transport.Consumer,
+	transportClient transport.TransportClient,
 ) error {
 	if crdCtrlStarted {
 		return nil
@@ -141,12 +140,11 @@ func AddCRDController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *co
 			}),
 		).
 		Complete(&crdController{
-			mgr:         mgr,
-			restConfig:  restConfig,
-			agentConfig: agentConfig,
-			producer:    producer,
-			consumer:    consumer,
-			log:         ctrl.Log.WithName("crd-controller"),
+			mgr:             mgr,
+			restConfig:      restConfig,
+			agentConfig:     agentConfig,
+			transportClient: transportClient,
+			log:             ctrl.Log.WithName("crd-controller"),
 		}); err != nil {
 		return err
 	}
