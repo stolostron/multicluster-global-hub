@@ -445,6 +445,7 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 		orgAnnotations[operatorconstants.AnnotationONMulticlusterHub] = "true"
 		orgAnnotations[operatorconstants.AnnotationPolicyONMulticlusterHub] = "true"
 		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			clusters.Items[idx].SetAnnotations(orgAnnotations)
 			if err := c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
 				return err
 			}

@@ -114,6 +114,9 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      operatorconstants.GHManagedClusterAddonName,
 					Namespace: mh_name,
+					Labels: map[string]string{
+						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+					},
 				},
 				Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{},
 			}

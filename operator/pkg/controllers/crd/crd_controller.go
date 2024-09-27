@@ -230,13 +230,9 @@ func (r *CrdController) watchACMRelatedResources() error {
 	if err := r.globalHubController.Watch(
 		source.Kind(
 			r.Manager.GetCache(), &v1alpha1.ManagedClusterAddOn{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
-				c *v1alpha1.ManagedClusterAddOn,
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, c *v1alpha1.ManagedClusterAddOn,
 			) []reconcile.Request {
-				return []reconcile.Request{
-					// trigger MGH instance reconcile
-					{NamespacedName: config.GetMGHNamespacedName()},
-				}
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
 			}), watchManagedClusterAddOnPredict(),
 		)); err != nil {
 		return err
@@ -287,8 +283,7 @@ func watchManagedClusterAddOnPredict() predicate.TypedPredicate[*v1alpha1.Manage
 			return false
 		},
 		UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha1.ManagedClusterAddOn]) bool {
-			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
-				constants.GHOperatorOwnerLabelVal {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] != constants.GHOperatorOwnerLabelVal {
 				return false
 			}
 			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
@@ -298,8 +293,7 @@ func watchManagedClusterAddOnPredict() predicate.TypedPredicate[*v1alpha1.Manage
 			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 		},
 		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha1.ManagedClusterAddOn]) bool {
-			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-				constants.GHOperatorOwnerLabelVal
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GHOperatorOwnerLabelVal
 		},
 	}
 }
