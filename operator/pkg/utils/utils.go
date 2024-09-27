@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -411,13 +411,12 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 
 	globalHubAddons := &addonapiv1alpha1.ManagedClusterAddOnList{}
 	if err := c.List(ctx, globalHubAddons, &client.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{"name": operatorconstants.GHManagedClusterAddonName}),
+		LabelSelector: labels.SelectorFromSet(
+			labels.Set{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			}),
 	}); err != nil {
 		return err
-	}
-	// no global hub agent installed in the managed hub clusters, just return
-	if len(globalHubAddons.Items) == 0 {
-		return nil
 	}
 
 	for idx, managedHub := range clusters.Items {
