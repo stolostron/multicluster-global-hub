@@ -123,12 +123,13 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 			enableTLS:              true,
 			sharedTopics:           false,
 			topicPartitionReplicas: DefaultPartitionReplicas,
+
+			manager: mgr,
 		}
 		config.SetTransporter(transporter)
 	}
 
 	transporter.mgh = mgh
-	transporter.manager = mgr
 	transporter.kafkaClusterNamespace = mgh.Namespace
 	// apply options
 	for _, opt := range opts {

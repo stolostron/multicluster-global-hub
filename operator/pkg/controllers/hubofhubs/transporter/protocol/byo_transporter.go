@@ -33,12 +33,12 @@ func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 ) *BYOTransporter {
 	if byoTransporter == nil {
 		byoTransporter = &BYOTransporter{
-			log: ctrl.Log.WithName("secret-transporter"),
+			log:           ctrl.Log.WithName("secret-transporter"),
+			ctx:           ctx,
+			runtimeClient: c,
 		}
 		config.SetTransporter(byoTransporter)
 	}
-	byoTransporter.ctx = ctx
-	byoTransporter.runtimeClient = c
 	byoTransporter.name = namespacedName.Name
 	byoTransporter.namespace = namespacedName.Namespace
 	return byoTransporter
