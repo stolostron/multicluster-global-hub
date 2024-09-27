@@ -40,8 +40,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 		if _, err := r.transporter.EnsureKafka(); err != nil {
 			return err
 		}
-		// update the transporter
-		config.SetTransporter(r.transporter)
 
 		// this controller also will update the transport connection
 		if config.GetKafkaResourceReady() && r.kafkaController == nil {
@@ -55,7 +53,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.Multi
 			Namespace: mgh.Namespace,
 			Name:      constants.GHTransportSecretName,
 		}, r.GetClient())
-		config.SetTransporter(r.transporter)
 		// all of hubs will get the same credential
 		conn, err := r.transporter.GetConnCredential("")
 		if err != nil {
