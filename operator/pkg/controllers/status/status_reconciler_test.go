@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -20,15 +20,13 @@ import (
 )
 
 var (
-	name               = "mgh"
-	namespace          = "default"
-	kafkaName          = "kafka"
-	kafkaCrdName       = "kafkas.kafka.strimzi.io"
-	ready              = "Ready"
-	falseStatus        = "False"
-	trueStatus         = "True"
-	replica      int32 = 2
-	now                = metav1.Now()
+	name              = "mgh"
+	namespace         = "default"
+	ready             = "Ready"
+	falseStatus       = "False"
+	trueStatus        = "True"
+	replica     int32 = 2
+	now               = metav1.Now()
 )
 
 func Test_needUpdatePhase(t *testing.T) {
@@ -40,7 +38,7 @@ func Test_needUpdatePhase(t *testing.T) {
 		want1                   v1alpha4.GlobalHubPhaseType
 	}{
 		{
-			name: "no mgh status",
+			name: "no mgh status, components not ready",
 			mgh: &v1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -71,7 +69,7 @@ func Test_needUpdatePhase(t *testing.T) {
 			want1: v1alpha4.GlobalHubProgressing,
 		},
 		{
-			name: "no mgh status",
+			name: "no mgh status, components ready",
 			mgh: &v1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
@@ -103,12 +101,16 @@ func Test_needUpdatePhase(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			desiredComponents = sets.NewString(
+				config.COMPONENTS_MANAGER_NAME,
+				config.COMPONENTS_GRAFANA_NAME,
+			)
 			got, got1 := needUpdatePhase(tt.mgh, tt.desiredComponentsStatus)
 			if got != tt.want {
-				t.Errorf("needUpdatePhase() got = %v, want %v", got, tt.want)
+				t.Errorf("name:%v, needUpdatePhase() got = %v, want %v", tt.name, got, tt.want)
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("needUpdatePhase() got1 = %v, want %v", got1, tt.want1)
+				t.Errorf("name:%v, needUpdatePhase() got1 = %v, want %v", tt.name, got1, tt.want1)
 			}
 		})
 	}
@@ -235,152 +237,6 @@ func Test_needUpdateComponentsStatus(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
 				t.Errorf("needUpdateComponentsStatus() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
-func Test_updateKafkaComponents(t *testing.T) {
-	tests := []struct {
-		name             string
-		componentsStatus map[string]v1alpha4.StatusCondition
-		initObj          []runtime.Object
-		requeue          bool
-		wantErr          bool
-	}{
-		{
-			name:    "no kafka crd",
-			initObj: nil,
-			requeue: true,
-			wantErr: false,
-		},
-		{
-			name: "have kafka crd, but do not have kafka",
-			initObj: []runtime.Object{
-				&apiextensionsv1.CustomResourceDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: kafkaCrdName,
-					},
-				},
-			},
-			requeue: true,
-			wantErr: false,
-		},
-		{
-			name: "have kafka crd and kafka, but kafka has no status",
-			initObj: []runtime.Object{
-				&kafkav1beta2.Kafka{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      kafkaName,
-						Namespace: namespace,
-					},
-				},
-				&apiextensionsv1.CustomResourceDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: kafkaCrdName,
-					},
-				},
-			},
-			requeue: true,
-			wantErr: false,
-		},
-		{
-			name: "have kafka crd and kafka, but kafka not ready",
-			initObj: []runtime.Object{
-				&kafkav1beta2.Kafka{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      kafkaName,
-						Namespace: namespace,
-					},
-					Status: &kafkav1beta2.KafkaStatus{
-						Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
-							{
-								Type:   &ready,
-								Status: &falseStatus,
-							},
-						},
-					},
-				},
-				&apiextensionsv1.CustomResourceDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: kafkaCrdName,
-					},
-				},
-			},
-			componentsStatus: map[string]v1alpha4.StatusCondition{
-				config.COMPONENTS_KAFKA_NAME: {
-					Kind:   "Kafka",
-					Name:   config.COMPONENTS_KAFKA_NAME,
-					Type:   config.COMPONENTS_AVAILABLE,
-					Status: config.CONDITION_STATUS_FALSE,
-				},
-			},
-			requeue: false,
-			wantErr: false,
-		},
-		{
-			name: "have kafka crd and kafka, and kafka ready",
-			initObj: []runtime.Object{
-				&kafkav1beta2.Kafka{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      kafkaName,
-						Namespace: namespace,
-					},
-					Status: &kafkav1beta2.KafkaStatus{
-						Conditions: []kafkav1beta2.KafkaStatusConditionsElem{
-							{
-								Type:   &ready,
-								Status: &trueStatus,
-							},
-						},
-					},
-				},
-				&apiextensionsv1.CustomResourceDefinition{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: kafkaCrdName,
-					},
-				},
-			},
-			componentsStatus: map[string]v1alpha4.StatusCondition{
-				config.COMPONENTS_KAFKA_NAME: {
-					Kind:   "Kafka",
-					Name:   config.CONDITION_TYPE_KAFKA,
-					Type:   config.COMPONENTS_AVAILABLE,
-					Status: config.CONDITION_STATUS_TRUE,
-				},
-			},
-			requeue: false,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v1alpha4.AddToScheme(scheme.Scheme)
-			apiextensionsv1.AddToScheme(scheme.Scheme)
-			kafkav1beta2.AddToScheme(scheme.Scheme)
-			initComponentsStatus := map[string]v1alpha4.StatusCondition{
-				config.COMPONENTS_KAFKA_NAME: {
-					Kind:   "Kafka",
-					Name:   config.CONDITION_TYPE_KAFKA,
-					Type:   config.COMPONENTS_AVAILABLE,
-					Status: config.CONDITION_STATUS_FALSE,
-				},
-			}
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObj...).Build()
-			ctx := context.Background()
-			got, err := updateKafkaComponents(ctx, fakeClient, namespace, initComponentsStatus)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("updateKafkaComponents() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.requeue {
-				t.Errorf("updateKafkaComponents() = %v, want %v", got, tt.requeue)
-			}
-			if tt.componentsStatus != nil &&
-				tt.componentsStatus[config.COMPONENTS_KAFKA_NAME].Status != initComponentsStatus[config.COMPONENTS_KAFKA_NAME].Status {
-				t.Errorf("name: %v, updateKafkaComponents() = %v, want %v",
-					tt.name, tt.componentsStatus[config.COMPONENTS_KAFKA_NAME],
-					initComponentsStatus[config.COMPONENTS_KAFKA_NAME])
 			}
 		})
 	}
@@ -689,7 +545,7 @@ func TestStatusReconciler_Reconcile(t *testing.T) {
 					},
 				},
 			},
-			want:        ctrl.Result{RequeueAfter: 5 * time.Second},
+			want:        ctrl.Result{},
 			wantErr:     false,
 			expectPhase: v1alpha4.GlobalHubProgressing,
 		},
@@ -719,7 +575,6 @@ func TestStatusReconciler_Reconcile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			v1alpha4.AddToScheme(scheme.Scheme)
 			apiextensionsv1.AddToScheme(scheme.Scheme)
-			kafkav1beta2.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObj...).WithStatusSubresource(&v1alpha4.MulticlusterGlobalHub{}).Build()
 			ctx := context.Background()
 			r := &StatusReconciler{
