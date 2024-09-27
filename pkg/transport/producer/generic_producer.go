@@ -18,7 +18,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/client"
 )
 
 const (
@@ -30,7 +29,6 @@ type GenericProducer struct {
 	log              logr.Logger
 	ceProtocol       interface{}
 	ceClient         cloudevents.Client
-	inventoryClient  *client.InventoryClient
 	messageSizeLimit int
 }
 
@@ -48,10 +46,6 @@ func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*Ge
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
-	// inventory client
-	if p.inventoryClient != nil {
-		return p.inventoryClient.Request(ctx, evt)
-	}
 	// cloudevent kafka/gochan client
 	// message key
 	evtCtx := ctx
@@ -85,10 +79,6 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 
 // Reconnect close the previous producer state and init a new producer
 func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig) error {
-	// invenory client
-	if config.TransportType == string(transport.Rest) {
-		return p.inventoryClient.RefreshCredential(context.Background(), config.RestfulCredential)
-	}
 	// cloudevent kafka/gochan client
 	closer, ok := p.ceProtocol.(protocol.Closer)
 	if ok {
@@ -131,15 +121,6 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportInterna
 			transportConfig.Extends[topic] = gochan.New()
 		}
 		p.ceProtocol = transportConfig.Extends[topic]
-	case string(transport.Rest):
-		if transportConfig.RestfulCredential == nil {
-			return fmt.Errorf("the restful credentail must not be nil")
-		}
-		inventoryClient, err := client.NewInventoryClient(context.Background(), transportConfig.RestfulCredential)
-		if err != nil {
-			return fmt.Errorf("initial the inventory client error %w", err)
-		}
-		p.inventoryClient = inventoryClient
 	default:
 		return fmt.Errorf("transport-type - %s is not a valid option", transportConfig.TransportType)
 	}

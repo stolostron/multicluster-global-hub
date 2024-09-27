@@ -9,6 +9,17 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
+// TransportClient provides the consumer, producer and inventory client for the global hub manager, agent, ...
+type TransportClient interface {
+	GetProducer() Producer
+	GetConsumer() Consumer
+	GetInventory() InventoryClient
+}
+
+type InventoryClient interface {
+	RefreshCredentail(restConfig *RestfulConfig) error
+}
+
 type Producer interface {
 	SendEvent(ctx context.Context, evt cloudevents.Event) error
 	Reconnect(config *TransportInternalConfig) error

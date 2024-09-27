@@ -22,14 +22,14 @@ type InventoryClient struct {
 
 func NewInventoryClient(ctx context.Context, restfulConn *transport.RestfulConfig) (*InventoryClient, error) {
 	client := &InventoryClient{}
-	err := client.RefreshCredential(ctx, restfulConn)
+	err := client.RefreshCredentail(restfulConn)
 	if err != nil {
 		return nil, err
 	}
 	return client, nil
 }
 
-func (c *InventoryClient) RefreshCredential(ctx context.Context, restfulConn *transport.RestfulConfig) error {
+func (c *InventoryClient) RefreshCredentail(restfulConn *transport.RestfulConfig) error {
 	clientCert, err := tls.X509KeyPair([]byte(restfulConn.ClientCert), []byte(restfulConn.ClientKey))
 	if err != nil {
 		return fmt.Errorf("failed the load client cert from raw data: %w", err)
