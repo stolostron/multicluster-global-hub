@@ -67,8 +67,8 @@ func (s *genericEventSyncer) periodicSync() {
 	defer ticker.Stop()
 
 	for {
-		<-ticker.C // wait for next time interval
 		s.syncEvent()
+		<-ticker.C // wait for next time interval
 
 		resolvedInterval := s.syncIntervalFunc()
 
