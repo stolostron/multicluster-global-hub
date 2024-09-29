@@ -7,17 +7,19 @@ import (
 	"context"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/project-kessel/inventory-client-go/v1beta1"
 )
 
 // TransportClient provides the consumer, producer and inventory client for the global hub manager, agent, ...
 type TransportClient interface {
 	GetProducer() Producer
 	GetConsumer() Consumer
-	GetInventory() InventoryClient
+	GetRequester() Requester
 }
 
-type InventoryClient interface {
-	RefreshCredentail(restConfig *RestfulConfig) error
+type Requester interface {
+	RefreshClient(ctx context.Context, restConfig *RestfulConfig) error
+	GetHttpClient() *v1beta1.Inventory
 }
 
 type Producer interface {

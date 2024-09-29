@@ -1,4 +1,4 @@
-package client
+package requester
 
 import (
 	"context"
@@ -12,24 +12,25 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/transfer"
 )
 
 type InventoryClient struct {
 	httpUrl   string
 	tlsConfig *tls.Config
+
+	httpClient *v1beta1.InventoryHttpClient
 }
 
 func NewInventoryClient(ctx context.Context, restfulConn *transport.RestfulConfig) (*InventoryClient, error) {
-	client := &InventoryClient{}
-	err := client.RefreshCredentail(restfulConn)
+	c := &InventoryClient{}
+	err := c.RefreshClient(ctx, restfulConn)
 	if err != nil {
 		return nil, err
 	}
-	return client, nil
+	return c, nil
 }
 
-func (c *InventoryClient) RefreshCredentail(restfulConn *transport.RestfulConfig) error {
+func (c *InventoryClient) RefreshClient(ctx context.Context, restfulConn *transport.RestfulConfig) error {
 	clientCert, err := tls.X509KeyPair([]byte(restfulConn.ClientCert), []byte(restfulConn.ClientKey))
 	if err != nil {
 		return fmt.Errorf("failed the load client cert from raw data: %w", err)
@@ -45,9 +46,18 @@ func (c *InventoryClient) RefreshCredentail(restfulConn *transport.RestfulConfig
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      caCertPool,
 	}
+
 	c.httpUrl = restfulConn.Host
 	c.tlsConfig = &tlsConfig
+	c.httpClient, err = v1beta1.NewHttpClient(ctx, v1beta1.NewConfig(v1beta1.WithHTTPUrl(c.httpUrl),
+		v1beta1.WithHTTPTLSConfig(c.tlsConfig)))
+	if err != nil {
+		return fmt.Errorf("failed to init the inventory http client: %w", err)
+	}
+	return nil
+}
 
+func (c *InventoryClient) GetHttpClient() *v1beta1.Inventory {
 	return nil
 }
 
@@ -69,7 +79,7 @@ func (c *InventoryClient) Request(ctx context.Context, evt cloudevents.Event) er
 	}
 
 	for _, clusterInfo := range data {
-		clusterRequest := transfer.GetK8SCluster(&clusterInfo, transfer.GetInventoryClientName(evt.Source()))
+		clusterRequest := transfer.GetK8SCluster(&clusterInfo, GetInventoryClientName(evt.Source()))
 		if clusterRequest != nil {
 			if _, err := client.K8sClusterService.CreateK8SCluster(ctx, clusterRequest); err != nil {
 				return err
@@ -77,4 +87,9 @@ func (c *InventoryClient) Request(ctx context.Context, evt cloudevents.Event) er
 		}
 	}
 	return nil
+}
+
+// GetInventoryClientName gives a inventory client name based on the cluster name, it's also the CN of the certificate
+func GetInventoryClientName(managedHubName string) string {
+	return fmt.Sprintf("%s-client", managedHubName)
 }
