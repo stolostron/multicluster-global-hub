@@ -19,10 +19,10 @@ package crd
 import (
 	"context"
 	"reflect"
-	"sync"
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
@@ -44,19 +44,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-var ACMCrds = []string{
+var ACMCrds = sets.NewString(
 	"multiclusterhubs.operator.open-cluster-management.io",
 	"managedclusters.cluster.open-cluster-management.io",
 	"clustermanagementaddons.addon.open-cluster-management.io",
 	"managedclusteraddons.addon.open-cluster-management.io",
 	"manifestworks.work.open-cluster-management.io",
-}
+)
 
-var KafkaCrds = []string{
+var KafkaCrds = sets.NewString(
 	"kafkas.kafka.strimzi.io",
 	"kafkatopics.kafka.strimzi.io",
 	"kafkausers.kafka.strimzi.io",
-}
+)
 
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update
 
@@ -72,13 +72,9 @@ type CrdController struct {
 	globalHubController   runtimeController.Controller
 	backupControllerReady bool
 	addonsControllerReady bool
-	mu                    sync.Mutex
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// the reconcile will update the resources map in multiple goroutines simultaneously
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	// Check if mgh exist or deleting
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil || mgh == nil {
@@ -150,7 +146,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 func (r *CrdController) readyToWatchACMResources() bool {
-	for _, val := range ACMCrds {
+	for val := range ACMCrds {
 		if ready := r.resources[val]; !ready {
 			return false
 		}
@@ -159,7 +155,7 @@ func (r *CrdController) readyToWatchACMResources() bool {
 }
 
 func (r *CrdController) readyToWatchKafkaResources() bool {
-	for _, val := range KafkaCrds {
+	for val := range KafkaCrds {
 		if ready := r.resources[val]; !ready {
 			return false
 		}
@@ -171,10 +167,10 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
 	kubeClient *kubernetes.Clientset, globalHubController runtimeController.Controller,
 ) (*CrdController, error) {
 	allCrds := map[string]bool{}
-	for _, val := range ACMCrds {
+	for val := range ACMCrds {
 		allCrds[val] = false
 	}
-	for _, val := range KafkaCrds {
+	for val := range KafkaCrds {
 		allCrds[val] = false
 	}
 	controller := &CrdController{
@@ -187,11 +183,7 @@ func AddCRDController(mgr ctrl.Manager, operatorConfig *config.OperatorConfig,
 
 	crdPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			// the predicate function might be invoked in different controller goroutines.
-			controller.mu.Lock()
-			_, ok := controller.resources[e.Object.GetName()]
-			controller.mu.Unlock()
-			return ok
+			return KafkaCrds.Has(e.Object.GetName()) || ACMCrds.Has(e.Object.GetName())
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return false
