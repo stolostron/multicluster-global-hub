@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,6 +27,9 @@ type StatusReconciler struct {
 	client.Client
 	namespacedName types.NamespacedName
 }
+
+// desiredComponents list all desired components which include other controller managed components
+var desiredComponents sets.String
 
 func NewStatusReconciler(c client.Client) *StatusReconciler {
 	return &StatusReconciler{
@@ -108,19 +109,6 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// update kafka
-	if !config.IsBYOKafka() {
-		needRequeue, err := updateKafkaComponents(ctx, r.Client, mgh.Namespace, componentsStatus)
-		if err != nil {
-			klog.Errorf("failed to update kafka components status:%v", err)
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, err
-		}
-		if needRequeue {
-			klog.V(2).Infof("Wait kafka created")
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -165,6 +153,10 @@ func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub,
 	desiredComponentsStatus map[string]v1alpha4.StatusCondition,
 ) (bool, v1alpha4.GlobalHubPhaseType) {
 	phase := v1alpha4.GlobalHubRunning
+	if len(desiredComponentsStatus) != desiredComponents.Len() {
+		phase = v1alpha4.GlobalHubProgressing
+		return phase != mgh.Status.Phase, phase
+	}
 	for _, dcs := range desiredComponentsStatus {
 		if dcs.Type == config.COMPONENTS_AVAILABLE && dcs.Status != config.CONDITION_STATUS_TRUE {
 			phase = v1alpha4.GlobalHubProgressing
@@ -178,6 +170,14 @@ func needUpdateComponentsStatus(currentComponentsStatus, desiredComponentsStatus
 ) (bool, map[string]v1alpha4.StatusCondition) {
 	returnedComponentsStatus := make(map[string]v1alpha4.StatusCondition)
 	updated := false
+
+	// copy the desiredComponents status
+	for name, status := range currentComponentsStatus {
+		if desiredComponents.Has(name) {
+			returnedComponentsStatus[name] = status
+		}
+	}
+
 	for name, dcs := range desiredComponentsStatus {
 		if _, ok := currentComponentsStatus[name]; !ok {
 			returnedComponentsStatus[name] = dcs
@@ -195,74 +195,6 @@ func needUpdateComponentsStatus(currentComponentsStatus, desiredComponentsStatus
 		updated = true
 	}
 	return updated, returnedComponentsStatus
-}
-
-// updateKafkaComponents return needRequeue and error
-func updateKafkaComponents(ctx context.Context, c client.Client, namespace string,
-	componentsStatus map[string]v1alpha4.StatusCondition,
-) (bool, error) {
-	kafkacrd := &apiextensionsv1.CustomResourceDefinition{}
-	err := c.Get(ctx, types.NamespacedName{
-		Name: "kafkas.kafka.strimzi.io",
-	}, kafkacrd)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
-		return true, err
-	}
-
-	kafkaCluster := &kafkav1beta2.Kafka{}
-	err = c.Get(ctx, types.NamespacedName{
-		Name:      "kafka",
-		Namespace: namespace,
-	}, kafkaCluster)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return true, nil
-		}
-		return true, err
-	}
-	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-		return true, nil
-	}
-
-	for _, condition := range kafkaCluster.Status.Conditions {
-		if *condition.Type == "Ready" {
-			if *condition.Status == "True" {
-				componentsStatus[config.COMPONENTS_KAFKA_NAME] = v1alpha4.StatusCondition{
-					Kind:               "Kafka",
-					Name:               config.COMPONENTS_KAFKA_NAME,
-					Type:               config.COMPONENTS_AVAILABLE,
-					Status:             config.CONDITION_STATUS_TRUE,
-					Reason:             config.CONDITION_REASON_KAFKA_READY,
-					Message:            config.CONDITION_MESSAGE_KAFKA_READY,
-					LastTransitionTime: metav1.Time{Time: time.Now()},
-				}
-			} else {
-				reason := "KafkaNotReady"
-				message := "Kafka cluster is not ready"
-				if condition.Reason != nil {
-					reason = *condition.Reason
-				}
-				if condition.Message != nil {
-					message = *condition.Message
-				}
-				componentsStatus[config.COMPONENTS_KAFKA_NAME] = v1alpha4.StatusCondition{
-					Kind:               "Kafka",
-					Name:               config.COMPONENTS_KAFKA_NAME,
-					Type:               config.COMPONENTS_AVAILABLE,
-					Status:             config.CONDITION_STATUS_FALSE,
-					Reason:             reason,
-					Message:            message,
-					LastTransitionTime: metav1.Time{Time: time.Now()},
-				}
-			}
-
-			return false, nil
-		}
-	}
-	return false, nil
 }
 
 func updateStatefulsetComponents(ctx context.Context, c client.Client,
@@ -398,19 +330,13 @@ func initComponentsStatus(mgh *v1alpha4.MulticlusterGlobalHub) map[string]v1alph
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		},
 	}
+	desiredComponents = sets.NewString(
+		config.COMPONENTS_MANAGER_NAME,
+		config.COMPONENTS_GRAFANA_NAME,
+	)
 
-	if !config.IsBYOKafka() {
-		initComponents[config.COMPONENTS_KAFKA_NAME] = v1alpha4.StatusCondition{
-			Kind:               "Kafka",
-			Name:               config.CONDITION_TYPE_KAFKA,
-			Type:               config.COMPONENTS_AVAILABLE,
-			Status:             config.CONDITION_STATUS_FALSE,
-			Reason:             config.COMPONENTS_CREATING,
-			Message:            config.MESSAGE_WAIT_CREATED,
-			LastTransitionTime: metav1.Time{Time: time.Now()},
-		}
-	}
 	if !config.IsBYOPostgres() {
+		desiredComponents.Insert(config.COMPONENTS_POSTGRES_NAME)
 		initComponents[config.COMPONENTS_POSTGRES_NAME] = v1alpha4.StatusCondition{
 			Kind:               "StatefulSet",
 			Name:               config.COMPONENTS_POSTGRES_NAME,
@@ -422,7 +348,12 @@ func initComponentsStatus(mgh *v1alpha4.MulticlusterGlobalHub) map[string]v1alph
 		}
 	}
 
+	if !config.IsBYOKafka() {
+		desiredComponents.Insert(config.COMPONENTS_KAFKA_NAME)
+	}
+
 	if config.WithInventory(mgh) {
+		desiredComponents.Insert(config.COMPONENTS_INVENTORY_API_NAME)
 		initComponents[config.COMPONENTS_INVENTORY_API_NAME] = v1alpha4.StatusCondition{
 			Kind:               "Deployment",
 			Name:               config.COMPONENTS_INVENTORY_API_NAME,

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -21,10 +22,12 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -548,19 +551,28 @@ func (k *strimziTransporter) newKafkaUser(
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
 func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
-	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+	isReady := false
+	var kakfaReason, kafkaMsg string
+	var err error
+	defer func() {
+		err = k.updateMghKafkaComponent(isReady, k.manager.GetClient(), kakfaReason, kafkaMsg)
+		if err != nil {
+			klog.Errorf("failed to update mgh status, err: %v", err)
+		}
+	}()
+	err = k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaCluster)
 	if err != nil {
 		k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
 		if errors.IsNotFound(err) {
-			return false, nil
+			return isReady, nil
 		}
-		return false, err
+		return isReady, err
 	}
 	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-		return false, nil
+		return isReady, nil
 	}
 
 	if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
@@ -579,12 +591,72 @@ func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
 		if *condition.Type == "Ready" {
 			if *condition.Status == "True" {
 				k.log.Info("kafka cluster is ready")
-				return true, nil
+				isReady = true
+				return isReady, nil
 			}
+			kafkaMsg = *condition.Message
+			kakfaReason = *condition.Reason
+			return isReady, nil
 		}
 	}
 	klog.Infof("Wait kafka cluster ready")
-	return false, nil
+	return isReady, nil
+}
+
+func (k *strimziTransporter) updateMghKafkaComponent(ready bool, c client.Client, kafkaReason, kafkaMsg string) error {
+	var kafkastatus v1alpha4.StatusCondition
+	if ready {
+		kafkastatus = v1alpha4.StatusCondition{
+			Kind:    "Kafka",
+			Name:    config.COMPONENTS_KAFKA_NAME,
+			Type:    config.COMPONENTS_AVAILABLE,
+			Status:  config.CONDITION_STATUS_TRUE,
+			Reason:  config.CONDITION_REASON_KAFKA_READY,
+			Message: config.CONDITION_MESSAGE_KAFKA_READY,
+		}
+	} else {
+		reason := "KafkaNotReady"
+		message := "Kafka cluster is not ready"
+		if kafkaReason != "" {
+			reason = kafkaReason
+		}
+		if kafkaMsg != "" {
+			message = kafkaMsg
+		}
+		kafkastatus = v1alpha4.StatusCondition{
+			Kind:    "Kafka",
+			Name:    config.COMPONENTS_KAFKA_NAME,
+			Type:    config.COMPONENTS_AVAILABLE,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  reason,
+			Message: message,
+		}
+	}
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		now := time.Now()
+		kafkastatus.LastTransitionTime = metav1.Time{Time: now}
+		curmgh := &v1alpha4.MulticlusterGlobalHub{}
+		err := c.Get(k.ctx, types.NamespacedName{
+			Name:      k.mgh.Name,
+			Namespace: k.mgh.Namespace,
+		}, curmgh)
+		if err != nil {
+			return err
+		}
+		if curmgh.Status.Components == nil {
+			curmgh.Status.Components = map[string]operatorv1alpha4.StatusCondition{
+				config.COMPONENTS_KAFKA_NAME: kafkastatus,
+			}
+		} else {
+			curmghKafkaStatus := curmgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
+			curmghKafkaStatus.LastTransitionTime = metav1.Time{Time: now}
+			if reflect.DeepEqual(curmghKafkaStatus, kafkastatus) {
+				return nil
+			}
+		}
+		curmgh.Status.Components[config.COMPONENTS_KAFKA_NAME] = kafkastatus
+		return c.Status().Update(k.ctx, curmgh)
+	})
 }
 
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {
