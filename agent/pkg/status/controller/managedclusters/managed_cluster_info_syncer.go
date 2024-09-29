@@ -2,6 +2,7 @@ package managedclusters
 
 import (
 	"context"
+	"fmt"
 
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
@@ -36,20 +37,31 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
+
 	// create
 	if clusterInfo.CreationTimestamp.IsZero() {
-		// creatingRequest := GetK8SCluster(clusterInfo, r.clientCN)
-		// if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx, creatingRequest); err != nil {
-		// 	return ctrl.Result{}, fmt.Errorf("failed the request the creating cluster endpoint %v: %w", resp, err)
-		// }
+		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+		}
 		return ctrl.Result{}, nil
 	}
 
 	// delete
 	if !clusterInfo.DeletionTimestamp.IsZero() {
+		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
+		}
 		return ctrl.Result{}, nil
 	}
+
 	// update
+	if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
+		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
+	}
 
 	return ctrl.Result{}, nil
 }
