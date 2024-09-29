@@ -428,7 +428,7 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 			}
 		}
 		if !hasGlobalHubAgentInstalled {
-			break
+			continue
 		}
 
 		if managedHub.Name == constants.LocalClusterName {
