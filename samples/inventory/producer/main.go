@@ -9,7 +9,7 @@ import (
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/client"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 	corev1 "k8s.io/api/core/v1"
@@ -39,7 +39,7 @@ func main() {
 	}
 	utils.PrettyPrint(restfulConn)
 
-	inventoryClient, err := client.NewInventoryClient(context.Background(), restfulConn)
+	inventoryClient, err := requester.NewInventoryClient(context.Background(), restfulConn)
 	if err != nil {
 		log.Fatalf("failed to init the inventory client: %v", err)
 	}

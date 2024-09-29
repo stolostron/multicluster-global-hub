@@ -18,8 +18,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
-	tranclient "github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/client"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -43,7 +43,7 @@ type TransportCtrl struct {
 type TransportClient struct {
 	consumer  transport.Consumer
 	producer  transport.Producer
-	inventory transport.InventoryClient
+	requester transport.Requester
 }
 
 func (c *TransportClient) GetProducer() transport.Producer {
@@ -54,8 +54,8 @@ func (c *TransportClient) GetConsumer() transport.Consumer {
 	return c.consumer
 }
 
-func (c *TransportClient) GetInventory() transport.InventoryClient {
-	return c.inventory
+func (c *TransportClient) GetRequester() transport.Requester {
+	return c.requester
 }
 
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
@@ -117,7 +117,7 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		if updated {
-			if err := c.ReconcileInventory(ctx); err != nil {
+			if err := c.ReconcileRequester(ctx); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -183,19 +183,19 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 }
 
 // ReconcileInventory, transport config is changed, then create/update the inventory client
-func (c *TransportCtrl) ReconcileInventory(ctx context.Context) error {
-	if c.transportClient.inventory == nil {
+func (c *TransportCtrl) ReconcileRequester(ctx context.Context) error {
+	if c.transportClient.requester == nil {
 
 		if c.transportConfig.RestfulCredential == nil {
 			return fmt.Errorf("the restful credential must not be nil")
 		}
-		inventoryClient, err := tranclient.NewInventoryClient(ctx, c.transportConfig.RestfulCredential)
+		inventoryClient, err := requester.NewInventoryClient(ctx, c.transportConfig.RestfulCredential)
 		if err != nil {
 			return fmt.Errorf("initial the inventory client error %w", err)
 		}
-		c.transportClient.inventory = inventoryClient
+		c.transportClient.requester = inventoryClient
 	} else {
-		c.transportClient.inventory.RefreshCredentail(c.transportConfig.RestfulCredential)
+		c.transportClient.requester.RefreshClient(ctx, c.transportConfig.RestfulCredential)
 	}
 	return nil
 }
