@@ -19,7 +19,8 @@ type TransportClient interface {
 
 type Requester interface {
 	RefreshClient(ctx context.Context, restConfig *RestfulConfig) error
-	GetHttpClient() *v1beta1.Inventory
+	// current we only support the inventory client, we can generilize return client instance if it required
+	GetHttpClient() *v1beta1.InventoryHttpClient
 }
 
 type Producer interface {

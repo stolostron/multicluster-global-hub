@@ -2,31 +2,27 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
+	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func main() {
+func managedHub(ctx context.Context, leafHubName string) error {
 	clusterInfoList, err := listClusterInfo()
 	if err != nil {
-		log.Fatalf("failed to get cluster info list: %v", err)
+		return err
 	}
 
-	leafHubName := "hub1"
 	transportConfigSecret, err := config.GetTransportConfigSecret("multicluster-global-hub-agent", "transport-config")
 	if err != nil {
-		log.Fatalf("failed to get transport config secret: %v", err)
+		return err
 	}
 
 	c, err := getRuntimeClient()
@@ -35,24 +31,25 @@ func main() {
 	}
 	restfulConn, err := transportconfig.GetRestfulConnBySecret(transportConfigSecret, c)
 	if err != nil {
-		log.Fatalf("failed to extract rest credentail: %v", err)
+		return err
 	}
-	utils.PrettyPrint(restfulConn)
+	// utils.PrettyPrint(restfulConn)
 
-	inventoryClient, err := requester.NewInventoryClient(context.Background(), restfulConn)
+	requesterClient, err := requester.NewInventoryClient(ctx, restfulConn)
 	if err != nil {
-		log.Fatalf("failed to init the inventory client: %v", err)
+		return err
 	}
 
-	evt := cloudevents.NewEvent()
-	evt.SetType(string(enum.ManagedClusterInfoType))
-	evt.SetSource(leafHubName)
-	evt.SetData(cloudevents.ApplicationJSON, clusterInfoList)
+	k8sCluster := managedclusters.GetK8SCluster(&clusterInfoList[0], requester.GetInventoryClientName(leafHubName))
 
-	err = inventoryClient.Request(context.Background(), evt)
+	resp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster},
+	)
 	if err != nil {
-		log.Fatalf("failed to send the request: %v", err)
+		return err
 	}
+	fmt.Println("response", resp)
+	return nil
 }
 
 func listClusterInfo() ([]clusterinfov1beta1.ManagedClusterInfo, error) {
@@ -66,20 +63,6 @@ func listClusterInfo() ([]clusterinfov1beta1.ManagedClusterInfo, error) {
 		return nil, err
 	}
 	return clusterInfoList.Items, nil
-}
-
-func getTransportConfigSecret(namespace, name string) (*corev1.Secret, error) {
-	c, err := getRuntimeClient()
-	if err != nil {
-		return nil, err
-	}
-
-	transportConfig := &corev1.Secret{}
-	err = c.Get(context.Background(), types.NamespacedName{Name: name, Namespace: namespace}, transportConfig)
-	if err != nil {
-		return nil, err
-	}
-	return transportConfig, nil
 }
 
 func getRuntimeClient() (runtimeclient.Client, error) {

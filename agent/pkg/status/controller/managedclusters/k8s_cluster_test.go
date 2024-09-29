@@ -15,20 +15,20 @@ func TestGetK8SCluster(t *testing.T) {
 		clusterinfov1beta1.CloudVendorAWS)
 
 	// Call the function
-	result := GetK8SCluster(clusterInfo, "guest")
+	k8sCluster := GetK8SCluster(clusterInfo, "guest")
 
 	// Assert the results
-	assert.NotNil(t, result)
-	assert.Equal(t, "k8s-cluster", result.K8SCluster.Metadata.ResourceType)
-	assert.Equal(t, kessel.ReporterData_ACM, result.K8SCluster.ReporterData.ReporterType)
-	assert.Equal(t, "https://api.test-cluster.example.com", result.K8SCluster.ReporterData.ApiHref)
-	assert.Equal(t, "https://console.test-cluster.example.com", result.K8SCluster.ReporterData.ConsoleHref)
-	assert.Equal(t, "test-cluster-id", result.K8SCluster.ResourceData.ExternalClusterId)
-	assert.Equal(t, "1.23.0", result.K8SCluster.ResourceData.KubeVersion)
-	assert.Equal(t, kessel.K8SClusterDetail_READY, result.K8SCluster.ResourceData.ClusterStatus)
-	assert.Equal(t, kessel.K8SClusterDetail_AWS_UPI, result.K8SCluster.ResourceData.CloudPlatform)
-	assert.Equal(t, kessel.K8SClusterDetail_OPENSHIFT, result.K8SCluster.ResourceData.KubeVendor)
-	assert.Equal(t, "4.10.0", result.K8SCluster.ResourceData.VendorVersion)
+	assert.NotNil(t, k8sCluster)
+	assert.Equal(t, "k8s-cluster", k8sCluster.Metadata.ResourceType)
+	assert.Equal(t, kessel.ReporterData_ACM, k8sCluster.ReporterData.ReporterType)
+	assert.Equal(t, "https://api.test-cluster.example.com", k8sCluster.ReporterData.ApiHref)
+	assert.Equal(t, "https://console.test-cluster.example.com", k8sCluster.ReporterData.ConsoleHref)
+	assert.Equal(t, "test-cluster-id", k8sCluster.ResourceData.ExternalClusterId)
+	assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
+	assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)
+	assert.Equal(t, kessel.K8SClusterDetail_AWS_UPI, k8sCluster.ResourceData.CloudPlatform)
+	assert.Equal(t, kessel.K8SClusterDetail_OPENSHIFT, k8sCluster.ResourceData.KubeVendor)
+	assert.Equal(t, "4.10.0", k8sCluster.ResourceData.VendorVersion)
 }
 
 func TestKubeVendorK8SCluster(t *testing.T) {
@@ -70,19 +70,19 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := GetK8SCluster(tc.clusterInfo, "guest")
+			k8sCluster := GetK8SCluster(tc.clusterInfo, "guest")
 
-			assert.NotNil(t, result)
-			assert.Equal(t, tc.expectedVendor, result.K8SCluster.ResourceData.KubeVendor)
-			assert.Equal(t, tc.expectedVersion, result.K8SCluster.ResourceData.VendorVersion)
+			assert.NotNil(t, k8sCluster)
+			assert.Equal(t, tc.expectedVendor, k8sCluster.ResourceData.KubeVendor)
+			assert.Equal(t, tc.expectedVersion, k8sCluster.ResourceData.VendorVersion)
 			// Add more assertions for common fields
-			assert.Equal(t, "k8s-cluster", result.K8SCluster.Metadata.ResourceType)
-			assert.Equal(t, kessel.ReporterData_ACM, result.K8SCluster.ReporterData.ReporterType)
-			assert.Equal(t, "https://api.test-cluster.example.com", result.K8SCluster.ReporterData.ApiHref)
-			assert.Equal(t, "https://console.test-cluster.example.com", result.K8SCluster.ReporterData.ConsoleHref)
-			assert.Equal(t, "test-cluster-id", result.K8SCluster.ResourceData.ExternalClusterId)
-			assert.Equal(t, "1.23.0", result.K8SCluster.ResourceData.KubeVersion)
-			assert.Equal(t, kessel.K8SClusterDetail_READY, result.K8SCluster.ResourceData.ClusterStatus)
+			assert.Equal(t, "k8s-cluster", k8sCluster.Metadata.ResourceType)
+			assert.Equal(t, kessel.ReporterData_ACM, k8sCluster.ReporterData.ReporterType)
+			assert.Equal(t, "https://api.test-cluster.example.com", k8sCluster.ReporterData.ApiHref)
+			assert.Equal(t, "https://console.test-cluster.example.com", k8sCluster.ReporterData.ConsoleHref)
+			assert.Equal(t, "test-cluster-id", k8sCluster.ResourceData.ExternalClusterId)
+			assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
+			assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)
 		})
 	}
 }

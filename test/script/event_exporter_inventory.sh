@@ -13,6 +13,7 @@ SECRET_KUBECONFIG=${2:-$KUBECONFIG} # the kubeconfig for generating the inventor
 
 inventory_namespace=${INVENTORY_NAMESPACE:-"multicluster-global-hub"}
 secret_namespace=${SECRET_NAMESPACE:-"open-cluster-management"}
+secret_name=${SECRET_NAME:-"transport-config"}
 
 # kubectl get secret inventory-api-server-ca-certs -n "$inventory_namespace" -ojsonpath='{.data.ca\.crt}' | base64 -d > /tmp/ca.crt
 # kubectl get secret inventory-api-guest-certs -n "$inventory_namespace" -ojsonpath='{.data.tls\.crt}' | base64 -d > /tmp/client.crt
@@ -26,7 +27,7 @@ client.crt: $(kubectl get secret inventory-api-guest-certs -n "$inventory_namesp
 client.key: $(kubectl get secret inventory-api-guest-certs -n "$inventory_namespace" -ojsonpath='{.data.tls\.key}')
 EOF
 
-kubectl create secret generic transport-config -n "$secret_namespace" --kubeconfig "$SECRET_KUBECONFIG" \
+kubectl create secret generic "$secret_name" -n "$secret_namespace" --kubeconfig "$SECRET_KUBECONFIG" \
   --from-file=rest.yaml="$CURRENT_DIR/rest.yaml"
 rm "$CURRENT_DIR/rest.yaml"
 echo "restful configuration is ready!"
