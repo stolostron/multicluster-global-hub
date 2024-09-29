@@ -20,20 +20,23 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (
-	testenv         *envtest.Environment
-	transportConfig *transport.TransportInternalConfig
-	cfg             *rest.Config
-	ctx             context.Context
-	cancel          context.CancelFunc
-	testPostgres    *testpostgres.TestPostgres
-	db              *gorm.DB
-	mgr             manager.Manager
+	testenv             *envtest.Environment
+	transportConfig     *transport.TransportInternalConfig
+	cfg                 *rest.Config
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	testPostgres        *testpostgres.TestPostgres
+	db                  *gorm.DB
+	mgr                 manager.Manager
+	migrationReconciler *migration.MigrationReconciler
 )
 
 func TestController(t *testing.T) {
@@ -93,6 +96,11 @@ var _ = BeforeSuite(func() {
 		Scheme: config.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
+
+	genericProducer, err := genericproducer.NewGenericProducer(transportConfig)
+	Expect(err).NotTo(HaveOccurred())
+	migrationReconciler = migration.NewMigrationReconciler(mgr.GetClient(), genericProducer, false)
+	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())

@@ -33,6 +33,7 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -325,25 +326,71 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context,
 	migration *migrationv1alpha1.ManagedClusterMigration,
 	klusterletConfig *klusterletv1alpha1.KlusterletConfig,
 ) error {
+	if migration.Spec.From != "" {
+		// send the migration event to migration.from managed hub
+		if err := m.syncMigrationFrom(ctx, migration.Spec.From,
+			migration.Spec.IncludedManagedClusters, klusterletConfig); err != nil {
+			return err
+		}
+	} else {
+		db := database.GetGorm()
+		managedClusterMap := make(map[string][]string)
+		rows, err := db.Raw(`SELECT leaf_hub_name, cluster_name FROM status.managed_clusters
+			WHERE cluster_name IN (?)`,
+			migration.Spec.IncludedManagedClusters).Rows()
+		if err != nil {
+			return fmt.Errorf("failed to get leaf hub name and managed clusters - %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var leafHubName, managedClusterName string
+			if err := rows.Scan(&leafHubName, &managedClusterName); err != nil {
+				return fmt.Errorf("failed to scan leaf hub name and managed cluster name - %w", err)
+			}
+			managedClusterMap[leafHubName] = append(managedClusterMap[leafHubName], managedClusterName)
+		}
+
+		// send the migration event to migration.from managed hub(s)
+		for leafHubName, managedClusters := range managedClusterMap {
+			if err := m.syncMigrationFrom(ctx, leafHubName, managedClusters, klusterletConfig); err != nil {
+				return err
+			}
+		}
+	}
+
+	// send the migration event to migration.to managed hub
+	return m.syncMigrationTo(ctx, migration)
+}
+
+func (m *MigrationReconciler) syncMigrationFrom(ctx context.Context,
+	fromHub string, managedClusters []string,
+	klusterletConfig *klusterletv1alpha1.KlusterletConfig,
+) error {
 	managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{
-		ManagedClusters:  migration.Spec.IncludedManagedClusters,
+		ManagedClusters:  managedClusters,
 		BootstrapSecret:  m.BootstrapSecret,
 		KlusterletConfig: klusterletConfig,
 	}
+
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)
 	if err != nil {
-		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w",
-			migration.Namespace, migration.Name, err)
+		return fmt.Errorf("failed to marshal managed cluster migration from event(%v) - %w",
+			managedClusterMigrationFromEvent, err)
 	}
 
-	// send the event to the source and destination managed hub
 	eventType := constants.CloudEventTypeMigrationFrom
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.From, payloadBytes)
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, fromHub, payloadBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
-			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
+			eventType, constants.CloudEventSourceGlobalHub, fromHub, err)
 	}
 
+	return nil
+}
+
+func (m *MigrationReconciler) syncMigrationTo(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration,
+) error {
 	// default managedserviceaccount addon namespace
 	msaNamespace := "open-cluster-management-agent-addon"
 	if m.importClusterInHosted {
@@ -361,13 +408,13 @@ func (m *MigrationReconciler) syncMigration(ctx context.Context,
 	}
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
 	if err != nil {
-		return fmt.Errorf("failed to marshal bundle event for managed cluster migration(%s/%s) - %w",
-			migration.Namespace, migration.Name, err)
+		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",
+			managedClusterMigrationToEvent, err)
 	}
 
 	// send the event to the destination managed hub
-	eventType = constants.CloudEventTypeMigrationTo
-	evt = utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, payloadToBytes)
+	eventType := constants.CloudEventTypeMigrationTo
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, payloadToBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
