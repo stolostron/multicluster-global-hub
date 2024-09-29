@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,11 +27,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 var now = metav1.Now()
@@ -529,5 +533,83 @@ func Test_GetResources(t *testing.T) {
 				t.Errorf("expect cpu: %v, actual cpu: %v", tt.cpuRequest, res.Requests.Cpu().String())
 			}
 		})
+	}
+}
+
+func TestAnnotateManagedHubCluster(t *testing.T) {
+	s := runtime.NewScheme()
+	corev1.AddToScheme(s)
+	clusterv1.AddToScheme(s)
+
+	ctx := context.TODO()
+	initRuntimeObjs := []runtime.Object{}
+	runtimeClient := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(initRuntimeObjs...).Build()
+	if err := AnnotateManagedHubCluster(ctx, runtimeClient); err == nil {
+		t.Error("should throw the error that no kind is registered for the type v1alpha1.ManagedClusterAddOnList")
+	}
+
+	addonapiv1alpha1.AddToScheme(s)
+
+	mh_name := "test-mc-annotation"
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+		Name: mh_name,
+	}}
+	mh := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: mh_name,
+		},
+		Spec: clusterv1.ManagedClusterSpec{
+			HubAcceptsClient:     true,
+			LeaseDurationSeconds: 60,
+		},
+	}
+	globalhubAddon := &addonapiv1alpha1.ManagedClusterAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHManagedClusterAddonName,
+			Namespace: mh_name,
+			Labels: map[string]string{
+				commonconstants.GlobalHubOwnerLabelKey: commonconstants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{},
+	}
+
+	fake_mh_name := "test-mc-without-annotation"
+	mh_fake := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fake_mh_name,
+		},
+		Spec: clusterv1.ManagedClusterSpec{
+			HubAcceptsClient:     true,
+			LeaseDurationSeconds: 60,
+		},
+	}
+	initRuntimeObjs = []runtime.Object{ns, mh, mh_fake}
+	runtimeClient = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(initRuntimeObjs...).Build()
+
+	if err := runtimeClient.Create(ctx, globalhubAddon); err != nil {
+		t.Error(err)
+	}
+
+	if err := AnnotateManagedHubCluster(ctx, runtimeClient); err != nil {
+		t.Error(err)
+	}
+
+	time.Sleep(1 * time.Second)
+	mc := &clusterv1.ManagedCluster{}
+	if err := runtimeClient.Get(ctx, types.NamespacedName{Name: mh_name}, mc); err != nil {
+		t.Error(err)
+	}
+	if len(mc.Annotations) == 0 {
+		fmt.Println(mc)
+		t.Error("Should have annotation added")
+	}
+
+	mc = &clusterv1.ManagedCluster{}
+	if err := runtimeClient.Get(ctx, types.NamespacedName{Name: fake_mh_name}, mc); err != nil {
+		t.Error(err)
+	}
+	if len(mc.Annotations) != 0 {
+		t.Error("Should not have annotation added")
 	}
 }

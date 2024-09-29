@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -97,6 +98,9 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 		It("create managedhub cluster, should have annotation", func() {
 			By("Create the managed cluster")
 			mh_name := "test-mc-annotation"
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+				Name: mh_name,
+			}}
 			mh := &clusterv1.ManagedCluster{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: mh_name,
@@ -106,8 +110,19 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 					LeaseDurationSeconds: 60,
 				},
 			}
-
+			globalhubAddon := &addonapiv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      operatorconstants.GHManagedClusterAddonName,
+					Namespace: mh_name,
+					Labels: map[string]string{
+						constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+					},
+				},
+				Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{},
+			}
+			Expect(globalHubClient.Create(ctx, ns)).To(Succeed())
 			Expect(globalHubClient.Create(ctx, mh)).To(Succeed())
+			Expect(globalHubClient.Create(ctx, globalhubAddon)).To(Succeed())
 
 			Eventually(func() error {
 				curMh := &clusterv1.ManagedCluster{}
@@ -155,6 +170,39 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 				_, ok = curMh.GetAnnotations()[operatorconstants.AnnotationPolicyONMulticlusterHub]
 				if !ok {
 					return fmt.Errorf("failed to add annotation to managedhub%v", curMh.GetAnnotations())
+				}
+				return nil
+			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+
+			Expect(globalHubClient.Delete(ctx, mh)).To(Succeed())
+			Expect(globalHubClient.Delete(ctx, globalhubAddon)).To(Succeed())
+			Expect(globalHubClient.Delete(ctx, ns)).To(Succeed())
+		})
+	})
+
+	Context("Cluster Managedcluster, should not have some annotation", func() {
+		It("create managedhub cluster, should have annotation", func() {
+			By("Create the managed cluster")
+			mh_name := "test-mc-without-annotation"
+			mh := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: mh_name,
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient:     true,
+					LeaseDurationSeconds: 60,
+				},
+			}
+			Expect(globalHubClient.Create(ctx, mh)).To(Succeed())
+
+			Consistently(func() error {
+				curMh := &clusterv1.ManagedCluster{}
+				Expect(globalHubClient.Get(ctx, types.NamespacedName{
+					Name: mh_name,
+				}, curMh)).To(Succeed())
+
+				if len(curMh.Annotations) != 0 {
+					return fmt.Errorf("should not add annotation to managedhub")
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())

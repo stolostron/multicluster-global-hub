@@ -229,6 +229,16 @@ func (r *CrdController) watchACMRelatedResources() error {
 	}
 	if err := r.globalHubController.Watch(
 		source.Kind(
+			r.Manager.GetCache(), &v1alpha1.ManagedClusterAddOn{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, c *v1alpha1.ManagedClusterAddOn,
+			) []reconcile.Request {
+				return []reconcile.Request{{NamespacedName: config.GetMGHNamespacedName()}}
+			}), watchManagedClusterAddOnPredict(),
+		)); err != nil {
+		return err
+	}
+	if err := r.globalHubController.Watch(
+		source.Kind(
 			r.Manager.GetCache(), &clusterv1.ManagedCluster{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context,
 				c *clusterv1.ManagedCluster,
@@ -263,6 +273,27 @@ func watchClusterManagementAddOnPredict() predicate.TypedPredicate[*v1alpha1.Clu
 		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha1.ClusterManagementAddOn]) bool {
 			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
 				constants.GHOperatorOwnerLabelVal
+		},
+	}
+}
+
+func watchManagedClusterAddOnPredict() predicate.TypedPredicate[*v1alpha1.ManagedClusterAddOn] {
+	return predicate.TypedFuncs[*v1alpha1.ManagedClusterAddOn]{
+		CreateFunc: func(e event.TypedCreateEvent[*v1alpha1.ManagedClusterAddOn]) bool {
+			return false
+		},
+		UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha1.ManagedClusterAddOn]) bool {
+			if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] != constants.GHOperatorOwnerLabelVal {
+				return false
+			}
+			// only requeue when spec change, if the resource do not have spec field, the generation is always 0
+			if e.ObjectNew.GetGeneration() == 0 {
+				return true
+			}
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha1.ManagedClusterAddOn]) bool {
+			return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GHOperatorOwnerLabelVal
 		},
 	}
 }
