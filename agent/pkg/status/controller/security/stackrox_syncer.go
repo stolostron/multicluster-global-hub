@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -22,8 +23,9 @@ import (
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/clients"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/generic"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -48,14 +50,16 @@ type StackRoxSyncerBuilder struct {
 // StackRoxSyncer knows how to pull multiple StackRox API servers to extract information and send it to Kafka. Don't
 // create instances of this type directly, use the NewStackRoxSyncer function instead.
 type StackRoxSyncer struct {
-	logger       logr.Logger
-	topic        string
-	producer     transport.Producer
-	kubeClient   crclient.Client
-	pollInterval time.Duration
-	dataLock     *sync.Mutex
-	dataMap      map[types.NamespacedName]*stackRoxData
-	requests     []stackRoxRequest
+	logger         logr.Logger
+	topic          string
+	producer       transport.Producer
+	kubeClient     crclient.Client
+	pollInterval   time.Duration
+	dataLock       *sync.Mutex
+	dataMap        map[types.NamespacedName]*stackRoxData
+	requests       []stackRoxRequest
+	currentVersion *version.Version
+	lastSentData   any
 }
 
 // stackRoxConnDetails contains the details of the StackRox central.
@@ -141,14 +145,15 @@ func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 
 	// Create and populate the object:
 	result = &StackRoxSyncer{
-		logger:       b.logger,
-		topic:        b.topic,
-		producer:     b.producer,
-		kubeClient:   b.kubeClient,
-		pollInterval: b.pollInterval,
-		dataLock:     &sync.Mutex{},
-		dataMap:      map[types.NamespacedName]*stackRoxData{},
-		requests:     stackRoxRequests,
+		logger:         b.logger,
+		topic:          b.topic,
+		producer:       b.producer,
+		kubeClient:     b.kubeClient,
+		pollInterval:   b.pollInterval,
+		dataLock:       &sync.Mutex{},
+		dataMap:        map[types.NamespacedName]*stackRoxData{},
+		requests:       stackRoxRequests,
+		currentVersion: version.NewVersion(),
 	}
 	return
 }
@@ -422,42 +427,39 @@ func (s *StackRoxSyncer) sync(ctx context.Context, data *stackRoxData) error {
 			return fmt.Errorf("failed to generate struct for kafka message: %v", err)
 		}
 
+		// TODO: If the payload not updated since the previous one, then don't need sync it again
+		// if equality.Semantic.DeepEqual(messageStruct, s.lastSentData) {
+		// 	return nil
+		// }
+
+		s.currentVersion.Incr()
 		if err := s.produce(ctx, messageStruct); err != nil {
 			return fmt.Errorf("failed to produce a message to kafka: %v", err)
 		}
+		s.lastSentData = messageStruct
 	}
 
 	return nil
 }
 
 func (s *StackRoxSyncer) produce(ctx context.Context, messageStruct any) error {
-	version, err := version.VersionFrom("0.1")
-	if err != nil {
-		return fmt.Errorf("failed to get version instance: %v", err)
-	}
-	emitter := generic.NewGenericEmitter(
-		enum.SecurityAlertCountsType,
-		messageStruct,
-		generic.WithTopic(s.topic),
-		generic.WithVersion(version),
-	)
+	s.dataLock.Lock()
+	defer s.dataLock.Unlock()
 
-	evt, err := emitter.ToCloudEvent()
+	evt := ToEvent(config.GetLeafHubName(), string(enum.SecurityAlertCountsType), s.currentVersion.String())
+	err := evt.SetData(cloudevents.ApplicationJSON, messageStruct)
 	if err != nil {
 		return fmt.Errorf("failed to get CloudEvent instance from event %s: %v", *evt, err)
 	}
 
-	if !emitter.ShouldSend() {
-		s.logger.Info("should not send message to kafka", "topic", s.topic, "message", string(evt.Data()))
-		return nil
-	}
-
 	s.logger.Info("pushing message to kafka", "topic", s.topic, "message", string(evt.Data()))
-	cloudEventsContext := cecontext.WithTopic(ctx, emitter.Topic())
+	cloudEventsContext := cecontext.WithTopic(ctx, s.topic)
 
 	if err = s.producer.SendEvent(cloudEventsContext, *evt); err != nil {
 		return fmt.Errorf("failed to send event %s: %v", *evt, err)
 	}
+
+	s.currentVersion.Next()
 
 	return nil
 }
@@ -541,4 +543,12 @@ func AddStackroxDataSyncer(
 		return err
 	}
 	return manager.Add(syncer)
+}
+
+func ToEvent(source string, eventType string, currentVersion string) *cloudevents.Event {
+	e := cloudevents.NewEvent()
+	e.SetSource(source)
+	e.SetType(eventType)
+	e.SetExtension(eventversion.ExtDependencyVersion, currentVersion)
+	return &e
 }
