@@ -80,7 +80,7 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).Named("inventory-managedclusterinfo-controller").
 		For(&clusterinfov1beta1.ManagedClusterInfo{}).
 		WithEventFilter(clusterInfoPredicate).
 		Complete(&ManagedClusterInfoCtrl{
