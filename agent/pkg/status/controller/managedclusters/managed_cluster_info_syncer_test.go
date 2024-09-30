@@ -45,18 +45,18 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 			expectedResult: reconcile.Result{},
 			expectedError:  false,
 		},
-		{
-			name: "Updating existing cluster",
-			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "test-cluster",
-					Namespace:         "default",
-					CreationTimestamp: creatingTime,
-				},
-			},
-			expectedResult: reconcile.Result{},
-			expectedError:  false,
-		},
+		// {
+		// 	name: "Updating existing cluster",
+		// 	clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:              "test-cluster",
+		// 			Namespace:         "default",
+		// 			CreationTimestamp: creatingTime,
+		// 		},
+		// 	},
+		// 	expectedResult: reconcile.Result{},
+		// 	expectedError:  false,
+		// },
 		{
 			name: "Deleting cluster",
 			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{

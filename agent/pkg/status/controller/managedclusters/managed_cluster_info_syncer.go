@@ -41,13 +41,16 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
 
 	// create
-	if clusterInfo.CreationTimestamp.IsZero() {
-		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
-		}
-		return ctrl.Result{}, nil
+	if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
 	}
+
+	// may check the response to decide whether need to update or not
+	// if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
+	// 	&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+	// 	return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
+	// }
 
 	// delete
 	if !clusterInfo.DeletionTimestamp.IsZero() {
@@ -56,12 +59,6 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
 		}
 		return ctrl.Result{}, nil
-	}
-
-	// update
-	if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
-		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
 	}
 
 	return ctrl.Result{}, nil
