@@ -6,11 +6,12 @@ import (
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
-func TestGetK8SCluster(t *testing.T) {
+func TestGetK8SClusterInfo(t *testing.T) {
 	clusterInfo := createMockClusterInfo("test-cluster", clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 		clusterinfov1beta1.CloudVendorAWS)
 
@@ -107,6 +108,18 @@ func createMockClusterInfo(name string, kubeVendor clusterinfov1beta1.KubeVendor
 				{
 					Type:   clusterv1.ManagedClusterConditionAvailable,
 					Status: metav1.ConditionTrue,
+				},
+			},
+			NodeList: []clusterinfov1beta1.NodeStatus{
+				{
+					Name: "ip-10-0-14-217.ec2.internal",
+					Capacity: clusterinfov1beta1.ResourceList{
+						clusterv1.ResourceCPU:    resource.MustParse("16"),
+						clusterv1.ResourceMemory: resource.MustParse("64453796Ki"),
+					},
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "m6a.4xlarge",
+					},
 				},
 			},
 		},

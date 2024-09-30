@@ -49,7 +49,7 @@ func globalHub(ctx context.Context) error {
 	}
 	fmt.Println("creating response", createResp)
 
-	clusterInfo = createMockClusterInfo("local-cluster-updating")
+	clusterInfo = createMockClusterInfo("local-cluster")
 	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, "guest")
 	updatingResponse, err := requesterClient.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster})
