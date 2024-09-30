@@ -24,27 +24,43 @@ import (
 var statusCtrlStarted = false
 
 // AddControllers adds all the controllers to the Manager.
-func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
+func AddControllers(ctx context.Context, mgr ctrl.Manager, transportClient transport.TransportClient,
 	agentConfig *config.AgentConfig,
 ) error {
 	if statusCtrlStarted {
 		return nil
 	}
-	// managed cluster info
-	if err := managedclusters.LaunchManagedClusterInfoSyncer(ctx, mgr, agentConfig, producer); err != nil {
-		return fmt.Errorf("failed to launch managedclusterinfo syncer: %w", err)
-	}
-
-	// if it's rest transport, skip the following controllers
-	if agentConfig.TransportConfig.TransportType == string(transport.Rest) {
-		statusCtrlStarted = true
-		return nil
-	}
-
 	if err := agentstatusconfig.AddConfigController(mgr, agentConfig); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
+	var err error
+	switch agentConfig.TransportConfig.TransportType {
+	case string(transport.Kafka):
+		err = addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig)
+	case string(transport.Rest):
+		err = addInventorySyncer(ctx, mgr, transportClient.GetRequester(), agentConfig)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to add the syncer: %w", err)
+	}
+
+	statusCtrlStarted = true
+	return nil
+}
+
+func addInventorySyncer(ctx context.Context, mgr ctrl.Manager, inventoryRequester transport.Requester,
+	agentConfig *config.AgentConfig,
+) error {
+	if err := managedclusters.AddManagedClusterInfoCtrl(mgr, inventoryRequester); err != nil {
+		return err
+	}
+	return nil
+}
+
+func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
+	agentConfig *config.AgentConfig,
+) error {
 	// managed cluster
 	if err := managedclusters.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, producer); err != nil {
 		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
@@ -95,6 +111,5 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		agentConfig.TransportConfig.KafkaCredential.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}
-
 	return nil
 }

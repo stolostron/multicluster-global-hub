@@ -19,36 +19,55 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-type TransportCallback func(producer transport.Producer, consumer transport.Consumer) error
+type TransportCallback func(transportClient transport.TransportClient) error
 
 type TransportCtrl struct {
-	secretNamespace string
-	secretName      string
+	runtimeClient    client.Client
+	secretNamespace  string
+	secretName       string
+	extraSecretNames []string
+
 	transportConfig *transport.TransportInternalConfig
 
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
-	callback TransportCallback
-
-	runtimeClient    client.Client
-	consumer         transport.Consumer
-	producer         transport.Producer
-	extraSecretNames []string
+	transportCallback TransportCallback
+	transportClient   *TransportClient
 
 	mutex sync.Mutex
+}
+
+type TransportClient struct {
+	consumer  transport.Consumer
+	producer  transport.Producer
+	requester transport.Requester
+}
+
+func (c *TransportClient) GetProducer() transport.Producer {
+	return c.producer
+}
+
+func (c *TransportClient) GetConsumer() transport.Consumer {
+	return c.consumer
+}
+
+func (c *TransportClient) GetRequester() transport.Requester {
+	return c.requester
 }
 
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
 	transportConfig *transport.TransportInternalConfig,
 ) *TransportCtrl {
 	return &TransportCtrl{
-		secretNamespace:  namespace,
-		secretName:       name,
-		callback:         callback,
-		transportConfig:  transportConfig,
-		extraSecretNames: make([]string, 2),
+		secretNamespace:   namespace,
+		secretName:        name,
+		transportCallback: callback,
+		transportClient:   &TransportClient{},
+		transportConfig:   transportConfig,
+		extraSecretNames:  make([]string, 2),
 	}
 }
 
@@ -84,10 +103,23 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		if updated {
+			if err := c.ReconcileConsumer(ctx); err != nil {
+				return ctrl.Result{}, err
+			}
+			if err := c.ReconcileProducer(); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	case string(transport.Rest):
 		updated, err = c.ReconcileRestfulCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
+		}
+		if updated {
+			if err := c.ReconcileRequester(ctx); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	default:
 		return ctrl.Result{}, fmt.Errorf("unsupported transport type: %s", c.transportConfig.TransportType)
@@ -97,15 +129,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// secret is changed, then create/update the producer
-	err = c.ReconcileProducer()
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	klog.Info("the transport producer is created/updated")
-
-	if c.producer != nil && c.callback != nil {
-		if err := c.callback(c.producer, c.consumer); err != nil {
+	if c.transportCallback != nil {
+		if err := c.transportCallback(c.transportClient); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
 		}
 	}
@@ -115,15 +140,63 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // ReconcileProducer, transport config is changed, then create/update the producer
 func (c *TransportCtrl) ReconcileProducer() error {
-	if c.producer == nil {
+	if c.transportClient.producer == nil {
 		sender, err := producer.NewGenericProducer(c.transportConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create/update the producer: %w", err)
 		}
-		c.producer = sender
+		c.transportClient.producer = sender
 	} else {
-		if err := c.producer.Reconnect(c.transportConfig); err != nil {
+		if err := c.transportClient.producer.Reconnect(c.transportConfig); err != nil {
 			return fmt.Errorf("failed to reconnect the producer: %w", err)
+		}
+	}
+	return nil
+}
+
+// ReconcileConsumer, transport config is changed, then create/update the consumer
+func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
+	// if the consumer groupId is empty, then it's means the agent is in the standalone mode, don't create the consumer
+	if c.transportConfig.ConsumerGroupId == "" {
+		return nil
+	}
+
+	// create/update the consumer with the kafka transport
+	if c.transportClient.consumer == nil {
+		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create the consumer: %w", err)
+		}
+		go func() {
+			if err = receiver.Start(ctx); err != nil {
+				klog.Errorf("failed to start the consumser: %v", err)
+			}
+		}()
+		c.transportClient.consumer = receiver
+	} else {
+		if err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig); err != nil {
+			return fmt.Errorf("failed to reconnect the consumer: %w", err)
+		}
+	}
+	klog.Info("the transport(kafka) consumer is created/updated")
+	return nil
+}
+
+// ReconcileInventory, transport config is changed, then create/update the inventory client
+func (c *TransportCtrl) ReconcileRequester(ctx context.Context) error {
+	if c.transportClient.requester == nil {
+
+		if c.transportConfig.RestfulCredential == nil {
+			return fmt.Errorf("the restful credential must not be nil")
+		}
+		inventoryClient, err := requester.NewInventoryClient(ctx, c.transportConfig.RestfulCredential)
+		if err != nil {
+			return fmt.Errorf("initial the inventory client error %w", err)
+		}
+		c.transportClient.requester = inventoryClient
+	} else {
+		if err := c.transportClient.requester.RefreshClient(ctx, c.transportConfig.RestfulCredential); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -131,11 +204,11 @@ func (c *TransportCtrl) ReconcileProducer() error {
 
 // ReconcileKafkaCredential update the kafka connection credentail based on the secret, return true if the kafka
 // credentail is updated, It also create/update the consumer if not in the standalone mode
-func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *corev1.Secret) (updated bool, err error) {
+func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *corev1.Secret) (bool, error) {
 	// load the kafka connection credentail based on the transport type. kafka, multiple
 	kafkaConn, err := config.GetKafkaCredentailBySecret(secret, c.runtimeClient)
 	if err != nil {
-		return updated, err
+		return false, err
 	}
 
 	// update the wathing secret lits
@@ -148,36 +221,10 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 
 	// if credentials aren't updated, then return
 	if reflect.DeepEqual(c.transportConfig.KafkaCredential, kafkaConn) {
-		return
+		return false, nil
 	}
 	c.transportConfig.KafkaCredential = kafkaConn
-	updated = true
-
-	// if the consumer groupId is empty, then it's means the agent is in the standalone mode, don't create the consumer
-	if c.transportConfig.ConsumerGroupId == "" {
-		return
-	}
-
-	// create/update the consumer with the kafka transport
-	if c.consumer == nil {
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
-		if err != nil {
-			return updated, fmt.Errorf("failed to create the consumer: %w", err)
-		}
-		c.consumer = receiver
-		go func() {
-			if err = c.consumer.Start(ctx); err != nil {
-				klog.Errorf("failed to start the consumser: %v", err)
-			}
-		}()
-	} else {
-		if err := c.consumer.Reconnect(ctx, c.transportConfig); err != nil {
-			return updated, fmt.Errorf("failed to reconnect the consumer: %w", err)
-		}
-	}
-	klog.Info("the transport(kafka) onsumer is created/updated")
-
-	return updated, nil
+	return true, nil
 }
 
 func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *corev1.Secret) (

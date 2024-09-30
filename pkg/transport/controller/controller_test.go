@@ -37,11 +37,12 @@ func TestSecretCtrlReconcile(t *testing.T) {
 				StatusTopic: "status",
 			},
 		},
-		callback: func(p transport.Producer, c transport.Consumer) error {
+		transportCallback: func(transportClient transport.TransportClient) error {
 			callbackInvoked = true
 			return nil
 		},
-		runtimeClient: fakeClient,
+		transportClient: &TransportClient{},
+		runtimeClient:   fakeClient,
 	}
 
 	ctx := context.TODO()
@@ -80,8 +81,8 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	result, err := secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
-	assert.NotNil(t, secretController.producer)
-	assert.NotNil(t, secretController.consumer)
+	assert.NotNil(t, secretController.transportClient.producer)
+	assert.NotNil(t, secretController.transportClient.consumer)
 	assert.True(t, callbackInvoked)
 
 	// Test when transport config changes
@@ -104,11 +105,12 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		secretNamespace: "default",
 		secretName:      "test-secret",
 		transportConfig: &transport.TransportInternalConfig{},
-		callback: func(p transport.Producer, c transport.Consumer) error {
+		transportCallback: func(transport.TransportClient) error {
 			callbackInvoked = true
 			return nil
 		},
-		runtimeClient: fakeClient,
+		transportClient: &TransportClient{},
+		runtimeClient:   fakeClient,
 	}
 
 	ctx := context.TODO()
@@ -144,8 +146,9 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	result, err := secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
-	assert.NotNil(t, secretController.producer)
-	assert.Nil(t, secretController.consumer)
+	assert.Nil(t, secretController.transportClient.producer)
+	assert.Nil(t, secretController.transportClient.consumer)
+	assert.NotNil(t, secretController.transportClient.requester)
 	assert.True(t, callbackInvoked)
 	assert.Equal(t, string(transport.Rest), secretController.transportConfig.TransportType)
 
