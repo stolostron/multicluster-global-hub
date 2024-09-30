@@ -244,10 +244,12 @@ func createManager(ctx context.Context,
 }
 
 func transportCallback(mgr ctrl.Manager, managerConfig *managerconfig.ManagerConfig) controller.TransportCallback {
-	return func(producer transport.Producer, consumer transport.Consumer) error {
+	return func(transportClient transport.TransportClient) error {
 		if !managerConfig.WithACM {
 			return nil
 		}
+		producer := transportClient.GetProducer()
+		consumer := transportClient.GetConsumer()
 		if managerConfig.EnableGlobalResource {
 			if err := specsyncer.AddGlobalResourceSpecSyncers(mgr, managerConfig, producer); err != nil {
 				return fmt.Errorf("failed to add global resource spec syncers: %w", err)

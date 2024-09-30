@@ -17,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/inventory/transfer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
 const (
@@ -266,7 +266,7 @@ func EnableInventory() bool {
 // GetTransportConfigClientName gives the client name based on the cluster name, it could be kafkauser or inventory name
 func GetTransportConfigClientName(clusterName string) string {
 	if EnableInventory() {
-		return transfer.GetInventoryClientName(clusterName)
+		return requester.GetInventoryClientName(clusterName)
 	}
 	if TransporterProtocol() == transport.StrimziTransporter {
 		return GetKafkaUserName(clusterName)
