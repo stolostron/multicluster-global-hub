@@ -62,13 +62,15 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if policy.CreationTimestamp.IsZero() {
-		if resp, err := p.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
-			ctx, createK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
-		}
-		return ctrl.Result{}, nil
+	if resp, err := p.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
+		ctx, createK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
 	}
+	// may check the response to decide whether need to update or not
+	// if resp, err := p.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
+	// 	ctx, updateK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
+	// 	return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy %v: %w", resp, err)
+	// }
 
 	if !policy.DeletionTimestamp.IsZero() {
 		if resp, err := p.requester.GetHttpClient().PolicyServiceClient.DeleteK8SPolicy(
@@ -76,10 +78,6 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy %v: %w", resp, err)
 		}
 		return ctrl.Result{}, nil
-	}
-	if resp, err := p.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
-		ctx, updateK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy %v: %w", resp, err)
 	}
 	return ctrl.Result{}, nil
 }

@@ -45,18 +45,18 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			expectedResult: reconcile.Result{},
 			expectedError:  false,
 		},
-		{
-			name: "Updating existing policy",
-			policy: &policiesv1.Policy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "test-policy",
-					Namespace:         "default",
-					CreationTimestamp: creatingTime,
-				},
-			},
-			expectedResult: reconcile.Result{},
-			expectedError:  false,
-		},
+		// {
+		// 	name: "Updating existing policy",
+		// 	policy: &policiesv1.Policy{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:              "test-policy",
+		// 			Namespace:         "default",
+		// 			CreationTimestamp: creatingTime,
+		// 		},
+		// 	},
+		// 	expectedResult: reconcile.Result{},
+		// 	expectedError:  false,
+		// },
 		{
 			name: "Deleting cluster",
 			policy: &policiesv1.Policy{
