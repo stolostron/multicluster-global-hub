@@ -39,7 +39,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, transportClient trans
 	case string(transport.Kafka):
 		err = addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig)
 	case string(transport.Rest):
-		err = addInventorySyncer(ctx, mgr, transportClient.GetRequester(), agentConfig)
+		err = addInventorySyncer(mgr, transportClient.GetRequester())
 	}
 	if err != nil {
 		return fmt.Errorf("failed to add the syncer: %w", err)
@@ -49,10 +49,11 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, transportClient trans
 	return nil
 }
 
-func addInventorySyncer(ctx context.Context, mgr ctrl.Manager, inventoryRequester transport.Requester,
-	agentConfig *config.AgentConfig,
-) error {
+func addInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	if err := managedclusters.AddManagedClusterInfoCtrl(mgr, inventoryRequester); err != nil {
+		return err
+	}
+	if err := policies.AddPolicyController(mgr, inventoryRequester); err != nil {
 		return err
 	}
 	return nil
