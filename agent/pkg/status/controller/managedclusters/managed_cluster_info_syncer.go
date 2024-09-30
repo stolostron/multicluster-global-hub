@@ -50,8 +50,8 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 
 	// delete
 	if !clusterInfo.DeletionTimestamp.IsZero() {
-		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+		if resp, err := r.requester.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
+			&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData}); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
 		}
 		return ctrl.Result{}, nil
