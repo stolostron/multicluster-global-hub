@@ -35,3 +35,13 @@ func SetAgentConfig(agentConfig *AgentConfig) {
 func GetAgentConfig() *AgentConfig {
 	return agentConfigData
 }
+
+var mchVersion string
+
+func GetMCHVersion() string {
+	return mchVersion
+}
+
+func SetMCHVersion(version string) {
+	mchVersion = version
+}
