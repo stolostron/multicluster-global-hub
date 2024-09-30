@@ -21,5 +21,5 @@ func TestGenericProducer(t *testing.T) {
 		},
 	}
 	err := p.initClient(tranConfig)
-	require.Equal(t, "the restful credentail must not be nil", err.Error())
+	require.Equal(t, "transport-type - rest is not a valid option", err.Error())
 }
