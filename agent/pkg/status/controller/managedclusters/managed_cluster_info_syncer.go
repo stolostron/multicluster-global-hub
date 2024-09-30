@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
@@ -99,7 +100,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
 			ReporterInstanceId: clientCN,
-			ReporterVersion:    "0.1",
+			ReporterVersion:    config.GetMCHVersion(),
 			LocalResourceId:    clusterInfo.Name,
 			ApiHref:            clusterInfo.Spec.MasterEndpoint,
 			ConsoleHref:        clusterInfo.Status.ConsoleURL,
