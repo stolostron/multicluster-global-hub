@@ -42,7 +42,7 @@ func AddPolicyController(mgr ctrl.Manager, inventoryRequester transport.Requeste
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).Named("inventory-policy-controller").
 		For(&policiesv1.Policy{}).
 		WithEventFilter(policyPredicate).
 		Complete(&PolicyController{
