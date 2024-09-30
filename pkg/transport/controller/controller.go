@@ -195,7 +195,9 @@ func (c *TransportCtrl) ReconcileRequester(ctx context.Context) error {
 		}
 		c.transportClient.requester = inventoryClient
 	} else {
-		c.transportClient.requester.RefreshClient(ctx, c.transportConfig.RestfulCredential)
+		if err := c.transportClient.requester.RefreshClient(ctx, c.transportConfig.RestfulCredential); err != nil {
+			return err
+		}
 	}
 	return nil
 }
