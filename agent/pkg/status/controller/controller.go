@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var statusCtrlStarted = false
@@ -39,7 +40,7 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, transportClient trans
 	case string(transport.Kafka):
 		err = addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig)
 	case string(transport.Rest):
-		err = addInventorySyncer(mgr, transportClient.GetRequester())
+		err = addInventorySyncer(ctx, mgr, transportClient.GetRequester())
 	}
 	if err != nil {
 		return fmt.Errorf("failed to add the syncer: %w", err)
@@ -49,7 +50,13 @@ func AddControllers(ctx context.Context, mgr ctrl.Manager, transportClient trans
 	return nil
 }
 
-func addInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
+func addInventorySyncer(ctx context.Context, mgr ctrl.Manager, inventoryRequester transport.Requester) error {
+	mch, err := utils.ListMCH(ctx, mgr.GetClient())
+	if err != nil {
+		return err
+	}
+	config.SetMCHVersion(mch.Status.CurrentVersion)
+
 	if err := managedclusters.AddManagedClusterInfoCtrl(mgr, inventoryRequester); err != nil {
 		return err
 	}

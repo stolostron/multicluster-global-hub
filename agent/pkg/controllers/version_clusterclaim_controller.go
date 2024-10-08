@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -39,6 +40,7 @@ func (c *versionClusterClaimController) Reconcile(ctx context.Context, request c
 	}
 
 	if mch != nil && mch.Status.CurrentVersion != "" {
+		config.SetMCHVersion(mch.Status.CurrentVersion)
 		return ctrl.Result{}, updateClusterClaim(ctx, c.client,
 			constants.VersionClusterClaimName, mch.Status.CurrentVersion)
 	}

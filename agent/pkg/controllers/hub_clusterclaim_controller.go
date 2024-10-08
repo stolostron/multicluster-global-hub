@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -36,10 +35,7 @@ func (c *hubClusterClaimController) Reconcile(ctx context.Context, request ctrl.
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("hub clusterClaim controller", "NamespacedName:", request.NamespacedName)
 
-	mch, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
-	if mch != nil {
-		config.SetMCHVersion(mch.Status.CurrentVersion)
-	}
+	_, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
 	return ctrl.Result{}, err
 }
 
