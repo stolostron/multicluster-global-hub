@@ -43,15 +43,14 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 
 	// create
 	labels := clusterInfo.GetLabels()
-	if labels == nil {
-		labels = map[string]string{}
-	}
-	if _, ok := labels[CreatingMarkLabelKey]; ok {
-		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+	if labels != nil {
+		if _, ok := labels[CreatingMarkLabelKey]; ok {
+			if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+			}
+			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, nil
 	}
 
 	// TODO: Delete: we may need add finalizer for the clusterinfo resource to ensure the deleting workflow
