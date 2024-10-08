@@ -96,29 +96,31 @@ func createK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string)
 			},
 			ResourceData: &kessel.K8SPolicyDetail{
 				Disabled: policy.Spec.Disabled,
+				Severity: kessel.K8SPolicyDetail_MEDIUM, // need to update
 			},
 		},
 	}
 }
 
-func updateK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string) *kessel.UpdateK8SPolicyRequest {
-	return &kessel.UpdateK8SPolicyRequest{
-		K8SPolicy: &kessel.K8SPolicy{
-			Metadata: &kessel.Metadata{
-				ResourceType: "k8s-policy",
-			},
-			ReporterData: &kessel.ReporterData{
-				ReporterType:       kessel.ReporterData_ACM,
-				ReporterInstanceId: reporterInstanceId,
-				ReporterVersion:    config.GetMCHVersion(),
-				LocalResourceId:    policy.Namespace + "/" + policy.Name,
-			},
-			ResourceData: &kessel.K8SPolicyDetail{
-				Disabled: policy.Spec.Disabled,
-			},
-		},
-	}
-}
+// func updateK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string) *kessel.UpdateK8SPolicyRequest {
+// 	return &kessel.UpdateK8SPolicyRequest{
+// 		K8SPolicy: &kessel.K8SPolicy{
+// 			Metadata: &kessel.Metadata{
+// 				ResourceType: "k8s-policy",
+// 			},
+// 			ReporterData: &kessel.ReporterData{
+// 				ReporterType:       kessel.ReporterData_ACM,
+// 				ReporterInstanceId: reporterInstanceId,
+// 				ReporterVersion:    config.GetMCHVersion(),
+// 				LocalResourceId:    policy.Namespace + "/" + policy.Name,
+// 			},
+// 			ResourceData: &kessel.K8SPolicyDetail{
+// 				Disabled: policy.Spec.Disabled,
+// 				Severity: kessel.K8SPolicyDetail_MEDIUM, //need to update
+// 			},
+// 		},
+// 	}
+// }
 
 func deleteK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string) *kessel.DeleteK8SPolicyRequest {
 	return &kessel.DeleteK8SPolicyRequest{
