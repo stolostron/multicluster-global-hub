@@ -16,6 +16,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-co-op/gocron v1.23.0
+	github.com/go-kratos/kratos/v2 v2.8.0
 	github.com/go-logr/logr v1.4.2
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/uuid v1.6.0
@@ -43,6 +44,7 @@ require (
 	gorm.io/datatypes v1.2.0
 	gorm.io/driver/postgres v1.5.9
 	gorm.io/gorm v1.25.11
+	helm.sh/helm/v3 v3.14.4
 	k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery v0.31.0
@@ -72,7 +74,6 @@ require (
 	github.com/docker/cli v26.1.4+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-kratos/aegis v0.2.0 // indirect
-	github.com/go-kratos/kratos/v2 v2.8.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-playground/form/v4 v4.2.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
@@ -93,7 +94,6 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
-	helm.sh/helm/v3 v3.14.4 // indirect
 )
 
 require (
