@@ -21,6 +21,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
+const CreatingMarkLabelKey = "global-hub.open-cluster-management.io/resource-creating"
+
 type ManagedClusterInfoCtrl struct {
 	runtimeClient client.Client
 	requester     transport.Requester
@@ -40,7 +42,11 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
 
 	// create
-	if clusterInfo.CreationTimestamp.IsZero() {
+	labels := clusterInfo.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	if _, ok := labels[CreatingMarkLabelKey]; ok {
 		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
@@ -48,7 +54,7 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// delete
+	// TODO: Delete: we may need add finalizer for the clusterinfo resource to ensure the deleting workflow
 	if !clusterInfo.DeletionTimestamp.IsZero() {
 		if resp, err := r.requester.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 			&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData}); err != nil {
@@ -69,9 +75,16 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	clusterInfoPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
+			return e.ObjectOld.GetResourceVersion() <= e.ObjectNew.GetResourceVersion()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
+			// add the mark for deletion, it only added to the cached object(indexer), and won't propagate to the etcd
+			labels := e.Object.GetLabels()
+			if labels == nil {
+				labels = map[string]string{}
+			}
+			labels[CreatingMarkLabelKey] = ""
+			e.Object.SetLabels(labels)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
