@@ -12,8 +12,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -26,7 +29,6 @@ func TestPolicyControllerReconcile(t *testing.T) {
 	mockRequester := &MockRequest{}
 
 	// Define test cases
-	creatingTime := metav1.Now()
 	deletintTime := metav1.NewTime(time.Now().Time)
 	tests := []struct {
 		name           string
@@ -45,25 +47,26 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			expectedResult: reconcile.Result{},
 			expectedError:  false,
 		},
-		// {
-		// 	name: "Updating existing policy",
-		// 	policy: &policiesv1.Policy{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:              "test-policy",
-		// 			Namespace:         "default",
-		// 			CreationTimestamp: creatingTime,
-		// 		},
-		// 	},
-		// 	expectedResult: reconcile.Result{},
-		// 	expectedError:  false,
-		// },
+		{
+			name: "Updating existing policy",
+			policy: &policiesv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"foo": "bar",
+					},
+				},
+			},
+			expectedResult: reconcile.Result{},
+			expectedError:  false,
+		},
 		{
 			name: "Deleting cluster",
 			policy: &policiesv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test-policy",
 					Namespace:         "default",
-					CreationTimestamp: creatingTime,
 					DeletionTimestamp: &deletintTime,
 					Finalizers:        []string{"test"},
 				},
@@ -72,6 +75,22 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			expectedError:  false,
 		},
 	}
+
+	config := &rest.Config{
+		Host: "localhost",
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
+	}
+
+	mgr, err := manager.New(config, manager.Options{
+		NewClient: func(config *rest.Config, options client.Options) (client.Client, error) {
+			return fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build(), nil
+		},
+		Scheme: scheme,
+	})
+	assert.NoError(t, err)
+	assert.NoError(t, AddPolicyController(mgr, nil))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
