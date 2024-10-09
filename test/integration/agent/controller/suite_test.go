@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -61,7 +61,7 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme: config.GetRuntimeScheme(),
+		Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 
