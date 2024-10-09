@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
@@ -40,13 +41,16 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
 
 	// create
-	if clusterInfo.CreationTimestamp.IsZero() {
-		if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-			&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
-		}
-		return ctrl.Result{}, nil
+	if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
 	}
+
+	// may check the response to decide whether need to update or not
+	// if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
+	// 	&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+	// 	return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
+	// }
 
 	// delete
 	if !clusterInfo.DeletionTimestamp.IsZero() {
@@ -55,12 +59,6 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
 		}
 		return ctrl.Result{}, nil
-	}
-
-	// update
-	if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
-		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
 	}
 
 	return ctrl.Result{}, nil
@@ -79,7 +77,7 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	return ctrl.NewControllerManagedBy(mgr).Named("inventory-managedclusterinfo-controller").
 		For(&clusterinfov1beta1.ManagedClusterInfo{}).
 		WithEventFilter(clusterInfoPredicate).
 		Complete(&ManagedClusterInfoCtrl{
@@ -99,7 +97,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
 			ReporterInstanceId: clientCN,
-			ReporterVersion:    "0.1",
+			ReporterVersion:    config.GetMCHVersion(),
 			LocalResourceId:    clusterInfo.Name,
 			ApiHref:            clusterInfo.Spec.MasterEndpoint,
 			ConsoleHref:        clusterInfo.Status.ConsoleURL,
