@@ -9,11 +9,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
 func TestPostSendFunc(t *testing.T) {
+	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "leaf-hub-name"})
 	localStatusEventHandler := NewPolicyStatusEventHandler(context.TODO(), enum.LocalReplicatedPolicyEventType,
 		func(obj client.Object) bool {
 			return true
