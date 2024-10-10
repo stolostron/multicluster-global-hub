@@ -61,7 +61,7 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 				return true, err
 			}
 			if hasmanagedHub {
-				klog.Errorf("please detach all the managedhub clusters before uninstall globalhub")
+				klog.Errorf("You need to detach all the managed hub clusters before uninstalling")
 				return true, nil
 			}
 		}
@@ -83,6 +83,8 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 		if err := r.MetricsResources(ctx); err != nil {
 			return true, err
 		}
+		// clean the kafka connection so that the manager can use the new one after reinstall
+		config.SetTransporterConn(nil)
 		return false, nil
 	}
 	// If webhook do not need to enable, should remove the related resources
