@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -137,10 +138,13 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
-		if annotations["agent.open-cluster-management.io/klusterlet-config"] == klusterletConfig.Name {
+
+		_, migrating := annotations[constants.ManagedClusterMigrating]
+		if migrating && annotations["agent.open-cluster-management.io/klusterlet-config"] == klusterletConfig.Name {
 			continue
 		}
 		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
+		annotations[constants.ManagedClusterMigrating] = ""
 		mcl.SetAnnotations(annotations)
 		if err := s.client.Update(ctx, mcl); err != nil {
 			return err
