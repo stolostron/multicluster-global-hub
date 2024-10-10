@@ -12,10 +12,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	genericpayload "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *configs.AgentConfig,
@@ -25,17 +23,7 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 	instance := func() client.Object { return &placementrulesv1.PlacementRule{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
 
-	// emitter, handler
-	tweakFunc := func(obj client.Object) { obj.SetManagedFields(nil) }
-
-	// global placementrule
-	globalEventData := genericpayload.GenericObjectBundle{}
-	globalShouldUpdate := func(obj client.Object) bool {
-		return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // global resource
-	}
-
 	// local placementrule
-	localEventData := genericpayload.GenericObjectBundle{}
 	localShouldUpdate := func(obj client.Object) bool {
 		// return statusconfig.GetEnableLocalPolicy() == statusconfig.EnableLocalPolicyTrue &&
 		// 	!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // local resource
@@ -54,13 +42,15 @@ func LaunchPlacementRuleSyncer(ctx context.Context, mgr ctrl.Manager, agentConfi
 		syncInterval,
 		[]*generic.EmitterHandler{
 			{
-				Handler: generic.NewGenericHandler(&globalEventData, generic.WithTweakFunc(tweakFunc),
-					generic.WithShouldUpdate(globalShouldUpdate)),
+				Handler: generic.NewGenericHandler(&genericpayload.GenericObjectBundle{},
+					generic.WithTweakFunc(cleanupManagedFields),
+					generic.WithShouldUpdate(globalResource)),
 				Emitter: generic.NewGenericEmitter(enum.PlacementRuleSpecType),
 			},
 
 			{
-				Handler: generic.NewGenericHandler(&localEventData, generic.WithTweakFunc(tweakFunc),
+				Handler: generic.NewGenericHandler(&genericpayload.GenericObjectBundle{},
+					generic.WithTweakFunc(cleanupManagedFields),
 					generic.WithShouldUpdate(localShouldUpdate)),
 				Emitter: generic.NewGenericEmitter(enum.LocalPlacementRuleSpecType),
 			},

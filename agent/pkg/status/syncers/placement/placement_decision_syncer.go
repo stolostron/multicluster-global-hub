@@ -21,28 +21,31 @@ import (
 func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *configs.AgentConfig,
 	producer transport.Producer,
 ) error {
-	// controller config
-	instance := func() client.Object { return &clustersv1beta1.PlacementDecision{} }
-	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
-
-	// emitter, handler
-	eventData := genericpayload.GenericObjectBundle{}
-	tweakFunc := func(obj client.Object) { obj.SetManagedFields(nil) }
-	shouldUpdate := func(obj client.Object) bool {
-		return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) // global resource
-	}
-
 	return generic.LaunchMultiEventSyncer(
 		"status.placement_decision",
 		mgr,
-		generic.NewGenericController(instance, predicate),
+		generic.NewGenericController(
+			func() client.Object { return &clustersv1beta1.PlacementDecision{} },         // instance
+			predicate.NewPredicateFuncs(func(object client.Object) bool { return true }), // predicate
+		),
 		producer,
 		configmap.GetPolicyDuration,
 		[]*generic.EmitterHandler{
 			{
-				Handler: generic.NewGenericHandler(&eventData, generic.WithTweakFunc(tweakFunc),
-					generic.WithShouldUpdate(shouldUpdate)),
+				Handler: generic.NewGenericHandler(
+					&genericpayload.GenericObjectBundle{},
+					generic.WithTweakFunc(cleanupManagedFields),
+					generic.WithShouldUpdate(globalResource),
+				),
 				Emitter: generic.NewGenericEmitter(enum.PlacementDecisionType),
 			},
 		})
+}
+
+func cleanupManagedFields(obj client.Object) {
+	obj.SetManagedFields(nil)
+}
+
+func globalResource(obj client.Object) bool {
+	return utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
 }

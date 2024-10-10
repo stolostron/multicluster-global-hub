@@ -19,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-// TODO: the current replicated policy event will also emit such message,
+// the current replicated policy event will also emit such message,
 // it has contain concrete reason why the state of the compliance change to another.
 // I will disable the replicated policy event until it contain some valuable message.
 // disable it by setting the emit() return false

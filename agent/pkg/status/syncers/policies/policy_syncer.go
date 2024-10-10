@@ -37,7 +37,8 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 			!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 	}
 	localComplianceHandler := handlers.NewComplianceHandler(&grc.ComplianceBundle{}, localComplianceShouldUpdate)
-	localComplianceEmitter := generic.NewGenericEmitter(enum.LocalComplianceType, generic.WithVersion(localComplianceVersion))
+	localComplianceEmitter := generic.NewGenericEmitter(enum.LocalComplianceType,
+		generic.WithVersion(localComplianceVersion))
 
 	// 2. local complete compliance
 	localCompleteHandler := handlers.NewCompleteComplianceHandler(&grc.CompleteComplianceBundle{},

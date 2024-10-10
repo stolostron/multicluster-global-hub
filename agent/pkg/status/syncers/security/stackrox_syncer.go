@@ -427,7 +427,7 @@ func (s *StackRoxSyncer) sync(ctx context.Context, data *stackRoxData) error {
 			return fmt.Errorf("failed to generate struct for kafka message: %v", err)
 		}
 
-		// TODO: If the payload not updated since the previous one, then don't need sync it again
+		// If the payload not updated since the previous one, then don't need sync it again
 		// if equality.Semantic.DeepEqual(messageStruct, s.lastSentData) {
 		// 	return nil
 		// }

@@ -278,7 +278,7 @@ func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, e
 		&coordinationv1.Lease{}: {
 			Field: fields.OneTermEqualSelector("metadata.namespace", configs.GetAgentConfig().PodNamespace),
 		},
-		&corev1.Event{}: {}, // TODO: need a filter for the target events
+		&corev1.Event{}: {},
 	}
 	return cache.New(restConfig, cacheOpts)
 }
