@@ -28,7 +28,7 @@ type versionClusterClaimController struct {
 	log    logr.Logger
 }
 
-// TODO: consider to unify the hub and version claim in one controller
+// consider to unify the hub and version claim in one controller
 func (c *versionClusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("cluster claim controller", "NamespacedName:", request.NamespacedName)
