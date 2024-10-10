@@ -179,7 +179,7 @@ func getManager(restConfig *rest.Config, operatorConfig *config.OperatorConfig) 
 				Port: webhookPort,
 				TLSOpts: []func(*tls.Config){
 					func(config *tls.Config) {
-						config.MinVersion = tls.VersionTLS12
+						config.MinVersion = tls.VersionTLS13
 					},
 				},
 			},
