@@ -195,7 +195,7 @@ func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	}
 
 	if !config.GetKafkaResourceReady() {
-		klog.Infof("Wait kafka crd ready")
+		klog.Infof("wait for the Kafka CRD to be ready")
 		return true, nil
 	}
 
@@ -599,7 +599,7 @@ func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
 			return isReady, nil
 		}
 	}
-	klog.Infof("Wait kafka cluster ready")
+	klog.Infof("wait for the Kafka cluster to be ready")
 	return isReady, nil
 }
 
