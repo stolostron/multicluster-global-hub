@@ -27,7 +27,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -87,6 +86,7 @@ var _ = BeforeSuite(func() {
 		},
 		EnableGlobalResource: true,
 	}
+	configs.SetAgentConfig(agentConfig)
 	configmap.SetInterval(configmap.HubClusterHeartBeatIntervalKey, 2*time.Second)
 	configmap.SetInterval(configmap.HubClusterInfoIntervalKey, 2*time.Second)
 
@@ -94,13 +94,13 @@ var _ = BeforeSuite(func() {
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
-		}, Scheme: config.GetRuntimeScheme(),
+		}, Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr).NotTo(BeNil())
 
 	By("Create the configmap to disable the heartbeat on the suite test")
-	runtimeClient, err = client.New(cfg, client.Options{Scheme: config.GetRuntimeScheme()})
+	runtimeClient, err = client.New(cfg, client.Options{Scheme: configs.GetRuntimeScheme()})
 	Expect(err).NotTo(HaveOccurred())
 	mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHAgentNamespace}}
 	Expect(runtimeClient.Create(ctx, mghSystemNamespace)).Should(Succeed())

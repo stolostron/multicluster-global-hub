@@ -44,9 +44,8 @@ func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 				Handler: handlers.NewLocalRootPolicyEventHandler(ctx, mgr.GetClient()),
 				Emitter: handlers.NewRootPolicyEventEmitter(enum.LocalRootPolicyEventType),
 			},
-			// NewLocalReplicatedPolicyEmitter(ctx, mgr.GetClient(), eventTopic),
 			{
-				Handler: handlers.NewLocalReplicatedPolicyEventHandler(ctx, mgr.GetClient()),
+				Handler: handlers.NewManagedClusterEventHandler(ctx, mgr.GetClient()),
 				Emitter: handlers.NewManagedClusterEventEmitter(),
 			},
 		})

@@ -48,7 +48,7 @@ type managedClusterEventHandler struct {
 	payload       *event.ManagedClusterEventBundle
 }
 
-func NewManagedClusterEventHandler(ctx context.Context, c client.Client, topic string) *managedClusterEventHandler {
+func NewManagedClusterEventHandler(ctx context.Context, c client.Client) *managedClusterEventHandler {
 	name := strings.Replace(string(enum.ManagedClusterEventType), enum.EventTypePrefix, "", -1)
 	filter.RegisterTimeFilter(name)
 	return &managedClusterEventHandler{
@@ -58,6 +58,10 @@ func NewManagedClusterEventHandler(ctx context.Context, c client.Client, topic s
 		runtimeClient: c,
 		payload:       &event.ManagedClusterEventBundle{},
 	}
+}
+
+func (h *managedClusterEventHandler) Get() interface{} {
+	return h.payload
 }
 
 func (h *managedClusterEventHandler) shouldUpdate(obj client.Object) bool {

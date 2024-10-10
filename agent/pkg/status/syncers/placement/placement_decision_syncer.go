@@ -42,7 +42,7 @@ func LaunchPlacementDecisionSyncer(ctx context.Context, mgr ctrl.Manager, agentC
 			{
 				Handler: generic.NewGenericHandler(&eventData, generic.WithTweakFunc(tweakFunc),
 					generic.WithShouldUpdate(shouldUpdate)),
-				Emitter: generic.NewGenericEmitter(enum.PlacementSpecType),
+				Emitter: generic.NewGenericEmitter(enum.PlacementDecisionType),
 			},
 		})
 }
