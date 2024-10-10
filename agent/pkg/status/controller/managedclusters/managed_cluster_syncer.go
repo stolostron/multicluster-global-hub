@@ -31,7 +31,7 @@ func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConf
 		})
 	}
 	emitter := generic.ObjectEmitterWrapper(enum.ManagedClusterType, func(obj client.Object) bool {
-		return true
+		return !utils.HasAnnotation(obj, constants.ManagedClusterMigrating)
 	}, tweakFunc, false)
 
 	return generic.LaunchGenericObjectSyncer(

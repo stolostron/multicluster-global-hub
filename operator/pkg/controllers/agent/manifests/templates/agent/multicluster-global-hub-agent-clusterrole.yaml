@@ -247,4 +247,5 @@ rules:
   - get
   - create
   - update
+  - delete
 {{- end -}}

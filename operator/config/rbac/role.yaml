@@ -206,6 +206,7 @@ rules:
   - managedclusters
   verbs:
   - create
+  - delete
   - get
   - list
   - update
