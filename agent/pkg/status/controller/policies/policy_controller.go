@@ -233,7 +233,7 @@ func updateK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string)
 			},
 			ResourceData: &kessel.K8SPolicyDetail{
 				Disabled: policy.Spec.Disabled,
-				Severity: kessel.K8SPolicyDetail_MEDIUM, //need to update
+				Severity: kessel.K8SPolicyDetail_MEDIUM, // need to update
 			},
 		},
 	}
