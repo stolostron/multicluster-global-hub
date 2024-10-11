@@ -184,3 +184,7 @@ const (
 	// CloudEventTypeManagedClusterMigrationTo is the cloud event type for managed cluster migration to
 	CloudEventTypeMigrationTo = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.to"
 )
+
+const (
+	InventoryResourceCreatingAnnotationlKey = "global-hub.open-cluster-management.io/inventory-resource-creating"
+)
