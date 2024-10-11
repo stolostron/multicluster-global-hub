@@ -186,5 +186,8 @@ const (
 )
 
 const (
+	// InventoryResourceCreatingAnnotationlKey indicates the request is a create request
 	InventoryResourceCreatingAnnotationlKey = "global-hub.open-cluster-management.io/inventory-resource-creating"
+	// InventoryResourceFinalizer is added into managedcluster and policy for resource cleanup
+	InventoryResourceFinalizer = "global-hub.open-cluster-management.io/inventory-resource-cleanup"
 )

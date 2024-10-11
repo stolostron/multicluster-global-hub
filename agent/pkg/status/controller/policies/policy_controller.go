@@ -15,6 +15,7 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -34,20 +35,32 @@ type PolicyController struct {
 func AddPolicyController(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	policyPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			// do not trigger the delete event for the replicated policies
+			if _, exist := e.ObjectOld.GetAnnotations()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
+				return false
+			}
 			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			// add the annotation to identify the request is creating
+			// add the annotation to indicate the request is a create request
 			// the annotation won't propagate to the etcd
 			annotations := e.Object.GetAnnotations()
 			if annotations == nil {
 				annotations = map[string]string{}
+			}
+			// do not trigger the create event for the replicated policies
+			if _, exist := annotations[constants.PolicyEventRootPolicyNameLabelKey]; exist {
+				return false
 			}
 			annotations[constants.InventoryResourceCreatingAnnotationlKey] = ""
 			e.Object.SetAnnotations(annotations)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
+			// do not trigger the delete event for the replicated policies
+			if _, exist := e.Object.GetAnnotations()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
+				return false
+			}
 			return !e.DeleteStateUnknown
 		},
 	}
@@ -71,6 +84,36 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		return ctrl.Result{}, err
 	}
+	if policy.DeletionTimestamp.IsZero() {
+		// add a finalizer to the policy object
+		if !controllerutil.ContainsFinalizer(policy, constants.InventoryResourceFinalizer) {
+			controllerutil.AddFinalizer(policy, constants.InventoryResourceFinalizer)
+			return ctrl.Result{}, p.runtimeClient.Update(ctx, policy)
+		}
+	} else {
+		// The policy object is being deleted
+		if controllerutil.ContainsFinalizer(policy, constants.InventoryResourceFinalizer) {
+			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.DeleteK8SPolicy(
+				ctx, deleteK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy %v: %w", resp, err)
+			}
+			for _, compliancePerClusterStatus := range policy.Status.Status {
+				if resp, err := p.requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
+					DeleteK8SPolicyIsPropagatedToK8SCluster(
+						ctx, deleteK8SPolicyIsPropagatedToK8SCluster(policy.Namespace+"/"+policy.Name,
+							compliancePerClusterStatus.ClusterName, p.reporterInstanceId)); err != nil {
+					return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy_is-propagated-to_k8s-cluster %v: %w", resp, err)
+				}
+			}
+			// remove finalizer
+			controllerutil.RemoveFinalizer(policy, constants.InventoryResourceFinalizer)
+			if err := p.runtimeClient.Update(ctx, policy); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
 	annotations := policy.GetAnnotations()
 	if annotations != nil {
 		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
@@ -80,7 +123,6 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			}
 		}
 	}
-	// may check the response to decide whether need to update or not
 	if resp, err := p.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
 		ctx, updateK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy %v: %w", resp, err)
@@ -95,13 +137,6 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 	}
 
-	if !policy.DeletionTimestamp.IsZero() {
-		if resp, err := p.requester.GetHttpClient().PolicyServiceClient.DeleteK8SPolicy(
-			ctx, deleteK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy %v: %w", resp, err)
-		}
-		return ctrl.Result{}, nil
-	}
 	return ctrl.Result{}, nil
 }
 
@@ -135,11 +170,32 @@ func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, report
 	}
 }
 
+func deleteK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, reporterInstanceId string) *kesselv1betarelations.
+	DeleteK8SPolicyIsPropagatedToK8SClusterRequest {
+	return &kesselv1betarelations.DeleteK8SPolicyIsPropagatedToK8SClusterRequest{
+		ReporterData: &kesselv1betarelations.ReporterData{
+			ReporterType:           kesselv1betarelations.ReporterData_ACM,
+			ReporterInstanceId:     reporterInstanceId,
+			ReporterVersion:        config.GetMCHVersion(),
+			SubjectLocalResourceId: subjectId,
+			ObjectLocalResourceId:  objectId,
+		},
+	}
+}
+
 func createK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string) *kessel.CreateK8SPolicyRequest {
+	kesselLabels := []*kessel.ResourceLabel{}
+	for key, value := range policy.Labels {
+		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
+			Key:   key,
+			Value: value,
+		})
+	}
 	return &kessel.CreateK8SPolicyRequest{
 		K8SPolicy: &kessel.K8SPolicy{
 			Metadata: &kessel.Metadata{
 				ResourceType: "k8s-policy",
+				Labels:       kesselLabels,
 			},
 			ReporterData: &kessel.ReporterData{
 				ReporterType:       kessel.ReporterData_ACM,
@@ -156,10 +212,18 @@ func createK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string)
 }
 
 func updateK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string) *kessel.UpdateK8SPolicyRequest {
+	kesselLabels := []*kessel.ResourceLabel{}
+	for key, value := range policy.Labels {
+		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
+			Key:   key,
+			Value: value,
+		})
+	}
 	return &kessel.UpdateK8SPolicyRequest{
 		K8SPolicy: &kessel.K8SPolicy{
 			Metadata: &kessel.Metadata{
 				ResourceType: "k8s-policy",
+				Labels:       kesselLabels,
 			},
 			ReporterData: &kessel.ReporterData{
 				ReporterType:       kessel.ReporterData_ACM,
