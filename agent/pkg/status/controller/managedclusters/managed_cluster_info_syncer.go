@@ -18,6 +18,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
@@ -40,17 +41,21 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 
 	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
 
-	// create
-	if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+	annotations := clusterInfo.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
+			if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+			}
+		}
 	}
 
 	// may check the response to decide whether need to update or not
-	// if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
-	// 	&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-	// 	return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
-	// }
+	if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
+		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
+	}
 
 	// delete
 	if !clusterInfo.DeletionTimestamp.IsZero() {
@@ -70,6 +75,14 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
+			// add the annotation to identify the request is creating
+			// the annotation won't propagate to the etcd
+			annotations := e.Object.GetAnnotations()
+			if annotations == nil {
+				annotations = map[string]string{}
+			}
+			annotations[constants.InventoryResourceCreatingAnnotationlKey] = ""
+			e.Object.SetAnnotations(annotations)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {

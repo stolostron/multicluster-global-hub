@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -40,23 +41,26 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cluster",
 					Namespace: "default",
+					Annotations: map[string]string{
+						constants.InventoryResourceCreatingAnnotationlKey: "",
+					},
 				},
 			},
 			expectedResult: reconcile.Result{},
 			expectedError:  false,
 		},
-		// {
-		// 	name: "Updating existing cluster",
-		// 	clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:              "test-cluster",
-		// 			Namespace:         "default",
-		// 			CreationTimestamp: creatingTime,
-		// 		},
-		// 	},
-		// 	expectedResult: reconcile.Result{},
-		// 	expectedError:  false,
-		// },
+		{
+			name: "Updating existing cluster",
+			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test-cluster",
+					Namespace:         "default",
+					CreationTimestamp: creatingTime,
+				},
+			},
+			expectedResult: reconcile.Result{},
+			expectedError:  false,
+		},
 		{
 			name: "Deleting cluster",
 			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
