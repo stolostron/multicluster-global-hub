@@ -8,6 +8,7 @@ data:
     ssl = on
     ssl_cert_file = '/opt/app-root/src/certs/tls.crt' # server certificate
     ssl_key_file =  '/opt/app-root/src/certs/tls.key' # server private key
+    ssl_min_protocol_version = TLSv1.3
     {{- if .EnablePostgresMetrics }}
     shared_preload_libraries = 'pg_stat_statements'
     pg_stat_statements.max = 10000
