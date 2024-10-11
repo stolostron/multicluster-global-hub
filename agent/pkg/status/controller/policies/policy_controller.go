@@ -110,9 +110,9 @@ func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, report
 	var relationStatus kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_Status
 	switch status {
 	case "NonCompliant":
-		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_NON_COMPLIANT
+		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_NO_VIOLATIONS
 	case "Compliant":
-		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_COMPLIANT
+		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_VIOLATIONS
 	default:
 		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_STATUS_OTHER
 	}
