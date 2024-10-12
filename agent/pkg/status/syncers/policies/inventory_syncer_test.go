@@ -20,11 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-<<<<<<< HEAD
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-=======
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
->>>>>>> 91fc932c (fix the ut)
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 

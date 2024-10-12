@@ -19,13 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-<<<<<<< HEAD:agent/pkg/status/controller/policies/policy_controller.go
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-=======
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
->>>>>>> 709bd7eb (spec):agent/pkg/status/syncers/policies/inventory_syncer.go
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )

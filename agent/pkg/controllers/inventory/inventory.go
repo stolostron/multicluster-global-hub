@@ -10,7 +10,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory/managedclusterinfo"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory/policy"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -34,7 +34,7 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 	if err := managedclusterinfo.AddManagedClusterInfoInventorySyncer(mgr, transportClient.GetRequester()); err != nil {
 		return err
 	}
-	if err := policies.AddPolicyInventorySyncer(mgr, transportClient.GetRequester()); err != nil {
+	if err := policy.AddPolicyInventorySyncer(mgr, transportClient.GetRequester()); err != nil {
 		return err
 	}
 	inventoryCtrlStarted = true

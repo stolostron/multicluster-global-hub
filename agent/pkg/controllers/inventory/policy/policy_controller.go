@@ -2,7 +2,7 @@
 // Copyright Contributors to the Open Cluster Management project
 // Policy Controller is used to send the policy create/update/delete to restful API
 
-package policies
+package policy
 
 import (
 	"context"
