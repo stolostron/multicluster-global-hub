@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory"
 	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security"
@@ -52,8 +53,16 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.V(2).Info("init controller", "NamespacedName:", request.NamespacedName)
 
-	if err := status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add status syncer: %w", err)
+	// status syncers or inventory
+	var err error
+	switch c.agentConfig.TransportConfig.TransportType {
+	case string(transport.Kafka):
+		err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
+	case string(transport.Rest):
+		err = inventory.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
+	}
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
 	}
 
 	// only enable the status controller in the standalone mode

@@ -15,12 +15,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedclusterinfo"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var statusCtrlStarted = false
@@ -37,34 +35,11 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
-	var err error
-	switch agentConfig.TransportConfig.TransportType {
-	case string(transport.Kafka):
-		err = addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig)
-	case string(transport.Rest):
-		err = addInventorySyncer(ctx, mgr, transportClient.GetRequester())
-	}
-	if err != nil {
+	if err := addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig); err != nil {
 		return fmt.Errorf("failed to add the syncer: %w", err)
 	}
 
 	statusCtrlStarted = true
-	return nil
-}
-
-func addInventorySyncer(ctx context.Context, mgr ctrl.Manager, inventoryRequester transport.Requester) error {
-	mch, err := utils.ListMCH(ctx, mgr.GetClient())
-	if err != nil {
-		return err
-	}
-	configs.SetMCHVersion(mch.Status.CurrentVersion)
-
-	if err := managedclusterinfo.AddManagedClusterInfoInventorySyncer(mgr, inventoryRequester); err != nil {
-		return err
-	}
-	if err := policies.AddPolicyInventorySyncer(mgr, inventoryRequester); err != nil {
-		return err
-	}
 	return nil
 }
 

@@ -9,6 +9,7 @@ The **Global Hub Agent** component is responsible for applying resources to the 
   - **pkg**: Contains the core logic and functionalities.
     - **configs**: Holds configurations, schemas, and related assets.
     - **controllers**: Common controllers, including initialization, cluster claim, and lease controllers.
+      - **inventory**: The controllers that report resources via the inventory API.
     - **spec**:
       - **rbac**: Manages role-based access control.
       - **syncers**: Syncs resources and signals from the Global Hub Manager.
