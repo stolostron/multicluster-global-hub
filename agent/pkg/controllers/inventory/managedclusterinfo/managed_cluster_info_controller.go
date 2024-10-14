@@ -23,13 +23,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
-type ManagedClusterInfoCtrl struct {
+type ManagedClusterInfoInventorySyncer struct {
 	runtimeClient client.Client
 	requester     transport.Requester
 	clientCN      string
 }
 
-func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	clusterInfo := &clusterinfov1beta1.ManagedClusterInfo{}
 	err := r.runtimeClient.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, clusterInfo)
 	if errors.IsNotFound(err) {
@@ -82,7 +82,7 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
+func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	clusterInfoPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
@@ -106,7 +106,7 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 	return ctrl.NewControllerManagedBy(mgr).Named("inventory-managedclusterinfo-controller").
 		For(&clusterinfov1beta1.ManagedClusterInfo{}).
 		WithEventFilter(clusterInfoPredicate).
-		Complete(&ManagedClusterInfoCtrl{
+		Complete(&ManagedClusterInfoInventorySyncer{
 			runtimeClient: mgr.GetClient(),
 			requester:     inventoryRequester,
 			clientCN:      requester.GetInventoryClientName(configs.GetLeafHubName()),
@@ -131,7 +131,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
 			ReporterInstanceId: clientCN,
-			ReporterVersion:    config.GetMCHVersion(),
+			ReporterVersion:    configs.GetMCHVersion(),
 			LocalResourceId:    clusterInfo.Name,
 			ApiHref:            clusterInfo.Spec.MasterEndpoint,
 			ConsoleHref:        clusterInfo.Status.ConsoleURL,

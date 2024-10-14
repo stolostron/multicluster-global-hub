@@ -116,7 +116,7 @@ func TestPolicyControllerReconcile(t *testing.T) {
 		Scheme: scheme,
 	})
 	assert.NoError(t, err)
-	assert.NoError(t, AddPolicyController(mgr, nil))
+	assert.NoError(t, AddPolicyInventorySyncer(mgr, nil))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.policy).Build()
 
 			// Create the controller with the mock requester and fake client
-			r := &PolicyController{
+			r := &PolicyInventorySyncer{
 				runtimeClient:      fakeClient,
 				requester:          mockRequester,
 				reporterInstanceId: "test-clientCN",

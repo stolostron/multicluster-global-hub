@@ -25,13 +25,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
-type PolicyController struct {
+type PolicyInventorySyncer struct {
 	runtimeClient      client.Client
 	reporterInstanceId string
 	requester          transport.Requester
 }
 
-func AddPolicyController(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
+func AddPolicyInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	policyPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			// do not trigger the delete event for the replicated policies
@@ -67,14 +67,14 @@ func AddPolicyController(mgr ctrl.Manager, inventoryRequester transport.Requeste
 	return ctrl.NewControllerManagedBy(mgr).Named("inventory-policy-controller").
 		For(&policiesv1.Policy{}).
 		WithEventFilter(policyPredicate).
-		Complete(&PolicyController{
+		Complete(&PolicyInventorySyncer{
 			runtimeClient:      mgr.GetClient(),
 			reporterInstanceId: requester.GetInventoryClientName(configs.GetLeafHubName()),
 			requester:          inventoryRequester,
 		})
 }
 
-func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (p *PolicyInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	policy := &policiesv1.Policy{}
 	err := p.runtimeClient.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, policy)
 	if err != nil {
@@ -161,7 +161,7 @@ func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, report
 			ReporterData: &kesselv1betarelations.ReporterData{
 				ReporterType:           kesselv1betarelations.ReporterData_ACM,
 				ReporterInstanceId:     reporterInstanceId,
-				ReporterVersion:        config.GetMCHVersion(),
+				ReporterVersion:        configs.GetMCHVersion(),
 				SubjectLocalResourceId: subjectId,
 				ObjectLocalResourceId:  objectId,
 			},
@@ -178,7 +178,7 @@ func deleteK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, reporterInstan
 		ReporterData: &kesselv1betarelations.ReporterData{
 			ReporterType:           kesselv1betarelations.ReporterData_ACM,
 			ReporterInstanceId:     reporterInstanceId,
-			ReporterVersion:        config.GetMCHVersion(),
+			ReporterVersion:        configs.GetMCHVersion(),
 			SubjectLocalResourceId: subjectId,
 			ObjectLocalResourceId:  objectId,
 		},
@@ -202,7 +202,7 @@ func createK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string)
 			ReporterData: &kessel.ReporterData{
 				ReporterType:       kessel.ReporterData_ACM,
 				ReporterInstanceId: reporterInstanceId,
-				ReporterVersion:    config.GetMCHVersion(),
+				ReporterVersion:    configs.GetMCHVersion(),
 				LocalResourceId:    policy.Namespace + "/" + policy.Name,
 			},
 			ResourceData: &kessel.K8SPolicyDetail{
@@ -230,7 +230,7 @@ func updateK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string)
 			ReporterData: &kessel.ReporterData{
 				ReporterType:       kessel.ReporterData_ACM,
 				ReporterInstanceId: reporterInstanceId,
-				ReporterVersion:    config.GetMCHVersion(),
+				ReporterVersion:    configs.GetMCHVersion(),
 				LocalResourceId:    policy.Namespace + "/" + policy.Name,
 			},
 			ResourceData: &kessel.K8SPolicyDetail{
@@ -246,7 +246,7 @@ func deleteK8SClusterPolicy(policy policiesv1.Policy, reporterInstanceId string)
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
 			ReporterInstanceId: reporterInstanceId,
-			ReporterVersion:    config.GetMCHVersion(),
+			ReporterVersion:    configs.GetMCHVersion(),
 			LocalResourceId:    policy.Namespace + "/" + policy.Name,
 		},
 	}
