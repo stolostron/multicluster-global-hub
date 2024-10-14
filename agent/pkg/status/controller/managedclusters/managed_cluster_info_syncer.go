@@ -42,11 +42,23 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 
 	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
 
+	annotations := clusterInfo.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
+			if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+			}
+		}
+	}
+
 	if clusterInfo.DeletionTimestamp.IsZero() {
 		// add a finalizer to the managedclusterinfo object
 		if !controllerutil.ContainsFinalizer(clusterInfo, constants.InventoryResourceFinalizer) {
 			controllerutil.AddFinalizer(clusterInfo, constants.InventoryResourceFinalizer)
-			return ctrl.Result{}, r.runtimeClient.Update(ctx, clusterInfo)
+			if err := r.runtimeClient.Update(ctx, clusterInfo); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	} else {
 		// The managedclusterinfo object is being deleted
@@ -62,16 +74,6 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 			}
 		}
 		return ctrl.Result{}, nil
-	}
-
-	annotations := clusterInfo.GetAnnotations()
-	if annotations != nil {
-		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
-			if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
-			}
-		}
 	}
 
 	if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,

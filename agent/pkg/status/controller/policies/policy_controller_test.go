@@ -39,7 +39,7 @@ func TestPolicyControllerReconcile(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name: "Creating new policy",
+			name: "Creating a new policy",
 			policy: &policiesv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-policy",
@@ -47,18 +47,21 @@ func TestPolicyControllerReconcile(t *testing.T) {
 					Annotations: map[string]string{
 						constants.InventoryResourceCreatingAnnotationlKey: "",
 					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
 				},
 			},
 			expectedResult: reconcile.Result{},
 			expectedError:  false,
 		},
 		{
-			name: "Updating existing policy",
+			name: "Updating the existing policy",
 			policy: &policiesv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-policy",
 					Namespace: "default",
-					Annotations: map[string]string{
+					Labels: map[string]string{
 						"foo": "bar",
 					},
 				},
@@ -76,13 +79,22 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			expectedError:  false,
 		},
 		{
-			name: "Deleting cluster",
+			name: "Deleting the policy",
 			policy: &policiesv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test-policy",
 					Namespace:         "default",
 					DeletionTimestamp: &deletintTime,
-					Finalizers:        []string{"test"},
+					Finalizers:        []string{constants.InventoryResourceFinalizer},
+				},
+				Status: policiesv1.PolicyStatus{
+					Status: []*policiesv1.CompliancePerClusterStatus{
+						{
+							ClusterName:      "test",
+							ClusterNamespace: "test",
+							ComplianceState:  "Compliant",
+						},
+					},
 				},
 			},
 			expectedResult: reconcile.Result{},
