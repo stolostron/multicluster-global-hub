@@ -1,4 +1,4 @@
-package dbsyncer
+package syncer
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -18,7 +18,7 @@ import (
 
 type genericDBToTransportSyncer struct {
 	log            logr.Logger
-	intervalPolicy intervalpolicy.IntervalPolicy
+	intervalPolicy interval.IntervalPolicy
 	syncBundleFunc func(ctx context.Context) (bool, error)
 }
 
@@ -82,7 +82,7 @@ func (syncer *genericDBToTransportSyncer) periodicSync(ctx context.Context) {
 // syncObjectsBundle performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
 func syncObjectsBundle(ctx context.Context, producer transport.Producer, eventType string,
-	specDB db.SpecDB, dbTableName string, createObjFunc bundle.CreateObjectFunction,
+	specDB specdb.SpecDB, dbTableName string, createObjFunc bundle.CreateObjectFunction,
 	createBundleFunc bundle.CreateBundleFunction, lastSyncTimestampPtr *time.Time,
 ) (bool, error) {
 	lastUpdateTimestamp, err := specDB.GetLastUpdateTimestamp(ctx, dbTableName, true) // filter local resources

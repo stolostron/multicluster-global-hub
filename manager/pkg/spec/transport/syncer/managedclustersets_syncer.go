@@ -1,4 +1,4 @@
-package dbsyncer
+package syncer
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -21,7 +21,7 @@ const (
 )
 
 // AddManagedClusterSetsDBToTransportSyncer adds managed-cluster-sets db to transport syncer to the manager.
-func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
+func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB specdb.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	createObjFunc := func() metav1.Object { return &clusterv1beta2.ManagedClusterSet{} }
@@ -29,7 +29,7 @@ func AddManagedClusterSetsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
 		log:            ctrl.Log.WithName("db-to-transport-syncer-managedclusterset"),
-		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
+		intervalPolicy: interval.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, managedClusterSetsMsgKey, specDB, managedClusterSetsTableName,
 				createObjFunc, bundle.NewBaseObjectsBundle, lastSyncTimestampPtr)

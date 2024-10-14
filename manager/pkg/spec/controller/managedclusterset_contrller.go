@@ -11,11 +11,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-func AddManagedClusterSetController(mgr ctrl.Manager, specDB db.SpecDB) error {
+func AddManagedClusterSetController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&clusterv1beta2.ManagedClusterSet{}).
 		WithEventFilter(GlobalResourcePredicate()).

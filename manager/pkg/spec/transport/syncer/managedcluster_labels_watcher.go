@@ -1,4 +1,4 @@
-package dbsyncer
+package syncer
 
 import (
 	"context"
@@ -10,9 +10,9 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db/gorm"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb/gorm"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
@@ -28,7 +28,7 @@ func AddManagedClusterLabelsSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterv
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
 		log:            ctrl.Log.WithName("managed-cluster-labels-syncer"),
 		specDB:         gorm.NewGormSpecDB(),
-		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(deletedLabelsTrimmingInterval),
+		intervalPolicy: interval.NewExponentialBackoffPolicy(deletedLabelsTrimmingInterval),
 	}); err != nil {
 		return fmt.Errorf("failed to add managed-cluster labels status watcher - %w", err)
 	}
@@ -40,8 +40,8 @@ func AddManagedClusterLabelsSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterv
 // table where required (e.g., trim deleted_label_keys).
 type managedClusterLabelsStatusWatcher struct {
 	log            logr.Logger
-	specDB         db.SpecDB
-	intervalPolicy intervalpolicy.IntervalPolicy
+	specDB         specdb.SpecDB
+	intervalPolicy interval.IntervalPolicy
 }
 
 func (watcher *managedClusterLabelsStatusWatcher) Start(ctx context.Context) error {

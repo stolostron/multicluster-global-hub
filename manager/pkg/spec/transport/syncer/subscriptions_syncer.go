@@ -9,9 +9,9 @@ import (
 	subscriptionv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -21,7 +21,7 @@ const (
 )
 
 // AddSubscriptionsDBToTransportSyncer adds subscriptions db to transport syncer to the manager.
-func AddSubscriptionsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
+func AddSubscriptionsDBToTransportSyncer(mgr ctrl.Manager, specDB specdb.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	createObjFunc := func() metav1.Object { return &subscriptionv1.Subscription{} }
@@ -29,7 +29,7 @@ func AddSubscriptionsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, pro
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
 		log:            ctrl.Log.WithName("db-to-transport-syncer-subscriptions"),
-		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
+		intervalPolicy: interval.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, subscriptionMsgKey, specDB, subscriptionsTableName,
 				createObjFunc, bundle.NewBaseObjectsBundle, lastSyncTimestampPtr)

@@ -12,11 +12,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
+func AddChannelController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&channelv1.Channel{}).
 		WithEventFilter(GlobalResourcePredicate()).
@@ -32,7 +32,7 @@ func AddChannelController(mgr ctrl.Manager, specDB db.SpecDB) error {
 		Complete(&genericSpecController{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
-			log:            ctrl.Log.WithName("channels-spec-syncer"),
+			log:            ctrl.Log.WithName("channels-spec-controller"),
 			tableName:      "channels",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &channelv1.Channel{} },

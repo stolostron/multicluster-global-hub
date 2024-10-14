@@ -1,4 +1,4 @@
-package dbsyncer
+package syncer
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -21,7 +21,7 @@ const (
 )
 
 // AddChannelsDBToTransportSyncer adds channels db to transport syncer to the manager.
-func AddChannelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
+func AddChannelsDBToTransportSyncer(mgr ctrl.Manager, specDB specdb.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	createObjFunc := func() metav1.Object { return &channelv1.Channel{} }
@@ -29,7 +29,7 @@ func AddChannelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
 		log:            ctrl.Log.WithName("db-to-transport-syncer-channels"),
-		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
+		intervalPolicy: interval.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, channelsMsgKey, specDB, channelsTableName,
 				createObjFunc, bundle.NewBaseObjectsBundle, lastSyncTimestampPtr)

@@ -1,4 +1,4 @@
-package dbsyncer
+package syncer
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/intervalpolicy"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -23,14 +23,14 @@ import (
 const managedClusterLabelsDBTableName = "managed_clusters_labels"
 
 // AddManagedClusterLabelsDBToTransportSyncer adds managed-cluster labels db to transport syncer to the manager.
-func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.SpecDB, producer transport.Producer,
+func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB specdb.SpecDB, producer transport.Producer,
 	specSyncInterval time.Duration,
 ) error {
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
 		log:            ctrl.Log.WithName("db-to-transport-syncer-managedclusterlabel"),
-		intervalPolicy: intervalpolicy.NewExponentialBackoffPolicy(specSyncInterval),
+		intervalPolicy: interval.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncManagedClusterLabelsBundles(ctx, producer,
 				constants.ManagedClustersLabelsMsgKey, specDB,
@@ -46,7 +46,7 @@ func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB db.Spec
 // syncManagedClusterLabelsBundles performs the actual sync logic and returns true if bundle was committed to transport,
 // otherwise false.
 func syncManagedClusterLabelsBundles(ctx context.Context, producer transport.Producer, transportBundleKey string,
-	specDB db.SpecDB, dbTableName string, lastSyncTimestampPtr *time.Time,
+	specDB specdb.SpecDB, dbTableName string, lastSyncTimestampPtr *time.Time,
 ) (bool, error) {
 	lastUpdateTimestamp, err := specDB.GetLastUpdateTimestamp(ctx, dbTableName, false) // no resources in table
 	if err != nil {

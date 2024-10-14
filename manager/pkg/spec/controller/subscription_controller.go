@@ -12,11 +12,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-func AddSubscriptionController(mgr ctrl.Manager, specDB db.SpecDB) error {
+func AddSubscriptionController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&subscriptionv1.Subscription{}).
 		WithEventFilter(GlobalResourcePredicate()).
