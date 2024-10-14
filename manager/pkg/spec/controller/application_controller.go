@@ -22,7 +22,7 @@ func AddApplicationController(mgr ctrl.Manager, specDB db.SpecDB) error {
 		Complete(&genericSpecController{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
-			log:            ctrl.Log.WithName("applications-spec-syncer"),
+			log:            ctrl.Log.WithName("applications-spec-controller"),
 			tableName:      "applications",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &applicationv1beta1.Application{} },

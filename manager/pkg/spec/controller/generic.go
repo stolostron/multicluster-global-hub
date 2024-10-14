@@ -79,10 +79,8 @@ func (r *genericSpecController) Reconcile(ctx context.Context, request ctrl.Requ
 		return ctrl.Result{Requeue: true, RequeueAfter: requeueDuration}, fmt.Errorf("failed to add finalzier: %w", err)
 	}
 
-	instanceUID := string(instance.GetUID())
 	instance = r.cleanInstance(instance)
-
-	instanceInDatabase, err := r.insertInstanceToDatabase(ctx, instance, instanceUID, reqLogger)
+	instanceInDatabase, err := r.insertInstanceToDatabase(ctx, instance, string(instance.GetUID()), reqLogger)
 	if err != nil {
 		return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
 	}
@@ -90,7 +88,7 @@ func (r *genericSpecController) Reconcile(ctx context.Context, request ctrl.Requ
 	if !r.areEqual(instance, instanceInDatabase) {
 		reqLogger.Info("Mismatch between hub and the database, updating the database")
 
-		if err := r.specDB.UpdateSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {
+		if err := r.specDB.UpdateSpecObject(ctx, r.tableName, string(instance.GetUID()), &instance); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

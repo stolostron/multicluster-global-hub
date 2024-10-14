@@ -36,7 +36,7 @@ manifests: controller-gen
 
 .PHONY: build			##builds the binary
 build:
-	@go build -o bin/manager ./cmd/manager/main.go
+	@go build -o bin/manager ./cmd/main.go
 
 .PHONY: clean			##cleans the build directories
 clean:
