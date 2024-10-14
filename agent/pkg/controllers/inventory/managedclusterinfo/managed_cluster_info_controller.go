@@ -17,24 +17,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-<<<<<<< HEAD:agent/pkg/status/controller/managedclusters/managed_cluster_info_syncer.go
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-=======
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
->>>>>>> 709bd7eb (spec):agent/pkg/status/syncers/managedclusterinfo/managed_cluster_info_syncer.go
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
-type ManagedClusterInfoInventorySyncer struct {
+type ManagedClusterInfoCtrl struct {
 	runtimeClient client.Client
 	requester     transport.Requester
 	clientCN      string
 }
 
-func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	clusterInfo := &clusterinfov1beta1.ManagedClusterInfo{}
 	err := r.runtimeClient.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, clusterInfo)
 	if errors.IsNotFound(err) {
@@ -87,7 +82,7 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 	return ctrl.Result{}, nil
 }
 
-func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
+func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	clusterInfoPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
@@ -111,7 +106,7 @@ func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester t
 	return ctrl.NewControllerManagedBy(mgr).Named("inventory-managedclusterinfo-controller").
 		For(&clusterinfov1beta1.ManagedClusterInfo{}).
 		WithEventFilter(clusterInfoPredicate).
-		Complete(&ManagedClusterInfoInventorySyncer{
+		Complete(&ManagedClusterInfoCtrl{
 			runtimeClient: mgr.GetClient(),
 			requester:     inventoryRequester,
 			clientCN:      requester.GetInventoryClientName(configs.GetLeafHubName()),
@@ -136,7 +131,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
 			ReporterInstanceId: clientCN,
-			ReporterVersion:    configs.GetMCHVersion(),
+			ReporterVersion:    config.GetMCHVersion(),
 			LocalResourceId:    clusterInfo.Name,
 			ApiHref:            clusterInfo.Spec.MasterEndpoint,
 			ConsoleHref:        clusterInfo.Status.ConsoleURL,

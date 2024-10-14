@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	http "github.com/go-kratos/kratos/v2/transport/http"
+	kesselv1betarelations "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	"github.com/project-kessel/inventory-client-go/v1beta1"
 	"github.com/stretchr/testify/assert"
@@ -19,14 +20,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 func TestPolicyControllerReconcile(t *testing.T) {
 	// Setup scheme and mock requester
 	scheme := runtime.NewScheme()
-	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "leaf-hub-name"})
 	_ = policiesv1.AddToScheme(scheme)
 	mockRequester := &MockRequest{}
 
@@ -39,23 +39,15 @@ func TestPolicyControllerReconcile(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name: "Creating new policy",
-			policy: &policiesv1.Policy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-policy",
-					Namespace: "default",
-				},
-			},
-			expectedResult: reconcile.Result{},
-			expectedError:  false,
-		},
-		{
-			name: "Updating existing policy",
+			name: "Creating a new policy",
 			policy: &policiesv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-policy",
 					Namespace: "default",
 					Annotations: map[string]string{
+						constants.InventoryResourceCreatingAnnotationlKey: "",
+					},
+					Labels: map[string]string{
 						"foo": "bar",
 					},
 				},
@@ -64,13 +56,45 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			expectedError:  false,
 		},
 		{
-			name: "Deleting cluster",
+			name: "Updating the existing policy",
+			policy: &policiesv1.Policy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-policy",
+					Namespace: "default",
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				},
+				Status: policiesv1.PolicyStatus{
+					Status: []*policiesv1.CompliancePerClusterStatus{
+						{
+							ClusterName:      "test",
+							ClusterNamespace: "test",
+							ComplianceState:  "Compliant",
+						},
+					},
+				},
+			},
+			expectedResult: reconcile.Result{},
+			expectedError:  false,
+		},
+		{
+			name: "Deleting the policy",
 			policy: &policiesv1.Policy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test-policy",
 					Namespace:         "default",
 					DeletionTimestamp: &deletintTime,
-					Finalizers:        []string{"test"},
+					Finalizers:        []string{constants.InventoryResourceFinalizer},
+				},
+				Status: policiesv1.PolicyStatus{
+					Status: []*policiesv1.CompliancePerClusterStatus{
+						{
+							ClusterName:      "test",
+							ClusterNamespace: "test",
+							ComplianceState:  "Compliant",
+						},
+					},
 				},
 			},
 			expectedResult: reconcile.Result{},
@@ -92,7 +116,7 @@ func TestPolicyControllerReconcile(t *testing.T) {
 		Scheme: scheme,
 	})
 	assert.NoError(t, err)
-	assert.NoError(t, AddPolicyInventorySyncer(mgr, nil))
+	assert.NoError(t, AddPolicyController(mgr, nil))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -100,7 +124,7 @@ func TestPolicyControllerReconcile(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.policy).Build()
 
 			// Create the controller with the mock requester and fake client
-			r := &PolicyInventorySyncer{
+			r := &PolicyController{
 				runtimeClient:      fakeClient,
 				requester:          mockRequester,
 				reporterInstanceId: "test-clientCN",
@@ -131,6 +155,7 @@ func (c *MockRequest) RefreshClient(ctx context.Context, restfulConn *transport.
 func (c *MockRequest) GetHttpClient() *v1beta1.InventoryHttpClient {
 	return &v1beta1.InventoryHttpClient{
 		PolicyServiceClient: &PolicyServiceClient{},
+		K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient: &K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient{},
 	}
 }
 
@@ -151,5 +176,25 @@ func (p *PolicyServiceClient) UpdateK8SPolicy(ctx context.Context, in *kessel.Up
 func (p *PolicyServiceClient) DeleteK8SPolicy(ctx context.Context, in *kessel.DeleteK8SPolicyRequest,
 	opts ...http.CallOption,
 ) (*kessel.DeleteK8SPolicyResponse, error) {
+	return nil, nil
+}
+
+type K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient struct{}
+
+func (p *K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient) CreateK8SPolicyIsPropagatedToK8SCluster(ctx context.Context, in *kesselv1betarelations.CreateK8SPolicyIsPropagatedToK8SClusterRequest,
+	opts ...http.CallOption,
+) (*kesselv1betarelations.CreateK8SPolicyIsPropagatedToK8SClusterResponse, error) {
+	return nil, nil
+}
+
+func (p *K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient) UpdateK8SPolicyIsPropagatedToK8SCluster(ctx context.Context, in *kesselv1betarelations.UpdateK8SPolicyIsPropagatedToK8SClusterRequest,
+	opts ...http.CallOption,
+) (*kesselv1betarelations.UpdateK8SPolicyIsPropagatedToK8SClusterResponse, error) {
+	return nil, nil
+}
+
+func (p *K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient) DeleteK8SPolicyIsPropagatedToK8SCluster(ctx context.Context, in *kesselv1betarelations.DeleteK8SPolicyIsPropagatedToK8SClusterRequest,
+	opts ...http.CallOption,
+) (*kesselv1betarelations.DeleteK8SPolicyIsPropagatedToK8SClusterResponse, error) {
 	return nil, nil
 }
