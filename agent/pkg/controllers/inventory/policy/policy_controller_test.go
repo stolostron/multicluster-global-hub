@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -29,6 +30,7 @@ func TestPolicyControllerReconcile(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = policiesv1.AddToScheme(scheme)
 	mockRequester := &MockRequest{}
+	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "test"})
 
 	// Define test cases
 	deletintTime := metav1.NewTime(time.Now().Time)

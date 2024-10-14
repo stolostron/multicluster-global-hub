@@ -37,6 +37,7 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 	if err := policy.AddPolicyInventorySyncer(mgr, transportClient.GetRequester()); err != nil {
 		return err
 	}
+
 	inventoryCtrlStarted = true
 	return nil
 }
