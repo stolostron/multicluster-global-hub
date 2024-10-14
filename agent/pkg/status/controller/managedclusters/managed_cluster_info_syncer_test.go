@@ -69,7 +69,7 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 					Namespace:         "default",
 					CreationTimestamp: creatingTime,
 					DeletionTimestamp: &deletintTime,
-					Finalizers:        []string{"test"},
+					Finalizers:        []string{constants.InventoryResourceFinalizer},
 				},
 			},
 			expectedResult: reconcile.Result{},

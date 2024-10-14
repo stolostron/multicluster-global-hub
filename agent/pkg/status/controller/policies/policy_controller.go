@@ -36,21 +36,21 @@ func AddPolicyController(mgr ctrl.Manager, inventoryRequester transport.Requeste
 	policyPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			// do not trigger the delete event for the replicated policies
-			if _, exist := e.ObjectOld.GetAnnotations()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
+			if _, exist := e.ObjectOld.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
 				return false
 			}
 			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
+			// do not trigger the create event for the replicated policies
+			if _, exist := e.Object.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
+				return false
+			}
 			// add the annotation to indicate the request is a create request
 			// the annotation won't propagate to the etcd
 			annotations := e.Object.GetAnnotations()
 			if annotations == nil {
 				annotations = map[string]string{}
-			}
-			// do not trigger the create event for the replicated policies
-			if _, exist := annotations[constants.PolicyEventRootPolicyNameLabelKey]; exist {
-				return false
 			}
 			annotations[constants.InventoryResourceCreatingAnnotationlKey] = ""
 			e.Object.SetAnnotations(annotations)
@@ -58,7 +58,7 @@ func AddPolicyController(mgr ctrl.Manager, inventoryRequester transport.Requeste
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			// do not trigger the delete event for the replicated policies
-			if _, exist := e.Object.GetAnnotations()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
+			if _, exist := e.Object.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
 				return false
 			}
 			return !e.DeleteStateUnknown
@@ -84,11 +84,23 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		return ctrl.Result{}, err
 	}
+	annotations := policy.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
+			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
+				ctx, createK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
+			}
+		}
+	}
+
 	if policy.DeletionTimestamp.IsZero() {
 		// add a finalizer to the policy object
 		if !controllerutil.ContainsFinalizer(policy, constants.InventoryResourceFinalizer) {
 			controllerutil.AddFinalizer(policy, constants.InventoryResourceFinalizer)
-			return ctrl.Result{}, p.runtimeClient.Update(ctx, policy)
+			if err := p.runtimeClient.Update(ctx, policy); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	} else {
 		// The policy object is being deleted
@@ -114,15 +126,6 @@ func (p *PolicyController) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 
-	annotations := policy.GetAnnotations()
-	if annotations != nil {
-		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
-			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
-				ctx, createK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
-			}
-		}
-	}
 	if resp, err := p.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
 		ctx, updateK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy %v: %w", resp, err)
@@ -145,9 +148,9 @@ func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, report
 	var relationStatus kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_Status
 	switch status {
 	case "NonCompliant":
-		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_NO_VIOLATIONS
-	case "Compliant":
 		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_VIOLATIONS
+	case "Compliant":
+		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_NO_VIOLATIONS
 	default:
 		relationStatus = kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_STATUS_OTHER
 	}
