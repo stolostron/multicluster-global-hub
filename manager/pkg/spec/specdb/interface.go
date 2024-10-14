@@ -7,8 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/database/specdb/bundle"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller/bundle"
 )
 
 // SpecDB is the needed interface for the spec syncer and spec transport

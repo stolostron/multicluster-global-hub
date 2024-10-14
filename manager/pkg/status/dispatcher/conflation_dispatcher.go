@@ -9,9 +9,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/workerpool"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/workerpool"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -27,7 +27,7 @@ func NewConflationDispatcher(log logr.Logger, conflationReadyQueue *conflator.Co
 }
 
 func AddConflationDispatcher(mgr ctrl.Manager, conflationManager *conflator.ConflationManager,
-	managerConfig *config.ManagerConfig, stats *statistics.Statistics,
+	managerConfig *configs.ManagerConfig, stats *statistics.Statistics,
 ) error {
 	// add work pool: database layer initialization - worker pool + connection pool
 	dbWorkerPool, err := workerpool.NewDBWorkerPool(stats)

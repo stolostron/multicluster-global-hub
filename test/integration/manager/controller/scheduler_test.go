@@ -7,14 +7,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob/task"
 )
 
 var _ = Describe("scheduler", func() {
 	It("test the scheduler", func() {
-		managerConfig := &config.ManagerConfig{
+		managerConfig := &configs.ManagerConfig{
 			DatabaseConfig: &config.DatabaseConfig{
 				DataRetention: 18,
 			},

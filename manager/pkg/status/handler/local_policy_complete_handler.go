@@ -1,4 +1,4 @@
-package dbsyncer
+package handler
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"gorm.io/gorm"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/dependency"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -19,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-type policyCompleteHandler struct {
+type localPolicyCompleteHandler struct {
 	log            logr.Logger
 	eventType      string
 	dependencyType string
@@ -27,44 +27,49 @@ type policyCompleteHandler struct {
 	eventPriority  conflator.ConflationPriority
 }
 
-func NewPolicyCompleteHandler() conflator.Handler {
-	eventType := string(enum.CompleteComplianceType)
+func NewLocalPolicyCompleteHandler() conflator.Handler {
+	eventType := string(enum.LocalCompleteComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
-	return &policyCompleteHandler{
+	return &localPolicyCompleteHandler{
 		log:            ctrl.Log.WithName(logName),
 		eventType:      eventType,
+		dependencyType: string(enum.LocalComplianceType),
 		eventSyncMode:  enum.CompleteStateMode,
-		eventPriority:  conflator.CompleteCompliancePriority,
-		dependencyType: string(enum.ComplianceType),
+		eventPriority:  conflator.LocalCompleteCompliancePriority,
 	}
 }
 
-func (h *policyCompleteHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
+func (h *localPolicyCompleteHandler) RegisterHandler(conflationManager *conflator.ConflationManager) {
 	registration := conflator.NewConflationRegistration(
 		h.eventPriority,
 		h.eventSyncMode,
 		h.eventType,
-		h.handleEvent,
+		h.handleEventWrapper,
 	)
 	registration.WithDependency(dependency.NewDependency(h.dependencyType, dependency.ExactMatch))
 	conflationManager.Register(registration)
 }
 
-func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
+func (h *localPolicyCompleteHandler) handleEventWrapper(ctx context.Context, evt *cloudevents.Event) error {
+	return handleCompleteCompliance(h.log, ctx, evt)
+}
+
+func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := grc.CompleteComplianceBundle{}
-	if err := evt.DataAs(&data); err != nil {
+	db := database.GetGorm()
+
+	// policyID: {  nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
+	allCompleteRowsFromDB, err := getLocalComplianceClusterSets(db, "leaf_hub_name = ? AND compliance <> ?",
+		leafHub, database.Compliant)
+	if err != nil {
 		return err
 	}
 
-	db := database.GetGorm()
-	// policyID: {  nonCompliance: (cluster3, cluster4), unknowns: (cluster5) }
-	allCompleteRowsFromDB, err := getComplianceClusterSets(db, "leaf_hub_name = ? AND compliance <> ?",
-		leafHub, database.Compliant)
-	if err != nil {
+	data := grc.CompleteComplianceBundle{}
+	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
 
@@ -79,12 +84,12 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 		}
 
 		allNonComplianceCluster := nonComplianceClusterSetsFromDB.GetAllClusters()
-		batchCompliance := []models.StatusCompliance{}
+		batchLocalCompliance := []models.LocalStatusCompliance{}
 
 		// nonCompliant: go over the non compliant clusters from event
 		for _, eventCluster := range eventCompliance.NonCompliantClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant).Contains(eventCluster) {
-				batchCompliance = append(batchCompliance, models.StatusCompliance{
+				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
 					PolicyID:    policyID,
 					LeafHubName: leafHub,
 					ClusterName: eventCluster,
@@ -98,7 +103,7 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 		// pending: go over the pending clusters from event
 		for _, eventCluster := range eventCompliance.PendingComplianceClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.Pending).Contains(eventCluster) {
-				batchCompliance = append(batchCompliance, models.StatusCompliance{
+				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
 					PolicyID:    policyID,
 					LeafHubName: leafHub,
 					ClusterName: eventCluster,
@@ -112,7 +117,7 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 		// unknown: go over the unknown clusters from event
 		for _, eventCluster := range eventCompliance.UnknownComplianceClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(eventCluster) {
-				batchCompliance = append(batchCompliance, models.StatusCompliance{
+				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
 					PolicyID:    policyID,
 					LeafHubName: leafHub,
 					ClusterName: eventCluster,
@@ -129,7 +134,7 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 			if !ok {
 				continue
 			}
-			batchCompliance = append(batchCompliance, models.StatusCompliance{
+			batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
 				PolicyID:    policyID,
 				LeafHubName: leafHub,
 				ClusterName: clusterName,
@@ -139,7 +144,7 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 		}
 
 		err = db.Transaction(func(tx *gorm.DB) error {
-			for _, compliance := range batchCompliance {
+			for _, compliance := range batchLocalCompliance {
 				e := tx.Updates(compliance).Error
 				if e != nil {
 					return e
@@ -158,9 +163,9 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 	// update policies not in the event - all is Compliant
 	err = db.Transaction(func(tx *gorm.DB) error {
 		for policyID := range allCompleteRowsFromDB {
-			err := tx.Model(&models.StatusCompliance{}).
+			err := tx.Model(&models.LocalStatusCompliance{}).
 				Where("policy_id = ? AND leaf_hub_name = ?", policyID, leafHub).
-				Updates(&models.StatusCompliance{Compliance: database.Compliant}).Error
+				Updates(&models.LocalStatusCompliance{Compliance: database.Compliant}).Error
 			if err != nil {
 				return err
 			}
@@ -168,9 +173,9 @@ func (h *policyCompleteHandler) handleEvent(ctx context.Context, evt *cloudevent
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed deleting compliances from complaince - %w", err)
+		return fmt.Errorf("failed deleting compliances from local complainces - %w", err)
 	}
 
-	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }

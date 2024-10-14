@@ -7,8 +7,8 @@ import (
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -21,7 +21,7 @@ type TransportDispatcher struct {
 	statistic         *statistics.Statistics
 }
 
-func AddTransportDispatcher(mgr ctrl.Manager, consumer transport.Consumer, managerConfig *config.ManagerConfig,
+func AddTransportDispatcher(mgr ctrl.Manager, consumer transport.Consumer, managerConfig *configs.ManagerConfig,
 	conflationManager *conflator.ConflationManager, stats *statistics.Statistics,
 ) error {
 	transportDispatcher := &TransportDispatcher{

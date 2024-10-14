@@ -1,4 +1,4 @@
-package dbsyncer
+package handler
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm/clause"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"

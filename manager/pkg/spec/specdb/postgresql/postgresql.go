@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/syncer/bundle"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller/bundle"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )

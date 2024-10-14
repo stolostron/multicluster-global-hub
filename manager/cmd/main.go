@@ -32,7 +32,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
 	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/spec"
-	statussyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/status"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -250,7 +250,7 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 			}
 		}
 
-		if err := statussyncer.AddStatusSyncers(mgr, consumer, managerConfig); err != nil {
+		if err := status.AddStatusSyncers(mgr, consumer, managerConfig); err != nil {
 			return fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 		}
 

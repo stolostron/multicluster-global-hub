@@ -19,8 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -36,7 +36,7 @@ var (
 	testPostgres        *testpostgres.TestPostgres
 	db                  *gorm.DB
 	mgr                 manager.Manager
-	migrationReconciler *migration.MigrationReconciler
+	migrationReconciler *controllers.MigrationReconciler
 )
 
 func TestController(t *testing.T) {
@@ -93,7 +93,7 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme: config.GetRuntimeScheme(),
+		Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 

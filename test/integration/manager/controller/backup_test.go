@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/backup"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -65,7 +65,7 @@ var postgresPvc = &corev1.PersistentVolumeClaim{
 }
 
 var _ = Describe("backup pvc", Ordered, func() {
-	var backupReconciler *backup.BackupPVCReconciler
+	var backupReconciler *controllers.BackupPVCReconciler
 	BeforeAll(func() {
 		By("Creating the namespace")
 		mghSystemNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: constants.GHDefaultNamespace}}

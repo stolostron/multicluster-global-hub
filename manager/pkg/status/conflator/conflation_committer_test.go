@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer/conflator/metadata"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
