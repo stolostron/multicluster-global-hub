@@ -145,7 +145,7 @@ Create that secret, and then add the
 object:
 
 ```shell
-$ oc annotate -n rhacs-central central stackrox-central-services \
+$ oc annotate -n rhacs-operator central stackrox-central-services \
 global-hub.open-cluster-management.io/with-stackrox-credentials-secret=multicluster-global-hub-agent/rhacs-connection-details
 ```
 
