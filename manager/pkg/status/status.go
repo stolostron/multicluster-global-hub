@@ -8,6 +8,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/dispatcher"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -28,8 +29,7 @@ func AddStatusSyncers(mgr ctrl.Manager, consumer transport.Consumer, managerConf
 
 	// manage all Conflation Units and handlers
 	conflationManager := conflator.NewConflationManager(stats)
-
-	handler.RegisterHandlers(conflationManager, managerConfig.EnableGlobalResource)
+	handlers.RegisterHandlers(conflationManager, managerConfig.EnableGlobalResource)
 
 	// start consume message from transport to conflation manager
 	if err := dispatcher.AddTransportDispatcher(mgr, consumer, managerConfig, conflationManager, stats); err != nil {

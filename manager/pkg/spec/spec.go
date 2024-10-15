@@ -7,7 +7,9 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb/gorm"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/totransport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -19,16 +21,16 @@ func AddToManager(mgr ctrl.Manager, config *configs.ManagerConfig, producer tran
 	}
 
 	// spec to db
-	if err := AddControllers(mgr); err != nil {
+	if err := ToDatabaseControllers(mgr); err != nil {
 		return fmt.Errorf("failed to add spec-to-db controllers: %w", err)
 	}
 
 	// db to transport
-	if err := transport.AddDBSyncers(mgr, config, producer); err != nil {
+	if err := totransport.AddSyncers(mgr, config, producer); err != nil {
 		return fmt.Errorf("failed to add db-to-transport syncers: %w", err)
 	}
 
-	if err := transport.AddManagedClusterLabelDBSyncer(mgr,
+	if err := totransport.AddManagedClusterLabelSyncer(mgr,
 		config.SyncerConfig.DeletedLabelsTrimmingInterval); err != nil {
 		return fmt.Errorf("failed to add status db watchers: %w", err)
 	}
@@ -38,8 +40,8 @@ func AddToManager(mgr ctrl.Manager, config *configs.ManagerConfig, producer tran
 }
 
 // AddControllersToDatabase adds all the spec-to-db controllers to the Manager.
-func AddControllers(mgr ctrl.Manager) error {
-	addControllerFunctions := []func(ctrl.Manager, db.SpecDB) error{
+func ToDatabaseControllers(mgr ctrl.Manager) error {
+	addControllerFunctions := []func(ctrl.Manager, specdb.SpecDB) error{
 		controller.AddPolicyController,
 		controller.AddPlacementRuleController,
 		controller.AddPlacementBindingController,

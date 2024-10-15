@@ -15,7 +15,7 @@ import (
 var _ = Describe("scheduler", func() {
 	It("test the scheduler", func() {
 		managerConfig := &configs.ManagerConfig{
-			DatabaseConfig: &config.DatabaseConfig{
+			DatabaseConfig: &configs.DatabaseConfig{
 				DataRetention: 18,
 			},
 		}

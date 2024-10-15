@@ -36,7 +36,7 @@ var (
 	testPostgres        *testpostgres.TestPostgres
 	db                  *gorm.DB
 	mgr                 manager.Manager
-	migrationReconciler *controllers.MigrationReconciler
+	migrationReconciler *controllers.MigrationController
 )
 
 func TestController(t *testing.T) {
@@ -99,7 +99,7 @@ var _ = BeforeSuite(func() {
 
 	genericProducer, err := genericproducer.NewGenericProducer(transportConfig)
 	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = migration.NewMigrationReconciler(mgr.GetClient(), genericProducer, false)
+	migrationReconciler = controllers.NewMigrationController(mgr.GetClient(), genericProducer, false)
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {

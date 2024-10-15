@@ -75,7 +75,7 @@ var _ = Describe("backup pvc", Ordered, func() {
 		err = mgr.GetClient().Create(ctx, mchNamespace)
 		Expect(err).Should(Succeed())
 
-		backupReconciler = backup.NewBackupPVCReconciler(mgr, database.GetConn())
+		backupReconciler = controllers.NewBackupPVCReconciler(mgr, database.GetConn())
 		err = backupReconciler.SetupWithManager(mgr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(mgr.GetClient().Create(ctx, postgresPvc)).NotTo(HaveOccurred())

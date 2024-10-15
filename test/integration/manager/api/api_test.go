@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/util"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"

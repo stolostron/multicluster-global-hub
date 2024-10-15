@@ -26,7 +26,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec"
-	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/spec/transport"
+	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/spec/totransport"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -113,9 +113,9 @@ var _ = BeforeSuite(func() {
 				StatusTopic: "event",
 			},
 		},
-		StatisticsConfig:      &statistics.StatisticsConfig{},
-		NonK8sAPIServerConfig: &restapis.NonK8sAPIServerConfig{},
-		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
+		StatisticsConfig:    &statistics.StatisticsConfig{},
+		RestAPIServerConfig: &restapis.RestApiConfig{},
+		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
 	}
 
 	By("Create consumer/producer")
@@ -128,12 +128,12 @@ var _ = BeforeSuite(func() {
 
 	By("Add db to transport")
 	Expect(mgr.Add(consumer)).Should(Succeed())
-	Expect(specsyncer.AddDBSyncers(mgr, managerConfig, producer)).Should(Succeed())
-	Expect(specsyncer.AddManagedClusterLabelDBSyncer(mgr,
+	Expect(specsyncer.AddSyncers(mgr, managerConfig, producer)).Should(Succeed())
+	Expect(specsyncer.AddManagedClusterLabelSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
 	By("Add spec to database")
-	Expect(spec.AddControllers(mgr)).Should(Succeed())
+	Expect(spec.ToDatabaseControllers(mgr)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {

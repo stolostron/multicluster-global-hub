@@ -70,10 +70,10 @@ func parseFlags() *configs.ManagerConfig {
 			ConsumerGroupId:      "global-hub-manager",
 			EnableDatabaseOffset: true,
 		},
-		StatisticsConfig:      &statistics.StatisticsConfig{},
-		NonK8sAPIServerConfig: &restapis.RestApiConfig{},
-		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
-		LaunchJobNames:        "",
+		StatisticsConfig:    &statistics.StatisticsConfig{},
+		RestAPIServerConfig: &restapis.RestApiConfig{},
+		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
+		LaunchJobNames:      "",
 	}
 
 	// add zap flags
@@ -107,11 +107,11 @@ func parseFlags() *configs.ManagerConfig {
 		"The path of CA certificate for kafka bootstrap server.")
 	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
 		"The log interval for statistics.")
-	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPIURL, "cluster-api-url",
+	pflag.StringVar(&managerConfig.RestAPIServerConfig.ClusterAPIURL, "cluster-api-url",
 		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
-	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
+	pflag.StringVar(&managerConfig.RestAPIServerConfig.ClusterAPICABundlePath, "cluster-api-cabundle-path",
 		"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt", "The CA bundle path for cluster API.")
-	pflag.StringVar(&managerConfig.NonK8sAPIServerConfig.ServerBasePath, "server-base-path",
+	pflag.StringVar(&managerConfig.RestAPIServerConfig.ServerBasePath, "server-base-path",
 		"/global-hub-api/v1", "The base path for nonK8s API server.")
 	pflag.IntVar(&managerConfig.ElectionConfig.LeaseDuration, "lease-duration", 137, "controller leader lease duration")
 	pflag.IntVar(&managerConfig.ElectionConfig.RenewDeadline, "renew-deadline", 107, "controller leader renew deadline")
@@ -230,7 +230,7 @@ func createManager(ctx context.Context,
 		return nil, err
 	}
 	if managerConfig.EnableGlobalResource {
-		if err := restapis.AddRestApiServer(mgr, managerConfig.NonK8sAPIServerConfig); err != nil {
+		if err := restapis.AddRestApiServer(mgr, managerConfig.RestAPIServerConfig); err != nil {
 			return nil, fmt.Errorf("failed to add non-k8s-api-server: %w", err)
 		}
 	}

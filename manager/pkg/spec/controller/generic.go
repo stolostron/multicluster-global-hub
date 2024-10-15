@@ -82,7 +82,7 @@ func (r *genericSpecController) Reconcile(ctx context.Context, request ctrl.Requ
 	instance = r.cleanInstance(instance)
 	instanceInDatabase, err := r.insertInstanceToDatabase(ctx, instance, string(instance.GetUID()), reqLogger)
 	if err != nil {
-		return ctrl.Result{Requeue: true, RequeueAfter: requeuePeriodSeconds * time.Second}, err
+		return ctrl.Result{Requeue: true, RequeueAfter: requeueDuration}, err
 	}
 
 	if !r.areEqual(instance, instanceInDatabase) {
