@@ -3,22 +3,6 @@ Refer to the original [Create cluster](https://access.redhat.com/documentation/e
 
 ![cluster overview](./images/cluster_overview.png)
 
-### Enable Strimzi and Postgres Metrics
-Collecting metrics is critical for understanding the health and performance of your Kafka deployment and postgres database. By monitoring metrics, you can actively identify issues before they become critical and make informed decisions about resource allocation and capacity planning. Without metrics, you may be left with limited visibility into the behavior of your Kafka deployment, which can make troubleshooting more difficult and time-consuming.
-
-Globalhub set `enableMetrics: true` in the `spec` section by default.
-After the kafka operator reconciling is completed, you can check the dashboards in global hub grafana. You will see the following dashboards under Strimzi folder:
-- Global Hub - Strimzi Operator
-![Strimzi Operator](./images/global-hub-strimzi-operator.png)
-- Global Hub - Strimzi Kafka
-![Strimzi Kafka](./images/global-hub-strimzi-kafka.png)
-- Global Hub - Strimzi Zookeeper
-![Strimzi Zookeeper](./images/global-hub-strimzi-zookeeper.png)
-
-The following dashboards will be in Postgres folder:
-- Global Hub - PostgreSQL Database
-![PostgreSQL Database](./images/global-hub-postgres.png)
-
 ### Enable RHACS integration
 
 The [Red Hat Advanced Cluster
