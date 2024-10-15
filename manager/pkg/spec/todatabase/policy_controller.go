@@ -53,7 +53,6 @@ func arePoliciesEqual(instance1, instance2 client.Object) bool {
 		return false
 	}
 
-	// TODO handle Template comparison later
 	policy1WithoutTemplates := policy1.DeepCopy()
 	policy1WithoutTemplates.Spec.PolicyTemplates = nil
 

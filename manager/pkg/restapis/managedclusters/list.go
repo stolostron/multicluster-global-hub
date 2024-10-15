@@ -146,7 +146,6 @@ func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string) {
 	_, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
-	// TODO - add deleted field to the status.managed_clusters table
 	// instead of holding the previously added managed clusters by memory
 	// and calculating the deleted clusters
 	preAddedManagedClusterNames := set.NewSet()

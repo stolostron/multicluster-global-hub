@@ -339,7 +339,6 @@ func (p *PostgreSQL) GetManagedClusterLabelsStatus(ctx context.Context, tableNam
 }
 
 // GetManagedClusterLeafHubName returns leaf-hub name for a given managed cluster from a specific table.
-// TODO: once non-k8s-restapi exposes hub names, remove line.
 func (p *PostgreSQL) GetManagedClusterLeafHubName(ctx context.Context, tableName string,
 	managedClusterName string,
 ) (string, error) {

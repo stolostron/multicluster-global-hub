@@ -18,7 +18,8 @@ import (
 // GetCustomResourceColumnDefinitions return the column definitions for CRD `name`, version `version`.
 func GetCustomResourceColumnDefinitions(name, version string) []apiextensionsv1.CustomResourceColumnDefinition {
 	// nolint:lll
-	// from https://github.com/kubernetes/apiextensions-apiserver/blob/76c7ff37eea5429706c9cfb4a0e9215e49d93930/pkg/apis/apiextensions/helpers.go#L243
+	// from https://github.com/kubernetes/apiextensions-apiserver/blob/76c7ff37eea5429706c9cfb4a0e9215e49d93930/pkg/apis
+	// /apiextensions/helpers.go#L243
 	defaultColumns := []apiextensionsv1.CustomResourceColumnDefinition{
 		{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
 	}
@@ -36,7 +37,8 @@ func GetCustomResourceColumnDefinitions(name, version string) []apiextensionsv1.
 	}
 
 	// nolint:lll
-	// from https://github.com/kubernetes/apiextensions-apiserver/blob/76c7ff37eea5429706c9cfb4a0e9215e49d93930/test/integration/helpers.go#L84
+	// from https://github.com/kubernetes/apiextensions-apiserver/blob/76c7ff37eea5429706c9cfb4a0e9215e49d93930
+	// /test/integration/helpers.go#L84
 
 	crdv1, err := theClientSet.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
@@ -82,8 +84,8 @@ func convertColumnsToColumnsV1(columns []apiextensions.CustomResourceColumnDefin
 		columnCopy := column.DeepCopy()
 
 		// nolint:lll
-		err := apiextensionsv1.Convert_apiextensions_CustomResourceColumnDefinition_To_v1_CustomResourceColumnDefinition(columnCopy,
-			&columnv1, nil)
+		err := apiextensionsv1.Convert_apiextensions_CustomResourceColumnDefinition_To_v1_CustomResourceColumnDefinition(
+			columnCopy, &columnv1, nil)
 		if err != nil {
 			return nil, fmt.Errorf("unable to convert column: %w", err)
 		}

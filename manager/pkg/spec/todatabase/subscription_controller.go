@@ -55,7 +55,7 @@ func cleanSubscriptionStatus(instance client.Object) {
 }
 
 func areSubscriptionsEqual(instance1, instance2 client.Object) bool {
-	// TODO: subscription come out as not equal because of package override field, check if it matters.
+	// Note: subscription come out as not equal because of package override field, check if it matters.
 	subscription1, ok1 := instance1.(*subscriptionv1.Subscription)
 	subscription2, ok2 := instance2.(*subscriptionv1.Subscription)
 
