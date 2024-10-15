@@ -1,26 +1,22 @@
-# Multicluster Global Hub Agent
+# Multicluster Global Hub Manager
 
-The **Global Hub Agent** component is responsible for applying resources to the hub cluster (spec path) and reporting the resource status to the Global Hub Manager via Kafka. It also synchronizes events with the Inventory API (status path). Additionally, the agent can be run in [standalone mode](./../doc/event-exporter/README.md), which only enables the status path feature.
+The Global Hub Manager is responsible for distributing workloads across clusters and collecting resource status data into its database via transport.
 
 ## Structure
 
-- **agent**
-  - **cmd**: Command-line utilities for the agent.
-  - **pkg**: Contains the core logic and functionalities.
+- **manager**
+  - **cmd**: Command-line utilities for the manager.
+  - **pkg**: Core logic and functionalities.
     - **configs**: Holds configurations, schemas, and related assets.
-    - **controllers**: Common controllers, including initialization, cluster claim, and lease controllers.
-      - **inventory**: The controllers that report resources via the inventory API.
+    - **controllers**: Includes common controllers such as migration and backup controllers.
+    - **processes**: Periodically running internal jobs, such as the policy compliance cronjob and managed hub cluster management job.
+    - **restapis**: Exposes REST APIs, such as managed clusters, policies, and subscriptions.
     - **spec**:
-      - **rbac**: Manages role-based access control.
-      - **syncers**: Syncs resources and signals from the Global Hub Manager.
-      - **workers**: Backend goroutines that execute tasks received from the spec syncers.
+      - **specdb**: Handles database operations for synchronizing resources to the database and retrieving them for transport.
+      - **todatabase**: Watches resources and persists them in the database.
+      - **totransport**: Syncs resources from the database and sends them via transport.
     - **status**:
-      - **filter**: Deduplicates events when reporting resource statuses.
-      - **generic**: Common implementations for the status syncer.
-        - **controller**: Specifies the types of resources to be synced.
-        - **handler**: Updates the bundle synced to the manager by the watched resources.
-        - **emitter**: Sends the bundle created/updated by the handler to the transport layer (e.g., via CloudEvents).
-        - **multi-event syncer**: A template for sending multiple events related to a single object, such as the policy syncer.
-        - **multi-object syncer**: A template for sending one event related to multiple objects, such as the managedhub info syncer.
-      - **interfaces**: Defines the behaviors for the Controller, Handler, and Emitter.
-      - **syncers**: Specifies the resources to be synced, following templates provided by the generic syncers.
+      - **conflator**: Merges bundles inserted by transports and prepares them for dispatch.
+      - **dispactcher**: Routes bundles or events between components, from transport to conflator, and delivers bundles from the conflator to the database worker pool.
+      - **handlers**: Defines how transferred bundles are persisted in the database.
+      - **webhook**: The webhooks, such as disabling placement controllers for the global resource.
