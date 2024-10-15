@@ -15,8 +15,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
-	speccontroller "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	speccontroller "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -30,7 +30,7 @@ func TestSyncers(t *testing.T) {
 var (
 	testenv         *envtest.Environment
 	leafHubName     string
-	agentConfig     *config.AgentConfig
+	agentConfig     *configs.AgentConfig
 	ctx             context.Context
 	cancel          context.CancelFunc
 	runtimeClient   runtimeclient.Client
@@ -44,7 +44,7 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	leafHubName = "spec-hub"
-	agentConfig = &config.AgentConfig{
+	agentConfig = &configs.AgentConfig{
 		TransportConfig: &transport.TransportInternalConfig{
 			TransportType:   string(transport.Chan),
 			IsManager:       false,
@@ -73,7 +73,7 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme: config.GetRuntimeScheme(),
+		Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 	runtimeClient = mgr.GetClient()

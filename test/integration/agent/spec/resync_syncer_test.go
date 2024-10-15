@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/controller/syncers"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"

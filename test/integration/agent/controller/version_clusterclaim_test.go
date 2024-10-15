@@ -56,7 +56,7 @@ var _ = Describe("claim controllers", Ordered, func() {
 			return mgr.GetClient().Get(ctx, types.NamespacedName{
 				Name: constants.HubClusterClaimName,
 			}, clusterClaim)
-		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 		Expect(clusterClaim.Spec.Value).Should(Equal(
 			constants.HubInstalledByUser))
 	})
@@ -73,11 +73,18 @@ var _ = Describe("claim controllers", Ordered, func() {
 		clusterClaim := &clustersv1alpha1.ClusterClaim{}
 
 		Eventually(func() error {
-			return mgr.GetClient().Get(ctx, types.NamespacedName{
+			err := mgr.GetClient().Get(ctx, types.NamespacedName{
 				Name: constants.HubClusterClaimName,
 			}, clusterClaim)
-		}, 1*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
-		Expect(clusterClaim.Spec.Value).Should(Equal(constants.HubNotInstalled))
+			if err != nil {
+				return err
+			}
+			if clusterClaim.Spec.Value == constants.HubNotInstalled {
+				return nil
+			}
+			return fmt.Errorf("the claim(%s) expect %s, but got %s", constants.HubClusterClaimName,
+				constants.HubNotInstalled, clusterClaim.Spec.Value)
+		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
 	It("clusterclaim testing", func() {

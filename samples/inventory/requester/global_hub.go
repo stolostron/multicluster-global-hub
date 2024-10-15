@@ -6,7 +6,7 @@ import (
 
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/managedclusters"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory/managedclusterinfo"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
@@ -41,7 +41,7 @@ func globalHub(ctx context.Context) error {
 	}
 
 	clusterInfo := createMockClusterInfo("local-cluster")
-	k8sCluster := managedclusters.GetK8SCluster(clusterInfo, "guest")
+	k8sCluster := managedclusterinfo.GetK8SCluster(clusterInfo, "guest")
 	createResp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -50,7 +50,7 @@ func globalHub(ctx context.Context) error {
 	fmt.Println("creating response", createResp)
 
 	clusterInfo = createMockClusterInfo("local-cluster")
-	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, "guest")
+	k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, "guest")
 	updatingResponse, err := requesterClient.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -59,7 +59,7 @@ func globalHub(ctx context.Context) error {
 	fmt.Println("updating response", updatingResponse)
 
 	clusterInfo = createMockClusterInfo("local-cluster")
-	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, "guest")
+	k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, "guest")
 	deletingResponse, err := requesterClient.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 		&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData})
 	if err != nil {
