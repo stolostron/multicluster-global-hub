@@ -6,9 +6,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controller"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb/gorm"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/todatabase"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/totransport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -42,15 +42,15 @@ func AddToManager(mgr ctrl.Manager, config *configs.ManagerConfig, producer tran
 // AddControllersToDatabase adds all the spec-to-db controllers to the Manager.
 func ToDatabaseControllers(mgr ctrl.Manager) error {
 	addControllerFunctions := []func(ctrl.Manager, specdb.SpecDB) error{
-		controller.AddPolicyController,
-		controller.AddPlacementRuleController,
-		controller.AddPlacementBindingController,
-		controller.AddApplicationController,
-		controller.AddSubscriptionController,
-		controller.AddChannelController,
-		controller.AddManagedClusterSetController,
-		controller.AddManagedClusterSetBindingController,
-		controller.AddPlacementController,
+		todatabase.AddPolicyController,
+		todatabase.AddPlacementRuleController,
+		todatabase.AddPlacementBindingController,
+		todatabase.AddApplicationController,
+		todatabase.AddSubscriptionController,
+		todatabase.AddChannelController,
+		todatabase.AddManagedClusterSetController,
+		todatabase.AddManagedClusterSetBindingController,
+		todatabase.AddPlacementController,
 	}
 	specDB := gorm.NewGormSpecDB()
 	for _, addControllerFunction := range addControllerFunctions {
