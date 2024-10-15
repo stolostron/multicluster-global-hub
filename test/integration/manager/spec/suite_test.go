@@ -114,7 +114,7 @@ var _ = BeforeSuite(func() {
 			},
 		},
 		StatisticsConfig:    &statistics.StatisticsConfig{},
-		RestAPIServerConfig: &restapis.RestApiConfig{},
+		RestAPIServerConfig: &restapis.RestApiServerConfig{},
 		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
 	}
 

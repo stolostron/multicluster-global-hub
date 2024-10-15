@@ -20,7 +20,7 @@ type ManagerConfig struct {
 	DatabaseConfig        *DatabaseConfig
 	TransportConfig       *transport.TransportInternalConfig
 	StatisticsConfig      *statistics.StatisticsConfig
-	RestAPIServerConfig   *restapis.RestApiConfig
+	RestAPIServerConfig   *restapis.RestApiServerConfig
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
 	ImportClusterInHosted bool

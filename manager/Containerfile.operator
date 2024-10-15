@@ -56,8 +56,7 @@ COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
 COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
 RUN /usr/local/scripts/user_setup
 
-RUN microdnf update -y &&
-  microdnf clean all
+RUN microdnf update -y && microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/manager"]

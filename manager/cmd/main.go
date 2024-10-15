@@ -71,7 +71,7 @@ func parseFlags() *configs.ManagerConfig {
 			EnableDatabaseOffset: true,
 		},
 		StatisticsConfig:    &statistics.StatisticsConfig{},
-		RestAPIServerConfig: &restapis.RestApiConfig{},
+		RestAPIServerConfig: &restapis.RestApiServerConfig{},
 		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
 		LaunchJobNames:      "",
 	}

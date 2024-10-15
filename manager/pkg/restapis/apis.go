@@ -25,7 +25,7 @@ const secondsToFinishOnShutdown = 5
 
 var errFailedToLoadCertificate = errors.New("failed to load certificate/key")
 
-type RestApiConfig struct {
+type RestApiServerConfig struct {
 	ClusterAPIURL          string
 	ClusterAPICABundlePath string
 	ServerBasePath         string
@@ -43,7 +43,7 @@ type restApiServer struct {
 	svr *http.Server
 }
 
-func readCertificateAuthority(nonK8sAPIServerConfig *RestApiConfig) ([]byte, error) {
+func readCertificateAuthority(nonK8sAPIServerConfig *RestApiServerConfig) ([]byte, error) {
 	var clusterAPICABundle []byte
 
 	if nonK8sAPIServerConfig.ClusterAPICABundlePath != "" {
@@ -59,7 +59,7 @@ func readCertificateAuthority(nonK8sAPIServerConfig *RestApiConfig) ([]byte, err
 }
 
 // AddRestApiServer adds the non-k8s-api-server to the Manager.
-func AddRestApiServer(mgr ctrl.Manager, restApiConfig *RestApiConfig) error {
+func AddRestApiServer(mgr ctrl.Manager, restApiConfig *RestApiServerConfig) error {
 	router, err := SetupRouter(restApiConfig)
 	if err != nil {
 		return err
@@ -97,7 +97,7 @@ func AddRestApiServer(mgr ctrl.Manager, restApiConfig *RestApiConfig) error {
 // @in                          header
 // @name                        Authorization
 // @description					Authorization with user access token
-func SetupRouter(nonK8sAPIServerConfig *RestApiConfig) (*gin.Engine, error) {
+func SetupRouter(nonK8sAPIServerConfig *RestApiServerConfig) (*gin.Engine, error) {
 	router := gin.Default()
 	// add aythentication eith openshift oauth
 	// skip authentication middleware if ClusterAPIURL is empty for testing
