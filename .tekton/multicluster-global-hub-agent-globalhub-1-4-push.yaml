@@ -4,16 +4,15 @@ metadata:
   annotations:
     build.appstudio.openshift.io/repo: https://github.com/stolostron/multicluster-global-hub?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
-    build.appstudio.redhat.com/pull_request_number: '{{pull_request_number}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "main"
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "release-2.13"
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: release-globalhub-1-3
-    appstudio.openshift.io/component: multicluster-global-hub-manager-globalhub-1-3
+    appstudio.openshift.io/application: release-globalhub-1-4
+    appstudio.openshift.io/component: multicluster-global-hub-agent-globalhub-1-4
     pipelines.appstudio.openshift.io/type: build
-  name: multicluster-global-hub-manager-globalhub-1-3-on-pull-request
+  name: multicluster-global-hub-agent-globalhub-1-4-on-push
   namespace: acm-multicluster-glo-tenant
 spec:
   params:
@@ -22,11 +21,9 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/release-globalhub-1-3/multicluster-global-hub-manager-globalhub-1-3:on-pr-{{revision}}
-  - name: image-expires-after
-    value: 5d
+    value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/release-globalhub-1-4/multicluster-global-hub-agent-globalhub-1-4:{{revision}}
   - name: dockerfile
-    value: manager/Containerfile.operator
+    value: agent/Containerfile.operator
   - name: path-context
     value: .
   pipelineSpec:
