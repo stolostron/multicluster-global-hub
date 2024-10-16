@@ -23,7 +23,7 @@ clean-vendor:
 
 build-operator-image: vendor
 	cd operator && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . -f operator/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . -f operator/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
 
 push-operator-image:
 	docker push ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG}
@@ -43,7 +43,7 @@ push-manager-image:
 
 build-agent-image: vendor
 	cd agent && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . -f agent/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . -f agent/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
 
 push-agent-image:
 	docker push ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG}
