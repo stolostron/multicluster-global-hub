@@ -69,10 +69,12 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		return fmt.Errorf("failed to launch hub cluster info syncer: %w", err)
 	}
 
-	// hub cluster heartbeat
-	err = managedhub.LaunchHubClusterHeartbeatSyncer(mgr, producer)
-	if err != nil {
-		return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
+	// disable the heartbeat in the standalone mode
+	if !agentConfig.Standalone {
+		err = managedhub.LaunchHubClusterHeartbeatSyncer(mgr, producer)
+		if err != nil {
+			return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
+		}
 	}
 
 	// placement
