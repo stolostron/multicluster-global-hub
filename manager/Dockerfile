@@ -14,17 +14,18 @@ RUN go build -o bin/manager ./manager/cmd/manager/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+ARG GIT_COMMIT
 ENV USER_UID=1001
 ENV USER_NAME=manager
+ENV GIT_COMMIT=$(GIT_COMMIT)
 
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
 
 COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
-RUN  /usr/local/scripts/user_setup
+RUN /usr/local/scripts/user_setup
 
-RUN microdnf update -y && \
-    microdnf clean all
+RUN microdnf update -y && microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/manager"]

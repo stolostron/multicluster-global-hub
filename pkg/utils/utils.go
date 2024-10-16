@@ -25,6 +25,7 @@ import (
 func PrintVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	log.Info(fmt.Sprintf("Git Commit: %s", os.Getenv("GIT_COMMIT")))
 }
 
 func CtrlZapOptions() zap.Options {

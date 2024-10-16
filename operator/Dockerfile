@@ -13,16 +13,18 @@ RUN CGO_ENABLED=1 go build -a -installsuffix cgo -o bin/multicluster-global-hub-
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
-
+ARG GIT_COMMIT
 ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
-    USER_UID=1001 \
-    USER_NAME=operator
+  USER_UID=1001 \
+  USER_NAME=operator
+ENV GIT_COMMIT=$(GIT_COMMIT)
+
 
 # install operator binary
 COPY --from=builder /workspace/bin/multicluster-global-hub-operator ${OPERATOR}
 
 RUN microdnf update -y && \
-    microdnf clean all
+  microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/multicluster-global-hub-operator"]
