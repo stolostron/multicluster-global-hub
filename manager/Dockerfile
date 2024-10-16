@@ -17,7 +17,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG GIT_COMMIT
 ENV USER_UID=1001
 ENV USER_NAME=manager
-ENV GIT_COMMIT=$(GIT_COMMIT)
+ENV GIT_COMMIT=${GIT_COMMIT}
 
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager

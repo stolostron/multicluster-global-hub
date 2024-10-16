@@ -17,7 +17,7 @@ ARG GIT_COMMIT
 ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
   USER_UID=1001 \
   USER_NAME=operator
-ENV GIT_COMMIT=$(GIT_COMMIT)
+ENV GIT_COMMIT=${GIT_COMMIT}
 
 
 # install operator binary
