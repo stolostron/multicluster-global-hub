@@ -231,10 +231,24 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
 		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
+
 	topicReplicas := DefaultPartitionReplicas
 	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic || enableKRaft {
 		topicReplicas = 1
 	}
+	// keep the topic replicas not changed, if it exists
+	existingKafkaTopic := &kafkav1beta2.KafkaTopic{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      statusPlaceholderTopic,
+		Namespace: k.kafkaClusterNamespace,
+	}, existingKafkaTopic)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	if err == nil {
+		topicReplicas = *existingKafkaTopic.Spec.Replicas
+	}
+
 	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
 	brokerAdvertisedHost := mgh.Annotations[operatorconstants.KafkaBrokerAdvertisedHostKey]
 
@@ -673,6 +687,10 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	}
 
 	desiredKafka := k.newKafkaCluster(mgh)
+	// set the desired kafka replicas as the existing one
+	desiredKafka.Spec.Kafka.Replicas = existingKafka.Spec.Kafka.Replicas
+	desiredKafka.Spec.Kafka.Config = existingKafka.Spec.Kafka.Config
+	desiredKafka.Spec.Zookeeper.Replicas = existingKafka.Spec.Kafka.Replicas
 
 	updatedKafka := &kafkav1beta2.Kafka{}
 	err = operatorutils.MergeObjects(existingKafka, desiredKafka, updatedKafka)
@@ -742,6 +760,14 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayerSpec.StorageClass
 	}
 
+	replicas := int32(3)
+	insyncReplicas := int32(2)
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		replicas = 1
+		insyncReplicas = 1
+		klog.Infof("set the kafka replicas into: %d, isr: %d", replicas, insyncReplicas)
+	}
+
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.kafkaClusterName,
@@ -752,14 +778,14 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
-				Config: &apiextensions.JSON{Raw: []byte(`{
-"default.replication.factor": 3,
+				Config: &apiextensions.JSON{Raw: []byte(fmt.Sprintf(`{
 "inter.broker.protocol.version": "3.7",
-"min.insync.replicas": 2,
-"offsets.topic.replication.factor": 3,
-"transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
-}`)},
+"default.replication.factor": %d,
+"offsets.topic.replication.factor": %d,
+"transaction.state.log.replication.factor": %d,
+"min.insync.replicas": %d,
+"transaction.state.log.min.isr": %d
+}`, replicas, replicas, replicas, insyncReplicas, insyncReplicas))},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
 						Name: "plain",
@@ -781,7 +807,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
-				Replicas: 3,
+				Replicas: replicas,
 				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
@@ -791,7 +817,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Version: &KafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas:  3,
+				Replicas:  replicas,
 				Storage:   kafkaSpecZookeeperStorage,
 				Resources: k.getZookeeperResources(mgh),
 			},
