@@ -10,7 +10,7 @@ COPY ./manager/ ./manager/
 COPY ./operator/api ./operator/api
 COPY ./pkg/ ./pkg/
 
-RUN go build -o bin/manager ./manager/cmd/manager/main.go
+RUN go build -o bin/manager ./manager/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest

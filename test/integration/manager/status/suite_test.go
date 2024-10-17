@@ -17,8 +17,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/statussyncer"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -72,17 +72,17 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme: config.GetRuntimeScheme(),
+		Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Get kubeClient")
-	kubeClient, err = client.New(cfg, client.Options{Scheme: config.GetRuntimeScheme()})
+	kubeClient, err = client.New(cfg, client.Options{Scheme: configs.GetRuntimeScheme()})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(kubeClient).NotTo(BeNil())
 
 	By("Create test postgres")
-	managerConfig := &config.ManagerConfig{
+	managerConfig := &configs.ManagerConfig{
 		TransportConfig: &transport.TransportInternalConfig{
 			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
@@ -107,7 +107,7 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Add controllers to manager")
-	err = statussyncer.AddStatusSyncers(mgr, consumer, managerConfig)
+	err = status.AddStatusSyncers(mgr, consumer, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

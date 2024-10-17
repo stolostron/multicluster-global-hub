@@ -15,7 +15,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob/task"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )

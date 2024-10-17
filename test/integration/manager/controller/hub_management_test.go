@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm/clause"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/hubmanagement"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
