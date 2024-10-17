@@ -212,6 +212,7 @@ rules:
   - get
   - list
   - watch
+  - update
 - apiGroups:
   - config.open-cluster-management.io
   resources:
