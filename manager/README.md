@@ -13,10 +13,10 @@ The Global Hub Manager is responsible for distributing workloads across clusters
     - **restapis**: Exposes REST APIs, such as managed clusters, policies, and subscriptions.
     - **spec**:
       - **specdb**: Handles database operations for synchronizing resources to the database and retrieving them for transport.
-      - **todatabase**: Watches resources and persists them in the database.
-      - **totransport**: Syncs resources from the database and sends them via transport.
+      - **controllers**: Watches resources and persists them in the database.
+      - **syncers**: Syncs resources from the database and sends them via transport.
     - **status**:
       - **conflator**: Merges bundles inserted by transports and prepares them for dispatch.
       - **dispactcher**: Routes bundles or events between components, from transport to conflator, and delivers bundles from the conflator to the database worker pool.
       - **handlers**: Defines how transferred bundles are persisted in the database.
-      - **webhook**: The webhooks, such as disabling placement controllers for the global resource.
+    - **webhook**: The webhooks, such as disabling placement controllers for the global resource.
