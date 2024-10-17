@@ -7,6 +7,7 @@ REGISTRY ?= quay.io/stolostron
 IMAGE_TAG ?= latest
 TMP_BIN ?= /tmp/cr-tests-bin
 GO_TEST ?= go test -v
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
 
 .PHONY: vendor			##download all third party libraries and puts them inside vendor directory
 vendor:
@@ -22,7 +23,7 @@ clean-vendor:
 
 build-operator-image: vendor
 	cd operator && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . -f operator/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG} . -f operator/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
 
 push-operator-image:
 	docker push ${REGISTRY}/multicluster-global-hub-operator:${IMAGE_TAG}
@@ -35,14 +36,14 @@ undeploy-operator:
 
 build-manager-image: vendor
 	cd manager && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG} . -f manager/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG} . -f manager/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
 
 push-manager-image:
 	docker push ${REGISTRY}/multicluster-global-hub-manager:${IMAGE_TAG}
 
 build-agent-image: vendor
 	cd agent && make
-	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . -f agent/Dockerfile
+	docker build -t ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG} . -f agent/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT)
 
 push-agent-image:
 	docker push ${REGISTRY}/multicluster-global-hub-agent:${IMAGE_TAG}
