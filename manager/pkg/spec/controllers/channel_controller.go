@@ -1,13 +1,13 @@
 // Copyright (c) 2020 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package todatabase
+package controllers
 
 import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	subscriptionv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	channelv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -16,9 +16,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-func AddSubscriptionController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
+func AddChannelController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&subscriptionv1.Subscription{}).
+		For(&channelv1.Channel{}).
 		WithEventFilter(GlobalResourcePredicate()).
 		WithEventFilter(predicate.NewPredicateFuncs(func(obj client.Object) bool {
 			ownerReferences := obj.GetOwnerReferences()
@@ -27,43 +27,42 @@ func AddSubscriptionController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 					return false
 				}
 			}
-			return obj.GetName() != "hive-clusterimagesets-subscription-fast-0"
+			return true
 		})).
 		Complete(&genericSpecController{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
-			log:            ctrl.Log.WithName("subscriptions-spec-syncer"),
-			tableName:      "subscriptions",
+			log:            ctrl.Log.WithName("channels-spec-controller"),
+			tableName:      "channels",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
-			createInstance: func() client.Object { return &subscriptionv1.Subscription{} },
-			cleanObject:    cleanSubscriptionStatus,
-			areEqual:       areSubscriptionsEqual,
+			createInstance: func() client.Object { return &channelv1.Channel{} },
+			cleanObject:    cleanChannelStatus,
+			areEqual:       areChannelsEqual,
 		}); err != nil {
-		return fmt.Errorf("failed to add subscription controller to the manager: %w", err)
+		return fmt.Errorf("failed to add channel controller to the manager: %w", err)
 	}
 
 	return nil
 }
 
-func cleanSubscriptionStatus(instance client.Object) {
-	subscription, ok := instance.(*subscriptionv1.Subscription)
+func cleanChannelStatus(instance client.Object) {
+	channel, ok := instance.(*channelv1.Channel)
 	if !ok {
-		panic("wrong instance passed to cleanSubscriptionStatus: not a Subscription")
+		panic("wrong instance passed to cleanChannelStatus: not a Channel")
 	}
 
-	subscription.Status = subscriptionv1.SubscriptionStatus{}
+	channel.Status = channelv1.ChannelStatus{}
 }
 
-func areSubscriptionsEqual(instance1, instance2 client.Object) bool {
-	// Note: subscription come out as not equal because of package override field, check if it matters.
-	subscription1, ok1 := instance1.(*subscriptionv1.Subscription)
-	subscription2, ok2 := instance2.(*subscriptionv1.Subscription)
+func areChannelsEqual(instance1, instance2 client.Object) bool {
+	channel1, ok1 := instance1.(*channelv1.Channel)
+	channel2, ok2 := instance2.(*channelv1.Channel)
 
 	if !ok1 || !ok2 {
 		return false
 	}
 
-	specMatch := equality.Semantic.DeepEqual(subscription1.Spec, subscription2.Spec)
+	specMatch := equality.Semantic.DeepEqual(channel1.Spec, channel2.Spec)
 	annotationsMatch := equality.Semantic.DeepEqual(instance1.GetAnnotations(), instance2.GetAnnotations())
 	labelsMatch := equality.Semantic.DeepEqual(instance1.GetLabels(), instance2.GetLabels())
 

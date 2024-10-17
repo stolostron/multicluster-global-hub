@@ -1,4 +1,4 @@
-package syncer
+package syncers
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb/gorm"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/totransport/interval"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/syncers/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )

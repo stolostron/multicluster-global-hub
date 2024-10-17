@@ -1,4 +1,4 @@
-package syncer
+package syncers
 
 import (
 	"context"
@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controllers/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/todatabase/bundle"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/totransport/interval"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/syncers/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"

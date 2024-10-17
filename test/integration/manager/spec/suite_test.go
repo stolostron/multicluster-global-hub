@@ -26,7 +26,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec"
-	specsyncer "github.com/stolostron/multicluster-global-hub/manager/pkg/spec/totransport"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -128,12 +127,12 @@ var _ = BeforeSuite(func() {
 
 	By("Add db to transport")
 	Expect(mgr.Add(consumer)).Should(Succeed())
-	Expect(specsyncer.AddSyncers(mgr, managerConfig, producer)).Should(Succeed())
-	Expect(specsyncer.AddManagedClusterLabelSyncer(mgr,
+	Expect(spec.AddDatabaseSyncers(mgr, managerConfig, producer)).Should(Succeed())
+	Expect(spec.AddManagedClusterLabelDBSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
 	By("Add spec to database")
-	Expect(spec.ToDatabaseControllers(mgr)).Should(Succeed())
+	Expect(spec.AddDBControllers(mgr)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
