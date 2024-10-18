@@ -6,6 +6,7 @@ import (
 
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -86,7 +87,10 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	clusterInfoPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
+			return !equality.Semantic.DeepEqual(e.ObjectNew.(*clusterinfov1beta1.ManagedClusterInfo).Status,
+				e.ObjectOld.(*clusterinfov1beta1.ManagedClusterInfo).Status) ||
+				!equality.Semantic.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) ||
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			// add the annotation to identify the request is creating

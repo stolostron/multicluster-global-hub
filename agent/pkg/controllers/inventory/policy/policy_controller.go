@@ -10,6 +10,7 @@ import (
 
 	kesselv1betarelations "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
@@ -38,7 +39,10 @@ func AddPolicyInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Req
 			if _, exist := e.ObjectOld.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
 				return false
 			}
-			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
+			return !equality.Semantic.DeepEqual(e.ObjectNew.(*policiesv1.Policy).Status,
+				e.ObjectOld.(*policiesv1.Policy).Status) ||
+				!equality.Semantic.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) ||
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			// do not trigger the create event for the replicated policies
