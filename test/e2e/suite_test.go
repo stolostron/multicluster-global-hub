@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/config"
+	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"

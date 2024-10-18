@@ -23,10 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
-	specsycner "github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/db2transport/syncer"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/specsyncer/spec2db"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
@@ -91,17 +90,17 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme: config.GetRuntimeScheme(),
+		Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Get kubeClient")
-	runtimeClient, err = client.New(cfg, client.Options{Scheme: config.GetRuntimeScheme()})
+	runtimeClient, err = client.New(cfg, client.Options{Scheme: configs.GetRuntimeScheme()})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(runtimeClient).NotTo(BeNil())
 
-	managerConfig := &config.ManagerConfig{
-		SyncerConfig: &config.SyncerConfig{
+	managerConfig := &configs.ManagerConfig{
+		SyncerConfig: &configs.SyncerConfig{
 			SpecSyncInterval:              1 * time.Second,
 			DeletedLabelsTrimmingInterval: 2 * time.Second,
 		},
@@ -113,9 +112,9 @@ var _ = BeforeSuite(func() {
 				StatusTopic: "event",
 			},
 		},
-		StatisticsConfig:      &statistics.StatisticsConfig{},
-		NonK8sAPIServerConfig: &nonk8sapi.NonK8sAPIServerConfig{},
-		ElectionConfig:        &commonobjects.LeaderElectionConfig{},
+		StatisticsConfig:    &statistics.StatisticsConfig{},
+		RestAPIServerConfig: &restapis.RestApiServerConfig{},
+		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
 	}
 
 	By("Create consumer/producer")
@@ -128,12 +127,12 @@ var _ = BeforeSuite(func() {
 
 	By("Add db to transport")
 	Expect(mgr.Add(consumer)).Should(Succeed())
-	Expect(specsycner.AddDB2TransportSyncers(mgr, managerConfig, producer)).Should(Succeed())
-	Expect(specsycner.AddManagedClusterLabelSyncer(mgr,
+	Expect(spec.AddDatabaseSyncers(mgr, managerConfig, producer)).Should(Succeed())
+	Expect(spec.AddManagedClusterLabelDBSyncer(mgr,
 		managerConfig.SyncerConfig.DeletedLabelsTrimmingInterval)).Should(Succeed())
 
 	By("Add spec to database")
-	Expect(spec2db.AddSpec2DBControllers(mgr)).Should(Succeed())
+	Expect(spec.AddDBControllers(mgr)).Should(Succeed())
 
 	By("Start the manager")
 	go func() {
