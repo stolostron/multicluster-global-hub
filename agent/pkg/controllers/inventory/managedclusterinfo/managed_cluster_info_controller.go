@@ -48,6 +48,7 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
 			}
+			return ctrl.Result{}, nil
 		}
 	}
 

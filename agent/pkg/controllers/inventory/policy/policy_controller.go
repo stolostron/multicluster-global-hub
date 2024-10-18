@@ -90,6 +90,7 @@ func (p *PolicyInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request)
 				ctx, createK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
 			}
+			return ctrl.Result{}, nil
 		}
 	}
 
