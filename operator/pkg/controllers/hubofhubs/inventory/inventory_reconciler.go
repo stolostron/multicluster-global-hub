@@ -115,41 +115,51 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
 	}
 
+	inventoryRoute := &routev1.Route{}
+	if err := r.GetClient().Get(ctx, types.NamespacedName{
+		Name:      constants.InventoryRouteName,
+		Namespace: mgh.Namespace,
+	}, inventoryRoute); err != nil {
+		return err
+	}
+
 	inventoryObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
-			Image                string
-			Replicas             int32
-			ImagePullSecret      string
-			ImagePullPolicy      string
-			PostgresHost         string
-			PostgresPort         string
-			PostgresUser         string
-			PostgresPassword     string
-			PostgresCACert       string
-			Namespace            string
-			NodeSelector         map[string]string
-			Tolerations          []corev1.Toleration
-			KafkaBootstrapServer string
-			KafkaSSLCAPEM        string
-			KafkaSSLCertPEM      string
-			KafkaSSLKeyPEM       string
+			Image                 string
+			Replicas              int32
+			ImagePullSecret       string
+			ImagePullPolicy       string
+			PostgresHost          string
+			PostgresPort          string
+			PostgresUser          string
+			PostgresPassword      string
+			PostgresCACert        string
+			Namespace             string
+			NodeSelector          map[string]string
+			Tolerations           []corev1.Toleration
+			KafkaBootstrapServer  string
+			KafkaSSLCAPEM         string
+			KafkaSSLCertPEM       string
+			KafkaSSLKeyPEM        string
+			InventoryAPIRouteHost string
 		}{
-			Image:                config.GetImage(config.InventoryImageKey),
-			Replicas:             replicas,
-			ImagePullSecret:      mgh.Spec.ImagePullSecret,
-			ImagePullPolicy:      string(imagePullPolicy),
-			PostgresHost:         postgresURI.Hostname(),
-			PostgresPort:         postgresURI.Port(),
-			PostgresUser:         postgresURI.User.Username(),
-			PostgresPassword:     postgresPassword,
-			PostgresCACert:       base64.StdEncoding.EncodeToString(storageConn.CACert),
-			Namespace:            mgh.Namespace,
-			NodeSelector:         mgh.Spec.NodeSelector,
-			Tolerations:          mgh.Spec.Tolerations,
-			KafkaBootstrapServer: transportConn.BootstrapServer,
-			KafkaSSLCAPEM:        transportConn.CACert,
-			KafkaSSLCertPEM:      transportConn.ClientCert,
-			KafkaSSLKeyPEM:       transportConn.ClientKey,
+			Image:                 config.GetImage(config.InventoryImageKey),
+			Replicas:              replicas,
+			ImagePullSecret:       mgh.Spec.ImagePullSecret,
+			ImagePullPolicy:       string(imagePullPolicy),
+			PostgresHost:          postgresURI.Hostname(),
+			PostgresPort:          postgresURI.Port(),
+			PostgresUser:          postgresURI.User.Username(),
+			PostgresPassword:      postgresPassword,
+			PostgresCACert:        base64.StdEncoding.EncodeToString(storageConn.CACert),
+			Namespace:             mgh.Namespace,
+			NodeSelector:          mgh.Spec.NodeSelector,
+			Tolerations:           mgh.Spec.Tolerations,
+			KafkaBootstrapServer:  transportConn.BootstrapServer,
+			KafkaSSLCAPEM:         transportConn.CACert,
+			KafkaSSLCertPEM:       transportConn.ClientCert,
+			KafkaSSLKeyPEM:        transportConn.ClientKey,
+			InventoryAPIRouteHost: fmt.Sprintf("https://%s", inventoryRoute.Spec.Host),
 		}, nil
 	})
 	if err != nil {
