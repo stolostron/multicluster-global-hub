@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/nonk8sapi/util"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/util"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -65,7 +65,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		db = database.GetGorm()
 
 		By("Set up nonk8s-api server router")
-		router, err = nonk8sapi.SetupRouter(&nonk8sapi.NonK8sAPIServerConfig{
+		router, err = restapis.SetupRouter(&restapis.RestApiServerConfig{
 			ServerBasePath: "/global-hub-api/v1",
 			ClusterAPIURL:  testAuthServer.URL,
 		})

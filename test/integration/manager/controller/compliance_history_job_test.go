@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/cronjob/task"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob/task"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
