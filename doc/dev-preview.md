@@ -151,7 +151,7 @@ To unlock the potential of the global hub agent and integrate ACM into the event
 This feature enables the customers to migrate the managed clusters from one hub to another. There is a new [API](https://github.com/stolostron/multicluster-global-hub/blob/main/operator/api/migration/v1alpha1/managedclustermigration_types.go) introduced for this purpose.
 
 Before migrating the managed clusters from one hub to another, you need to ensure that:
-1. Both clusters have the same ACM version installed.
+1. Both managed hub clusters have the same ACM version installed.
 2. The managed-serviceaccount addon is enabled on both clusters.
 
 Then you can create a managedclustermigration CR in the **global hub namespace** (default to `multicluster-global-hub`). Here is a sample:
@@ -169,4 +169,4 @@ spec:
 
 Once the ManagedClusterMigration CR is created, `demo-managed-b1` will start migrating to the `demo-hub-a` hub cluster. The `demo-managed-b1` should be ready shortly. If you find that the cluster is not ready, it is likely due to `too many CSRs already created on the hub`. You will need to manually delete the CSRs to resolve this issue. This is an known issue in this release.
 
-The `demo-managed-b1` can be detached once its status changes to `Unknown`.
+The `demo-managed-b1` can be detached once its status changes to `Unknown` on the original managed hub cluster.
