@@ -87,8 +87,10 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	clusterInfoPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return !reflect.DeepEqual(GetK8SCluster(e.ObjectNew.(*clusterinfov1beta1.ManagedClusterInfo), ""),
-				GetK8SCluster(e.ObjectOld.(*clusterinfov1beta1.ManagedClusterInfo), ""))
+			return !reflect.DeepEqual(e.ObjectNew.(*clusterinfov1beta1.ManagedClusterInfo).Status,
+				e.ObjectOld.(*clusterinfov1beta1.ManagedClusterInfo).Status) ||
+				!reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) ||
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			// add the annotation to identify the request is creating

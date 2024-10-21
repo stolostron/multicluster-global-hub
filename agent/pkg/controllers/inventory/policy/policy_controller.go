@@ -39,8 +39,10 @@ func AddPolicyInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Req
 			if _, exist := e.ObjectOld.GetLabels()[constants.PolicyEventRootPolicyNameLabelKey]; exist {
 				return false
 			}
-			return !reflect.DeepEqual(generateK8SPolicy(e.ObjectOld.(*policiesv1.Policy), ""),
-				generateK8SPolicy(e.ObjectNew.(*policiesv1.Policy), ""))
+			return !reflect.DeepEqual(e.ObjectNew.(*policiesv1.Policy).Status,
+				e.ObjectOld.(*policiesv1.Policy).Status) ||
+				!reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) ||
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			// do not trigger the create event for the replicated policies
