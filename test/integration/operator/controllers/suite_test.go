@@ -11,7 +11,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package hubofhubs
+package controllers
 
 import (
 	"context"
@@ -37,7 +37,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (
@@ -45,11 +44,11 @@ var (
 	runtimeClient  client.Client
 	runtimeManager ctrl.Manager
 	kubeClient     *kubernetes.Clientset
-	testPostgres   *testpostgres.TestPostgres
-	testEnv        *envtest.Environment
-	ctx            context.Context
-	cancel         context.CancelFunc
-	testNamespace  = "default"
+	// testPostgres   *testpostgres.TestPostgres
+	testEnv       *envtest.Environment
+	ctx           context.Context
+	cancel        context.CancelFunc
+	testNamespace = "default"
 )
 
 func TestControllers(t *testing.T) {
@@ -85,8 +84,8 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	// create test postgres
-	testPostgres, err = testpostgres.NewTestPostgres()
-	Expect(err).NotTo(HaveOccurred())
+	// testPostgres, err = testpostgres.NewTestPostgres()
+	// Expect(err).NotTo(HaveOccurred())
 
 	// add scheme
 	runtimeScheme := config.GetRuntimeScheme()
@@ -125,7 +124,7 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	Expect(testPostgres.Stop()).To(Succeed())
+	//	Expect(testPostgres.Stop()).To(Succeed())
 	By("tearing down the test environment")
 	err := testEnv.Stop()
 	// https://github.com/kubernetes-sigs/controller-runtime/issues/1571

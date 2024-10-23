@@ -185,6 +185,10 @@ func SetKafkaType(ctx context.Context, runtimeClient client.Client, namespace st
 	return nil
 }
 
+func SetBYOKafka(byoKafka bool) {
+	isBYOKafka = byoKafka
+}
+
 func IsBYOKafka() bool {
 	return isBYOKafka
 }

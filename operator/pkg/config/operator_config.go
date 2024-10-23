@@ -1,5 +1,14 @@
 package config
 
+import (
+	"context"
+
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+)
+
 type OperatorConfig struct {
 	MetricsAddress        string
 	ProbeAddress          string
@@ -8,4 +17,21 @@ type OperatorConfig struct {
 	GlobalResourceEnabled bool
 	EnablePprof           bool
 	LogLevel              string
+}
+
+type InitOption struct {
+	ControllerName string
+	KubeClient     kubernetes.Interface
+	OperatorConfig *OperatorConfig
+	IsMghReady     bool
+	Ctx            context.Context
+	Mgr            manager.Manager
+	Mgh            *v1alpha4.MulticlusterGlobalHub
+}
+
+type ComponentStatus struct {
+	Ready  bool
+	Kind   string
+	Reason string
+	Msg    string
 }

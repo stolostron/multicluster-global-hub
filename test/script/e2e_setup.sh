@@ -86,3 +86,6 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 echo -e "${BOLD_GREEN}[Access the Clusters]: export KUBECONFIG=$KUBECONFIG $NC"
 echo -e "${BOLD_GREEN}[ END ] ${NC} $(($(date +%s) - start)) seconds"
+
+echo "sleep 10000"
+sleep 10000
