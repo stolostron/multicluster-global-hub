@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,9 +26,6 @@ type StatusReconciler struct {
 	client.Client
 	namespacedName types.NamespacedName
 }
-
-// desiredComponents list all desired components which include other controller managed components
-var desiredComponents sets.String
 
 func NewStatusReconciler(c client.Client) *StatusReconciler {
 	return &StatusReconciler{
@@ -77,12 +73,7 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	// deleting the mgh
 	if mgh.DeletionTimestamp != nil {
-		return ctrl.Result{}, config.UpdateCondition(ctx, r.Client, r.namespacedName, metav1.Condition{
-			Type:    config.CONDITION_TYPE_GLOBALHUB_READY,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  config.CONDITION_REASON_GLOBALHUB_UNINSTALL,
-			Message: config.CONDITION_MESSAGE_GLOBALHUB_UNINSTALL,
-		}, v1alpha4.GlobalHubUninstalling)
+		return ctrl.Result{}, nil
 	}
 
 	// init components
@@ -126,43 +117,19 @@ func (r *StatusReconciler) updateMghStatus(ctx context.Context,
 		// update components
 		updatedComponents, desiredComponentsStatus := needUpdateComponentsStatus(curmgh.Status.Components, componentsStatus)
 
-		// update phase
-		updatedPhase, desiredPhase := needUpdatePhase(curmgh, desiredComponentsStatus)
-
 		// update data retention condition
 		updatedRetentionCond, desiredConds := updateRetentionConditions(curmgh)
 
-		// update ready condition
-		updatedReadyCond, desiredConds := updateReadyConditions(desiredConds, desiredPhase)
-
-		if !updatedComponents && !updatedPhase && !updatedReadyCond && !updatedRetentionCond {
+		if !updatedComponents && !updatedRetentionCond {
 			return nil
 		}
 
 		curmgh.Status.Components = desiredComponentsStatus
-		curmgh.Status.Phase = desiredPhase
 		curmgh.Status.Conditions = desiredConds
 
 		err = r.Client.Status().Update(ctx, curmgh)
 		return err
 	})
-}
-
-// needUpdatePhase check if the phase need updated. phase is running only when all the components available
-func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub,
-	desiredComponentsStatus map[string]v1alpha4.StatusCondition,
-) (bool, v1alpha4.GlobalHubPhaseType) {
-	phase := v1alpha4.GlobalHubRunning
-	if len(desiredComponentsStatus) != desiredComponents.Len() {
-		phase = v1alpha4.GlobalHubProgressing
-		return phase != mgh.Status.Phase, phase
-	}
-	for _, dcs := range desiredComponentsStatus {
-		if dcs.Type == config.COMPONENTS_AVAILABLE && dcs.Status != config.CONDITION_STATUS_TRUE {
-			phase = v1alpha4.GlobalHubProgressing
-		}
-	}
-	return phase != mgh.Status.Phase, phase
 }
 
 // needUpdateComponentsStatus check if the components status need update
@@ -173,9 +140,7 @@ func needUpdateComponentsStatus(currentComponentsStatus, desiredComponentsStatus
 
 	// copy the desiredComponents status
 	for name, status := range currentComponentsStatus {
-		if desiredComponents.Has(name) {
-			returnedComponentsStatus[name] = status
-		}
+		returnedComponentsStatus[name] = status
 	}
 
 	for name, dcs := range desiredComponentsStatus {
@@ -267,23 +232,6 @@ func setComponentsAvailable(name string, resourceType string,
 	}
 }
 
-func updateReadyConditions(conds []metav1.Condition, phase v1alpha4.GlobalHubPhaseType) (bool, []metav1.Condition) {
-	if phase == v1alpha4.GlobalHubRunning {
-		return config.NeedUpdateConditions(conds, metav1.Condition{
-			Type:    config.CONDITION_TYPE_GLOBALHUB_READY,
-			Status:  config.CONDITION_STATUS_TRUE,
-			Reason:  config.CONDITION_REASON_GLOBALHUB_READY,
-			Message: config.CONDITION_MESSAGE_GLOBALHUB_READY,
-		})
-	}
-	return config.NeedUpdateConditions(conds, metav1.Condition{
-		Type:    config.CONDITION_TYPE_GLOBALHUB_READY,
-		Status:  config.CONDITION_STATUS_FALSE,
-		Reason:  config.CONDITION_REASON_GLOBALHUB_NOT_READY,
-		Message: config.CONDITION_MESSAGE_GLOBALHUB_NOT_READY,
-	})
-}
-
 // dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
 func updateRetentionConditions(mgh *v1alpha4.MulticlusterGlobalHub) (bool, []metav1.Condition) {
 	months, err := utils.ParseRetentionMonth(mgh.Spec.DataLayerSpec.Postgres.Retention)
@@ -330,30 +278,19 @@ func initComponentsStatus(mgh *v1alpha4.MulticlusterGlobalHub) map[string]v1alph
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		},
 	}
-	desiredComponents = sets.NewString(
-		config.COMPONENTS_MANAGER_NAME,
-		config.COMPONENTS_GRAFANA_NAME,
-	)
-
-	if !config.IsBYOPostgres() {
-		desiredComponents.Insert(config.COMPONENTS_POSTGRES_NAME)
+	if config.IsBYOPostgres() {
 		initComponents[config.COMPONENTS_POSTGRES_NAME] = v1alpha4.StatusCondition{
 			Kind:               "StatefulSet",
 			Name:               config.COMPONENTS_POSTGRES_NAME,
 			Type:               config.COMPONENTS_AVAILABLE,
-			Status:             config.CONDITION_STATUS_FALSE,
-			Reason:             config.COMPONENTS_CREATING,
-			Message:            config.MESSAGE_WAIT_CREATED,
+			Status:             config.CONDITION_STATUS_TRUE,
+			Reason:             "UseCustomizedStorage",
+			Message:            "Use customized storage",
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		}
 	}
 
-	if !config.IsBYOKafka() {
-		desiredComponents.Insert(config.COMPONENTS_KAFKA_NAME)
-	}
-
 	if config.WithInventory(mgh) {
-		desiredComponents.Insert(config.COMPONENTS_INVENTORY_API_NAME)
 		initComponents[config.COMPONENTS_INVENTORY_API_NAME] = v1alpha4.StatusCondition{
 			Kind:               "Deployment",
 			Name:               config.COMPONENTS_INVENTORY_API_NAME,

@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/status"
@@ -82,6 +83,12 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 	imageClient, err := imagev1client.NewForConfig(cfg)
 	if err != nil {
 		setupLog.Error(err, "failed to create openshift image client")
+		return 1
+	}
+
+	err = controllers.NewMetaController(mgr, kubeClient, operatorConfig, imageClient).SetupWithManager(mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to create init controller")
 		return 1
 	}
 

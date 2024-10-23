@@ -112,8 +112,8 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 			statusTopic = DEFAULT_SHARED_STATUS_TOPIC
 
 			if err := runtimeClient.Update(ctx, mgh); err != nil {
-				return fmt.Errorf("failed to update the topic from %s to %s",
-					DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC)
+				return fmt.Errorf("failed to update the topic from %s to %s, err:%v",
+					DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC, err)
 			}
 		}
 
@@ -183,6 +183,10 @@ func SetKafkaType(ctx context.Context, runtimeClient client.Client, namespace st
 	transporterProtocol = transport.SecretTransporter
 	isBYOKafka = true
 	return nil
+}
+
+func SetBYOKafka(byoKafka bool) {
+	isBYOKafka = byoKafka
 }
 
 func IsBYOKafka() bool {

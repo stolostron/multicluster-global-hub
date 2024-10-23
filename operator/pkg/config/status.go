@@ -18,14 +18,19 @@ package config
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
 
@@ -38,7 +43,11 @@ const (
 const (
 	COMPONENTS_AVAILABLE = "Available"
 	COMPONENTS_CREATING  = "ComponentsCreating"
+	COMPONENTS_NOT_READY = "ComponentsNotReady"
+	RECONCILE_ERROR      = "ReconcileError"
 	MESSAGE_WAIT_CREATED = "Waiting for the resource to be created"
+	MESSAGE_WAIT_READY   = "Waiting component ready"
+	COMPONENTS_DEPLOYED  = "Component %s have been deployed"
 )
 
 const (
@@ -90,12 +99,25 @@ const (
 )
 
 const (
+	CONDITION_TYPE_ACM_READY        = "ACMReady"
+	CONDITION_REASON_ACM_READY      = "ACMReady"
+	CONDITION_REASON_ACM_NOT_READY  = "ACMNotReady"
+	CONDITION_MESSAGE_ACM_READY     = "The mch is running"
+	CONDITION_MESSAGE_ACM_NOT_READY = "The mch is not running, waiting for mch running"
+)
+
+const (
 	CONDITION_TYPE_BACKUP             = "BackupLabelAdded"
 	CONDITION_REASON_BACKUP           = "BackupLabelAdded"
 	CONDITION_MESSAGE_BACKUP          = "Added backup label to the global hub resources"
 	CONDITION_REASON_BACKUP_DISABLED  = "BackupDisabled"
 	CONDITION_MESSAGE_BACKUP_DISABLED = "Backup is disabled in RHACM"
 )
+
+type IsComponentReady func(ctx context.Context,
+	c client.Client,
+	namespace string,
+	componentName string) (ComponentStatus, error)
 
 // SetConditionFunc is function type that receives the concrete condition method
 type SetConditionFunc func(ctx context.Context, c client.Client,
@@ -206,4 +228,189 @@ func NeedUpdateConditions(conditions []metav1.Condition,
 		conditions = append(conditions, cond)
 	}
 	return true, conditions
+}
+
+func UpdateMghComponentStatus(ctx context.Context, err error, c client.Client,
+	mgh *globalhubv1alpha4.MulticlusterGlobalHub, name string,
+	isReady IsComponentReady,
+) error {
+	var desiredComponent v1alpha4.StatusCondition
+	var reason string
+	var msg string
+	if mgh.Status.Components == nil {
+		mgh.Status.Components = make(map[string]globalhubv1alpha4.StatusCondition)
+	}
+	var errMsg string
+	if err != nil {
+		errMsg = err.Error()
+	}
+	cs, err := isReady(ctx, c, mgh.Namespace, name)
+	if err != nil {
+		errMsg = fmt.Sprintf("failed to get %s deployment, err: %v", name, err.Error())
+	}
+
+	if errMsg != "" {
+		desiredComponent = v1alpha4.StatusCondition{
+			Kind:    cs.Kind,
+			Name:    name,
+			Type:    COMPONENTS_AVAILABLE,
+			Status:  CONDITION_STATUS_FALSE,
+			Reason:  RECONCILE_ERROR,
+			Message: errMsg,
+		}
+		return updatMgh(ctx, desiredComponent, c, name)
+	}
+	if cs.Reason != "" {
+		reason = cs.Reason
+	}
+	if cs.Msg != "" {
+		msg = cs.Msg
+	}
+
+	if cs.Ready {
+		if reason == "" {
+			reason = COMPONENTS_AVAILABLE
+		}
+		if msg == "" {
+			msg = fmt.Sprintf(COMPONENTS_DEPLOYED, name)
+		}
+
+		desiredComponent = v1alpha4.StatusCondition{
+			Kind:    cs.Kind,
+			Name:    name,
+			Type:    COMPONENTS_AVAILABLE,
+			Status:  CONDITION_STATUS_TRUE,
+			Reason:  reason,
+			Message: msg,
+		}
+		return updatMgh(ctx, desiredComponent, c, name)
+	}
+
+	// Not ready
+	if reason == "" {
+		reason = MINIMUM_REPLICAS_UNAVAILABLE
+	}
+	if msg == "" {
+		msg = MESSAGE_WAIT_READY
+	}
+
+	desiredComponent = v1alpha4.StatusCondition{
+		Kind:    cs.Kind,
+		Name:    name,
+		Type:    COMPONENTS_AVAILABLE,
+		Status:  CONDITION_STATUS_FALSE,
+		Reason:  reason,
+		Message: msg,
+	}
+	return updatMgh(ctx, desiredComponent, c, name)
+}
+
+func updatMgh(ctx context.Context,
+	desiredComponent v1alpha4.StatusCondition,
+	c client.Client, name string,
+) error {
+	now := metav1.Time{Time: time.Now()}
+	desiredComponent.LastTransitionTime = now
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		curmgh := &v1alpha4.MulticlusterGlobalHub{}
+		err := c.Get(ctx, GetMGHNamespacedName(), curmgh)
+		if err != nil {
+			return err
+		}
+		if curmgh.Status.Components == nil {
+			curmgh.Status.Components = map[string]globalhubv1alpha4.StatusCondition{
+				name: desiredComponent,
+			}
+		} else {
+			originComponent := curmgh.Status.Components[name]
+			originComponent.LastTransitionTime = now
+
+			if reflect.DeepEqual(desiredComponent, originComponent) {
+				return nil
+			}
+		}
+
+		curmgh.Status.Components[name] = desiredComponent
+		return c.Status().Update(ctx, curmgh)
+	})
+}
+
+func IfDeploymentAvailable(ctx context.Context,
+	c client.Client, namespace, deployName string,
+) (ComponentStatus, error) {
+	deployment := &appsv1.Deployment{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      deployName,
+		Namespace: namespace,
+	}, deployment)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return ComponentStatus{
+				Ready:  false,
+				Kind:   "Deployment",
+				Reason: COMPONENTS_NOT_READY,
+				Msg:    fmt.Sprintf("waiting deployment %s created", deployName),
+			}, nil
+		}
+		klog.Errorf("failed to get deployment, err: %v", err)
+		return ComponentStatus{
+			Ready:  false,
+			Kind:   "Deployment",
+			Reason: COMPONENTS_NOT_READY,
+			Msg:    fmt.Sprintf("failed to get deployment, err: %v", err),
+		}, err
+	}
+	if deployment.Status.AvailableReplicas == *deployment.Spec.Replicas {
+		return ComponentStatus{
+			Ready:  true,
+			Kind:   "Deployment",
+			Reason: MINIMUM_REPLICAS_AVAILABLE,
+			Msg:    fmt.Sprintf(COMPONENTS_DEPLOYED, deployName),
+		}, nil
+	}
+	return ComponentStatus{
+		Ready:  false,
+		Kind:   "Deployment",
+		Reason: MINIMUM_REPLICAS_UNAVAILABLE,
+		Msg:    fmt.Sprintf("Component %s has been deployed but is not ready", deployName),
+	}, nil
+}
+
+func IfStatefulSetAvailable(ctx context.Context, c client.Client, namespace, name string) (ComponentStatus, error) {
+	statefulset := &appsv1.StatefulSet{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, statefulset)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return ComponentStatus{
+				Ready:  false,
+				Kind:   "StatefulSet",
+				Reason: COMPONENTS_NOT_READY,
+				Msg:    fmt.Sprintf("waiting statefulset %s created", name),
+			}, nil
+		}
+		klog.Errorf("failed to get statefulset, err: %v", err)
+		return ComponentStatus{
+			Ready:  false,
+			Kind:   "StatefulSet",
+			Reason: COMPONENTS_NOT_READY,
+			Msg:    fmt.Sprintf("failed to get statefulset, err: %v", err),
+		}, err
+	}
+	if statefulset.Status.AvailableReplicas == *statefulset.Spec.Replicas {
+		return ComponentStatus{
+			Ready:  true,
+			Kind:   "StatefulSet",
+			Reason: MINIMUM_REPLICAS_AVAILABLE,
+			Msg:    fmt.Sprintf(COMPONENTS_DEPLOYED, name),
+		}, nil
+	}
+	return ComponentStatus{
+		Ready:  false,
+		Kind:   "StatefulSet",
+		Reason: MINIMUM_REPLICAS_UNAVAILABLE,
+		Msg:    fmt.Sprintf("Component %s has been deployed but is not ready", name),
+	}, nil
 }

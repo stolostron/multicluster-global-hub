@@ -340,11 +340,8 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context, mgh *v1alpha4.Multiclus
 	if c == nil {
 		return nil
 	}
-	err := SetTransportConfig(ctx, c, mgh)
-	if err != nil {
-		return err
-	}
-	err = SetPostgresType(ctx, c, mgh.GetNamespace())
+
+	err := SetPostgresType(ctx, c, mgh.GetNamespace())
 	if err != nil {
 		return err
 	}
