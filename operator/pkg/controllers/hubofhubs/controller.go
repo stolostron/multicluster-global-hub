@@ -33,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +45,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -62,9 +60,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/webhook"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -102,7 +100,6 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
 		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
 		storageReconciler:   storage.NewStorageReconciler(mgr, operatorConfig.GlobalResourceEnabled),
-		transportReconciler: transporter.NewTransportReconciler(mgr),
 		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
 		webhookReconciler:   webhook.NewWebhookReconciler(mgr),
 		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
@@ -613,9 +610,7 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-	if mgh == nil {
-		return ctrl.Result{}, nil
-	}
+
 	var reconcileErr error
 	var needRequeue bool
 	// update status condition
@@ -643,16 +638,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if config.IsPaused(mgh) {
 		r.log.Info("mgh controller is paused, nothing more to do")
 		return ctrl.Result{}, nil
-	}
-
-	// add finalizer to the mgh
-	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
-		if reconcileErr = r.client.Update(ctx, mgh, &client.UpdateOptions{}); reconcileErr != nil {
-			if errors.IsConflict(reconcileErr) {
-				r.log.Info("conflict when adding finalizer to mgh instance", "error", reconcileErr)
-				return ctrl.Result{Requeue: true}, nil
-			}
-		}
 	}
 
 	config.SetImportClusterInHosted(mgh)
@@ -741,9 +726,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // 3. wait for kafka and postgres ready
 func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	if err := r.transportReconciler.Reconcile(ctx, mgh); err != nil {
-		return true, err
-	}
 	needRequeue, err := r.storageReconciler.Reconcile(ctx, mgh)
 	if err != nil {
 		return true, err

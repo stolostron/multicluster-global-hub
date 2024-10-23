@@ -24,7 +24,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -36,15 +36,10 @@ type AddonInstaller struct {
 
 func (r *AddonInstaller) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
-	if err != nil || mgh == nil {
+	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if mgh.DeletionTimestamp != nil {
-		return ctrl.Result{}, nil
-	}
-
-	if config.IsPaused(mgh) {
-		r.Log.Info("multiclusterglobalhub addon installer is paused, nothing more to do")
+	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 
