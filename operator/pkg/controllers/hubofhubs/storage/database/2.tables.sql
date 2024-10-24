@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS status.leaf_hub_heartbeats (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_idx ON status.leaf_hub_heartbeats (leaf_hub_name);
 CREATE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_timestamp_idx ON status.leaf_hub_heartbeats(last_timestamp);
+CREATE INDEX IF NOT EXISTS leaf_hub_heartbeats_leaf_hub_status_idx ON status.leaf_hub_heartbeats(status);
 
 CREATE TABLE IF NOT EXISTS status.managed_clusters (
     leaf_hub_name character varying(254) NOT NULL,
@@ -47,7 +48,7 @@ CREATE INDEX IF NOT EXISTS leafhub_cluster_idx ON status.managed_clusters (leaf_
 
 CREATE TABLE IF NOT EXISTS status.leaf_hubs (
     leaf_hub_name character varying(254) NOT NULL,
-    cluster_id uuid NOT NULL,
+    cluster_id uuid NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
     payload jsonb NOT NULL,
     console_url text generated always as (payload ->> 'consoleURL') stored,
     grafana_url text generated always as (payload ->> 'grafanaURL') stored,
