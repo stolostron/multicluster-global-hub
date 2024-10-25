@@ -140,7 +140,7 @@ func RegisterTimeFilter(key string) {
 func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
 	val, found := cm.Data[cacheKey(key)]
 	if !found {
-		log.Info("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
+		log.Infow("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
 		return nil
 	}
 

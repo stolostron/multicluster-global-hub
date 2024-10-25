@@ -63,8 +63,7 @@ func (s *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Unstruct
 			if !s.enforceHohRbac { // if rbac not enforced, create missing namespaces.
 				if err := utils.CreateNamespaceIfNotExist(ctx, k8sClient,
 					unstructuredObject.GetNamespace()); err != nil {
-					s.log.Error(err, "failed to create namespace",
-						"namespace", unstructuredObject.GetNamespace())
+					s.log.Error(err, "failed to create namespace", unstructuredObject.GetNamespace())
 					return
 				}
 			}
@@ -113,11 +112,13 @@ func (s *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstructured.
 
 			// syncer.deleteObject(ctx, k8sClient, obj.(*unstructured.Unstructured))
 			if deleted, err := utils.DeleteObject(ctx, k8sClient, unstructuredObject); err != nil {
-				s.log.Error(err, "failed to delete object", "name",
-					unstructuredObject.GetName(), "namespace",
-					unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
+				s.log.Error("failed to delete object",
+					"error", err,
+					"name", unstructuredObject.GetName(),
+					"namespace", unstructuredObject.GetNamespace(),
+					"kind", unstructuredObject.GetKind())
 			} else if deleted {
-				s.log.Info("object deleted", "name", unstructuredObject.GetName(),
+				s.log.Infow("object deleted", "name", unstructuredObject.GetName(),
 					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 			}
 		}))

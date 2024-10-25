@@ -30,7 +30,6 @@ const (
 
 // leaseUpdater updates lease with given name and namespace in certain period
 type leaseUpdater struct {
-	log                  *zap.SugaredLogger
 	client               client.Client
 	leaseName            string
 	leaseNamespace       string
@@ -68,7 +67,6 @@ func AddLeaseController(mgr ctrl.Manager, addonNamespace, addonName string) erro
 	}
 
 	err = mgr.Add(&leaseUpdater{
-		log:                  logger.ZapLogger("lease-updater"),
 		client:               c,
 		leaseName:            addonName,
 		leaseNamespace:       addonNamespace,
@@ -137,7 +135,7 @@ func (r *leaseUpdater) updateLease(ctx context.Context) error {
 }
 
 func (r *leaseUpdater) reconcile(ctx context.Context) {
-	r.log.Debug("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
+	log.Debugw("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
 	for _, f := range r.healthCheckFuncs {
 		if !f() {
 			// if a healthy check fails, do not update lease.
@@ -146,10 +144,10 @@ func (r *leaseUpdater) reconcile(ctx context.Context) {
 	}
 	// Update lease on managed cluster
 	if err := r.updateLease(ctx); err != nil {
-		r.log.Error(err, "failed to update lease", "namespace", r.leaseNamespace, "name", r.leaseName)
+		log.Error(err, "failed to update lease", "namespace", r.leaseNamespace, "name", r.leaseName)
 	}
 
-	r.log.Debug("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
+	log.Debugw("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
 }
 
 // checkAddonPodFunc checks whether the agent pod is running

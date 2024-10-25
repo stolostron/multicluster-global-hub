@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"go.uber.org/zap"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -29,11 +28,13 @@ const (
 	stackRoxCentralCRDName = "centrals.platform.stackrox.io"
 )
 
-var initCtrlStarted = false
+var (
+	initCtrlStarted = false
+	log             = logger.DefaultZapLogger()
+)
 
 type initController struct {
 	mgr             ctrl.Manager
-	log             *zap.SugaredLogger
 	restConfig      *rest.Config
 	agentConfig     *configs.AgentConfig
 	transportClient transport.TransportClient
@@ -51,7 +52,7 @@ func (c *initController) Reconcile(ctx context.Context, request ctrl.Request) (c
 }
 
 func (c *initController) addACMController(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	c.log.Info("init controller", "NamespacedName:", request.NamespacedName)
+	log.Info("NamespacedName: ", request.NamespacedName)
 
 	// status syncers or inventory
 	var err error
@@ -94,7 +95,7 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 }
 
 func (c *initController) addStackRoxCentrals() (result ctrl.Result, err error) {
-	c.log.Info("Detected the presence of the StackRox central CRD")
+	log.Info("Detected the presence of the StackRox central CRD")
 
 	// Create the object that polls the StackRox API and publishes the message, then add it to the controller
 	// manager so that it will be started automatically.
@@ -112,14 +113,14 @@ func (c *initController) addStackRoxCentrals() (result ctrl.Result, err error) {
 	if err != nil {
 		return
 	}
-	c.log.Info("Added StackRox syncer")
+	log.Info("Added StackRox syncer")
 
 	// Create the controller that watches the StackRox instances and add it to the controller manager.
 	err = security.AddStacRoxController(c.mgr, syncer)
 	if err != nil {
 		return
 	}
-	c.log.Info("Added StackRox controller")
+	log.Info("Added StackRox controller")
 
 	return
 }
@@ -157,7 +158,6 @@ func AddInitController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *c
 			restConfig:      restConfig,
 			agentConfig:     agentConfig,
 			transportClient: transportClient,
-			log:             logger.ZapLogger("init-controller"),
 		}); err != nil {
 		return err
 	}
