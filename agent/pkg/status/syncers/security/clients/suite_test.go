@@ -5,8 +5,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"go.uber.org/zap"
+
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 func TestClients(t *testing.T) {

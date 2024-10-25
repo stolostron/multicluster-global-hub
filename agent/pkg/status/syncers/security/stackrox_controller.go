@@ -4,13 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cr "sigs.k8s.io/controller-runtime"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
+
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type stackRoxController struct {

@@ -48,7 +48,7 @@ const (
 
 func main() {
 	log := logger.DefaultZapLogger()
-	defer log.Desugar().Sync() // ensure it's invoked only once within the main process
+	defer func() { _ = log.Desugar().Sync() }() // ensure it's invoked only once within the main process
 	utils.RuntimeInfo()
 
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
@@ -97,11 +97,11 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		agentConfig.TransportConfig,
 	).SetupWithManager(mgr)
 	if err != nil {
-		fmt.Errorf("failed to add transport to manager: %w", err)
+		return fmt.Errorf("failed to add transport to manager: %w", err)
 	}
 
 	if err := mgr.Start(ctx); err != nil {
-		fmt.Errorf("failed to start the controller manager: %w", err)
+		return fmt.Errorf("failed to start the controller manager: %w", err)
 	}
 	return nil
 }

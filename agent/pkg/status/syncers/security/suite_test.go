@@ -5,10 +5,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 func TestSecurity(t *testing.T) {

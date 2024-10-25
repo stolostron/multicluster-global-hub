@@ -5,7 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +17,8 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var leaseCtrlStarted bool
