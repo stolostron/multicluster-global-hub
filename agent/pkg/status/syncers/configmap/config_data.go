@@ -29,6 +29,7 @@ const (
 
 	AgentAggregationKey  AgentConfigKey = "aggregationLevel"
 	EnableLocalPolicyKey AgentConfigKey = "enableLocalPolicies"
+	AgentLogLevelKey     AgentConfigKey = "logLevel"
 )
 
 type AgentConfigValue string

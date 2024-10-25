@@ -12,3 +12,4 @@ data:
   hubClusterHeartbeat: {{.AgentHeartbeatInteval}}
   aggregationLevel: {{ .AggregationLevel }}
   enableLocalPolicies: "{{ .EnableLocalPolicies }}"
+  logLevel: {{.LogLevel}}

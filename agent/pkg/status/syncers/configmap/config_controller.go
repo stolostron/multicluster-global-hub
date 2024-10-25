@@ -68,6 +68,11 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	c.setAgentConfig(agentConfigMap, AgentAggregationKey)
 	c.setAgentConfig(agentConfigMap, EnableLocalPolicyKey)
 
+	logLevel := agentConfigMap.Data[string(AgentLogLevelKey)]
+	if logLevel != "" {
+		logger.SetLogLevel(logger.LogLevel(logLevel))
+	}
+
 	reqLogger.Debug("Reconciliation complete.")
 	return ctrl.Result{}, nil
 }
