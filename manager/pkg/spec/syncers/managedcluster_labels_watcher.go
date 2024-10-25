@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/syncers/interval"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -26,7 +27,7 @@ const (
 // AddManagedClusterLabelsSyncer adds managedClusterLabelsStatusWatcher to the manager.
 func AddManagedClusterLabelsSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterval time.Duration) error {
 	if err := mgr.Add(&managedClusterLabelsStatusWatcher{
-		log:            ctrl.Log.WithName("managed-cluster-labels-syncer"),
+		log:            logger.ZapLogger("managed-cluster-labels-syncer"),
 		specDB:         gorm.NewGormSpecDB(),
 		intervalPolicy: interval.NewExponentialBackoffPolicy(deletedLabelsTrimmingInterval),
 	}); err != nil {
@@ -39,7 +40,7 @@ func AddManagedClusterLabelsSyncer(mgr ctrl.Manager, deletedLabelsTrimmingInterv
 // managedClusterLabelsStatusWatcher watches the status managed cluster table to update labels
 // table where required (e.g., trim deleted_label_keys).
 type managedClusterLabelsStatusWatcher struct {
-	log            logr.Logger
+	log            *zap.SugaredLogger
 	specDB         specdb.SpecDB
 	intervalPolicy interval.IntervalPolicy
 }
@@ -153,7 +154,7 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 				continue
 			}
 
-			watcher.log.V(2).Info("update label table by managed cluster table successfully", "leafHub",
+			watcher.log.Debugw("update label table by managed cluster table successfully", "leafHub",
 				managedClusterLabelsSpecBundle.LeafHubName,
 				"managedCluster", managedClusterLabelsSpec.ClusterName, "version", managedClusterLabelsSpec.Version)
 		}

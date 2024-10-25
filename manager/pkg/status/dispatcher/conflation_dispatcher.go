@@ -5,22 +5,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/workerpool"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
 // NewConflationDispatcher creates a new instance of Dispatcher.
-func NewConflationDispatcher(log logr.Logger, conflationReadyQueue *conflator.ConflationReadyQueue,
+func NewConflationDispatcher(conflationReadyQueue *conflator.ConflationReadyQueue,
 	dbWorkerPool *workerpool.DBWorkerPool,
 ) *ConflationDispatcher {
 	return &ConflationDispatcher{
-		log:                  log,
+		log:                  logger.DefaultZapLogger(),
 		conflationReadyQueue: conflationReadyQueue,
 		dbWorkerPool:         dbWorkerPool,
 	}
@@ -40,7 +41,7 @@ func AddConflationDispatcher(mgr ctrl.Manager, conflationManager *conflator.Conf
 
 	// conflation dispatcher -> work pool
 	conflationDispatcher := &ConflationDispatcher{
-		log:                  ctrl.Log.WithName("conflation-dispatcher"),
+		log:                  logger.DefaultZapLogger(),
 		conflationReadyQueue: conflationManager.GetReadyQueue(),
 		dbWorkerPool:         dbWorkerPool,
 	}
@@ -53,7 +54,7 @@ func AddConflationDispatcher(mgr ctrl.Manager, conflationManager *conflator.Conf
 // ConflationDispatcher abstracts the dispatching of db jobs to db workers. this is done by reading ready CU
 // and getting from them a ready to process bundles.
 type ConflationDispatcher struct {
-	log                  logr.Logger
+	log                  *zap.SugaredLogger
 	conflationReadyQueue *conflator.ConflationReadyQueue
 	dbWorkerPool         *workerpool.DBWorkerPool
 }

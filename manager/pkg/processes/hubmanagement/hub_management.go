@@ -10,7 +10,7 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -35,7 +36,7 @@ var hubMgrStarted = false
 
 // manage the leaf hub lifecycle based on the heartbeat
 type HubManagement struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	producer      transport.Producer
 	probeDuration time.Duration
 	activeTimeout time.Duration
@@ -43,7 +44,7 @@ type HubManagement struct {
 
 func NewHubManagement(producer transport.Producer, probeDuration, activeTimeout time.Duration) *HubManagement {
 	return &HubManagement{
-		log:           ctrl.Log.WithName("hub-management"),
+		log:           logger.ZapLogger("hub-management"),
 		producer:      producer,
 		probeDuration: probeDuration,
 		activeTimeout: activeTimeout,
@@ -69,7 +70,7 @@ func (h *HubManagement) Start(ctx context.Context) error {
 	}
 
 	go func() {
-		h.log.Info("hub management status switch frequency", "interval", h.probeDuration)
+		h.log.Infow("hub management status switch frequency", "interval", h.probeDuration)
 		ticker := time.NewTicker(h.probeDuration)
 		for {
 			select {
@@ -114,7 +115,7 @@ func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeart
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
 				if e := h.cleanup(hub.Name); e != nil {
-					h.log.Info("cleanup the hub resource failed, retrying...", "name", hub.Name, "err", e.Error())
+					h.log.Infow("cleanup the hub resource failed, retrying...", "name", hub.Name, "err", e.Error())
 					return false, nil
 				}
 				return true, nil

@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm/clause"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -24,14 +24,14 @@ func positionKey(topic string, partition int32) string {
 }
 
 type ConflationCommitter struct {
-	log                  logr.Logger
+	log                  *zap.SugaredLogger
 	retrieveMetadataFunc MetadataFunc
 	committedPositions   map[string]int64
 }
 
 func NewKafkaConflationCommitter(metadataFunc MetadataFunc) *ConflationCommitter {
 	return &ConflationCommitter{
-		log:                  ctrl.Log.WithName("kafka-conflation-committer"),
+		log:                  logger.DefaultZapLogger(),
 		retrieveMetadataFunc: metadataFunc,
 		committedPositions:   map[string]int64{},
 	}
@@ -48,7 +48,7 @@ func (k *ConflationCommitter) Start(ctx context.Context) error {
 			case <-ticker.C: // wait for next time interval
 				err := k.commit()
 				if err != nil {
-					k.log.Info("failed to commit offset", "error", err)
+					k.log.Infow("failed to commit offset", "error", err)
 				}
 				// ticker.Reset()
 			case <-ctx.Done():
@@ -74,7 +74,7 @@ func (k *ConflationCommitter) commit() error {
 			continue
 		}
 
-		k.log.V(2).Info("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
+		k.log.Warnw("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
 		payload, err := json.Marshal(transport.EventPosition{
 			OwnerIdentity: transPosition.OwnerIdentity,
 			Topic:         transPosition.Topic,

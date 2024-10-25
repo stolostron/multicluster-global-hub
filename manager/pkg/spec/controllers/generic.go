@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,7 +40,7 @@ func GlobalResourcePredicate() predicate.Predicate {
 
 type genericSpecController struct {
 	client         client.Client
-	log            logr.Logger
+	log            *zap.SugaredLogger
 	specDB         specdb.SpecDB
 	tableName      string
 	finalizerName  string
@@ -50,7 +50,7 @@ type genericSpecController struct {
 }
 
 func (r *genericSpecController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := r.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := r.log.With("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	// add/remove finalizer from the resource
 	instance := r.createInstance()
@@ -97,7 +97,7 @@ func (r *genericSpecController) Reconcile(ctx context.Context, request ctrl.Requ
 }
 
 func (r *genericSpecController) removeFinalizerAndDelete(ctx context.Context, instance client.Object,
-	log logr.Logger,
+	log *zap.SugaredLogger,
 ) error {
 	if !controllerutil.ContainsFinalizer(instance, r.finalizerName) {
 		return nil
@@ -120,7 +120,7 @@ func (r *genericSpecController) removeFinalizerAndDelete(ctx context.Context, in
 	return nil
 }
 
-func (r *genericSpecController) addFinalizer(ctx context.Context, instance client.Object, log logr.Logger) error {
+func (r *genericSpecController) addFinalizer(ctx context.Context, instance client.Object, log *zap.SugaredLogger) error {
 	if controllerutil.ContainsFinalizer(instance, r.finalizerName) {
 		return nil
 	}
@@ -136,19 +136,19 @@ func (r *genericSpecController) addFinalizer(ctx context.Context, instance clien
 }
 
 func (r *genericSpecController) insertInstanceToDatabase(ctx context.Context, instance client.Object,
-	instanceUID string, log logr.Logger,
+	instanceUID string, log *zap.SugaredLogger,
 ) (client.Object, error) {
 	instanceInTheDatabase := r.createInstance()
 	err := r.specDB.QuerySpecObject(ctx, r.tableName, instanceUID, &instanceInTheDatabase)
 
 	if errors.Is(err, sql.ErrNoRows) {
-		log.V(2).Info("The instance with the current UID does not exist in the database, inserting...")
+		log.Debug("The instance with the current UID does not exist in the database, inserting...")
 
 		if err := r.specDB.InsertSpecObject(ctx, r.tableName, instanceUID, &instance); err != nil {
 			return nil, err
 		}
 
-		log.V(2).Info("The instance has been inserted into the database")
+		log.Debug("The instance has been inserted into the database")
 
 		return instance, nil // the instance in the database is identical to the instance we just inserted
 	}

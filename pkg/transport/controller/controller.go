@@ -8,13 +8,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -22,6 +22,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var log = logger.DefaultZapLogger()
 
 type TransportCallback func(transportClient transport.TransportClient) error
 
@@ -169,7 +171,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		}
 		go func() {
 			if err = receiver.Start(ctx); err != nil {
-				klog.Errorf("failed to start the consumser: %v", err)
+				log.Errorf("failed to start the consumser: %v", err)
 			}
 		}()
 		c.transportClient.consumer = receiver
@@ -178,7 +180,6 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 			return fmt.Errorf("failed to reconnect the consumer: %w", err)
 		}
 	}
-	klog.Info("the transport(kafka) consumer is created/updated")
 	return nil
 }
 

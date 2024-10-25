@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/dependency"
@@ -17,10 +16,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type localPolicyCompleteHandler struct {
-	log            logr.Logger
+	log            *zap.SugaredLogger
 	eventType      string
 	dependencyType string
 	eventSyncMode  enum.EventSyncMode
@@ -31,7 +31,7 @@ func RegisterLocalPolicyCompleteHandler(conflationManager *conflator.ConflationM
 	eventType := string(enum.LocalCompleteComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &localPolicyCompleteHandler{
-		log:            ctrl.Log.WithName(logName),
+		log:            logger.ZapLogger(logName),
 		eventType:      eventType,
 		dependencyType: string(enum.LocalComplianceType),
 		eventSyncMode:  enum.CompleteStateMode,
@@ -52,10 +52,10 @@ func (h *localPolicyCompleteHandler) handleEventWrapper(ctx context.Context, evt
 	return handleCompleteCompliance(h.log, ctx, evt)
 }
 
-func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Event) error {
+func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	log.V(2).Info("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	db := database.GetGorm()
 
@@ -174,6 +174,6 @@ func handleCompleteCompliance(log logr.Logger, ctx context.Context, evt *cloudev
 		return fmt.Errorf("failed deleting compliances from local complainces - %w", err)
 	}
 
-	log.V(2).Info("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }

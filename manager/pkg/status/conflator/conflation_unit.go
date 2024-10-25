@@ -5,16 +5,16 @@ import (
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	log                  logr.Logger
+	log                  *zap.SugaredLogger
 	ElementPriorityQueue []ConflationElement
 	eventTypeToPriority  map[string]ConflationPriority
 	readyQueue           *ConflationReadyQueue
@@ -28,7 +28,7 @@ func newConflationUnit(name string, readyQueue *ConflationReadyQueue,
 	registrations map[string]*ConflationRegistration, statistics *statistics.Statistics,
 ) *ConflationUnit {
 	conflationUnit := &ConflationUnit{
-		log:                  ctrl.Log.WithName(name),
+		log:                  logger.ZapLogger(name),
 		ElementPriorityQueue: make([]ConflationElement, len(registrations)),
 		eventTypeToPriority:  make(map[string]ConflationPriority),
 		readyQueue:           readyQueue,
@@ -60,7 +60,7 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	priority := cu.eventTypeToPriority[event.Type()]
 	conflationElement := cu.ElementPriorityQueue[priority]
 	if conflationElement == nil {
-		cu.log.Info("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
+		cu.log.Infow("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
 		return
 	}
 

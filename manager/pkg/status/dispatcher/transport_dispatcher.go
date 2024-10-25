@@ -4,18 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // Get message from transport, convert it to bundle and forward it to conflation manager.
 type TransportDispatcher struct {
-	log               logr.Logger
+	log               *zap.SugaredLogger
 	consumer          transport.Consumer
 	conflationManager *conflator.ConflationManager
 	statistic         *statistics.Statistics
@@ -25,7 +26,7 @@ func AddTransportDispatcher(mgr ctrl.Manager, consumer transport.Consumer, manag
 	conflationManager *conflator.ConflationManager, stats *statistics.Statistics,
 ) error {
 	transportDispatcher := &TransportDispatcher{
-		log:               ctrl.Log.WithName("conflation-dispatcher"),
+		log:               logger.DefaultZapLogger(),
 		consumer:          consumer,
 		conflationManager: conflationManager,
 		statistic:         stats,
@@ -55,7 +56,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			return
 		case evt := <-d.consumer.EventChan():
 			d.statistic.ReceivedEvent(evt)
-			d.log.V(2).Info("forward received event to conflation", "event type", evt.Type())
+			d.log.Debugw("forward received event to conflation", "event type", evt.Type())
 			d.conflationManager.Insert(evt)
 		}
 	}

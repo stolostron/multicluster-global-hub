@@ -7,17 +7,17 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 )
 
 type localPolicySpecHandler struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -36,7 +36,7 @@ func RegisterLocalPolicySpecHandler(conflationManager *conflator.ConflationManag
 	eventType := string(enum.LocalPolicySpecType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &localPolicySpecHandler{
-		log:           ctrl.Log.WithName(logName),
+		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.LocalPolicySpecPriority,
@@ -56,7 +56,7 @@ func RegisterLocalPolicySpecHandler(conflationManager *conflator.ConflationManag
 func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	db := database.GetGorm()
 	policyIdToVersionMapFromDB, err := getPolicyIdToVersionMap(db, leafHubName)
@@ -128,7 +128,7 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 		return fmt.Errorf("failed deleting records from local_spec.policies - %w", err)
 	}
 
-	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 func AddPolicyController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
@@ -22,7 +23,7 @@ func AddPolicyController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 		Complete(&genericSpecController{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
-			log:            ctrl.Log.WithName("policies-spec-syncer"),
+			log:            logger.ZapLogger("policies-spec-syncer"),
 			tableName:      "policies",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &policyv1.Policy{} },

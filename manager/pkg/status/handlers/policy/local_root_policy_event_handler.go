@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm/clause"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
@@ -18,10 +17,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type localRootPolicyEventHandler struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -31,7 +31,7 @@ func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.Conflation
 	eventType := string(enum.LocalRootPolicyEventType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &localRootPolicyEventHandler{
-		log:           ctrl.Log.WithName(logName),
+		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.DeltaStateMode,
 		eventPriority: conflator.LocalEventRootPolicyPriority,
@@ -47,7 +47,7 @@ func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.Conflation
 func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	data := []event.RootPolicyEvent{}
 	if err := evt.DataAs(&data); err != nil {
@@ -91,6 +91,6 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	if err != nil {
 		return fmt.Errorf("failed to handle the event to database %v", err)
 	}
-	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }

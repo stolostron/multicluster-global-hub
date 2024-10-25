@@ -5,20 +5,20 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm/clause"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	dbmodels "github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	wiremodels "github.com/stolostron/multicluster-global-hub/pkg/wire/models"
 )
 
 type securityAlertCountsHandler struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -28,7 +28,7 @@ func RegisterSecurityAlertCountsHandler(conflationManager *conflator.ConflationM
 	eventType := string(enum.SecurityAlertCountsType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &securityAlertCountsHandler{
-		log:           ctrl.Log.WithName(logName),
+		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.SecurityAlertCountsPriority,
@@ -44,7 +44,7 @@ func RegisterSecurityAlertCountsHandler(conflationManager *conflator.ConflationM
 func (h *securityAlertCountsHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	h.log.V(2).Info("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	// Extract the data from the event:
 	wireModel := &wiremodels.SecurityAlertCounts{}
@@ -74,6 +74,6 @@ func (h *securityAlertCountsHandler) handleEvent(ctx context.Context, evt *cloud
 		return err
 	}
 
-	h.log.V(2).Info("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }

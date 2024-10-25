@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm/clause"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
@@ -17,10 +16,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type hubClusterInfoHandler struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -30,7 +30,7 @@ func RegsiterHubClusterInfoHandler(conflationManager *conflator.ConflationManage
 	eventType := string(enum.HubClusterInfoType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	hubClusterInfo := &hubClusterInfoHandler{
-		log:           ctrl.Log.WithName(logName),
+		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.HubClusterInfoPriority,
@@ -47,7 +47,7 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 	evt *cloudevents.Event,
 ) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	h.log.V(2).Info("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	leafHubName := evt.Source()
 
@@ -107,6 +107,6 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 		return err
 	}
 
-	h.log.V(2).Info("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }

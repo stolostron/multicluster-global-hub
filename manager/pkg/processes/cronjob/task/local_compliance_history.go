@@ -6,18 +6,18 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var (
 	LocalComplianceTaskName = "local-compliance-history"
 	startTime               time.Time
-	log                     logr.Logger
+	log                     *zap.SugaredLogger
 	TimeFormat              = "2006-01-02 15:04:05"
 	DateFormat              = "2006-01-02"
 	batchSize               = int64(1000)
@@ -32,8 +32,8 @@ var (
 
 func LocalComplianceHistory(ctx context.Context, job gocron.Job) {
 	startTime = time.Now()
-	log = ctrl.Log.WithName(LocalComplianceTaskName).WithValues("date", startTime.Format(DateFormat))
-	log.V(2).Info("start running", "currentRun", job.LastRun().Format(TimeFormat))
+	log = logger.ZapLogger(LocalComplianceTaskName).With("date", startTime.Format(DateFormat))
+	log.Infow("start running", "currentRun", job.LastRun().Format(TimeFormat))
 
 	var err error
 	defer func() {
@@ -50,7 +50,7 @@ func LocalComplianceHistory(ctx context.Context, job gocron.Job) {
 		return
 	}
 
-	log.V(2).Info("finish running", "nextRun", job.NextRun().Format(TimeFormat))
+	log.Infow("finish running", "nextRun", job.NextRun().Format(TimeFormat))
 }
 
 func snapshotLocalComplianceToHistory(ctx context.Context) (err error) {
@@ -60,7 +60,7 @@ func snapshotLocalComplianceToHistory(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	log.V(2).Info("The number of compliance need to be synchronized", "count", totalCount)
+	log.Infow("The number of compliance need to be synchronized", "count", totalCount)
 
 	insertedCount := int64(0)
 	for offset := int64(0); offset < totalCount; offset += batchSize {
@@ -70,7 +70,7 @@ func snapshotLocalComplianceToHistory(ctx context.Context) (err error) {
 		}
 		insertedCount += batchInsertedCount
 	}
-	log.V(2).Info("The number of compliance has been synchronized", "insertedCount", insertedCount)
+	log.Infow("The number of compliance has been synchronized", "insertedCount", insertedCount)
 	return nil
 }
 
@@ -121,7 +121,7 @@ func batchSync(ctx context.Context, totalCount, offset int64) (int64, error) {
 				return false, nil
 			}
 			batchInsert = ret.RowsAffected
-			log.V(2).Info("sync compliance to history", "batch", batchSize, "batchInsert", batchInsert, "offset", offset)
+			log.Infow("sync compliance to history", "batch", batchSize, "batchInsert", batchInsert, "offset", offset)
 			return true, nil
 		})
 	return batchInsert, err

@@ -9,13 +9,15 @@ import (
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 // NewAdmissionHandler is to handle the admission webhook for placementrule and placement
 func NewAdmissionHandler(s *runtime.Scheme) admission.Handler {
@@ -29,7 +31,7 @@ type admissionHandler struct {
 }
 
 func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	klog.V(2).Infof("admission webhook is called, name:%v, namespace:%v, kind:%v, operation:%v", req.Name,
+	log.Infof("admission webhook is called, name:%v, namespace:%v, kind:%v, operation:%v", req.Name,
 		req.Namespace, req.Kind.Kind, req.Operation)
 	switch req.Kind.Kind {
 	case "Placement":

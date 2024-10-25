@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var (
@@ -40,7 +40,7 @@ var (
 		"history.local_compliance",
 		"event.managed_clusters",
 	}
-	retentionLog = ctrl.Log.WithName(RetentionTaskName)
+	retentionLog = logger.ZapLogger(RetentionTaskName)
 )
 
 func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {

@@ -4,17 +4,17 @@ import (
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
 // ConflationManager implements conflation units management.
 type ConflationManager struct {
-	log             logr.Logger
+	log             *zap.SugaredLogger
 	conflationUnits map[string]*ConflationUnit // map from leaf hub to conflation unit
 	// requireInitialDependencyChecks bool
 	registrations map[string]*ConflationRegistration
@@ -29,7 +29,7 @@ func NewConflationManager(statistics *statistics.Statistics) *ConflationManager 
 	conflationUnitsReadyQueue := NewConflationReadyQueue(statistics)
 
 	return &ConflationManager{
-		log:             ctrl.Log.WithName("conflation-manager"),
+		log:             logger.ZapLogger("conflation-manager"),
 		conflationUnits: make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
 		// requireInitialDependencyChecks: requireInitialDependencyChecks,
 		registrations: make(map[string]*ConflationRegistration),
@@ -49,7 +49,7 @@ func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 func (cm *ConflationManager) Insert(evt *cloudevents.Event) {
 	// validate the event
 	if _, ok := cm.registrations[evt.Type()]; !ok {
-		cm.log.Info("event type hasn't been registered", "type", evt.Type())
+		cm.log.Infow("event type hasn't been registered", "type", evt.Type())
 		return
 	}
 	// metadata
