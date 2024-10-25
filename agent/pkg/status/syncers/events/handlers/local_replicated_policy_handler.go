@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
@@ -16,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -36,7 +36,9 @@ import (
 //	      "eventName": "local-policy-namespace.policy-limitrange.17b098ec20742ecc",
 //	      "eventNamespace": "kind-hub1-cluster1",
 //	      "message": "Policy local-policy-namespace.policy-limitrange status was updated in cluster
+//
 // message": "Policy local-policy-namespace.policy-limitrange status was updatednamespace kind-hub1-cluster1",
+//
 //	      "reason": "PolicyStatusSync",
 //	      "count": 2,
 //	      "source": {
@@ -53,6 +55,7 @@ import (
 //	  "kafkamessagekey": "kind-hub1",
 //	  "kafkaoffset": "13"
 //	}
+var log = logger.DefaultZapLogger()
 
 func NewReplicatedPolicyEventEmitter(eventType enum.EventType) interfaces.Emitter {
 	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
@@ -121,14 +124,14 @@ func (h *localReplicatedPolicyEventHandler) Update(obj client.Object) bool {
 	// get policy
 	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
 	if err != nil {
-		klog.Errorf("failed to get involved policy event: %s/%s, involved: %s/%s, error: %v", evt.Namespace, evt.Name,
+		log.Errorf("failed to get involved policy event: %s/%s, involved: %s/%s, error: %v", evt.Namespace, evt.Name,
 			evt.InvolvedObject.Namespace, evt.InvolvedObject.Name, err)
 		return false
 	}
 
 	rootPolicy, clusterID, clusterName, err := policyhandler.GetRootPolicyAndClusterInfo(h.ctx, policy, h.runtimeClient)
 	if err != nil {
-		klog.Errorf("failed to get rootPolicy/clusterID/clusterName from the replicatedPolicy: %v", err)
+		log.Errorf("failed to get rootPolicy/clusterID/clusterName from the replicatedPolicy: %v", err)
 		return false
 	}
 	// update

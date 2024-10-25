@@ -27,13 +27,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
@@ -46,63 +46,64 @@ const (
 	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
 )
 
-var setupLog = ctrl.Log.WithName("setup")
-
 func main() {
+	log := logger.DefaultZapLogger()
+	defer log.Desugar().Sync() // ensure it's invoked only once within the main process
+	utils.RuntimeInfo()
+
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
 	// otherwise kubeconfig will not be passed to agent main process
 	agentConfig := parseFlags()
-	utils.PrintVersion(setupLog)
 
 	restConfig := ctrl.GetConfigOrDie()
-
 	restConfig.QPS = agentConfig.QPS
 	restConfig.Burst = agentConfig.Burst
 
+	if err := doMain(ctrl.SetupSignalHandler(), agentConfig, restConfig); err != nil {
+		log.Fatalf("failed to run the agent: %v", err)
+	}
+}
+
+func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *rest.Config) error {
 	c, err := client.New(restConfig, client.Options{Scheme: configs.GetRuntimeScheme()})
 	if err != nil {
-		setupLog.Error(err, "failed to int controller runtime client")
-		os.Exit(1)
+		return fmt.Errorf("failed to init the runtime client: %w", err)
 	}
 
 	if agentConfig.Terminating {
-		os.Exit(doTermination(ctrl.SetupSignalHandler(), c))
+		if err := jobs.NewPruneFinalizer(ctx, c).Run(); err != nil {
+			return fmt.Errorf("failed to prune the resources finalizer: %w", err)
+		}
+		return nil
 	}
 
-	os.Exit(doMain(ctrl.SetupSignalHandler(), restConfig, agentConfig, c))
-}
-
-func doTermination(ctx context.Context, c client.Client) int {
-	if err := jobs.NewPruneFinalizer(ctx, c).Run(); err != nil {
-		setupLog.Error(err, "failed to prune resources finalizer")
-		return 1
-	}
-	return 0
-}
-
-// function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain(ctx context.Context, restConfig *rest.Config, agentConfig *configs.AgentConfig, c client.Client) int {
+	// start the controller manager
 	if err := completeConfig(ctx, c, agentConfig); err != nil {
-		setupLog.Error(err, "failed to get managed hub configuration from command line flags")
-		return 1
+		return fmt.Errorf("failed to complete configuration: %w", err)
 	}
-
 	if agentConfig.EnablePprof {
 		go utils.StartDefaultPprofServer()
 	}
-
+	// init manager
 	mgr, err := createManager(restConfig, agentConfig)
 	if err != nil {
-		setupLog.Error(err, "failed to create manager")
-		return 1
+		return fmt.Errorf("failed to create manager: %w", err)
+	}
+	// add transport ctrl to manager
+	err = controller.NewTransportCtrl(
+		agentConfig.PodNamespace,
+		constants.GHTransportConfigSecret,
+		transportCallback(mgr, agentConfig),
+		agentConfig.TransportConfig,
+	).SetupWithManager(mgr)
+	if err != nil {
+		fmt.Errorf("failed to add transport to manager: %w", err)
 	}
 
-	setupLog.Info("starting the agent controller manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "manager exited non-zero")
-		return 1
+		fmt.Errorf("failed to start the controller manager: %w", err)
 	}
-	return 0
+	return nil
 }
 
 func parseFlags() *configs.AgentConfig {
@@ -117,12 +118,7 @@ func parseFlags() *configs.AgentConfig {
 		},
 	}
 
-	// add flags for logger
-	opts := utils.CtrlZapOptions()
-	defaultFlags := flag.CommandLine
-	opts.BindFlags(defaultFlags)
-	pflag.CommandLine.AddGoFlagSet(defaultFlags)
-
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
 	pflag.StringVar(&agentConfig.PodNamespace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
@@ -154,9 +150,6 @@ func parseFlags() *configs.AgentConfig {
 	pflag.DurationVar(&agentConfig.StackroxPollInterval, "stackrox-poll-interval", 30*time.Minute,
 		"The interval between each StackRox polling")
 	pflag.Parse()
-
-	// set zap logger
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	return agentConfig
 }
@@ -235,30 +228,16 @@ func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
-	// Need this controller to update the value of clusterclaim hub.open-cluster-management.io
-
-	err = controller.NewTransportCtrl(
-		agentConfig.PodNamespace,
-		constants.GHTransportConfigSecret,
-		transportCallback(mgr, agentConfig),
-		agentConfig.TransportConfig,
-	).SetupWithManager(mgr)
-	if err != nil {
-		return nil, err
-	}
-	setupLog.Info("add the transport controller to agent")
 	return mgr, nil
 }
 
 // if the transport consumer and producer is ready then the func will be invoked by the transport controller
-func transportCallback(mgr ctrl.Manager, agentConfig *configs.AgentConfig,
-) controller.TransportCallback {
+func transportCallback(mgr ctrl.Manager, agentConfig *configs.AgentConfig) controller.TransportCallback {
 	return func(transportClient transport.TransportClient) error {
 		if err := controllers.AddInitController(mgr, mgr.GetConfig(), agentConfig, transportClient); err != nil {
 			return fmt.Errorf("failed to add crd controller: %w", err)
 		}
-
-		setupLog.Info("add the agent controllers to manager")
+		logger.DefaultZapLogger().Info("add the init controller to manager")
 		return nil
 	}
 }

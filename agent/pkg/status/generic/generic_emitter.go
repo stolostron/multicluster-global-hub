@@ -35,7 +35,7 @@ func NewGenericEmitter(
 	emitter.applyOptions(opts...)
 	emitter.lastSentVersion = *emitter.currentVersion
 	// support resync
-	specsyncers.EnableResyc(string(eventType), emitter.currentVersion)
+	specsyncers.EnableResync(string(eventType), emitter.currentVersion)
 	return emitter
 }
 

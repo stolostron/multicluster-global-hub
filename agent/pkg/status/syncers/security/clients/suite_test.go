@@ -3,10 +3,10 @@ package clients
 import (
 	"testing"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
+	"go.uber.org/zap"
 )
 
 func TestClients(t *testing.T) {
@@ -14,9 +14,9 @@ func TestClients(t *testing.T) {
 	RunSpecs(t, "Clients Suite")
 }
 
-var logger logr.Logger
+var logger *zap.SugaredLogger
 
 var _ = BeforeSuite(func() {
 	// Configure logging to write to the Ginkgo writer:
-	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+	logger = zaplogger.ZapLogger("client-test")
 })

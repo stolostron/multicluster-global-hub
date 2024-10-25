@@ -3,18 +3,19 @@ package spec
 import (
 	"context"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var addToMgr = false
 
 type genericDispatcher struct {
-	log         logr.Logger
+	log         *zap.SugaredLogger
 	consumer    transport.Consumer
 	agentConfig configs.AgentConfig
 	syncers     map[string]Syncer
@@ -26,7 +27,7 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 		return nil, nil
 	}
 	dispatcher := &genericDispatcher{
-		log:         ctrl.Log.WithName("spec-bundle-dispatcher"),
+		log:         logger.ZapLogger("spec-dispatcher"),
 		consumer:    consumer,
 		agentConfig: config,
 		syncers:     make(map[string]Syncer),
@@ -41,7 +42,7 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 
 func (d *genericDispatcher) RegisterSyncer(messageID string, syncer Syncer) {
 	d.syncers[messageID] = syncer
-	d.log.Info("dispatch syncer is registered", "messageID", messageID)
+	d.log.Infow("dispatch syncer is registered", "messageID", messageID)
 }
 
 // Start function starts bundles spec syncer.
@@ -65,30 +66,30 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 			// if destination is explicitly specified and does not match, drop bundle
 			clusterNameVal, err := evt.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)
 			if err != nil {
-				d.log.Info("dropping bundle due to error in getting cluster name", "error", err)
+				d.log.Infow("event dropped due to cluster name retrieval error", "error", err)
 				continue
 			}
 			clusterName, ok := clusterNameVal.(string)
 			if !ok {
-				d.log.Info("dropping bundle due to invalid cluster name", "clusterName", clusterNameVal)
+				d.log.Infow("event dropped due to invalid cluster name", "clusterName", clusterNameVal)
 				continue
 			}
 			if clusterName != transport.Broadcast && clusterName != d.agentConfig.LeafHubName {
-				d.log.Info("dropping bundle due to cluster name mismatch", "clusterName", clusterName)
+				// d.log.Infow("event dropped due to cluster name mismatch", "clusterName", clusterName)
 				continue
 			}
 			syncer, found := d.syncers[evt.Type()]
 			if !found {
-				d.log.V(2).Info("dispatching to the default generic syncer", "eventType", evt.Type())
+				d.log.Debugw("dispatching to the default generic syncer", "eventType", evt.Type())
 				syncer = d.syncers[constants.GenericSpecMsgKey]
 			}
 			if syncer == nil || evt == nil {
-				d.log.Info("the incompatible event will disappear once the upgrade is completed: nil syncer or evt",
+				d.log.Warnw("nil syncer or event: incompatible event will be resolved after upgrade.",
 					"syncer", syncer, "event", evt)
 				continue
 			}
 			if err := syncer.Sync(ctx, evt.Data()); err != nil {
-				d.log.Error(err, "submit to syncer error", "eventType", evt.Type())
+				d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 			}
 		}
 	}

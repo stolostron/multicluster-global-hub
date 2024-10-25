@@ -7,7 +7,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -86,7 +85,7 @@ func (h *localRootPolicyHandler) Update(obj client.Object) bool {
 	// get policy
 	policy, err := getInvolvePolicy(h.ctx, h.runtimeClient, evt)
 	if err != nil {
-		klog.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
+		log.Error(err, "failed to get involved policy", "event", evt.Namespace+"/"+evt.Name,
 			"policy", evt.InvolvedObject.Namespace+"/"+evt.InvolvedObject.Name)
 		return false
 	}
@@ -144,7 +143,7 @@ func policyEventPredicate(ctx context.Context, name string, obj client.Object, c
 	// get policy
 	policy, err := getInvolvePolicy(ctx, c, evt)
 	if err != nil {
-		klog.Errorf("failed to get involved policy event: %s/%s, error: %v", evt.Namespace, evt.Name, err)
+		log.Errorf("failed to get involved policy event: %s/%s, error: %v", evt.Namespace, evt.Name, err)
 		return nil, false
 	}
 	return policy, true

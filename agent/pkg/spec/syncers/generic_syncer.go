@@ -5,21 +5,21 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/rbac"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/workers"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // genericBundleSyncer syncs objects spec from received bundles.
 type genericBundleSyncer struct {
-	log                          logr.Logger
+	log                          *zap.SugaredLogger
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	enforceHohRbac               bool
@@ -27,7 +27,7 @@ type genericBundleSyncer struct {
 
 func NewGenericSyncer(workerPool *workers.WorkerPool, config *configs.AgentConfig) *genericBundleSyncer {
 	return &genericBundleSyncer{
-		log:                          ctrl.Log.WithName("generic-bundle-syncer"),
+		log:                          logger.ZapLogger("generic-bundle-syncer"),
 		workerPool:                   workerPool,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
 		enforceHohRbac:               config.SpecEnforceHohRbac,
@@ -47,23 +47,23 @@ func (syncer *genericBundleSyncer) Sync(ctx context.Context, payload []byte) err
 	return nil
 }
 
-func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Unstructured) {
+func (s *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Unstructured) {
 	for _, bundleObject := range bundleObjects {
-		if !syncer.enforceHohRbac { // if rbac not enforced, use controller's identity.
-			bundleObject = syncer.anonymize(bundleObject) // anonymize removes the user identity from the obj if exists
+		if !s.enforceHohRbac { // if rbac not enforced, use controller's identity.
+			bundleObject = s.anonymize(bundleObject) // anonymize removes the user identity from the obj if exists
 		}
 
-		syncer.workerPool.Submit(workers.NewJob(bundleObject, func(ctx context.Context,
+		s.workerPool.Submit(workers.NewJob(bundleObject, func(ctx context.Context,
 			k8sClient client.Client, obj interface{},
 		) {
-			defer syncer.bundleProcessingWaitingGroup.Done()
+			defer s.bundleProcessingWaitingGroup.Done()
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
-			if !syncer.enforceHohRbac { // if rbac not enforced, create missing namespaces.
+			if !s.enforceHohRbac { // if rbac not enforced, create missing namespaces.
 				if err := utils.CreateNamespaceIfNotExist(ctx, k8sClient,
 					unstructuredObject.GetNamespace()); err != nil {
-					syncer.log.Error(err, "failed to create namespace",
+					s.log.Error(err, "failed to create namespace",
 						"namespace", unstructuredObject.GetNamespace())
 					return
 				}
@@ -88,36 +88,36 @@ func (syncer *genericBundleSyncer) syncObjects(bundleObjects []*unstructured.Uns
 			delete(unstructuredObject.Object, "status")
 			err := utils.UpdateObject(ctx, k8sClient, unstructuredObject)
 			if err != nil {
-				syncer.log.Error(err, "failed to update object", "name", unstructuredObject.GetName(),
+				s.log.Error(err, "failed to update object", "name", unstructuredObject.GetName(),
 					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 				return
 			}
-			syncer.log.V(2).Info("object updated", "name", unstructuredObject.GetName(), "namespace",
+			s.log.Debug("object updated", "name", unstructuredObject.GetName(), "namespace",
 				unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 		}))
 	}
 }
 
-func (syncer *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstructured.Unstructured) {
+func (s *genericBundleSyncer) syncDeletedObjects(deletedObjects []*unstructured.Unstructured) {
 	for _, deletedBundleObj := range deletedObjects {
-		if !syncer.enforceHohRbac { // if rbac not enforced, use controller's identity.
-			deletedBundleObj = syncer.anonymize(deletedBundleObj) // anonymize removes the user identity from the obj if exists
+		if !s.enforceHohRbac { // if rbac not enforced, use controller's identity.
+			deletedBundleObj = s.anonymize(deletedBundleObj) // anonymize removes the user identity from the obj if exists
 		}
 
-		syncer.workerPool.Submit(workers.NewJob(deletedBundleObj, func(ctx context.Context,
+		s.workerPool.Submit(workers.NewJob(deletedBundleObj, func(ctx context.Context,
 			k8sClient client.Client, obj interface{},
 		) {
-			defer syncer.bundleProcessingWaitingGroup.Done()
+			defer s.bundleProcessingWaitingGroup.Done()
 
 			unstructuredObject, _ := obj.(*unstructured.Unstructured)
 
 			// syncer.deleteObject(ctx, k8sClient, obj.(*unstructured.Unstructured))
 			if deleted, err := utils.DeleteObject(ctx, k8sClient, unstructuredObject); err != nil {
-				syncer.log.Error(err, "failed to delete object", "name",
+				s.log.Error(err, "failed to delete object", "name",
 					unstructuredObject.GetName(), "namespace",
 					unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 			} else if deleted {
-				syncer.log.Info("object deleted", "name", unstructuredObject.GetName(),
+				s.log.Info("object deleted", "name", unstructuredObject.GetName(),
 					"namespace", unstructuredObject.GetNamespace(), "kind", unstructuredObject.GetKind())
 			}
 		}))

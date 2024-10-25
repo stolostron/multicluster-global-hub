@@ -9,7 +9,7 @@ import (
 	"time"
 
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,12 +18,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type multiObjectSyncer struct {
-	log               logr.Logger
+	log               *zap.SugaredLogger
 	runtimeClient     client.Client
 	producer          transport.Producer
 	objectControllers []ControllerHandler
@@ -46,7 +47,7 @@ func LaunchMultiObjectSyncer(name string, mgr ctrl.Manager, objectControllers []
 	producer transport.Producer, intervalFunc func() time.Duration, emitter interfaces.Emitter,
 ) error {
 	syncer := &multiObjectSyncer{
-		log:           ctrl.Log.WithName(name),
+		log:           logger.ZapLogger(name),
 		leafHubName:   configs.GetLeafHubName(),
 		runtimeClient: mgr.GetClient(),
 
@@ -126,7 +127,7 @@ const REQUEUE_PERIOD = 5 * time.Second
 
 // single object controller to update the event
 type objectController struct {
-	log              logr.Logger
+	log              *zap.SugaredLogger
 	client           client.Client
 	finalizerName    string
 	emitter          interfaces.Emitter
@@ -141,7 +142,7 @@ func AddObjectController(mgr ctrl.Manager, objectCtrl ControllerHandler, emitter
 ) error {
 	object := objectCtrl.Instance()
 	controller := &objectController{
-		log:              ctrl.Log.WithName(fmt.Sprintf("status.%s", object.GetObjectKind())),
+		log:              logger.ZapLogger(fmt.Sprintf("status.%s", object.GetObjectKind())),
 		client:           mgr.GetClient(),
 		finalizerName:    constants.GlobalHubCleanupFinalizer,
 		emitter:          emitter,
@@ -157,7 +158,7 @@ func AddObjectController(mgr ctrl.Manager, objectCtrl ControllerHandler, emitter
 }
 
 func (c *objectController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := c.log.WithValues("Namespace", request.Namespace, "Name", request.Name)
+	reqLogger := c.log.With("Namespace", request.Namespace, "Name", request.Name)
 	object := c.objectController.Instance()
 
 	if err := c.client.Get(ctx, request.NamespacedName, object); apierrors.IsNotFound(err) {
@@ -183,7 +184,7 @@ func (c *objectController) Reconcile(ctx context.Context, request ctrl.Request) 
 			return ctrl.Result{Requeue: true, RequeueAfter: REQUEUE_PERIOD}, err
 		}
 	}
-	reqLogger.V(2).Info("Reconciliation complete.")
+	reqLogger.Debug("Reconciliation complete.")
 	return ctrl.Result{}, nil
 }
 

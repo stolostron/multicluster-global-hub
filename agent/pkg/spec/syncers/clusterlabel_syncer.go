@@ -8,15 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/workers"
 	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -27,7 +27,7 @@ const (
 
 // managedClusterLabelsBundleSyncer syncs managed clusters metadata from received bundles.
 type managedClusterLabelsBundleSyncer struct {
-	log                          logr.Logger
+	log                          *zap.SugaredLogger
 	latestBundle                 *specbundle.ManagedClusterLabelsSpecBundle
 	managedClusterToTimestampMap map[string]*time.Time
 	workerPool                   *workers.WorkerPool
@@ -37,7 +37,7 @@ type managedClusterLabelsBundleSyncer struct {
 
 func NewManagedClusterLabelSyncer(workers *workers.WorkerPool) *managedClusterLabelsBundleSyncer {
 	return &managedClusterLabelsBundleSyncer{
-		log:                          ctrl.Log.WithName("managed-clusters-labels-syncer"),
+		log:                          logger.ZapLogger("managed-clusters-labels-syncer"),
 		latestBundle:                 nil,
 		managedClusterToTimestampMap: make(map[string]*time.Time),
 		workerPool:                   workers,
@@ -80,30 +80,30 @@ func (syncer *managedClusterLabelsBundleSyncer) handleBundle() {
 	syncer.bundleProcessingWaitingGroup.Wait()
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
+func (s *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 	labelsSpec *specbundle.ManagedClusterLabelsSpec, lastProcessedTimestampPtr *time.Time,
 ) {
-	syncer.workerPool.Submit(workers.NewJob(labelsSpec, func(ctx context.Context,
+	s.workerPool.Submit(workers.NewJob(labelsSpec, func(ctx context.Context,
 		k8sClient client.Client, obj interface{},
 	) {
-		defer syncer.bundleProcessingWaitingGroup.Done()
+		defer s.bundleProcessingWaitingGroup.Done()
 
-		syncer.log.V(2).Info("update the label bundle to ManagedCluster CR...")
+		s.log.Debug("update the label bundle to ManagedCluster CR...")
 		labelsSpec, ok := obj.(*specbundle.ManagedClusterLabelsSpec)
 		if !ok {
-			syncer.log.Error(errors.New("job obj is not a ManagedClusterLabelsSpec type"), "invald obj type")
+			s.log.Error(errors.New("job obj is not a ManagedClusterLabelsSpec type"), "invalid obj type")
 		}
 
 		managedCluster := &clusterv1.ManagedCluster{}
 		if err := k8sClient.Get(ctx, client.ObjectKey{
 			Name: labelsSpec.ClusterName,
 		}, managedCluster); k8serrors.IsNotFound(err) {
-			syncer.log.Info("managed cluster ignored - not found", "name", labelsSpec.ClusterName)
-			syncer.managedClusterMarkUpdated(labelsSpec, lastProcessedTimestampPtr) // if not found then irrelevant
+			s.log.Info("managed cluster ignored - not found", "name", labelsSpec.ClusterName)
+			s.managedClusterMarkUpdated(labelsSpec, lastProcessedTimestampPtr) // if not found then irrelevant
 
 			return
 		} else if err != nil {
-			syncer.log.Error(err, "failed to get managed cluster", "name", labelsSpec.ClusterName)
+			s.log.Error(err, "failed to get managed cluster", "name", labelsSpec.ClusterName)
 			return
 		}
 
@@ -121,19 +121,19 @@ func (syncer *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 			delete(managedCluster.Labels, labelKey)
 		}
 
-		if err := syncer.updateManagedFieldEntry(managedCluster, labelsSpec); err != nil {
-			syncer.log.Error(err, "failed to update managed cluster", "name", labelsSpec.ClusterName)
+		if err := s.updateManagedFieldEntry(managedCluster, labelsSpec); err != nil {
+			s.log.Error(err, "failed to update managed cluster", "name", labelsSpec.ClusterName)
 			return
 		}
 
 		// update CR with replace API: fails if CR was modified since client.get
 		if err := k8sClient.Update(ctx, managedCluster, &client.UpdateOptions{FieldManager: hohFieldManager}); err != nil {
-			syncer.log.Error(err, "failed to update managed cluster", "name", labelsSpec.ClusterName)
+			s.log.Error(err, "failed to update managed cluster", "name", labelsSpec.ClusterName)
 			return
 		}
 
-		syncer.log.V(2).Info("managed cluster updated", "name", labelsSpec.ClusterName)
-		syncer.managedClusterMarkUpdated(labelsSpec, lastProcessedTimestampPtr)
+		s.log.Debug("managed cluster updated", "name", labelsSpec.ClusterName)
+		s.managedClusterMarkUpdated(labelsSpec, lastProcessedTimestampPtr)
 	}))
 }
 

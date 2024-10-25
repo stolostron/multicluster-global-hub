@@ -19,7 +19,7 @@ import (
 var _ = Describe("ResyncBundle", func() {
 	It("resync the bundle", func() {
 		// register the resync type
-		syncers.EnableResyc(string(enum.HubClusterInfoType), version.NewVersion())
+		syncers.EnableResync(string(enum.HubClusterInfoType), version.NewVersion())
 		hubInfoVersion := syncers.GetEventVersion(string(enum.HubClusterInfoType))
 		Expect(hubInfoVersion.Value).To(Equal(uint64(0)))
 

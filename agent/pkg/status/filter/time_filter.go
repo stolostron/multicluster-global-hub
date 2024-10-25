@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -23,6 +23,7 @@ var (
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
 	deltaDuration          = 3 * time.Second
+	log                    = logger.ZapLogger("filter")
 )
 
 // CacheTime cache the latest time
@@ -78,12 +79,12 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 		for {
 			select {
 			case <-ctx.Done():
-				klog.Info("cancel context")
+				log.Info("cancel context")
 				return
 			case <-ticker.C:
 				err := periodicSync(ctx, c, namespace)
 				if err != nil {
-					klog.Errorf("failed to sync the configmap %v", err)
+					log.Errorf("failed to sync the configmap %v", err)
 				}
 			}
 		}
@@ -138,7 +139,7 @@ func RegisterTimeFilter(key string) {
 func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
 	val, found := cm.Data[cacheKey(key)]
 	if !found {
-		klog.Info("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
+		log.Info("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
 		return nil
 	}
 
