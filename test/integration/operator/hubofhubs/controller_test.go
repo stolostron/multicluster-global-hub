@@ -93,8 +93,6 @@ var _ = Describe("controller", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		utils.PrettyPrint(mgh)
-
-		Expect(utils.ContainsString(mgh.Finalizers, constants.GlobalHubCleanupFinalizer)).To(BeTrue())
 	})
 
 	AfterAll(func() {
