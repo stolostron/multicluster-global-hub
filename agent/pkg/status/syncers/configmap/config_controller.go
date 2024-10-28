@@ -31,7 +31,7 @@ type hubOfHubsConfigController struct {
 func AddConfigMapController(mgr ctrl.Manager, agentConfig *configs.AgentConfig) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client: mgr.GetClient(),
-		log:    logger.ZapLogger("multicluster-global-hub-agent-config"),
+		log:    logger.DefaultZapLogger(),
 	}
 
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {

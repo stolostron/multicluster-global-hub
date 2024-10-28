@@ -27,7 +27,7 @@ type genericBundleSyncer struct {
 
 func NewGenericSyncer(workerPool *workers.WorkerPool, config *configs.AgentConfig) *genericBundleSyncer {
 	return &genericBundleSyncer{
-		log:                          logger.ZapLogger("generic-bundle-syncer"),
+		log:                          logger.DefaultZapLogger(),
 		workerPool:                   workerPool,
 		bundleProcessingWaitingGroup: sync.WaitGroup{},
 		enforceHohRbac:               config.SpecEnforceHohRbac,

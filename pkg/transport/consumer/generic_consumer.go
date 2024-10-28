@@ -15,11 +15,11 @@ import (
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
@@ -27,7 +27,7 @@ import (
 var transportID string
 
 type GenericConsumer struct {
-	log                  logr.Logger
+	log                  *zap.SugaredLogger
 	assembler            *messageAssembler
 	eventChan            chan *cloudevents.Event
 	enableDatabaseOffset bool
@@ -53,7 +53,7 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
 	opts ...GenericConsumeOption,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
-		log:                  ctrl.Log.WithName(fmt.Sprintf("%s-consumer", tranConfig.TransportType)),
+		log:                  logger.ZapLogger(fmt.Sprintf("%s-consumer", tranConfig.TransportType)),
 		eventChan:            make(chan *cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: tranConfig.EnableDatabaseOffset,
@@ -153,7 +153,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 	c.consumerCtx, c.consumerCancel = context.WithCancel(receiveContext)
 	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		c.log.V(2).Info("received message", "event.Source", event.Source(), "event.Type", event.Type())
+		c.log.Debugw("received message", "event.Source", event.Source(), "event.Type", event.Type())
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {

@@ -36,7 +36,7 @@ func AddWorkerPoolToMgr(mgr ctrl.Manager, size int, config *rest.Config) (*Worke
 
 	// for impersonation workers we have additional workers, one per impersonated user.
 	workerPool := &WorkerPool{
-		log:                        logger.ZapLogger("workers-pool"),
+		log:                        logger.DefaultZapLogger(),
 		kubeConfig:                 config,
 		jobsQueue:                  make(chan *Job, size), // each worker can handle at most one job at a time
 		poolSize:                   size,

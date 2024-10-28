@@ -27,7 +27,7 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 		return nil, nil
 	}
 	dispatcher := &genericDispatcher{
-		log:         logger.ZapLogger("spec-dispatcher"),
+		log:         logger.DefaultZapLogger(),
 		consumer:    consumer,
 		agentConfig: config,
 		syncers:     make(map[string]Syncer),

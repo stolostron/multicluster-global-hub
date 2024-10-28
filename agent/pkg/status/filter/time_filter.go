@@ -24,7 +24,7 @@ var (
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
 	deltaDuration          = 3 * time.Second
-	log                    = logger.ZapLogger("filter")
+	log                    = logger.DefaultZapLogger()
 )
 
 // CacheTime cache the latest time

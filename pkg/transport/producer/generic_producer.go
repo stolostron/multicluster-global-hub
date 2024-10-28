@@ -13,9 +13,9 @@ import (
 	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
@@ -26,7 +26,7 @@ const (
 )
 
 type GenericProducer struct {
-	log              logr.Logger
+	log              *zap.SugaredLogger
 	ceProtocol       interface{}
 	ceClient         cloudevents.Client
 	messageSizeLimit int
@@ -34,7 +34,7 @@ type GenericProducer struct {
 
 func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
-		log:              ctrl.Log.WithName(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		log:              logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
 		messageSizeLimit: DefaultMessageKBSize * 1000,
 	}
 	err := genericProducer.initClient(transportConfig)
@@ -179,7 +179,7 @@ func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap), kafka_confluent.WithSenderTopic(defaultTopic))
 }
 
-func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
+func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event) {
 	// Listen to all the events on the default events channel
 	// It's important to read these events otherwise the events channel will eventually fill up
 	go func() {
@@ -192,7 +192,7 @@ func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
 				// is already configured to do that.
 				m := ev
 				if m.TopicPartition.Error != nil {
-					log.Info("Delivery failed", "error", m.TopicPartition.Error)
+					log.Warnw("Delivery failed", "error", m.TopicPartition.Error)
 				}
 			case kafka.Error:
 				// Generic client instance-level errors, such as
@@ -207,9 +207,9 @@ func handleProducerEvents(log logr.Logger, eventChan chan kafka.Event) {
 					// to the application that currently there are no brokers to communicate with.
 					// But librdkafka will continue to try to reconnect indefinately,
 					// and it will attempt to re-send messages until message.timeout.ms or message.max.retries are exceeded.
-					log.V(4).Info("Transport producer client error, ignore it for most cases", "error", ev)
+					log.Warnw("Transport producer client error, ignore it for most cases", "error", ev)
 				} else {
-					log.Info("Thransport producer client error", "error", ev)
+					log.Warnw("Thransport producer client error", "error", ev)
 				}
 			}
 		}
