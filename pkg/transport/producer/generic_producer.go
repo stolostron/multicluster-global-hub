@@ -10,6 +10,7 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cectx "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -48,10 +49,11 @@ func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*Ge
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
 	// cloudevent kafka/gochan client
 	// message key
-	evtCtx := ctx
+	evtCtx := cectx.WithLogger(ctx, logger.ZapLogger("cloudevents"))
 	if kafka_confluent.MessageKeyFrom(ctx) == "" {
 		evtCtx = kafka_confluent.WithMessageKey(ctx, evt.Type())
 	}
+
 	// data
 	payloadBytes := evt.Data()
 	chunks := p.splitPayloadIntoChunks(payloadBytes)

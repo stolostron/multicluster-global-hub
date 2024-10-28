@@ -1,8 +1,11 @@
 package logger
 
 import (
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // keep the logger in a singleton mode, allowing dynamic changes to the log level at runtime
@@ -30,6 +33,8 @@ func CoreZapLogger() *zap.Logger {
 	if internalZapLogger == nil {
 		internalZapLogger, _ = internalZapConfig.Build()
 	}
+	// set the controller-runtime logger with the current zap logger
+	ctrl.SetLogger(zapr.NewLoggerWithOptions(internalZapLogger))
 	return internalZapLogger
 }
 

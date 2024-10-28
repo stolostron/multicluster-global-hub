@@ -12,6 +12,7 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
+	cectx "github.com/cloudevents/sdk-go/v2/context"
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -130,6 +131,7 @@ func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.T
 		c.consumerCancel()
 	}
 	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
+
 	go func() {
 		if err := c.Start(c.consumerCtx); err != nil {
 			c.log.Error(err, "failed to reconnect(start) the consumer")
@@ -139,7 +141,7 @@ func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.T
 }
 
 func (c *GenericConsumer) Start(ctx context.Context) error {
-	receiveContext := ctx
+	receiveContext := cectx.WithLogger(ctx, logger.ZapLogger("cloudevents"))
 	if c.enableDatabaseOffset {
 		offsets, err := getInitOffset(c.clusterID)
 		if err != nil {
