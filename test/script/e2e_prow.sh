@@ -42,5 +42,8 @@ log_component_logs() {
 echo "runn e2e tests"
 ssh "${OPT[@]}" "$HOST" "cd $HOST_DIR && . test/script/env.list && make e2e-test-all && make e2e-test-prune" > >(tee "$ARTIFACT_DIR/e2e-test.log") 2>&1
 
+# add the e2e log
+log_component_logs
+
 # If the script reaches this point, it means no error occurred
 trap - ERR
