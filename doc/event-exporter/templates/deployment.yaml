@@ -19,7 +19,6 @@ spec:
           image: {{ .Values.image }}
           imagePullPolicy: Always
           args:
-            - --zap-log-level=info
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .Values.sourceName }}
             - --lease-duration=137
