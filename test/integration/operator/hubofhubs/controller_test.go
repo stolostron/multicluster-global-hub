@@ -54,19 +54,20 @@ var _ = Describe("controller", Ordered, func() {
 
 		// update the middleware configuration
 		// storage
-		storageSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      constants.GHStorageSecretName,
-				Namespace: mgh.Namespace,
-			},
-			Data: map[string][]byte{
-				"database_uri":                   []byte(testPostgres.URI),
-				"database_uri_with_readonlyuser": []byte(testPostgres.URI),
-				"ca.crt":                         []byte(""),
-			},
-			Type: corev1.SecretTypeOpaque,
-		}
-		Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
+		// storageSecret := &corev1.Secret{
+		// 	ObjectMeta: metav1.ObjectMeta{
+		// 		Name:      constants.GHStorageSecretName,
+		// 		Namespace: mgh.Namespace,
+		// 	},
+		// 	Data: map[string][]byte{
+		// 		"database_uri":                   []byte(testPostgres.URI),
+		// 		"database_uri_with_readonlyuser": []byte(testPostgres.URI),
+		// 		"ca.crt":                         []byte(""),
+		// 	},
+		// 	Type: corev1.SecretTypeOpaque,
+		// }
+
+		// Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
 
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)

@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"context"
@@ -15,11 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
@@ -50,6 +51,7 @@ var _ = Describe("storage", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+		config.SetMGHNamespacedName(types.NamespacedName{Namespace: namespace, Name: mghName})
 
 		// storage secret
 		// pgURI := strings.Replace(testPostgres.URI, "sslmode=verify-ca", "sslmode=require", -1)
@@ -72,7 +74,12 @@ var _ = Describe("storage", Ordered, func() {
 
 		// the subscription
 		Eventually(func() error {
-			_, err = storageReconciler.Reconcile(ctx, mgh)
+			_, err = storageReconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: mgh.Namespace,
+					Name:      mgh.Name,
+				},
+			})
 			return err
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 

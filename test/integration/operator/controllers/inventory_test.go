@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"fmt"
@@ -12,10 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/inventory"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
@@ -61,7 +62,12 @@ var _ = Describe("inventory-api", Ordered, func() {
 
 	It("should generate the inventory resources", func() {
 		reconciler := inventory.NewInventoryReconciler(runtimeManager, kubeClient)
-		err := reconciler.Reconcile(ctx, mgh)
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			},
+		})
 		Expect(err).To(Succeed())
 
 		// deployment

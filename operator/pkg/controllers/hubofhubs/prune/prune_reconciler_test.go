@@ -22,7 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	addonController "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"

@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
@@ -39,13 +40,22 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
+	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
 	transportController = "transportController"
+	storageController   = "storageController"
+	managerController   = "managerController"
+	grafanaController   = "grafanaController"
+	inventoryController = "inventoryController"
 )
 
 type Func func(initOption config.ControllerOption) (bool, error)
@@ -160,6 +170,10 @@ func NewMetaController(mgr manager.Manager, kubeClient kubernetes.Interface,
 	}
 	r.initFuncMap = map[string]Func{
 		transportController: transporter.StartController,
+		storageController:   storage.StartController,
+		managerController:   globalhubmanager.StartController,
+		grafanaController:   grafana.StartController,
+		inventoryController: inventory.StartController,
 	}
 	return r
 }
@@ -212,10 +226,13 @@ func updateMghStatus(ctx context.Context,
 		// update phase
 		updatedPhase, desiredPhase := needUpdatePhase(curmgh)
 
+		// update data retention condition
+		updatedRetentionCond, desiredConds := updateRetentionConditions(curmgh)
+
 		// update ready condition
 		updatedReadyCond, desiredConds := updateReadyConditions(mgh.Status.Conditions, desiredPhase)
 
-		if !updatedPhase && !updatedReadyCond {
+		if !updatedPhase && !updatedReadyCond && !updatedRetentionCond {
 			return nil
 		}
 
@@ -240,6 +257,31 @@ func updateReadyConditions(conds []metav1.Condition, phase v1alpha4.GlobalHubPha
 		Status:  config.CONDITION_STATUS_FALSE,
 		Reason:  config.CONDITION_REASON_GLOBALHUB_NOT_READY,
 		Message: config.CONDITION_MESSAGE_GLOBALHUB_NOT_READY,
+	})
+}
+
+// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
+func updateRetentionConditions(mgh *v1alpha4.MulticlusterGlobalHub) (bool, []metav1.Condition) {
+	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayerSpec.Postgres.Retention)
+	if err != nil {
+		err = fmt.Errorf("failed to parse the retention month, err:%v", err)
+		return config.NeedUpdateConditions(mgh.Status.Conditions, metav1.Condition{
+			Type:    config.CONDITION_TYPE_DATABASE,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  config.CONDITION_REASON_RETENTION_PARSED_FAILED,
+			Message: err.Error(),
+		})
+	}
+
+	if months < 1 {
+		months = 1
+	}
+	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
+	return config.NeedUpdateConditions(mgh.Status.Conditions, metav1.Condition{
+		Type:    config.CONDITION_TYPE_DATABASE,
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  config.CONDITION_REASON_RETENTION_PARSED,
+		Message: msg,
 	})
 }
 

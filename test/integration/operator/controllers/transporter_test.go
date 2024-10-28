@@ -63,21 +63,23 @@ var _ = Describe("transporter", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+		Eventually(func() error {
+			Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+			// update the transport protocol configuration
+			err := config.SetTransportConfig(ctx, runtimeClient, mgh)
+			if errors.IsConflict(err) {
+				return err
+			}
+			Expect(err).To(Succeed())
+			return nil
+		}, 2*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 	})
 
 	It("should generate the transport connection in BYO case", func() {
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
-
-		// update the transport protocol configuration
-		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
-		Expect(err).To(Succeed())
-
-		// verify the type
-		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
-		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
-		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
 		// err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
 		Expect(err).To(Succeed())
@@ -93,6 +95,10 @@ var _ = Describe("transporter", Ordered, func() {
 			if err != nil {
 				return err
 			}
+			// verify the type
+			Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
+			Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
+			Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
 			// the connection is generated
 			conn := config.GetTransporterConn()
@@ -119,21 +125,11 @@ var _ = Describe("transporter", Ordered, func() {
 		// the crd resources is ready
 		config.SetKafkaResourceReady(true)
 
-		// update the transport protocol configuration, topic
-		err := config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
-		Expect(err).To(Succeed())
-		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
-		Expect(err).To(Succeed())
-
-		Expect(config.TransporterProtocol()).To(Equal(transport.StrimziTransporter))
-		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
-		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
-
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 
 		// blocking until get the connection
 		go func() {
-			_, err = reconciler.Reconcile(ctx, reconcile.Request{
+			_, err := reconciler.Reconcile(ctx, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: mgh.Namespace,
 					Name:      mgh.Name,
@@ -152,6 +148,20 @@ var _ = Describe("transporter", Ordered, func() {
 				})
 			}
 		}()
+
+		Eventually(func() error {
+			if config.TransporterProtocol() != transport.StrimziTransporter {
+				return fmt.Errorf("config.TransporterProtocol() is not right. %v", config.TransporterProtocol())
+			}
+			if config.GetSpecTopic() != "gh-spec" {
+				return fmt.Errorf("config.GetSpecTopic() :%v", config.GetSpecTopic())
+			}
+
+			if config.GetRawStatusTopic() != "gh-status" {
+				return fmt.Errorf("config.GetRawStatusTopic() :%v", config.GetRawStatusTopic())
+			}
+			return nil
+		}, 20*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// the subscription
 		Eventually(func() error {
@@ -180,7 +190,7 @@ var _ = Describe("transporter", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// update the kafka resource to make it ready
-		err = UpdateKafkaClusterReady(runtimeClient, mgh.Namespace)
+		err := UpdateKafkaClusterReady(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 
 		// verify the metrics resources and pod monitor
@@ -191,7 +201,7 @@ var _ = Describe("transporter", Ordered, func() {
 					Namespace: mgh.Namespace,
 				},
 			}
-			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+			err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 			if err != nil {
 				return err
 			}

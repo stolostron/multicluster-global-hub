@@ -93,13 +93,6 @@ func (r *StatusReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	// update postgres
-	err = updateStatefulsetComponents(ctx, r.Client, mgh.Namespace, componentsStatus)
-	if err != nil {
-		klog.Errorf("failed to update statefulset components status:%v", err)
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -117,15 +110,11 @@ func (r *StatusReconciler) updateMghStatus(ctx context.Context,
 		// update components
 		updatedComponents, desiredComponentsStatus := needUpdateComponentsStatus(curmgh.Status.Components, componentsStatus)
 
-		// update data retention condition
-		updatedRetentionCond, desiredConds := updateRetentionConditions(curmgh)
-
-		if !updatedComponents && !updatedRetentionCond {
+		if !updatedComponents {
 			return nil
 		}
 
 		curmgh.Status.Components = desiredComponentsStatus
-		curmgh.Status.Conditions = desiredConds
 
 		err = r.Client.Status().Update(ctx, curmgh)
 		return err
@@ -160,27 +149,6 @@ func needUpdateComponentsStatus(currentComponentsStatus, desiredComponentsStatus
 		updated = true
 	}
 	return updated, returnedComponentsStatus
-}
-
-func updateStatefulsetComponents(ctx context.Context, c client.Client,
-	namespace string, componentsStatus map[string]v1alpha4.StatusCondition,
-) error {
-	statefulsetList := &appsv1.StatefulSetList{}
-	err := c.List(ctx, statefulsetList, &client.ListOptions{
-		Namespace: namespace,
-	})
-	if err != nil {
-		klog.Errorf("failed to list deployments")
-		return err
-	}
-	for _, statefulset := range statefulsetList.Items {
-		if statefulset.Name != config.COMPONENTS_POSTGRES_NAME {
-			continue
-		}
-		setComponentsAvailable(statefulset.Name, "StatefulSet",
-			statefulset.Status.AvailableReplicas, *statefulset.Spec.Replicas, componentsStatus)
-	}
-	return nil
 }
 
 func updateDeploymentComponents(ctx context.Context, c client.Client,
@@ -232,31 +200,6 @@ func setComponentsAvailable(name string, resourceType string,
 	}
 }
 
-// dataRetention should at least be 1 month, otherwise it will deleted the current month partitions and records
-func updateRetentionConditions(mgh *v1alpha4.MulticlusterGlobalHub) (bool, []metav1.Condition) {
-	months, err := utils.ParseRetentionMonth(mgh.Spec.DataLayerSpec.Postgres.Retention)
-	if err != nil {
-		err = fmt.Errorf("failed to parse the retention month, err:%v", err)
-		return config.NeedUpdateConditions(mgh.Status.Conditions, metav1.Condition{
-			Type:    config.CONDITION_TYPE_DATABASE,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  config.CONDITION_REASON_RETENTION_PARSED_FAILED,
-			Message: err.Error(),
-		})
-	}
-
-	if months < 1 {
-		months = 1
-	}
-	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
-	return config.NeedUpdateConditions(mgh.Status.Conditions, metav1.Condition{
-		Type:    config.CONDITION_TYPE_DATABASE,
-		Status:  config.CONDITION_STATUS_TRUE,
-		Reason:  config.CONDITION_REASON_RETENTION_PARSED,
-		Message: msg,
-	})
-}
-
 func initComponentsStatus(mgh *v1alpha4.MulticlusterGlobalHub) map[string]v1alpha4.StatusCondition {
 	initComponents := map[string]v1alpha4.StatusCondition{
 		config.COMPONENTS_MANAGER_NAME: {
@@ -277,17 +220,6 @@ func initComponentsStatus(mgh *v1alpha4.MulticlusterGlobalHub) map[string]v1alph
 			Message:            config.MESSAGE_WAIT_CREATED,
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		},
-	}
-	if config.IsBYOPostgres() {
-		initComponents[config.COMPONENTS_POSTGRES_NAME] = v1alpha4.StatusCondition{
-			Kind:               "StatefulSet",
-			Name:               config.COMPONENTS_POSTGRES_NAME,
-			Type:               config.COMPONENTS_AVAILABLE,
-			Status:             config.CONDITION_STATUS_TRUE,
-			Reason:             "UseCustomizedStorage",
-			Message:            "Use customized storage",
-			LastTransitionTime: metav1.Time{Time: time.Now()},
-		}
 	}
 
 	if config.WithInventory(mgh) {

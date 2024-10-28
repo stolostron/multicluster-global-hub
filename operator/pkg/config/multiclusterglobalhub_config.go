@@ -34,9 +34,12 @@ import (
 	"k8s.io/klog/v2"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ManifestImage contains details for a specific image version
@@ -87,6 +90,18 @@ var (
 	importClusterInHosted = false
 	mu                    sync.Mutex
 )
+
+var NamespacePred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == utils.GetDefaultNamespace()
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == utils.GetDefaultNamespace()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == utils.GetDefaultNamespace()
+	},
+}
 
 func SetAddonManager(addonManager addonmanager.AddonManager) {
 	addonMgr = addonManager

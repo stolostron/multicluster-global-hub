@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"fmt"
@@ -12,10 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
@@ -56,7 +57,12 @@ var _ = Describe("grafana", Ordered, func() {
 
 		grafanaReconciler := grafana.NewGrafanaReconciler(runtimeManager, kubeClient)
 
-		err := grafanaReconciler.Reconcile(ctx, mgh)
+		_, err := grafanaReconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			},
+		})
 		Expect(err).To(Succeed())
 
 		// deployment
