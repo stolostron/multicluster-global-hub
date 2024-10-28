@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/Shopify/sarama"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
@@ -19,7 +19,6 @@ type SaramaConsumer interface {
 
 type saramaConsumer struct {
 	ctx           context.Context
-	log           logr.Logger
 	kafkaConfig   *transport.KafkaInternalConfig
 	client        sarama.ConsumerGroup
 	messageChan   chan *sarama.ConsumerMessage
@@ -27,10 +26,11 @@ type saramaConsumer struct {
 	topics        []string
 }
 
+var log = logger.DefaultZapLogger()
+
 func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaInternalConfig,
 	topics []string,
 ) (SaramaConsumer, error) {
-	log := ctrl.Log.WithName("sarama-consumer")
 	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,6 @@ func NewSaramaConsumer(ctx context.Context, kafkaConfig *transport.KafkaInternal
 
 	consumer := &saramaConsumer{
 		ctx:           ctx,
-		log:           log,
 		kafkaConfig:   kafkaConfig,
 		client:        client,
 		messageChan:   messageChan,
@@ -75,16 +74,16 @@ func (c *saramaConsumer) MarkOffset(topic string, partition int32, offset int64)
 func (c *saramaConsumer) Start(ctx context.Context) error {
 	for {
 		err := c.client.Consume(ctx, c.topics, &consumeGroupHandler{
-			log:           c.log.WithName("handler"),
+			log:           logger.ZapLogger("handler"),
 			messageChan:   c.messageChan,
 			processedChan: c.processedChan,
 		})
 		if err != nil {
-			c.log.Error(err, "Error from sarama consumer", "topic", c.topics)
+			log.Error(err, "Error from sarama consumer", "topic", c.topics)
 		}
 		// check if context was cancelled, signaling that the consumer should stop
 		if ctx.Err() != nil {
-			c.log.Info("context was cancelled, signaling that the consumer should stop", "ctx err", ctx.Err())
+			log.Warnw("context was cancelled, signaling that the consumer should stop", "ctx err", ctx.Err())
 			close(c.messageChan)
 			return c.client.Close()
 		}
@@ -93,7 +92,7 @@ func (c *saramaConsumer) Start(ctx context.Context) error {
 
 // Consumer represents a Sarama consumer group consumer
 type consumeGroupHandler struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	messageChan   chan *sarama.ConsumerMessage
 	processedChan chan *sarama.ConsumerMessage
 }
@@ -105,7 +104,7 @@ func (cgh *consumeGroupHandler) Setup(session sarama.ConsumerGroupSession) error
 		for {
 			select {
 			case msg := <-cgh.processedChan:
-				cgh.log.V(2).Info("mark offset", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
+				cgh.log.Debugw("mark offset", "topic", msg.Topic, "partition", msg.Partition, "offset", msg.Offset)
 				session.MarkMessage(msg, "")
 			case <-session.Context().Done():
 				return

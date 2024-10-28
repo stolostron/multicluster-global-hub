@@ -11,10 +11,9 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -30,7 +29,7 @@ var (
 	// - to setup/close connection because GORM V2 removed gorm.Close()
 	// - to work with pq.CopyIn because connection returned by GORM V2 gorm.DB() in "not the same"
 	sqlDB    *sql.DB
-	log      = ctrl.Log.WithName("database-controller")
+	log      = logger.ZapLogger("database-controller")
 	lockConn *sql.Conn
 	ctx      = context.Background()
 )
@@ -128,8 +127,8 @@ func Lock(lockConn *sql.Conn) error {
 	if !IsBackupEnabled {
 		return nil
 	}
-	log.V(2).Info("Add db lock")
-	defer log.V(2).Info("db locked")
+	log.Debug("Add db lock")
+	defer log.Debug("db locked")
 	_, err := lockConn.ExecContext(ctx, "select pg_advisory_lock($1)", constants.LockId)
 	return err
 }
@@ -138,11 +137,11 @@ func Unlock(lockConn *sql.Conn) {
 	if !IsBackupEnabled {
 		return
 	}
-	log.V(2).Info("unlock db")
-	defer log.V(2).Info("db unlocked")
+	log.Debug("unlock db")
+	defer log.Debug("db unlocked")
 	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
 		if err != nil {
-			klog.V(2).Infof("unlock failed, retry unlock. err: %s", err)
+			log.Warnf("unlock failed, retry unlock. err: %s", err)
 			return true
 		}
 		return false
