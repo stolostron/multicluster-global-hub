@@ -74,7 +74,7 @@ func (k *ConflationCommitter) commit() error {
 			continue
 		}
 
-		k.log.Warnw("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
+		k.log.Debugw("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
 		payload, err := json.Marshal(transport.EventPosition{
 			OwnerIdentity: transPosition.OwnerIdentity,
 			Topic:         transPosition.Topic,
