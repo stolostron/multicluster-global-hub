@@ -13,12 +13,11 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
-	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	cr "sigs.k8s.io/controller-runtime"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -40,7 +40,7 @@ const (
 // StackRoxSyncerBuilder contains the data and logic needed to create a new StackRox syncer. Don't create instances of
 // this type directly, use the NewStackRoxSyncer function instead.
 type StackRoxSyncerBuilder struct {
-	logger       logr.Logger
+	logger       *zap.SugaredLogger
 	topic        string
 	producer     transport.Producer
 	kubeClient   crclient.Client
@@ -50,7 +50,7 @@ type StackRoxSyncerBuilder struct {
 // StackRoxSyncer knows how to pull multiple StackRox API servers to extract information and send it to Kafka. Don't
 // create instances of this type directly, use the NewStackRoxSyncer function instead.
 type StackRoxSyncer struct {
-	logger         logr.Logger
+	logger         *zap.SugaredLogger
 	topic          string
 	producer       transport.Producer
 	kubeClient     crclient.Client
@@ -86,7 +86,7 @@ func NewStackRoxSyncer() *StackRoxSyncerBuilder {
 }
 
 // SetLogger sets the logger that the synceer will use to write to the log. This is mandatory.
-func (b *StackRoxSyncerBuilder) SetLogger(value logr.Logger) *StackRoxSyncerBuilder {
+func (b *StackRoxSyncerBuilder) SetLogger(value *zap.SugaredLogger) *StackRoxSyncerBuilder {
 	b.logger = value
 	return b
 }
@@ -119,7 +119,7 @@ func (b *StackRoxSyncerBuilder) SetPollInterval(value time.Duration) *StackRoxSy
 // Build uses the information stored in the builder to create a new StackRox syncer.
 func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 	// Check parameters:
-	if b.logger.GetSink() == nil {
+	if b.logger == nil {
 		err = errors.New("logger is mandatory")
 		return
 	}
@@ -238,7 +238,7 @@ func (s *StackRoxSyncer) Sync(ctx context.Context, key types.NamespacedName) err
 // URL.
 func (s *StackRoxSyncer) refresh(ctx context.Context, data *stackRoxData) error {
 	// Create a logger with the namespace and name:
-	logger := s.logger.WithValues(
+	logger := s.logger.With(
 		"namespace", data.key.Namespace,
 		"name", data.key.Name,
 	)
@@ -257,7 +257,7 @@ func (s *StackRoxSyncer) refresh(ctx context.Context, data *stackRoxData) error 
 
 	// Create the API client:
 	apiClient, err := clients.NewStackRoxClient().
-		SetLogger(s.logger).
+		SetLogger(logger).
 		SetURL(connDetails.apiURL).
 		SetToken(connDetails.apiToken).
 		SetCA(connDetails.caPool).
@@ -534,7 +534,7 @@ func AddStackroxDataSyncer(
 	producer transport.Producer,
 ) error {
 	syncer, err := NewStackRoxSyncer().
-		SetLogger(cr.Log.WithName("stackrox-syncer")).
+		SetLogger(zaplogger.ZapLogger("stackrox-syncer")).
 		SetTopic(topic).
 		SetProducer(producer).
 		SetKubernetesClient(manager.GetClient()).

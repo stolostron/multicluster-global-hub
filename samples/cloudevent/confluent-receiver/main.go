@@ -10,6 +10,8 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
+	cectx "github.com/cloudevents/sdk-go/v2/context"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -52,7 +54,8 @@ func main() {
 	// ctx := kafka_confluent.CommitOffsetCtx(context.Background(), offsetToStart)
 
 	log.Printf("will listen consuming topic: %s\n", topic)
-	err = c.StartReceiver(ctx, receive)
+
+	err = c.StartReceiver(cectx.WithLogger(ctx, logger.ZapLogger("cloudevents")), receive)
 	if err != nil {
 		log.Fatalf("failed to start receiver: %s", err)
 	} else {

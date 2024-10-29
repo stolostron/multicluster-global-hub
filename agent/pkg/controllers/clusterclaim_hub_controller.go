@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -28,12 +27,10 @@ var clusterClaimCtrlStared = false
 
 type hubClusterClaimController struct {
 	client client.Client
-	log    logr.Logger
 }
 
 func (c *hubClusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.V(2).Info("hub clusterClaim controller", "NamespacedName:", request.NamespacedName)
+	log.Info("NamespacedName: ", request.NamespacedName)
 
 	_, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
 	return ctrl.Result{}, err
@@ -56,7 +53,6 @@ func AddHubClusterClaimController(mgr ctrl.Manager) error {
 		For(&clustersv1alpha1.ClusterClaim{}, builder.WithPredicates(clusterClaimPredicate)).
 		Complete(&hubClusterClaimController{
 			client: mgr.GetClient(),
-			log:    ctrl.Log.WithName("hubclusterclaim-controller"),
 		})
 	if err != nil {
 		return err

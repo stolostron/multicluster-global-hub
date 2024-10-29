@@ -20,7 +20,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+func RuntimeInfo() {
+	log := logger.DefaultZapLogger()
+	log.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
+	log.Infof("Go Version: %s", runtime.Version())
+	log.Infof("Git Commit: %s", os.Getenv("GIT_COMMIT"))
+}
 
 func PrintVersion(log logr.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))

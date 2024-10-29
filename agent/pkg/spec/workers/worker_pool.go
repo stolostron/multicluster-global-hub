@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/rbac"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var addToMgr = false
@@ -17,7 +18,7 @@ var addToMgr = false
 // Workpool pool that creates all k8s workers and the assigns k8s jobs to available workers.
 type WorkerPool struct {
 	ctx                        context.Context
-	log                        logr.Logger
+	log                        *zap.SugaredLogger
 	kubeConfig                 *rest.Config
 	jobsQueue                  chan *Job
 	poolSize                   int
@@ -35,7 +36,7 @@ func AddWorkerPoolToMgr(mgr ctrl.Manager, size int, config *rest.Config) (*Worke
 
 	// for impersonation workers we have additional workers, one per impersonated user.
 	workerPool := &WorkerPool{
-		log:                        ctrl.Log.WithName("workers-pool"),
+		log:                        logger.DefaultZapLogger(),
 		kubeConfig:                 config,
 		jobsQueue:                  make(chan *Job, size), // each worker can handle at most one job at a time
 		poolSize:                   size,
@@ -58,9 +59,9 @@ func (pool *WorkerPool) Start(ctx context.Context) error {
 	pool.ctx = ctx
 	pool.initializationWaitingGroup.Done() // once context is saved, it's safe to let RunAsync work with no concerns.
 
-	pool.log.Info("starting worker pool", "size", pool.poolSize)
+	pool.log.Infow("starting worker pool", "size", pool.poolSize)
 	for i := 1; i <= pool.poolSize; i++ {
-		worker, err := newWorker(pool.log, i, pool.kubeConfig, pool.jobsQueue)
+		worker, err := newWorker(i, pool.kubeConfig, pool.jobsQueue)
 		if err != nil {
 			return fmt.Errorf("failed to start k8s workers pool - %w", err)
 		}
@@ -124,9 +125,7 @@ func (pool *WorkerPool) createUserWorker(userIdentity string, userGroups []strin
 	}
 
 	workerQueue := make(chan *Job, pool.poolSize)
-	worker := newWorkerWithClient(pool.log.WithName(
-		fmt.Sprintf("impersonation-%s", userIdentity)),
-		1, k8sClient, workerQueue)
+	worker := newWorkerWithClient(1, fmt.Sprintf("impersonation-%s", userIdentity), k8sClient, workerQueue)
 	worker.start(pool.ctx)
 	pool.impersonationWorkersQueues[workerIdentifier] = workerQueue
 

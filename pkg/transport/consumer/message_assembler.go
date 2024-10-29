@@ -10,9 +10,9 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -76,14 +76,14 @@ func (collection *messageChunksCollection) collect() ([]byte, error) {
 }
 
 type messageAssembler struct {
-	log                logr.Logger
+	log                *zap.SugaredLogger
 	lock               sync.Mutex
 	chunkCollectionMap map[string]*messageChunksCollection
 }
 
 func newMessageAssembler() *messageAssembler {
 	return &messageAssembler{
-		log:                ctrl.Log.WithName("consumer-assembler"),
+		log:                logger.DefaultZapLogger(),
 		lock:               sync.Mutex{},
 		chunkCollectionMap: make(map[string]*messageChunksCollection),
 	}
@@ -111,7 +111,7 @@ func (assembler *messageAssembler) assemble(chunk *messageChunk) []byte {
 			assembler.log.Error(err, "assemble event data failed")
 			return nil
 		}
-		assembler.log.V(2).Info("assemble event data success!", "id", chunkCollection.id,
+		assembler.log.Debugw("assemble event data success!", "id", chunkCollection.id,
 			"size", chunkCollection.totalSize)
 		return transportPayloadBytes
 	}

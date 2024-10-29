@@ -9,13 +9,13 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 )
 
 // StackRoxClientBuilder contains the data and logic needed to create a client for the StackRox API. Don't create
 // instances of this type directly, use the NewStackRoxClient function instead.
 type StackRoxClientBuilder struct {
-	logger   logr.Logger
+	logger   *zap.SugaredLogger
 	url      string
 	token    string
 	ca       *x509.CertPool
@@ -25,7 +25,7 @@ type StackRoxClientBuilder struct {
 // StackRoxClient simplifies access to the StackRox API. Don't create instances of this type directly, use the
 // NewStackRoxClient function instead.
 type StackRoxClient struct {
-	logger logr.Logger
+	logger *zap.SugaredLogger
 	url    string
 	token  string
 	client *http.Client
@@ -37,7 +37,7 @@ func NewStackRoxClient() *StackRoxClientBuilder {
 }
 
 // SetLogger sets the logger that will be used by the client. This is mandatory.
-func (b *StackRoxClientBuilder) SetLogger(value logr.Logger) *StackRoxClientBuilder {
+func (b *StackRoxClientBuilder) SetLogger(value *zap.SugaredLogger) *StackRoxClientBuilder {
 	b.logger = value
 	return b
 }
@@ -70,7 +70,7 @@ func (b *StackRoxClientBuilder) AddWrapper(value func(http.RoundTripper) http.Ro
 // Build uses the information stored in the builder to create and configure a new StackRox API client.
 func (b *StackRoxClientBuilder) Build() (result *StackRoxClient, err error) {
 	// Check parameters:
-	if b.logger.GetSink() == nil {
+	if b.logger == nil {
 		err = errors.New("logger is mandatory")
 		return
 	}

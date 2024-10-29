@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/klog"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -17,10 +16,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var MessageCompliaceStateRegex = regexp.MustCompile(`(\w+);`)
+var (
+	MessageCompliaceStateRegex = regexp.MustCompile(`(\w+);`)
+	log                        = logger.DefaultZapLogger()
+)
 
 type policyStatusEventHandler struct {
 	ctx           context.Context
@@ -72,7 +75,7 @@ func (h *policyStatusEventHandler) Update(obj client.Object) bool {
 
 	rootPolicy, clusterID, clusterName, err := GetRootPolicyAndClusterInfo(h.ctx, policy, h.runtimeClient)
 	if err != nil {
-		klog.Errorf("failed to get get rootPolicy/clusterID by replicatedPolicy: %v", err)
+		log.Errorf("failed to get get rootPolicy/clusterID by replicatedPolicy: %v", err)
 		return false
 	}
 
@@ -82,7 +85,7 @@ func (h *policyStatusEventHandler) Update(obj client.Object) bool {
 			for _, evt := range detail.History {
 				// if the event time is older thant the filter cached sent event time, then skip it
 				if !filter.Newer(h.name, evt.LastTimestamp.Time) {
-					klog.Infof("skip the expired event: %s", evt.EventName)
+					log.Infof("skip the expired event: %s", evt.EventName)
 					continue
 				}
 

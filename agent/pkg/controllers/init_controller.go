@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -20,6 +19,7 @@ import (
 	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -28,11 +28,13 @@ const (
 	stackRoxCentralCRDName = "centrals.platform.stackrox.io"
 )
 
-var initCtrlStarted = false
+var (
+	initCtrlStarted = false
+	log             = logger.DefaultZapLogger()
+)
 
 type initController struct {
 	mgr             ctrl.Manager
-	log             logr.Logger
 	restConfig      *rest.Config
 	agentConfig     *configs.AgentConfig
 	transportClient transport.TransportClient
@@ -50,8 +52,7 @@ func (c *initController) Reconcile(ctx context.Context, request ctrl.Request) (c
 }
 
 func (c *initController) addACMController(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.V(2).Info("init controller", "NamespacedName:", request.NamespacedName)
+	log.Info("NamespacedName: ", request.NamespacedName)
 
 	// status syncers or inventory
 	var err error
@@ -84,7 +85,6 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient.GetConsumer(), c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
-	reqLogger.V(2).Info("add spec controllers to manager")
 
 	// all the controller started, then add the lease controller
 	if err := AddLeaseController(c.mgr, c.agentConfig.PodNamespace, "multicluster-global-hub-agent"); err != nil {
@@ -95,12 +95,12 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 }
 
 func (c *initController) addStackRoxCentrals() (result ctrl.Result, err error) {
-	c.log.Info("Detected the presence of the StackRox central CRD")
+	log.Info("Detected the presence of the StackRox central CRD")
 
 	// Create the object that polls the StackRox API and publishes the message, then add it to the controller
 	// manager so that it will be started automatically.
 	syncer, err := security.NewStackRoxSyncer().
-		SetLogger(c.log.WithName("stackrox-syncer")).
+		SetLogger(logger.ZapLogger("stackrox-syncer")).
 		SetTopic(c.agentConfig.TransportConfig.KafkaCredential.StatusTopic).
 		SetProducer(c.transportClient.GetProducer()).
 		SetKubernetesClient(c.mgr.GetClient()).
@@ -113,14 +113,14 @@ func (c *initController) addStackRoxCentrals() (result ctrl.Result, err error) {
 	if err != nil {
 		return
 	}
-	c.log.Info("Added StackRox syncer")
+	log.Info("Added StackRox syncer")
 
 	// Create the controller that watches the StackRox instances and add it to the controller manager.
 	err = security.AddStacRoxController(c.mgr, syncer)
 	if err != nil {
 		return
 	}
-	c.log.Info("Added StackRox controller")
+	log.Info("Added StackRox controller")
 
 	return
 }
@@ -158,7 +158,6 @@ func AddInitController(mgr ctrl.Manager, restConfig *rest.Config, agentConfig *c
 			restConfig:      restConfig,
 			agentConfig:     agentConfig,
 			transportClient: transportClient,
-			log:             ctrl.Log.WithName("init-controller"),
 		}); err != nil {
 		return err
 	}

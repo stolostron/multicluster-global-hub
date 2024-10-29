@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -23,14 +24,14 @@ const (
 
 type hubOfHubsConfigController struct {
 	client client.Client
-	log    logr.Logger
+	log    *zap.SugaredLogger
 }
 
 // AddConfigMapController creates a new instance of config controller and adds it to the manager.
 func AddConfigMapController(mgr ctrl.Manager, agentConfig *configs.AgentConfig) error {
 	hubOfHubsConfigCtrl := &hubOfHubsConfigController{
 		client: mgr.GetClient(),
-		log:    ctrl.Log.WithName("multicluster-global-hub-agent-config"),
+		log:    logger.DefaultZapLogger(),
 	}
 
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
@@ -48,7 +49,7 @@ func AddConfigMapController(mgr ctrl.Manager, agentConfig *configs.AgentConfig) 
 }
 
 func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := c.log.With("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
 	agentConfigMap := &corev1.ConfigMap{}
 	if err := c.client.Get(ctx, request.NamespacedName, agentConfigMap); apierrors.IsNotFound(err) {
@@ -67,7 +68,12 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	c.setAgentConfig(agentConfigMap, AgentAggregationKey)
 	c.setAgentConfig(agentConfigMap, EnableLocalPolicyKey)
 
-	reqLogger.V(2).Info("Reconciliation complete.")
+	logLevel := agentConfigMap.Data[string(AgentLogLevelKey)]
+	if logLevel != "" {
+		logger.SetLogLevel(logger.LogLevel(logLevel))
+	}
+
+	reqLogger.Debug("Reconciliation complete.")
 	return ctrl.Result{}, nil
 }
 

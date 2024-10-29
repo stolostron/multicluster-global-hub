@@ -7,7 +7,7 @@ import (
 	"time"
 
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -23,7 +24,7 @@ const (
 )
 
 type multiEventSyncer struct {
-	log              logr.Logger
+	log              *zap.SugaredLogger
 	client           client.Client
 	producer         transport.Producer
 	controller       interfaces.Controller
@@ -45,7 +46,7 @@ func LaunchMultiEventSyncer(name string, mgr ctrl.Manager, controller interfaces
 	producer transport.Producer, intervalFunc func() time.Duration, eventEmitters []*EmitterHandler,
 ) error {
 	syncer := &multiEventSyncer{
-		log:              ctrl.Log.WithName(name),
+		log:              logger.ZapLogger(name),
 		client:           mgr.GetClient(),
 		producer:         producer,
 		syncIntervalFunc: intervalFunc,

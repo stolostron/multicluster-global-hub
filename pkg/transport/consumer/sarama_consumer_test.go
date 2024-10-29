@@ -8,10 +8,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
@@ -64,7 +64,7 @@ func TestConsumerGroup(t *testing.T) {
 
 	// test handler
 	handler := &consumeGroupHandler{
-		log:           ctrl.Log.WithName("sarama-consumer").WithName("handler"),
+		log:           logger.ZapLogger("handler"),
 		messageChan:   messageChan,
 		processedChan: processedChan,
 	}

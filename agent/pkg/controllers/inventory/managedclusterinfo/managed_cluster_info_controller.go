@@ -7,10 +7,10 @@ import (
 
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,11 +20,13 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
 type ManagedClusterInfoInventorySyncer struct {
+	log           *zap.SugaredLogger
 	runtimeClient client.Client
 	requester     transport.Requester
 	clientCN      string
@@ -34,7 +36,7 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 	clusterInfo := &clusterinfov1beta1.ManagedClusterInfo{}
 	err := r.runtimeClient.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, clusterInfo)
 	if errors.IsNotFound(err) {
-		klog.Infof("clusterInfo(%s) not found. Ignoring since it must have been deleted.", req.Name)
+		r.log.Infof("clusterInfo(%s) not found. Ignoring since it must have been deleted.", req.Name)
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
@@ -112,6 +114,7 @@ func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester t
 		For(&clusterinfov1beta1.ManagedClusterInfo{}).
 		WithEventFilter(clusterInfoPredicate).
 		Complete(&ManagedClusterInfoInventorySyncer{
+			log:           logger.ZapLogger("managedclusterinfo"),
 			runtimeClient: mgr.GetClient(),
 			requester:     inventoryRequester,
 			clientCN:      requester.GetInventoryClientName(configs.GetLeafHubName()),

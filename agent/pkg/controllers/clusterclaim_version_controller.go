@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-logr/logr"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
@@ -25,17 +24,15 @@ var clusterVersionCtrlStarted = false
 
 type versionClusterClaimController struct {
 	client client.Client
-	log    logr.Logger
 }
 
 // consider to unify the hub and version claim in one controller
 func (c *versionClusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	reqLogger := c.log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.V(2).Info("cluster claim controller", "NamespacedName:", request.NamespacedName)
+	log.Info("NamespacedName: ", request.NamespacedName)
 
 	mch, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
 	if err != nil {
-		reqLogger.Error(err, "failed to update Hub clusterClaim")
+		log.Error(err, "failed to update Hub clusterClaim")
 		return ctrl.Result{}, err
 	}
 
@@ -64,7 +61,6 @@ func AddVersionClusterClaimController(mgr ctrl.Manager) error {
 		Watches(&mchv1.MultiClusterHub{}, &handler.EnqueueRequestForObject{}).
 		Complete(&versionClusterClaimController{
 			client: mgr.GetClient(),
-			log:    ctrl.Log.WithName("clusterclaim-controller"),
 		})
 	if err != nil {
 		return err

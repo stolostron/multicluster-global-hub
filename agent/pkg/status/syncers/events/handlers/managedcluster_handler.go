@@ -6,7 +6,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -95,13 +94,13 @@ func (h *managedClusterEventHandler) Update(obj client.Object) bool {
 	cluster, err := getInvolveCluster(h.ctx, h.runtimeClient, evt)
 	if err != nil {
 
-		klog.Errorf("failed to get cluster: %s, event: %s/%s, error: %v", cluster.Name, evt.Namespace, evt.Name, err)
+		log.Errorf("failed to get cluster: %s, event: %s/%s, error: %v", cluster.Name, evt.Namespace, evt.Name, err)
 		return false
 	}
 
 	clusterId, err := utils.GetClusterId(h.ctx, h.runtimeClient, cluster.Name)
 	if err != nil {
-		klog.Errorf("failed to get clusterId: %s, event: %s/%s, error: %v", cluster.Name, evt.Namespace, evt.Name, err)
+		log.Errorf("failed to get clusterId: %s, event: %s/%s, error: %v", cluster.Name, evt.Namespace, evt.Name, err)
 		return false
 	}
 

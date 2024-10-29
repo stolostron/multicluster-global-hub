@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,6 +17,8 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var leaseCtrlStarted bool
@@ -28,7 +30,6 @@ const (
 
 // leaseUpdater updates lease with given name and namespace in certain period
 type leaseUpdater struct {
-	log                  logr.Logger
 	client               client.Client
 	leaseName            string
 	leaseNamespace       string
@@ -66,13 +67,12 @@ func AddLeaseController(mgr ctrl.Manager, addonNamespace, addonName string) erro
 	}
 
 	err = mgr.Add(&leaseUpdater{
-		log:                  ctrl.Log.WithName("multicluster-global-hub-lease-updater"),
 		client:               c,
 		leaseName:            addonName,
 		leaseNamespace:       addonNamespace,
 		leaseDurationSeconds: defaultLeaseDurationSeconds,
 		healthCheckFuncs: []func() bool{
-			checkAddonPodFunc(ctrl.Log.WithName("multicluster-global-hub-lease-updater"),
+			checkAddonPodFunc(logger.ZapLogger("pod-status-checker"),
 				kubeClient.CoreV1(),
 				addonNamespace,
 				"name=multicluster-global-hub-agent"),
@@ -135,7 +135,7 @@ func (r *leaseUpdater) updateLease(ctx context.Context) error {
 }
 
 func (r *leaseUpdater) reconcile(ctx context.Context) {
-	r.log.V(2).Info("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
+	log.Debugw("lease updater is reconciling", "namespace", r.leaseNamespace, "name", r.leaseName)
 	for _, f := range r.healthCheckFuncs {
 		if !f() {
 			// if a healthy check fails, do not update lease.
@@ -144,14 +144,14 @@ func (r *leaseUpdater) reconcile(ctx context.Context) {
 	}
 	// Update lease on managed cluster
 	if err := r.updateLease(ctx); err != nil {
-		r.log.Error(err, "failed to update lease", "namespace", r.leaseNamespace, "name", r.leaseName)
+		log.Error(err, "failed to update lease", "namespace", r.leaseNamespace, "name", r.leaseName)
 	}
 
-	r.log.V(2).Info("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
+	log.Debugw("lease is created or updated", "namespace", r.leaseNamespace, "name", r.leaseName)
 }
 
 // checkAddonPodFunc checks whether the agent pod is running
-func checkAddonPodFunc(log logr.Logger, podGetter corev1client.PodsGetter,
+func checkAddonPodFunc(log *zap.SugaredLogger, podGetter corev1client.PodsGetter,
 	namespace, labelSelector string,
 ) func() bool {
 	return func() bool {

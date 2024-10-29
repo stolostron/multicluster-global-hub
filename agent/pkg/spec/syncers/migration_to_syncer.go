@@ -5,27 +5,27 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type managedClusterMigrationToSyncer struct {
-	log    logr.Logger
+	log    *zap.SugaredLogger
 	client client.Client
 }
 
 func NewManagedClusterMigrationToSyncer(client client.Client) *managedClusterMigrationToSyncer {
 	return &managedClusterMigrationToSyncer{
-		log:    ctrl.Log.WithName("managed-cluster-migration-to-syncer"),
+		log:    logger.ZapLogger("managed-cluster-migration-to-syncer"),
 		client: client,
 	}
 }

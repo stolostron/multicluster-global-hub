@@ -163,7 +163,7 @@ func TestDoMain(t *testing.T) {
 			TransportType:   string(transport.Kafka),
 		},
 	}
-	code := doMain(context.Background(), nil, agentConfig, nil)
+	err := doMain(context.Background(), agentConfig, nil)
 	// flag consumer-worker-pool-size should be in the scope [1, 100]
-	assert.Equal(t, 1, code)
+	assert.NotNil(t, err)
 }

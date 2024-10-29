@@ -4,17 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cr "sigs.k8s.io/controller-runtime"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
+
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type stackRoxController struct {
 	manager crmanager.Manager
-	logger  logr.Logger
+	logger  *zap.SugaredLogger
 	client  crclient.Client
 	syncer  *StackRoxSyncer
 }
@@ -56,7 +58,7 @@ func AddStacRoxController(manager cr.Manager, syncer *StackRoxSyncer) error {
 
 	controller := stackRoxController{
 		manager: manager,
-		logger:  cr.Log.WithName("stackrox-controller"),
+		logger:  zaplogger.ZapLogger("stack-rock-controller"),
 		client:  manager.GetClient(),
 		syncer:  syncer,
 	}

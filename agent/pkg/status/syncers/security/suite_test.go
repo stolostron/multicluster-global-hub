@@ -3,12 +3,12 @@ package security
 import (
 	"testing"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 func TestSecurity(t *testing.T) {
@@ -16,7 +16,7 @@ func TestSecurity(t *testing.T) {
 	RunSpecs(t, "Security Suite")
 }
 
-var logger logr.Logger
+var logger *zap.SugaredLogger
 
 var _ = BeforeSuite(func() {
 	agentConfig := &configs.AgentConfig{
@@ -25,5 +25,5 @@ var _ = BeforeSuite(func() {
 	}
 	configs.SetAgentConfig(agentConfig)
 	// Configure logging to write to the Ginkgo writer:
-	logger = zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+	logger = zaplogger.DefaultZapLogger()
 })
