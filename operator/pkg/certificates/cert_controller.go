@@ -54,6 +54,7 @@ func Start(ctx context.Context, c client.Client, kubeClient kubernetes.Interface
 		ObjectType:    &v1.Secret{},
 		ResyncPeriod:  time.Minute * 60,
 		Handler: cache.ResourceEventHandlerFuncs{
+			AddFunc:    onAdd(c),
 			DeleteFunc: onDelete(c),
 			UpdateFunc: onUpdate(ctx, c),
 		},
@@ -63,7 +64,7 @@ func Start(ctx context.Context, c client.Client, kubeClient kubernetes.Interface
 	go controller.Run(ctx.Done())
 }
 
-func updateDeployLabel(c client.Client) {
+func updateDeployLabel(c client.Client, isUpdate bool) {
 	dep := &appv1.Deployment{}
 	err := c.Get(context.TODO(), types.NamespacedName{
 		Name:      constants.InventoryDeploymentName,
@@ -75,13 +76,15 @@ func updateDeployLabel(c client.Client) {
 		}
 		return
 	}
-	newDep := dep.DeepCopy()
-	newDep.Spec.Template.ObjectMeta.Labels[restartLabel] = time.Now().Format("2006-1-2.1504")
-	err = c.Patch(context.TODO(), newDep, client.StrategicMergeFrom(dep))
-	if err != nil {
-		log.Error(err, "Failed to update the deployment", "name", constants.InventoryDeploymentName)
-	} else {
-		log.Info("Update deployment cert/restart label", "name", constants.InventoryDeploymentName)
+	if isUpdate || dep.Status.ReadyReplicas != 0 {
+		newDep := dep.DeepCopy()
+		newDep.Spec.Template.ObjectMeta.Labels[restartLabel] = time.Now().Format("2006-1-2.1504")
+		err := c.Patch(context.TODO(), newDep, client.StrategicMergeFrom(dep))
+		if err != nil {
+			log.Error(err, "Failed to update the deployment", "name", constants.InventoryDeploymentName)
+		} else {
+			log.Info("Update deployment cert/restart label", "name", constants.InventoryDeploymentName)
+		}
 	}
 }
 
@@ -111,6 +114,16 @@ func needsRenew(s v1.Secret) bool {
 	}
 
 	return false
+}
+
+func onAdd(c client.Client) func(obj interface{}) {
+	return func(obj interface{}) {
+		s := *obj.(*v1.Secret)
+		if !slices.Contains(caSecretNames, s.Name) {
+			return
+		}
+		updateDeployLabel(c, false)
+	}
 }
 
 func onDelete(c client.Client) func(obj interface{}) {
@@ -165,7 +178,7 @@ func onUpdate(ctx context.Context, c client.Client) func(oldObj, newObj interfac
 		newS := *newObj.(*v1.Secret)
 		if !reflect.DeepEqual(oldS.Data, newS.Data) {
 			if slices.Contains(caSecretNames, newS.Name) {
-				updateDeployLabel(c)
+				updateDeployLabel(c, true)
 			}
 		} else {
 			if slices.Contains(caSecretNames, newS.Name) {

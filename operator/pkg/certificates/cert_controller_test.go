@@ -7,7 +7,9 @@ package certificates
 import (
 	"context"
 	"testing"
+	"time"
 
+	appv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,11 +17,53 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func init() {
 	s := scheme.Scheme
 	v1alpha4.SchemeBuilder.AddToScheme(s)
+}
+
+func newDeployment(name string) *appv1.Deployment {
+	return &appv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         namespace,
+			CreationTimestamp: metav1.Date(2020, time.January, 1, 0, 0, 0, 0, time.UTC),
+		},
+		Spec: appv1.DeploymentSpec{
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"label": "value"},
+				},
+			},
+		},
+		Status: appv1.DeploymentStatus{
+			ReadyReplicas: 1,
+		},
+	}
+}
+
+func TestOnAdd(t *testing.T) {
+	c := fake.NewClientBuilder().Build()
+	caSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              InventoryServerCASecretName,
+			Namespace:         namespace,
+			CreationTimestamp: metav1.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC),
+		},
+	}
+	onAdd(c)(caSecret)
+	c = fake.NewClientBuilder().WithRuntimeObjects(newDeployment(constants.InventoryDeploymentName)).Build()
+	onAdd(c)(caSecret)
+	dep := &appv1.Deployment{}
+	c.Get(context.TODO(),
+		types.NamespacedName{Name: constants.InventoryDeploymentName, Namespace: namespace},
+		dep)
+	if dep.Spec.Template.ObjectMeta.Labels[restartLabel] == "" {
+		t.Fatalf("Failed to inject restart label")
+	}
 }
 
 func TestOnDelete(t *testing.T) {
