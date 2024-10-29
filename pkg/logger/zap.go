@@ -1,10 +1,7 @@
 package logger
 
 import (
-<<<<<<< HEAD
-=======
 	"github.com/go-logr/logr"
->>>>>>> 613525ed (switch zap log for global hub agent)
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
