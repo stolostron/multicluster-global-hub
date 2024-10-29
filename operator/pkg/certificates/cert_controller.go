@@ -33,7 +33,7 @@ const (
 )
 
 var (
-	caSecretNames            = []string{InventoryServerCASecretName, InventoryClientCASecretName}
+	caSecretNames            = []string{serverCerts, InventoryClientCASecretName}
 	isCertControllerRunnning = false
 )
 
@@ -54,7 +54,6 @@ func Start(ctx context.Context, c client.Client, kubeClient kubernetes.Interface
 		ObjectType:    &v1.Secret{},
 		ResyncPeriod:  time.Minute * 60,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    onAdd(c),
 			DeleteFunc: onDelete(c),
 			UpdateFunc: onUpdate(ctx, c),
 		},
@@ -64,7 +63,7 @@ func Start(ctx context.Context, c client.Client, kubeClient kubernetes.Interface
 	go controller.Run(ctx.Done())
 }
 
-func updateDeployLabel(c client.Client, isUpdate bool) {
+func updateDeployLabel(c client.Client) {
 	dep := &appv1.Deployment{}
 	err := c.Get(context.TODO(), types.NamespacedName{
 		Name:      constants.InventoryDeploymentName,
@@ -76,15 +75,13 @@ func updateDeployLabel(c client.Client, isUpdate bool) {
 		}
 		return
 	}
-	if isUpdate || dep.Status.ReadyReplicas != 0 {
-		newDep := dep.DeepCopy()
-		newDep.Spec.Template.ObjectMeta.Labels[restartLabel] = time.Now().Format("2006-1-2.1504")
-		err := c.Patch(context.TODO(), newDep, client.StrategicMergeFrom(dep))
-		if err != nil {
-			log.Error(err, "Failed to update the deployment", "name", constants.InventoryDeploymentName)
-		} else {
-			log.Info("Update deployment cert/restart label", "name", constants.InventoryDeploymentName)
-		}
+	newDep := dep.DeepCopy()
+	newDep.Spec.Template.ObjectMeta.Labels[restartLabel] = time.Now().Format("2006-1-2.1504")
+	err = c.Patch(context.TODO(), newDep, client.StrategicMergeFrom(dep))
+	if err != nil {
+		log.Error(err, "Failed to update the deployment", "name", constants.InventoryDeploymentName)
+	} else {
+		log.Info("Update deployment cert/restart label", "name", constants.InventoryDeploymentName)
 	}
 }
 
@@ -114,12 +111,6 @@ func needsRenew(s v1.Secret) bool {
 	}
 
 	return false
-}
-
-func onAdd(c client.Client) func(obj interface{}) {
-	return func(obj interface{}) {
-		updateDeployLabel(c, false)
-	}
 }
 
 func onDelete(c client.Client) func(obj interface{}) {
@@ -173,7 +164,9 @@ func onUpdate(ctx context.Context, c client.Client) func(oldObj, newObj interfac
 		oldS := *oldObj.(*v1.Secret)
 		newS := *newObj.(*v1.Secret)
 		if !reflect.DeepEqual(oldS.Data, newS.Data) {
-			updateDeployLabel(c, true)
+			if slices.Contains(caSecretNames, newS.Name) {
+				updateDeployLabel(c)
+			}
 		} else {
 			if slices.Contains(caSecretNames, newS.Name) {
 				removeExpiredCA(c, newS.Name, newS.Namespace)
