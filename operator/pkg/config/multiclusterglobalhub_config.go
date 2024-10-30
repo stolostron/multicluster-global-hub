@@ -340,11 +340,8 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context, mgh *v1alpha4.Multiclus
 	if c == nil {
 		return nil
 	}
-	err := SetTransportConfig(ctx, c, mgh)
-	if err != nil {
-		return err
-	}
-	err = SetPostgresType(ctx, c, mgh.GetNamespace())
+
+	err := SetPostgresType(ctx, c, mgh.GetNamespace())
 	if err != nil {
 		return err
 	}
@@ -358,8 +355,7 @@ func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.M
 		return nil, err
 	}
 	if len(mghList.Items) != 1 {
-		klog.V(2).Infof("mgh should have 1 instance, but got %v", len(mghList.Items))
-		return nil, nil
+		return nil, fmt.Errorf("mgh should have 1 instance, but got %v", len(mghList.Items))
 	}
 	return &mghList.Items[0], nil
 }

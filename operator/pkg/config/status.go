@@ -18,6 +18,7 @@ package config
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
 
@@ -38,7 +40,11 @@ const (
 const (
 	COMPONENTS_AVAILABLE = "Available"
 	COMPONENTS_CREATING  = "ComponentsCreating"
+	COMPONENTS_NOT_READY = "ComponentsNotReady"
+	RECONCILE_ERROR      = "ReconcileError"
 	MESSAGE_WAIT_CREATED = "Waiting for the resource to be created"
+	MESSAGE_WAIT_READY   = "Waiting for the component to be ready"
+	COMPONENTS_DEPLOYED  = "Component %s has been deployed"
 )
 
 const (
@@ -90,12 +96,25 @@ const (
 )
 
 const (
+	CONDITION_TYPE_ACM_READY        = "ACMReady"
+	CONDITION_REASON_ACM_READY      = "ACMReady"
+	CONDITION_REASON_ACM_NOT_READY  = "ACMNotReady"
+	CONDITION_MESSAGE_ACM_READY     = "The mch is running"
+	CONDITION_MESSAGE_ACM_NOT_READY = "The mch is not running, waiting for mch running"
+)
+
+const (
 	CONDITION_TYPE_BACKUP             = "BackupLabelAdded"
 	CONDITION_REASON_BACKUP           = "BackupLabelAdded"
 	CONDITION_MESSAGE_BACKUP          = "Added backup label to the global hub resources"
 	CONDITION_REASON_BACKUP_DISABLED  = "BackupDisabled"
 	CONDITION_MESSAGE_BACKUP_DISABLED = "Backup is disabled in RHACM"
 )
+
+type GetComponentStatus func(ctx context.Context,
+	c client.Client,
+	namespace string,
+	componentName string) (ComponentStatus, error)
 
 // SetConditionFunc is function type that receives the concrete condition method
 type SetConditionFunc func(ctx context.Context, c client.Client,
@@ -206,4 +225,34 @@ func NeedUpdateConditions(conditions []metav1.Condition,
 		conditions = append(conditions, cond)
 	}
 	return true, conditions
+}
+
+func UpdateMGHComponent(ctx context.Context,
+	c client.Client,
+	desiredComponent v1alpha4.StatusCondition,
+) error {
+	now := metav1.Time{Time: time.Now()}
+	desiredComponent.LastTransitionTime = now
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		curmgh := &v1alpha4.MulticlusterGlobalHub{}
+		err := c.Get(ctx, GetMGHNamespacedName(), curmgh)
+		if err != nil {
+			return err
+		}
+		if curmgh.Status.Components == nil {
+			curmgh.Status.Components = map[string]globalhubv1alpha4.StatusCondition{
+				desiredComponent.Name: desiredComponent,
+			}
+		} else {
+			originComponent := curmgh.Status.Components[desiredComponent.Name]
+			originComponent.LastTransitionTime = now
+
+			if reflect.DeepEqual(desiredComponent, originComponent) {
+				return nil
+			}
+		}
+
+		curmgh.Status.Components[desiredComponent.Name] = desiredComponent
+		return c.Status().Update(ctx, curmgh)
+	})
 }

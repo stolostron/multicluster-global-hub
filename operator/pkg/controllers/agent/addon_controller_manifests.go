@@ -154,7 +154,7 @@ func (a *HohAgentAddon) GetValues(cluster *clusterv1.ManagedCluster,
 		installNamespace = operatorconstants.GHAgentInstallNamespace
 	}
 	mgh, err := config.GetMulticlusterGlobalHub(a.ctx, a.client)
-	if err != nil || mgh == nil {
+	if err != nil {
 		log.Error(err, "failed to get MulticlusterGlobalHub")
 		return nil, err
 	}

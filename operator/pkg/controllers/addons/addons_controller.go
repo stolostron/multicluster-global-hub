@@ -137,10 +137,10 @@ func (r *AddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, nil
 	}
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
-	if err != nil || mgh == nil {
+	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if mgh.DeletionTimestamp != nil {
+	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 	cma := &v1alpha1.ClusterManagementAddOn{}

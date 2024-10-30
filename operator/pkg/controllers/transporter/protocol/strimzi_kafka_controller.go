@@ -38,10 +38,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	if mgh.DeletionTimestamp != nil {
+	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 	var reconcileErr error

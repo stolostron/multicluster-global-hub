@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -22,7 +21,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -632,31 +630,7 @@ func (k *strimziTransporter) updateMghKafkaComponent(ready bool, c client.Client
 			Message: message,
 		}
 	}
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		now := time.Now()
-		kafkastatus.LastTransitionTime = metav1.Time{Time: now}
-		curmgh := &v1alpha4.MulticlusterGlobalHub{}
-		err := c.Get(k.ctx, types.NamespacedName{
-			Name:      k.mgh.Name,
-			Namespace: k.mgh.Namespace,
-		}, curmgh)
-		if err != nil {
-			return err
-		}
-		if curmgh.Status.Components == nil {
-			curmgh.Status.Components = map[string]operatorv1alpha4.StatusCondition{
-				config.COMPONENTS_KAFKA_NAME: kafkastatus,
-			}
-		} else {
-			curmghKafkaStatus := curmgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
-			curmghKafkaStatus.LastTransitionTime = metav1.Time{Time: now}
-			if reflect.DeepEqual(curmghKafkaStatus, kafkastatus) {
-				return nil
-			}
-		}
-		curmgh.Status.Components[config.COMPONENTS_KAFKA_NAME] = kafkastatus
-		return c.Status().Update(k.ctx, curmgh)
-	})
+	return config.UpdateMGHComponent(k.ctx, c, kafkastatus)
 }
 
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {

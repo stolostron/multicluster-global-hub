@@ -182,7 +182,9 @@ func Test_strimziTransporter_updateMghKafkaComponent(t *testing.T) {
 			apiextensionsv1.AddToScheme(scheme.Scheme)
 			kafkav1beta2.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(&v1alpha4.MulticlusterGlobalHub{}).WithRuntimeObjects(tt.mgh).Build()
-
+			config.SetMGHNamespacedName(types.NamespacedName{
+				Namespace: tt.mgh.GetNamespace(), Name: tt.mgh.GetName(),
+			})
 			k := &strimziTransporter{
 				ctx: context.Background(),
 				mgh: tt.mgh,

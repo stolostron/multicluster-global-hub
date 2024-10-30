@@ -96,11 +96,9 @@ var _ = BeforeSuite(func() {
 	managerScheme = managerconfig.GetRuntimeScheme()
 	isBYO = os.Getenv("ISBYO")
 	klog.Infof("Isbyo: %v", isBYO)
-	if isBYO == "true" {
-		expectComponentsCount = 2
-	} else {
-		expectComponentsCount = 4
-	}
+
+	expectComponentsCount = 4
+
 	isPrune = os.Getenv("ISPRUNE")
 	klog.Infof("isPrune: %v", isPrune)
 

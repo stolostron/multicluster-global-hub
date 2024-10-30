@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"context"
@@ -20,11 +20,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/transporter/protocol"
+	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -39,7 +40,7 @@ var _ = Describe("transporter", Ordered, func() {
 	BeforeAll(func() {
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
 		mghName := "test-mgh"
-
+		config.SetMGHNamespacedName(types.NamespacedName{Namespace: namespace, Name: mghName})
 		// mgh
 		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -68,6 +69,9 @@ var _ = Describe("transporter", Ordered, func() {
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
+
+		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+
 		// update the transport protocol configuration
 		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
 		Expect(err).To(Succeed())
@@ -82,7 +86,12 @@ var _ = Describe("transporter", Ordered, func() {
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 
 		Eventually(func() error {
-			err = reconciler.Reconcile(ctx, mgh)
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: mgh.Namespace,
+					Name:      mgh.Name,
+				},
+			})
 			if err != nil {
 				return err
 			}
@@ -126,13 +135,23 @@ var _ = Describe("transporter", Ordered, func() {
 
 		// blocking until get the connection
 		go func() {
-			err = reconciler.Reconcile(ctx, mgh)
+			_, err = reconciler.Reconcile(ctx, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: mgh.Namespace,
+					Name:      mgh.Name,
+				},
+			})
 			for err != nil {
 				fmt.Println("reconciler error, retrying ...", err.Error())
 				time.Sleep(1 * time.Second)
 
 				_ = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
-				err = reconciler.Reconcile(ctx, mgh)
+				_, err = reconciler.Reconcile(ctx, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: mgh.Namespace,
+						Name:      mgh.Name,
+					},
+				})
 			}
 		}()
 
