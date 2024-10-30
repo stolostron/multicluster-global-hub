@@ -12,13 +12,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/authentication"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/managedclusters"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/policies"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/subscriptions"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const secondsToFinishOnShutdown = 5
@@ -39,7 +40,7 @@ func (*restApiServer) NeedLeaderElection() bool {
 
 // restApiServer defines the non-k8s-api-server
 type restApiServer struct {
-	log logr.Logger
+	log *zap.SugaredLogger
 	svr *http.Server
 }
 
@@ -66,7 +67,7 @@ func AddRestApiServer(mgr ctrl.Manager, restApiConfig *RestApiServerConfig) erro
 	}
 
 	err = mgr.Add(&restApiServer{
-		log: ctrl.Log.WithName("non-k8s-api-server"),
+		log: logger.ZapLogger("restapi-server"),
 		svr: &http.Server{
 			Addr:              ":8080",
 			Handler:           router,

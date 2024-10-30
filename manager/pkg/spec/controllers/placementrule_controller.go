@@ -13,6 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 func AddPlacementRuleController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
@@ -22,7 +23,7 @@ func AddPlacementRuleController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
 		Complete(&genericSpecController{
 			client:         mgr.GetClient(),
 			specDB:         specDB,
-			log:            ctrl.Log.WithName("placementrules-spec-syncer"),
+			log:            logger.ZapLogger("placementrules-spec-syncer"),
 			tableName:      "placementrules",
 			finalizerName:  constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object { return &placementrulev1.PlacementRule{} },

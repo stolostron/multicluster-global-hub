@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -22,7 +21,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -36,6 +34,7 @@ import (
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/manager/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -55,10 +54,10 @@ const (
 )
 
 var (
-	setupLog              = ctrl.Log.WithName("setup")
 	managerNamespace      = constants.GHDefaultNamespace
 	enableSimulation      = false
 	errFlagParameterEmpty = errors.New("flag parameter empty")
+	log                   = logger.DefaultZapLogger()
 )
 
 func parseFlags() *configs.ManagerConfig {
@@ -75,12 +74,6 @@ func parseFlags() *configs.ManagerConfig {
 		ElectionConfig:      &commonobjects.LeaderElectionConfig{},
 		LaunchJobNames:      "",
 	}
-
-	// add zap flags
-	opts := utils.CtrlZapOptions()
-	defaultFlags := flag.CommandLine
-	opts.BindFlags(defaultFlags)
-	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 
 	pflag.StringVar(&managerConfig.ManagerNamespace, "manager-namespace", constants.GHDefaultNamespace,
 		"The manager running namespace, also used as leader election namespace.")
@@ -126,8 +119,6 @@ func parseFlags() *configs.ManagerConfig {
 		"import cluster in hosted mode")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.Parse()
-	// set zap logger
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	pflag.Visit(func(f *pflag.Flag) {
 		// set enableSimulation to be true when manually set 'scheduler-interval' flag
@@ -208,6 +199,11 @@ func createManager(ctx context.Context,
 		return nil, fmt.Errorf("failed to create a new manager: %w", err)
 	}
 
+	// add the configmap: logLevel
+	if err = controllers.AddConfigMapController(mgr); err != nil {
+		return nil, fmt.Errorf("failed to add configmap controller to manager: %w", err)
+	}
+
 	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
 		transportCallback(mgr, managerConfig),
 		managerConfig.TransportConfig,
@@ -265,24 +261,22 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
 
-		setupLog.Info("add the manager controllers to ctrl.Manager")
 		return nil
 	}
 }
 
 // function to handle defers with exit, see https://stackoverflow.com/a/27629493/553720.
-func doMain(ctx context.Context, restConfig *rest.Config) int {
+func doMain(ctx context.Context, restConfig *rest.Config) error {
 	managerConfig := parseFlags()
 	if err := completeConfig(managerConfig); err != nil {
-		setupLog.Error(err, "failed to complete configuration")
-		return 1
+		return fmt.Errorf("failed to complete configuration %w", err)
 	}
 
 	if managerConfig.EnablePprof {
 		go utils.StartDefaultPprofServer()
 	}
 
-	utils.PrintVersion(setupLog)
+	utils.PrintRuntimeInfo()
 	databaseConfig := &database.DatabaseConfig{
 		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,
 		Dialect:    database.PostgresDialect,
@@ -292,49 +286,46 @@ func doMain(ctx context.Context, restConfig *rest.Config) int {
 	// Init the default gorm instance, it's used to sync data to db
 	err := database.InitGormInstance(databaseConfig)
 	if err != nil {
-		setupLog.Error(err, "failed to initialize GORM instance")
-		return 1
+		return fmt.Errorf("failed to initialize GORM instance %w", err)
 	}
 	defer database.CloseGorm(database.GetSqlDb())
 
 	// Init the backup gorm instance, it's used to add lock when backup database
 	_, sqlBackupConn, err := database.NewGormConn(databaseConfig)
 	if err != nil {
-		setupLog.Error(err, "failed to initialize GORM instance")
-		return 1
+		return fmt.Errorf("failed to initialize GORM conn instance %w", err)
 	}
 	defer database.CloseGorm(sqlBackupConn)
 
 	sqlConn, err := sqlBackupConn.Conn(ctx)
 	if err != nil {
-		setupLog.Error(err, "failed to get db connection")
-		return 1
+		return fmt.Errorf("failed to sql conn instance %w", err)
 	}
 	mgr, err := createManager(ctx, restConfig, managerConfig, sqlConn)
 	if err != nil {
-		setupLog.Error(err, "failed to create manager")
-		return 1
+		return fmt.Errorf("failed to create manager %w", err)
 	}
 
 	if managerConfig.EnableGlobalResource {
 		hookServer := mgr.GetWebhookServer()
-		setupLog.Info("registering webhooks to the webhook server")
+		log.Info("registering webhooks to the webhook server")
 		hookServer.Register("/mutating", &webhook.Admission{
 			Handler: mgrwebhook.NewAdmissionHandler(mgr.GetScheme()),
 		})
 	}
 
-	setupLog.Info("Starting the Manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "manager exited non-zero")
-		return 1
+		return fmt.Errorf("failed to start manager %w", err)
 	}
 
-	return 0
+	return nil
 }
 
 func main() {
-	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+	defer func() { _ = logger.CoreZapLogger().Sync() }()
+	if err := doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()); err != nil {
+		logger.DefaultZapLogger().Panicf("failed to run the main: %v", err)
+	}
 }
 
 func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error) {

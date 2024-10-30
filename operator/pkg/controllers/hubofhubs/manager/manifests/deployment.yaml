@@ -34,7 +34,6 @@ spec:
           {{- end }}
           imagePullPolicy: {{.ImagePullPolicy}}
           args:
-            - --zap-log-level={{.LogLevel}}
             - --manager-namespace=$(POD_NAMESPACE)
             - --watch-namespace=$(WATCH_NAMESPACE)
             - --postgres-ca-path=/postgres-credential/ca.crt

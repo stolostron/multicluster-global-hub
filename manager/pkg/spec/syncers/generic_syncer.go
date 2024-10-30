@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controllers/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
@@ -17,7 +17,7 @@ import (
 )
 
 type genericDBToTransportSyncer struct {
-	log            logr.Logger
+	log            *zap.SugaredLogger
 	intervalPolicy interval.IntervalPolicy
 	syncBundleFunc func(ctx context.Context) (bool, error)
 }

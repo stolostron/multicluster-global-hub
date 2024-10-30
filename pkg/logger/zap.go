@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -33,8 +34,12 @@ func CoreZapLogger() *zap.Logger {
 		internalZapLogger, _ = internalZapConfig.Build()
 	}
 	// set the controller-runtime logger with the current zap logger
-	ctrl.SetLogger(zapr.NewLoggerWithOptions(internalZapLogger))
+	ctrl.SetLogger(zapr.NewLogger(internalZapLogger))
 	return internalZapLogger
+}
+
+func ZaprLogger() logr.Logger {
+	return zapr.NewLogger(internalZapLogger)
 }
 
 // DefaultZapLogger is a sugar wraps the Logger to provide a more ergonomic, but slightly slower, API

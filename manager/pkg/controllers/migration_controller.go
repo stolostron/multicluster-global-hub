@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -34,6 +33,7 @@ import (
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -60,6 +60,8 @@ const (
 	klusterletConfigNamePrefix = "migration-"
 	bootstrapSecretNamePrefix  = "bootstrap-"
 )
+
+var migrationLog = logger.ZapLogger("migration-ctrl")
 
 // SetupWithManager sets up the controller with the Manager.
 func (m *MigrationController) SetupWithManager(mgr ctrl.Manager) error {
@@ -117,7 +119,6 @@ func (m *MigrationController) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
 	if req.Namespace == utils.GetDefaultNamespace() {
 		// create managedserviceaccount
 		migration := &migrationv1alpha1.ManagedClusterMigration{}
@@ -126,11 +127,11 @@ func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (
 			if apierrors.IsNotFound(err) {
 				// If the custom resource is not found then it usually means that it was deleted or not created
 				// In this way, we will stop the reconciliation
-				log.Info("managedclustermigration resource not found. Ignoring since object must be deleted")
+				migrationLog.Info("managedclustermigration resource not found. Ignoring since object must be deleted")
 				return ctrl.Result{}, nil
 			}
 			// Error reading the object - requeue the request.
-			log.Error(err, "failed to get managedclustermigration")
+			migrationLog.Error(err, "failed to get managedclustermigration")
 			return ctrl.Result{}, err
 		}
 
@@ -187,7 +188,7 @@ func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (
 			Name:      req.Name,
 			Namespace: utils.GetDefaultNamespace(),
 		}, migration); err != nil {
-			log.Error(err, "failed to get managedclustermigration")
+			migrationLog.Error(err, "failed to get managedclustermigration")
 			return ctrl.Result{}, err
 		}
 		if err := m.syncMigration(ctx, migration, klusterletConfig); err != nil {

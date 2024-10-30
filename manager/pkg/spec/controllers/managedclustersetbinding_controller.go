@@ -13,6 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB specdb.SpecDB) error {
@@ -22,7 +23,7 @@ func AddManagedClusterSetBindingController(mgr ctrl.Manager, specDB specdb.SpecD
 		Complete(&genericSpecController{
 			client:        mgr.GetClient(),
 			specDB:        specDB,
-			log:           ctrl.Log.WithName("managedclustersetbindings-spec-syncer"),
+			log:           logger.ZapLogger("managedclustersetbindings-spec-syncer"),
 			tableName:     "managedclustersetbindings",
 			finalizerName: constants.GlobalHubCleanupFinalizer,
 			createInstance: func() client.Object {

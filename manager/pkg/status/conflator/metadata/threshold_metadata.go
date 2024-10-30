@@ -7,9 +7,9 @@ import (
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -31,10 +31,10 @@ type ThresholdMetadata struct {
 	eventDependencyVersion *eventversion.Version
 }
 
+var log = logger.DefaultZapLogger()
+
 // the retry times(max) when the bundle has been failed processed
 func NewThresholdMetadata(clusterIdentity string, max int, evt *cloudevents.Event) *ThresholdMetadata {
-	log := ctrl.Log.WithName("event-metadata")
-
 	topic, err := types.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
 	if err != nil {
 		log.Info("failed to parse topic from event", "error", err)

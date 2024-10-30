@@ -6,10 +6,9 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -17,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/dao"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -27,7 +27,7 @@ const (
 // genericObjectHandler implements generic status resource db sync business logic.
 // only for the table with: id, leaf_hub_name and payload
 type genericObjectHandler[T metav1.Object] struct {
-	log           logr.Logger
+	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -39,7 +39,7 @@ func RegisterGenericHandler[T metav1.Object](conflationManager *conflator.Confla
 ) {
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &genericObjectHandler[T]{
-		log:           ctrl.Log.WithName(logName),
+		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
 		eventSyncMode: syncMode,
 		eventPriority: priority,
@@ -63,7 +63,7 @@ func RegisterGenericHandler[T metav1.Object](conflationManager *conflator.Confla
 
 func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[version.ExtVersion]
-	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	leafHubName := evt.Source()
 	var data []T
@@ -119,7 +119,7 @@ func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudeve
 		return err
 	}
 
-	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 

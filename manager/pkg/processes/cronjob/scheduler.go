@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron"
-	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob/task"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -22,8 +22,9 @@ const (
 	EverySecond string = "second"
 )
 
+var log = logger.DefaultZapLogger()
+
 type GlobalHubJobScheduler struct {
-	log        logr.Logger
 	scheduler  *gocron.Scheduler
 	launchJobs []string
 }
@@ -32,7 +33,6 @@ func NewGlobalHubScheduler(scheduler *gocron.Scheduler, launchJobs []string) *Gl
 	// register the metrics before starting the jobs
 	task.RegisterMetrics()
 	return &GlobalHubJobScheduler{
-		log:        ctrl.Log.WithName("cronjob-scheduler"),
 		scheduler:  scheduler,
 		launchJobs: launchJobs,
 	}
@@ -41,7 +41,6 @@ func NewGlobalHubScheduler(scheduler *gocron.Scheduler, launchJobs []string) *Gl
 func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	managerConfig *configs.ManagerConfig, enableSimulation bool,
 ) error {
-	log := ctrl.Log.WithName("cronjob-scheduler")
 	// Scheduler timezone:
 	// The cluster may be in a different timezones, Here we choose to be consistent with the local GH timezone.
 	scheduler := gocron.NewScheduler(time.Local)
@@ -66,7 +65,7 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	if err != nil {
 		return err
 	}
-	log.Info("set SyncLocalCompliance job", "scheduleAt", complianceHistoryJob.ScheduledAtTime())
+	log.Infow("set SyncLocalCompliance job", "scheduleAt", complianceHistoryJob.ScheduledAtTime())
 
 	dataRetentionJob, err := scheduler.
 		Every(1).Month(1, 15, 28).At("00:00").
@@ -78,14 +77,13 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
 	return mgr.Add(&GlobalHubJobScheduler{
-		log:        log,
 		scheduler:  scheduler,
 		launchJobs: strings.Split(managerConfig.LaunchJobNames, ","),
 	})
 }
 
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
-	s.log.Info("start job scheduler")
+	log.Infow("start job scheduler")
 	// Set the status of the job to 0 (success) when the job is started.
 	task.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
 	task.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
@@ -102,12 +100,12 @@ func (s *GlobalHubJobScheduler) ExecJobs() error {
 	for _, job := range s.launchJobs {
 		switch job {
 		case task.RetentionTaskName:
-			s.log.Info("launch the job", "name", job)
+			log.Infow("launch the job", "name", job)
 			if err := s.scheduler.RunByTag(job); err != nil {
 				return err
 			}
 		default:
-			s.log.Info("failed to launch the unknow job immediately", "name", job)
+			log.Infow("failed to launch the unknow job immediately", "name", job)
 		}
 	}
 	return nil

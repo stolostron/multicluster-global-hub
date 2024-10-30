@@ -16,6 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -29,7 +30,7 @@ func AddManagedClusterLabelsDBToTransportSyncer(mgr ctrl.Manager, specDB specdb.
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("db-to-transport-syncer-managedclusterlabel"),
+		log:            logger.ZapLogger("db-to-transport-syncer-managedclusterlabel"),
 		intervalPolicy: interval.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncManagedClusterLabelsBundles(ctx, producer,

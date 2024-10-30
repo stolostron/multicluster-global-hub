@@ -5,16 +5,16 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type deltaElement struct {
-	log logr.Logger
+	log *zap.SugaredLogger
 	// state
 	eventType            string
 	syncMode             enum.EventSyncMode
@@ -30,8 +30,7 @@ type deltaElement struct {
 func NewDeltaElement(leafHubName string, registration *ConflationRegistration) *deltaElement {
 	elementName := strings.Replace(registration.eventType, enum.EventTypePrefix, "", -1)
 	return &deltaElement{
-		log: ctrl.Log.WithName(fmt.Sprintf("%s.delta.%s", leafHubName, elementName)),
-
+		log:                  logger.ZapLogger(fmt.Sprintf("%s.delta.%s", leafHubName, elementName)),
 		eventType:            registration.eventType,
 		syncMode:             registration.syncMode,
 		handlerFunction:      registration.handleFunc,
@@ -56,9 +55,9 @@ func (e *deltaElement) SyncMode() enum.EventSyncMode {
 func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 	if eventVersion.InitGen() {
 		e.lastProcessedVersion = version.NewVersion()
-		e.log.Info("resetting element processed version", "version", eventVersion)
+		e.log.Infow("resetting element processed version", "version", eventVersion)
 	}
-	e.log.V(2).Info("inserting event", "version", eventVersion)
+	e.log.Debugw("inserting event", "version", eventVersion)
 	return eventVersion.NewerThan(e.lastProcessedVersion)
 }
 

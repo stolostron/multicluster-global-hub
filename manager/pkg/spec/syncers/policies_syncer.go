@@ -12,6 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controllers/bundle"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/specdb"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/syncers/interval"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -28,7 +29,7 @@ func AddPoliciesDBToTransportSyncer(mgr ctrl.Manager, specDB specdb.SpecDB, prod
 	lastSyncTimestampPtr := &time.Time{}
 
 	if err := mgr.Add(&genericDBToTransportSyncer{
-		log:            ctrl.Log.WithName("db-to-transport-syncer-policy"),
+		log:            logger.ZapLogger("db-to-transport-syncer-policy"),
 		intervalPolicy: interval.NewExponentialBackoffPolicy(specSyncInterval),
 		syncBundleFunc: func(ctx context.Context) (bool, error) {
 			return syncObjectsBundle(ctx, producer, policiesMsgKey, specDB, policiesTableName,

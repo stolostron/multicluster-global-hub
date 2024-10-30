@@ -14,6 +14,10 @@ const (
 	InventoryDeploymentName = "inventory-api"
 	InventoryRouteName      = "inventory-api"
 
+	// GHConfigCMName is the name of configmap that stores important global hub settings
+	// eg. logLevel for both operator and manager.
+	GHConfigCMName = "multicluster-global-hub-config"
+
 	// GHAgentConfigCMName is the name of configmap that stores important global hub settings
 	// eg. aggregationLevel and enableLocalPolicy.
 	GHAgentConfigCMName = "multicluster-global-hub-agent-config"

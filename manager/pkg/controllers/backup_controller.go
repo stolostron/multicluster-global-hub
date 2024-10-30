@@ -33,10 +33,11 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var backupLog = ctrl.Log.WithName("backup pvc")
+var backupLog = logger.ZapLogger("backup-ctrl")
 
 // BackupReconciler reconciles a MulticlusterGlobalHub object
 type BackupPVCReconciler struct {
@@ -101,11 +102,11 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	database.IsBackupEnabled = isBackupEnabled
 	if !isBackupEnabled {
-		backupLog.V(2).Info("Backup is not enabled")
+		backupLog.Debug("Backup is not enabled")
 		return ctrl.Result{}, nil
 	}
 
-	backupLog.V(2).Info("Start backup pvc", "req", req)
+	backupLog.Debug("Start backup pvc", "req", req)
 
 	err = database.Lock(r.sqlConn)
 	if err != nil {
@@ -131,7 +132,7 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	backupLog.V(2).Info("Start wait pvc backup finish", "time", time.Now())
+	backupLog.Debugw("Start wait pvc backup finish", "time", time.Now())
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		pvc := &corev1.PersistentVolumeClaim{}
 		err := r.Client.Get(ctx, req.NamespacedName, pvc)
@@ -150,6 +151,6 @@ func (r *BackupPVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		backupLog.Error(err, "Time out to wait backup pvc finished")
 		return ctrl.Result{}, err
 	}
-	backupLog.V(2).Info("pvc backup finish", "time", time.Now())
+	backupLog.Debug("pvc backup finish", "time", time.Now())
 	return ctrl.Result{}, nil
 }

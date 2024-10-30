@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
-	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/dependency"
@@ -17,10 +16,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type policyDeltaComplianceHandler struct {
-	log            logr.Logger
+	log            *zap.SugaredLogger
 	eventType      string
 	dependencyType string
 	eventSyncMode  enum.EventSyncMode
@@ -31,7 +31,7 @@ func RegisterPolicyDeltaComplianceHandler(conflationManager *conflator.Conflatio
 	eventType := string(enum.DeltaComplianceType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &policyDeltaComplianceHandler{
-		log:            ctrl.Log.WithName(logName),
+		log:            logger.ZapLogger(logName),
 		eventType:      eventType,
 		dependencyType: string(enum.CompleteComplianceType),
 		eventSyncMode:  enum.DeltaStateMode,
@@ -51,7 +51,7 @@ func RegisterPolicyDeltaComplianceHandler(conflationManager *conflator.Conflatio
 func (h *policyDeltaComplianceHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	h.log.V(2).Info(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
@@ -98,7 +98,7 @@ func (h *policyDeltaComplianceHandler) handleEvent(ctx context.Context, evt *clo
 		return fmt.Errorf("failed to handle delta compliance bundle - %w", err)
 	}
 
-	h.log.V(2).Info(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 
