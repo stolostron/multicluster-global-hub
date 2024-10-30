@@ -49,7 +49,7 @@ const (
 func main() {
 	log := logger.DefaultZapLogger()
 	defer func() { _ = log.Desugar().Sync() }() // ensure it's invoked only once within the main process
-	utils.RuntimeInfo()
+	utils.PrintRuntimeInfo()
 
 	// adding and parsing flags should be done before the call of 'ctrl.GetConfigOrDie()',
 	// otherwise kubeconfig will not be passed to agent main process

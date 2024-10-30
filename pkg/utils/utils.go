@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
-func RuntimeInfo() {
+func PrintRuntimeInfo() {
 	log := logger.DefaultZapLogger()
 	log.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 	log.Infof("Go Version: %s", runtime.Version())

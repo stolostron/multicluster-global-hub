@@ -276,7 +276,7 @@ func doMain(ctx context.Context, restConfig *rest.Config) error {
 		go utils.StartDefaultPprofServer()
 	}
 
-	utils.RuntimeInfo()
+	utils.PrintRuntimeInfo()
 	databaseConfig := &database.DatabaseConfig{
 		URL:        managerConfig.DatabaseConfig.ProcessDatabaseURL,
 		Dialect:    database.PostgresDialect,
