@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
+var log = logger.DefaultZapLogger()
+
 // DBWorkerPool pool that registers all db workers and the assigns db jobs to available workers.
 type DBWorkerPool struct {
-	log        logr.Logger
 	statistics *statistics.Statistics
 	workers    chan *Worker // A pool of workers that are registered within the workers pool
 }
@@ -22,7 +21,6 @@ type DBWorkerPool struct {
 // NewDBWorkerPool returns a new db workers pool dispatcher.
 func NewDBWorkerPool(statistics *statistics.Statistics) (*DBWorkerPool, error) {
 	return &DBWorkerPool{
-		log:        ctrl.Log.WithName("worker-pool"),
 		statistics: statistics,
 	}, nil
 }
@@ -35,7 +33,7 @@ func (pool *DBWorkerPool) Start(ctx context.Context) error {
 	}
 
 	stats := sqlDB.Stats()
-	pool.log.Info("connection stats", "open connection(worker)", stats.OpenConnections, "max", stats.MaxOpenConnections)
+	log.Infow("connection stats", "open connection(worker)", stats.OpenConnections, "max", stats.MaxOpenConnections)
 
 	workSize := stats.MaxOpenConnections
 	if workSize < 5 {
@@ -48,7 +46,7 @@ func (pool *DBWorkerPool) Start(ctx context.Context) error {
 	// start workers and register them within the workers pool
 	var i int32
 	for i = 1; i <= int32(workSize); i++ {
-		worker := NewWorker(pool.log, i, pool.workers, pool.statistics)
+		worker := NewWorker(i, pool.workers, pool.statistics)
 		go worker.start(ctx) // each worker adds itself to the pool inside start function
 	}
 
@@ -71,7 +69,7 @@ func (pool *DBWorkerPool) Acquire() (*Worker, error) {
 		case res := <-pool.workers:
 			return res, nil
 		case <-ticker.C:
-			pool.log.V(2).Info("the db workers are not available, retrying", "seconds", i*10+10)
+			log.Debugw("the db workers are not available, retrying", "seconds", i*10+10)
 			continue
 		}
 	}

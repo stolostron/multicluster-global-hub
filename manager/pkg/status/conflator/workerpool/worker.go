@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
@@ -15,11 +14,10 @@ import (
 // NewWorker creates a new instance of DBWorker.
 // jobsQueue is initialized with capacity of 1. this is done in order to make sure dispatcher isn't blocked when calling
 // to RunAsync, otherwise it will yield cpu to other go routines.
-func NewWorker(log logr.Logger, workerID int32, dbWorkersPool chan *Worker,
+func NewWorker(workerID int32, dbWorkersPool chan *Worker,
 	statistics *statistics.Statistics,
 ) *Worker {
 	return &Worker{
-		log:        log,
 		workerID:   workerID,
 		workers:    dbWorkersPool,
 		jobsQueue:  make(chan *conflator.ConflationJob, 1),
@@ -29,7 +27,6 @@ func NewWorker(log logr.Logger, workerID int32, dbWorkersPool chan *Worker,
 
 // Worker worker within the DB Worker pool. runs as a goroutine and invokes DBJobs.
 type Worker struct {
-	log        logr.Logger
 	workerID   int32
 	workers    chan *Worker
 	jobsQueue  chan *conflator.ConflationJob
@@ -43,7 +40,7 @@ func (worker *Worker) RunAsync(job *conflator.ConflationJob) {
 }
 
 func (worker *Worker) start(ctx context.Context) {
-	worker.log.Info("started worker", "WorkerID", worker.workerID)
+	log.Infow("started worker", "WorkerID", worker.workerID)
 	for {
 		// add worker into the dbWorkerPool to mark this worker as available.
 		// this is done in each iteration after the worker finished handling a job (or at startup),
@@ -71,7 +68,7 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 	defer database.Unlock(conn)
 
 	if err != nil {
-		worker.log.Error(err, "failed to get db lock")
+		log.Error(err)
 		return
 	}
 
@@ -81,7 +78,7 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 			err = job.Handle(ctx, job.Event) // db connection released to pool when done
 			if err != nil {
 				job.Metadata.MarkAsUnprocessed()
-				worker.log.Error(err, "failed to handle event", "type", job.Event.Type())
+				log.Error(err, "failed to handle event", "type", job.Event.Type())
 			} else {
 				job.Metadata.MarkAsProcessed()
 			}
@@ -98,12 +95,12 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 	job.Reporter.ReportResult(job.Metadata, err)
 
 	if err != nil {
-		worker.log.Error(err, "fails to process the DB job", "LF", job.Event.Source(),
+		log.Error(err, "fails to process the DB job", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
 			"type", job.Event.Type(),
 			"version", job.Metadata.Version())
 	} else {
-		worker.log.V(2).Info("handle the DB job successfully", "LF", job.Event.Source(),
+		log.Debugw("handle the DB job successfully", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
 			"type", job.Event.Type(),
 			"version", job.Metadata.Version())

@@ -8,8 +8,9 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-logr/logr"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"go.uber.org/zap"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type StatisticsConfig struct {
@@ -19,7 +20,7 @@ type StatisticsConfig struct {
 // NewStatistics creates a new instance of Statistics.
 func NewStatistics(statisticsConfig *StatisticsConfig) *Statistics {
 	return &Statistics{
-		log:          ctrl.Log.WithName("statistics"),
+		log:          logger.DefaultZapLogger(),
 		eventMetrics: make(map[string]*eventMetrics),
 		logInterval:  statisticsConfig.LogInterval,
 	}
@@ -27,7 +28,7 @@ func NewStatistics(statisticsConfig *StatisticsConfig) *Statistics {
 
 // Statistics aggregates different statistics.
 type Statistics struct {
-	log                      logr.Logger
+	log                      *zap.SugaredLogger
 	numOfAvailableDBWorkers  int
 	conflationReadyQueueSize int
 	numOfConflationUnits     int
@@ -147,7 +148,7 @@ func (s *Statistics) run(ctx context.Context, duration time.Duration) {
 				s.numOfConflationUnits, s.conflationReadyQueueSize, s.numOfAvailableDBWorkers, success, fail,
 				conflationAvg, storageAvg)
 
-			s.log.V(4).Info(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
+			s.log.Debug(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
 		}
 	}
 }

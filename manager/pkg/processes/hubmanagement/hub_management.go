@@ -44,7 +44,7 @@ type HubManagement struct {
 
 func NewHubManagement(producer transport.Producer, probeDuration, activeTimeout time.Duration) *HubManagement {
 	return &HubManagement{
-		log:           logger.ZapLogger("hub-management"),
+		log:           logger.DefaultZapLogger(),
 		producer:      producer,
 		probeDuration: probeDuration,
 		activeTimeout: activeTimeout,
