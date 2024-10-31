@@ -33,7 +33,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 	deployer := &HoHDeployer{client: client}
 	deployer.deployFuncs = map[string]deployFunc{
 		"Deployment":         deployer.deployDeployment,
-		"StatefulSet":        deployer.deployStatefulSet,
+		"StatefulSet":        deployer.deployDeployment,
 		"Service":            deployer.deployService,
 		"ServiceAccount":     deployer.deployServiceAccount,
 		"ConfigMap":          deployer.deployConfigMap,
@@ -89,15 +89,6 @@ func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 
 func (d *HoHDeployer) deployDeployment(desiredObj, existingObj *unstructured.Unstructured) error {
 	// should not use DeepDerivative for typed object due to https://github.com/kubernetes/apimachinery/issues/110
-	if !apiequality.Semantic.DeepDerivative(desiredObj.Object["spec"], existingObj.Object["spec"]) ||
-		!apiequality.Semantic.DeepDerivative(desiredObj.GetLabels(), existingObj.GetLabels()) ||
-		!apiequality.Semantic.DeepDerivative(desiredObj.GetAnnotations(), existingObj.GetAnnotations()) {
-		return d.client.Update(context.TODO(), desiredObj)
-	}
-	return nil
-}
-
-func (d *HoHDeployer) deployStatefulSet(desiredObj, existingObj *unstructured.Unstructured) error {
 	if !apiequality.Semantic.DeepDerivative(desiredObj.Object["spec"], existingObj.Object["spec"]) ||
 		!apiequality.Semantic.DeepDerivative(desiredObj.GetLabels(), existingObj.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredObj.GetAnnotations(), existingObj.GetAnnotations()) {
