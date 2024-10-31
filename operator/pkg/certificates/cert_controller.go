@@ -166,7 +166,10 @@ func onUpdate(ctx context.Context, c client.Client, kubeClient kubernetes.Interf
 		newS := *newObj.(*v1.Secret)
 		if !reflect.DeepEqual(oldS.Data, newS.Data) {
 			if slices.Contains(caSecretNames, newS.Name) {
-				utils.RestartPod(ctx, kubeClient, utils.GetDefaultNamespace(), constants.InventoryDeploymentName)
+				err := utils.RestartPod(ctx, kubeClient, utils.GetDefaultNamespace(), constants.InventoryDeploymentName)
+				if err != nil {
+					log.Error(err, "failed to restart the pods", "name", constants.InventoryDeploymentName)
+				}
 			}
 		} else {
 			if slices.Contains(caSecretNames, newS.Name) {

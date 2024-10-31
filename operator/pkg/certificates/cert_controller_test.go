@@ -51,7 +51,7 @@ func TestOnAdd(t *testing.T) {
 	kubeClient := fakekube.NewSimpleClientset(newDeployment(constants.InventoryDeploymentName))
 	caSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              InventoryServerCASecretName,
+			Name:              InventoryClientCASecretName,
 			Namespace:         namespace,
 			CreationTimestamp: metav1.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC),
 		},
