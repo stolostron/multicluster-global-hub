@@ -66,8 +66,6 @@ type CrdController struct {
 	kubeClient            *kubernetes.Clientset
 	operatorConfig        *config.OperatorConfig
 	resources             map[string]bool
-	addonInstallerReady   bool
-	agentController       *agent.AddonController
 	globalHubController   runtimeController.Controller
 	backupControllerReady bool
 	addonsControllerReady bool
@@ -101,30 +99,16 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon installer
-	if !r.addonInstallerReady {
-		// if err := (&agent.DefaultAgentReconciler{
-		// 	Client: r.GetClient(),
-		// 	Log:    ctrl.Log.WithName("addon-reconciler"),
-		// }).SetupWithManager(ctx, r.Manager); err != nil {
-		// 	return ctrl.Result{}, err
-		// }
-		if err := agent.AddDefaultAgentReconciler(ctx, r.Manager); err != nil {
-			return ctrl.Result{}, err
-		}
-		r.addonInstallerReady = true
+
+	if err := agent.AddDefaultAgentReconciler(ctx, r.Manager); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// start addon controller
-	if r.agentController == nil {
-		agentController, err := agent.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		err = r.Manager.Add(agentController)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		r.agentController = agentController
+	_, err = agent.AddGlobalHubAddonController(ctx, r.Manager,
+		r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// backup controller

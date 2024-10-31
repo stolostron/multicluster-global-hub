@@ -29,7 +29,6 @@ import (
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -429,7 +428,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 
 	// certificates
 	credential.CASecretName = GetClusterCASecret(k.kafkaClusterName)
-	credential.ClientSecretName = certificates.AgentCertificateSecretName()
+	credential.ClientSecretName = config.AgentCertificateSecretName()
 
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)

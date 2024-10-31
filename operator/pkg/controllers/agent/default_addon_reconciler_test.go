@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	v1 "open-cluster-management.io/api/cluster/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -288,7 +287,6 @@ func TestAddonInstaller(t *testing.T) {
 
 			r := &hubofhubsaddon.DefaultAgentReconciler{
 				Client: fakeClient,
-				Log:    ctrl.Log.WithName("test"),
 			}
 
 			_, err := r.Reconcile(ctx, tc.req)

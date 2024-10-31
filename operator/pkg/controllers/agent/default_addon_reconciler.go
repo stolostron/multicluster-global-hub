@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	log                 = logger.ZaprLogger()
+	log                 = logger.DefaultZapLogger()
 	defaultAgentStarted = false
 )
 
@@ -172,7 +172,7 @@ func (r *DefaultAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("waiting until clustermanagementaddon is created", "namespacedname", req.NamespacedName)
+			log.Infow("waiting until clustermanagementaddon is created", "namespacedname", req.NamespacedName)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		} else {
 			return ctrl.Result{}, err
@@ -198,7 +198,7 @@ func (r *DefaultAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// delete the resources
 	if !cluster.DeletionTimestamp.IsZero() ||
 		deployMode == operatorconstants.GHAgentDeployModeNone {
-		log.Info("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
+		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
 		}
@@ -226,7 +226,7 @@ func (r *DefaultAgentReconciler) reconcileAddonAndResources(ctx context.Context,
 	// create is not found, update if err == nil
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Info("creating resources and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+			log.Infow("creating resources and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
 			if e := r.Create(ctx, expectedAddon); e != nil {
 				return e
 			}
@@ -236,7 +236,7 @@ func (r *DefaultAgentReconciler) reconcileAddonAndResources(ctx context.Context,
 	} else {
 		// delete
 		if !existingAddon.DeletionTimestamp.IsZero() {
-			log.Info("deleting resources and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
+			log.Infow("deleting resources and addon", "cluster", cluster.Name, "addon", existingAddon.Name)
 			return r.removeResourcesAndAddon(ctx, cluster)
 		}
 
@@ -245,7 +245,7 @@ func (r *DefaultAgentReconciler) reconcileAddonAndResources(ctx context.Context,
 			existingAddon.Spec.InstallNamespace != expectedAddon.Spec.InstallNamespace {
 			existingAddon.SetAnnotations(expectedAddon.Annotations)
 			existingAddon.Spec.InstallNamespace = expectedAddon.Spec.InstallNamespace
-			log.Info("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
+			log.Infow("updating addon", "cluster", cluster.Name, "addon", expectedAddon.Name)
 			if e := r.Update(ctx, existingAddon); e != nil {
 				return e
 			}
@@ -362,7 +362,7 @@ func (r *DefaultAgentReconciler) renderAllManifestsHandler(
 			},
 		})
 	}
-	log.Info("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
+	log.Infow("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
 	return requests
 }
 
