@@ -20,7 +20,9 @@ export KUBECONFIG="${CONFIG_DIR}/${CLUSTER_NAME}"
 
 echo ">> COMPONENT=$COMPONENT NAMESPACE=$NAMESPACE CLUSTER=$CLUSTER_NAME"
 
+kubectl describe deploy "$COMPONENT" -n "$NAMESPACE"
 kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
+
 
 [ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
 
@@ -32,3 +34,12 @@ kubectl get kafkauser -n "$NAMESPACE" -oyaml
 
 echo ">>>> KafkaTopics"
 kubectl get kafkatopics -n "$NAMESPACE" -oyaml
+
+echo ">>>> pod"
+kubectl get pod -n "$NAMESPACE"
+
+echo ">>>> deploy"
+kubectl get deploy -n "$NAMESPACE"
+
+echo ">>>> mgh"
+kubectl get mgh -n "$NAMESPACE" -oyaml

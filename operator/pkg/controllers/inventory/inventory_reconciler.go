@@ -7,19 +7,9 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
-	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +31,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
@@ -68,7 +68,8 @@ func StartController(initOption config.ControllerOption) error {
 		return nil
 	}
 
-	err := NewInventoryReconciler(initOption.Manager, initOption.KubeClient).SetupWithManager(initOption.Manager)
+	err := NewInventoryReconciler(initOption.Manager,
+		initOption.KubeClient).SetupWithManager(initOption.Manager)
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,8 @@ func StartController(initOption config.ControllerOption) error {
 // SetupWithManager sets up the controller with the Manager.
 func (r *InventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("inventory").
-		For(&v1alpha4.MulticlusterGlobalHub{}).
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
 		Complete(r)
@@ -113,18 +115,19 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	req ctrl.Request,
 ) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
-	if err != nil || mgh == nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	if mgh.DeletionTimestamp != nil {
-		klog.V(2).Info("mgh instance is deleting")
+	if err != nil {
 		return ctrl.Result{}, nil
 	}
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
 	var reconcileErr error
 
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_INVENTORY_API_NAME, reconcileErr),
+			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
+				mgh.Namespace, config.COMPONENTS_INVENTORY_API_NAME, reconcileErr),
 		)
 		if err != nil {
 			klog.Errorf("failed to update mgh status, err:%v", err)

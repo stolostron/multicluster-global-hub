@@ -28,7 +28,7 @@ func InitDatabase(uri string) error {
 	}
 	dirname := strings.Replace(currentFile, "test/integration/utils/testpostgres/testdatabase.go", "", 1)
 
-	sqlDir := filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "storage", "database")
+	sqlDir := filepath.Join(dirname, "operator", "pkg", "controllers", "storage", "database")
 	files, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func InitDatabase(uri string) error {
 		fmt.Printf("script %s executed successfully.\n", file.Name())
 	}
 
-	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "storage", "upgrade")
+	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "storage", "upgrade")
 	upgradeFiles, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func InitDatabase(uri string) error {
 		fmt.Printf("script %s executed successfully.\n", file.Name())
 	}
 
-	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "hubofhubs", "storage", "database.old")
+	sqlDir = filepath.Join(dirname, "operator", "pkg", "controllers", "storage", "database.old")
 	oldfiles, err := os.ReadDir(sqlDir)
 	if err != nil {
 		return err

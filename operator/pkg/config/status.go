@@ -260,7 +260,9 @@ func UpdateMGHComponent(ctx context.Context,
 	})
 }
 
-func GetStatefulSetComponentStatus(ctx context.Context, c client.Client, namespace, name string) v1alpha4.StatusCondition {
+func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
+	namespace, name string,
+) v1alpha4.StatusCondition {
 	statefulset := &appsv1.StatefulSet{}
 
 	err := c.Get(ctx, types.NamespacedName{
@@ -308,7 +310,9 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client, namespa
 	}
 }
 
-func GetDeploymentComponentStatus(ctx context.Context, c client.Client, namespace, name string) v1alpha4.StatusCondition {
+func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
+	namespace, name string,
+) v1alpha4.StatusCondition {
 	deployment := &appsv1.Deployment{}
 	err := c.Get(ctx, types.NamespacedName{
 		Name:      name,

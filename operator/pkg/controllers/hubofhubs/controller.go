@@ -56,7 +56,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
@@ -72,6 +71,7 @@ var (
 
 // GlobalHubReconciler reconciles a MulticlusterGlobalHub object
 type GlobalHubReconciler struct {
+	mgr               ctrl.Manager
 	config            *rest.Config
 	client            client.Client
 	recorder          record.EventRecorder
@@ -80,7 +80,6 @@ type GlobalHubReconciler struct {
 	upgraded          bool
 	operatorConfig    *config.OperatorConfig
 	pruneReconciler   *prune.PruneReconciler
-	metricsReconciler *metrics.MetricsReconciler
 	webhookReconciler *webhook.WebhookReconciler
 	imageClient       *imagev1client.ImageV1Client
 }
@@ -89,6 +88,7 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 	operatorConfig *config.OperatorConfig, imageClient *imagev1client.ImageV1Client,
 ) *GlobalHubReconciler {
 	return &GlobalHubReconciler{
+		mgr:               mgr,
 		log:               ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
 		client:            mgr.GetClient(),
 		config:            mgr.GetConfig(),
@@ -96,7 +96,6 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		recorder:          mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
 		operatorConfig:    operatorConfig,
 		pruneReconciler:   prune.NewPruneReconciler(mgr.GetClient()),
-		metricsReconciler: metrics.NewMetricsReconciler(mgr.GetClient()),
 		webhookReconciler: webhook.NewWebhookReconciler(mgr),
 		imageClient:       imageClient,
 	}
@@ -604,7 +603,9 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-
+	if mgh == nil {
+		return ctrl.Result{}, nil
+	}
 	var reconcileErr error
 	var needRequeue bool
 	// update status condition
@@ -634,8 +635,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	config.SetImportClusterInHosted(mgh)
-
 	// prune resources if deleting mgh or metrics is disabled
 	needRequeue, err = r.pruneReconciler.Reconcile(ctx, mgh)
 	if err != nil {
@@ -662,11 +661,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if reconcileErr = utils.AnnotateManagedHubCluster(ctx, r.client); reconcileErr != nil {
 			return ctrl.Result{}, reconcileErr
 		}
-	}
-
-	// reconcile metrics
-	if reconcileErr = r.metricsReconciler.Reconcile(ctx, mgh); reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
 	}
 
 	if config.IsACMResourceReady() {

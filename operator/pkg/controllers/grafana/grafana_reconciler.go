@@ -11,14 +11,15 @@ import (
 
 	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -27,8 +28,12 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -39,10 +44,7 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
@@ -116,7 +118,8 @@ func StartController(initOption config.ControllerOption) error {
 	if config.GetStorageConnection() == nil {
 		return nil
 	}
-	err := NewGrafanaReconciler(initOption.Manager, initOption.KubeClient).SetupWithManager(initOption.Manager)
+	err := NewGrafanaReconciler(initOption.Manager,
+		initOption.KubeClient).SetupWithManager(initOption.Manager)
 	if err != nil {
 		return err
 	}
@@ -127,17 +130,28 @@ func StartController(initOption config.ControllerOption) error {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("grafanaController").
-		For(&v1alpha4.MulticlusterGlobalHub{}).
+	managedby := ctrl.NewControllerManagedBy(mgr).Named("grafanaController").
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Watches(&corev1.ConfigMap{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configmapPred)).
-		Watches(&imagev1.ImageStream{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(imageStreamPred)).
 		Watches(&appsv1.Deployment{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred)).
-		Complete(r)
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred))
+
+	if _, err := mgr.GetRESTMapper().KindFor(schema.GroupVersionResource{
+		Group:    "image.openshift.io",
+		Version:  "v1",
+		Resource: "imagestreams",
+	}); err != nil {
+		if meta.IsNoMatchError(err) {
+			return managedby.Complete(r)
+		}
+		return err
+	}
+	return managedby.Watches(&imagev1.ImageStream{},
+		&handler.EnqueueRequestForObject{}, builder.WithPredicates(imageStreamPred)).Complete(r)
 }
 
 var deploymentPred = predicate.Funcs{
@@ -217,32 +231,33 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
 func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_GRAFANA_NAME, reconcileErr),
+			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
+				mgh.Namespace, config.COMPONENTS_GRAFANA_NAME, reconcileErr),
 		)
 		if err != nil {
 			klog.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
-
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
 		reconcileErr = fmt.Errorf("failed to generate random session secret for grafana oauth-proxy: %v", err)
 		return ctrl.Result{}, reconcileErr
 	}
-
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
@@ -293,7 +308,6 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		reconcileErr = fmt.Errorf("failed to render grafana manifests: %w", err)
 		return ctrl.Result{}, reconcileErr
 	}
-
 	// create restmapper for deployer to find GVR
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
 	if err != nil {
@@ -301,7 +315,6 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, reconcileErr
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
 	if err = operatorutils.ManipulateGlobalHubObjects(grafanaObjects, mgh, grafanaDeployer,
 		mapper, r.GetScheme()); err != nil {
 		err = fmt.Errorf("failed to create/update grafana objects: %w", err)

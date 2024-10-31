@@ -23,7 +23,7 @@ import (
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator/hubofhubs -ginkgo.focus "manager" -v
+// go test ./test/integration/operator -ginkgo.focus "manager" -v
 var _ = Describe("manager", Ordered, func() {
 	var mgh *v1alpha4.MulticlusterGlobalHub
 	var namespace string

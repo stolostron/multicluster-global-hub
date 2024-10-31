@@ -337,15 +337,9 @@ func deployGlobalHub() {
 	components["multicluster-global-hub-manager"] = 0
 	components["multicluster-global-hub-grafana"] = 0
 	Eventually(func() error {
-		for name, count := range components {
+		for name := range components {
 			err := checkDeployAvailable(runtimeClient, GlobalhubNamespace, name)
 			if err != nil {
-				components[name] += 1
-				// restart it if the blocking time exceeds 30 seconds
-				if count > 120 {
-					_ = commonutils.RestartPod(ctx, testClients.KubeClient(), GlobalhubNamespace, name)
-					components[name] = 0
-				}
 				return err
 			}
 		}

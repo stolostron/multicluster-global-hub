@@ -34,6 +34,8 @@ import (
 	"k8s.io/klog/v2"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -114,6 +116,18 @@ func GetOauthSessionSecret() (string, error) {
 		oauthSessionSecret = base64.StdEncoding.EncodeToString(b)
 	}
 	return oauthSessionSecret, nil
+}
+
+var MGHPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
@@ -304,6 +318,8 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context, mgh *v1alpha4.Multiclus
 		Namespace: mgh.GetNamespace(), Name: mgh.GetName(),
 	})
 
+	SetImportClusterInHosted(mgh)
+
 	// set image overrides
 	if err := SetImageOverrides(mgh); err != nil {
 		return err
@@ -355,7 +371,8 @@ func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.M
 		return nil, err
 	}
 	if len(mghList.Items) != 1 {
-		return nil, fmt.Errorf("mgh should have 1 instance, but got %v", len(mghList.Items))
+		klog.Errorf("mgh should have 1 instance, but got %v", len(mghList.Items))
+		return nil, nil
 	}
 	return &mghList.Items[0], nil
 }

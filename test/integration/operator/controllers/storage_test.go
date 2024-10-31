@@ -26,7 +26,7 @@ import (
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator/hubofhubs -ginkgo.focus "storage" -v
+// go test ./test/integration/operator -ginkgo.focus "storage" -v
 var _ = Describe("storage", Ordered, func() {
 	It("should init database with BYO", func() {
 		namespace := fmt.Sprintf("namespace-%s", rand.String(6))

@@ -13,15 +13,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,6 +26,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed database
@@ -67,7 +70,8 @@ func StartController(initOption config.ControllerOption) error {
 	if started {
 		return nil
 	}
-	err := NewStorageReconciler(initOption.Manager, initOption.OperatorConfig.GlobalResourceEnabled).SetupWithManager(initOption.Manager)
+	err := NewStorageReconciler(initOption.Manager,
+		initOption.OperatorConfig.GlobalResourceEnabled).SetupWithManager(initOption.Manager)
 	if err != nil {
 		return err
 	}
@@ -88,7 +92,8 @@ func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageR
 
 func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("storageController").
-		For(&v1alpha4.MulticlusterGlobalHub{}).
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Watches(&corev1.ConfigMap{},
@@ -137,12 +142,14 @@ var secretPred = predicate.Funcs{
 	},
 }
 
+// +kubebuilder:rbac:groups="apps",resources=statefulsets,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;delete;patch
 func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 	var reconcileErr error
@@ -170,7 +177,38 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	config.SetDatabaseReady(true)
-	return ctrl.Result{}, nil
+
+	// Update retention condition
+	reconcileErr = config.UpdateCondition(ctx, r.GetClient(), types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      mgh.Name,
+	}, getRetentionConditions(mgh), "")
+
+	return ctrl.Result{}, reconcileErr
+}
+
+func getRetentionConditions(mgh *v1alpha4.MulticlusterGlobalHub) metav1.Condition {
+	months, err := commonutils.ParseRetentionMonth(mgh.Spec.DataLayerSpec.Postgres.Retention)
+	if err != nil {
+		err = fmt.Errorf("failed to parse the retention month, err:%v", err)
+		return metav1.Condition{
+			Type:    config.CONDITION_TYPE_DATABASE,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  config.CONDITION_REASON_RETENTION_PARSED_FAILED,
+			Message: err.Error(),
+		}
+	}
+
+	if months < 1 {
+		months = 1
+	}
+	msg := fmt.Sprintf("The data will be kept in the database for %d months.", months)
+	return metav1.Condition{
+		Type:    config.CONDITION_TYPE_DATABASE,
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  config.CONDITION_REASON_RETENTION_PARSED,
+		Message: msg,
+	}
 }
 
 func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
@@ -360,7 +398,7 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 			Kind:    "DatabaseConnection",
 			Name:    name,
 			Type:    availableType,
-			Status:  config.CONDITION_STATUS_FALSE,
+			Status:  config.CONDITION_STATUS_TRUE,
 			Reason:  "DatabaseConnectionSet",
 			Message: "Use customized database, connection has set using provided secret",
 		}

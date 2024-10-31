@@ -49,7 +49,9 @@ var (
 	testEnv        *envtest.Environment
 	ctx            context.Context
 	cancel         context.CancelFunc
-	testNamespace  = "default"
+	operatorConfig *config.OperatorConfig
+
+	testNamespace = "default"
 )
 
 func TestControllers(t *testing.T) {
@@ -74,7 +76,9 @@ var _ = BeforeSuite(func() {
 	}
 	config.SetKafkaResourceReady(true)
 	config.SetACMResourceReady(true)
-
+	operatorConfig = &config.OperatorConfig{
+		GlobalResourceEnabled: false,
+	}
 	testEnv.ControlPlane.GetAPIServer().Configure().Set("disable-admission-plugins",
 		"ServiceAccount,MutatingAdmissionWebhook,ValidatingAdmissionWebhook")
 

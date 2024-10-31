@@ -25,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -546,17 +545,16 @@ func (k *strimziTransporter) newKafkaUser(
 }
 
 // waits for kafka cluster to be ready and returns nil if kafka cluster ready
-func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
+func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
-	isReady := false
-	var kakfaReason, kafkaMsg string
+
+	kafkaStatus := KafkaStatus{
+		kafkaReady:   false,
+		kakfaReason:  "KafkaNotReady",
+		kafkaMessage: "Wait kafka cluster ready",
+	}
 	var err error
-	defer func() {
-		err = k.updateMghKafkaComponent(isReady, k.manager.GetClient(), kakfaReason, kafkaMsg)
-		if err != nil {
-			klog.Errorf("failed to update mgh status, err: %v", err)
-		}
-	}()
+
 	err = k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
 		Namespace: k.kafkaClusterNamespace,
@@ -564,12 +562,12 @@ func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
 	if err != nil {
 		k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
 		if errors.IsNotFound(err) {
-			return isReady, nil
+			return kafkaStatus, nil
 		}
-		return isReady, err
+		return kafkaStatus, err
 	}
 	if kafkaCluster.Status == nil || kafkaCluster.Status.Conditions == nil {
-		return isReady, nil
+		return kafkaStatus, nil
 	}
 
 	if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
@@ -588,48 +586,16 @@ func (k *strimziTransporter) kafkaClusterReady() (bool, error) {
 		if *condition.Type == "Ready" {
 			if *condition.Status == "True" {
 				k.log.Info("kafka cluster is ready")
-				isReady = true
-				return isReady, nil
+				kafkaStatus.kafkaReady = true
+				return kafkaStatus, nil
 			}
-			kafkaMsg = *condition.Message
-			kakfaReason = *condition.Reason
-			return isReady, nil
+			kafkaStatus.kafkaMessage = *condition.Message
+			kafkaStatus.kakfaReason = *condition.Reason
+			return kafkaStatus, nil
 		}
 	}
 	klog.Infof("wait for the Kafka cluster to be ready")
-	return isReady, nil
-}
-
-func (k *strimziTransporter) updateMghKafkaComponent(ready bool, c client.Client, kafkaReason, kafkaMsg string) error {
-	var kafkastatus v1alpha4.StatusCondition
-	if ready {
-		kafkastatus = v1alpha4.StatusCondition{
-			Kind:    "Kafka",
-			Name:    config.COMPONENTS_KAFKA_NAME,
-			Type:    config.COMPONENTS_AVAILABLE,
-			Status:  config.CONDITION_STATUS_TRUE,
-			Reason:  config.CONDITION_REASON_KAFKA_READY,
-			Message: config.CONDITION_MESSAGE_KAFKA_READY,
-		}
-	} else {
-		reason := "KafkaNotReady"
-		message := "Kafka cluster is not ready"
-		if kafkaReason != "" {
-			reason = kafkaReason
-		}
-		if kafkaMsg != "" {
-			message = kafkaMsg
-		}
-		kafkastatus = v1alpha4.StatusCondition{
-			Kind:    "Kafka",
-			Name:    config.COMPONENTS_KAFKA_NAME,
-			Type:    config.COMPONENTS_AVAILABLE,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  reason,
-			Message: message,
-		}
-	}
-	return config.UpdateMGHComponent(k.ctx, c, kafkastatus)
+	return kafkaStatus, nil
 }
 
 func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) (error, bool) {

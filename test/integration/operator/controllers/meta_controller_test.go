@@ -27,7 +27,7 @@ var _ = Describe("meta", Ordered, func() {
 		mghName := "test-mgh"
 
 		Expect(controllers.NewMetaController(runtimeManager,
-			kubeClient, nil, nil).SetupWithManager(runtimeManager)).To(Succeed())
+			kubeClient, operatorConfig, nil).SetupWithManager(runtimeManager)).To(Succeed())
 
 		// mgh
 		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
@@ -71,15 +71,21 @@ var _ = Describe("meta", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 	It("mgh deleting", func() {
-		currentMgh := &v1alpha4.MulticlusterGlobalHub{}
-
-		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), currentMgh)).To(Succeed())
-
-		currentMgh.Finalizers = []string{
-			"fz",
-		}
-		Expect(runtimeClient.Update(ctx, currentMgh)).To(Succeed())
-		Expect(runtimeClient.Delete(ctx, currentMgh)).To(Succeed())
+		Eventually(func() error {
+			currentMgh := &v1alpha4.MulticlusterGlobalHub{}
+			err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), currentMgh)
+			if err != nil {
+				return err
+			}
+			currentMgh.Finalizers = []string{
+				"fz",
+			}
+			err = runtimeClient.Update(ctx, currentMgh)
+			if err != nil {
+				return err
+			}
+			return runtimeClient.Delete(ctx, currentMgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		Eventually(func() error {
 			currentMgh := &v1alpha4.MulticlusterGlobalHub{}

@@ -33,7 +33,7 @@ import (
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator/hubofhubs -ginkgo.focus "transporter" -v
+// go test ./test/integration/operator -ginkgo.focus "transporter" -v
 var _ = Describe("transporter", Ordered, func() {
 	var mgh *v1alpha4.MulticlusterGlobalHub
 	var namespace string
@@ -70,19 +70,21 @@ var _ = Describe("transporter", Ordered, func() {
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 
-		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
-
 		// update the transport protocol configuration
-		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
-		Expect(err).To(Succeed())
+		Eventually(func() error {
+			err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
+			if err != nil {
+				return err
+			}
+			err = config.SetTransportConfig(ctx, runtimeClient, mgh)
+			return err
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// verify the type
 		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
 		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
-		// err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil)
-		Expect(err).To(Succeed())
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 
 		Eventually(func() error {

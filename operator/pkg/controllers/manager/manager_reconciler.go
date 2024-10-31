@@ -9,6 +9,24 @@ import (
 	"strconv"
 	"time"
 
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -18,19 +36,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
-	appsv1 "k8s.io/api/apps/v1"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/restmapper"
-	"k8s.io/klog/v2"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 //go:embed manifests
@@ -59,19 +64,21 @@ func StartController(initOption config.ControllerOption) error {
 	if config.GetStorageConnection() == nil {
 		return nil
 	}
-	err := NewManagerReconciler(initOption.Manager, initOption.KubeClient, initOption.OperatorConfig).SetupWithManager(initOption.Manager)
+	err := NewManagerReconciler(initOption.Manager,
+		initOption.KubeClient, initOption.OperatorConfig).SetupWithManager(initOption.Manager)
 	if err != nil {
 		return err
 	}
 	started = true
-	klog.Infof("inited managerController controller")
+	klog.Infof("inited manager controller")
 	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("manager").
-		For(&v1alpha4.MulticlusterGlobalHub{}).
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
 		Complete(r)
@@ -80,19 +87,20 @@ func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 var deploymentPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
+			e.ObjectNew.GetName() == config.COMPONENTS_MANAGER_NAME
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+			e.Object.GetName() == config.COMPONENTS_MANAGER_NAME
 	},
 }
 
-func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface, conf *config.OperatorConfig,
+func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
+	conf *config.OperatorConfig,
 ) *ManagerReconciler {
 	return &ManagerReconciler{
 		Manager:        mgr,
@@ -101,21 +109,25 @@ func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface, con
 	}
 }
 
+// +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules;podmonitors,verbs=get;create;delete;update;list;watch
+
 func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	req ctrl.Request,
 ) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
-	if err != nil || mgh == nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	if mgh.DeletionTimestamp != nil {
-		klog.V(2).Info("mgh instance is deleting")
+	if err != nil {
 		return ctrl.Result{}, nil
 	}
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_MANAGER_NAME, reconcileErr),
+			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
+				mgh.Namespace, config.COMPONENTS_MANAGER_NAME, reconcileErr),
 		)
 		if err != nil {
 			klog.Errorf("failed to update mgh status, err:%v", err)
@@ -235,6 +247,77 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		reconcileErr = fmt.Errorf("failed to create/update manager objects: %v", err)
 		return ctrl.Result{}, reconcileErr
 	}
+	return r.setUpMetrics(ctx, mgh)
+}
+
+func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (ctrl.Result, error) {
+	// add label openshift.io/cluster-monitoring: "true" to the ns, so that the prometheus can detect the ServiceMonitor.
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: mgh.Namespace,
+		},
+	}
+	if err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(namespace), namespace); err != nil {
+		return ctrl.Result{}, err
+	}
+	labels := namespace.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	val, ok := labels[operatorconstants.ClusterMonitoringLabelKey]
+	if !ok || val != operatorconstants.ClusterMonitoringLabelVal {
+		labels[operatorconstants.ClusterMonitoringLabelKey] = operatorconstants.ClusterMonitoringLabelVal
+	}
+	namespace.SetLabels(labels)
+	if err := r.GetClient().Update(ctx, namespace); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// create ServiceMonitor under global hub namespace
+	expectedServiceMonitor := &promv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconstants.GHServiceMonitorName,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Spec: promv1.ServiceMonitorSpec{
+			Selector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"name": "multicluster-global-hub-manager",
+				},
+			},
+			NamespaceSelector: promv1.NamespaceSelector{
+				MatchNames: []string{
+					mgh.Namespace,
+				},
+			},
+			Endpoints: []promv1.Endpoint{
+				{
+					Port:     "metrics",
+					Path:     "/metrics",
+					Interval: promv1.Duration(config.GetMetricsScrapeInterval(mgh)),
+				},
+			},
+		},
+	}
+
+	serviceMonitor := &promv1.ServiceMonitor{}
+	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(expectedServiceMonitor), serviceMonitor)
+	if err != nil && errors.IsNotFound(err) {
+		return ctrl.Result{}, r.GetClient().Create(ctx, expectedServiceMonitor)
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !equality.Semantic.DeepDerivative(expectedServiceMonitor.Spec, serviceMonitor.Spec) ||
+		!equality.Semantic.DeepDerivative(expectedServiceMonitor.GetLabels(), serviceMonitor.GetLabels()) {
+		expectedServiceMonitor.ObjectMeta.ResourceVersion = serviceMonitor.ObjectMeta.ResourceVersion
+		return ctrl.Result{}, r.GetClient().Update(ctx, expectedServiceMonitor)
+	}
+
 	return ctrl.Result{}, nil
 }
 
