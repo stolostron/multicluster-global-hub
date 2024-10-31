@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -31,12 +30,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
-
-//go:embed manifests/templates
-//go:embed manifests/templates/agent
-//go:embed manifests/templates/hostedagent
-//go:embed manifests/templates/hubcluster
-var FS embed.FS
 
 type ManifestsConfig struct {
 	HoHAgentImage           string

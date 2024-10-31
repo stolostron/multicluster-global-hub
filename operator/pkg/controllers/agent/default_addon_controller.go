@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"embed"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -30,6 +31,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
+
+//go:embed manifests/templates
+//go:embed manifests/templates/agent
+//go:embed manifests/templates/hostedagent
+//go:embed manifests/templates/hubcluster
+var FS embed.FS
 
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=managedclusteraddons,verbs=create;update;get;list;watch;delete;deletecollection;patch

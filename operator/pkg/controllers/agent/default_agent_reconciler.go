@@ -29,13 +29,19 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
-var log = logger.ZaprLogger()
+var (
+	log                 = logger.ZaprLogger()
+	defaultAgentStarted = false
+)
 
 type DefaultAgentReconciler struct {
 	client.Client
 }
 
 func AddDefaultAgentReconciler(ctx context.Context, mgr ctrl.Manager) error {
+	if defaultAgentStarted {
+		return nil
+	}
 	agentReconciler := &DefaultAgentReconciler{
 		Client: mgr.GetClient(),
 	}
@@ -114,7 +120,7 @@ func AddDefaultAgentReconciler(ctx context.Context, mgr ctrl.Manager) error {
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		Named("default-agent-reconciler").
 		// primary watch for managedcluster
 		Watches(&clusterv1.ManagedCluster{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
@@ -139,6 +145,11 @@ func AddDefaultAgentReconciler(ctx context.Context, mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(agentReconciler.renderAllManifestsHandler),
 			builder.WithPredicates(secretPred)).
 		Complete(agentReconciler)
+	if err != nil {
+		return err
+	}
+	defaultAgentStarted = true
+	return nil
 }
 
 func (r *DefaultAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
