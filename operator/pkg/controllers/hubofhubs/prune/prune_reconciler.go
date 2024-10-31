@@ -29,7 +29,6 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	addonController "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -133,7 +132,7 @@ func (r *PruneReconciler) revertClusterManagementAddon(ctx context.Context) erro
 		return err
 	}
 	for _, cma := range cmaList.Items {
-		if !addonController.AddonList.Has(cma.Name) {
+		if !config.HostedAddonList.Has(cma.Name) {
 			continue
 		}
 		err = r.removeGlobalhubConfig(ctx, cma)
@@ -151,7 +150,7 @@ func (r *PruneReconciler) removeGlobalhubConfig(ctx context.Context, cma v1alpha
 	var desiredPlacementStrategy []addonv1alpha1.PlacementStrategy
 	exist := false
 	for _, pl := range cma.Spec.InstallStrategy.Placements {
-		if reflect.DeepEqual(pl.PlacementRef, addonController.GlobalhubCmaConfig.PlacementRef) {
+		if reflect.DeepEqual(pl.PlacementRef, config.GlobalHubHostedAddonPlacementStrategy.PlacementRef) {
 			exist = true
 			continue
 		}

@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -54,6 +55,7 @@ var (
 	testEnv       *envtest.Environment
 	ctx           context.Context
 	cancel        context.CancelFunc
+	mgr           manager.Manager
 )
 
 func TestControllers(t *testing.T) {
@@ -98,12 +100,10 @@ var _ = BeforeSuite(func() {
 		NewCache: config.InitCache,
 	})
 	Expect(err).ToNot(HaveOccurred())
+	mgr = k8sManager
 
 	By("Add the addon installer to the manager")
-	err = (&agent.DefaultAgentReconciler{
-		Client: runtimeClient,
-		Log:    ctrl.Log.WithName("addon install controller"),
-	}).SetupWithManager(ctx, k8sManager)
+	err = agent.AddDefaultAgentReconciler(ctx, k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
@@ -112,11 +112,12 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	addonController, err := agent.AddGlobalHubAddonController(k8sManager.GetConfig(), runtimeClient, &config.OperatorConfig{
-		GlobalResourceEnabled: true,
-		LogLevel:              "info",
-		EnablePprof:           false,
-	})
+	addonController, err := agent.AddGlobalHubAddonController(ctx, k8sManager, k8sManager.GetConfig(), runtimeClient,
+		&config.OperatorConfig{
+			GlobalResourceEnabled: true,
+			LogLevel:              "info",
+			EnablePprof:           false,
+		})
 	Expect(err).ToNot(HaveOccurred())
 	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())

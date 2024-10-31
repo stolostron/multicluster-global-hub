@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	routev1 "github.com/openshift/api/route/v1"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
@@ -17,7 +16,6 @@ import (
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -32,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	agentcert "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
@@ -212,23 +209,6 @@ func (a *GlobalHubAddonController) GetValues(cluster *clusterv1.ManagedCluster,
 
 	agentQPS, agentBurst := config.GetAgentRestConfig()
 
-	err = utils.WaitTransporterReady(a.ctx, 10*time.Minute)
-	if err != nil {
-		log.Error(err, "failed to wait transporter")
-	}
-	transporter := config.GetTransporter()
-
-	_, err = transporter.EnsureTopic(cluster.Name)
-	if err != nil {
-		return nil, err
-	}
-	// this controller might be triggered by global hub controller(like the topics changes), so we also need to
-	// update the authz for the topic
-	_, err = transporter.EnsureUser(cluster.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update the kafkauser for the cluster(%s): %v", cluster.Name, err)
-	}
-
 	agentResReq := utils.GetResources(operatorconstants.Agent, mgh.Spec.AdvancedSpec)
 	agentRes := &config.Resources{}
 	jsonData, err := json.Marshal(agentResReq)
@@ -265,32 +245,8 @@ func (a *GlobalHubAddonController) GetValues(cluster *clusterv1.ManagedCluster,
 		StackroxPollInterval:      config.GetStackroxPollInterval(mgh),
 	}
 
-	if config.EnableInventory() {
-		inventoryConn, err := getInventoryCredential(a.client)
-		if err != nil {
-			return nil, err
-		}
-		inventoryConfigYaml, err := inventoryConn.YamlMarshal(false)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshalling the inventory config yaml: %w", err)
-		}
-		manifestsConfig.InventoryConfigYaml = base64.StdEncoding.EncodeToString(inventoryConfigYaml)
-		manifestsConfig.InventoryServerCASecret = inventoryConn.CASecretName
-		manifestsConfig.InventoryServerCACert = inventoryConn.CACert
-	} else {
-		// will block until the credential is ready
-		kafkaConnection, err := transporter.GetConnCredential(cluster.Name)
-		if err != nil {
-			return nil, err
-		}
-		kafkaConfigYaml, err := kafkaConnection.YamlMarshal(config.IsBYOKafka())
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
-		}
-		manifestsConfig.KafkaConfigYaml = base64.StdEncoding.EncodeToString(kafkaConfigYaml)
-		// render the cluster ca whether under the BYO cases
-		manifestsConfig.KafkaClusterCASecret = kafkaConnection.CASecretName
-		manifestsConfig.KafkaClusterCACert = kafkaConnection.CACert
+	if err := setTransportConfigs(a.ctx, &manifestsConfig, cluster, a.client); err != nil {
+		return nil, err
 	}
 
 	if err := a.setImagePullSecret(mgh, cluster, &manifestsConfig); err != nil {
@@ -304,48 +260,13 @@ func (a *GlobalHubAddonController) GetValues(cluster *clusterv1.ManagedCluster,
 	manifestsConfig.Tolerations = mgh.Spec.Tolerations
 	manifestsConfig.NodeSelector = mgh.Spec.NodeSelector
 
-	if a.installACMHub(cluster) {
-		manifestsConfig.InstallACMHub = true
-		log.Infow("installing ACM on managed hub", "cluster", cluster.Name)
-		if err := a.setACMPackageConfigs(&manifestsConfig); err != nil {
-			return nil, err
-		}
+	if err := setACMPackageConfigs(a.ctx, &manifestsConfig, cluster, a.dynamicClient); err != nil {
+		return nil, err
 	}
 
 	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
-}
-
-func getInventoryCredential(c client.Client) (*transport.RestfulConfig, error) {
-	inventoryCredential := &transport.RestfulConfig{}
-
-	// add ca
-	serverCASecretName := certificates.InventoryServerCASecretName
-	inventoryNamespace := config.GetMGHNamespacedName().Namespace
-	_, serverCACert, err := certificates.GetKeyAndCert(c, inventoryNamespace, serverCASecretName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get the inventory server ca: %w", err)
-	}
-	inventoryCredential.CASecretName = serverCASecretName
-	inventoryCredential.CACert = base64.StdEncoding.EncodeToString(serverCACert)
-
-	// add client
-	inventoryCredential.ClientSecretName = config.AgentCertificateSecretName()
-
-	inventoryRoute := &routev1.Route{}
-	err = c.Get(context.Background(), types.NamespacedName{
-		Name:      constants.InventoryRouteName,
-		Namespace: inventoryNamespace,
-	}, inventoryRoute)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get inventory route: %s/%s", inventoryNamespace, constants.InventoryRouteName)
-	}
-
-	// host
-	inventoryCredential.Host = fmt.Sprintf("https://%s:443", inventoryRoute.Spec.Host)
-
-	return inventoryCredential, nil
 }
 
 func (a *GlobalHubAddonController) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
@@ -367,34 +288,6 @@ func (a *GlobalHubAddonController) setInstallHostedMode(cluster *clusterv1.Manag
 		manifestsConfig.KlusterletNamespace = annotations[constants.AnnotationClusterKlusterletDeployNamespace]
 	}
 	manifestsConfig.KlusterletWorkSA = fmt.Sprintf("klusterlet-%s-work-sa", cluster.GetName())
-}
-
-func (a *GlobalHubAddonController) setACMPackageConfigs(manifestsConfig *config.ManifestsConfig) error {
-	pm, err := GetPackageManifestConfig(a.ctx, a.dynamicClient)
-	if err != nil {
-		return err
-	}
-	manifestsConfig.Channel = pm.ACMDefaultChannel
-	manifestsConfig.CurrentCSV = pm.ACMCurrentCSV
-	manifestsConfig.Source = operatorconstants.ACMSubscriptionPublicSource
-	manifestsConfig.SourceNamespace = operatorconstants.OpenshiftMarketPlaceNamespace
-	return nil
-}
-
-func (a *GlobalHubAddonController) installACMHub(cluster *clusterv1.ManagedCluster) bool {
-	if _, exist := cluster.GetLabels()[operatorconstants.GHAgentACMHubInstallLabelKey]; !exist {
-		return false
-	}
-	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name != constants.HubClusterClaimName {
-			continue
-		}
-		if claim.Value == constants.HubNotInstalled ||
-			claim.Value == constants.HubInstalledByGlobalHub {
-			return true
-		}
-	}
-	return false
 }
 
 // GetImagePullSecret returns the image pull secret name and data

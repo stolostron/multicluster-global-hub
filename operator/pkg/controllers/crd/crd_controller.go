@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -68,7 +67,6 @@ type CrdController struct {
 	resources             map[string]bool
 	globalHubController   runtimeController.Controller
 	backupControllerReady bool
-	addonsControllerReady bool
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -120,12 +118,9 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.backupControllerReady = true
 	}
 
-	if !r.addonsControllerReady {
-		err := addons.NewAddonsReconciler(r.Manager).SetupWithManager(r.Manager)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		r.addonsControllerReady = true
+	_, err = agent.AddHostedAddonsReconciler(r.Manager)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

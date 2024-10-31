@@ -21,7 +21,6 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	addonController "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -516,11 +515,11 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 				t.Errorf("Failed to list cma:%v", err)
 			}
 			for _, cma := range cmaList.Items {
-				if !addonController.AddonList.Has(cma.Name) {
+				if !config.HostedAddonList.Has(cma.Name) {
 					continue
 				}
 				for _, pl := range cma.Spec.InstallStrategy.Placements {
-					if reflect.DeepEqual(pl.PlacementRef, addonController.GlobalhubCmaConfig.PlacementRef) {
+					if reflect.DeepEqual(pl.PlacementRef, config.GlobalHubHostedAddonPlacementStrategy.PlacementRef) {
 						t.Errorf("Failed to revert cma")
 					}
 				}

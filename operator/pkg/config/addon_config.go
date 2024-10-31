@@ -24,9 +24,12 @@ import (
 	"github.com/stolostron/cluster-lifecycle-api/helpers/imageregistry"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const SignerName = "open-cluster-management.io/globalhub-signer"
@@ -46,6 +49,31 @@ func GetAgentImage(cluster *clusterv1.ManagedCluster) (string, error) {
 func AgentCertificateSecretName() string {
 	return fmt.Sprintf("%s-%s-client-cert", operatorconstants.GHManagedClusterAddonName,
 		strings.ReplaceAll(SignerName, "/", "-"))
+}
+
+var HostedAddonList = sets.NewString(
+	"work-manager",
+	"cluster-proxy",
+	"managed-serviceaccount",
+)
+
+var GlobalHubHostedAddonPlacementStrategy = v1alpha1.PlacementStrategy{
+	PlacementRef: v1alpha1.PlacementRef{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      "non-local-cluster",
+	},
+	Configs: []v1alpha1.AddOnConfig{
+		{
+			ConfigReferent: v1alpha1.ConfigReferent{
+				Name:      "global-hub",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+			ConfigGroupResource: v1alpha1.ConfigGroupResource{
+				Group:    "addon.open-cluster-management.io",
+				Resource: "addondeploymentconfigs",
+			},
+		},
+	},
 }
 
 type ManifestsConfig struct {

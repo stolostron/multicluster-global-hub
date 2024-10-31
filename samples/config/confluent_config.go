@@ -9,7 +9,6 @@ import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
@@ -101,7 +100,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 
 	clientCertSecret := &corev1.Secret{}
 	err = c.Get(context.TODO(), types.NamespacedName{
-		Name:      certificates.AgentCertificateSecretName(),
+		Name:      operatorconfig.AgentCertificateSecretName(),
 		Namespace: namespace,
 	}, clientCertSecret)
 	if err != nil {

@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package addons
+package agent
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,49 +36,32 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var AddonList = sets.NewString(
-	"work-manager",
-	"cluster-proxy",
-	"managed-serviceaccount",
-)
-
-var GlobalhubCmaConfig = v1alpha1.PlacementStrategy{
-	PlacementRef: v1alpha1.PlacementRef{
-		Namespace: utils.GetDefaultNamespace(),
-		Name:      "non-local-cluster",
-	},
-	Configs: []v1alpha1.AddOnConfig{
-		{
-			ConfigReferent: v1alpha1.ConfigReferent{
-				Name:      "global-hub",
-				Namespace: utils.GetDefaultNamespace(),
-			},
-			ConfigGroupResource: v1alpha1.ConfigGroupResource{
-				Group:    "addon.open-cluster-management.io",
-				Resource: "addondeploymentconfigs",
-			},
-		},
-	},
-}
-
-// BackupReconciler reconciles a MulticlusterGlobalHub object
-type AddonsReconciler struct {
+type HostedAddonsReconciler struct {
 	manager.Manager
 	client.Client
 }
 
-func NewAddonsReconciler(mgr manager.Manager) *AddonsReconciler {
-	return &AddonsReconciler{
+var hostedAddonReconciler *HostedAddonsReconciler
+
+func AddHostedAddonsReconciler(mgr manager.Manager) (*HostedAddonsReconciler, error) {
+	if hostedAddonReconciler != nil {
+		return hostedAddonReconciler, nil
+	}
+	r := &HostedAddonsReconciler{
 		Manager: mgr,
 		Client:  mgr.GetClient(),
 	}
+	if err := r.SetupWithManager(mgr); err != nil {
+		return nil, err
+	}
+	hostedAddonReconciler = r
+	return hostedAddonReconciler, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *AddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *HostedAddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("AddonsController").
 		For(&v1alpha1.ClusterManagementAddOn{},
 			builder.WithPredicates(addonPred)).
@@ -87,7 +69,7 @@ func (r *AddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				var requests []reconcile.Request
-				for v := range AddonList {
+				for v := range config.HostedAddonList {
 					request := reconcile.Request{
 						NamespacedName: types.NamespacedName{
 							Name: v,
@@ -102,10 +84,10 @@ func (r *AddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 var addonPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return AddonList.Has(e.Object.GetName())
+		return config.HostedAddonList.Has(e.Object.GetName())
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return AddonList.Has(e.ObjectNew.GetName())
+		return config.HostedAddonList.Has(e.ObjectNew.GetName())
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -131,7 +113,7 @@ var mghPred = predicate.Funcs{
 	},
 }
 
-func (r *AddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *HostedAddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	klog.V(2).Infof("Reconcile ClusterManagementAddOn: %v", req.NamespacedName)
 	if !config.GetImportClusterInHosted() {
 		return ctrl.Result{}, nil
@@ -165,19 +147,22 @@ func (r *AddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // addAddonConfig add the config to cma, will return true if the cma updated
 func addAddonConfig(cma *v1alpha1.ClusterManagementAddOn) bool {
 	if len(cma.Spec.InstallStrategy.Placements) == 0 {
-		cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, GlobalhubCmaConfig)
+		cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements,
+			config.GlobalHubHostedAddonPlacementStrategy)
 		return true
 	}
 	for i, pl := range cma.Spec.InstallStrategy.Placements {
-		if !reflect.DeepEqual(pl.PlacementRef, GlobalhubCmaConfig.PlacementRef) {
+		if !reflect.DeepEqual(pl.PlacementRef, config.GlobalHubHostedAddonPlacementStrategy.PlacementRef) {
 			continue
 		}
-		if reflect.DeepEqual(pl.Configs, GlobalhubCmaConfig.Configs) {
+		if reflect.DeepEqual(pl.Configs, config.GlobalHubHostedAddonPlacementStrategy.Configs) {
 			return false
 		}
-		cma.Spec.InstallStrategy.Placements[i].Configs = append(pl.Configs, GlobalhubCmaConfig.Configs...)
+		cma.Spec.InstallStrategy.Placements[i].Configs = append(pl.Configs,
+			config.GlobalHubHostedAddonPlacementStrategy.Configs...)
 		return true
 	}
-	cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements, GlobalhubCmaConfig)
+	cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements,
+		config.GlobalHubHostedAddonPlacementStrategy)
 	return true
 }
