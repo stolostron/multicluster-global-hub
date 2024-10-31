@@ -37,6 +37,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
+	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -47,6 +51,10 @@ type Func func(initOption config.ControllerOption) error
 // controllerStartFuncList store all the controllers that need started
 var controllerStartFuncList = []Func{
 	transporter.StartController,
+	storage.StartController,
+	grafana.StartController,
+	inventory.StartController,
+	globalhubmanager.StartController,
 }
 
 type MetaController struct {

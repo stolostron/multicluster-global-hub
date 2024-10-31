@@ -9,18 +9,27 @@ import (
 	"math/big"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 //go:embed database
@@ -43,9 +52,33 @@ type StorageReconciler struct {
 	enableGlobalResource   bool
 }
 
+var WatchedSecret = sets.NewString(
+	constants.GHStorageSecretName,
+	constants.GHBuiltInStorageSecretName,
+	config.PostgresCertName,
+)
+
+var WatchedConfigMap = sets.NewString(
+	constants.PostgresCAConfigMap,
+)
+var started bool
+
+func StartController(initOption config.ControllerOption) error {
+	if started {
+		return nil
+	}
+	err := NewStorageReconciler(initOption.Manager, initOption.OperatorConfig.GlobalResourceEnabled).SetupWithManager(initOption.Manager)
+	if err != nil {
+		return err
+	}
+	started = true
+	klog.Infof("inited storage controller")
+	return nil
+}
+
 func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageReconciler {
 	return &StorageReconciler{
-		log:                    ctrl.Log.WithName("global-hub-storage"),
+		log:                    ctrl.Log.WithName("storage"),
 		Manager:                mgr,
 		upgrade:                false,
 		databaseReconcileCount: 0,
@@ -53,22 +86,91 @@ func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageR
 	}
 }
 
-func (r *StorageReconciler) Reconcile(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
+func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).Named("storageController").
+		For(&v1alpha4.MulticlusterGlobalHub{}).
+		Watches(&corev1.Secret{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
+		Watches(&corev1.ConfigMap{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configmapPred)).
+		Watches(&appsv1.StatefulSet{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(statefulSetPred)).
+		Complete(r)
+}
+
+var statefulSetPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_POSTGRES_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_POSTGRES_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_POSTGRES_NAME
+	},
+}
+
+var configmapPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return WatchedConfigMap.Has(e.Object.GetName())
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return WatchedConfigMap.Has(e.ObjectNew.GetName())
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return WatchedConfigMap.Has(e.Object.GetName())
+	},
+}
+
+var secretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return WatchedSecret.Has(e.Object.GetName())
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return WatchedSecret.Has(e.ObjectNew.GetName())
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return WatchedSecret.Has(e.Object.GetName())
+	},
+}
+
+func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if mgh == nil || mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+	var reconcileErr error
+	defer func() {
+		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, reconcileErr),
+		)
+		if err != nil {
+			klog.Errorf("failed to update mgh status, err:%v", err)
+		}
+	}()
 	storageConn, err := r.ReconcileStorage(ctx, mgh)
 	if err != nil {
-		return true, fmt.Errorf("storage not ready, Error: %v", err)
+		reconcileErr = fmt.Errorf("storage not ready, Error: %v", err)
+		return ctrl.Result{}, reconcileErr
 	}
 	_ = config.SetStorageConnection(storageConn)
 
 	needRequeue, err := r.reconcileDatabase(ctx, mgh)
 	if err != nil {
-		return true, fmt.Errorf("database not ready, Error: %v", err)
+		reconcileErr = fmt.Errorf("database not ready, Error: %v", err)
+		return ctrl.Result{}, reconcileErr
 	}
 	if needRequeue {
-		return true, nil
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	config.SetDatabaseReady(true)
-	return false, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
@@ -225,4 +327,43 @@ func generatePassword(length int) string {
 		buf[i] = chars[nBig.Int64()]
 	}
 	return string(buf)
+}
+
+func getDatabaseComponentStatus(ctx context.Context, c client.Client,
+	namespace string, reconcileErr error,
+) v1alpha4.StatusCondition {
+	name := config.COMPONENTS_POSTGRES_NAME
+	availableType := config.COMPONENTS_AVAILABLE
+	if reconcileErr != nil {
+		return v1alpha4.StatusCondition{
+			Kind:    "DatabaseConnection",
+			Name:    name,
+			Type:    availableType,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  config.RECONCILE_ERROR,
+			Message: reconcileErr.Error(),
+		}
+	}
+	if config.GetStorageConnection() == nil {
+		return v1alpha4.StatusCondition{
+			Kind:    "DatabaseConnection",
+			Name:    name,
+			Type:    availableType,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  "DatabaseConnectionNotSet",
+			Message: "Database connection is null",
+		}
+	}
+
+	if config.IsBYOPostgres() {
+		return v1alpha4.StatusCondition{
+			Kind:    "DatabaseConnection",
+			Name:    name,
+			Type:    availableType,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  "DatabaseConnectionSet",
+			Message: "Use customized database, connection has set using provided secret",
+		}
+	}
+	return config.GetStatefulSetComponentStatus(ctx, c, namespace, name)
 }
