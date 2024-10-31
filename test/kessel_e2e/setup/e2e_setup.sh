@@ -168,6 +168,10 @@ function wait_global_hub_ready() {
   wait_cmd "kubectl get deploy/multicluster-global-hub-manager -n multicluster-global-hub --context $1"
   kubectl wait deploy/multicluster-global-hub-manager -n multicluster-global-hub --for condition=Available=True --timeout=600s --context "$1"
   wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $1"
+  sleep 20
+  kubectl logs deploy/inventory-api -n multicluster-global-hub --context "$1"
+  wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $1"
+
   kubectl wait deploy/inventory-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context "$1"
   kubectl get pod -n multicluster-global-hub --context $1
 }
