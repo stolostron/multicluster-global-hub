@@ -2,6 +2,22 @@
 
 You can run troubleshooting steps to determine issues on your Multicluster Global Hub.
 
+## Change the `mutlicluster-global-hub` Log Level at Runtime
+
+To aid in troubleshooting, you may need detailed log information from the operator, manager, and agent components. Currently, the supported log levels are `debug`, `info`, `warn`, and `error`, with `info` as the default. For the complete list of available log levels, refer to [zap log levels](https://github.com/uber-go/zap/blob/master/level.go#L30-L49).
+
+To adjust the log level, update the `logLevel` value in `multicluster-global-hub-config` ConfigMap on the global hub cluster. This change will dynamically modify the log level for the operator, manager, and agent without requiring a restart.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-config
+  namespace: multicluster-global-hub  # Set this to the namespace where the global hub is installed
+data:
+  logLevel: debug
+```
+
 ## Access to the provisioned postgres database
 
 Depending on the type of service, there are three ways to access the [provisioned postgres database](../operator/config/samples/storage/deploy_postgres.sh) database.
