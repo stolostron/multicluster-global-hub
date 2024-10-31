@@ -100,7 +100,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon installer to the manager")
-	err = (&agent.AddonInstaller{
+	err = (&agent.DefaultAgentReconciler{
 		Client: runtimeClient,
 		Log:    ctrl.Log.WithName("addon install controller"),
 	}).SetupWithManager(ctx, k8sManager)

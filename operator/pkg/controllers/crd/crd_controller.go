@@ -102,10 +102,13 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// start addon installer
 	if !r.addonInstallerReady {
-		if err := (&agent.AddonInstaller{
-			Client: r.GetClient(),
-			Log:    ctrl.Log.WithName("addon-reconciler"),
-		}).SetupWithManager(ctx, r.Manager); err != nil {
+		// if err := (&agent.DefaultAgentReconciler{
+		// 	Client: r.GetClient(),
+		// 	Log:    ctrl.Log.WithName("addon-reconciler"),
+		// }).SetupWithManager(ctx, r.Manager); err != nil {
+		// 	return ctrl.Result{}, err
+		// }
+		if err := agent.AddDefaultAgentReconciler(ctx, r.Manager); err != nil {
 			return ctrl.Result{}, err
 		}
 		r.addonInstallerReady = true
