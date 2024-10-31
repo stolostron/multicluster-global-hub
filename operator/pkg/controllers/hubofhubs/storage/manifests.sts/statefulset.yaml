@@ -120,10 +120,13 @@ spec:
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
       {{- end }}
+      {{- if .NodeSelector }}
       nodeSelector:
         {{- range $key, $value := .NodeSelector}}
         "{{$key}}": "{{$value}}"
         {{- end}}
+      {{- end }}
+      {{- if .Tolerations }}
       tolerations:
         {{- range .Tolerations}}
         - key: "{{.Key}}"
@@ -134,6 +137,7 @@ spec:
           tolerationSeconds: {{.TolerationSeconds}}
           {{- end}}
         {{- end}}
+      {{- end }}
       volumes:
       - configMap:
           defaultMode: 420

@@ -3,6 +3,7 @@ package deployer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -88,9 +89,17 @@ func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 }
 
 func (d *HoHDeployer) deployDeployment(desiredObj, existingObj *unstructured.Unstructured) error {
+	desireData, _ := json.Marshal(desiredObj)
+	fmt.Println("desired object", string(desireData))
+	existingData, _ := json.Marshal(existingObj)
+	fmt.Println("existing object", string(existingData))
+
+	fmt.Println("equal is", apiequality.Semantic.DeepDerivative(desiredObj.Object["spec"], existingObj.Object["spec"]))
+
+	// should not use DeepDerivative for typed object due to https://github.com/kubernetes/apimachinery/issues/110
 	if !apiequality.Semantic.DeepDerivative(desiredObj.Object["spec"], existingObj.Object["spec"]) ||
-		!apiequality.Semantic.DeepDerivative(desiredObj.GetLabels(), desiredObj.GetLabels()) ||
-		!apiequality.Semantic.DeepDerivative(desiredObj.GetAnnotations(), desiredObj.GetAnnotations()) {
+		!apiequality.Semantic.DeepDerivative(desiredObj.GetLabels(), existingObj.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredObj.GetAnnotations(), existingObj.GetAnnotations()) {
 		return d.client.Update(context.TODO(), desiredObj)
 	}
 	return nil
