@@ -105,9 +105,7 @@ func onAdd(ctx context.Context, c client.Client, kubeClient kubernetes.Interface
 			}
 			return
 		}
-		fmt.Println("restart pod outside")
 		if dep.Status.ReadyReplicas != 0 {
-			fmt.Println("restart pod")
 			err := utils.RestartPod(ctx, kubeClient, utils.GetDefaultNamespace(), constants.InventoryDeploymentName)
 			if err != nil {
 				log.Error(err, "failed to restart the pods", "name", constants.InventoryDeploymentName)

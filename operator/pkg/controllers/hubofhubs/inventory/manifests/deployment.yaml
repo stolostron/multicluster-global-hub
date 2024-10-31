@@ -4,16 +4,16 @@ metadata:
   name: inventory-api
   namespace: {{.Namespace}}
   labels:
-    app: inventory-api
+    name: inventory-api
 spec:
   replicas: {{.Replicas}}
   selector:
     matchLabels:
-      app: inventory-api
+      name: inventory-api
   template:
     metadata:
       labels:
-        app: inventory-api
+        name: inventory-api
     spec:
       serviceAccountName: inventory-api
       containers:
