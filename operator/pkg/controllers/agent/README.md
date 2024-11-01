@@ -1,6 +1,6 @@
-The global hub agent is deployed using the [addon framwork](https://github.com/open-cluster-management-io/addon-framework) of Open Cluster Management, 
+## Multicluster Global Hub Architecure
 
-The overall architecture is as follows:
+The global hub agent is deployed using the [addon framwork](https://github.com/open-cluster-management-io/addon-framework) of Open Cluster Management. The overall architecture is as follows:
 
 ![alt text](./../../../../doc/images/global-hub-agent-architecure.png)
 
