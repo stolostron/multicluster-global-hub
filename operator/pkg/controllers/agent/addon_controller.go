@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -71,7 +72,10 @@ type GlobalHubAddonController struct {
 	operatorConfig *config.OperatorConfig
 }
 
-var addonController *GlobalHubAddonController
+var (
+	once            sync.Once
+	addonController *GlobalHubAddonController
+)
 
 // used to create addon manager
 func AddGlobalHubAddonController(ctx context.Context, mgr ctrl.Manager, kubeConfig *rest.Config, client client.Client,
@@ -114,16 +118,13 @@ func (a *GlobalHubAddonController) Start(ctx context.Context) error {
 		return err
 	}
 	a.dynamicClient = dynamicClient
-	fmt.Println("=================================================3")
 
 	kubeClient, err := kubernetes.NewForConfig(a.kubeConfig)
 	if err != nil {
 		log.Error(err, "failed to create kube client")
 		return err
 	}
-	fmt.Println("=================================================4")
 	a.kubeClient = kubeClient
-	fmt.Println("=================================================")
 
 	addonClient, err := addonv1alpha1client.NewForConfig(a.kubeConfig)
 	if err != nil {
@@ -146,6 +147,7 @@ func (a *GlobalHubAddonController) Start(ctx context.Context) error {
 				addonfactory.ToAddOnCustomizedVariableValues,
 			)).
 		WithScheme(addonScheme)
+
 	// enable the certificate signing feature: strimzi kafka, inventory api
 	if config.TransporterProtocol() == transport.StrimziTransporter || config.EnableInventory() {
 		factory.WithAgentRegistrationOption(newRegistrationOption())
@@ -156,11 +158,12 @@ func (a *GlobalHubAddonController) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = a.addonManager.AddAgent(agentAddon)
-	if err != nil {
-		log.Error(err, "failed to add agent addon to manager")
-		return err
-	}
+	once.Do(func() {
+		err = a.addonManager.AddAgent(agentAddon)
+		if err != nil {
+			log.Errorw("failed to add agent addon to manager", "error", err)
+		}
+	})
 
 	log.Info("starting addon manager")
 	return a.addonManager.Start(ctx)

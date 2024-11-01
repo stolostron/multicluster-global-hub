@@ -1,4 +1,4 @@
-package agent
+package mgh
 
 import (
 	"reflect"
@@ -20,6 +20,8 @@ import (
 )
 
 var (
+	timeout         = time.Second * 60
+	interval        = time.Millisecond * 100
 	hostedNamespace = "mc-hosted"
 	mghName         = "test-mgh"
 )
@@ -57,7 +59,7 @@ var msa = v1alpha1.ClusterManagementAddOn{
 	},
 }
 
-var hostedMgh = globalhubv1alpha4.MulticlusterGlobalHub{
+var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace: mghName,
 		Name:      "mgh",
@@ -68,11 +70,14 @@ var hostedMgh = globalhubv1alpha4.MulticlusterGlobalHub{
 	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 }
 
-var _ = Describe("addons hosted mode test", Ordered, func() {
+// hosted: put the acm agent cluster control plane into acm hub cluster
+// global hub -> managed-hub(local-cluster)
+
+// go test ./test/integration/operator/agent -ginkgo.focus "other addons in hosted mode test" -v
+var _ = Describe("other addons in hosted mode test", Ordered, func() {
 	var hostedAddonReconciler *agent.HostedAddonsReconciler
 	BeforeAll(func() {
-		config.SetImportClusterInHosted(&hostedMgh)
-
+		config.SetImportClusterInHosted(&hostedMGH)
 		var err error
 		hostedAddonReconciler, err = agent.AddHostedAddonsReconciler(mgr)
 		Expect(err).NotTo(HaveOccurred())
@@ -81,7 +86,7 @@ var _ = Describe("addons hosted mode test", Ordered, func() {
 				Name: mghName,
 			},
 		})).To(Succeed())
-		Expect(mgr.GetClient().Create(ctx, &hostedMgh)).To(Succeed())
+		Expect(mgr.GetClient().Create(ctx, &hostedMGH)).To(Succeed())
 
 		mcHostedNamespace := &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: hostedNamespace}}
 		err = mgr.GetClient().Create(ctx, mcHostedNamespace)
@@ -105,7 +110,9 @@ var _ = Describe("addons hosted mode test", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := mgr.GetClient().Delete(ctx, &workManager)
+		err := mgr.GetClient().Delete(ctx, &hostedMGH)
+		Expect(err).NotTo(HaveOccurred())
+		err = mgr.GetClient().Delete(ctx, &workManager)
 		Expect(err).NotTo(HaveOccurred())
 		err = mgr.GetClient().Delete(ctx, &proxy)
 		Expect(err).NotTo(HaveOccurred())

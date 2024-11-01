@@ -149,6 +149,7 @@ func AddDefaultAgentReconciler(ctx context.Context, mgr ctrl.Manager) error {
 		return err
 	}
 	defaultAgentStarted = true
+	log.Info("the default addon reconciler is started")
 	return nil
 }
 

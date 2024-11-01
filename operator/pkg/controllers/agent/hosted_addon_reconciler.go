@@ -120,6 +120,7 @@ func (r *HostedAddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
 	if err != nil {
+		klog.Error("error ", err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {

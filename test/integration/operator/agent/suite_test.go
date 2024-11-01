@@ -96,8 +96,9 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme:   runtimeScheme,
-		NewCache: config.InitCache,
+		Scheme:         runtimeScheme,
+		NewCache:       config.InitCache,
+		LeaderElection: false,
 	})
 	Expect(err).ToNot(HaveOccurred())
 	mgr = k8sManager
@@ -134,6 +135,7 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
+	Expect(k8sManager.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 })
 
 var _ = AfterSuite(func() {
