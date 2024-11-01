@@ -93,7 +93,7 @@ func AddGlobalHubAddonController(ctx context.Context, mgr ctrl.Manager, kubeConf
 		addonManager:   addonMgr,
 		operatorConfig: operatorConfig,
 	}
-	err = mgr.Add(addonController)
+	err = mgr.Add(c)
 	if err != nil {
 		return nil, err
 	}
@@ -114,13 +114,16 @@ func (a *GlobalHubAddonController) Start(ctx context.Context) error {
 		return err
 	}
 	a.dynamicClient = dynamicClient
+	fmt.Println("=================================================3")
 
 	kubeClient, err := kubernetes.NewForConfig(a.kubeConfig)
 	if err != nil {
 		log.Error(err, "failed to create kube client")
 		return err
 	}
+	fmt.Println("=================================================4")
 	a.kubeClient = kubeClient
+	fmt.Println("=================================================")
 
 	addonClient, err := addonv1alpha1client.NewForConfig(a.kubeConfig)
 	if err != nil {
