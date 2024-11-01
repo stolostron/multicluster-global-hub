@@ -45,7 +45,7 @@ type HostedAgentReconciler struct {
 
 var hostedAddonReconciler *HostedAgentReconciler
 
-func AddHostedAgentReconciler(mgr manager.Manager) (*HostedAgentReconciler, error) {
+func AddHostedAgentController(mgr manager.Manager) (*HostedAgentReconciler, error) {
 	if hostedAddonReconciler != nil {
 		return hostedAddonReconciler, nil
 	}

@@ -34,15 +34,15 @@ var (
 	defaultAgentStarted = false
 )
 
-type DefaultAgentReconciler struct {
+type DefaultAgentController struct {
 	client.Client
 }
 
-func AddDefaultAgentReconciler(ctx context.Context, mgr ctrl.Manager) error {
+func AddDefaultAgentController(ctx context.Context, mgr ctrl.Manager) error {
 	if defaultAgentStarted {
 		return nil
 	}
-	agentReconciler := &DefaultAgentReconciler{
+	agentReconciler := &DefaultAgentController{
 		Client: mgr.GetClient(),
 	}
 	clusterPred := predicate.Funcs{
@@ -153,7 +153,7 @@ func AddDefaultAgentReconciler(ctx context.Context, mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *DefaultAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -209,7 +209,7 @@ func (r *DefaultAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 }
 
-func (r *DefaultAgentReconciler) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster,
+func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster,
 	cma *v1alpha1.ClusterManagementAddOn,
 ) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster, cma)
@@ -272,7 +272,7 @@ func ensureTransportResource(clusterName string) error {
 	return nil
 }
 
-func (r *DefaultAgentReconciler) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *DefaultAgentController) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
 	existingAddon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -346,7 +346,7 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha
 	return expectedAddon, nil
 }
 
-func (r *DefaultAgentReconciler) renderAllManifestsHandler(
+func (r *DefaultAgentController) renderAllManifestsHandler(
 	ctx context.Context, obj client.Object,
 ) []reconcile.Request {
 	requests := []reconcile.Request{}

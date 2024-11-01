@@ -103,24 +103,19 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	mgr = k8sManager
 
-	By("Add the addon installer to the manager")
-	err = agent.AddDefaultAgentReconciler(ctx, k8sManager)
+	By("start the addon manager and add addon controller to manager")
+	err = agent.StartGlobalHubAddonManager(ctx, cfg, k8sManager.GetClient(), &config.OperatorConfig{
+		GlobalResourceEnabled: true,
+		LogLevel:              "info",
+		EnablePprof:           false,
+	})
+	Expect(err).ToNot(HaveOccurred())
+	err = agent.AddDefaultAgentController(ctx, k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
 	err = config.LoadControllerConfig(ctx, kubeClient)
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Add the addon controller to the manager")
-	addonController, err := agent.AddGlobalHubAgentController(ctx, k8sManager, k8sManager.GetConfig(), runtimeClient,
-		&config.OperatorConfig{
-			GlobalResourceEnabled: true,
-			LogLevel:              "info",
-			EnablePprof:           false,
-		})
-	Expect(err).ToNot(HaveOccurred())
-	err = k8sManager.Add(addonController)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Create an external transport")

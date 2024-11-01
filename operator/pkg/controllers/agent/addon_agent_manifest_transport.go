@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -37,13 +35,9 @@ func setTransportConfigs(ctx context.Context, manifestsConfig *config.ManifestsC
 	}
 
 	// kafka setup
-	err := utils.WaitTransporterReady(ctx, 10*time.Minute)
-	if err != nil {
-		return err
-	}
 	transporter := config.GetTransporter()
 
-	_, err = transporter.EnsureTopic(cluster.Name)
+	_, err := transporter.EnsureTopic(cluster.Name)
 	if err != nil {
 		return err
 	}

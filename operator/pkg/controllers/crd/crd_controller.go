@@ -40,6 +40,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var ACMCrds = sets.NewString(
@@ -55,6 +56,8 @@ var KafkaCrds = sets.NewString(
 	"kafkatopics.kafka.strimzi.io",
 	"kafkausers.kafka.strimzi.io",
 )
+
+var log = logger.DefaultZapLogger()
 
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update
 
@@ -96,19 +99,6 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// start addon installer
-
-	if err := agent.AddDefaultAgentReconciler(ctx, r.Manager); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// start addon controller
-	_, err = agent.AddGlobalHubAgentController(ctx, r.Manager,
-		r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// backup controller
 	if !r.backupControllerReady {
 		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).SetupWithManager(r.Manager)
@@ -118,7 +108,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.backupControllerReady = true
 	}
 
-	_, err = agent.AddHostedAgentReconciler(r.Manager)
+	_, err = agent.AddHostedAgentController(r.Manager)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

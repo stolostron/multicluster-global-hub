@@ -285,7 +285,7 @@ func TestAddonInstaller(t *testing.T) {
 			}, fakeClient)
 			config.SetTransporter(transporter)
 
-			r := &hubofhubsaddon.DefaultAgentReconciler{
+			r := &hubofhubsaddon.DefaultAgentController{
 				Client: fakeClient,
 			}
 
