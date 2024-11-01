@@ -103,7 +103,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// start addon controller
-	_, err = agent.AddGlobalHubAddonController(ctx, r.Manager,
+	_, err = agent.AddGlobalHubAgentController(ctx, r.Manager,
 		r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -118,7 +118,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.backupControllerReady = true
 	}
 
-	_, err = agent.AddHostedAddonsReconciler(r.Manager)
+	_, err = agent.AddHostedAgentReconciler(r.Manager)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

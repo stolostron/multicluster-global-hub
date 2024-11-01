@@ -113,7 +113,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Add the addon controller to the manager")
-	addonController, err := agent.AddGlobalHubAddonController(ctx, k8sManager, k8sManager.GetConfig(), runtimeClient,
+	addonController, err := agent.AddGlobalHubAgentController(ctx, k8sManager, k8sManager.GetConfig(), runtimeClient,
 		&config.OperatorConfig{
 			GlobalResourceEnabled: true,
 			LogLevel:              "info",

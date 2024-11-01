@@ -62,7 +62,7 @@ var FS embed.FS
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
-type GlobalHubAddonController struct {
+type GlobalHubAgentController struct {
 	ctx            context.Context
 	addonManager   addonmanager.AddonManager
 	kubeConfig     *rest.Config
@@ -74,15 +74,15 @@ type GlobalHubAddonController struct {
 
 var (
 	once            sync.Once
-	addonController *GlobalHubAddonController
+	globalhubAgentController *GlobalHubAgentController
 )
 
 // used to create addon manager
-func AddGlobalHubAddonController(ctx context.Context, mgr ctrl.Manager, kubeConfig *rest.Config, client client.Client,
+func AddGlobalHubAgentController(ctx context.Context, mgr ctrl.Manager, kubeConfig *rest.Config, client client.Client,
 	operatorConfig *config.OperatorConfig,
-) (*GlobalHubAddonController, error) {
-	if addonController != nil {
-		return addonController, nil
+) (*GlobalHubAgentController, error) {
+	if globalhubAgentController != nil {
+		return globalhubAgentController, nil
 	}
 	addonMgr, err := addonmanager.New(kubeConfig)
 	if err != nil {
@@ -90,7 +90,7 @@ func AddGlobalHubAddonController(ctx context.Context, mgr ctrl.Manager, kubeConf
 		return nil, err
 	}
 	config.SetAddonManager(addonMgr)
-	c := &GlobalHubAddonController{
+	c := &GlobalHubAgentController{
 		ctx:            ctx,
 		kubeConfig:     kubeConfig,
 		client:         client,
@@ -101,11 +101,11 @@ func AddGlobalHubAddonController(ctx context.Context, mgr ctrl.Manager, kubeConf
 	if err != nil {
 		return nil, err
 	}
-	addonController = c
+	globalhubAgentController = c
 	return c, nil
 }
 
-func (a *GlobalHubAddonController) Start(ctx context.Context) error {
+func (a *GlobalHubAgentController) Start(ctx context.Context) error {
 	addonScheme := runtime.NewScheme()
 	utilruntime.Must(mchv1.AddToScheme(addonScheme))
 	utilruntime.Must(globalhubv1alpha4.AddToScheme(addonScheme))
@@ -169,7 +169,7 @@ func (a *GlobalHubAddonController) Start(ctx context.Context) error {
 	return a.addonManager.Start(ctx)
 }
 
-func (a *GlobalHubAddonController) AddonManager() addonmanager.AddonManager {
+func (a *GlobalHubAgentController) AddonManager() addonmanager.AddonManager {
 	return a.addonManager
 }
 
@@ -190,7 +190,7 @@ func newRegistrationOption() *agent.RegistrationOption {
 	}
 }
 
-func (a *GlobalHubAddonController) GetValues(cluster *clusterv1.ManagedCluster,
+func (a *GlobalHubAgentController) GetValues(cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
 ) (addonfactory.Values, error) {
 	installNamespace := addon.Spec.InstallNamespace
@@ -275,7 +275,7 @@ func (a *GlobalHubAddonController) GetValues(cluster *clusterv1.ManagedCluster,
 	return addonfactory.StructToValues(manifestsConfig), nil
 }
 
-func (a *GlobalHubAddonController) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
+func (a *GlobalHubAgentController) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
 	manifestsConfig *config.ManifestsConfig,
 ) {
 	annotations := cluster.GetAnnotations()
@@ -297,7 +297,7 @@ func (a *GlobalHubAddonController) setInstallHostedMode(cluster *clusterv1.Manag
 }
 
 // GetImagePullSecret returns the image pull secret name and data
-func (a *GlobalHubAddonController) setImagePullSecret(mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+func (a *GlobalHubAgentController) setImagePullSecret(mgh *globalhubv1alpha4.MulticlusterGlobalHub,
 	cluster *clusterv1.ManagedCluster, manifestsConfig *config.ManifestsConfig,
 ) error {
 	imagePullSecret := &corev1.Secret{}

@@ -26,7 +26,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-func TestHostedAddAddonConfig(t *testing.T) {
+func TestHostedAgentConfig(t *testing.T) {
 	tests := []struct {
 		name      string
 		cma       *v1alpha1.ClusterManagementAddOn

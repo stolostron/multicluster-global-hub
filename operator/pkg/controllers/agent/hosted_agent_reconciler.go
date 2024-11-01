@@ -38,18 +38,18 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
-type HostedAddonsReconciler struct {
+type HostedAgentReconciler struct {
 	manager.Manager
 	client.Client
 }
 
-var hostedAddonReconciler *HostedAddonsReconciler
+var hostedAddonReconciler *HostedAgentReconciler
 
-func AddHostedAddonsReconciler(mgr manager.Manager) (*HostedAddonsReconciler, error) {
+func AddHostedAgentReconciler(mgr manager.Manager) (*HostedAgentReconciler, error) {
 	if hostedAddonReconciler != nil {
 		return hostedAddonReconciler, nil
 	}
-	r := &HostedAddonsReconciler{
+	r := &HostedAgentReconciler{
 		Manager: mgr,
 		Client:  mgr.GetClient(),
 	}
@@ -61,7 +61,7 @@ func AddHostedAddonsReconciler(mgr manager.Manager) (*HostedAddonsReconciler, er
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HostedAddonsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *HostedAgentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("AddonsController").
 		For(&v1alpha1.ClusterManagementAddOn{},
 			builder.WithPredicates(addonPred)).
@@ -113,7 +113,7 @@ var mghPred = predicate.Funcs{
 	},
 }
 
-func (r *HostedAddonsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *HostedAgentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	klog.V(2).Infof("Reconcile ClusterManagementAddOn: %v", req.NamespacedName)
 	if !config.GetImportClusterInHosted() {
 		return ctrl.Result{}, nil
