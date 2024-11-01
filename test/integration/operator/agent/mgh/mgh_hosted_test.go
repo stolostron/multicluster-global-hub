@@ -75,11 +75,11 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 
 // go test ./test/integration/operator/agent -ginkgo.focus "other addons in hosted mode test" -v
 var _ = Describe("other addons in hosted mode test", Ordered, func() {
-	var hostedAddonReconciler *agent.HostedAddonsReconciler
+	var hostedAddonReconciler *agent.HostedAgentController
 	BeforeAll(func() {
 		config.SetImportClusterInHosted(&hostedMGH)
 		var err error
-		hostedAddonReconciler, err = agent.AddHostedAddonsReconciler(mgr)
+		hostedAddonReconciler, err = agent.AddHostedAgentController(mgr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(mgr.GetClient().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
