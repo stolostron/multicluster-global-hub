@@ -38,6 +38,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/multiclusterhub"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -124,6 +125,11 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	reconcileErr = config.SetMulticlusterGlobalHubConfig(ctx, mgh, r.client, r.imageClient)
 	if reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
+	}
+
+	// start the multilcusterhub controller to update the ACM status of the mgh
+	if reconcileErr = multiclusterhub.AddMulticlusterHubController(r.mgr); err != nil {
 		return ctrl.Result{}, reconcileErr
 	}
 
