@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -34,7 +33,7 @@ func NewHoHDeployer(client client.Client) Deployer {
 	deployer := &HoHDeployer{client: client}
 	deployer.deployFuncs = map[string]deployFunc{
 		"Deployment":         deployer.deployDeployment,
-		"StatefulSet":        deployer.deployStatefulSet,
+		"StatefulSet":        deployer.deployDeployment,
 		"Service":            deployer.deployService,
 		"ServiceAccount":     deployer.deployServiceAccount,
 		"ConfigMap":          deployer.deployConfigMap,
@@ -89,50 +88,12 @@ func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 }
 
 func (d *HoHDeployer) deployDeployment(desiredObj, existingObj *unstructured.Unstructured) error {
-	existingJSON, _ := existingObj.MarshalJSON()
-	existingDepoly := &appsv1.Deployment{}
-	err := json.Unmarshal(existingJSON, existingDepoly)
-	if err != nil {
-		return err
+	// should not use DeepDerivative for typed object due to https://github.com/kubernetes/apimachinery/issues/110
+	if !apiequality.Semantic.DeepDerivative(desiredObj.Object["spec"], existingObj.Object["spec"]) ||
+		!apiequality.Semantic.DeepDerivative(desiredObj.GetLabels(), existingObj.GetLabels()) ||
+		!apiequality.Semantic.DeepDerivative(desiredObj.GetAnnotations(), existingObj.GetAnnotations()) {
+		return d.client.Update(context.TODO(), desiredObj)
 	}
-
-	desiredJSON, _ := desiredObj.MarshalJSON()
-	desiredDepoly := &appsv1.Deployment{}
-	err = json.Unmarshal(desiredJSON, desiredDepoly)
-	if err != nil {
-		return err
-	}
-
-	if !apiequality.Semantic.DeepDerivative(desiredDepoly.Spec, existingDepoly.Spec) ||
-		!apiequality.Semantic.DeepDerivative(desiredDepoly.GetLabels(), existingDepoly.GetLabels()) ||
-		!apiequality.Semantic.DeepDerivative(desiredDepoly.GetAnnotations(), existingDepoly.GetAnnotations()) {
-		return d.client.Update(context.TODO(), desiredDepoly)
-	}
-
-	return nil
-}
-
-func (d *HoHDeployer) deployStatefulSet(desiredObj, existingObj *unstructured.Unstructured) error {
-	existingJSON, _ := existingObj.MarshalJSON()
-	existingSTS := &appsv1.StatefulSet{}
-	err := json.Unmarshal(existingJSON, existingSTS)
-	if err != nil {
-		return err
-	}
-
-	desiredJSON, _ := desiredObj.MarshalJSON()
-	desiredSTS := &appsv1.StatefulSet{}
-	err = json.Unmarshal(desiredJSON, desiredSTS)
-	if err != nil {
-		return err
-	}
-
-	if !apiequality.Semantic.DeepDerivative(desiredSTS.Spec, existingSTS.Spec) ||
-		!apiequality.Semantic.DeepDerivative(desiredSTS.GetLabels(), existingSTS.GetLabels()) ||
-		!apiequality.Semantic.DeepDerivative(desiredSTS.GetAnnotations(), existingSTS.GetAnnotations()) {
-		return d.client.Update(context.TODO(), desiredSTS)
-	}
-
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -47,23 +48,17 @@ func newDeployment(name string) *appv1.Deployment {
 
 func TestOnAdd(t *testing.T) {
 	c := fake.NewClientBuilder().Build()
+	kubeClient := fakekube.NewSimpleClientset(newDeployment(constants.InventoryDeploymentName))
 	caSecret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              InventoryServerCASecretName,
+			Name:              InventoryClientCASecretName,
 			Namespace:         namespace,
 			CreationTimestamp: metav1.Date(2020, time.January, 2, 0, 0, 0, 0, time.UTC),
 		},
 	}
-	onAdd(c)(caSecret)
+	onAdd(context.TODO(), c, kubeClient)(caSecret)
 	c = fake.NewClientBuilder().WithRuntimeObjects(newDeployment(constants.InventoryDeploymentName)).Build()
-	onAdd(c)(caSecret)
-	dep := &appv1.Deployment{}
-	c.Get(context.TODO(),
-		types.NamespacedName{Name: constants.InventoryDeploymentName, Namespace: namespace},
-		dep)
-	if dep.Spec.Template.ObjectMeta.Labels[restartLabel] == "" {
-		t.Fatalf("Failed to inject restart label")
-	}
+	onAdd(context.TODO(), c, kubeClient)(caSecret)
 }
 
 func TestOnDelete(t *testing.T) {
@@ -98,13 +93,14 @@ func TestOnUpdate(t *testing.T) {
 	certSecret := getExpiredCertSecret()
 	oldCertLength := len(certSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(certSecret).Build()
-	onUpdate(context.TODO(), c)(certSecret, certSecret)
+	kubeClient := fakekube.NewSimpleClientset()
+	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
 	certSecret.Name = InventoryClientCASecretName
-	onUpdate(context.TODO(), c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
 	certSecret.Name = guestCerts
-	onUpdate(context.TODO(), c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
 	certSecret.Name = serverCerts
-	onUpdate(context.TODO(), c)(certSecret, certSecret)
+	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
 	c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, certSecret)
 	if len(certSecret.Data["tls.crt"]) <= oldCertLength {
 		t.Fatal("certificate not renewed correctly")

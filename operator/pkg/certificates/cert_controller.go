@@ -28,12 +28,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-const (
-	restartLabel = "cert/time-restarted"
-)
-
 var (
-	caSecretNames            = []string{InventoryServerCASecretName, InventoryClientCASecretName}
+	caSecretNames            = []string{serverCerts, InventoryClientCASecretName}
 	isCertControllerRunnning = false
 )
 
@@ -54,38 +50,14 @@ func Start(ctx context.Context, c client.Client, kubeClient kubernetes.Interface
 		ObjectType:    &v1.Secret{},
 		ResyncPeriod:  time.Minute * 60,
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    onAdd(c),
+			AddFunc:    onAdd(ctx, c, kubeClient),
 			DeleteFunc: onDelete(c),
-			UpdateFunc: onUpdate(ctx, c),
+			UpdateFunc: onUpdate(ctx, c, kubeClient),
 		},
 	}
 	_, controller := cache.NewInformerWithOptions(options)
 
 	go controller.Run(ctx.Done())
-}
-
-func updateDeployLabel(c client.Client, isUpdate bool) {
-	dep := &appv1.Deployment{}
-	err := c.Get(context.TODO(), types.NamespacedName{
-		Name:      constants.InventoryDeploymentName,
-		Namespace: utils.GetDefaultNamespace(),
-	}, dep)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			log.Error(err, "Failed to check the deployment", "name", constants.InventoryDeploymentName)
-		}
-		return
-	}
-	if isUpdate || dep.Status.ReadyReplicas != 0 {
-		newDep := dep.DeepCopy()
-		newDep.Spec.Template.ObjectMeta.Labels[restartLabel] = time.Now().Format("2006-1-2.1504")
-		err := c.Patch(context.TODO(), newDep, client.StrategicMergeFrom(dep))
-		if err != nil {
-			log.Error(err, "Failed to update the deployment", "name", constants.InventoryDeploymentName)
-		} else {
-			log.Info("Update deployment cert/restart label", "name", constants.InventoryDeploymentName)
-		}
-	}
 }
 
 func needsRenew(s v1.Secret) bool {
@@ -116,9 +88,29 @@ func needsRenew(s v1.Secret) bool {
 	return false
 }
 
-func onAdd(c client.Client) func(obj interface{}) {
+func onAdd(ctx context.Context, c client.Client, kubeClient kubernetes.Interface) func(obj interface{}) {
 	return func(obj interface{}) {
-		updateDeployLabel(c, false)
+		s := *obj.(*v1.Secret)
+		if !slices.Contains(caSecretNames, s.Name) {
+			return
+		}
+		dep := &appv1.Deployment{}
+		err := c.Get(ctx, types.NamespacedName{
+			Name:      constants.InventoryDeploymentName,
+			Namespace: utils.GetDefaultNamespace(),
+		}, dep)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				log.Error(err, "failed to check the deployment", "name", constants.InventoryDeploymentName)
+			}
+			return
+		}
+		if dep.Status.ReadyReplicas != 0 {
+			err := utils.RestartPod(ctx, kubeClient, utils.GetDefaultNamespace(), constants.InventoryDeploymentName)
+			if err != nil {
+				log.Error(err, "failed to restart the pods", "name", constants.InventoryDeploymentName)
+			}
+		}
 	}
 }
 
@@ -168,12 +160,17 @@ func onDelete(c client.Client) func(obj interface{}) {
 	}
 }
 
-func onUpdate(ctx context.Context, c client.Client) func(oldObj, newObj interface{}) {
+func onUpdate(ctx context.Context, c client.Client, kubeClient kubernetes.Interface) func(oldObj, newObj interface{}) {
 	return func(oldObj, newObj interface{}) {
 		oldS := *oldObj.(*v1.Secret)
 		newS := *newObj.(*v1.Secret)
 		if !reflect.DeepEqual(oldS.Data, newS.Data) {
-			updateDeployLabel(c, true)
+			if slices.Contains(caSecretNames, newS.Name) {
+				err := utils.RestartPod(ctx, kubeClient, utils.GetDefaultNamespace(), constants.InventoryDeploymentName)
+				if err != nil {
+					log.Error(err, "failed to restart the pods", "name", constants.InventoryDeploymentName)
+				}
+			}
 		} else {
 			if slices.Contains(caSecretNames, newS.Name) {
 				removeExpiredCA(c, newS.Name, newS.Namespace)
