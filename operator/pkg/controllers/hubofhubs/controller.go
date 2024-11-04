@@ -722,26 +722,28 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// start the addon controllers only if the multiclusterglobalhub is ready
-	if !config.IsACMResourceReady() || !agent.ReadyToEnableAddonManager(ctx, r.client) {
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-	} else {
-		once.Do(func() {
-			// start the addon manager
-			if err = agent.StartGlobalHubAddonManager(ctx, r.config, r.client, r.operatorConfig); err != nil {
-				log.Fatalw("failed to start the lobal hub addon manager")
-			}
-		})
-		// start the addon controllers
-		if err = agent.AddDefaultAgentController(ctx, r.mgr); err != nil {
-			return ctrl.Result{}, reconcileErr
-		}
-		if _, err = agent.AddHostedAgentController(r.mgr); err != nil {
-			return ctrl.Result{}, reconcileErr
-		}
-
-		if config.GetAddonManager() != nil {
-			if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
+	if config.IsACMResourceReady() {
+		if !agent.ReadyToEnableAddonManager(ctx, r.client) {
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		} else {
+			once.Do(func() {
+				// start the addon manager
+				if err = agent.StartGlobalHubAddonManager(ctx, r.config, r.client, r.operatorConfig); err != nil {
+					log.Fatalw("failed to start the lobal hub addon manager")
+				}
+			})
+			// start the addon controllers
+			if err = agent.AddDefaultAgentController(ctx, r.mgr); err != nil {
 				return ctrl.Result{}, reconcileErr
+			}
+			if _, err = agent.AddHostedAgentController(r.mgr); err != nil {
+				return ctrl.Result{}, reconcileErr
+			}
+
+			if config.GetAddonManager() != nil {
+				if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
+					return ctrl.Result{}, reconcileErr
+				}
 			}
 		}
 	}
