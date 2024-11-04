@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -54,6 +55,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/inventory"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
@@ -65,10 +67,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+)
+
+var (
+	once sync.Once
+	log  = logger.DefaultZapLogger()
 )
 
 // GlobalHubReconciler reconciles a MulticlusterGlobalHub object
 type GlobalHubReconciler struct {
+	mgr                 ctrl.Manager
 	config              *rest.Config
 	client              client.Client
 	recorder            record.EventRecorder
@@ -91,6 +100,7 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 	operatorConfig *config.OperatorConfig, imageClient *imagev1client.ImageV1Client,
 ) *GlobalHubReconciler {
 	return &GlobalHubReconciler{
+		mgr:                 mgr,
 		log:                 ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
 		client:              mgr.GetClient(),
 		config:              mgr.GetConfig(),
@@ -711,9 +721,30 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	if config.IsACMResourceReady() && config.GetAddonManager() != nil {
-		if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
-			return ctrl.Result{}, reconcileErr
+	// start the addon controllers only if the multiclusterglobalhub is ready
+	if config.IsACMResourceReady() {
+		if !agent.ReadyToEnableAddonManager(ctx, r.client) {
+			return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		} else {
+			once.Do(func() {
+				// start the addon manager
+				if err = agent.StartGlobalHubAddonManager(ctx, r.config, r.client, r.operatorConfig); err != nil {
+					log.Fatalw("failed to start the lobal hub addon manager")
+				}
+			})
+			// start the addon controllers
+			if err = agent.AddDefaultAgentController(ctx, r.mgr); err != nil {
+				return ctrl.Result{}, reconcileErr
+			}
+			if _, err = agent.AddHostedAgentController(r.mgr); err != nil {
+				return ctrl.Result{}, reconcileErr
+			}
+
+			if config.GetAddonManager() != nil {
+				if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
+					return ctrl.Result{}, reconcileErr
+				}
+			}
 		}
 	}
 

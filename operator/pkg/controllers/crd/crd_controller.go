@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 var ACMCrds = sets.NewString(
@@ -57,6 +57,8 @@ var KafkaCrds = sets.NewString(
 	"kafkausers.kafka.strimzi.io",
 )
 
+var log = logger.DefaultZapLogger()
+
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update
 
 // CrdController reconciles a ACM Resources. It might be removed once the target controller is started.
@@ -66,11 +68,8 @@ type CrdController struct {
 	kubeClient            *kubernetes.Clientset
 	operatorConfig        *config.OperatorConfig
 	resources             map[string]bool
-	addonInstallerReady   bool
-	agentController       *agent.AddonController
 	globalHubController   runtimeController.Controller
 	backupControllerReady bool
-	addonsControllerReady bool
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -100,30 +99,6 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	// start addon installer
-	if !r.addonInstallerReady {
-		if err := (&agent.AddonInstaller{
-			Client: r.GetClient(),
-			Log:    ctrl.Log.WithName("addon-reconciler"),
-		}).SetupWithManager(ctx, r.Manager); err != nil {
-			return ctrl.Result{}, err
-		}
-		r.addonInstallerReady = true
-	}
-
-	// start addon controller
-	if r.agentController == nil {
-		agentController, err := agent.NewAddonController(r.Manager.GetConfig(), r.Manager.GetClient(), r.operatorConfig)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		err = r.Manager.Add(agentController)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		r.agentController = agentController
-	}
-
 	// backup controller
 	if !r.backupControllerReady {
 		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).SetupWithManager(r.Manager)
@@ -133,12 +108,9 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.backupControllerReady = true
 	}
 
-	if !r.addonsControllerReady {
-		err := addons.NewAddonsReconciler(r.Manager).SetupWithManager(r.Manager)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		r.addonsControllerReady = true
+	_, err = agent.AddHostedAgentController(r.Manager)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

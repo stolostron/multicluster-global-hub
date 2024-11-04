@@ -52,7 +52,10 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 // MergeObjects merge the desiredObj into the existingObj, then unmarshal to updatedObj
 func MergeObjects(existingObj, desiredObj, updatedObj client.Object) error {
@@ -291,6 +294,24 @@ func WaitGlobalHubReady(ctx context.Context,
 	}
 
 	return mgh, nil
+}
+
+func GetReadyMulticlusterGlobalHub(ctx context.Context, client client.Client) (*v1alpha4.MulticlusterGlobalHub, bool) {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+	err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
+	if errors.IsNotFound(err) {
+		log.Debug("the mutliclusterglobalhub instance is not found")
+		return nil, false
+	} else if err != nil {
+		log.Warnw("failed to get mutliclusterglobalhub instance", "error", err)
+		return nil, false
+	}
+
+	if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
+		return mgh, true
+	}
+	log.Debug("the mutliclusterglobalhub instance is not ready")
+	return mgh, false
 }
 
 func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.ResourceRequirements {

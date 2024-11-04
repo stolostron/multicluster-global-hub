@@ -1,4 +1,4 @@
-package addons
+package mgh
 
 import (
 	"reflect"
@@ -16,13 +16,12 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
-	addonController "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/addons"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 )
 
 var (
-	timeout         = time.Second * 30
-	interval        = time.Millisecond * 250
+	timeout         = time.Second * 60
+	interval        = time.Millisecond * 100
 	hostedNamespace = "mc-hosted"
 	mghName         = "test-mgh"
 )
@@ -60,7 +59,7 @@ var msa = v1alpha1.ClusterManagementAddOn{
 	},
 }
 
-var mgh = globalhubv1alpha4.MulticlusterGlobalHub{
+var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace: mghName,
 		Name:      "mgh",
@@ -71,20 +70,23 @@ var mgh = globalhubv1alpha4.MulticlusterGlobalHub{
 	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 }
 
-var _ = Describe("addons hosted mode test", Ordered, func() {
-	var addonsReconciler *addons.AddonsReconciler
-	BeforeAll(func() {
-		config.SetImportClusterInHosted(&mgh)
+// hosted: put the acm agent cluster control plane into acm hub cluster
+// global hub -> managed-hub(local-cluster)
 
-		addonsReconciler = addons.NewAddonsReconciler(mgr)
-		err := addonsReconciler.SetupWithManager(mgr)
+// go test ./test/integration/operator/agent -ginkgo.focus "other addons in hosted mode test" -v
+var _ = Describe("other addons in hosted mode test", Ordered, func() {
+	var hostedAddonReconciler *agent.HostedAgentController
+	BeforeAll(func() {
+		config.SetImportClusterInHosted(&hostedMGH)
+		var err error
+		hostedAddonReconciler, err = agent.AddHostedAgentController(mgr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(mgr.GetClient().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: mghName,
 			},
 		})).To(Succeed())
-		Expect(mgr.GetClient().Create(ctx, &mgh)).To(Succeed())
+		Expect(mgr.GetClient().Create(ctx, &hostedMGH)).To(Succeed())
 
 		mcHostedNamespace := &corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: hostedNamespace}}
 		err = mgr.GetClient().Create(ctx, mcHostedNamespace)
@@ -108,7 +110,9 @@ var _ = Describe("addons hosted mode test", Ordered, func() {
 	})
 
 	AfterAll(func() {
-		err := mgr.GetClient().Delete(ctx, &workManager)
+		err := mgr.GetClient().Delete(ctx, &hostedMGH)
+		Expect(err).NotTo(HaveOccurred())
+		err = mgr.GetClient().Delete(ctx, &workManager)
 		Expect(err).NotTo(HaveOccurred())
 		err = mgr.GetClient().Delete(ctx, &proxy)
 		Expect(err).NotTo(HaveOccurred())
@@ -119,8 +123,8 @@ var _ = Describe("addons hosted mode test", Ordered, func() {
 	It("addons should be added the new config", func() {
 		Eventually(func() bool {
 			cma := &v1alpha1.ClusterManagementAddOn{}
-			for addonName := range addonController.AddonList {
-				_, err := addonsReconciler.Reconcile(ctx, reconcile.Request{
+			for addonName := range config.HostedAddonList {
+				_, err := hostedAddonReconciler.Reconcile(ctx, reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Namespace: hostedNamespace,
 						Name:      addonName,
@@ -142,8 +146,8 @@ var _ = Describe("addons hosted mode test", Ordered, func() {
 
 				found := false
 				for _, ps := range cma.Spec.InstallStrategy.Placements {
-					if reflect.DeepEqual(ps.PlacementRef, addonController.GlobalhubCmaConfig.PlacementRef) &&
-						reflect.DeepEqual(ps.Configs, addonController.GlobalhubCmaConfig.Configs) {
+					if reflect.DeepEqual(ps.PlacementRef, config.GlobalHubHostedAddonPlacementStrategy.PlacementRef) &&
+						reflect.DeepEqual(ps.Configs, config.GlobalHubHostedAddonPlacementStrategy.Configs) {
 						found = true
 					}
 				}

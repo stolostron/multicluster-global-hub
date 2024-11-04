@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	agentcerts "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -148,7 +147,7 @@ func TestGetInventoryCredential(t *testing.T) {
 		Host:             "https://inventory.example.com:443",
 		CASecretName:     certificates.InventoryServerCASecretName,
 		CACert:           base64.StdEncoding.EncodeToString([]byte("test-ca-cert")),
-		ClientSecretName: agentcerts.AgentCertificateSecretName(),
+		ClientSecretName: config.AgentCertificateSecretName(),
 	}
 
 	assert.Equal(t, expectedCredential, result)

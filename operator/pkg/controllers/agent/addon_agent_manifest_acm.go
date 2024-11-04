@@ -10,9 +10,47 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
+
+func setACMPackageConfigs(ctx context.Context, manifestsConfig *config.ManifestsConfig,
+	cluster *clusterv1.ManagedCluster, dynamicClient dynamic.Interface,
+) error {
+	if _, exist := cluster.GetLabels()[operatorconstants.GHAgentACMHubInstallLabelKey]; !exist {
+		return nil
+	}
+
+	manifestsConfig.InstallACMHub = false
+	for _, claim := range cluster.Status.ClusterClaims {
+		if claim.Name != constants.HubClusterClaimName {
+			continue
+		}
+		if claim.Value == constants.HubNotInstalled ||
+			claim.Value == constants.HubInstalledByGlobalHub {
+			manifestsConfig.InstallACMHub = true
+		}
+	}
+
+	if !manifestsConfig.InstallACMHub {
+		return nil
+	}
+
+	log.Infow("installing ACM on managed hub", "cluster", cluster.Name)
+
+	pm, err := GetPackageManifestConfig(ctx, dynamicClient)
+	if err != nil {
+		return err
+	}
+	manifestsConfig.Channel = pm.ACMDefaultChannel
+	manifestsConfig.CurrentCSV = pm.ACMCurrentCSV
+	manifestsConfig.Source = operatorconstants.ACMSubscriptionPublicSource
+	manifestsConfig.SourceNamespace = operatorconstants.OpenshiftMarketPlaceNamespace
+	return nil
+}
 
 type packageManifestConfig struct {
 	ACMDefaultChannel string

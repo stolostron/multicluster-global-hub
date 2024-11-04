@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -54,6 +55,7 @@ var (
 	testEnv       *envtest.Environment
 	ctx           context.Context
 	cancel        context.CancelFunc
+	mgr           manager.Manager
 )
 
 func TestControllers(t *testing.T) {
@@ -94,31 +96,26 @@ var _ = BeforeSuite(func() {
 		Metrics: metricsserver.Options{
 			BindAddress: "0", // disable the metrics serving
 		},
-		Scheme:   runtimeScheme,
-		NewCache: config.InitCache,
+		Scheme:         runtimeScheme,
+		NewCache:       config.InitCache,
+		LeaderElection: false,
 	})
 	Expect(err).ToNot(HaveOccurred())
+	mgr = k8sManager
 
-	By("Add the addon installer to the manager")
-	err = (&agent.AddonInstaller{
-		Client: runtimeClient,
-		Log:    ctrl.Log.WithName("addon install controller"),
-	}).SetupWithManager(ctx, k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
-	Expect(err).ToNot(HaveOccurred())
-	err = config.LoadControllerConfig(ctx, kubeClient)
-	Expect(err).ToNot(HaveOccurred())
-
-	By("Add the addon controller to the manager")
-	addonController, err := agent.NewAddonController(k8sManager.GetConfig(), runtimeClient, &config.OperatorConfig{
+	By("start the addon manager and add addon controller to manager")
+	err = agent.StartGlobalHubAddonManager(ctx, cfg, k8sManager.GetClient(), &config.OperatorConfig{
 		GlobalResourceEnabled: true,
 		LogLevel:              "info",
 		EnablePprof:           false,
 	})
 	Expect(err).ToNot(HaveOccurred())
-	err = k8sManager.Add(addonController)
+	err = agent.AddDefaultAgentController(ctx, k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
+	Expect(err).ToNot(HaveOccurred())
+	err = config.LoadControllerConfig(ctx, kubeClient)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Create an external transport")
@@ -133,6 +130,7 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
+	Expect(k8sManager.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 })
 
 var _ = AfterSuite(func() {
