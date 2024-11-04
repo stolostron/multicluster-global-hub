@@ -80,7 +80,7 @@ func (r *MulticlusterhubController) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
-	// MCH is running
+	// MCH is running, update the mgh condition to trigger the main(meta) loop
 	config.SetACMResourceReady(true)
 	err = config.UpdateCondition(ctx, r.GetClient(), config.GetMGHNamespacedName(),
 		metav1.Condition{
@@ -100,32 +100,27 @@ func AddMulticlusterHubController(mgr ctrl.Manager) error {
 		return nil
 	}
 	mch := &MulticlusterhubController{Manager: mgr}
-	if err := mch.SetupWithManager(mgr); err != nil {
-		return err
-	}
-	acmConstrollerStarted = true
-	return nil
-}
-
-func (r *MulticlusterhubController) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		Named("acm-controller").
 		WatchesMetadata(
 			&apiextensionsv1.CustomResourceDefinition{},
 			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(crdPred),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return e.Object.GetName() == MULTICLUSTER_HUB_CRD_NAME
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return e.ObjectNew.GetName() == MULTICLUSTER_HUB_CRD_NAME
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+			}),
 		).
-		Complete(r)
-}
-
-var crdPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == MULTICLUSTER_HUB_CRD_NAME
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetName() == MULTICLUSTER_HUB_CRD_NAME
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
+		Complete(mch)
+	if err != nil {
+		return err
+	}
+	acmConstrollerStarted = true
+	return nil
 }
