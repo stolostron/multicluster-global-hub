@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"fmt"
@@ -12,28 +12,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/inventory"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator/hubofhubs -ginkgo.focus "inventory" -v
-var _ = Describe("inventory-api", Ordered, func() {
+// go test ./test/integration/operator/hubofhubs -ginkgo.focus "grafana" -v
+var _ = Describe("grafana", Ordered, func() {
 	var mgh *v1alpha4.MulticlusterGlobalHub
 	var namespace string
 	BeforeAll(func() {
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
 		mghName := "test-mgh"
-
-		// mgh
-		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
+		err := runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: namespace,
 			},
-		})).To(Succeed())
+		})
+		Expect(err).To(Succeed())
 		mgh = &v1alpha4.MulticlusterGlobalHub{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      mghName,
@@ -45,30 +44,31 @@ var _ = Describe("inventory-api", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+	})
 
-		// update the middleware configuration
+	It("should generate the grafana resources", func() {
 		// storage
 		_ = config.SetStorageConnection(&config.PostgresConnection{
-			SuperuserDatabaseURI: "postgresql://:@multicluster-global-hub-postgres.multicluster-global-hub.svc:5432/hoh",
-			CACert:               []byte("test-crt"),
+			SuperuserDatabaseURI:    "postgresql://testuser:testpassword@localhost:5432/testdb?sslmode=disable",
+			ReadonlyUserDatabaseURI: "postgresql://testuser:testpassword@localhost:5432/testdb?sslmode=disable",
+			CACert:                  []byte("test-crt"),
 		})
 		config.SetDatabaseReady(true)
 
-		// transport
-		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
-		Expect(err).To(Succeed())
-	})
+		grafanaReconciler := grafana.NewGrafanaReconciler(runtimeManager, kubeClient)
 
-	It("should generate the inventory resources", func() {
-		reconciler := inventory.NewInventoryReconciler(runtimeManager, kubeClient)
-		err := reconciler.Reconcile(ctx, mgh)
+		_, err := grafanaReconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			},
+		})
 		Expect(err).To(Succeed())
-
 		// deployment
 		Eventually(func() error {
 			deployment := &appsv1.Deployment{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      constants.InventoryDeploymentName,
+				Name:      "multicluster-global-hub-grafana",
 				Namespace: mgh.Namespace,
 			}, deployment)
 			if err != nil {

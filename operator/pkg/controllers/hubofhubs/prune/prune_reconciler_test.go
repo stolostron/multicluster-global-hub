@@ -21,7 +21,7 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"

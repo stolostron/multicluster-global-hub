@@ -18,9 +18,12 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -255,4 +258,120 @@ func UpdateMGHComponent(ctx context.Context,
 		curmgh.Status.Components[desiredComponent.Name] = desiredComponent
 		return c.Status().Update(ctx, curmgh)
 	})
+}
+
+func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
+	namespace, name string,
+) v1alpha4.StatusCondition {
+	statefulset := &appsv1.StatefulSet{}
+
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, statefulset)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return v1alpha4.StatusCondition{
+				Kind:    "StatefulSet",
+				Name:    name,
+				Type:    COMPONENTS_AVAILABLE,
+				Reason:  COMPONENTS_NOT_READY,
+				Status:  CONDITION_STATUS_FALSE,
+				Message: fmt.Sprintf("waiting statefulset %s created", name),
+			}
+		}
+		klog.Errorf("failed to get statefulset, err: %v", err)
+		return v1alpha4.StatusCondition{
+			Kind:    "StatefulSet",
+			Name:    name,
+			Type:    COMPONENTS_AVAILABLE,
+			Reason:  COMPONENTS_NOT_READY,
+			Status:  CONDITION_STATUS_FALSE,
+			Message: fmt.Sprintf("failed to get statefulset, err: %v", err),
+		}
+	}
+	if statefulset.Status.AvailableReplicas == *statefulset.Spec.Replicas {
+		return v1alpha4.StatusCondition{
+			Kind:    "StatefulSet",
+			Name:    name,
+			Type:    COMPONENTS_AVAILABLE,
+			Reason:  MINIMUM_REPLICAS_AVAILABLE,
+			Status:  CONDITION_STATUS_TRUE,
+			Message: fmt.Sprintf(COMPONENTS_DEPLOYED, name),
+		}
+	}
+	return v1alpha4.StatusCondition{
+		Kind:    "StatefulSet",
+		Name:    name,
+		Type:    COMPONENTS_AVAILABLE,
+		Reason:  MINIMUM_REPLICAS_UNAVAILABLE,
+		Status:  CONDITION_STATUS_FALSE,
+		Message: fmt.Sprintf("Component %s has been deployed but is not ready", name),
+	}
+}
+
+func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
+	namespace, name string,
+) v1alpha4.StatusCondition {
+	deployment := &appsv1.Deployment{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}, deployment)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return v1alpha4.StatusCondition{
+				Kind:    "Deployment",
+				Name:    name,
+				Type:    COMPONENTS_AVAILABLE,
+				Reason:  COMPONENTS_NOT_READY,
+				Status:  CONDITION_STATUS_FALSE,
+				Message: fmt.Sprintf("waiting deployment %s created", name),
+			}
+		}
+		klog.Errorf("failed to get deployment, err: %v", err)
+		return v1alpha4.StatusCondition{
+			Kind:    "Deployment",
+			Name:    name,
+			Type:    COMPONENTS_AVAILABLE,
+			Reason:  COMPONENTS_NOT_READY,
+			Status:  CONDITION_STATUS_FALSE,
+			Message: fmt.Sprintf("failed to get deployment, err: %v", err),
+		}
+	}
+	if deployment.Status.AvailableReplicas == *deployment.Spec.Replicas {
+		return v1alpha4.StatusCondition{
+			Kind:    "Deployment",
+			Name:    name,
+			Type:    COMPONENTS_AVAILABLE,
+			Reason:  MINIMUM_REPLICAS_AVAILABLE,
+			Status:  CONDITION_STATUS_TRUE,
+			Message: fmt.Sprintf(COMPONENTS_DEPLOYED, name),
+		}
+	}
+	return v1alpha4.StatusCondition{
+		Kind:    "Deployment",
+		Name:    name,
+		Type:    COMPONENTS_AVAILABLE,
+		Reason:  MINIMUM_REPLICAS_UNAVAILABLE,
+		Status:  CONDITION_STATUS_FALSE,
+		Message: fmt.Sprintf("Component %s has been deployed but is not ready", name),
+	}
+}
+
+func GetComponentStatusWithReconcileError(ctx context.Context, c client.Client,
+	namespace, name string, reconcileErr error,
+) v1alpha4.StatusCondition {
+	availableType := COMPONENTS_AVAILABLE
+	if reconcileErr != nil {
+		return v1alpha4.StatusCondition{
+			Kind:    "Deployment",
+			Name:    name,
+			Type:    availableType,
+			Status:  CONDITION_STATUS_FALSE,
+			Reason:  RECONCILE_ERROR,
+			Message: reconcileErr.Error(),
+		}
+	}
+	return GetDeploymentComponentStatus(ctx, c, namespace, name)
 }

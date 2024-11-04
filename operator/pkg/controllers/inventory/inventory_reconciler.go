@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,11 +22,17 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/klog"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -33,6 +40,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
@@ -44,34 +52,104 @@ type InventoryReconciler struct {
 	log logr.Logger
 }
 
+var started bool
+
+func StartController(initOption config.ControllerOption) error {
+	if started {
+		return nil
+	}
+	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
+		return nil
+	}
+	if config.GetTransporterConn() == nil {
+		return nil
+	}
+	if config.GetStorageConnection() == nil {
+		return nil
+	}
+
+	err := NewInventoryReconciler(initOption.Manager,
+		initOption.KubeClient).SetupWithManager(initOption.Manager)
+	if err != nil {
+		return err
+	}
+	started = true
+	klog.Infof("inited inventory controller")
+	return nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *InventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).Named("inventory").
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
+		Watches(&appsv1.Deployment{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
+		Complete(r)
+}
+
+var deploymentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_INVENTORY_API_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_INVENTORY_API_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_INVENTORY_API_NAME
+	},
+}
+
 func NewInventoryReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *InventoryReconciler {
 	return &InventoryReconciler{
-		log:        ctrl.Log.WithName("global-hub-inventory"),
+		log:        ctrl.Log.WithName("inventory"),
 		Manager:    mgr,
 		kubeClient: kubeClient,
 	}
 }
 
 func (r *InventoryReconciler) Reconcile(ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-) error {
+	req ctrl.Request,
+) (ctrl.Result, error) {
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		return ctrl.Result{}, nil
+	}
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
+	var reconcileErr error
+
+	defer func() {
+		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
+				mgh.Namespace, config.COMPONENTS_INVENTORY_API_NAME, reconcileErr),
+		)
+		if err != nil {
+			klog.Errorf("failed to update mgh status, err:%v", err)
+		}
+	}()
 	// start certificate controller
 	certctrl.Start(ctx, r.GetClient(), r.kubeClient)
 
 	// Need to create route so that the cert can use it
-	if err := createUpdateInventoryRoute(ctx, r.GetClient(), r.GetScheme(), mgh); err != nil {
-		return err
+	if reconcileErr = createUpdateInventoryRoute(ctx, r.GetClient(), r.GetScheme(), mgh); reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// create inventory certs
-	if err := certctrl.CreateInventoryCerts(ctx, r.GetClient(), r.GetScheme(), mgh); err != nil {
-		return err
+	if reconcileErr = certctrl.CreateInventoryCerts(ctx, r.GetClient(), r.GetScheme(), mgh); reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// set the client ca to signing the inventory client cert
-	if err := config.SetInventoryClientCA(ctx, mgh.Namespace, certctrl.InventoryClientCASecretName,
-		r.GetClient()); err != nil {
-		return err
+	if reconcileErr = config.SetInventoryClientCA(ctx, mgh.Namespace, certctrl.InventoryClientCASecretName,
+		r.GetClient()); reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// create new HoHRenderer and HoHDeployer
@@ -80,7 +158,8 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	// create discovery client
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
 	if err != nil {
-		return err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// create restmapper for deployer to find GVR
@@ -98,29 +177,33 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
-		return fmt.Errorf("the database isn't ready")
+		reconcileErr = fmt.Errorf("the database isn't ready")
+		return ctrl.Result{}, reconcileErr
 	}
 
 	postgresURI, err := url.Parse(string(storageConn.SuperuserDatabaseURI))
 	if err != nil {
-		return err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 	postgresPassword, ok := postgresURI.User.Password()
 	if !ok {
-		return fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+		reconcileErr = fmt.Errorf("failed to get password from database_uri: %s", postgresURI)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	transportConn := config.GetTransporterConn()
 	if transportConn == nil || transportConn.BootstrapServer == "" {
-		return fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
+		reconcileErr = fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	inventoryRoute := &routev1.Route{}
-	if err := r.GetClient().Get(ctx, types.NamespacedName{
+	if reconcileErr = r.GetClient().Get(ctx, types.NamespacedName{
 		Name:      constants.InventoryRouteName,
 		Namespace: mgh.Namespace,
-	}, inventoryRoute); err != nil {
-		return err
+	}, inventoryRoute); reconcileErr != nil {
+		return ctrl.Result{}, reconcileErr
 	}
 
 	inventoryObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
@@ -163,12 +246,14 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		}, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to render inventory objects: %v", err)
+		reconcileErr = fmt.Errorf("failed to render inventory objects: %v", err)
+		return ctrl.Result{}, reconcileErr
 	}
 	if err = utils.ManipulateGlobalHubObjects(inventoryObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
-		return fmt.Errorf("failed to create/update inventory objects: %v", err)
+		reconcileErr = fmt.Errorf("failed to create/update inventory objects: %v", err)
+		return ctrl.Result{}, reconcileErr
 	}
-	return nil
+	return ctrl.Result{}, nil
 }
 
 func newInventoryRoute(mgh *globalhubv1alpha4.MulticlusterGlobalHub, gvk schema.GroupVersionKind) *routev1.Route {

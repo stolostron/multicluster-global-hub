@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"fmt"
@@ -13,16 +13,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator/hubofhubs -ginkgo.focus "manager" -v
+// go test ./test/integration/operator -ginkgo.focus "manager" -v
 var _ = Describe("manager", Ordered, func() {
 	var mgh *v1alpha4.MulticlusterGlobalHub
 	var namespace string
@@ -69,9 +70,13 @@ var _ = Describe("manager", Ordered, func() {
 			GlobalResourceEnabled: true,
 		})
 
-		needRequeue, err := reconciler.Reconcile(ctx, mgh)
+		_, err := reconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			},
+		})
 		Expect(err).To(Succeed())
-		Expect(needRequeue).To(BeFalse())
 
 		// deployment
 		Eventually(func() error {

@@ -9,13 +9,17 @@ import (
 	"strings"
 	"time"
 
+	imagev1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"gopkg.in/ini.v1"
 	"gopkg.in/yaml.v2"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
@@ -24,8 +28,12 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -36,6 +44,7 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
@@ -54,6 +63,14 @@ const (
 	grafanaIniKey         = "grafana.ini"
 
 	grafanaDeploymentName = "multicluster-global-hub-grafana"
+)
+
+var WatchedSecret = sets.NewString(
+	constants.CustomGrafanaIniName,
+)
+
+var WatchedConfigMap = sets.NewString(
+	constants.CustomAlertName,
 )
 
 var (
@@ -89,15 +106,158 @@ func NewGrafanaReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *Gr
 	}
 }
 
-func (r *GrafanaReconciler) Reconcile(ctx context.Context,
-	mgh *v1alpha4.MulticlusterGlobalHub,
-) error {
+var started bool
+
+func StartController(initOption config.ControllerOption) error {
+	if started {
+		return nil
+	}
+	if !config.IsACMResourceReady() {
+		return nil
+	}
+	if config.GetStorageConnection() == nil {
+		return nil
+	}
+	err := NewGrafanaReconciler(initOption.Manager,
+		initOption.KubeClient).SetupWithManager(initOption.Manager)
+	if err != nil {
+		return err
+	}
+	started = true
+	klog.Infof("inited grafana controller")
+	return nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	managedby := ctrl.NewControllerManagedBy(mgr).Named("grafanaController").
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
+		Watches(&corev1.Secret{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
+		Watches(&corev1.ConfigMap{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configmapPred)).
+		Watches(&appsv1.Deployment{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred))
+
+	if _, err := mgr.GetRESTMapper().KindFor(schema.GroupVersionResource{
+		Group:    "image.openshift.io",
+		Version:  "v1",
+		Resource: "imagestreams",
+	}); err != nil {
+		if meta.IsNoMatchError(err) {
+			return managedby.Complete(r)
+		}
+		return err
+	}
+	return managedby.Watches(&imagev1.ImageStream{},
+		&handler.EnqueueRequestForObject{}, builder.WithPredicates(imageStreamPred)).Complete(r)
+}
+
+var deploymentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == utils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == utils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == utils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+}
+
+var imageStreamPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetName() == operatorconstants.OauthProxyImageStreamName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetName() != operatorconstants.OauthProxyImageStreamName {
+			return false
+		}
+		return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
+var deplomentPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
+	},
+}
+
+var configmapPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return WatchedConfigMap.Has(e.Object.GetName())
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
+		return WatchedConfigMap.Has(e.ObjectNew.GetName())
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
+		return WatchedConfigMap.Has(e.Object.GetName())
+	},
+}
+
+var secretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return WatchedSecret.Has(e.Object.GetName())
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return WatchedSecret.Has(e.ObjectNew.GetName())
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return WatchedSecret.Has(e.Object.GetName())
+	},
+}
+
+// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
+func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
+	var reconcileErr error
+	defer func() {
+		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
+				mgh.Namespace, config.COMPONENTS_GRAFANA_NAME, reconcileErr),
+		)
+		if err != nil {
+			klog.Errorf("failed to update mgh status, err:%v", err)
+		}
+	}()
 	// generate random session secret for oauth-proxy
 	proxySessionSecret, err := config.GetOauthSessionSecret()
 	if err != nil {
-		return fmt.Errorf("failed to generate random session secret for grafana oauth-proxy: %v", err)
+		reconcileErr = fmt.Errorf("failed to generate random session secret for grafana oauth-proxy: %v", err)
+		return ctrl.Result{}, reconcileErr
 	}
-
 	imagePullPolicy := corev1.PullAlways
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
@@ -145,45 +305,50 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context,
 		}, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to render grafana manifests: %w", err)
+		reconcileErr = fmt.Errorf("failed to render grafana manifests: %w", err)
+		return ctrl.Result{}, reconcileErr
 	}
-
 	// create restmapper for deployer to find GVR
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
 	if err != nil {
-		return err
+		reconcileErr = err
+		return ctrl.Result{}, reconcileErr
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-
 	if err = operatorutils.ManipulateGlobalHubObjects(grafanaObjects, mgh, grafanaDeployer,
 		mapper, r.GetScheme()); err != nil {
-		return fmt.Errorf("failed to create/update grafana objects: %w", err)
+		err = fmt.Errorf("failed to create/update grafana objects: %w", err)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	// generate datasource secret: must before the grafana objects
 	changedDatasourceSecret, err := r.GenerateGrafanaDataSourceSecret(ctx, mgh)
 	if err != nil {
-		return fmt.Errorf("failed to generate grafana datasource secret: %v", err)
+		reconcileErr = fmt.Errorf("failed to generate grafana datasource secret: %v", err)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	changedAlert, err := r.generateAlertConfigMap(ctx, mgh)
 	if err != nil {
-		return fmt.Errorf("failed to generate merged alert configmap. err:%v", err)
+		reconcileErr = fmt.Errorf("failed to generate merged alert configmap. err:%v", err)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	changedGrafanaIni, err := r.generateGrafanaIni(ctx, mgh)
 	if err != nil {
-		return fmt.Errorf("failed to generate grafana init. err:%v", err)
+		reconcileErr = fmt.Errorf("failed to generate grafana init. err:%v", err)
+		return ctrl.Result{}, reconcileErr
 	}
 
 	if changedAlert || changedGrafanaIni || changedDatasourceSecret {
 		err = utils.RestartPod(ctx, r.kubeClient, utils.GetDefaultNamespace(), grafanaDeploymentName)
 		if err != nil {
-			return fmt.Errorf("failed to restart grafana pod. err:%v", err)
+			reconcileErr = fmt.Errorf("failed to restart grafana pod. err:%v", err)
+			return ctrl.Result{}, reconcileErr
 		}
 	}
 
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // generateGranafaIni append the custom grafana.ini to default grafana.ini

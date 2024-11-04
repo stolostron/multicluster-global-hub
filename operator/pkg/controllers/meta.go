@@ -31,12 +31,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
+	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -47,6 +49,10 @@ type Func func(initOption config.ControllerOption) error
 // controllerStartFuncList store all the controllers that need started
 var controllerStartFuncList = []Func{
 	transporter.StartController,
+	storage.StartController,
+	grafana.StartController,
+	inventory.StartController,
+	globalhubmanager.StartController,
 }
 
 type MetaController struct {
@@ -58,6 +64,19 @@ type MetaController struct {
 	upgraded       bool
 }
 
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=rolebindings,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Check if mgh exist or deleting
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.client)
@@ -65,11 +84,13 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
+	if mgh == nil {
+		return ctrl.Result{}, nil
+	}
 	if config.IsPaused(mgh) {
 		klog.Info("mgh controller is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
-
 	if mgh.DeletionTimestamp != nil {
 		klog.V(2).Info("mgh instance is deleting")
 
@@ -101,7 +122,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		Manager:               r.mgr,
 		MulticlusterGlobalHub: mgh,
 	}
-
 	reconcileErr = config.SetMulticlusterGlobalHubConfig(ctx, mgh, r.client, r.imageClient)
 	if reconcileErr != nil {
 		return ctrl.Result{}, reconcileErr
@@ -130,7 +150,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			}
 		}
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -151,20 +170,8 @@ func NewMetaController(mgr manager.Manager, kubeClient kubernetes.Interface,
 func (r *MetaController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("MetaController").
 		For(&v1alpha4.MulticlusterGlobalHub{},
-			builder.WithPredicates(mghPred)).
+			builder.WithPredicates(config.MGHPred)).
 		Complete(r)
-}
-
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
 }
 
 func updateMGHReadyStatus(ctx context.Context,
@@ -230,7 +237,6 @@ func updateReadyConditions(conds []metav1.Condition, phase v1alpha4.GlobalHubPha
 func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub) (bool, v1alpha4.GlobalHubPhaseType) {
 	phase := v1alpha4.GlobalHubRunning
 	desiredComponents := CheckDesiredComponent(mgh)
-
 	if len(mgh.Status.Components) != desiredComponents.Len() {
 		phase = v1alpha4.GlobalHubProgressing
 		return phase != mgh.Status.Phase, phase

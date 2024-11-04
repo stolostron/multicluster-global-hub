@@ -42,15 +42,15 @@ func StartController(controllerOption config.ControllerOption) error {
 		return err
 	}
 	started = true
-	klog.Infof("inited transportController controller")
+	klog.Infof("inited transport controller")
 	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("transportController").
+	return ctrl.NewControllerManagedBy(mgr).Named("transport").
 		For(&v1alpha4.MulticlusterGlobalHub{},
-			builder.WithPredicates(mghPred)).
+			builder.WithPredicates(config.MGHPred)).
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Complete(r)
@@ -101,7 +101,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 

@@ -123,7 +123,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 		klog.Error("error ", err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 	cma := &v1alpha1.ClusterManagementAddOn{}

@@ -26,24 +26,41 @@ import (
 //go:embed manifests
 var manifests embed.FS
 
+type KafkaStatus struct {
+	kakfaReason  string
+	kafkaMessage string
+	kafkaReady   bool
+}
+
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
 	ctrl.Manager
-	trans *strimziTransporter
+	trans       *strimziTransporter
+	kafkaStatus KafkaStatus
 }
 
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=delete
+// +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors;prometheusrules;podmonitors,verbs=get;create;delete;update;list;watch
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// If mgh is deleting, return
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 	var reconcileErr error
-	var kafkaReady bool
-
+	defer func() {
+		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
+		)
+		if err != nil {
+			klog.Errorf("failed to update mgh status, err:%v", err)
+		}
+	}()
 	needRequeue, err := r.trans.EnsureKafka()
 	if err != nil {
 		return ctrl.Result{}, err
@@ -52,11 +69,11 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	kafkaReady, reconcileErr = r.trans.kafkaClusterReady()
+	r.kafkaStatus, reconcileErr = r.trans.kafkaClusterReady()
 	if reconcileErr != nil {
 		return ctrl.Result{}, reconcileErr
 	}
-	if !kafkaReady {
+	if !r.kafkaStatus.kafkaReady {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -90,18 +107,6 @@ var kafkaPred = predicate.Funcs{
 	},
 }
 
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) (
 	*KafkaController, error,
 ) {
@@ -113,7 +118,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	// even if the following controller will reconcile the transport, but it's asynchoronized
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("strimzi_controller").
-		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(mghPred)).
+		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
@@ -156,4 +161,46 @@ func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, ka
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClusterStatus KafkaStatus,
+) v1alpha4.StatusCondition {
+	if reconcileErr != nil {
+		return v1alpha4.StatusCondition{
+			Kind:    "TransportConnection",
+			Name:    config.COMPONENTS_KAFKA_NAME,
+			Type:    config.COMPONENTS_AVAILABLE,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  config.RECONCILE_ERROR,
+			Message: reconcileErr.Error(),
+		}
+	}
+	if !kafkaClusterStatus.kafkaReady {
+		return v1alpha4.StatusCondition{
+			Kind:    "Kafka",
+			Name:    config.COMPONENTS_KAFKA_NAME,
+			Type:    config.COMPONENTS_AVAILABLE,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  kafkaClusterStatus.kakfaReason,
+			Message: kafkaClusterStatus.kafkaMessage,
+		}
+	}
+	if config.GetTransporterConn() == nil {
+		return v1alpha4.StatusCondition{
+			Kind:    "TransportConnection",
+			Name:    config.COMPONENTS_KAFKA_NAME,
+			Type:    config.COMPONENTS_AVAILABLE,
+			Status:  config.CONDITION_STATUS_FALSE,
+			Reason:  "TransportConnectionNotSet",
+			Message: "Transport connection is null",
+		}
+	}
+	return v1alpha4.StatusCondition{
+		Kind:    "TransportConnection",
+		Name:    config.COMPONENTS_KAFKA_NAME,
+		Type:    config.COMPONENTS_AVAILABLE,
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  "TransportConnectionSet",
+		Message: "Transport connection has set",
+	}
 }

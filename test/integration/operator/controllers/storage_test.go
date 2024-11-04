@@ -1,4 +1,4 @@
-package hubofhubs
+package controllers
 
 import (
 	"context"
@@ -15,17 +15,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator/hubofhubs -ginkgo.focus "storage" -v
+// go test ./test/integration/operator -ginkgo.focus "storage" -v
 var _ = Describe("storage", Ordered, func() {
 	It("should init database with BYO", func() {
 		namespace := fmt.Sprintf("namespace-%s", rand.String(6))
@@ -71,10 +72,13 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		// the subscription
-		Eventually(func() error {
-			_, err = storageReconciler.Reconcile(ctx, mgh)
-			return err
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		_, err = storageReconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			},
+		})
+		Expect(err).To(Succeed())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).To(Succeed())

@@ -56,14 +56,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/grafana"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/inventory"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/manager"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/metrics"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/webhook"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -77,44 +71,33 @@ var (
 
 // GlobalHubReconciler reconciles a MulticlusterGlobalHub object
 type GlobalHubReconciler struct {
-	mgr                 ctrl.Manager
-	config              *rest.Config
-	client              client.Client
-	recorder            record.EventRecorder
-	scheme              *runtime.Scheme
-	log                 logr.Logger
-	upgraded            bool
-	operatorConfig      *config.OperatorConfig
-	pruneReconciler     *prune.PruneReconciler
-	metricsReconciler   *metrics.MetricsReconciler
-	storageReconciler   *storage.StorageReconciler
-	transportReconciler *transporter.TransportReconciler
-	managerReconciler   *manager.ManagerReconciler
-	webhookReconciler   *webhook.WebhookReconciler
-	grafanaReconciler   *grafana.GrafanaReconciler
-	inventoryReconciler *inventory.InventoryReconciler
-	imageClient         *imagev1client.ImageV1Client
+	mgr               ctrl.Manager
+	config            *rest.Config
+	client            client.Client
+	recorder          record.EventRecorder
+	scheme            *runtime.Scheme
+	log               logr.Logger
+	upgraded          bool
+	operatorConfig    *config.OperatorConfig
+	pruneReconciler   *prune.PruneReconciler
+	webhookReconciler *webhook.WebhookReconciler
+	imageClient       *imagev1client.ImageV1Client
 }
 
 func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 	operatorConfig *config.OperatorConfig, imageClient *imagev1client.ImageV1Client,
 ) *GlobalHubReconciler {
 	return &GlobalHubReconciler{
-		mgr:                 mgr,
-		log:                 ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
-		client:              mgr.GetClient(),
-		config:              mgr.GetConfig(),
-		scheme:              mgr.GetScheme(),
-		recorder:            mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
-		operatorConfig:      operatorConfig,
-		pruneReconciler:     prune.NewPruneReconciler(mgr.GetClient()),
-		metricsReconciler:   metrics.NewMetricsReconciler(mgr.GetClient()),
-		storageReconciler:   storage.NewStorageReconciler(mgr, operatorConfig.GlobalResourceEnabled),
-		managerReconciler:   manager.NewManagerReconciler(mgr, kubeClient, operatorConfig),
-		webhookReconciler:   webhook.NewWebhookReconciler(mgr),
-		grafanaReconciler:   grafana.NewGrafanaReconciler(mgr, kubeClient),
-		inventoryReconciler: inventory.NewInventoryReconciler(mgr, kubeClient),
-		imageClient:         imageClient,
+		mgr:               mgr,
+		log:               ctrl.Log.WithName(operatorconstants.GlobalHubControllerName),
+		client:            mgr.GetClient(),
+		config:            mgr.GetConfig(),
+		scheme:            mgr.GetScheme(),
+		recorder:          mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
+		operatorConfig:    operatorConfig,
+		pruneReconciler:   prune.NewPruneReconciler(mgr.GetClient()),
+		webhookReconciler: webhook.NewWebhookReconciler(mgr),
+		imageClient:       imageClient,
 	}
 }
 
@@ -620,7 +603,9 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		r.log.Error(err, "failed to get MulticlusterGlobalHub")
 		return ctrl.Result{}, err
 	}
-
+	if mgh == nil {
+		return ctrl.Result{}, nil
+	}
 	var reconcileErr error
 	var needRequeue bool
 	// update status condition
@@ -650,8 +635,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	config.SetImportClusterInHosted(mgh)
-
 	// prune resources if deleting mgh or metrics is disabled
 	needRequeue, err = r.pruneReconciler.Reconcile(ctx, mgh)
 	if err != nil {
@@ -680,43 +663,9 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	// storage and transporter
-	needRequeue, reconcileErr = r.ReconcileMiddleware(ctx, mgh)
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
-	}
-	if needRequeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// reconcile metrics
-	if reconcileErr = r.metricsReconciler.Reconcile(ctx, mgh); reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
-	}
-	// reconcile manager
-	needRequeue, reconcileErr = r.managerReconciler.Reconcile(ctx, mgh)
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
-	}
-	if needRequeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	if config.WithInventory(mgh) {
-		// reconcile inventory
-		if reconcileErr = r.inventoryReconciler.Reconcile(ctx, mgh); reconcileErr != nil {
-			return ctrl.Result{}, reconcileErr
-		}
-	}
-
 	if config.IsACMResourceReady() {
 		// webhook required ACM
 		if reconcileErr = r.webhookReconciler.Reconcile(ctx, mgh); reconcileErr != nil {
-			return ctrl.Result{}, reconcileErr
-		}
-		// Grafana is required for ACM global hub
-		// reconcile grafana
-		if reconcileErr = r.grafanaReconciler.Reconcile(ctx, mgh); reconcileErr != nil {
 			return ctrl.Result{}, reconcileErr
 		}
 	}
@@ -749,22 +698,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// ReconcileMiddleware creates the kafka and postgres if needed.
-// 1. create the kafka and postgres subscription at the same time
-// 2. then create the kafka and postgres resources at the same time
-// 3. wait for kafka and postgres ready
-func (r *GlobalHubReconciler) ReconcileMiddleware(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
-) (bool, error) {
-	needRequeue, err := r.storageReconciler.Reconcile(ctx, mgh)
-	if err != nil {
-		return true, err
-	}
-	if needRequeue {
-		return true, nil
-	}
-	return false, nil
 }
 
 var WatchedSecret = sets.NewString(
