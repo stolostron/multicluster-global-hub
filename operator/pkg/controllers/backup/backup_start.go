@@ -36,12 +36,14 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
 	postgresPvcLabelKey   = "component"
 	postgresPvcLabelValue = "multicluster-global-hub-operator"
+	backupController      *BackupReconciler
 )
 
 // BackupReconciler reconciles a MulticlusterGlobalHub object
@@ -51,17 +53,30 @@ type BackupReconciler struct {
 	Log logr.Logger
 }
 
-func NewBackupReconciler(mgr manager.Manager, log logr.Logger) *BackupReconciler {
-	return &BackupReconciler{
-		Manager: mgr,
-		Client:  mgr.GetClient(),
-		Log:     log,
+func GetBackupController() *BackupReconciler {
+	return backupController
+}
+
+func StartBackupController(initOption config.ControllerOption) error {
+	if backupController != nil {
+		return nil
 	}
+	c := &BackupReconciler{
+		Manager: initOption.Manager,
+		Client:  initOption.Manager.GetClient(),
+		Log:     logger.ZaprLogger(),
+	}
+	err := c.SetupWithManager((initOption.Manager))
+	if err != nil {
+		return err
+	}
+	backupController = c
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("backupController").
+	return ctrl.NewControllerManagedBy(mgr).
 		For(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(mghPred)).
 		Watches(&corev1.Secret{},

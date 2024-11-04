@@ -35,12 +35,14 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/multiclusterhub"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -56,6 +58,8 @@ var controllerStartFuncList = []Func{
 	grafana.StartController,
 	inventory.StartController,
 	globalhubmanager.StartController,
+	backup.StartBackupController,
+	webhook.StartWebhookController,
 }
 
 type MetaController struct {

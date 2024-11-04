@@ -101,7 +101,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// backup controller
 	if !r.backupControllerReady {
-		err := backup.NewBackupReconciler(r.Manager, ctrl.Log.WithName("backup-reconciler")).SetupWithManager(r.Manager)
+		err := backup.StartBackupController(config.ControllerOption{Manager: r.Manager})
 		if err != nil {
 			return ctrl.Result{}, err
 		}

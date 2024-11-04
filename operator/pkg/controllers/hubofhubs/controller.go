@@ -57,8 +57,8 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -665,7 +665,10 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if config.IsACMResourceReady() {
 		// webhook required ACM
-		if reconcileErr = r.webhookReconciler.Reconcile(ctx, mgh); reconcileErr != nil {
+		if reconcileErr = webhook.StartWebhookController(config.ControllerOption{
+			Manager:               r.mgr,
+			MulticlusterGlobalHub: mgh,
+		}); reconcileErr != nil {
 			return ctrl.Result{}, reconcileErr
 		}
 	}

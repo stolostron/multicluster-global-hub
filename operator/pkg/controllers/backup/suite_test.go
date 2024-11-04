@@ -51,6 +51,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 )
 
@@ -140,9 +141,11 @@ var _ = BeforeSuite(func() {
 
 	kubeClient, err = kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
-	backupReconciler = backup.NewBackupReconciler(k8sManager, log)
-
-	Expect(backupReconciler.SetupWithManager(k8sManager)).ToNot(HaveOccurred())
+	option := config.ControllerOption{
+		Manager: k8sManager,
+	}
+	err = backup.StartBackupController(option)
+	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()
