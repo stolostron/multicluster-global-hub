@@ -49,6 +49,8 @@ type Func func(initOption config.ControllerOption) error
 
 // controllerStartFuncList store all the controllers that need started
 var controllerStartFuncList = []Func{
+	// start the multilcusterhub controller to update the ACM status of the mgh
+	multiclusterhub.AddMulticlusterHubController,
 	transporter.StartController,
 	storage.StartController,
 	grafana.StartController,
@@ -125,11 +127,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	reconcileErr = config.SetMulticlusterGlobalHubConfig(ctx, mgh, r.client, r.imageClient)
 	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
-	}
-
-	// start the multilcusterhub controller to update the ACM status of the mgh
-	if reconcileErr = multiclusterhub.AddMulticlusterHubController(r.mgr); err != nil {
 		return ctrl.Result{}, reconcileErr
 	}
 

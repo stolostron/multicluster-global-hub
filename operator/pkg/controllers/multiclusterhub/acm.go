@@ -95,12 +95,12 @@ func (r *MulticlusterhubController) Reconcile(ctx context.Context, req ctrl.Requ
 	return ctrl.Result{}, nil
 }
 
-func AddMulticlusterHubController(mgr ctrl.Manager) error {
+func AddMulticlusterHubController(opts config.ControllerOption) error {
 	if acmConstrollerStarted {
 		return nil
 	}
-	mch := &MulticlusterhubController{Manager: mgr}
-	err := ctrl.NewControllerManagedBy(mgr).
+	mch := &MulticlusterhubController{Manager: opts.Manager}
+	err := ctrl.NewControllerManagedBy(opts.Manager).
 		Named("acm-controller").
 		WatchesMetadata(
 			&apiextensionsv1.CustomResourceDefinition{},
