@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -71,6 +72,9 @@ func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 	}
 	standaloneAgentStarted = true
 	log.Info("the standalone agent reconciler is started")
+
+	// trigger the reconciler at the beginning to apply resources
+	agentReconciler.Reconcile(ctx, reconcile.Request{})
 	return nil
 }
 
