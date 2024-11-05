@@ -37,9 +37,9 @@ import (
 var _ = Describe("transporter", Ordered, func() {
 	var mgh *v1alpha4.MulticlusterGlobalHub
 	var namespace string
+	mghName := "test-mgh"
 	BeforeAll(func() {
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
-		mghName := "test-mgh"
 		config.SetMGHNamespacedName(types.NamespacedName{Namespace: namespace, Name: mghName})
 		// mgh
 		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
