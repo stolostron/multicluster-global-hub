@@ -69,8 +69,8 @@ func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
-	defaultAgentStarted = true
-	log.Info("the default addon reconciler is started")
+	standaloneAgentStarted = true
+	log.Info("the standalone agent reconciler is started")
 	return nil
 }
 

@@ -32,14 +32,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/acm"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/managedhub"
@@ -110,6 +109,9 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	if mgha != nil {
 		// deploy global hub agent
+		if err := agent.AddStandaloneAgentController(ctx, r.mgr); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
@@ -232,8 +234,8 @@ func (r *MetaController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("MetaController").
 		For(&v1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(config.MGHPred)).
-		For(&v1alpha1.MulticlusterGlobalHubAgent{},
-			builder.WithPredicates(config.MGHPred)).
+		Watches(&v1alpha1.MulticlusterGlobalHubAgent{},
+			&handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 
