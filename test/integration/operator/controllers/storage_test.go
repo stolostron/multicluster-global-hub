@@ -127,7 +127,7 @@ var _ = Describe("storage", Ordered, func() {
 
 		sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, namespace, storage.SubscriptionName)
 		Expect(err).To(Succeed())
-		Expect(sub).To(BeNil())
+		Expect(sub).ShouldNot(BeNil())
 
 		// blocking until get the connection
 		go func() {
