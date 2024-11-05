@@ -190,8 +190,11 @@ func (k *strimziTransporter) EnsureKafka() (bool, error) {
 		return true, err
 	}
 
-	if !config.GetKafkaResourceReady() {
-		klog.Infof("wait for the Kafka CRD to be ready")
+	installed, err := k.isCSVInstalled()
+	if err != nil {
+		return true, err
+	}
+	if !installed {
 		return true, nil
 	}
 
@@ -285,6 +288,34 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		return fmt.Errorf("failed to create/update kafka objects: %w", err)
 	}
 	return nil
+}
+
+func (k *strimziTransporter) isCSVInstalled() (bool, error) {
+	existingSub := &subv1alpha1.Subscription{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      k.subName,
+		Namespace: k.mgh.Namespace,
+	}, existingSub)
+	if err != nil && !errors.IsNotFound(err) {
+		return false, err
+	}
+
+	if existingSub.Status.InstalledCSV == "" {
+		return false, nil
+	}
+
+	kafkaCsv := &subv1alpha1.ClusterServiceVersion{}
+	if err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      existingSub.Status.InstalledCSV,
+		Namespace: k.mgh.Namespace,
+	}, kafkaCsv); err != nil {
+		return false, err
+	}
+
+	if kafkaCsv.Status.Phase != subv1alpha1.CSVPhaseSucceeded {
+		return false, nil
+	}
+	return true, nil
 }
 
 // EnsureUser to reconcile the kafkaUser's setting(authn and authz)

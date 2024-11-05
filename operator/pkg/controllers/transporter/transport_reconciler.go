@@ -2,6 +2,7 @@ package transporter
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -94,6 +95,8 @@ func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
 	return &TransportReconciler{Manager: mgr}
 }
 
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;delete;list;watch
+
 // Resources reconcile the transport resources and also update transporter on the configuration
 func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
@@ -134,16 +137,17 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			protocol.WithContext(ctx),
 			protocol.WithCommunity(operatorutils.IsCommunityMode()),
 		)
-		if _, err := r.transporter.EnsureKafka(); err != nil {
+		needRequeue, err := r.transporter.EnsureKafka()
+		if err != nil {
 			return ctrl.Result{}, err
 		}
-
+		if needRequeue {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		// this controller also will update the transport connection
-		if config.GetKafkaResourceReady() {
-			err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
+		err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 	case transport.SecretTransporter:
 		r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{

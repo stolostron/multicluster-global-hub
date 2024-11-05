@@ -121,10 +121,11 @@ var _ = Describe("transporter", Ordered, func() {
 		config.SetTransporter(nil)
 		config.SetTransporterConn(nil)
 		// the crd resources is ready
-		config.SetKafkaResourceReady(true)
+		err := testutils.CreateTransportCSV(runtimeClient, ctx, "strimzi-kafka-operator", mgh.Namespace)
+		Expect(err).To(Succeed())
 
 		// update the transport protocol configuration, topic
-		err := config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
+		err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
 		Expect(err).To(Succeed())
 		err = config.SetTransportConfig(ctx, runtimeClient, mgh)
 		Expect(err).To(Succeed())

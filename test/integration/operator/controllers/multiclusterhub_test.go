@@ -106,6 +106,14 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 		mch.Status.Phase = mchv1.HubRunning
 		Expect(runtimeClient.Status().Update(ctx, mch)).To(Succeed())
 
+		Eventually(func() error {
+			Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mch), mch))
+			if mch.Status.Phase != mchv1.HubRunning {
+				return fmt.Errorf("mch status not running, %v", mch.Status)
+			}
+			return nil
+		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		_, err := controller.Reconcile(ctx, req)
 		Expect(err).ToNot(HaveOccurred())
 
