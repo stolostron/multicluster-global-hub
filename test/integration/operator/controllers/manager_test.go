@@ -105,7 +105,7 @@ var _ = Describe("manager", Ordered, func() {
 				return err
 			}
 			return deleteNamespace(namespace)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		err := runtimeClient.Delete(ctx, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{

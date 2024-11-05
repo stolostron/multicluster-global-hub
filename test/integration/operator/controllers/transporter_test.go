@@ -440,7 +440,7 @@ var _ = Describe("transporter", Ordered, func() {
 				return err
 			}
 			return deleteNamespace(namespace)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
 

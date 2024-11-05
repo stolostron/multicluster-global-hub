@@ -87,7 +87,7 @@ var _ = Describe("grafana", Ordered, func() {
 				return err
 			}
 			return deleteNamespace(namespace)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
 
@@ -97,7 +97,10 @@ func deleteNamespace(name string) error {
 			Name: name,
 		},
 	}
-	err := runtimeClient.Delete(ctx, ns)
+
+	err := runtimeClient.Delete(ctx, ns, &client.DeleteOptions{
+		PropagationPolicy: &[]metav1.DeletionPropagation{metav1.DeletePropagationForeground}[0],
+	})
 	if err != nil {
 		return err
 	}
