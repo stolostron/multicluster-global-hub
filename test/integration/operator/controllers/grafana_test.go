@@ -18,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
@@ -103,5 +104,6 @@ func deleteNamespace(name string) error {
 	if err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(ns), ns); errors.IsNotFound(err) {
 		return nil
 	}
-	return fmt.Errorf("the namespace should be deleted: %s", name)
+	utils.PrettyPrint(ns)
+	return fmt.Errorf("the namespace should be deleted: %s", ns.Name)
 }
