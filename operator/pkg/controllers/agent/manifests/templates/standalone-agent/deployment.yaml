@@ -26,7 +26,6 @@ spec:
             - --retry-period={{.RetryPeriod}}
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
-            - --enable-pprof={{.EnablePprof}}
             - --standalone=true
           env:
             - name: POD_NAMESPACE

@@ -59,7 +59,8 @@ func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 		return nil
 	}
 	agentReconciler := &StandaloneAgentController{
-		Client: mgr.GetClient(),
+		Client:  mgr.GetClient(),
+		Manager: mgr,
 	}
 
 	err := ctrl.NewControllerManagedBy(mgr).
@@ -71,17 +72,18 @@ func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 		return err
 	}
 	standaloneAgentStarted = true
-	log.Info("the standalone agent reconciler is started")
 
 	// trigger the reconciler at the beginning to apply resources
-	agentReconciler.Reconcile(ctx, reconcile.Request{})
+	if _, err := agentReconciler.Reconcile(ctx, reconcile.Request{}); err != nil {
+		log.Error(err)
+	}
 	return nil
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubagents,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubagents/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubagents/finalizers,verbs=update
-// +kubebuilder:rbac:groups="config.openshift.io",resources=infrastructures,verbs=get
+// +kubebuilder:rbac:groups="config.openshift.io",resources=infrastructures,verbs=get;list;watch
 
 func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgha, err := config.GetMulticlusterGlobalHubAgent(ctx, s.Client)
