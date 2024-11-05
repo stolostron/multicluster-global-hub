@@ -101,7 +101,6 @@ func AddMulticlusterHubController(opts config.ControllerOption) error {
 	}
 	mch := &MulticlusterhubController{Manager: opts.Manager}
 	err := ctrl.NewControllerManagedBy(opts.Manager).
-		Named("acm-controller").
 		WatchesMetadata(
 			&apiextensionsv1.CustomResourceDefinition{},
 			&handler.EnqueueRequestForObject{},
