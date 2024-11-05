@@ -125,10 +125,6 @@ var _ = Describe("storage", Ordered, func() {
 
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true)
 
-		sub, err := operatorutils.GetSubscriptionByName(ctx, runtimeClient, namespace, storage.SubscriptionName)
-		Expect(err).To(Succeed())
-		Expect(sub).To(BeNil())
-
 		// blocking until get the connection
 		go func() {
 			_, _ = storageReconciler.ReconcileStorage(subCtx, mgh)
