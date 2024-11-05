@@ -6,6 +6,7 @@ package protocol
 import (
 	"context"
 	"embed"
+	"sync"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -25,6 +26,11 @@ import (
 
 //go:embed manifests
 var manifests embed.FS
+
+var (
+	kafkaMutex             sync.Mutex
+	startedKafkaController = false
+)
 
 type KafkaStatus struct {
 	kakfaReason  string
@@ -107,9 +113,13 @@ var kafkaPred = predicate.Funcs{
 	},
 }
 
-func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) (
-	*KafkaController, error,
-) {
+func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
+	kafkaMutex.Lock()
+	defer kafkaMutex.Unlock()
+
+	if startedKafkaController {
+		return nil
+	}
 	r := &KafkaController{
 		Manager: mgr,
 		trans:   transporter.(*strimziTransporter),
@@ -127,10 +137,11 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Complete(r)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	startedKafkaController = true
 	klog.Info("kafka controller is started")
-	return r, nil
+	return nil
 }
 
 func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
