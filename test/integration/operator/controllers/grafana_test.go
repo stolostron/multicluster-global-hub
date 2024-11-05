@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -80,14 +81,27 @@ var _ = Describe("grafana", Ordered, func() {
 
 	AfterAll(func() {
 		Eventually(func() error {
-			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+			err := testutils.DeleteMgh(ctx, runtimeClient, mgh)
+			if err != nil {
+				return err
+			}
+			return deleteNamespace(namespace)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
-
-		err := runtimeClient.Delete(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-			},
-		})
-		Expect(err).To(Succeed())
 	})
 })
+
+func deleteNamespace(name string) error {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	err := runtimeClient.Delete(ctx, ns)
+	if err != nil {
+		return err
+	}
+	if err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(ns), ns); errors.IsNotFound(err) {
+		return nil
+	}
+	return fmt.Errorf("the namespace should be deleted: %s", name)
+}

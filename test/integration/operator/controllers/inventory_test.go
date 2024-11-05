@@ -86,7 +86,10 @@ var _ = Describe("inventory-api", Ordered, func() {
 
 	AfterAll(func() {
 		Eventually(func() error {
-			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
+			if err := testutils.DeleteMgh(ctx, runtimeClient, mgh); err != nil {
+				return err
+			}
+			return deleteNamespace(namespace)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		err := runtimeClient.Delete(ctx, &corev1.Namespace{
