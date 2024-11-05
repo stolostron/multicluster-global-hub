@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -18,7 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
@@ -97,16 +95,5 @@ func deleteNamespace(name string) error {
 			Name: name,
 		},
 	}
-
-	err := runtimeClient.Delete(ctx, ns, &client.DeleteOptions{
-		PropagationPolicy: &[]metav1.DeletionPropagation{metav1.DeletePropagationForeground}[0],
-	})
-	if err != nil {
-		return err
-	}
-	if err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(ns), ns); errors.IsNotFound(err) {
-		return nil
-	}
-	utils.PrettyPrint(ns)
-	return fmt.Errorf("the namespace should be deleted: %s", ns.Name)
+	return runtimeClient.Delete(ctx, ns)
 }

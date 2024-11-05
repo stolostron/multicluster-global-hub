@@ -1,4 +1,4 @@
-package controllers
+package operator
 
 import (
 	"fmt"
@@ -105,7 +105,12 @@ var _ = Describe("meta", Ordered, func() {
 			if err := testutils.DeleteMgh(ctx, runtimeClient, mgh); err != nil {
 				return err
 			}
-			return deleteNamespace(namespace)
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}
+			return runtimeClient.Delete(ctx, ns)
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
