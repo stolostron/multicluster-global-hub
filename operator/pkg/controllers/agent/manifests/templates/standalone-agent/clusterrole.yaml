@@ -4,36 +4,6 @@ metadata:
   name: multicluster-global-hub:multicluster-global-hub-agent
 rules:
 - apiGroups:
-  - "app.k8s.io"
-  resources:
-  - applications
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - deletecollection
-- apiGroups:
-  - "apps.open-cluster-management.io"
-  resources:
-  - channels
-  - placementrules
-  - subscriptionreports
-  - subscriptions
-  - subscriptionstatuses
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-  - deletecollection
-- apiGroups:
   - "policy.open-cluster-management.io"
   resources:
   - placementbindings
@@ -41,14 +11,11 @@ rules:
   - policyautomations
   - policysets
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
   - update
   - watch
-  - deletecollection
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
@@ -56,22 +23,11 @@ rules:
   - managedclustersets
   - managedclustersetbindings
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
   - update
   - watch
-  - deletecollection
-- apiGroups:
-  - cluster.open-cluster-management.io
-  resources:
-  - managedclustersets/join
-  - managedclustersets/bind
-  verbs:
-  - create
-  - delete
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
@@ -86,6 +42,18 @@ rules:
   - list
   - watch
   - update
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - clusterclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -103,76 +71,11 @@ rules:
   - update
   - watch
 - apiGroups:
-  - coordination.k8s.io
-  resources:
-  - leases
-  verbs:
-  - get
-  - create
-  - update
-  - delete
-- apiGroups:
-  - ""
-  resources:
-  - users
-  - groups
-  - serviceaccounts
-  verbs:
-  - impersonate
-- apiGroups:
-  - "coordination.k8s.io"
-  resources:
-  - leases
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
-  - clusterroles
-  - rolebindings
-  - roles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
   verbs:
   - list
-  - watch
-- apiGroups:
-  - operator.open-cluster-management.io
-  resources:
-  - multiclusterhubs
-  - clustermanagers
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - cluster.open-cluster-management.io
-  resources:
-  - clusterclaims
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - route.openshift.io

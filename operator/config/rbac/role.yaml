@@ -22,19 +22,8 @@ rules:
   - ""
   resources:
   - namespaces
-  - serviceaccounts
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - persistentvolumeclaims
+  - pods
   - secrets
   verbs:
   - create
@@ -42,6 +31,18 @@ rules:
   - get
   - list
   - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
   - update
   - watch
 - apiGroups:
@@ -203,17 +204,8 @@ rules:
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
+  - clusterclaims
   - managedclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - cluster.open-cluster-management.io
-  resources:
   - managedclustersetbindings
   - placements
   verbs:
@@ -223,15 +215,21 @@ rules:
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
+  - managedclusters/finalizers
   - managedclustersets
+  - placementdecisions
+  - placementdecisions/finalizers
+  - placements/finalizers
   verbs:
   - get
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
@@ -255,6 +253,7 @@ rules:
 - apiGroups:
   - config.openshift.io
   resources:
+  - clusterversions
   - infrastructures
   verbs:
   - get
@@ -287,6 +286,15 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - internal.open-cluster-management.io
+  resources:
+  - managedclusterinfos
+  verbs:
+  - get
+  - list
+  - update
   - watch
 - apiGroups:
   - kafka.strimzi.io
@@ -395,11 +403,14 @@ rules:
   resources:
   - placementbindings
   - policies
+  - policyautomations
+  - policysets
   verbs:
   - get
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - postgres-operator.crunchydata.com
   resources:

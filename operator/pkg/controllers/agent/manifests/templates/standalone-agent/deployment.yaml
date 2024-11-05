@@ -38,9 +38,9 @@ spec:
                 fieldRef:
                  apiVersion: v1
                  fieldPath: metadata.namespace
-      {{- if .ImagePullSecretName }}
+      {{- if .ImagePullSecret }}
       imagePullSecrets:
-        - name: {{ .ImagePullSecretName }}
+        - name: {{ .ImagePullSecret }}
       {{- end }}
       {{- if .NodeSelector }}
       nodeSelector:
