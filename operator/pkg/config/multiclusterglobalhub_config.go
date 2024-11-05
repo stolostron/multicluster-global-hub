@@ -408,7 +408,6 @@ func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.M
 		return nil, err
 	}
 	if len(mghList.Items) != 1 {
-		log.Infof("mgh should have 1 instance, but got %v", len(mghList.Items))
 		return nil, nil
 	}
 	return &mghList.Items[0], nil
