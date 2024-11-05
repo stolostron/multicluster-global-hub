@@ -39,7 +39,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-11-05T12:52:40Z"
+    createdAt: "2024-11-05T13:18:45Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -374,15 +374,8 @@ spec:
           - ""
           resources:
           - namespaces
-          verbs:
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
           - persistentvolumeclaims
+          - pods
           - secrets
           verbs:
           - create
@@ -390,6 +383,18 @@ spec:
           - get
           - list
           - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
           - update
           - watch
         - apiGroups:
@@ -549,17 +554,8 @@ spec:
         - apiGroups:
           - cluster.open-cluster-management.io
           resources:
+          - clusterclaims
           - managedclusters
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - cluster.open-cluster-management.io
-          resources:
           - managedclustersetbindings
           - placements
           verbs:
@@ -569,15 +565,21 @@ spec:
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - cluster.open-cluster-management.io
           resources:
+          - managedclusters/finalizers
           - managedclustersets
+          - placementdecisions
+          - placementdecisions/finalizers
+          - placements/finalizers
           verbs:
           - get
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - config.open-cluster-management.io
           resources:
@@ -593,6 +595,7 @@ spec:
         - apiGroups:
           - config.openshift.io
           resources:
+          - clusterversions
           - infrastructures
           verbs:
           - get
@@ -625,6 +628,15 @@ spec:
           verbs:
           - get
           - list
+          - watch
+        - apiGroups:
+          - internal.open-cluster-management.io
+          resources:
+          - managedclusterinfos
+          verbs:
+          - get
+          - list
+          - update
           - watch
         - apiGroups:
           - kafka.strimzi.io
@@ -736,11 +748,14 @@ spec:
           resources:
           - placementbindings
           - policies
+          - policyautomations
+          - policysets
           verbs:
           - get
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - postgres-operator.crunchydata.com
           resources:
