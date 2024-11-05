@@ -9,16 +9,22 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -49,8 +55,11 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
+	}
+	if mgh.DeletionTimestamp != nil {
+		return r.pruneStrimziResources(ctx)
 	}
 	var reconcileErr error
 	defer func() {
@@ -203,4 +212,89 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 		Reason:  "TransportConnectionSet",
 		Message: "Transport connection has set",
 	}
+}
+
+func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Result, error) {
+	klog.Infof("Remove strimzi resources")
+	listOpts := []client.ListOption{
+		client.HasLabels{constants.GlobalHubOwnerLabelKey},
+	}
+	kafkaUserList := &kafkav1beta2.KafkaUserList{}
+	klog.Infof("Delete kafkaUsers")
+	if err := r.GetClient().List(ctx, kafkaUserList, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+	for idx := range kafkaUserList.Items {
+		klog.Infof("Delete kafka user %v", kafkaUserList.Items[idx].Name)
+		if err := r.GetClient().Delete(ctx, &kafkaUserList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
+
+	kafkaTopicList := &kafkav1beta2.KafkaTopicList{}
+	klog.Infof("Delete kafkaTopics")
+
+	if err := r.GetClient().List(ctx, kafkaTopicList, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+	for idx := range kafkaTopicList.Items {
+		klog.Infof("Delete kafka topic %v", kafkaTopicList.Items[idx].Name)
+		if err := r.GetClient().Delete(ctx, &kafkaTopicList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
+	// Wait kafkatopic is removed
+	if err := r.GetClient().List(ctx, kafkaTopicList, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(kafkaTopicList.Items) != 0 {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	kafka := &kafkav1beta2.Kafka{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.trans.kafkaClusterName,
+			Namespace: utils.GetDefaultNamespace(),
+		},
+	}
+	klog.Infof("Delete kafka cluster %v", kafka.Name)
+
+	if err := r.GetClient().Delete(ctx, kafka); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	klog.Infof("kafka cluster deleted")
+
+	kafkaSub := &subv1alpha1.Subscription{}
+	err := r.GetClient().Get(ctx, types.NamespacedName{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      r.trans.subName,
+	}, kafkaSub)
+	if err != nil {
+		klog.Errorf("Failed to get strimzi subscription, err:%v", err)
+		if errors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if kafkaSub.Status.InstalledCSV != "" {
+		kafkaCsv := &subv1alpha1.ClusterServiceVersion{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kafkaSub.Status.InstalledCSV,
+				Namespace: utils.GetDefaultNamespace(),
+			},
+		}
+		klog.Infof("Delete kafka csv %v", kafkaCsv.Name)
+		if err := r.GetClient().Delete(ctx, kafkaCsv); err != nil {
+			return ctrl.Result{}, err
+		}
+		klog.Infof("kafka csv deleted")
+	}
+
+	if err := r.GetClient().Delete(ctx, kafkaSub); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	klog.Infof("kafka subscription deleted")
+	return ctrl.Result{}, nil
 }

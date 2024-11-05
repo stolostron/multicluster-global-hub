@@ -27,6 +27,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -524,6 +525,56 @@ func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
 		obj.SetLabels(labels)
 
 		if err := hohDeployer.Deploy(obj); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func PruneMetricsResources(ctx context.Context, c client.Client, metricsLabel map[string]string) error {
+	listOpts := []client.ListOption{
+		client.MatchingLabels(metricsLabel),
+	}
+	configmapList := &corev1.ConfigMapList{}
+	if err := c.List(ctx, configmapList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range configmapList.Items {
+		if err := c.Delete(ctx, &configmapList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	serviceMonitorList := &promv1.ServiceMonitorList{}
+	if err := c.List(ctx, serviceMonitorList, listOpts...); err != nil {
+		// Handle the env do not have this kind of resource
+		return nil
+	}
+	for idx := range serviceMonitorList.Items {
+		if err := c.Delete(ctx, serviceMonitorList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	podMonitorList := &promv1.PodMonitorList{}
+	if err := c.List(ctx, podMonitorList, listOpts...); err != nil {
+		// Handle the env do not have this kind of resource
+		return nil
+	}
+	for idx := range podMonitorList.Items {
+		if err := c.Delete(ctx, podMonitorList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	prometheusRuleList := &promv1.PrometheusRuleList{}
+	if err := c.List(ctx, prometheusRuleList, listOpts...); err != nil {
+		// Handle the env do not have this kind of resource
+		return nil
+	}
+	for idx := range prometheusRuleList.Items {
+		if err := c.Delete(ctx, prometheusRuleList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}

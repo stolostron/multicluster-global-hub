@@ -29,9 +29,9 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -46,6 +46,8 @@ var upgradeFS embed.FS
 
 //go:embed manifests.sts
 var stsPostgresFS embed.FS
+
+var resourceRemoved bool
 
 type StorageReconciler struct {
 	log logr.Logger
@@ -78,6 +80,10 @@ func StartController(initOption config.ControllerOption) error {
 	started = true
 	klog.Infof("inited storage controller")
 	return nil
+}
+
+func IsResourceRemoved() bool {
+	return resourceRemoved
 }
 
 func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageReconciler {
@@ -149,9 +155,24 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
+	if mgh.DeletionTimestamp != nil || !mgh.Spec.EnableMetrics {
+		if config.IsBYOPostgres() {
+			return ctrl.Result{}, nil
+		}
+		err = utils.PruneMetricsResources(ctx, r.GetClient(),
+			map[string]string{
+				constants.GlobalHubMetricsLabel: "postgres",
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		resourceRemoved = true
+		return ctrl.Result{}, nil
+	}
+	resourceRemoved = false
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
@@ -271,7 +292,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 
 	// Check if backup is enabled
 	var backupEnabled bool
-	backupEnabled, reconcileErr = utils.IsBackupEnabled(ctx, r.GetClient())
+	backupEnabled, reconcileErr = commonutils.IsBackupEnabled(ctx, r.GetClient())
 	if reconcileErr != nil {
 		log.Error(reconcileErr, "failed to get backup status")
 		return true, reconcileErr

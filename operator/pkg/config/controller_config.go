@@ -15,6 +15,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+type (
+	StartController   func(initOption ControllerOption) error
+	IsResourceRemoved func() bool
+)
+
+type ControllerFunc struct {
+	StartController   StartController
+	IsResourceRemoved IsResourceRemoved
+}
+
 var controllerConfigMap *corev1.ConfigMap
 
 func LoadControllerConfig(ctx context.Context, kubeClient kubernetes.Interface) error {

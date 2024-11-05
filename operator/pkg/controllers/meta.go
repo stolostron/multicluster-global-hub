@@ -18,8 +18,14 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,6 +33,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,6 +42,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
@@ -42,17 +50,41 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-type Func func(initOption config.ControllerOption) error
+// IsResourceRemoved is used for controller which do not need to cleanup resources
+func IsResourceRemoved() bool {
+	return true
+}
 
-// controllerStartFuncList store all the controllers that need started
-var controllerStartFuncList = []Func{
-	transporter.StartController,
-	storage.StartController,
-	grafana.StartController,
-	inventory.StartController,
-	globalhubmanager.StartController,
+// controllerFuncList store all the controllers that need started and isResourecesRemoved
+var controllerFuncList = []config.ControllerFunc{
+	{
+		StartController:   transporter.StartController,
+		IsResourceRemoved: transporter.IsResourceRemoved,
+	},
+	{
+		StartController:   globalhubmanager.StartController,
+		IsResourceRemoved: IsResourceRemoved,
+	},
+	{
+		StartController:   storage.StartController,
+		IsResourceRemoved: storage.IsResourceRemoved,
+	},
+	{
+		StartController:   grafana.StartController,
+		IsResourceRemoved: IsResourceRemoved,
+	},
+	{
+		StartController:   inventory.StartController,
+		IsResourceRemoved: IsResourceRemoved,
+	},
+	{
+		StartController:   globalhubmanager.StartController,
+		IsResourceRemoved: IsResourceRemoved,
+	},
 }
 
 type MetaController struct {
@@ -103,8 +135,22 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			Reason:  config.CONDITION_REASON_GLOBALHUB_UNINSTALL,
 			Message: config.CONDITION_MESSAGE_GLOBALHUB_UNINSTALL,
 		}, v1alpha4.GlobalHubUninstalling)
+		_, err = r.pruneGlobalHubResources(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
-		return ctrl.Result{}, err
+		for _, controllerFunc := range controllerFuncList {
+			removed := controllerFunc.IsResourceRemoved()
+			if !removed {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+		}
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+		if err := utils.UpdateObject(ctx, r.client, mgh); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	var reconcileErr error
@@ -133,16 +179,27 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 				klog.Errorf("conflict when adding finalizer to mgh instance, error: %v", reconcileErr)
 				return ctrl.Result{Requeue: true}, nil
 			}
-		}
-	}
-
-	for _, startController := range controllerStartFuncList {
-		reconcileErr = startController(controllerOption)
-		if reconcileErr != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
+	for _, controllerFunc := range controllerFuncList {
+		reconcileErr = controllerFunc.StartController(controllerOption)
+		if reconcileErr != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	if config.IsBYOKafka() && config.IsBYOPostgres() && mgh.Spec.EnableMetrics {
+		mgh.Spec.EnableMetrics = false
+		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
+		if reconcileErr := r.client.Update(ctx, mgh, &client.UpdateOptions{}); reconcileErr != nil {
+			if errors.IsConflict(reconcileErr) {
+				klog.Errorf("conflict when adding finalizer to mgh instance, error: %v", reconcileErr)
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
 	if config.IsACMResourceReady() {
 		if config.GetAddonManager() != nil {
 			if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
@@ -271,4 +328,125 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 		desiredComponents.Insert(config.COMPONENTS_INVENTORY_API_NAME)
 	}
 	return desiredComponents
+}
+
+func (r *MetaController) pruneGlobalHubResources(ctx context.Context,
+) (ctrl.Result, error) {
+	if config.IsACMResourceReady() {
+		if err := r.pruneManagedHubs(ctx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete annotation from the managed cluster: %w", err)
+		}
+	}
+
+	// clean up namesapced resources, eg. mgh system namespace, etc
+	if err := r.pruneNamespacedResources(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
+	if err := r.pruneGlobalResources(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if config.IsACMResourceReady() {
+		// remove finalizer from app, policy and placement.
+		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
+		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
+		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
+			return ctrl.Result{}, err
+		}
+		klog.Info("removed finalizer from mgh, app, policy, placement and etc")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
+// cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
+func (r *MetaController) pruneGlobalResources(ctx context.Context) error {
+	listOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		}),
+	}
+
+	clusterRoleList := &rbacv1.ClusterRoleList{}
+	if err := r.client.List(ctx, clusterRoleList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterRoleList.Items {
+		if err := r.client.Delete(ctx, &clusterRoleList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
+	if err := r.client.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterRoleBindingList.Items {
+		if err := r.client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	webhookList := &admissionregistrationv1.MutatingWebhookConfigurationList{}
+	if err := r.client.List(ctx, webhookList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range webhookList.Items {
+		if err := r.client.Delete(ctx, &webhookList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// pruneNamespacedResources tries to delete mgh resources
+func (r *MetaController) pruneNamespacedResources(ctx context.Context) error {
+	mghServiceMonitor := &promv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconstants.GHServiceMonitorName,
+			Namespace: commonutils.GetDefaultNamespace(),
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	if err := r.client.Delete(ctx, mghServiceMonitor); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (r *MetaController) pruneManagedHubs(ctx context.Context) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := r.client.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx, managedHub := range clusters.Items {
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			continue
+		}
+		annotations := make(map[string]string, len(orgAnnotations))
+		utils.CopyMap(annotations, managedHub.GetAnnotations())
+
+		delete(orgAnnotations, operatorconstants.AnnotationONMulticlusterHub)
+		delete(orgAnnotations, operatorconstants.AnnotationPolicyONMulticlusterHub)
+		_ = controllerutil.RemoveFinalizer(&clusters.Items[idx], constants.GlobalHubCleanupFinalizer)
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := r.client.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

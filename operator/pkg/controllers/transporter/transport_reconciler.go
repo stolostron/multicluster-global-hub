@@ -17,6 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -25,7 +26,11 @@ import (
 var WatchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
 )
-var started bool
+
+var (
+	started         bool
+	resourceRemoved bool
+)
 
 type TransportReconciler struct {
 	ctrl.Manager
@@ -95,15 +100,33 @@ func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
 	return &TransportReconciler{Manager: mgr}
 }
 
+func IsResourceRemoved() bool {
+	return resourceRemoved
+}
+
 // Resources reconcile the transport resources and also update transporter on the configuration
 func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
+	if mgh.DeletionTimestamp != nil || !mgh.Spec.EnableMetrics {
+		if config.IsBYOKafka() {
+			return ctrl.Result{}, nil
+		}
+		err = utils.PruneMetricsResources(ctx, r.GetClient(),
+			map[string]string{
+				constants.GlobalHubMetricsLabel: "strimzi",
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		resourceRemoved = true
+	}
+	resourceRemoved = false
 
 	var reconcileErr error
 	defer func() {

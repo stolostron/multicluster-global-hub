@@ -106,7 +106,10 @@ func NewGrafanaReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *Gr
 	}
 }
 
-var started bool
+var (
+	started bool
+	pruned  bool
+)
 
 func StartController(initOption config.ControllerOption) error {
 	if started {

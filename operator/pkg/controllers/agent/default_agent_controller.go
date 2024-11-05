@@ -11,7 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"open-cluster-management.io/api/addon/v1alpha1"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -163,7 +165,21 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if config.IsPaused(mgh) {
+		return ctrl.Result{}, nil
+	}
+	if mgh.DeletionTimestamp != nil {
+		// delete ClusterManagementAddon firstly to trigger clean up addons.
+		if err := r.deleteClusterManagementAddon(ctx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
+		}
+		log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
+
+		// prune the hub resources until all addons are cleaned up
+		if err := r.waitUtilAddonDeleted(ctx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to wait until all addons are deleted: %w", err)
+		}
+		log.Info("all addons are deleted")
 		return ctrl.Result{}, nil
 	}
 
@@ -394,4 +410,44 @@ func filterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
 		obj.GetLabels()["openshiftVersion"] == "3" ||
 		obj.GetName() == constants.LocalClusterName
+}
+
+func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
+	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: operatorconstants.GHClusterManagementAddonName,
+		},
+	}
+	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *DefaultAgentController) waitUtilAddonDeleted(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
+		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+		listOptions := []client.ListOption{
+			client.MatchingLabels(map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			}),
+		}
+		if err := r.List(ctx, addonList, listOptions...); err != nil {
+			return false, err
+		}
+		if len(addonList.Items) == 0 {
+			return true, nil
+		} else {
+			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
+			return false, nil
+		}
+	}); err != nil {
+		return err
+	}
+	return nil
 }
