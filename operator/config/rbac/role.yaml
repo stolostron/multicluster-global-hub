@@ -251,6 +251,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - config.openshift.io
+  resources:
+  - infrastructures
+  verbs:
+  - get
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -329,6 +335,7 @@ rules:
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - multiclusterglobalhubagents
   - multiclusterglobalhubs
   verbs:
   - create
@@ -341,12 +348,14 @@ rules:
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - multiclusterglobalhubagents/finalizers
   - multiclusterglobalhubs/finalizers
   verbs:
   - update
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - multiclusterglobalhubagents/status
   - multiclusterglobalhubs/status
   verbs:
   - get

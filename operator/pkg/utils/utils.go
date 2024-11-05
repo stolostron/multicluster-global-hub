@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -432,7 +433,7 @@ func FilterManagedCluster(obj client.Object) bool {
 
 // ManipulateGlobalHubObjects will attach the owner reference, add specific labels to these objects
 func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
-	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
+	owner metav1.Object, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
 ) error {
 	// manipulate the object
@@ -444,7 +445,7 @@ func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
 
 		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 			// for namespaced resource, set ownerreference of controller
-			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
+			if err := controllerutil.SetControllerReference(owner, obj, scheme); err != nil {
 				return err
 			}
 		}

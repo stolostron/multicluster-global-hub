@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -170,6 +171,19 @@ func IsPaused(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 		return true
 	}
 
+	return false
+}
+
+// IsAgentPaused returns true if the MulticlusterGlobalHubAgent instance is annotated as paused, and false otherwise
+func IsAgentPaused(mgha *v1alpha1.MulticlusterGlobalHubAgent) bool {
+	annotations := mgha.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	if annotations[operatorconstants.AnnotationMGHPause] != "" &&
+		strings.EqualFold(annotations[operatorconstants.AnnotationMGHPause], "true") {
+		return true
+	}
 	return false
 }
 
@@ -398,4 +412,16 @@ func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.M
 		return nil, nil
 	}
 	return &mghList.Items[0], nil
+}
+
+func GetMulticlusterGlobalHubAgent(ctx context.Context, c client.Client) (*v1alpha1.MulticlusterGlobalHubAgent, error) {
+	mghaList := &v1alpha1.MulticlusterGlobalHubAgentList{}
+	err := c.List(ctx, mghaList)
+	if err != nil {
+		return nil, err
+	}
+	if len(mghaList.Items) != 1 {
+		return nil, nil
+	}
+	return &mghaList.Items[0], nil
 }

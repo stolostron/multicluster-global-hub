@@ -13,6 +13,14 @@ metadata:
           "spec": {}
         },
         {
+          "apiVersion": "operator.open-cluster-management.io/v1alpha1",
+          "kind": "MulticlusterGlobalHubAgent",
+          "metadata": {
+            "name": "multiclusterglobalhubagent"
+          },
+          "spec": {}
+        },
+        {
           "apiVersion": "operator.open-cluster-management.io/v1alpha4",
           "kind": "MulticlusterGlobalHub",
           "metadata": {
@@ -89,6 +97,29 @@ spec:
           current state
         displayName: Conditions
         path: conditions
+      version: v1alpha1
+    - description: MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents
+        API
+      displayName: Multicluster Global Hub Agent
+      kind: MulticlusterGlobalHubAgent
+      name: multiclusterglobalhubagents.operator.open-cluster-management.io
+      specDescriptors:
+      - description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important:
+          Run "make" to regenerate code after modifying this file ImagePullPolicy
+          specifies the pull policy of the multicluster global hub images'
+        displayName: Image Pull Policy
+        path: imagePullPolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
+      - description: ImagePullSecret specifies the pull secret of the multicluster
+          global hub images
+        displayName: Image Pull Secret
+        path: imagePullSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Tolerations causes all components to tolerate any taints
+        displayName: Tolerations
+        path: tolerations
       version: v1alpha1
     - description: MulticlusterGlobalHub defines the configuration for an instance
         of the multiCluster global hub
@@ -560,6 +591,12 @@ spec:
           - update
           - watch
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - infrastructures
+          verbs:
+          - get
+        - apiGroups:
           - coordination.k8s.io
           resources:
           - leases
@@ -638,6 +675,7 @@ spec:
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - multiclusterglobalhubagents
           - multiclusterglobalhubs
           verbs:
           - create
@@ -650,12 +688,14 @@ spec:
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - multiclusterglobalhubagents/finalizers
           - multiclusterglobalhubs/finalizers
           verbs:
           - update
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - multiclusterglobalhubagents/status
           - multiclusterglobalhubs/status
           verbs:
           - get
