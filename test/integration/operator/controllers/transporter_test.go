@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
@@ -247,7 +248,23 @@ var _ = Describe("transporter", Ordered, func() {
 		customMemoryRequest := "1Mi"
 		mgh.Spec.AdvancedSpec = &v1alpha4.AdvancedSpec{
 			Kafka: &v1alpha4.CommonSpec{
-				Resources: &v1alpha4.ResourceRequirements{
+				Resources: &shared.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
+						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
+						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
+					},
+				},
+			},
+			Zookeeper: &v1alpha4.CommonSpec{
+				Resources: &shared.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
+						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
+					},
 					Requests: corev1.ResourceList{
 						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
 						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
