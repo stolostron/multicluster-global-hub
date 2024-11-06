@@ -160,7 +160,9 @@ func (r *genericSpecController) insertInstanceToDatabase(ctx context.Context, in
 	return instanceInTheDatabase, nil
 }
 
-func (r *genericSpecController) cleanInstance(instance client.Object) client.Object {
+func (r *genericSpecController) cleanInstance(originInstance client.Object) client.Object {
+	instance := originInstance.DeepCopyObject().(client.Object)
+
 	// instance.SetUID("")
 	instance.SetResourceVersion("")
 	instance.SetManagedFields(nil)
