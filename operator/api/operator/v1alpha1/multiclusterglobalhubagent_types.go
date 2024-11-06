@@ -19,21 +19,27 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	shared "github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName={mgha,mcgha}
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="The overall status of the MulticlusterGlobalHubAgent"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // MulticlusterGlobalHubAgentSpec defines the desired state of MulticlusterGlobalHubAgent
 type MulticlusterGlobalHubAgentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	// ImagePullPolicy specifies the pull policy of the multicluster global hub images
+	// ImagePullPolicy specifies the pull policy of the multicluster global hub agent image
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:imagePullPolicy"}
 	// +optional
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	// ImagePullSecret specifies the pull secret of the multicluster global hub images
+	// ImagePullSecret specifies the pull secret of the multicluster global hub agent image
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	// +optional
@@ -45,24 +51,21 @@ type MulticlusterGlobalHubAgentSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
-	// Compute Resources required by this component
+	// Compute Resources required by the global hub agent
 	// +optional
-	Resources *ResourceRequirements `json:"resources,omitempty"`
-}
-
-// ResourceRequirements copied from corev1.ResourceRequirements
-// We do not need to support ResourceClaim
-type ResourceRequirements struct {
-	// Limits describes the maximum amount of compute resources allowed.
-	// For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	// +optional
-	Limits corev1.ResourceList `json:"limits,omitempty"`
-	// Requests describes the minimum amount of compute resources required.
-	// If requests are omitted for a container, it defaults to the specified limits.
-	// If there are no specified limits, it defaults to an implementation-defined value.
-	// For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	// +optional
-	Requests corev1.ResourceList `json:"requests,omitempty"`
+	Resources *shared.ResourceRequirements `json:"resources,omitempty"`
+	// TransportConfigSecretName specifies the secret which is used to connect to the global hub transport.
+	// You can fetch the information using the following commands from the global hub environment:
+	// cat <<EOF >./kafka.yaml
+	// bootstrap.server: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].bootstrapServers}')
+	// topic.status: gh-status.global-hub
+	// ca.crt: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].certificates[0]}' | { if [[ "$OSTYPE" == "darwin"* ]]; then base64 -b 0; else base64 -w 0; fi; })
+	// client.crt: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.crt}')
+	// client.key: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.key}')
+	// EOF
+	// You can create the secret `kubectl create secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
+	// +kubebuilder:default=transport-config
+	TransportConfigSecretName string `json:"transportConfigSecretName,omitempty"`
 }
 
 // MulticlusterGlobalHubAgentStatus defines the observed state of MulticlusterGlobalHubAgent

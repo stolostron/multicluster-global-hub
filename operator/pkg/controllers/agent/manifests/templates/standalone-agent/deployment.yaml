@@ -17,6 +17,21 @@ spec:
       containers:
         - name: multicluster-global-hub-agent
           image: {{ .Image }}
+          {{- if or .Resources.Limits .Resources.Requests }}
+          resources:
+          {{- if .Resources.Limits }}
+            limits:
+              {{- range $key, $value := .Resources.Limits }}
+              {{$key}}: {{$value}}
+              {{- end }}
+          {{- end }}
+          {{- if .Resources.Requests }}
+            requests:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{$value}}
+              {{- end }}
+          {{- end }}
+          {{- end }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:
             - --pod-namespace=$(POD_NAMESPACE)

@@ -48,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -327,7 +328,7 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.GrafanaMemoryLimit)
 		limits[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.GrafanaCPULimit)
 		if advanced != nil && advanced.Grafana != nil {
-			setResourcesFromCR(advanced.Grafana.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Grafana.Resources, requests, limits)
 		}
 
 	case operatorconstants.Postgres:
@@ -335,7 +336,7 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.PostgresCPURequest)
 		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.PostgresMemoryLimit)
 		if advanced != nil && advanced.Postgres != nil {
-			setResourcesFromCR(advanced.Postgres.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Postgres.Resources, requests, limits)
 		}
 
 	case operatorconstants.Manager:
@@ -343,28 +344,28 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ManagerCPURequest)
 		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ManagerMemoryLimit)
 		if advanced != nil && advanced.Manager != nil {
-			setResourcesFromCR(advanced.Manager.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Manager.Resources, requests, limits)
 		}
 	case operatorconstants.Agent:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.AgentMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.AgentCPURequest)
 		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.AgentMemoryLimit)
 		if advanced != nil && advanced.Agent != nil {
-			setResourcesFromCR(advanced.Agent.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Agent.Resources, requests, limits)
 		}
 	case operatorconstants.Kafka:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.KafkaMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.KafkaCPURequest)
 		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.KafkaMemoryLimit)
 		if advanced != nil && advanced.Kafka != nil {
-			setResourcesFromCR(advanced.Kafka.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Kafka.Resources, requests, limits)
 		}
 	case operatorconstants.Zookeeper:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ZookeeperCPURequest)
 		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryLimit)
 		if advanced != nil && advanced.Zookeeper != nil {
-			setResourcesFromCR(advanced.Zookeeper.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Zookeeper.Resources, requests, limits)
 		}
 	}
 
@@ -374,7 +375,7 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 	return &resourceReq
 }
 
-func setResourcesFromCR(res *v1alpha4.ResourceRequirements, requests, limits corev1.ResourceList) {
+func SetResourcesFromCR(res *shared.ResourceRequirements, requests, limits corev1.ResourceList) {
 	if res != nil {
 		if res.Requests.Memory().String() != "0" {
 			requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(res.Requests.Memory().String())

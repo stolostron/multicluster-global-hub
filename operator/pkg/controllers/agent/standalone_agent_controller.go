@@ -9,6 +9,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -22,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -67,6 +69,7 @@ func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 		Named("standalone-agent-reconciler").
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred)).
+		//TODO: @clyang82 add more watches
 		Complete(agentReconciler)
 	if err != nil {
 		return err
@@ -118,18 +121,20 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		imagePullPolicy = mgha.Spec.ImagePullPolicy
 	}
 	agentQPS, agentBurst := config.GetAgentRestConfig()
-	// agentResReq := utils.GetResources(operatorconstants.Agent, mgha.Spec.Resources)
-	// agentRes := &config.Resources{}
-	// jsonData, err := json.Marshal(agentResReq)
-	// if err != nil {
-	// 	log.Errorw("failed to marshal agent resource", "error", err)
-	// 	return ctrl.Result{}, err
-	// }
-	// err = json.Unmarshal(jsonData, agentRes)
-	// if err != nil {
-	// 	log.Errorw("failed to unmarshal agent resource", "error", err)
-	// 	return ctrl.Result{}, err
-	// }
+
+	// set resource requirements
+	resourceReq := corev1.ResourceRequirements{}
+	requests := corev1.ResourceList{
+		corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(operatorconstants.AgentMemoryRequest),
+		corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(operatorconstants.AgentCPURequest),
+	}
+	limits := corev1.ResourceList{
+		corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(operatorconstants.AgentMemoryLimit),
+	}
+	utils.SetResourcesFromCR(mgha.Spec.Resources, requests, limits)
+	resourceReq.Limits = limits
+	resourceReq.Requests = requests
+
 	electionConfig, err := config.GetElectionConfig()
 	if err != nil {
 		log.Errorw("failed to get election config", "error", err)
@@ -161,6 +166,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 			AgentBurst      int
 			LogLevel        string
 			ClusterId       string
+			Resources       *corev1.ResourceRequirements
 		}{
 			Image:           config.GetImage(config.GlobalHubAgentImageKey),
 			ImagePullSecret: mgha.Spec.ImagePullSecret,
@@ -174,6 +180,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 			AgentQPS:        agentQPS,
 			AgentBurst:      agentBurst,
 			ClusterId:       string(infra.GetUID()),
+			Resources:       &resourceReq,
 		}, nil
 	})
 	if err != nil {
