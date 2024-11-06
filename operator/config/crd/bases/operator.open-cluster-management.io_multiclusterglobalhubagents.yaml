@@ -38,18 +38,20 @@ spec:
           metadata:
             type: object
           spec:
-            description: MulticlusterGlobalHubAgentSpec defines the desired state
-              of MulticlusterGlobalHubAgent
+            description: |-
+              EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+              NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+              MulticlusterGlobalHubAgentSpec defines the desired state of MulticlusterGlobalHubAgent
             properties:
               imagePullPolicy:
                 description: |-
                   INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                   Important: Run "make" to regenerate code after modifying this file
-                  ImagePullPolicy specifies the pull policy of the multicluster global hub images
+                  ImagePullPolicy specifies the pull policy of the multicluster global hub agent image
                 type: string
               imagePullSecret:
                 description: ImagePullSecret specifies the pull secret of the multicluster
-                  global hub images
+                  global hub agent image
                 type: string
               nodeSelector:
                 additionalProperties:
@@ -57,7 +59,7 @@ spec:
                 description: NodeSelector specifies the desired state of NodeSelector
                 type: object
               resources:
-                description: Compute Resources required by this component
+                description: Compute Resources required by the global hub agent
                 properties:
                   limits:
                     additionalProperties:
@@ -123,6 +125,20 @@ spec:
                       type: string
                   type: object
                 type: array
+              transportConfigSecretName:
+                default: transport-config
+                description: |-
+                  TransportConfigSecretName specifies the secret which is used to connect to the global hub transport.
+                  You can fetch the information using the following commands from the global hub environment:
+                  cat <<EOF >./kafka.yaml
+                  bootstrap.server: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].bootstrapServers}')
+                  topic.status: gh-status.global-hub
+                  ca.crt: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].certificates[0]}' | { if [[ "$OSTYPE" == "darwin"* ]]; then base64 -b 0; else base64 -w 0; fi; })
+                  client.crt: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.crt}')
+                  client.key: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.key}')
+                  EOF
+                  You can create the secret `kubectl create secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
+                type: string
             type: object
           status:
             description: MulticlusterGlobalHubAgentStatus defines the observed state

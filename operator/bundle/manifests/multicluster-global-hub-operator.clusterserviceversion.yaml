@@ -39,7 +39,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-11-05T14:24:34Z"
+    createdAt: "2024-11-06T07:58:55Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -106,13 +106,13 @@ spec:
       specDescriptors:
       - description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important:
           Run "make" to regenerate code after modifying this file ImagePullPolicy
-          specifies the pull policy of the multicluster global hub images'
+          specifies the pull policy of the multicluster global hub agent image'
         displayName: Image Pull Policy
         path: imagePullPolicy
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
       - description: ImagePullSecret specifies the pull secret of the multicluster
-          global hub images
+          global hub agent image
         displayName: Image Pull Secret
         path: imagePullSecret
         x-descriptors:

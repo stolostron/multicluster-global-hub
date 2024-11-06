@@ -73,13 +73,13 @@ spec:
       specDescriptors:
       - description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important:
           Run "make" to regenerate code after modifying this file ImagePullPolicy
-          specifies the pull policy of the multicluster global hub images'
+          specifies the pull policy of the multicluster global hub agent image'
         displayName: Image Pull Policy
         path: imagePullPolicy
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
       - description: ImagePullSecret specifies the pull secret of the multicluster
-          global hub images
+          global hub agent image
         displayName: Image Pull Secret
         path: imagePullSecret
         x-descriptors:
