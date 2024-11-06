@@ -19,8 +19,6 @@ spec:
         type: group
     - host: '*'
       operations:
-      - Describe
-      - Read
       - Write
       resource:
         name: {{.SpecTopic}}
@@ -30,7 +28,6 @@ spec:
       operations:
       - Describe
       - Read
-      - Write
       resource:
         name: {{.StatusTopic}}
         patternType: {{.StatusTopicParttern}}

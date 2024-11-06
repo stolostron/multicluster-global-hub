@@ -291,49 +291,41 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.GrafanaMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.GrafanaCPURequest)
 		if advanced != nil && advanced.Grafana != nil {
-			SetResourcesFromCR(advanced.Grafana.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Grafana.Resources, requests)
 		}
 
 	case operatorconstants.Postgres:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.PostgresMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.PostgresCPURequest)
 		if advanced != nil && advanced.Postgres != nil {
-			SetResourcesFromCR(advanced.Postgres.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Postgres.Resources, requests)
 		}
 
 	case operatorconstants.Manager:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ManagerMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ManagerCPURequest)
 		if advanced != nil && advanced.Manager != nil {
-			SetResourcesFromCR(advanced.Manager.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Manager.Resources, requests)
 		}
 	case operatorconstants.Agent:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.AgentMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.AgentCPURequest)
 		if advanced != nil && advanced.Agent != nil {
-			SetResourcesFromCR(advanced.Agent.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Agent.Resources, requests)
 		}
 	case operatorconstants.Kafka:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.KafkaMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.KafkaCPURequest)
 		if advanced != nil && advanced.Kafka != nil {
-			SetResourcesFromCR(advanced.Kafka.Resources, requests, limits)
-		}
-	case operatorconstants.Zookeeper:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ZookeeperCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryLimit)
-		if advanced != nil && advanced.Zookeeper != nil {
-			SetResourcesFromCR(advanced.Zookeeper.Resources, requests, limits)
+			SetResourcesFromCR(advanced.Kafka.Resources, requests)
 		}
 	}
-
 	resourceReq.Requests = requests
 
 	return &resourceReq
 }
 
-func SetResourcesFromCR(res *shared.ResourceRequirements, requests, limits corev1.ResourceList) {
+func SetResourcesFromCR(res *shared.ResourceRequirements, requests corev1.ResourceList) {
 	if res != nil {
 		if res.Requests.Memory().String() != "0" {
 			requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(res.Requests.Memory().String())

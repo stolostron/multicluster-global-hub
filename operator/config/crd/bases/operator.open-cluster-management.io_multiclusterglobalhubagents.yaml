@@ -11,10 +11,21 @@ spec:
     kind: MulticlusterGlobalHubAgent
     listKind: MulticlusterGlobalHubAgentList
     plural: multiclusterglobalhubagents
+    shortNames:
+    - mgha
+    - mcgha
     singular: multiclusterglobalhubagent
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The overall status of the MulticlusterGlobalHubAgent
+      jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents
@@ -38,16 +49,12 @@ spec:
           metadata:
             type: object
           spec:
-            description: |-
-              EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-              NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-              MulticlusterGlobalHubAgentSpec defines the desired state of MulticlusterGlobalHubAgent
+            description: MulticlusterGlobalHubAgentSpec defines the desired state
+              of MulticlusterGlobalHubAgent
             properties:
               imagePullPolicy:
-                description: |-
-                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "make" to regenerate code after modifying this file
-                  ImagePullPolicy specifies the pull policy of the multicluster global hub agent image
+                description: ImagePullPolicy specifies the pull policy of the multicluster
+                  global hub agent image
                 type: string
               imagePullSecret:
                 description: ImagePullSecret specifies the pull secret of the multicluster
@@ -61,17 +68,6 @@ spec:
               resources:
                 description: Compute Resources required by the global hub agent
                 properties:
-                  limits:
-                    additionalProperties:
-                      anyOf:
-                      - type: integer
-                      - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                      x-kubernetes-int-or-string: true
-                    description: |-
-                      Limits describes the maximum amount of compute resources allowed.
-                      For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-                    type: object
                   requests:
                     additionalProperties:
                       anyOf:
@@ -128,16 +124,9 @@ spec:
               transportConfigSecretName:
                 default: transport-config
                 description: |-
-                  TransportConfigSecretName specifies the secret which is used to connect to the global hub transport.
-                  You can fetch the information using the following commands from the global hub environment:
-                  cat <<EOF >./kafka.yaml
-                  bootstrap.server: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].bootstrapServers}')
-                  topic.status: gh-status.global-hub
-                  ca.crt: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].certificates[0]}' | { if [[ "$OSTYPE" == "darwin"* ]]; then base64 -b 0; else base64 -w 0; fi; })
-                  client.crt: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.crt}')
-                  client.key: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.key}')
-                  EOF
-                  You can create the secret `kubectl create secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
+                  TransportConfigSecretName specifies the secret which is used to connect to the global hub Kafka.
+                  You can get kafka.yaml content using `tools/generate-kafka-config.sh` from the global hub environment.
+                  Then you can create the secret in the current environment by running `kubectl create secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
                 type: string
             type: object
           status:

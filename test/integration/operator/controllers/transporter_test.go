@@ -249,22 +249,6 @@ var _ = Describe("transporter", Ordered, func() {
 		mgh.Spec.AdvancedSpec = &v1alpha4.AdvancedSpec{
 			Kafka: &v1alpha4.CommonSpec{
 				Resources: &shared.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
-					},
-				},
-			},
-			Zookeeper: &v1alpha4.CommonSpec{
-				Resources: &shared.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
-					},
 					Requests: corev1.ResourceList{
 						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
 						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),

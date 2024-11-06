@@ -8,13 +8,16 @@ rules:
   - ""
   resources:
   - configmaps
-  - serviceaccounts
-  - services
+  - namespaces
+  - persistentvolumeclaims
+  - pods
+  - secrets
   verbs:
   - create
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -25,21 +28,6 @@ rules:
   - create
   - delete
   - deletecollection
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  - persistentvolumeclaims
-  - pods
-  - secrets
-  verbs:
-  - create
-  - delete
   - get
   - list
   - patch

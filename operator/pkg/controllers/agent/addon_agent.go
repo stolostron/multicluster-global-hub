@@ -145,7 +145,7 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 		StackroxPollInterval:      config.GetStackroxPollInterval(mgh),
 	}
 
-	if err := setTransportConfigs(a.ctx, &manifestsConfig, cluster, a.client); err != nil {
+	if err := setTransportConfigs(&manifestsConfig, cluster, a.client); err != nil {
 		log.Errorw("failed to set transport config", "error", err)
 		return nil, err
 	}

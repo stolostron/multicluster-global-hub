@@ -17,20 +17,12 @@ spec:
       containers:
         - name: multicluster-global-hub-agent
           image: {{ .Image }}
-          {{- if or .Resources.Limits .Resources.Requests }}
-          resources:
-          {{- if .Resources.Limits }}
-            limits:
-              {{- range $key, $value := .Resources.Limits }}
-              {{$key}}: {{$value}}
-              {{- end }}
-          {{- end }}
           {{- if .Resources.Requests }}
+          resources:
             requests:
               {{- range $key, $value := .Resources.Requests }}
-              {{$key}}: {{$value}}
+              {{$key}}: {{.ToUnstructured}}
               {{- end }}
-          {{- end }}
           {{- end }}
           imagePullPolicy: {{ .ImagePullPolicy }}
           args:

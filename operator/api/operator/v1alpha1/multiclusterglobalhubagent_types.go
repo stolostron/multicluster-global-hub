@@ -23,17 +23,22 @@ import (
 	shared "github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={mgha,mcgha}
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="The overall status of the MulticlusterGlobalHubAgent"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents API
+type MulticlusterGlobalHubAgent struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   MulticlusterGlobalHubAgentSpec   `json:"spec,omitempty"`
+	Status MulticlusterGlobalHubAgentStatus `json:"status,omitempty"`
+}
+
 // MulticlusterGlobalHubAgentSpec defines the desired state of MulticlusterGlobalHubAgent
 type MulticlusterGlobalHubAgentSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 	// ImagePullPolicy specifies the pull policy of the multicluster global hub agent image
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:imagePullPolicy"}
@@ -54,16 +59,9 @@ type MulticlusterGlobalHubAgentSpec struct {
 	// Compute Resources required by the global hub agent
 	// +optional
 	Resources *shared.ResourceRequirements `json:"resources,omitempty"`
-	// TransportConfigSecretName specifies the secret which is used to connect to the global hub transport.
-	// You can fetch the information using the following commands from the global hub environment:
-	// cat <<EOF >./kafka.yaml
-	// bootstrap.server: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].bootstrapServers}')
-	// topic.status: gh-status.global-hub
-	// ca.crt: $(kubectl get kafka kafka -n "multicluster-global-hub" -o jsonpath='{.status.listeners[1].certificates[0]}' | { if [[ "$OSTYPE" == "darwin"* ]]; then base64 -b 0; else base64 -w 0; fi; })
-	// client.crt: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.crt}')
-	// client.key: $(kubectl get secret global-hub-kafka-user -n "multicluster-global-hub" -o jsonpath='{.data.user\.key}')
-	// EOF
-	// You can create the secret `kubectl create secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
+	// TransportConfigSecretName specifies the secret which is used to connect to the global hub Kafka.
+	// You can get kafka.yaml content using `tools/generate-kafka-config.sh` from the global hub environment.
+	// Then you can create the secret in the current environment by running `kubectl create secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
 	// +kubebuilder:default=transport-config
 	TransportConfigSecretName string `json:"transportConfigSecretName,omitempty"`
 }
@@ -74,20 +72,7 @@ type MulticlusterGlobalHubAgentStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-
-// MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents API
-type MulticlusterGlobalHubAgent struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   MulticlusterGlobalHubAgentSpec   `json:"spec,omitempty"`
-	Status MulticlusterGlobalHubAgentStatus `json:"status,omitempty"`
-}
-
-//+kubebuilder:object:root=true
-
+// +kubebuilder:object:root=true
 // MulticlusterGlobalHubAgentList contains a list of MulticlusterGlobalHubAgent
 type MulticlusterGlobalHubAgentList struct {
 	metav1.TypeMeta `json:",inline"`

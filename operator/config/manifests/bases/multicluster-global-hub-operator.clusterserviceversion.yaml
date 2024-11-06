@@ -71,9 +71,8 @@ spec:
       kind: MulticlusterGlobalHubAgent
       name: multiclusterglobalhubagents.operator.open-cluster-management.io
       specDescriptors:
-      - description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important:
-          Run "make" to regenerate code after modifying this file ImagePullPolicy
-          specifies the pull policy of the multicluster global hub agent image'
+      - description: ImagePullPolicy specifies the pull policy of the multicluster
+          global hub agent image
         displayName: Image Pull Policy
         path: imagePullPolicy
         x-descriptors:

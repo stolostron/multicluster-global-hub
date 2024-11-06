@@ -18,7 +18,9 @@ metadata:
           "metadata": {
             "name": "multiclusterglobalhubagent"
           },
-          "spec": {}
+          "spec": {
+            "transportConfigSecretName": "transport-config"
+          }
         },
         {
           "apiVersion": "operator.open-cluster-management.io/v1alpha4",
@@ -39,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-11-06T07:58:55Z"
+    createdAt: "2025-01-14T11:53:57Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -104,9 +106,8 @@ spec:
       kind: MulticlusterGlobalHubAgent
       name: multiclusterglobalhubagents.operator.open-cluster-management.io
       specDescriptors:
-      - description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important:
-          Run "make" to regenerate code after modifying this file ImagePullPolicy
-          specifies the pull policy of the multicluster global hub agent image'
+      - description: ImagePullPolicy specifies the pull policy of the multicluster
+          global hub agent image
         displayName: Image Pull Policy
         path: imagePullPolicy
         x-descriptors:
@@ -348,13 +349,16 @@ spec:
           - ""
           resources:
           - configmaps
-          - serviceaccounts
-          - services
+          - namespaces
+          - persistentvolumeclaims
+          - pods
+          - secrets
           verbs:
           - create
           - delete
           - get
           - list
+          - patch
           - update
           - watch
         - apiGroups:
@@ -365,21 +369,6 @@ spec:
           - create
           - delete
           - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          - persistentvolumeclaims
-          - pods
-          - secrets
-          verbs:
-          - create
-          - delete
           - get
           - list
           - patch

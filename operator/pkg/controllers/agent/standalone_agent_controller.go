@@ -9,6 +9,8 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
@@ -16,12 +18,12 @@ import (
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -32,13 +34,12 @@ import (
 
 var (
 	standaloneAgentStarted = false
-	//go:embed manifests/templates/standalone-agent
+	//go:embed manifests/standalone-agent
 	fs embed.FS
 )
 
 type StandaloneAgentController struct {
 	ctrl.Manager
-	client.Client
 }
 
 var deplomentPred = predicate.Funcs{
@@ -56,20 +57,28 @@ var deplomentPred = predicate.Funcs{
 	},
 }
 
-func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
+func StartStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 	if standaloneAgentStarted {
 		return nil
 	}
 	agentReconciler := &StandaloneAgentController{
-		Client:  mgr.GetClient(),
 		Manager: mgr,
 	}
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("standalone-agent-reconciler").
+		Watches(&v1alpha1.MulticlusterGlobalHubAgent{},
+			&handler.EnqueueRequestForObject{}).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred)).
-		//TODO: @clyang82 add more watches
+		Watches(&corev1.ConfigMap{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&corev1.ServiceAccount{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.ClusterRole{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.ClusterRoleBinding{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Complete(agentReconciler)
 	if err != nil {
 		return err
@@ -99,9 +108,13 @@ func AddStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=create;get;list;watch;patch;update
 
 func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mgha, err := config.GetMulticlusterGlobalHubAgent(ctx, s.Client)
+	mgha, err := config.GetMulticlusterGlobalHubAgent(ctx, s.Manager.GetClient())
 	if err != nil {
-		return ctrl.Result{}, err
+		if !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		} else {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	if config.IsAgentPaused(mgha) || mgha.DeletionTimestamp != nil {
@@ -128,11 +141,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(operatorconstants.AgentMemoryRequest),
 		corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(operatorconstants.AgentCPURequest),
 	}
-	limits := corev1.ResourceList{
-		corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(operatorconstants.AgentMemoryLimit),
-	}
-	utils.SetResourcesFromCR(mgha.Spec.Resources, requests, limits)
-	resourceReq.Limits = limits
+	utils.SetResourcesFromCR(mgha.Spec.Resources, requests)
 	resourceReq.Requests = requests
 
 	electionConfig, err := config.GetElectionConfig()
@@ -143,7 +152,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 
 	infra := &configv1.Infrastructure{}
 	namespacedName := types.NamespacedName{Name: "cluster"}
-	err = s.Client.Get(ctx, namespacedName, infra)
+	err = s.Manager.GetClient().Get(ctx, namespacedName, infra)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -151,7 +160,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	inventoryObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
+	agentObjects, err := hohRenderer.Render("manifests/standalone-agent", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image           string
 			ImagePullSecret string
@@ -184,10 +193,10 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		}, nil
 	})
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to render inventory objects: %v", err)
+		return ctrl.Result{}, fmt.Errorf("failed to render standalone agent objects: %v", err)
 	}
-	if err = utils.ManipulateGlobalHubObjects(inventoryObjects, mgha, hohDeployer, mapper, s.GetScheme()); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create/update inventory objects: %v", err)
+	if err = utils.ManipulateGlobalHubObjects(agentObjects, mgha, hohDeployer, mapper, s.GetScheme()); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to create/update standalone agent objects: %v", err)
 	}
 	return ctrl.Result{}, nil
 }
