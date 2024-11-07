@@ -3,7 +3,7 @@
 # Version
 export INSTALL_DIR=/usr/local/bin
 export PATH=$PATH:$INSTALL_DIR
-export GRC_VERSION=v0.13.0
+export GRC_VERSION=v0.15.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.19.0
@@ -238,6 +238,10 @@ init_policy() {
     # Deploy the policy-propagator
     kubectl --context $hub apply -f ${GIT_PATH}/$propagator/$GRC_VERSION/deploy/operator.yaml -n ${HUB_NAMESPACE}
     sleep 2
+
+    # Replace the laster image with the grc version
+    kubectl --context $hub set image deployment/governance-policy-propagator governance-policy-propagator=quay.io/open-cluster-management/governance-policy-propagator:$GRC_VERSION -n ${HUB_NAMESPACE}
+
     ## Disable the webhook for the controller
     kubectl --context $hub patch deployment $propagator --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-webhooks=false"}]' -n ${HUB_NAMESPACE}
     kubectl --context $hub patch deployment $propagator --type='json' -p='[
