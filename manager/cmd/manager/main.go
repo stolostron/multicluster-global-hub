@@ -185,7 +185,7 @@ func createManager(ctx context.Context,
 				CertDir: webhookCertDir,
 				TLSOpts: []func(*tls.Config){
 					func(config *tls.Config) {
-						config.MinVersion = tls.VersionTLS12
+						config.MinVersion = tls.VersionTLS13
 					},
 				},
 			},
