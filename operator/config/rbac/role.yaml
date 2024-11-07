@@ -22,19 +22,8 @@ rules:
   - ""
   resources:
   - namespaces
-  - serviceaccounts
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - persistentvolumeclaims
+  - pods
   - secrets
   verbs:
   - create
@@ -42,6 +31,18 @@ rules:
   - get
   - list
   - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
   - update
   - watch
 - apiGroups:
@@ -139,13 +140,23 @@ rules:
   - apps.open-cluster-management.io
   resources:
   - channels
-  - placementrules
   - subscriptions
   verbs:
   - get
   - list
   - patch
   - update
+- apiGroups:
+  - apps.open-cluster-management.io
+  resources:
+  - placementrules
+  - subscriptionreports
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - authentication.open-cluster-management.io
   resources:
@@ -203,17 +214,8 @@ rules:
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
+  - clusterclaims
   - managedclusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - cluster.open-cluster-management.io
-  resources:
   - managedclustersetbindings
   - placements
   verbs:
@@ -223,15 +225,21 @@ rules:
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
+  - managedclusters/finalizers
   - managedclustersets
+  - placementdecisions
+  - placementdecisions/finalizers
+  - placements/finalizers
   verbs:
   - get
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
@@ -251,6 +259,15 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusterversions
+  - infrastructures
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - coordination.k8s.io
@@ -279,6 +296,15 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - internal.open-cluster-management.io
+  resources:
+  - managedclusterinfos
+  verbs:
+  - get
+  - list
+  - update
   - watch
 - apiGroups:
   - kafka.strimzi.io
@@ -331,6 +357,7 @@ rules:
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - multiclusterglobalhubagents
   - multiclusterglobalhubs
   verbs:
   - create
@@ -343,12 +370,14 @@ rules:
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - multiclusterglobalhubagents/finalizers
   - multiclusterglobalhubs/finalizers
   verbs:
   - update
 - apiGroups:
   - operator.open-cluster-management.io
   resources:
+  - multiclusterglobalhubagents/status
   - multiclusterglobalhubs/status
   verbs:
   - get
@@ -384,11 +413,14 @@ rules:
   resources:
   - placementbindings
   - policies
+  - policyautomations
+  - policysets
   verbs:
   - get
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - postgres-operator.crunchydata.com
   resources:
