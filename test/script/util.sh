@@ -3,7 +3,7 @@
 # Version
 export INSTALL_DIR=/usr/local/bin
 export PATH=$PATH:$INSTALL_DIR
-export GRC_VERSION=v0.15.0
+export GRC_VERSION=v0.13.0
 export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.19.0
