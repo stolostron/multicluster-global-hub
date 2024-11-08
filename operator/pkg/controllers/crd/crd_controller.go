@@ -75,16 +75,6 @@ type CrdController struct {
 }
 
 func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// Check if mgh exist or deleting
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
-	if err != nil || mgh == nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-	if mgh.DeletionTimestamp != nil {
-		klog.V(2).Info("mgh instance is deleting")
-		return ctrl.Result{}, nil
-	}
-
 	// set resource as ready
 	r.resources[req.Name] = true
 
@@ -99,6 +89,16 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, err
 		}
 	} else {
+		return ctrl.Result{}, nil
+	}
+
+	// Check if mgh exist or deleting
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil || mgh == nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	if mgh.DeletionTimestamp != nil {
+		klog.V(2).Info("mgh instance is deleting")
 		return ctrl.Result{}, nil
 	}
 
