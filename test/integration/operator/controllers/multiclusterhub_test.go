@@ -58,6 +58,7 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 	AfterAll(func() {
 		// Clean up created resources
 		Expect(runtimeClient.Delete(ctx, mch)).To(Succeed())
+		Expect(runtimeClient.Delete(ctx, mgh)).To(Succeed())
 	})
 
 	It("should set ACMResourceReady to false and requeue", func() {
@@ -78,6 +79,7 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 			},
 		}
 		Expect(runtimeClient.Create(ctx, mch)).To(Succeed())
+		time.Sleep(1 * time.Second)
 
 		result, err := controller.Reconcile(ctx, req)
 		utils.PrettyPrint(err)
