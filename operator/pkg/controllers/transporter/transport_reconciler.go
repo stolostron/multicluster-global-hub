@@ -29,8 +29,7 @@ var started bool
 
 type TransportReconciler struct {
 	ctrl.Manager
-	kafkaController *protocol.KafkaController
-	transporter     transport.Transporter
+	transporter transport.Transporter
 }
 
 func StartController(controllerOption config.ControllerOption) error {
@@ -140,8 +139,8 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// this controller also will update the transport connection
-		if config.GetKafkaResourceReady() && r.kafkaController == nil {
-			r.kafkaController, err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
+		if config.GetKafkaResourceReady() {
+			err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
 			if err != nil {
 				return ctrl.Result{}, err
 			}

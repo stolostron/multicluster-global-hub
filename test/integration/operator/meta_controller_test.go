@@ -1,4 +1,4 @@
-package controllers
+package operator
 
 import (
 	"fmt"
@@ -57,15 +57,15 @@ var _ = Describe("meta", Ordered, func() {
 			currentMgh := &v1alpha4.MulticlusterGlobalHub{}
 			Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), currentMgh)).To(Succeed())
 			if len(currentMgh.Finalizers) == 0 {
-				return fmt.Errorf("Should add finalizer to mgh, mgh:%v", currentMgh)
+				return fmt.Errorf("Should add finalizer to mgh, mgh: %+v", currentMgh)
 			}
 
 			if currentMgh.Status.Phase != v1alpha4.GlobalHubProgressing {
-				return fmt.Errorf("mgh phase should be progressing, %v", currentMgh)
+				return fmt.Errorf("mgh phase should be progressing, %+v", currentMgh)
 			}
 
 			if meta.IsStatusConditionTrue(currentMgh.GetConditions(), config.CONDITION_TYPE_GLOBALHUB_READY) {
-				return fmt.Errorf("mgh status should not be ready, %v", currentMgh)
+				return fmt.Errorf("mgh status should not be ready, %+v", currentMgh)
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
@@ -102,14 +102,15 @@ var _ = Describe("meta", Ordered, func() {
 	})
 	AfterAll(func() {
 		Eventually(func() error {
-			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
-
-		err := runtimeClient.Delete(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-			},
-		})
-		Expect(err).To(Succeed())
+			if err := testutils.DeleteMgh(ctx, runtimeClient, mgh); err != nil {
+				return err
+			}
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			}
+			return runtimeClient.Delete(ctx, ns)
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

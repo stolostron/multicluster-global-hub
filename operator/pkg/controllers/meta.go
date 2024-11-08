@@ -38,6 +38,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/multiclusterhub"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -48,6 +49,8 @@ type Func func(initOption config.ControllerOption) error
 
 // controllerStartFuncList store all the controllers that need started
 var controllerStartFuncList = []Func{
+	// start the multilcusterhub controller to update the ACM status of the mgh
+	multiclusterhub.AddMulticlusterHubController,
 	transporter.StartController,
 	storage.StartController,
 	grafana.StartController,

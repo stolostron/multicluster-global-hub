@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,5 +50,9 @@ func DeleteMgh(ctx context.Context, runtimeClient client.Client, mgh *v1alpha4.M
 		return err
 	}
 
-	return nil
+	if err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh); errors.IsNotFound(err) {
+		return nil
+	}
+
+	return fmt.Errorf("mgh instance should be deleted: %s/%s", mgh.Namespace, mgh.Name)
 }

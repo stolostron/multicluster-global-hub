@@ -216,14 +216,10 @@ var _ = Describe("storage", Ordered, func() {
 
 		// cleanup
 		Eventually(func() error {
-			return testutils.DeleteMgh(ctx, runtimeClient, mgh)
-		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
-
-		err = runtimeClient.Delete(ctx, &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-			},
-		})
-		Expect(err).To(Succeed())
+			if err := testutils.DeleteMgh(ctx, runtimeClient, mgh); err != nil {
+				return err
+			}
+			return deleteNamespace(namespace)
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

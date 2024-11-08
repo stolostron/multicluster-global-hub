@@ -26,6 +26,8 @@ import (
 //go:embed manifests
 var manifests embed.FS
 
+var startedKafkaController = false
+
 type KafkaStatus struct {
 	kakfaReason  string
 	kafkaMessage string
@@ -107,9 +109,10 @@ var kafkaPred = predicate.Funcs{
 	},
 }
 
-func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) (
-	*KafkaController, error,
-) {
+func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
+	if startedKafkaController {
+		return nil
+	}
 	r := &KafkaController{
 		Manager: mgr,
 		trans:   transporter.(*strimziTransporter),
@@ -127,10 +130,11 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Complete(r)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	startedKafkaController = true
 	klog.Info("kafka controller is started")
-	return r, nil
+	return nil
 }
 
 func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
