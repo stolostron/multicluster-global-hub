@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -88,9 +87,12 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	config.SetTransporter(r.trans)
 
 	// update the transport connection
-	conn, err := waitManagerTransportConn(ctx, r.trans, DefaultGlobalHubKafkaUserName)
+	conn, needRequeue, err := getManagerTransportConn(r.trans, DefaultGlobalHubKafkaUserName)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	config.SetTransporterConn(conn)
 
@@ -137,34 +139,28 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	return nil
 }
 
-func waitManagerTransportConn(ctx context.Context, trans *strimziTransporter, kafkaUserSecret string) (
-	*transport.KafkaConfig, error,
+func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) (
+	*transport.KafkaConfig, bool, error,
 ) {
 	// set transporter connection
 	var conn *transport.KafkaConfig
 	var err error
-	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,
-		func(ctx context.Context) (bool, error) {
-			// boostrapServer, clusterId, clusterCA
-			conn, err = trans.getConnCredentailByCluster()
-			if err != nil {
-				klog.Info("waiting the kafka cluster credential to be ready...", "message", err.Error())
-				return false, err
-			}
-			// topics
-			conn.SpecTopic = config.GetSpecTopic()
-			conn.StatusTopic = config.ManagerStatusTopic()
-			// clientCert and clientCA
-			if err := trans.loadUserCredentail(kafkaUserSecret, conn); err != nil {
-				klog.Info("waiting the kafka user credential to be ready...", "message", err.Error())
-				return false, err
-			}
-			return true, nil
-		})
+
+	// boostrapServer, clusterId, clusterCA
+	conn, err = trans.getConnCredentailByCluster()
 	if err != nil {
-		return nil, err
+		klog.Info("waiting the kafka cluster credential to be ready...", "message", err.Error())
+		return conn, true, err
 	}
-	return conn, nil
+	// topics
+	conn.SpecTopic = config.GetSpecTopic()
+	conn.StatusTopic = config.ManagerStatusTopic()
+	// clientCert and clientCA
+	if err := trans.loadUserCredentail(kafkaUserSecret, conn); err != nil {
+		klog.Info("waiting the kafka user credential to be ready...", "message", err.Error())
+		return conn, true, err
+	}
+	return conn, false, nil
 }
 
 func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClusterStatus KafkaStatus,
