@@ -36,9 +36,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/acm"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/managedhub"
 	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
@@ -60,6 +62,10 @@ var controllerStartFuncList = []Func{
 	globalhubmanager.StartController,
 	backup.StartBackupController,
 	webhook.StartWebhookController,
+	managedhub.StartController,
+	agent.StartAddonManagerController,
+	agent.StartHostedAgentController,
+	agent.StartDefaultAgentController,
 }
 
 type MetaController struct {
@@ -85,7 +91,8 @@ type MetaController struct {
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 
-func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
+) (ctrl.Result, error) {
 	// Check if mgh exist or deleting
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.client)
 	if err != nil {
@@ -146,16 +153,14 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	for _, startController := range controllerStartFuncList {
 		reconcileErr = startController(controllerOption)
-		if reconcileErr != nil {
-			return ctrl.Result{}, err
-		}
+	}
+	if reconcileErr != nil {
+		return ctrl.Result{}, err
 	}
 
-	if config.IsACMResourceReady() {
-		if config.GetAddonManager() != nil {
-			if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
-				return ctrl.Result{}, reconcileErr
-			}
+	if config.IsACMResourceReady() && config.GetAddonManager() != nil {
+		if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
+			return ctrl.Result{}, reconcileErr
 		}
 	}
 	return ctrl.Result{}, nil

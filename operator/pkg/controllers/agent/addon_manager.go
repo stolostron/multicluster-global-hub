@@ -5,7 +5,9 @@ import (
 	"embed"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonframeworkagent "open-cluster-management.io/addon-framework/pkg/agent"
@@ -13,10 +15,10 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	agentcert "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -39,20 +41,37 @@ var FS embed.FS
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
-// Start the global hub addon agent only:
-// 1. the global hub mgh is ready
-// 2. if it's kafka, then the transporter must ready
-func ReadyToEnableAddonManager(ctx context.Context, c client.Client) bool {
-	_, ready := utils.GetReadyMulticlusterGlobalHub(ctx, c)
-	if !ready {
+var started bool
+
+func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
+	if !config.IsACMResourceReady() {
 		return false
 	}
 
-	// the transport is not ready
-	if !config.EnableInventory() && config.GetTransporter() == nil {
+	if !meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
+		return false
+	}
+	if config.EnableInventory() {
 		return false
 	}
 	return true
+}
+
+func StartAddonManagerController(initOption config.ControllerOption) error {
+	if started {
+		return nil
+	}
+	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
+		return nil
+	}
+	if err := StartGlobalHubAddonManager(initOption.Ctx, initOption.Manager.GetConfig(),
+		initOption.Manager.GetClient(), initOption.OperatorConfig); err != nil {
+		return err
+	}
+
+	klog.Infof("inited GlobalHubAddonManager controller")
+	started = true
+	return nil
 }
 
 // 1. Start the addon manager(goroutine controller) by the global hub operator

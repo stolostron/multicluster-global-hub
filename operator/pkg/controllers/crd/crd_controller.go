@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -79,7 +78,7 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// set resource as ready
@@ -108,10 +107,6 @@ func (r *CrdController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.backupControllerReady = true
 	}
 
-	_, err = agent.AddHostedAgentController(r.Manager)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	return ctrl.Result{}, nil
 }
 
