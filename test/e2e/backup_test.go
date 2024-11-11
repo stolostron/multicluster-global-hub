@@ -5,9 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -21,23 +19,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var mchObj = &mchv1.MultiClusterHub{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "mch",
-		Namespace: "open-cluster-management",
-	},
-	Spec: mchv1.MultiClusterHubSpec{
-		Overrides: &mchv1.Overrides{
-			Components: []mchv1.ComponentConfig{
-				{
-					Name:    "cluster-backup",
-					Enabled: true,
-				},
-			},
-		},
-	},
-}
-
 var _ = Describe("The resources should have backup label", Ordered, Label("e2e-tests-backup"), func() {
 	var runtimeClient client.Client
 	BeforeAll(func() {
@@ -45,11 +26,6 @@ var _ = Describe("The resources should have backup label", Ordered, Label("e2e-t
 		var err error
 		runtimeClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 		Expect(err).ShouldNot(HaveOccurred())
-
-		err = runtimeClient.Create(ctx, mchObj)
-		if !errors.IsAlreadyExists(err) {
-			Expect(err).ShouldNot(HaveOccurred())
-		}
 	})
 
 	It("The pvc should have backup label", func() {

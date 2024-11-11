@@ -39,6 +39,7 @@ func CoreZapLogger() *zap.Logger {
 }
 
 func ZaprLogger() logr.Logger {
+	_ = CoreZapLogger()
 	return zapr.NewLogger(internalZapLogger)
 }
 

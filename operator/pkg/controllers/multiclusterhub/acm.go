@@ -18,9 +18,9 @@ package multiclusterhub
 
 import (
 	"context"
+	"fmt"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/errors"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,19 +51,11 @@ type MulticlusterhubController struct {
 }
 
 func (r *MulticlusterhubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mch := &mchv1.MultiClusterHub{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.Name,
-			Namespace: req.Namespace,
-		},
-	}
-	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(mch), mch)
-	if err != nil && errors.IsNotFound(err) {
+	mch, err := ListMCH(ctx, r.GetClient())
+	if err != nil {
 		config.SetACMResourceReady(false)
+		log.Warnw("the mch instance is not ready", "error", err.Error())
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-	} else if err != nil {
-		log.Errorf("failed to get the multiclusterhub: %v", err)
-		return ctrl.Result{}, err
 	}
 
 	if mch.Status.Phase != mchv1.HubRunning {
@@ -122,4 +114,16 @@ func AddMulticlusterHubController(opts config.ControllerOption) error {
 	}
 	acmConstrollerStarted = true
 	return nil
+}
+
+func ListMCH(ctx context.Context, c client.Client) (*mchv1.MultiClusterHub, error) {
+	mch := &mchv1.MultiClusterHubList{}
+	err := c.List(ctx, mch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the mch: %w", err)
+	}
+	if len(mch.Items) == 0 {
+		return nil, fmt.Errorf("not found any mch instance")
+	}
+	return &mch.Items[0], nil
 }

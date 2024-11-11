@@ -210,7 +210,7 @@ func getIP(apiserver string) (string, error) {
 func completeOptions() utils.Options {
 	testTimeout = time.Second * 30
 
-	// get project rootdir path
+	// get project root dir path
 	exePath, err := os.Executable()
 	Expect(err).NotTo(HaveOccurred())
 

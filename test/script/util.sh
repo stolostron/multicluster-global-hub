@@ -372,7 +372,18 @@ install_crds() {
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
   # managedserviceaccount
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_authentication.open-cluster-management.io_managedserviceaccounts.crd.yaml
+}
 
+install_mch() {
+  local ctx=$1
+  # mch
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
+
+  # instance
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/mch/multiclusterhub.yaml
+
+  # patch it to ready
+  kubectl --context "$ctx" patch multiclusterhub multiclusterhub -n open-cluster-management --type='merge' -p='{"status": {"phase": "Running"}}' --subresource=status
 }
 
 enable_service_ca() {
