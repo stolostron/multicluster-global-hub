@@ -6,7 +6,10 @@ e2e-setup: tidy vendor e2e-dep
 	./test/script/e2e_setup.sh
 
 kessel-e2e-setup:
-	./test/kessel_e2e/setup/e2e_setup.sh
+	./test/script/kessel_e2e_setup.sh
+
+kessel-e2e-run: tidy vendor
+	./test/script/kessel_e2e_run.sh
 
 e2e-cleanup:
 	./test/script/e2e_cleanup.sh

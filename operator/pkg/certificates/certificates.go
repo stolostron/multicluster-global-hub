@@ -29,6 +29,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -72,8 +73,9 @@ func CreateInventoryCerts(
 	if err != nil {
 		return err
 	}
+	ips := getIps(mgh)
 	err = createCertSecret(c, scheme, mgh, serverCrtUpdated, serverCerts, mgh.Namespace,
-		true, serverCertificateCN, nil, hosts, nil)
+		true, serverCertificateCN, nil, hosts, ips)
 	if err != nil {
 		return err
 	}
@@ -470,4 +472,13 @@ func getHosts(ctx context.Context, c client.Client, namespace string) ([]string,
 	}
 
 	return []string{found.Spec.Host}, nil
+}
+
+func getIps(mgh *v1alpha4.MulticlusterGlobalHub) []net.IP {
+	kindClusterIP := mgh.Annotations[operatorconstants.KinDClusterIPKey]
+	if len(kindClusterIP) > 0 {
+		return []net.IP{net.ParseIP(kindClusterIP)}
+	}
+
+	return nil
 }

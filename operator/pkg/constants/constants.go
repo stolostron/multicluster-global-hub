@@ -118,8 +118,9 @@ const (
 	// CommunityCatalogSourceNamespaceKey defines the catalog source namespace.
 	// It is mainly used for deploying kafka in KinD cluster.
 	CommunityCatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/catalog-source-namespace"
-	// KafkaBrokerAdvertisedHostKey defines a broker host which is used for test.
-	KafkaBrokerAdvertisedHostKey = "global-hub.open-cluster-management.io/kafka-broker-advertised-host"
+	// KinDClusterIPKey defines a KinD container host which is used for test.
+	// It will be inject to the server certificates of kafka and inventory
+	KinDClusterIPKey = "global-hub.open-cluster-management.io/kind-cluster-ip"
 	// EnableKRaft enables run kafka with kraft
 	EnableKRaft = "global-hub.open-cluster-management.io/enable-kraft"
 )
