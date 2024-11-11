@@ -17,9 +17,11 @@ import (
 	"gopkg.in/yaml.v2"
 	"gorm.io/gorm"
 	appsv1 "k8s.io/api/apps/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -326,6 +328,24 @@ func deployGlobalHub() {
 		return patchGHDeployment(runtimeClient, GlobalhubNamespace, "multicluster-global-hub-operator")
 	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
+	// make sure operator started and lease updated
+	Eventually(func() error {
+		err = checkDeployAvailable(runtimeClient, GlobalhubNamespace, "multicluster-global-hub-operator")
+		if err != nil {
+			return err
+		}
+		updated, err := isLeaseUpdated("multicluster-global-hub-operator-lock",
+			GlobalhubNamespace, "multicluster-global-hub-operator", runtimeClient)
+		if err != nil {
+			return err
+		}
+		if !updated {
+			return fmt.Errorf("lease not updated")
+		}
+		return nil
+	}, 5*time.Minute, 1*time.Second).Should(Succeed())
+
+	time.Sleep(5 * time.Second)
 	err = runtimeClient.Create(ctx, mcgh)
 	if !errors.IsAlreadyExists(err) {
 		Expect(err).ShouldNot(HaveOccurred())
@@ -333,7 +353,6 @@ func deployGlobalHub() {
 
 	By("Verifying the multicluster-global-hub-grafana/manager")
 	components := map[string]int{}
-	components["multicluster-global-hub-operator"] = 0
 	components["multicluster-global-hub-manager"] = 0
 	components["multicluster-global-hub-grafana"] = 0
 	Eventually(func() error {
@@ -358,6 +377,37 @@ func deployGlobalHub() {
 	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
 	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
 	Expect(err).ShouldNot(HaveOccurred())
+}
+
+func isLeaseUpdated(leaseName, namespace, deployName string, c client.Client) (bool, error) {
+	lease := &coordinationv1.Lease{}
+	err := c.Get(ctx, types.NamespacedName{
+		Namespace: namespace,
+		Name:      leaseName,
+	}, lease)
+	if lease.Spec.HolderIdentity == nil {
+		return false, fmt.Errorf("lease not get")
+	}
+	splitStrArray := strings.Split(*lease.Spec.HolderIdentity, "_")
+
+	podList := &corev1.PodList{}
+	err = c.List(ctx, podList, &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(
+			labels.Set{
+				"name": deployName,
+			},
+		),
+		Namespace: namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+	for _, n := range podList.Items {
+		if n.Name == splitStrArray[0] {
+			return true, nil
+		}
+	}
+	return false, fmt.Errorf("faild to get lease")
 }
 
 func createPostgresService(ns string) error {
