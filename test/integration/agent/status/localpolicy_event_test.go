@@ -18,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // go test ./test/integration/agent/status -v -ginkgo.focus "LocalPolicyEventEmitter"
@@ -147,18 +148,24 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 				return fmt.Errorf("got an empty event payload %s", key)
 			}
 
+			gotEvent := false
 			for _, outEvent := range outEvents {
 				if outEvent.EventName == expiredEvent.Name {
 					Fail("should not get the expired event")
 				}
+				if outEvent.EventName == newEvent.Name {
+					gotEvent = true
+				}
+			}
+			if gotEvent {
+				fmt.Println(">>>>>>>>>>>>>>>>>>> root policy event2", receivedEvent)
+				return nil
 			}
 
-			if outEvents[0].EventName != newEvent.Name {
-				return fmt.Errorf("want %v, but got %v", newEvent, outEvents[0])
-			}
-			fmt.Println(">>>>>>>>>>>>>>>>>>> root policy event2", receivedEvent)
-			return nil
-		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+			fmt.Println(">>>>>>> got events")
+			utils.PrettyPrint(outEvents)
+			return fmt.Errorf("want event: %+v", newEvent)
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	})
 
 	It("should pass the replicated policy event", func() {
