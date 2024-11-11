@@ -1,0 +1,36 @@
+apiVersion: operator.open-cluster-management.io/v1
+kind: MultiClusterHub
+metadata:
+  name: multiclusterhub
+  namespace: open-cluster-management
+spec:
+  availabilityConfig: High
+  enableClusterBackup: false
+  ingress: {}
+  overrides:
+    components:
+    - enabled: true
+      name: app-lifecycle
+    - enabled: true
+      name: cluster-lifecycle
+    - enabled: true
+      name: cluster-permission
+    - enabled: true
+      name: console
+    - enabled: true
+      name: grc
+    - enabled: true
+      name: insights
+    - enabled: true
+      name: multicluster-engine
+    - enabled: true
+      name: multicluster-observability
+    - enabled: true
+      name: search
+    - enabled: true
+      name: submariner-addon
+    - enabled: true
+      name: volsync
+    - enabled: false
+      name: cluster-backup
+  separateCertificateManagement: false

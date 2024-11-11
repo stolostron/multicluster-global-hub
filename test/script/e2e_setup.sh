@@ -46,6 +46,9 @@ done
 for pid in "${pids[@]}"; do
   wait "$pid" || true
 done
+
+# install the mch on the global hub
+install_mch "$GH_NAME"
 echo -e "${YELLOW} initializing hubs:${NC} $(($(date +%s) - start_time)) seconds"
 
 # async ocm, policy and app
