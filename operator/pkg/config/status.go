@@ -99,11 +99,11 @@ const (
 )
 
 const (
-	CONDITION_TYPE_ACM_READY        = "ACMReady"
-	CONDITION_REASON_ACM_READY      = "ACMReady"
-	CONDITION_REASON_ACM_NOT_READY  = "ACMNotReady"
-	CONDITION_MESSAGE_ACM_READY     = "The mch is running"
-	CONDITION_MESSAGE_ACM_NOT_READY = "The mch is not running, waiting for mch running"
+	CONDITION_TYPE_ACM_RESOURCE_READY        = "ACMResourceReady"
+	CONDITION_REASON_ACM_RESOURCE_READY      = "ACMResourceReady"
+	CONDITION_REASON_ACM_RESOURCE_NOT_READY  = "ACMResourceNotReady"
+	CONDITION_MESSAGE_ACM_RESOURCE_READY     = "The ACM Resources is ready"
+	CONDITION_MESSAGE_ACM_RESOURCE_NOT_READY = "The ACM Resources is not ready, waiting for installing"
 )
 
 const (

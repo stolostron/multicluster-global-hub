@@ -22,7 +22,7 @@ import (
 
 // go test ./test/integration/operator/controllers -ginkgo.focus "MulticlusterhubController" -v
 var _ = Describe("MulticlusterhubController", Ordered, func() {
-	var controller *multiclusterhub.MulticlusterhubController
+	var controller *multiclusterhub.ACMResourceController
 	var mch *mchv1.MultiClusterHub
 	var namespace string
 	var mgh *v1alpha4.MulticlusterGlobalHub
@@ -30,7 +30,7 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 
 	BeforeAll(func() {
 		// Initialize the controller and necessary resources
-		controller = &multiclusterhub.MulticlusterhubController{
+		controller = &multiclusterhub.ACMResourceController{
 			Manager: runtimeManager, // assuming testManager is set up for testing
 		}
 

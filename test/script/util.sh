@@ -372,6 +372,9 @@ install_crds() {
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
   # managedserviceaccount
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_authentication.open-cluster-management.io_managedserviceaccounts.crd.yaml
+
+  # cluster managers
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml
 }
 
 install_mch() {

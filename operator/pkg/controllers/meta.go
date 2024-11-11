@@ -52,7 +52,7 @@ type Func func(initOption config.ControllerOption) error
 // controllerStartFuncList store all the controllers that need started
 var controllerStartFuncList = []Func{
 	// start the multilcusterhub controller to update the ACM status of the mgh
-	multiclusterhub.AddMulticlusterHubController,
+	multiclusterhub.AddACMResourceController,
 	transporter.StartController,
 	storage.StartController,
 	grafana.StartController,
