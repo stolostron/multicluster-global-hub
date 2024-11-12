@@ -13,11 +13,13 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/config"
 	statusconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/status/controller/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
@@ -40,27 +42,44 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 
 	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
 
-	// create
-	if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
-		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+	annotations := clusterInfo.GetAnnotations()
+	if annotations != nil {
+		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
+			if resp, err := r.requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
+			}
+		}
 	}
 
-	// may check the response to decide whether need to update or not
-	// if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
-	// 	&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-	// 	return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
-	// }
-
-	// delete
-	if !clusterInfo.DeletionTimestamp.IsZero() {
-		if resp, err := r.requester.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
-			&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData}); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
+	if clusterInfo.DeletionTimestamp.IsZero() {
+		// add a finalizer to the managedclusterinfo object
+		if !controllerutil.ContainsFinalizer(clusterInfo, constants.InventoryResourceFinalizer) {
+			controllerutil.AddFinalizer(clusterInfo, constants.InventoryResourceFinalizer)
+			if err := r.runtimeClient.Update(ctx, clusterInfo); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The managedclusterinfo object is being deleted
+		if controllerutil.ContainsFinalizer(clusterInfo, constants.InventoryResourceFinalizer) {
+			if resp, err := r.requester.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
+				&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData}); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
+			}
+			// remove finalizer
+			controllerutil.RemoveFinalizer(clusterInfo, constants.InventoryResourceFinalizer)
+			if err := r.runtimeClient.Update(ctx, clusterInfo); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 		return ctrl.Result{}, nil
 	}
 
+	if resp, err := r.requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
+		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -70,6 +89,14 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
+			// add the annotation to identify the request is creating
+			// the annotation won't propagate to the etcd
+			annotations := e.Object.GetAnnotations()
+			if annotations == nil {
+				annotations = map[string]string{}
+			}
+			annotations[constants.InventoryResourceCreatingAnnotationlKey] = ""
+			e.Object.SetAnnotations(annotations)
 			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
@@ -90,9 +117,17 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 	clientCN string,
 ) *kessel.K8SCluster {
+	kesselLabels := []*kessel.ResourceLabel{}
+	for key, value := range clusterInfo.Labels {
+		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
+			Key:   key,
+			Value: value,
+		})
+	}
 	k8sCluster := &kessel.K8SCluster{
 		Metadata: &kessel.Metadata{
 			ResourceType: "k8s-cluster",
+			Labels:       kesselLabels,
 		},
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
