@@ -48,11 +48,11 @@ var (
 
 type ACMResourceController struct {
 	manager.Manager
-	resources map[string]bool
+	Resources map[string]bool
 }
 
 func (r *ACMResourceController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.resources[req.Name] = true
+	r.Resources[req.Name] = true
 
 	if !r.readyToWatchACMResources() {
 		log.Debugf("ACM Resources is not ready")
@@ -75,7 +75,7 @@ func (r *ACMResourceController) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *ACMResourceController) readyToWatchACMResources() bool {
 	for val := range ACMResources {
-		if ready := r.resources[val]; !ready {
+		if ready := r.Resources[val]; !ready {
 			return false
 		}
 	}
@@ -88,7 +88,7 @@ func AddACMResourceController(opts config.ControllerOption) error {
 	}
 	acmController := &ACMResourceController{
 		Manager:   opts.Manager,
-		resources: make(map[string]bool),
+		Resources: make(map[string]bool),
 	}
 	err := ctrl.NewControllerManagedBy(opts.Manager).Named("acm-controller").
 		WatchesMetadata(

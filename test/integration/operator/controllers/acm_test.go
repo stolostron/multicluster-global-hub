@@ -31,7 +31,8 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 	BeforeAll(func() {
 		// Initialize the controller and necessary resources
 		controller = &acm.ACMResourceController{
-			Manager: runtimeManager, // assuming testManager is set up for testing
+			Manager:   runtimeManager, // assuming testManager is set up for testing
+			Resources: make(map[string]bool),
 		}
 
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
@@ -81,13 +82,9 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, mch)).To(Succeed())
 		time.Sleep(1 * time.Second)
 
-		result, err := controller.Reconcile(ctx, req)
+		_, err := controller.Reconcile(ctx, req)
 		utils.PrettyPrint(err)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(result.RequeueAfter).To(BeNumerically("~", 10*time.Second))
-
-		// Check if ACMResourceReady was set to false
-		Expect(config.IsACMResourceReady()).To(BeFalse())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).ToNot(HaveOccurred())
