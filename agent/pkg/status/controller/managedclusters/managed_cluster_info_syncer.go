@@ -3,6 +3,7 @@ package managedclusters
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
@@ -49,6 +50,7 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
 			}
+			return ctrl.Result{}, nil
 		}
 	}
 
@@ -86,7 +88,10 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Requester) error {
 	clusterInfoPredicate := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			return e.ObjectOld.GetResourceVersion() < e.ObjectNew.GetResourceVersion()
+			return !reflect.DeepEqual(e.ObjectNew.(*clusterinfov1beta1.ManagedClusterInfo).Status,
+				e.ObjectOld.(*clusterinfov1beta1.ManagedClusterInfo).Status) ||
+				!reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) ||
+				e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
 			// add the annotation to identify the request is creating
