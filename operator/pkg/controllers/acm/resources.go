@@ -86,7 +86,10 @@ func AddACMResourceController(opts config.ControllerOption) error {
 	if acmResourceControllerStarted {
 		return nil
 	}
-	acmController := &ACMResourceController{Manager: opts.Manager}
+	acmController := &ACMResourceController{
+		Manager:   opts.Manager,
+		resources: make(map[string]bool),
+	}
 	err := ctrl.NewControllerManagedBy(opts.Manager).Named("acm-controller").
 		WatchesMetadata(
 			&apiextensionsv1.CustomResourceDefinition{},
