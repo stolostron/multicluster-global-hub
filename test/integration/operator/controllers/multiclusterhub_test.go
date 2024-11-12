@@ -16,13 +16,13 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/multiclusterhub"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/acm"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // go test ./test/integration/operator/controllers -ginkgo.focus "MulticlusterhubController" -v
 var _ = Describe("MulticlusterhubController", Ordered, func() {
-	var controller *multiclusterhub.ACMResourceController
+	var controller *acm.ACMResourceController
 	var mch *mchv1.MultiClusterHub
 	var namespace string
 	var mgh *v1alpha4.MulticlusterGlobalHub
@@ -30,7 +30,7 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 
 	BeforeAll(func() {
 		// Initialize the controller and necessary resources
-		controller = &multiclusterhub.ACMResourceController{
+		controller = &acm.ACMResourceController{
 			Manager: runtimeManager, // assuming testManager is set up for testing
 		}
 
