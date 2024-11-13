@@ -2010,8 +2010,8 @@ modernc.org/strutil v1.0.0/go.mod h1:lstksw84oURvj9y3tn8lGvRxyRC1S2+g5uuIzNfIOBs
 modernc.org/xc v1.0.0/go.mod h1:mRNCo0bvLjGhHO9WsyuKVU4q0ceiDDDoEeWDJHrNx8I=
 open-cluster-management.io/addon-framework v0.10.1-0.20240925123215-6bccee1ffd80 h1:uy+5gO5rVFrWOmzsCzBbq2QqY7cZdFYAY5xshbbU9Uk=
 open-cluster-management.io/addon-framework v0.10.1-0.20240925123215-6bccee1ffd80/go.mod h1:C1VETu/CIQKYfMiVAgNzPEUHjCpL9P1Z/KsGhHa4kl4=
-open-cluster-management.io/api v0.14.1-0.20240627145512-bd6f2229b53c h1:gYfgkX/U6fv2d3Ly8D6N1GM9zokORupLSgCxx791zZw=
-open-cluster-management.io/api v0.14.1-0.20240627145512-bd6f2229b53c/go.mod h1:9erZEWEn4bEqh0nIX2wA7f/s3KCuFycQdBrPrRzi0QM=
+open-cluster-management.io/api v0.15.0 h1:lRee1KOlGHZb2scTA7ff9E9Fxt2hJc7jpkHnaCbvkOU=
+open-cluster-management.io/api v0.15.0/go.mod h1:9erZEWEn4bEqh0nIX2wA7f/s3KCuFycQdBrPrRzi0QM=
 open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0 h1:r20lNdYf/dZll6d9MRlWv9CAMcW+YO5PGG25odV+FgY=
 open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0/go.mod h1:ZRc+w6JPLUXUGcfR6cYBL+2yufaNWsn7Vi/JugStDuw=
 open-cluster-management.io/managed-serviceaccount v0.6.0 h1:qIi5T9WQJBuoGqnYGIktXbtqfQoiN2H9XU2P/6lAQiw=
