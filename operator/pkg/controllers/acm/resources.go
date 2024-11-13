@@ -44,7 +44,7 @@ var (
 	acmResourceControllerStarted = false
 )
 
-// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 
 type ACMResourceController struct {
 	manager.Manager
