@@ -463,7 +463,7 @@ func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) (bool, error) {
 	klog.Infof("Remove strimzi resources")
 	listOpts := []client.ListOption{
-		client.HasLabels{constants.GlobalHubOwnerLabelKey},
+		client.InNamespace(utils.GetDefaultNamespace()),
 	}
 	kafkaUserList := &kafkav1beta2.KafkaUserList{}
 	klog.Infof("Delete kafkaUsers")
