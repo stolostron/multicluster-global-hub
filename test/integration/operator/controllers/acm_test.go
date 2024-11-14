@@ -16,13 +16,13 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/multiclusterhub"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/acm"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // go test ./test/integration/operator/controllers -ginkgo.focus "MulticlusterhubController" -v
 var _ = Describe("MulticlusterhubController", Ordered, func() {
-	var controller *multiclusterhub.MulticlusterhubController
+	var controller *acm.ACMResourceController
 	var mch *mchv1.MultiClusterHub
 	var namespace string
 	var mgh *v1alpha4.MulticlusterGlobalHub
@@ -30,8 +30,9 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 
 	BeforeAll(func() {
 		// Initialize the controller and necessary resources
-		controller = &multiclusterhub.MulticlusterhubController{
-			Manager: runtimeManager, // assuming testManager is set up for testing
+		controller = &acm.ACMResourceController{
+			Manager:   runtimeManager, // assuming testManager is set up for testing
+			Resources: make(map[string]bool),
 		}
 
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
@@ -81,13 +82,9 @@ var _ = Describe("MulticlusterhubController", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, mch)).To(Succeed())
 		time.Sleep(1 * time.Second)
 
-		result, err := controller.Reconcile(ctx, req)
+		_, err := controller.Reconcile(ctx, req)
 		utils.PrettyPrint(err)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(result.RequeueAfter).To(BeNumerically("~", 10*time.Second))
-
-		// Check if ACMResourceReady was set to false
-		Expect(config.IsACMResourceReady()).To(BeFalse())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).ToNot(HaveOccurred())
