@@ -36,4 +36,4 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 
 echo "delete config $CONFIG_DIR"
-rm -rf "$CONFIG_DIR/*" 
+rm -rf $CONFIG_DIR/*
