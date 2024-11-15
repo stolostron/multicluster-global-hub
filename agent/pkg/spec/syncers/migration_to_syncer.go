@@ -157,6 +157,7 @@ func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context
 			Name: migrationClusterRoleName,
 		}, foundMigrationClusterRole); err != nil {
 		if apierrors.IsNotFound(err) {
+			s.log.Infof("creating migration clusterrole %s", foundMigrationClusterRole.GetName())
 			s.log.Debugf("creating migration clusterrole %v", foundMigrationClusterRole)
 			if err := s.client.Create(ctx, migrationClusterRole); err != nil {
 				return err
@@ -166,6 +167,7 @@ func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context
 		}
 	} else {
 		if !apiequality.Semantic.DeepDerivative(migrationClusterRole, foundMigrationClusterRole) {
+			s.log.Infof("updating migration clusterrole %s", migrationClusterRole.GetName())
 			s.log.Debugf("updating migration clusterrole %v", migrationClusterRole)
 			if err := s.client.Update(ctx, migrationClusterRole); err != nil {
 				return err
@@ -255,6 +257,8 @@ func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx contex
 			Name: sarMigrationClusterRoleBindingName,
 		}, foundSAMigrationClusterRoleBinding); err != nil {
 		if apierrors.IsNotFound(err) {
+			s.log.Infof("creating subjectaccessreviews clusterrolebinding %s",
+				foundSAMigrationClusterRoleBinding.GetName())
 			s.log.Debugf("creating subjectaccessreviews clusterrolebinding %v",
 				foundSAMigrationClusterRoleBinding)
 			if err := s.client.Create(ctx, sarMigrationClusterRoleBinding); err != nil {
@@ -265,6 +269,8 @@ func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx contex
 		}
 	} else {
 		if !apiequality.Semantic.DeepDerivative(sarMigrationClusterRoleBinding, foundSAMigrationClusterRoleBinding) {
+			s.log.Infof("updating subjectaccessreviews clusterrolebinding %v",
+				sarMigrationClusterRoleBinding.GetName())
 			s.log.Debugf("updating subjectaccessreviews clusterrolebinding %v",
 				sarMigrationClusterRoleBinding)
 			if err := s.client.Update(ctx, sarMigrationClusterRoleBinding); err != nil {

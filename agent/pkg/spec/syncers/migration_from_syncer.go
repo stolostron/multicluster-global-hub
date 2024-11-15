@@ -50,6 +50,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			Namespace: bootstrapSecret.Namespace,
 		}, foundBootstrapSecret); err != nil {
 		if apierrors.IsNotFound(err) {
+			s.log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
 			s.log.Debugf("creating bootstrap secret %v", bootstrapSecret)
 			if err := s.client.Create(ctx, bootstrapSecret); err != nil {
 				return err
@@ -59,6 +60,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		}
 	} else {
 		// update the bootstrap secret if it already exists
+		s.log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
 		s.log.Debugf("updating bootstrap secret %v", bootstrapSecret)
 		if err := s.client.Update(ctx, bootstrapSecret); err != nil {
 			return err
@@ -79,6 +81,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			Name: klusterletConfig.Name,
 		}, foundKlusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
+			s.log.Infof("creating klusterlet config %s", klusterletConfig.GetName())
 			s.log.Debugf("creating klusterlet config %v", klusterletConfig)
 			if err := s.client.Create(ctx, klusterletConfig); err != nil {
 				return err
@@ -109,6 +112,22 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
 		annotations[constants.ManagedClusterMigrating] = ""
 		mcl.SetAnnotations(annotations)
+		if err := s.client.Update(ctx, mcl); err != nil {
+			return err
+		}
+	}
+
+	// wait for 10 seconds to ensure the klusterletconfig is applied and then trigger the migration
+	time.Sleep(10 * time.Second)
+	for _, managedCluster := range managedClusters {
+		mcl := &clusterv1.ManagedCluster{}
+		if err := s.client.Get(ctx, types.NamespacedName{
+			Name: managedCluster,
+		}, mcl); err != nil {
+			return err
+		}
+		mcl.Spec.HubAcceptsClient = false
+		s.log.Info("updating managedcluster to set HubAcceptsClient as false", "managedcluster", mcl.Name)
 		if err := s.client.Update(ctx, mcl); err != nil {
 			return err
 		}
