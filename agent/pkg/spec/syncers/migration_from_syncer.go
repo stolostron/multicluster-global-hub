@@ -22,10 +22,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
-const (
-	bootstrapSecretBackupSuffix = "-backup"
-)
-
 type managedClusterMigrationFromSyncer struct {
 	log    *zap.SugaredLogger
 	client client.Client
@@ -69,45 +65,12 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		}
 	}
 
-	// create or update boostrap secret backup
-	bootstrapSecretBackup := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapSecret.Name + bootstrapSecretBackupSuffix,
-			Namespace: bootstrapSecret.Namespace,
-		},
-		Data: bootstrapSecret.Data,
-	}
-	foundBootstrapSecretBackup := &corev1.Secret{}
-	if err := s.client.Get(ctx,
-		types.NamespacedName{
-			Name:      bootstrapSecretBackup.Name,
-			Namespace: bootstrapSecretBackup.Namespace,
-		}, foundBootstrapSecretBackup); err != nil {
-		if apierrors.IsNotFound(err) {
-			s.log.Info("creating bootstrap backup secret", "bootstrap backup secret", bootstrapSecretBackup)
-			if err := s.client.Create(ctx, bootstrapSecretBackup); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		// update the bootstrap backup secret if it already exists
-		s.log.Info("updating bootstrap backup secret", "bootstrap backup secret", bootstrapSecretBackup)
-		if err := s.client.Update(ctx, bootstrapSecretBackup); err != nil {
-			return err
-		}
-	}
-
 	// create klusterlet config if it does not exist
 	klusterletConfig := managedClusterMigrationEvent.KlusterletConfig
 	// set the bootstrap kubeconfig secrets in klusterlet config
 	klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets = []operatorv1.KubeConfigSecret{
 		{
 			Name: bootstrapSecret.Name,
-		},
-		{
-			Name: bootstrapSecretBackup.Name,
 		},
 	}
 	foundKlusterletConfig := &klusterletv1alpha1.KlusterletConfig{}
