@@ -50,7 +50,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			Namespace: bootstrapSecret.Namespace,
 		}, foundBootstrapSecret); err != nil {
 		if apierrors.IsNotFound(err) {
-			s.log.Info("creating bootstrap secret", "bootstrap secret", bootstrapSecret)
+			s.log.Debugf("creating bootstrap secret %v", bootstrapSecret)
 			if err := s.client.Create(ctx, bootstrapSecret); err != nil {
 				return err
 			}
@@ -59,7 +59,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		}
 	} else {
 		// update the bootstrap secret if it already exists
-		s.log.Info("updating bootstrap secret", "bootstrap secret", bootstrapSecret)
+		s.log.Debugf("updating bootstrap secret %v", bootstrapSecret)
 		if err := s.client.Update(ctx, bootstrapSecret); err != nil {
 			return err
 		}
@@ -79,7 +79,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			Name: klusterletConfig.Name,
 		}, foundKlusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
-			s.log.Info("creating klusterlet config", "klusterlet config", klusterletConfig)
+			s.log.Debugf("creating klusterlet config %v", klusterletConfig)
 			if err := s.client.Create(ctx, klusterletConfig); err != nil {
 				return err
 			}
