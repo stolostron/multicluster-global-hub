@@ -54,15 +54,16 @@ const (
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
-	CommunityChannel           = "strimzi-0.41.x"
+	// The KRaft Compatibility: https://github.com/orgs/strimzi/discussions/10836
+	CommunityChannel           = "strimzi-0.42.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
 )
 
 var (
+	DefaultAMQKafkaVersion         = "3.7.0"
 	KafkaStorageIdentifier   int32 = 0
 	KafkaStorageDeleteClaim        = false
-	KafkaVersion                   = "3.7.0"
 	DefaultPartition         int32 = 1
 	DefaultPartitionReplicas int32 = 3
 	// kafka metrics constants
@@ -758,7 +759,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 						kafkaSpecKafkaStorageVolumesElem,
 					},
 				},
-				Version: &KafkaVersion,
+				Version: &DefaultAMQKafkaVersion,
 			},
 			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
 				Replicas:  3,

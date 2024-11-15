@@ -9,7 +9,7 @@ metadata:
   namespace: {{.Namespace}}
 spec:
   kafka:
-    version: 3.7.0
+    version: 3.7.1 # https://github.com/strimzi/strimzi-kafka-operator/blob/release-0.42.x/examples/kafka/kraft/kafka-with-dual-role-nodes.yaml
     metadataVersion: 3.7-IV4
     listeners:
       - name: plain
