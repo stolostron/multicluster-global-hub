@@ -111,7 +111,6 @@ kind_cluster() {
   local cluster_name="$1"
   local kubeconfig="$dir/$cluster_name"
   while [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name"; do
-    sleep $((RANDOM % 20 + 1)) # avoid the several clusters creation at the same time
     ensure_cluster "$cluster_name" "$kubeconfig"
   done
   echo "kind clusters: $(kind get clusters)"

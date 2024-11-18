@@ -18,9 +18,9 @@ start=$(date +%s)
 # Init clusters
 start_time=$(date +%s)
 
-kind_cluster "$GH_NAME" 2>&1 &
+kind_cluster "$GH_NAME" 2>&1
 for i in $(seq 1 "${MH_NUM}"); do
-  kind_cluster "hub$i" 2>&1 &
+  kind_cluster "hub$i" 2>&1
 done
 
 wait
