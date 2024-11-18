@@ -113,7 +113,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// wait for 10 seconds to ensure the klusterletconfig is applied and then trigger the migration
-	// TODO: right now, no condition indicates the klusterletconfig is applied
+	// right now, no condition indicates the klusterletconfig is applied
 	time.Sleep(10 * time.Second)
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}

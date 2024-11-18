@@ -89,13 +89,14 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				if err := syncer.Sync(ctx, evt.Data()); err != nil {
-					d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 					return err
 				}
 				return nil
-			})
+			}); err != nil {
+				d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
+			}
 		}
 	}
 }
