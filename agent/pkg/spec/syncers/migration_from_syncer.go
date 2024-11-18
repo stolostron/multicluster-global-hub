@@ -133,6 +133,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	// check managed cluster available unknown status and detach the managed cluster in new go routine
 	if err := s.detachManagedClusters(ctx, managedClusters); err != nil {
 		s.log.Error(err, "failed to detach managed clusters")
+		return err
 	}
 
 	return nil
