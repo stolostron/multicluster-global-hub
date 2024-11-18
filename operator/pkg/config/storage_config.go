@@ -149,5 +149,6 @@ func SetStorageConnection(conn *PostgresConnection) bool {
 }
 
 func GetStorageConnection() *PostgresConnection {
+	log.Debugf("Set Storage Connection: %v", postgresConn != nil)
 	return postgresConn
 }

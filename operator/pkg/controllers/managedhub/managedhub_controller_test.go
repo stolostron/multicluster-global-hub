@@ -22,6 +22,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 )
 
 func TestManagedHubController_Reconcile(t *testing.T) {
@@ -93,6 +95,74 @@ func TestManagedHubController_Reconcile(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ManagedHubController.Reconcile() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+		})
+	}
+}
+
+func TestManagedHubController_pruneManagedHubs(t *testing.T) {
+	type fields struct {
+		c client.Client
+	}
+
+	tests := []struct {
+		name        string
+		wantErr     bool
+		initObjects []runtime.Object
+	}{
+		{
+			name:    "no managedcluster",
+			wantErr: false,
+		},
+		{
+			name:    "only has local cluster",
+			wantErr: false,
+			initObjects: []runtime.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "local-cluster",
+					},
+				},
+			},
+		},
+		{
+			name:    "cluster has no annotation",
+			wantErr: false,
+			initObjects: []runtime.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mc1",
+					},
+				},
+			},
+		},
+		{
+			name:    "cluster has globalhub annotation",
+			wantErr: false,
+			initObjects: []runtime.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mc1",
+						Annotations: map[string]string{
+							operatorconstants.AnnotationONMulticlusterHub:       "true",
+							operatorconstants.AnnotationPolicyONMulticlusterHub: "true",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clusterv1.AddToScheme(scheme.Scheme)
+			addonapiv1alpha1.AddToScheme(scheme.Scheme)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
+
+			r := &ManagedHubController{
+				c: fakeClient,
+			}
+			if err := r.pruneManagedHubs(context.Background()); (err != nil) != tt.wantErr {
+				t.Errorf("ManagedHubController.pruneManagedHubs() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

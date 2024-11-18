@@ -40,7 +40,13 @@ var FS embed.FS
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
-var started bool
+var addonManagerController *AddonManagerController
+
+type AddonManagerController struct{}
+
+func (r *AddonManagerController) IsResourceRemoved() bool {
+	return true
+}
 
 func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	if !config.IsACMResourceReady() {
@@ -56,21 +62,21 @@ func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	return true
 }
 
-func StartAddonManagerController(initOption config.ControllerOption) error {
-	if started {
-		return nil
+func StartAddonManagerController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if addonManagerController != nil {
+		return addonManagerController, nil
 	}
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
-		return nil
+		return nil, nil
 	}
 	if err := StartGlobalHubAddonManager(initOption.Ctx, initOption.Manager.GetConfig(),
 		initOption.Manager.GetClient(), initOption.OperatorConfig); err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Infof("inited GlobalHubAddonManager controller")
-	started = true
-	return nil
+	addonManagerController = &AddonManagerController{}
+	return addonManagerController, nil
 }
 
 // 1. Start the addon manager(goroutine controller) by the global hub operator

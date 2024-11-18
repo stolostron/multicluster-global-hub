@@ -35,8 +35,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	globalhubwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -87,16 +85,6 @@ func doMain(ctx context.Context, cfg *rest.Config) error {
 	err = controllers.NewMetaController(mgr, kubeClient, operatorConfig, imageClient).SetupWithManager(mgr)
 	if err != nil {
 		return fmt.Errorf("unable to create meta controller: %w", err)
-	}
-
-	// global hub controller
-	globalHubController, err := hubofhubs.NewGlobalHubController(mgr, kubeClient, operatorConfig, imageClient)
-	if err != nil {
-		return fmt.Errorf("unable to create crd controller: %w", err)
-	}
-	_, err = crd.AddCRDController(mgr, operatorConfig, kubeClient, globalHubController)
-	if err != nil {
-		return fmt.Errorf("failed to add the crd controller: %w", err)
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

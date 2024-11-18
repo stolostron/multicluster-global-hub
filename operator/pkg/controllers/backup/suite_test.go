@@ -144,7 +144,8 @@ var _ = BeforeSuite(func() {
 	option := config.ControllerOption{
 		Manager: k8sManager,
 	}
-	err = backup.StartBackupController(option)
+	config.SetACMResourceReady(true)
+	_, err = backup.StartController(option)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

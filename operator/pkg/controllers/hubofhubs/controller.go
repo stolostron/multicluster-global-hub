@@ -18,7 +18,6 @@ package hubofhubs
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 	"time"
@@ -55,7 +54,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs/prune"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -77,7 +75,6 @@ type GlobalHubReconciler struct {
 	log               logr.Logger
 	upgraded          bool
 	operatorConfig    *config.OperatorConfig
-	pruneReconciler   *prune.PruneReconciler
 	webhookReconciler *webhook.WebhookReconciler
 	imageClient       *imagev1client.ImageV1Client
 }
@@ -93,7 +90,6 @@ func NewGlobalHubReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 		scheme:            mgr.GetScheme(),
 		recorder:          mgr.GetEventRecorderFor(operatorconstants.GlobalHubControllerName),
 		operatorConfig:    operatorConfig,
-		pruneReconciler:   prune.NewPruneReconciler(mgr.GetClient()),
 		webhookReconciler: webhook.NewWebhookReconciler(mgr),
 		imageClient:       imageClient,
 	}
@@ -605,7 +601,6 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 	var reconcileErr error
-	var needRequeue bool
 	// update status condition
 	defer func() {
 		if reconcileErr != nil {
@@ -633,27 +628,8 @@ func (r *GlobalHubReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	// prune resources if deleting mgh or metrics is disabled
-	needRequeue, err = r.pruneReconciler.Reconcile(ctx, mgh)
-	if err != nil {
-		reconcileErr = fmt.Errorf("failed to prune Global Hub resources %v", err)
-		return ctrl.Result{}, reconcileErr
-	}
-	if needRequeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
 	if mgh.GetDeletionTimestamp() != nil {
 		return ctrl.Result{}, nil
-	}
-
-	if config.IsACMResourceReady() {
-		// webhook required ACM
-		if reconcileErr = webhook.StartWebhookController(config.ControllerOption{
-			Manager:               r.mgr,
-			MulticlusterGlobalHub: mgh,
-		}); reconcileErr != nil {
-			return ctrl.Result{}, reconcileErr
-		}
 	}
 
 	return ctrl.Result{}, nil

@@ -9,14 +9,21 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -25,7 +32,10 @@ import (
 //go:embed manifests
 var manifests embed.FS
 
-var startedKafkaController = false
+var (
+	startedKafkaController = false
+	isResourceRemoved      = false
+)
 
 var log = logger.DefaultZapLogger()
 
@@ -37,9 +47,14 @@ type KafkaStatus struct {
 
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
-	ctrl.Manager
+	c           client.Client
 	trans       *strimziTransporter
 	kafkaStatus KafkaStatus
+}
+
+func IsResourceRemoved() bool {
+	log.Infof("KafkaController resource removed: %v", isResourceRemoved)
+	return isResourceRemoved
 }
 
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;create;delete;update;list;watch
@@ -49,16 +64,32 @@ type KafkaController struct {
 
 func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	// If mgh is deleting, return
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
+	}
+	if mgh.DeletionTimestamp != nil {
+		if !config.GetGlobalhubAgentRemoved() {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		return r.pruneStrimziResources(ctx)
+	}
+	isResourceRemoved = false
+	if !mgh.Spec.EnableMetrics {
+		err = operatorutils.PruneMetricsResources(ctx, r.c,
+			map[string]string{
+				constants.GlobalHubMetricsLabel: "strimzi",
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	var reconcileErr error
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
+		err = config.UpdateMGHComponent(ctx, r.c,
 			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
 		)
 		if err != nil {
@@ -119,8 +150,8 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 		return nil
 	}
 	r := &KafkaController{
-		Manager: mgr,
-		trans:   transporter.(*strimziTransporter),
+		c:     mgr.GetClient(),
+		trans: transporter.(*strimziTransporter),
 	}
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
@@ -206,4 +237,91 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 		Reason:  "TransportConnectionSet",
 		Message: "Transport connection has set",
 	}
+}
+
+func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Result, error) {
+	log.Infof("Remove strimzi resources")
+	listOpts := []client.ListOption{
+		client.InNamespace(utils.GetDefaultNamespace()),
+	}
+	kafkaUserList := &kafkav1beta2.KafkaUserList{}
+	log.Infof("Delete kafkaUsers")
+	if err := r.c.List(ctx, kafkaUserList, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+	for idx := range kafkaUserList.Items {
+		log.Infof("Delete kafka user %v", kafkaUserList.Items[idx].Name)
+		if err := r.c.Delete(ctx, &kafkaUserList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
+
+	kafkaTopicList := &kafkav1beta2.KafkaTopicList{}
+	log.Infof("Delete kafkaTopics")
+
+	if err := r.c.List(ctx, kafkaTopicList, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+	for idx := range kafkaTopicList.Items {
+		log.Infof("Delete kafka topic %v", kafkaTopicList.Items[idx].Name)
+		if err := r.c.Delete(ctx, &kafkaTopicList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
+	// Wait kafkatopic is removed
+	if err := r.c.List(ctx, kafkaTopicList, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(kafkaTopicList.Items) != 0 {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	kafka := &kafkav1beta2.Kafka{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.trans.kafkaClusterName,
+			Namespace: utils.GetDefaultNamespace(),
+		},
+	}
+	log.Infof("Delete kafka cluster %v", kafka.Name)
+
+	if err := r.c.Delete(ctx, kafka); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	log.Infof("kafka cluster deleted")
+
+	kafkaSub := &subv1alpha1.Subscription{}
+	err := r.c.Get(ctx, types.NamespacedName{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      r.trans.subName,
+	}, kafkaSub)
+	if err != nil {
+		log.Errorf("Failed to get strimzi subscription, err:%v", err)
+		if errors.IsNotFound(err) {
+			isResourceRemoved = true
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if kafkaSub.Status.InstalledCSV != "" {
+		kafkaCsv := &subv1alpha1.ClusterServiceVersion{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kafkaSub.Status.InstalledCSV,
+				Namespace: utils.GetDefaultNamespace(),
+			},
+		}
+		log.Infof("Delete kafka csv %v", kafkaCsv.Name)
+		if err := r.c.Delete(ctx, kafkaCsv); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Infof("kafka csv deleted")
+	}
+
+	if err := r.c.Delete(ctx, kafkaSub); err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	log.Infof("kafka subscription deleted")
+	isResourceRemoved = true
+	return ctrl.Result{}, nil
 }

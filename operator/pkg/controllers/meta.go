@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,37 +48,38 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
-type Func func(initOption config.ControllerOption) error
+type Func func(initOption config.ControllerOption) (config.ControllerInterface, error)
 
-// controllerStartFuncList store all the controllers that need started
-var controllerStartFuncList = []Func{
-	// start the multilcusterhub controller to update the ACM status of the mgh
-	acm.AddACMResourceController,
-	transporter.StartController,
-	storage.StartController,
-	grafana.StartController,
-	inventory.StartController,
-	globalhubmanager.StartController,
-	backup.StartBackupController,
-	webhook.StartWebhookController,
-	managedhub.StartController,
-	agent.StartAddonManagerController,
-	agent.StartHostedAgentController,
-	agent.StartDefaultAgentController,
+// controllerStartMap store all the controllers that need started
+var controllerStartFuncMap = map[string]Func{
+	"globalhubManager": globalhubmanager.StartController,
+	"grafana":          grafana.StartController,
+	"defaultAgent":     agent.StartDefaultAgentController,
+	"hostedAgent":      agent.StartHostedAgentController,
+	"addonManager":     agent.StartAddonManagerController,
+	"webhook":          webhook.StartController,
+	"storage":          storage.StartController,
+	"transporter":      transporter.StartController,
+	"managedhub":       managedhub.StartController,
+	"acm":              acm.StartController,
+	"backup":           backup.StartController,
+	"inventory":        inventory.StartController,
 }
 
 var log = logger.DefaultZapLogger()
 
 type MetaController struct {
-	client         client.Client
-	kubeClient     kubernetes.Interface
-	imageClient    *imagev1client.ImageV1Client
-	mgr            manager.Manager
-	operatorConfig *config.OperatorConfig
-	upgraded       bool
+	client               client.Client
+	kubeClient           kubernetes.Interface
+	imageClient          *imagev1client.ImageV1Client
+	mgr                  manager.Manager
+	operatorConfig       *config.OperatorConfig
+	upgraded             bool
+	startedControllerMap map[string]config.ControllerInterface
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
@@ -120,8 +123,22 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 			Reason:  config.CONDITION_REASON_GLOBALHUB_UNINSTALL,
 			Message: config.CONDITION_MESSAGE_GLOBALHUB_UNINSTALL,
 		}, v1alpha4.GlobalHubUninstalling)
-
-		return ctrl.Result{}, err
+		_, err = r.pruneGlobalHubResources(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		for name, c := range r.startedControllerMap {
+			removed := c.IsResourceRemoved()
+			log.Debugf("removed resources in controller: %v, removed:%v", name, removed)
+			if !removed {
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+		}
+		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+		if err := utils.UpdateObject(ctx, r.client, mgh); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	var reconcileErr error
@@ -153,9 +170,16 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 		}
 	}
 
-	for _, startController := range controllerStartFuncList {
-		reconcileErr = startController(controllerOption)
+	for controllerName, startController := range controllerStartFuncMap {
+		var startedController config.ControllerInterface
+		startedController, reconcileErr = startController(controllerOption)
+		if reconcileErr == nil && startedController != nil {
+			log.Debugf("started controller:%v", controllerName)
+			r.startedControllerMap[controllerName] = startedController
+		}
 	}
+	log.Debugf("started controller:%v", r.startedControllerMap)
+
 	if reconcileErr != nil {
 		return ctrl.Result{}, err
 	}
@@ -165,6 +189,18 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 			return ctrl.Result{}, reconcileErr
 		}
 	}
+
+	if config.IsBYOKafka() && config.IsBYOPostgres() && mgh.Spec.EnableMetrics {
+		mgh.Spec.EnableMetrics = false
+		log.Info("Kafka and Postgres are provided by customer, disable metrics")
+		if reconcileErr := r.client.Update(ctx, mgh, &client.UpdateOptions{}); reconcileErr != nil {
+			if errors.IsConflict(reconcileErr) {
+				log.Errorf("conflict when adding finalizer to mgh instance, error: %v", reconcileErr)
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -172,11 +208,12 @@ func NewMetaController(mgr manager.Manager, kubeClient kubernetes.Interface,
 	operatorConfig *config.OperatorConfig, imageClient *imagev1client.ImageV1Client,
 ) *MetaController {
 	r := &MetaController{
-		client:         mgr.GetClient(),
-		mgr:            mgr,
-		kubeClient:     kubeClient,
-		operatorConfig: operatorConfig,
-		imageClient:    imageClient,
+		client:               mgr.GetClient(),
+		mgr:                  mgr,
+		kubeClient:           kubeClient,
+		operatorConfig:       operatorConfig,
+		imageClient:          imageClient,
+		startedControllerMap: make(map[string]config.ControllerInterface),
 	}
 	return r
 }
@@ -286,4 +323,56 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 		desiredComponents.Insert(config.COMPONENTS_INVENTORY_API_NAME)
 	}
 	return desiredComponents
+}
+
+func (r *MetaController) pruneGlobalHubResources(ctx context.Context,
+) (ctrl.Result, error) {
+	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
+	if err := r.pruneGlobalResources(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if config.IsACMResourceReady() {
+		// remove finalizer from app, policy and placement.
+		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
+		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
+		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
+			return ctrl.Result{}, err
+		}
+		log.Info("removed finalizer from mgh, app, policy, placement and etc")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
+// cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
+func (r *MetaController) pruneGlobalResources(ctx context.Context) error {
+	listOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+		}),
+	}
+
+	clusterRoleList := &rbacv1.ClusterRoleList{}
+	if err := r.client.List(ctx, clusterRoleList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterRoleList.Items {
+		if err := r.client.Delete(ctx, &clusterRoleList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	clusterRoleBindingList := &rbacv1.ClusterRoleBindingList{}
+	if err := r.client.List(ctx, clusterRoleBindingList, listOpts...); err != nil {
+		return err
+	}
+	for idx := range clusterRoleBindingList.Items {
+		if err := r.client.Delete(ctx, &clusterRoleBindingList.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	return nil
 }

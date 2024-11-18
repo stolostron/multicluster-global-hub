@@ -46,7 +46,10 @@ import (
 //go:embed manifests
 var fs embed.FS
 
-var log = logger.DefaultZapLogger()
+var (
+	log                 = logger.DefaultZapLogger()
+	inventoryReconciler *InventoryReconciler
+)
 
 type InventoryReconciler struct {
 	kubeClient kubernetes.Interface
@@ -54,30 +57,33 @@ type InventoryReconciler struct {
 	log logr.Logger
 }
 
-var started bool
+func (r *InventoryReconciler) IsResourceRemoved() bool {
+	return true
+}
 
-func StartController(initOption config.ControllerOption) error {
-	if started {
-		return nil
+func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if inventoryReconciler != nil {
+		return inventoryReconciler, nil
 	}
 	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
-		return nil
+		return nil, nil
 	}
 	if config.GetTransporterConn() == nil {
-		return nil
+		return nil, nil
 	}
 	if config.GetStorageConnection() == nil {
-		return nil
+		return nil, nil
 	}
 
-	err := NewInventoryReconciler(initOption.Manager,
-		initOption.KubeClient).SetupWithManager(initOption.Manager)
+	inventoryReconciler = NewInventoryReconciler(initOption.Manager,
+		initOption.KubeClient)
+	err := inventoryReconciler.SetupWithManager(initOption.Manager)
 	if err != nil {
-		return err
+		inventoryReconciler = nil
+		return nil, err
 	}
-	started = true
 	log.Infof("inited inventory controller")
-	return nil
+	return inventoryReconciler, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

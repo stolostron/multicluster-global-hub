@@ -18,18 +18,21 @@ package managedhub
 
 import (
 	"context"
-	"time"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -39,24 +42,33 @@ type ManagedHubController struct {
 	c client.Client
 }
 
-var started bool
+var (
+	isResourceRemoved    = true
+	managedHubController *ManagedHubController
+)
 
 var log = logger.DefaultZapLogger()
 
-func StartController(initOption config.ControllerOption) error {
-	if started {
-		return nil
+func (r *ManagedHubController) IsResourceRemoved() bool {
+	log.Infof("ManagedHubController resource removed: %v", isResourceRemoved)
+	return isResourceRemoved
+}
+
+func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if managedHubController != nil {
+		return managedHubController, nil
 	}
 	if !config.IsACMResourceReady() {
-		return nil
+		return nil, nil
 	}
-	err := NewManagedHubController(initOption.Manager).SetupWithManager(initOption.Manager)
+	managedHubController = NewManagedHubController(initOption.Manager)
+	err := managedHubController.SetupWithManager(initOption.Manager)
 	if err != nil {
-		return err
+		managedHubController = nil
+		return nil, err
 	}
 	log.Infof("inited managedhub controller")
-	started = true
-	return nil
+	return managedHubController, nil
 }
 
 func (r *ManagedHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -64,9 +76,18 @@ func (r *ManagedHubController) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		return ctrl.Result{}, nil
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	if mgh == nil || config.IsPaused(mgh) {
+		return ctrl.Result{}, nil
 	}
+	if mgh.DeletionTimestamp != nil {
+		err = r.pruneManagedHubs(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		isResourceRemoved = true
+		return ctrl.Result{}, nil
+	}
+	isResourceRemoved = false
 	var reconcileErr error
 	if reconcileErr = utils.AnnotateManagedHubCluster(ctx, r.c); reconcileErr != nil {
 		return ctrl.Result{}, reconcileErr
@@ -99,4 +120,34 @@ var mcPred = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
 	},
+}
+
+func (r *ManagedHubController) pruneManagedHubs(ctx context.Context) error {
+	clusters := &clusterv1.ManagedClusterList{}
+	if err := r.c.List(ctx, clusters, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for idx, managedHub := range clusters.Items {
+		if managedHub.Name == constants.LocalClusterName {
+			continue
+		}
+		orgAnnotations := managedHub.GetAnnotations()
+		if orgAnnotations == nil {
+			continue
+		}
+		annotations := make(map[string]string, len(orgAnnotations))
+		utils.CopyMap(annotations, managedHub.GetAnnotations())
+
+		delete(orgAnnotations, operatorconstants.AnnotationONMulticlusterHub)
+		delete(orgAnnotations, operatorconstants.AnnotationPolicyONMulticlusterHub)
+		_ = controllerutil.RemoveFinalizer(&clusters.Items[idx], constants.GlobalHubCleanupFinalizer)
+		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
+			if err := r.c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

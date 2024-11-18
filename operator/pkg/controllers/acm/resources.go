@@ -40,8 +40,8 @@ var ACMResources = sets.NewString(
 )
 
 var (
-	log                          = logger.DefaultZapLogger()
-	acmResourceControllerStarted = false
+	log                   = logger.DefaultZapLogger()
+	acmResourceController *ACMResourceController
 )
 
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
@@ -49,6 +49,10 @@ var (
 type ACMResourceController struct {
 	manager.Manager
 	Resources map[string]bool
+}
+
+func (r *ACMResourceController) IsResourceRemoved() bool {
+	return true
 }
 
 func (r *ACMResourceController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -82,9 +86,9 @@ func (r *ACMResourceController) readyToWatchACMResources() bool {
 	return true
 }
 
-func AddACMResourceController(opts config.ControllerOption) error {
-	if acmResourceControllerStarted {
-		return nil
+func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
+	if acmResourceController != nil {
+		return acmResourceController, nil
 	}
 	acmController := &ACMResourceController{
 		Manager:   opts.Manager,
@@ -108,8 +112,8 @@ func AddACMResourceController(opts config.ControllerOption) error {
 		).
 		Complete(acmController)
 	if err != nil {
-		return err
+		acmResourceController = nil
+		return nil, err
 	}
-	acmResourceControllerStarted = true
-	return nil
+	return acmResourceController, nil
 }
