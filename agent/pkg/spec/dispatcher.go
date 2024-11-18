@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
@@ -88,9 +89,13 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			if err := syncer.Sync(ctx, evt.Data()); err != nil {
-				d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
-			}
+			retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := syncer.Sync(ctx, evt.Data()); err != nil {
+					d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
+					return err
+				}
+				return nil
+			})
 		}
 	}
 }
