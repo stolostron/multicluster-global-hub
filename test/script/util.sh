@@ -29,6 +29,7 @@ export CONFIG_DIR=$CURRENT_DIR/config
 export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
 
 [ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
+chmod -R u+rwx "$CONFIG_DIR"
 
 check_dir() {
   if [ ! -d "$1" ]; then
