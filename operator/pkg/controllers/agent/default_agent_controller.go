@@ -43,89 +43,98 @@ type DefaultAgentController struct {
 	client.Client
 }
 
-func AddDefaultAgentController(ctx context.Context, mgr ctrl.Manager) error {
+var clusterPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return !filterManagedCluster(e.Object)
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if filterManagedCluster(e.ObjectNew) {
+			return false
+		}
+		if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
+			return false
+		}
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return !filterManagedCluster(e.Object)
+	},
+}
+
+var mghAddonPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
+			return false
+		}
+		if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
+			return false
+		}
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+	},
+}
+
+var clusterManagementAddonPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
+			return false
+		}
+		if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
+			return false
+		}
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
+	},
+}
+
+var secretCond = func(obj client.Object) bool {
+	if obj.GetName() == config.GetImagePullSecretName() ||
+		obj.GetName() == constants.GHTransportSecretName ||
+		obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
+			obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
+		return true
+	}
+	return false
+}
+
+var secretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return secretCond(e.Object)
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return secretCond(e.ObjectNew)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return false
+	},
+}
+
+func NewDefaultAgentController(c client.Client) *DefaultAgentController {
+	return &DefaultAgentController{
+		Client: c,
+	}
+}
+
+func StartDefaultAgentController(initOption config.ControllerOption) error {
 	if defaultAgentStarted {
 		return nil
 	}
-	agentReconciler := &DefaultAgentController{
-		Client: mgr.GetClient(),
+	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
+		return nil
 	}
-	clusterPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return !filterManagedCluster(e.Object)
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if filterManagedCluster(e.ObjectNew) {
-				return false
-			}
-			if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
-				return false
-			}
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return !filterManagedCluster(e.Object)
-		},
-	}
+	agentReconciler := NewDefaultAgentController(initOption.Manager.GetClient())
 
-	addonPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return false
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
-				return false
-			}
-			if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
-				return false
-			}
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
-		},
-	}
-
-	clusterManagementAddonPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectNew.GetName() != operatorconstants.GHManagedClusterAddonName {
-				return false
-			}
-			if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
-				return false
-			}
-			return true
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return e.Object.GetName() == operatorconstants.GHManagedClusterAddonName
-		},
-	}
-
-	secretCond := func(obj client.Object) bool {
-		if obj.GetName() == config.GetImagePullSecretName() ||
-			obj.GetName() == constants.GHTransportSecretName ||
-			obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
-				obj.GetLabels()["strimzi.io/kind"] == "KafkaUser" {
-			return true
-		}
-		return false
-	}
-	secretPred := predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool {
-			return secretCond(e.Object)
-		},
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return secretCond(e.ObjectNew)
-		},
-		DeleteFunc: func(e event.DeleteEvent) bool {
-			return false
-		},
-	}
-
-	err := ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(initOption.Manager).
 		Named("default-agent-reconciler").
 		// primary watch for managedcluster
 		Watches(&clusterv1.ManagedCluster{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
@@ -140,7 +149,7 @@ func AddDefaultAgentController(ctx context.Context, mgr ctrl.Manager) error {
 						Name: obj.GetNamespace(),
 					}},
 				}
-			}), builder.WithPredicates(addonPred)).
+			}), builder.WithPredicates(mghAddonPred)).
 		// secondary watch for managedclusteraddon
 		Watches(&v1alpha1.ClusterManagementAddOn{},
 			handler.EnqueueRequestsFromMapFunc(agentReconciler.renderAllManifestsHandler),

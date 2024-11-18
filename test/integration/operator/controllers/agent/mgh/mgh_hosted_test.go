@@ -79,8 +79,7 @@ var _ = Describe("other addons in hosted mode test", Ordered, func() {
 	BeforeAll(func() {
 		config.SetImportClusterInHosted(&hostedMGH)
 		var err error
-		hostedAddonReconciler, err = agent.AddHostedAgentController(mgr)
-		Expect(err).NotTo(HaveOccurred())
+		hostedAddonReconciler = agent.NewHostedAgentController(mgr)
 		Expect(mgr.GetClient().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: mghName,

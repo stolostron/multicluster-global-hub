@@ -50,12 +50,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg           *rest.Config
-	runtimeClient client.Client // You'll be using this client in your tests.
-	testEnv       *envtest.Environment
-	ctx           context.Context
-	cancel        context.CancelFunc
-	mgr           manager.Manager
+	cfg              *rest.Config
+	runtimeClient    client.Client // You'll be using this client in your tests.
+	testEnv          *envtest.Environment
+	ctx              context.Context
+	cancel           context.CancelFunc
+	mgr              manager.Manager
+	controllerOption config.ControllerOption
 )
 
 func TestControllers(t *testing.T) {
@@ -72,8 +73,8 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "manifest", "crd"),
+			filepath.Join("..", "..", "..", "..", "..", "operator", "config", "crd", "bases"),
+			filepath.Join("..", "..", "..", "..", "manifest", "crd"),
 		},
 		ErrorIfCRDPathMissing: true,
 	}
@@ -101,16 +102,28 @@ var _ = BeforeSuite(func() {
 		LeaderElection: false,
 	})
 	Expect(err).ToNot(HaveOccurred())
-	mgr = k8sManager
+	existMgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 
+	Eventually(func() bool {
+		err := runtimeClient.Get(ctx, config.GetMGHNamespacedName(), existMgh)
+		return err == nil
+	}, timeout, interval).Should(BeTrue())
+
+	mgr = k8sManager
+	controllerOption = config.ControllerOption{
+		Ctx:                   ctx,
+		Manager:               mgr,
+		MulticlusterGlobalHub: existMgh,
+		OperatorConfig: &config.OperatorConfig{
+			GlobalResourceEnabled: true,
+			LogLevel:              "info",
+			EnablePprof:           false,
+		},
+	}
 	By("start the addon manager and add addon controller to manager")
-	err = agent.StartGlobalHubAddonManager(ctx, cfg, k8sManager.GetClient(), &config.OperatorConfig{
-		GlobalResourceEnabled: true,
-		LogLevel:              "info",
-		EnablePprof:           false,
-	})
+	err = agent.StartAddonManagerController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
-	err = agent.AddDefaultAgentController(ctx, k8sManager)
+	err = agent.StartDefaultAgentController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
@@ -180,7 +193,7 @@ func prepareBeforeTest() {
 		Namespace: mgh.Namespace,
 		Name:      mgh.Name,
 	})
-
+	config.SetACMResourceReady(true)
 	Expect(runtimeClient.Status().Update(ctx, mgh)).Should(Succeed())
 
 	err := config.UpdateCondition(ctx, runtimeClient, config.GetMGHNamespacedName(),

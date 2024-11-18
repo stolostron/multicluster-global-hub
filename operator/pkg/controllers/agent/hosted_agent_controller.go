@@ -40,24 +40,32 @@ import (
 
 type HostedAgentController struct {
 	manager.Manager
-	client.Client
 }
 
-var hostedAddonController *HostedAgentController
+var (
+	hostedAddonController        *HostedAgentController
+	HostedAgentControllerStarted bool
+)
 
-func AddHostedAgentController(mgr manager.Manager) (*HostedAgentController, error) {
-	if hostedAddonController != nil {
-		return hostedAddonController, nil
+func StartHostedAgentController(initOption config.ControllerOption) error {
+	if HostedAgentControllerStarted {
+		return nil
 	}
-	r := &HostedAgentController{
-		Manager: mgr,
-		Client:  mgr.GetClient(),
+	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
+		return nil
 	}
-	if err := r.SetupWithManager(mgr); err != nil {
-		return nil, err
+
+	r := NewHostedAgentController(initOption.Manager)
+
+	if err := r.SetupWithManager(initOption.Manager); err != nil {
+		return err
 	}
-	hostedAddonController = r
-	return hostedAddonController, nil
+	HostedAgentControllerStarted = true
+	return nil
+}
+
+func NewHostedAgentController(mgr ctrl.Manager) *HostedAgentController {
+	return &HostedAgentController{Manager: mgr}
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -118,7 +126,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 	if !config.GetImportClusterInHosted() {
 		return ctrl.Result{}, nil
 	}
-	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Manager.GetClient())
 	if err != nil {
 		klog.Error("error ", err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -127,7 +135,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 	cma := &v1alpha1.ClusterManagementAddOn{}
-	err = r.Client.Get(ctx, req.NamespacedName, cma)
+	err = r.Manager.GetClient().Get(ctx, req.NamespacedName, cma)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -137,7 +145,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	err = r.Client.Update(ctx, cma)
+	err = r.Manager.GetClient().Update(ctx, cma)
 	if err != nil {
 		klog.Errorf("Failed to update cma, err:%v", err)
 		return ctrl.Result{}, err
