@@ -236,7 +236,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		topicReplicas = 1
 	}
 	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
-	brokerAdvertisedHost := mgh.Annotations[operatorconstants.KafkaBrokerAdvertisedHostKey]
+	brokerAdvertisedHost := mgh.Annotations[operatorconstants.KinDClusterIPKey]
 
 	// render the kafka objects
 	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())

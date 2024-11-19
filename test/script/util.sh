@@ -110,7 +110,6 @@ kind_cluster() {
   local kubeconfig="$dir/$cluster_name"
   while [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name"; do
     ensure_cluster "$cluster_name" "$kubeconfig"
-    sleep 1
   done
   echo "kind clusters: $(kind get clusters)"
 }
@@ -129,6 +128,7 @@ ensure_cluster() {
   kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
 
   # modify the context = KinD cluster name = kubeconfig name
+  kubectl config delete-context "$cluster_name" 2>/dev/null || true
   kubectl config rename-context "kind-$cluster_name" "$cluster_name"
 
   # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
@@ -375,6 +375,17 @@ install_crds() {
 
   # cluster managers
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml
+
+  # service monitor
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
+
+  # addons
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_02_addon.open-cluster-management.io_addondeploymentconfigs.crd.yaml
+
+  # cluster
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
 }
 
 install_mch() {
@@ -395,7 +406,7 @@ enable_service_ca() {
   # apply service-ca
   kubectl --context "$name" label node "$name"-control-plane node-role.kubernetes.io/master=
   kubectl --context "$name" apply -f "$resource_dir"/service-ca-crds
-  kubectl --context "$name" create ns openshift-config-managed
+  kubectl create ns openshift-config-managed --dry-run=client -o yaml | kubectl --context "$name" apply -f -
   kubectl --context "$name" apply -f "$resource_dir"/service-ca/
 }
 
