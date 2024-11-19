@@ -9,6 +9,8 @@ CURRENT_DIR=$(
 # shellcheck source=/dev/null
 source "$CURRENT_DIR/util.sh"
 
+[ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
+
 cluster_name="global-hub-kessel"
 
 kind_cluster $cluster_name
