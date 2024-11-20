@@ -19,6 +19,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
+// This is a temporary solution to wait for applying the klusterletconfig
+var sleepForApplying = 10 * time.Second
+
 type managedClusterMigrationFromSyncer struct {
 	log    *zap.SugaredLogger
 	client client.Client
@@ -114,7 +117,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 
 	// wait for 10 seconds to ensure the klusterletconfig is applied and then trigger the migration
 	// right now, no condition indicates the klusterletconfig is applied
-	time.Sleep(10 * time.Second)
+	time.Sleep(sleepForApplying)
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{
@@ -129,8 +132,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		}
 	}
 
-	time.Sleep(10 * time.Second)
-	// check managed cluster available unknown status and detach the managed cluster in new go routine
+	time.Sleep(sleepForApplying)
 	if err := s.detachManagedClusters(ctx, managedClusters); err != nil {
 		s.log.Error(err, "failed to detach managed clusters")
 		return err
