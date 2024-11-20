@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -219,11 +218,11 @@ func SetInventoryClientCA(ctx context.Context, namespace, name string, c client.
 	}
 
 	if inventoryClientCAKey == nil || !bytes.Equal(clientCASecret.Data["tls.key"], inventoryClientCAKey) {
-		klog.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
+		log.Infof("set the inventory clientCA - key: %s", clientCASecret.Name)
 		inventoryClientCAKey = clientCASecret.Data["tls.key"]
 	}
 	if inventoryClientCACert == nil || !bytes.Equal(clientCASecret.Data["tls.crt"], inventoryClientCACert) {
-		klog.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
+		log.Infof("set the inventory clientCA - cert: %s", clientCASecret.Name)
 		inventoryClientCACert = clientCASecret.Data["tls.crt"]
 	}
 	return nil
@@ -241,7 +240,7 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 		return err
 	}
 	if kafkaClientCAKey == nil || !bytes.Equal(clientCAKeySecret.Data["ca.key"], kafkaClientCAKey) {
-		klog.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
+		log.Infof("set the ca - client key: %s", clientCAKeySecret.Name)
 		kafkaClientCAKey = clientCAKeySecret.Data["ca.key"]
 	}
 
@@ -257,7 +256,7 @@ func SetKafkaClientCA(ctx context.Context, namespace, name string, c client.Clie
 	}
 
 	if kafkaClientCACert == nil || !bytes.Equal(clientCACertSecret.Data["ca.crt"], kafkaClientCACert) {
-		klog.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
+		log.Infof("set the ca - client cert: %s", clientCACertSecret.Name)
 		kafkaClientCACert = clientCACertSecret.Data["ca.crt"]
 	}
 	return nil

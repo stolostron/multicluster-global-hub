@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,12 +33,15 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
 var fs embed.FS
+
+var log = logger.DefaultZapLogger()
 
 var (
 	storageConnectionCache   *config.PostgresConnection
@@ -70,7 +72,7 @@ func StartController(initOption config.ControllerOption) error {
 		return err
 	}
 	started = true
-	klog.Infof("inited manager controller")
+	log.Infof("inited manager controller")
 	return nil
 }
 
@@ -130,7 +132,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 				mgh.Namespace, config.COMPONENTS_MANAGER_NAME, reconcileErr),
 		)
 		if err != nil {
-			klog.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
 
@@ -176,7 +178,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 
 	transportConn := config.GetTransporterConn()
 	if transportConn == nil || transportConn.BootstrapServer == "" {
-		klog.V(2).Infof("Wait kafka connection created")
+		log.Debug("Wait kafka connection created")
 
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}

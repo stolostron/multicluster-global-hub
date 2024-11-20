@@ -5,7 +5,6 @@
 package certificates
 
 import (
-	"k8s.io/klog/v2"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
@@ -15,7 +14,7 @@ import (
 // default: https://github.com/open-cluster-management-io/addon-framework/blob/main/pkg/agent/inteface.go#L213
 func SignerAndCsrConfigurations(cluster *clusterv1.ManagedCluster) []addonapiv1alpha1.RegistrationConfig {
 	userName := config.GetTransportConfigClientName(cluster.Name)
-	klog.Infof("specify the clientName(CN: %s) for managed hub cluster(%s)", userName, cluster.Name)
+	log.Infof("specify the clientName(CN: %s) for managed hub cluster(%s)", userName, cluster.Name)
 	globalHubRegistrationConfig := addonapiv1alpha1.RegistrationConfig{
 		SignerName: config.SignerName,
 		Subject: addonapiv1alpha1.Subject{

@@ -7,9 +7,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 const faildGetMsg = "Failed to get %v/%v, err:%v"
 
@@ -96,7 +99,7 @@ func AddAnnotation(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf(faildGetMsg, namespace, name, err)
+			log.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 		if HasItem(obj.GetAnnotations(), key, value) {
@@ -111,7 +114,7 @@ func AddAnnotation(
 		objNewAnnotation[key] = value
 		obj.SetAnnotations(objNewAnnotation)
 		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update %v/%v with err:%v", namespace, name, err)
+			log.Errorf("Failed to update %v/%v with err:%v", namespace, name, err)
 			return err
 		}
 		return nil
@@ -132,7 +135,7 @@ func DeleteAnnotation(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf(faildGetMsg, namespace, name, err)
+			log.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 		if !HasItemKey(obj.GetAnnotations(), key) {
@@ -143,7 +146,7 @@ func DeleteAnnotation(
 		delete(objNewAnnotations, key)
 		obj.SetAnnotations(objNewAnnotations)
 		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update obj %v/%v with err:%v", namespace, name, err)
+			log.Errorf("Failed to update obj %v/%v with err:%v", namespace, name, err)
 			return err
 		}
 		return nil
@@ -164,7 +167,7 @@ func AddLabel(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf(faildGetMsg, namespace, name, err)
+			log.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 		if HasItem(obj.GetLabels(), labelKey, labelValue) {
@@ -179,7 +182,7 @@ func AddLabel(
 		objNewLabels[labelKey] = labelValue
 		obj.SetLabels(objNewLabels)
 		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update obj %v/%v, err:%v", namespace, name, err)
+			log.Errorf("Failed to update obj %v/%v, err:%v", namespace, name, err)
 			return err
 		}
 		return nil
@@ -200,7 +203,7 @@ func DeleteLabel(
 			if errors.IsNotFound(err) {
 				return nil
 			}
-			klog.Errorf(faildGetMsg, namespace, name, err)
+			log.Errorf(faildGetMsg, namespace, name, err)
 			return err
 		}
 
@@ -213,7 +216,7 @@ func DeleteLabel(
 		obj.SetLabels(objNewLabels)
 
 		if err := client.Update(ctx, obj); err != nil {
-			klog.Errorf("Failed to update %v/%v, err:%v", namespace, name, err)
+			log.Errorf("Failed to update %v/%v, err:%v", namespace, name, err)
 			return err
 		}
 		return nil

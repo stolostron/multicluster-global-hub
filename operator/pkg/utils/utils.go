@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -160,7 +159,7 @@ func ApplyConfigMap(ctx context.Context, runtimeClient client.Client, required *
 	err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(required), curAlertConfigMap)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			klog.Infof("creating configmap, namespace: %v, name: %v", required.Namespace, required.Name)
+			log.Infof("creating configmap, namespace: %v, name: %v", required.Namespace, required.Name)
 			err = runtimeClient.Create(ctx, required)
 			if err != nil {
 				return false, fmt.Errorf("failed to create alert configmap, namespace: %v, name: %v, error:%v",
@@ -175,7 +174,7 @@ func ApplyConfigMap(ctx context.Context, runtimeClient client.Client, required *
 		return false, nil
 	}
 
-	klog.Infof("Update alert configmap, namespace: %v, name: %v", required.Namespace, required.Name)
+	log.Infof("Update alert configmap, namespace: %v, name: %v", required.Namespace, required.Name)
 	curAlertConfigMap.Data = required.Data
 	err = runtimeClient.Update(ctx, curAlertConfigMap)
 	if err != nil {
@@ -190,7 +189,7 @@ func ApplySecret(ctx context.Context, runtimeClient client.Client, requiredSecre
 	err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(requiredSecret), currentSecret)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			klog.Infof("creating secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
+			log.Infof("creating secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
 			err = runtimeClient.Create(ctx, requiredSecret)
 			if err != nil {
 				return false, fmt.Errorf("failed to create secret, namespace: %v, name: %v, error:%v",
@@ -205,7 +204,7 @@ func ApplySecret(ctx context.Context, runtimeClient client.Client, requiredSecre
 		return false, nil
 	}
 
-	klog.Infof("Update secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
+	log.Infof("Update secret, namespace: %v, name: %v", requiredSecret.Namespace, requiredSecret.Name)
 	currentSecret.Data = requiredSecret.Data
 	err = runtimeClient.Update(ctx, currentSecret)
 	if err != nil {
@@ -276,7 +275,7 @@ func WaitGlobalHubReady(ctx context.Context,
 	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
 		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
 		if errors.IsNotFound(err) {
-			klog.V(2).Info("wait until the mgh instance is created")
+			log.Debug("wait until the mgh instance is created")
 			return false, nil
 		} else if err != nil {
 			return true, err
@@ -286,7 +285,7 @@ func WaitGlobalHubReady(ctx context.Context,
 			return true, nil
 		}
 
-		klog.V(2).Info("mgh instance ready condition is not true")
+		log.Debug("mgh instance ready condition is not true")
 		return false, nil
 	})
 	if err != nil {
@@ -394,7 +393,7 @@ func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
 	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
 		func(ctx context.Context) (bool, error) {
 			if config.GetTransporter() == nil {
-				klog.V(2).Info("wait transporter ready")
+				log.Debug("wait transporter ready")
 				return false, nil
 			}
 			return true, nil

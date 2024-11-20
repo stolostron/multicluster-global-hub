@@ -8,10 +8,10 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -33,7 +33,7 @@ func NewBYOTransporter(ctx context.Context, namespacedName types.NamespacedName,
 ) *BYOTransporter {
 	if byoTransporter == nil {
 		byoTransporter = &BYOTransporter{
-			log:           ctrl.Log.WithName("secret-transporter"),
+			log:           logger.ZaprLogger(),
 			ctx:           ctx,
 			runtimeClient: c,
 		}

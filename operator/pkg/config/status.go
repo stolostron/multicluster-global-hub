@@ -27,7 +27,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -188,7 +187,7 @@ func UpdateConditionWithErr(ctx context.Context, c client.Client, err error,
 			Message: err.Error(),
 		}, globalhubv1alpha4.GlobalHubError)
 		if err != nil {
-			klog.Errorf("failed to update mgh condition:%v", err)
+			log.Errorf("failed to update mgh condition:%v", err)
 		}
 		return
 	}
@@ -202,7 +201,7 @@ func UpdateConditionWithErr(ctx context.Context, c client.Client, err error,
 		Message: conditionMessage,
 	}, "")
 	if err != nil {
-		klog.Errorf("failed to update mgh condition:%v", err)
+		log.Errorf("failed to update mgh condition:%v", err)
 	}
 }
 
@@ -280,7 +279,7 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 				Message: fmt.Sprintf("waiting statefulset %s created", name),
 			}
 		}
-		klog.Errorf("failed to get statefulset, err: %v", err)
+		log.Errorf("failed to get statefulset, err: %v", err)
 		return v1alpha4.StatusCondition{
 			Kind:    "StatefulSet",
 			Name:    name,
@@ -329,7 +328,7 @@ func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 				Message: fmt.Sprintf("waiting deployment %s created", name),
 			}
 		}
-		klog.Errorf("failed to get deployment, err: %v", err)
+		log.Errorf("failed to get deployment, err: %v", err)
 		return v1alpha4.StatusCondition{
 			Kind:    "Deployment",
 			Name:    name,

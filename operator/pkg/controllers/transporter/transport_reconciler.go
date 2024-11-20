@@ -7,7 +7,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,13 +19,18 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var WatchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
 )
-var started bool
+
+var (
+	log     = logger.DefaultZapLogger()
+	started bool
+)
 
 type TransportReconciler struct {
 	ctrl.Manager
@@ -42,7 +46,7 @@ func StartController(controllerOption config.ControllerOption) error {
 		return err
 	}
 	started = true
-	klog.Infof("inited transport controller")
+	log.Infof("inited transport controller")
 	return nil
 }
 
@@ -117,7 +121,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			getTransportComponentStatus(reconcileErr),
 		)
 		if err != nil {
-			klog.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
 

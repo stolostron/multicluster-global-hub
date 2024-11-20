@@ -12,13 +12,15 @@ import (
 	kafkav2 "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var log = logger.DefaultZapLogger()
 
 func GetBasicConfigMap() *kafkav2.ConfigMap {
 	return &kafkav2.ConfigMap{
@@ -126,7 +128,7 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig, consume
 	_ = kafkaConfigMap.SetKey("bootstrap.servers", conn.BootstrapServer)
 	// if the certs is invalid
 	if conn.CACert == "" || conn.ClientCert == "" || conn.ClientKey == "" {
-		klog.Warning("Connect to Kafka without SSL")
+		log.Warn("Connect to Kafka without SSL")
 		return kafkaConfigMap, nil
 	}
 

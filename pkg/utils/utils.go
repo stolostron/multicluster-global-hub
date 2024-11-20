@@ -3,12 +3,10 @@ package utils
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"runtime"
 	"strings"
 
-	"github.com/go-logr/logr"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	uberzap "go.uber.org/zap"
 	uberzapcore "go.uber.org/zap/zapcore"
@@ -28,12 +26,6 @@ func PrintRuntimeInfo() {
 	log.Infof("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 	log.Infof("Go Version: %s", runtime.Version())
 	log.Infof("Git Commit: %s", os.Getenv("GIT_COMMIT"))
-}
-
-func PrintVersion(log logr.Logger) {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Git Commit: %s", os.Getenv("GIT_COMMIT")))
 }
 
 func CtrlZapOptions() zap.Options {
@@ -57,7 +49,7 @@ func Validate(filePath string) (string, bool) {
 	}
 	content, err := os.ReadFile(filePath) // #nosec G304
 	if err != nil {
-		log.Printf("failed to read file %s - %v", filePath, err)
+		log.Infof("failed to read file %s - %v", filePath, err)
 		return "", false
 	}
 	trimmedContent := strings.TrimSpace(string(content))

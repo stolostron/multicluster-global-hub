@@ -22,7 +22,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/klog"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -40,11 +39,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 //go:embed manifests
 var fs embed.FS
+
+var log = logger.DefaultZapLogger()
 
 type InventoryReconciler struct {
 	kubeClient kubernetes.Interface
@@ -74,7 +76,7 @@ func StartController(initOption config.ControllerOption) error {
 		return err
 	}
 	started = true
-	klog.Infof("inited inventory controller")
+	log.Infof("inited inventory controller")
 	return nil
 }
 
@@ -130,7 +132,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 				mgh.Namespace, config.COMPONENTS_INVENTORY_API_NAME, reconcileErr),
 		)
 		if err != nil {
-			klog.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
 	// start certificate controller

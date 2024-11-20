@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -101,7 +100,7 @@ func GetPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface) 
 
 	for _, pm := range packageManifestList.Items {
 		if pm.GetName() == operatorconstants.ACMPackageManifestName {
-			klog.V(2).Info("found ACM PackageManifest")
+			log.Debug("found ACM PackageManifest")
 			acmDefaultChannel, acmCurrentCSV, ACMImages, err := getSinglePackageManifestConfig(pm)
 			if err != nil {
 				return nil, err
@@ -112,7 +111,7 @@ func GetPackageManifestConfig(ctx context.Context, dynClient dynamic.Interface) 
 			packageManifestConfigInstance.ACMImages = ACMImages
 		}
 		if pm.GetName() == operatorconstants.MCEPackageManifestName {
-			klog.V(2).Info("found MCE PackageManifest")
+			log.Debug("found MCE PackageManifest")
 			mceDefaultChannel, mceCurrentCSV, MCEImages, err := getSinglePackageManifestConfig(pm)
 			if err != nil {
 				return nil, err

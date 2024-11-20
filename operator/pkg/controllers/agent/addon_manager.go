@@ -7,7 +7,6 @@ import (
 	certificatesv1 "k8s.io/api/certificates/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	addonframeworkagent "open-cluster-management.io/addon-framework/pkg/agent"
@@ -69,7 +68,7 @@ func StartAddonManagerController(initOption config.ControllerOption) error {
 		return err
 	}
 
-	klog.Infof("inited GlobalHubAddonManager controller")
+	log.Infof("inited GlobalHubAddonManager controller")
 	started = true
 	return nil
 }

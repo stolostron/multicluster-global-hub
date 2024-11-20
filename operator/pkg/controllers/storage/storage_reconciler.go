@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/jackc/pgx/v4"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,7 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -47,8 +46,9 @@ var upgradeFS embed.FS
 //go:embed manifests.sts
 var stsPostgresFS embed.FS
 
+var log = logger.DefaultZapLogger()
+
 type StorageReconciler struct {
-	log logr.Logger
 	ctrl.Manager
 	upgrade                bool
 	databaseReconcileCount int
@@ -76,13 +76,12 @@ func StartController(initOption config.ControllerOption) error {
 		return err
 	}
 	started = true
-	klog.Infof("inited storage controller")
+	log.Infof("inited storage controller")
 	return nil
 }
 
 func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageReconciler {
 	return &StorageReconciler{
-		log:                    ctrl.Log.WithName("storage"),
 		Manager:                mgr,
 		upgrade:                false,
 		databaseReconcileCount: 0,
@@ -159,7 +158,7 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, reconcileErr),
 		)
 		if err != nil {
-			klog.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
 	storageConn, err := r.ReconcileStorage(ctx, mgh)
@@ -230,13 +229,13 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		pgConnection, err = EnsureCrunchyPostgres(ctx, r.GetClient(), r.log)
+		pgConnection, err = EnsureCrunchyPostgres(ctx, r.GetClient())
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// create the statefulset postgres and initialize the r.MiddlewareConfig.PgConnection
-		pgConnection, err = InitPostgresByStatefulset(ctx, mgh, r.Manager, r.log)
+		pgConnection, err = InitPostgresByStatefulset(ctx, mgh, r.Manager)
 		if err != nil {
 			return nil, err
 		}
@@ -245,8 +244,6 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 }
 
 func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
-	log := r.log.WithName("database")
-
 	var reconcileErr error
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
@@ -261,7 +258,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
 	if err != nil {
 		reconcileErr = fmt.Errorf("failed to connect to database: %v", err)
-		klog.Infof("wait database ready")
+		log.Infof("wait database ready")
 		return true, nil
 	}
 	defer func() {
@@ -319,7 +316,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 		r.upgrade = true
 	}
 
-	log.V(7).Info("database initialized")
+	log.Debug("database initialized")
 	r.databaseReconcileCount++
 
 	return false, nil

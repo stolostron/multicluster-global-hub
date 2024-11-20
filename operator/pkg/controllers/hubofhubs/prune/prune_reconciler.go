@@ -7,7 +7,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/go-logr/logr"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -18,11 +17,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -33,17 +30,18 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var log = logger.DefaultZapLogger()
+
 type PruneReconciler struct {
 	client.Client
-	log logr.Logger
 }
 
 func NewPruneReconciler(c client.Client) *PruneReconciler {
 	return &PruneReconciler{
-		log:    ctrl.Log.WithName("global-hub-prune"),
 		Client: c,
 	}
 }
@@ -60,7 +58,7 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 				return true, err
 			}
 			if hasmanagedHub {
-				klog.Errorf("You need to detach all the managed hub clusters before uninstalling")
+				log.Errorf("You need to detach all the managed hub clusters before uninstalling")
 				return true, nil
 			}
 		}
@@ -99,7 +97,7 @@ func (r *PruneReconciler) Reconcile(ctx context.Context,
 	// reconcile metrics
 	if config.IsBYOKafka() && config.IsBYOPostgres() {
 		mgh.Spec.EnableMetrics = false
-		klog.Info("Kafka and Postgres are provided by customer, disable metrics")
+		log.Info("Kafka and Postgres are provided by customer, disable metrics")
 		if err := r.MetricsResources(ctx); err != nil {
 			return true, err
 		}
@@ -222,13 +220,13 @@ func (r *PruneReconciler) pruneACMResources(ctx context.Context) error {
 	if err := r.deleteClusterManagementAddon(ctx); err != nil {
 		return fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
 	}
-	r.log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
+	log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
 
 	// prune the hub resources until all addons are cleaned up
-	if err := r.waitUtilAddonDeleted(ctx, r.log); err != nil {
+	if err := r.waitUtilAddonDeleted(ctx); err != nil {
 		return fmt.Errorf("failed to wait until all addons are deleted: %w", err)
 	}
-	r.log.Info("all addons are deleted")
+	log.Info("all addons are deleted")
 
 	return nil
 }
@@ -274,7 +272,7 @@ func (r *PruneReconciler) GlobalHubResources(ctx context.Context,
 		if err := jobs.NewPruneFinalizer(ctx, r.Client).Run(); err != nil {
 			return true, err
 		}
-		r.log.Info("removed finalizer from mgh, app, policy, placement and etc")
+		log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	}
 
 	return false, nil
@@ -405,7 +403,7 @@ func (r *PruneReconciler) deleteClusterManagementAddon(ctx context.Context) erro
 	return nil
 }
 
-func (r *PruneReconciler) waitUtilAddonDeleted(ctx context.Context, log logr.Logger) error {
+func (r *PruneReconciler) waitUtilAddonDeleted(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
@@ -461,30 +459,30 @@ func (r *PruneReconciler) pruneManagedHubs(ctx context.Context) error {
 }
 
 func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) (bool, error) {
-	klog.Infof("Remove strimzi resources")
+	log.Infof("Remove strimzi resources")
 	listOpts := []client.ListOption{
 		client.InNamespace(utils.GetDefaultNamespace()),
 	}
 	kafkaUserList := &kafkav1beta2.KafkaUserList{}
-	klog.Infof("Delete kafkaUsers")
+	log.Infof("Delete kafkaUsers")
 	if err := r.Client.List(ctx, kafkaUserList, listOpts...); err != nil {
 		return true, err
 	}
 	for idx := range kafkaUserList.Items {
-		klog.Infof("Delete kafka user %v", kafkaUserList.Items[idx].Name)
+		log.Infof("Delete kafka user %v", kafkaUserList.Items[idx].Name)
 		if err := r.Client.Delete(ctx, &kafkaUserList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return true, err
 		}
 	}
 
 	kafkaTopicList := &kafkav1beta2.KafkaTopicList{}
-	klog.Infof("Delete kafkaTopics")
+	log.Infof("Delete kafkaTopics")
 
 	if err := r.Client.List(ctx, kafkaTopicList, listOpts...); err != nil {
 		return true, err
 	}
 	for idx := range kafkaTopicList.Items {
-		klog.Infof("Delete kafka topic %v", kafkaTopicList.Items[idx].Name)
+		log.Infof("Delete kafka topic %v", kafkaTopicList.Items[idx].Name)
 		if err := r.Client.Delete(ctx, &kafkaTopicList.Items[idx]); err != nil && !errors.IsNotFound(err) {
 			return true, err
 		}
@@ -504,12 +502,12 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) (bool, erro
 			Namespace: utils.GetDefaultNamespace(),
 		},
 	}
-	klog.Infof("Delete kafka cluster %v", kafka.Name)
+	log.Infof("Delete kafka cluster %v", kafka.Name)
 
 	if err := r.Client.Delete(ctx, kafka); err != nil && !errors.IsNotFound(err) {
 		return true, err
 	}
-	klog.Infof("kafka cluster deleted")
+	log.Infof("kafka cluster deleted")
 
 	kafkaSub := &subv1alpha1.Subscription{}
 	err := r.Client.Get(ctx, types.NamespacedName{
@@ -517,7 +515,7 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) (bool, erro
 		Name:      protocol.DefaultKafkaSubName,
 	}, kafkaSub)
 	if err != nil {
-		klog.Errorf("Failed to get strimzi subscription, err:%v", err)
+		log.Errorf("Failed to get strimzi subscription, err:%v", err)
 		if errors.IsNotFound(err) {
 			return false, nil
 		}
@@ -531,17 +529,17 @@ func (r *PruneReconciler) pruneStrimziResources(ctx context.Context) (bool, erro
 				Namespace: utils.GetDefaultNamespace(),
 			},
 		}
-		klog.Infof("Delete kafka csv %v", kafkaCsv.Name)
+		log.Infof("Delete kafka csv %v", kafkaCsv.Name)
 		if err := r.Client.Delete(ctx, kafkaCsv); err != nil {
 			return true, err
 		}
-		klog.Infof("kafka csv deleted")
+		log.Infof("kafka csv deleted")
 	}
 
 	if err := r.Client.Delete(ctx, kafkaSub); err != nil && !errors.IsNotFound(err) {
 		return true, err
 	}
-	klog.Infof("kafka subscription deleted")
+	log.Infof("kafka subscription deleted")
 
 	return false, nil
 }

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
-	"github.com/go-logr/logr"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -77,7 +76,7 @@ func EnsureCrunchyPostgresSub(ctx context.Context, c client.Client, mgh *v1alpha
 }
 
 // EnsureCrunchyPostgres verifies PostgresCluster operand is created
-func EnsureCrunchyPostgres(ctx context.Context, c client.Client, log logr.Logger) (*config.PostgresConnection, error) {
+func EnsureCrunchyPostgres(ctx context.Context, c client.Client) (*config.PostgresConnection, error) {
 	// store crunchy postgres connection
 	var pgConnection *config.PostgresConnection
 	err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 10*time.Minute, true,

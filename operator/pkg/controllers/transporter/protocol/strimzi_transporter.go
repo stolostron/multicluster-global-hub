@@ -10,7 +10,6 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/go-logr/logr"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -21,7 +20,6 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -74,7 +72,6 @@ var (
 
 // install the strimzi kafka cluster by operator
 type strimziTransporter struct {
-	log                   logr.Logger
 	ctx                   context.Context
 	kafkaClusterName      string
 	kafkaClusterNamespace string
@@ -108,10 +105,8 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 ) *strimziTransporter {
 	if transporter == nil {
 		transporter = &strimziTransporter{
-			log:              ctrl.Log.WithName("strimzi-transporter"),
-			ctx:              context.TODO(),
-			kafkaClusterName: KafkaClusterName,
-
+			ctx:                       context.TODO(),
+			kafkaClusterName:          KafkaClusterName,
 			subName:                   DefaultKafkaSubName,
 			subCommunity:              false,
 			subChannel:                DefaultAMQChannel,
@@ -185,7 +180,7 @@ func WithSubName(name string) KafkaOption {
 
 // EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
 func (k *strimziTransporter) EnsureKafka() (bool, error) {
-	k.log.V(2).Info("reconcile global hub kafka transport...")
+	log.Debug("reconcile global hub kafka transport...")
 	err := k.ensureSubscription(k.mgh)
 	if err != nil {
 		return true, err
@@ -339,7 +334,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaUser)
 	if errors.IsNotFound(err) {
-		klog.Infof("create the kafakUser: %s", userName)
+		log.Infof("create the kafakUser: %s", userName)
 		return userName, k.manager.GetClient().Create(k.ctx, desiredKafkaUser, &client.CreateOptions{})
 	} else if err != nil {
 		return "", err
@@ -352,7 +347,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	}
 
 	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
-		klog.Infof("update the kafkaUser: %s", userName)
+		log.Infof("update the kafkaUser: %s", userName)
 		if err = k.manager.GetClient().Update(k.ctx, updatedKafkaUser); err != nil {
 			return "", err
 		}
@@ -592,7 +587,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaCluster)
 	if err != nil {
-		k.log.V(2).Info("fail to get the kafka cluster, waiting", "message", err.Error())
+		log.Debugw("fail to get the kafka cluster, waiting", "message", err.Error())
 		if errors.IsNotFound(err) {
 			return kafkaStatus, nil
 		}
@@ -617,7 +612,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 	for _, condition := range kafkaCluster.Status.Conditions {
 		if *condition.Type == "Ready" {
 			if *condition.Status == "True" {
-				k.log.Info("kafka cluster is ready")
+				log.Info("kafka cluster is ready")
 				kafkaStatus.kafkaReady = true
 				return kafkaStatus, nil
 			}
@@ -626,7 +621,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 			return kafkaStatus, nil
 		}
 	}
-	klog.Infof("wait for the Kafka cluster to be ready")
+	log.Info("wait for the Kafka cluster to be ready")
 	return kafkaStatus, nil
 }
 
@@ -667,11 +662,11 @@ func (k *strimziTransporter) getKafkaResources(
 	kafkaSpecRes := &kafkav1beta2.KafkaSpecKafkaResources{}
 	jsonData, err := json.Marshal(kafkaRes)
 	if err != nil {
-		k.log.Error(err, "failed to marshal kafka resources")
+		log.Error(err, "failed to marshal kafka resources")
 	}
 	err = json.Unmarshal(jsonData, kafkaSpecRes)
 	if err != nil {
-		k.log.Error(err, "failed to unmarshal to KafkaSpecKafkaResources")
+		log.Error(err, "failed to unmarshal to KafkaSpecKafkaResources")
 	}
 
 	return kafkaSpecRes
@@ -685,11 +680,11 @@ func (k *strimziTransporter) getZookeeperResources(
 	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}
 	jsonData, err := json.Marshal(zookeeperRes)
 	if err != nil {
-		k.log.Error(err, "failed to marshal zookeeper resources")
+		log.Error(err, "failed to marshal zookeeper resources")
 	}
 	err = json.Unmarshal(jsonData, zookeeperSpecRes)
 	if err != nil {
-		k.log.Error(err, "failed to unmarshal to KafkaSpecZookeeperResources")
+		log.Error(err, "failed to unmarshal to KafkaSpecZookeeperResources")
 	}
 	return zookeeperSpecRes
 }
@@ -838,7 +833,7 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 
 		jsonData, err := json.Marshal(nodeSelectorTerms)
 		if err != nil {
-			k.log.Error(err, "failed to marshall nodeSelector terms")
+			log.Error(err)
 		}
 
 		kafkaNodeSelectorTermsElem := make([]kafkav1beta2.
@@ -852,15 +847,15 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 
 		err = json.Unmarshal(jsonData, &kafkaNodeSelectorTermsElem)
 		if err != nil {
-			k.log.Error(err, "failed to unmarshal to kafkaNodeSelectorTermsElem")
+			log.Error("failed to unmarshal to kafkaNodeSelectorTermsElem: ", err)
 		}
 		err = json.Unmarshal(jsonData, &zookeeperNodeSelectorTermsElem)
 		if err != nil {
-			k.log.Error(err, "failed to unmarshal to zookeeperNodeSelectorTermsElem")
+			log.Error("failed to unmarshal to zookeeperNodeSelectorTermsElem: ", err)
 		}
 		err = json.Unmarshal(jsonData, &entityOperatorNodeSelectorTermsElem)
 		if err != nil {
-			k.log.Error(err, "failed to unmarshal to entityOperatorNodeSelectorTermsElem")
+			log.Error("failed to unmarshal to entityOperatorNodeSelectorTermsElem: ", err)
 		}
 
 		zookeeperPodAffinity.NodeAffinity = &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinity{
@@ -917,19 +912,19 @@ func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGl
 	if mgh.Spec.Tolerations != nil {
 		jsonData, err := json.Marshal(mgh.Spec.Tolerations)
 		if err != nil {
-			k.log.Error(err, "failed to marshal tolerations")
+			log.Error("failed to marshal tolerations: ", err)
 		}
 		err = json.Unmarshal(jsonData, &kafkaTolerationsElem)
 		if err != nil {
-			k.log.Error(err, "failed to unmarshal to KafkaSpecruntimeKafkaTemplatePodTolerationsElem")
+			log.Error("failed to unmarshal to KafkaSpecruntimeKafkaTemplatePodTolerationsElem: ", err)
 		}
 		err = json.Unmarshal(jsonData, &zookeeperTolerationsElem)
 		if err != nil {
-			k.log.Error(err, "failed to unmarshal to KafkaSpecZookeeperTemplatePodTolerationsElem")
+			log.Error("failed to unmarshal to KafkaSpecZookeeperTemplatePodTolerationsElem: ", err)
 		}
 		err = json.Unmarshal(jsonData, &entityOperatorTolerationsElem)
 		if err != nil {
-			k.log.Error(err, "failed to unmarshal to KafkaSpecEntityOperatorTemplatePodTolerationsElem")
+			log.Error("failed to unmarshal to KafkaSpecEntityOperatorTemplatePodTolerationsElem: ", err)
 		}
 
 		if kafkaCluster.Spec.Kafka.Template == nil {
@@ -997,14 +992,14 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 		// patch the desired kafka cluster to the existing kafka cluster
 		patchedData, err := jsonpatch.MergePatch(existingKafkaJson, desiredKafkaJson)
 		if err != nil {
-			klog.Errorf("failed to merge patch, error: %v", err)
+			log.Error("failed to merge patch: ", err)
 			return
 		}
 
 		updatedKafkaSpec := &kafkav1beta2.KafkaSpec{}
 		err = json.Unmarshal(patchedData, updatedKafkaSpec)
 		if err != nil {
-			klog.Errorf("failed to umarshal kafkaspec, error: %v", err)
+			log.Error("failed to umarshal kafkaspec: ", err)
 			return
 		}
 		kafkaCluster.Spec = updatedKafkaSpec
