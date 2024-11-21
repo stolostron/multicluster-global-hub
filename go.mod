@@ -1,6 +1,7 @@
 module github.com/stolostron/multicluster-global-hub
 
 go 1.22.5
+toolchain go1.23.3
 
 require (
 	github.com/RedHatInsights/strimzi-client-go v0.34.2
@@ -32,7 +33,7 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.22.0
 	github.com/project-kessel/inventory-api v0.0.0-20241010121445-cd6276d96dc8
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.78.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
@@ -46,12 +47,12 @@ require (
 	gorm.io/gorm v1.25.12
 	helm.sh/helm/v3 v3.16.3
 	k8s.io/api v0.31.2
-	k8s.io/apiextensions-apiserver v0.31.1
+	k8s.io/apiextensions-apiserver v0.31.2
 	k8s.io/apimachinery v0.31.2
-	k8s.io/client-go v0.31.1
+	k8s.io/client-go v0.31.2
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.31.0
-	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
+	k8s.io/utils v0.0.0-20240902221715-702e33fdd3c3
 	open-cluster-management.io/addon-framework v0.11.0
 	open-cluster-management.io/api v0.15.0
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
@@ -233,8 +234,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.4.7 // indirect
-	k8s.io/apiserver v0.31.1 // indirect
-	k8s.io/component-base v0.31.1 // indirect
+	k8s.io/apiserver v0.31.2 // indirect
+	k8s.io/component-base v0.31.2 // indirect
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240411171206-dc4e619f62f3 // indirect
 	open-cluster-management.io/sdk-go v0.15.0 // indirect
