@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,7 +34,7 @@ type postgresCredential struct {
 }
 
 func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
-	mgr ctrl.Manager, log logr.Logger,
+	mgr ctrl.Manager,
 ) (*config.PostgresConnection, error) {
 	// install the postgres statefulset only
 	credential, err := getPostgresCredential(ctx, mgh, mgr.GetClient())

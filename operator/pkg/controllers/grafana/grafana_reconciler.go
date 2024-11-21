@@ -26,7 +26,6 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,14 +35,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -90,6 +88,8 @@ var (
 	)
 )
 
+var log = logger.DefaultZapLogger()
+
 type GrafanaReconciler struct {
 	ctrl.Manager
 	client     client.Client
@@ -124,7 +124,7 @@ func StartController(initOption config.ControllerOption) error {
 		return err
 	}
 	started = true
-	klog.Infof("inited grafana controller")
+	log.Infof("inited grafana controller")
 	return nil
 }
 
@@ -156,15 +156,15 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 var deploymentPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetNamespace() == utils.GetDefaultNamespace() &&
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetNamespace() == utils.GetDefaultNamespace() &&
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetNamespace() == utils.GetDefaultNamespace() &&
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
 	},
 }
@@ -250,7 +250,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				mgh.Namespace, config.COMPONENTS_GRAFANA_NAME, reconcileErr),
 		)
 		if err != nil {
-			klog.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
 	// generate random session secret for oauth-proxy
@@ -265,7 +265,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	replicas := int32(1)
-	if mgh.Spec.AvailabilityConfig == globalhubv1alpha4.HAHigh {
+	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
 	}
 	// get the grafana objects
@@ -342,7 +342,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if changedAlert || changedGrafanaIni || changedDatasourceSecret {
-		err = utils.RestartPod(ctx, r.kubeClient, utils.GetDefaultNamespace(), grafanaDeploymentName)
+		err = commonutils.RestartPod(ctx, r.kubeClient, commonutils.GetDefaultNamespace(), grafanaDeploymentName)
 		if err != nil {
 			reconcileErr = fmt.Errorf("failed to restart grafana pod. err:%v", err)
 			return ctrl.Result{}, reconcileErr
@@ -355,7 +355,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // generateGranafaIni append the custom grafana.ini to default grafana.ini
 func (r *GrafanaReconciler) generateGrafanaIni(
 	ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
 	configNamespace := mgh.GetNamespace()
 
@@ -415,7 +415,7 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 	}
 	err = r.client.Get(ctx, client.ObjectKeyFromObject(grafanaRoute), grafanaRoute)
 	if err != nil {
-		klog.Errorf("Failed to get grafana route: %v", err)
+		log.Errorf("Failed to get grafana route: %v", err)
 	} else {
 		if len(grafanaRoute.Spec.Host) != 0 {
 			defaultGrafanaIniSecret.Data[grafanaIniKey] = []byte(
@@ -439,7 +439,7 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 			customGrafanaIniSecret.Data[grafanaIniKey],
 		)
 		if err != nil {
-			klog.Errorf("Failed to merge default and custom grafana.ini, err:%v", err)
+			log.Errorf("Failed to merge default and custom grafana.ini, err:%v", err)
 			mergedBytes = defaultGrafanaIniSecret.Data[grafanaIniKey]
 		}
 		mergedGrafanaIniSecret.Data = map[string][]byte{
@@ -458,7 +458,7 @@ func (r *GrafanaReconciler) generateGrafanaIni(
 // if there is the custom configmap, merge the custom configmap and default configmap then apply the merged configmap
 func (r *GrafanaReconciler) generateAlertConfigMap(
 	ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
 	configNamespace := mgh.GetNamespace()
 	defaultAlertConfigMap := &corev1.ConfigMap{
@@ -489,7 +489,7 @@ func (r *GrafanaReconciler) generateAlertConfigMap(
 	var mergedAlertConfigMap *corev1.ConfigMap
 	mergedAlertConfigMap, err = mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap)
 	if err != nil {
-		klog.Errorf("Failed to merge custom alert configmap:%v. err: %v", customAlertConfigMap.Name, err)
+		log.Errorf("Failed to merge custom alert configmap:%v. err: %v", customAlertConfigMap.Name, err)
 		mergedAlertConfigMap = &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      mergedAlertName,
@@ -588,7 +588,7 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 
 	var mergedAlertConfigMap corev1.ConfigMap
 	mergedAlertConfigMap.Name = mergedAlertName
-	mergedAlertConfigMap.Namespace = utils.GetDefaultNamespace()
+	mergedAlertConfigMap.Namespace = commonutils.GetDefaultNamespace()
 	if defaultAlertConfigMap.Namespace != "" {
 		mergedAlertConfigMap.Namespace = defaultAlertConfigMap.Namespace
 	}
@@ -618,7 +618,7 @@ func mergeAlertConfigMap(defaultAlertConfigMap, customAlertConfigMap *corev1.Con
 // the GrafanaDatasource points to multicluster-global-hub cr
 func (r *GrafanaReconciler) GenerateGrafanaDataSourceSecret(
 	ctx context.Context,
-	mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {

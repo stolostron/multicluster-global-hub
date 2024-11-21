@@ -19,7 +19,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -39,10 +38,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/crd"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/hubofhubs"
 	globalhubwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var setupLog = ctrl.Log.WithName("setup")
+var setupLog = logger.DefaultZapLogger()
 
 const (
 	webhookPort    = 9443
@@ -50,12 +50,15 @@ const (
 )
 
 func main() {
-	os.Exit(doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()))
+	if err := doMain(ctrl.SetupSignalHandler(), ctrl.GetConfigOrDie()); err != nil {
+		setupLog.Error(err)
+		os.Exit(1)
+	}
 }
 
-func doMain(ctx context.Context, cfg *rest.Config) int {
+func doMain(ctx context.Context, cfg *rest.Config) error {
 	operatorConfig := parseFlags()
-	utils.PrintVersion(setupLog)
+	utils.PrintRuntimeInfo()
 
 	if operatorConfig.EnablePprof {
 		go utils.StartDefaultPprofServer()
@@ -63,49 +66,44 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		setupLog.Error(err, "failed to create kube client")
-		return 1
+		return fmt.Errorf("failed to create the kubeclient: %w", err)
 	}
 
 	err = config.LoadControllerConfig(ctx, kubeClient)
 	if err != nil {
-		setupLog.Error(err, "failed to load controller config")
-		return 1
+		return fmt.Errorf("failed to load controller config: %w", err)
 	}
 
 	mgr, err := getManager(cfg, operatorConfig)
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		return 1
+		return fmt.Errorf("unable to start manager: %w", err)
 	}
 
 	imageClient, err := imagev1client.NewForConfig(cfg)
 	if err != nil {
-		setupLog.Error(err, "failed to create openshift image client")
-		return 1
+		return fmt.Errorf("failed to create openshift image client: %w", err)
 	}
 
 	err = controllers.NewMetaController(mgr, kubeClient, operatorConfig, imageClient).SetupWithManager(mgr)
 	if err != nil {
-		setupLog.Error(err, "unable to create meta controller")
-		return 1
+		return fmt.Errorf("unable to create meta controller: %w", err)
 	}
 
 	// global hub controller
 	globalHubController, err := hubofhubs.NewGlobalHubController(mgr, kubeClient, operatorConfig, imageClient)
 	if err != nil {
-		setupLog.Error(err, "unable to create crd controller")
-		return 1
+		return fmt.Errorf("unable to create crd controller: %w", err)
 	}
 	_, err = crd.AddCRDController(mgr, operatorConfig, kubeClient, globalHubController)
+	if err != nil {
+		return fmt.Errorf("failed to add the crd controller: %w", err)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		return 1
+		return fmt.Errorf("unable to set up health check: %w", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		return 1
+		return fmt.Errorf("unable to set up ready check: %w", err)
 	}
 
 	hookServer := mgr.GetWebhookServer()
@@ -116,11 +114,10 @@ func doMain(ctx context.Context, cfg *rest.Config) int {
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctx); err != nil {
-		setupLog.Error(err, "problem running manager")
-		return 1
+		return fmt.Errorf("failed to run the manager: %w", err)
 	}
 
-	return 0
+	return nil
 }
 
 func parseFlags() *config.OperatorConfig {
@@ -128,11 +125,6 @@ func parseFlags() *config.OperatorConfig {
 		PodNamespace: utils.GetDefaultNamespace(),
 	}
 
-	// add zap flags
-	opts := utils.CtrlZapOptions()
-	defaultFlags := flag.CommandLine
-	opts.BindFlags(defaultFlags)
-	pflag.CommandLine.AddGoFlagSet(defaultFlags)
 	pflag.StringVar(&config.MetricsAddress, "metrics-bind-address", ":8080",
 		"The address the metric endpoint binds to.")
 	pflag.StringVar(&config.ProbeAddress, "health-probe-bind-address", ":8081",
@@ -144,13 +136,6 @@ func parseFlags() *config.OperatorConfig {
 	pflag.BoolVar(&config.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
 	pflag.Parse()
 
-	config.LogLevel = "info"
-	if logflag := defaultFlags.Lookup("zap-log-level"); len(logflag.Value.String()) != 0 {
-		config.LogLevel = logflag.Value.String()
-	}
-
-	// set zap logger
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 	return config
 }
 

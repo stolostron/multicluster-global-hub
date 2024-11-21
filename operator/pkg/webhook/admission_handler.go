@@ -14,13 +14,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 // NewAdmissionHandler is to handle the admission webhook for placementrule and placement
 func NewAdmissionHandler(c client.Client, s *runtime.Scheme) admission.Handler {
@@ -36,7 +38,7 @@ type admissionHandler struct {
 }
 
 func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	klog.V(2).Infof("admission webhook is called, name:%v, namespace:%v, kind:%v, operation:%v", req.Name,
+	log.Infof("admission webhook is called, name:%v, namespace:%v, kind:%v, operation:%v", req.Name,
 		req.Namespace, req.Kind.Kind, req.Operation)
 	switch req.Kind.Kind {
 	case "ManagedCluster":
@@ -59,7 +61,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Allowed("")
 		}
 
-		klog.Infof("Add hosted annotation for managedcluster: %v", cluster.Name)
+		log.Infof("Add hosted annotation for managedcluster: %v", cluster.Name)
 
 		marshaledCluster, err := json.Marshal(cluster)
 		if err != nil {
@@ -87,7 +89,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		if !changed {
 			return admission.Allowed("")
 		}
-		klog.Infof("Disable addons in cluster :%v", klusterletaddonconfig.Namespace)
+		log.Infof("Disable addons in cluster :%v", klusterletaddonconfig.Namespace)
 
 		marshaledKlusterletAddon, err := json.Marshal(klusterletaddonconfig)
 		if err != nil {
@@ -108,7 +110,7 @@ func isInHostedCluster(ctx context.Context, client client.Client, mcName string)
 			return true, nil
 		}
 		errMsg := fmt.Errorf("failed to get managedcluster, err:%v", err)
-		klog.Errorf(errMsg.Error())
+		log.Errorf(errMsg.Error())
 		return false, errMsg
 	}
 

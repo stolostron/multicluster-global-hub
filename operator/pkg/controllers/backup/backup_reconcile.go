@@ -24,12 +24,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -47,6 +47,8 @@ var allResourcesBackup = map[string]Backup{
 	pvcType:       NewPvcBackup(),
 }
 
+var log = logger.DefaultZapLogger()
+
 // As we need to watch mgh, secret, configmap. they should be in the same namespace.
 // So for request.Namespace, we set it as request type, like "Secret","Configmap","MulticlusterGlobalHub" and so on.
 // In the reconcile, we identy the request kind and get it by request.Name.
@@ -55,7 +57,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 	err := r.Client.List(ctx, mghList)
 	if err != nil {
-		klog.Error(err, "Failed to list MulticlusterGlobalHub")
+		log.Error(err)
 		return ctrl.Result{}, err
 	}
 	if len(mghList.Items) == 0 {

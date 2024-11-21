@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -39,6 +38,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 // ManifestImage contains details for a specific image version
@@ -88,6 +88,7 @@ var (
 	addonMgr              addonmanager.AddonManager
 	importClusterInHosted = false
 	mu                    sync.Mutex
+	log                   = logger.DefaultZapLogger()
 )
 
 func SetAddonManager(addonManager addonmanager.AddonManager) {
@@ -172,7 +173,7 @@ func GetStackroxPollInterval(mgh *v1alpha4.MulticlusterGlobalHub) time.Duration 
 	}
 	value, err := time.ParseDuration(text)
 	if err != nil {
-		klog.Errorf(
+		log.Errorf(
 			"Failed to parse value '%s' of annotation '%s', will ignore it: %v",
 			text, operatorconstants.AnnotationMGHWithStackroxPollInterval, err,
 		)
@@ -371,7 +372,7 @@ func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.M
 		return nil, err
 	}
 	if len(mghList.Items) != 1 {
-		klog.Errorf("mgh should have 1 instance, but got %v", len(mghList.Items))
+		log.Errorf("mgh should have 1 instance, but got %v", len(mghList.Items))
 		return nil, nil
 	}
 	return &mghList.Items[0], nil

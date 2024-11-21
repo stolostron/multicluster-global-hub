@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +46,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 type Func func(initOption config.ControllerOption) error
@@ -67,6 +67,8 @@ var controllerStartFuncList = []Func{
 	agent.StartHostedAgentController,
 	agent.StartDefaultAgentController,
 }
+
+var log = logger.DefaultZapLogger()
 
 type MetaController struct {
 	client         client.Client
@@ -103,11 +105,11 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 		return ctrl.Result{}, nil
 	}
 	if config.IsPaused(mgh) {
-		klog.Info("mgh controller is paused, nothing more to do")
+		log.Info("mgh controller is paused, nothing more to do")
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
-		klog.V(2).Info("mgh instance is deleting")
+		log.Debug("mgh instance is deleting")
 
 		err = config.UpdateCondition(ctx, r.client, types.NamespacedName{
 			Namespace: mgh.Namespace,
@@ -126,7 +128,7 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 	defer func() {
 		err = updateMGHReadyStatus(ctx, r.client, mgh, reconcileErr)
 		if err != nil {
-			klog.Errorf("failed to update the instance condition, err: %v", err)
+			log.Errorf("failed to update the instance condition, err: %v", err)
 		}
 	}()
 
@@ -145,7 +147,7 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
 		if reconcileErr := r.client.Update(ctx, mgh, &client.UpdateOptions{}); reconcileErr != nil {
 			if errors.IsConflict(reconcileErr) {
-				klog.Errorf("conflict when adding finalizer to mgh instance, error: %v", reconcileErr)
+				log.Errorf("conflict when adding finalizer to mgh instance, error: %v", reconcileErr)
 				return ctrl.Result{Requeue: true}, nil
 			}
 		}

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -26,6 +26,8 @@ import (
 var manifests embed.FS
 
 var startedKafkaController = false
+
+var log = logger.DefaultZapLogger()
 
 type KafkaStatus struct {
 	kakfaReason  string
@@ -60,7 +62,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
 		)
 		if err != nil {
-			klog.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
 	needRequeue, err := r.trans.EnsureKafka()
@@ -136,7 +138,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 		return err
 	}
 	startedKafkaController = true
-	klog.Info("kafka controller is started")
+	log.Info("kafka controller is started")
 	return nil
 }
 
@@ -150,7 +152,7 @@ func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) 
 	// boostrapServer, clusterId, clusterCA
 	conn, err = trans.getConnCredentailByCluster()
 	if err != nil {
-		klog.Info("waiting the kafka cluster credential to be ready...", "message", err.Error())
+		log.Infow("waiting the kafka cluster credential to be ready...", "message", err.Error())
 		return conn, true, err
 	}
 	// topics
@@ -158,7 +160,7 @@ func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) 
 	conn.StatusTopic = config.ManagerStatusTopic()
 	// clientCert and clientCA
 	if err := trans.loadUserCredentail(kafkaUserSecret, conn); err != nil {
-		klog.Info("waiting the kafka user credential to be ready...", "message", err.Error())
+		log.Infow("waiting the kafka user credential to be ready...", "message", err.Error())
 		return conn, true, err
 	}
 	return conn, false, nil

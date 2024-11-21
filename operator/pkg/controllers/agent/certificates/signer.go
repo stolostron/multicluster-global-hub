@@ -15,14 +15,13 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/local"
 	certificatesv1 "k8s.io/api/certificates/v1"
-	"k8s.io/klog/v2"
 )
 
 // default: https://github.com/open-cluster-management-io/addon-framework/blob/main/pkg/utils/csr_helpers.go#L65
 func Sign(csr *certificatesv1.CertificateSigningRequest, clientCaKey, clientCaCert []byte) []byte {
 	caKey, caCert, err := parseClientCA(clientCaKey, clientCaCert)
 	if err != nil {
-		klog.Infof("The singer checks CSR(%s), not get client CA: %v", csr.Name, err)
+		log.Infof("The singer checks CSR(%s), not get client CA: %v", csr.Name, err)
 		return nil
 	}
 
@@ -34,7 +33,7 @@ func Sign(csr *certificatesv1.CertificateSigningRequest, clientCaKey, clientCaCe
 	certExpiryDuration := 365 * 24 * time.Hour
 	durationUntilExpiry := time.Until(caCert.NotAfter)
 	if durationUntilExpiry <= 0 {
-		klog.Infof("The signer has expired, expired time: %v", caCert.NotAfter)
+		log.Infof("The signer has expired, expired time: %v", caCert.NotAfter)
 		return nil
 	}
 	if durationUntilExpiry < certExpiryDuration {
@@ -50,7 +49,7 @@ func Sign(csr *certificatesv1.CertificateSigningRequest, clientCaKey, clientCaCe
 	}
 	singer, err := local.NewSigner(caKey, caCert, signer.DefaultSigAlgo(caKey), policy)
 	if err != nil {
-		klog.Infof("failed to create new local signer: %v", err)
+		log.Infof("failed to create new local signer: %v", err)
 		return nil
 	}
 
@@ -58,7 +57,7 @@ func Sign(csr *certificatesv1.CertificateSigningRequest, clientCaKey, clientCaCe
 		Request: string(csr.Spec.Request),
 	})
 	if err != nil {
-		klog.Infof("failed to sign the CSR(%s): %v", csr.Name, err)
+		log.Infof("failed to sign the CSR(%s): %v", csr.Name, err)
 		return nil
 	}
 	return signedCert
@@ -74,13 +73,13 @@ func parseClientCA(caKey, caCert []byte) (crypto.Signer, *x509.Certificate, erro
 	}
 	caCerts, err := x509.ParseCertificates(block1.Bytes)
 	if err != nil {
-		klog.Errorf("failed to parse the cert: %v", err)
+		log.Errorf("failed to parse the cert: %v", err)
 		return nil, nil, err
 	}
 
 	signer, err := DecodePrivateKeyBytes(caKey)
 	if err != nil {
-		klog.Errorf("failed to decode private key: %v", err)
+		log.Errorf("failed to decode private key: %v", err)
 		return nil, nil, err
 	}
 	return signer, caCerts[0], nil

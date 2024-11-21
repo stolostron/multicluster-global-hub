@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;list;update;create;delete
@@ -40,6 +40,8 @@ type ManagedHubController struct {
 }
 
 var started bool
+
+var log = logger.DefaultZapLogger()
 
 func StartController(initOption config.ControllerOption) error {
 	if started {
@@ -52,7 +54,7 @@ func StartController(initOption config.ControllerOption) error {
 	if err != nil {
 		return err
 	}
-	klog.Infof("inited managedhub controller")
+	log.Infof("inited managedhub controller")
 	started = true
 	return nil
 }

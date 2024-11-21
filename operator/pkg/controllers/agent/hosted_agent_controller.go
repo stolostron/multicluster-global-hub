@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -122,13 +121,13 @@ var mghPred = predicate.Funcs{
 }
 
 func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	klog.V(2).Infof("Reconcile ClusterManagementAddOn: %v", req.NamespacedName)
+	log.Debug("Reconcile ClusterManagementAddOn: %v", req.NamespacedName)
 	if !config.GetImportClusterInHosted() {
 		return ctrl.Result{}, nil
 	}
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Manager.GetClient())
 	if err != nil {
-		klog.Error("error ", err)
+		log.Error(err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
@@ -147,7 +146,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 
 	err = r.Manager.GetClient().Update(ctx, cma)
 	if err != nil {
-		klog.Errorf("Failed to update cma, err:%v", err)
+		log.Errorf("Failed to update cma, err:%v", err)
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
