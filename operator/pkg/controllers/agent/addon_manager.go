@@ -16,8 +16,8 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	agentcert "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -91,7 +91,7 @@ func StartGlobalHubAddonManager(ctx context.Context, kubeConfig *rest.Config, cl
 	}
 
 	factory := addonfactory.NewAgentAddonFactory(
-		operatorconstants.GHManagedClusterAddonName, FS, "manifests").
+		constants.GHManagedClusterAddonName, FS, "manifests").
 		WithAgentHostedModeEnabledOption().
 		WithScheme(addonAgentConfig.addonScheme).
 		WithAgentHealthProber(&addonframeworkagent.HealthProber{

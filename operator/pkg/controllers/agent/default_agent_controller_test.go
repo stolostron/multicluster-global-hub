@@ -78,7 +78,7 @@ func fakeMGH(namespace, name string) *operatorv1alpha4.MulticlusterGlobalHub {
 func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.ManagedClusterAddOn {
 	addon := &v1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      operatorconstants.GHManagedClusterAddonName,
+			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster,
 		},
 		Spec: v1alpha1.ManagedClusterAddOnSpec{
@@ -300,7 +300,7 @@ func TestAddonInstaller(t *testing.T) {
 			} else {
 				addon := &v1alpha1.ManagedClusterAddOn{}
 				err = r.Get(context.TODO(), types.NamespacedName{
-					Namespace: tc.cluster.Name, Name: operatorconstants.GHManagedClusterAddonName,
+					Namespace: tc.cluster.Name, Name: constants.GHManagedClusterAddonName,
 				}, addon)
 				if err != nil {
 					if errors.IsNotFound(err) {

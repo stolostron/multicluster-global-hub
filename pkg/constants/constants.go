@@ -53,6 +53,9 @@ const (
 	BackupPvcWaitingForTrigger = "WaitingForTrigger"
 	BackupPvcCompletedTrigger  = "Completed"
 	BackupPvcLatestCopyTrigger = "volsync.backube/latest-copy-trigger"
+
+	// The managedclusteraddon for Global Hub Agent
+	GHManagedClusterAddonName = "multicluster-global-hub-controller"
 )
 
 const (

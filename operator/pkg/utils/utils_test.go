@@ -567,7 +567,7 @@ func TestAnnotateManagedHubCluster(t *testing.T) {
 	}
 	globalhubAddon := &addonapiv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHManagedClusterAddonName,
+			Name:      commonconstants.GHManagedClusterAddonName,
 			Namespace: mh_name,
 			Labels: map[string]string{
 				commonconstants.GlobalHubOwnerLabelKey: commonconstants.GHOperatorOwnerLabelVal,
