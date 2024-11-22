@@ -43,10 +43,12 @@ var (
 )
 
 func SetTransporterConn(conn *transport.KafkaConfig) {
+	log.Debug("Set Transporter Conn")
 	transporterConn = conn
 }
 
 func GetTransporterConn() *transport.KafkaConfig {
+	log.Debugf("Get Transporter Conn: %v", transporterConn != nil)
 	return transporterConn
 }
 
@@ -67,6 +69,7 @@ func SetKafkaResourceReady(ready bool) {
 }
 
 func IsACMResourceReady() bool {
+	log.Debugf("acmResourceReady: %v", acmResourceReady)
 	return acmResourceReady
 }
 

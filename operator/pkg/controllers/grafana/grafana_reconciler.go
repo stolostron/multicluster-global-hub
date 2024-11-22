@@ -106,26 +106,31 @@ func NewGrafanaReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *Gr
 	}
 }
 
-var started bool
+var grafanaController *GrafanaReconciler
 
-func StartController(initOption config.ControllerOption) error {
-	if started {
-		return nil
+func (r *GrafanaReconciler) IsResourceRemoved() bool {
+	return true
+}
+
+func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if grafanaController != nil {
+		return grafanaController, nil
 	}
 	if !config.IsACMResourceReady() {
-		return nil
+		return nil, nil
 	}
 	if config.GetStorageConnection() == nil {
-		return nil
+		return nil, nil
 	}
-	err := NewGrafanaReconciler(initOption.Manager,
-		initOption.KubeClient).SetupWithManager(initOption.Manager)
+	grafanaController = NewGrafanaReconciler(initOption.Manager,
+		initOption.KubeClient)
+	err := grafanaController.SetupWithManager(initOption.Manager)
 	if err != nil {
-		return err
+		grafanaController = nil
+		return grafanaController, err
 	}
-	started = true
 	log.Infof("inited grafana controller")
-	return nil
+	return grafanaController, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

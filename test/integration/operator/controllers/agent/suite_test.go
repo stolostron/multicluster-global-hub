@@ -121,9 +121,9 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	By("start the addon manager and add addon controller to manager")
-	err = agent.StartAddonManagerController(controllerOption)
+	_, err = agent.StartAddonManagerController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
-	err = agent.StartDefaultAgentController(controllerOption)
+	_, err = agent.StartDefaultAgentController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())

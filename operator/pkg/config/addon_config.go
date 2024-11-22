@@ -34,6 +34,8 @@ import (
 
 const SignerName = "open-cluster-management.io/globalhub-signer"
 
+var isGlobalhubAgentRemoved = true
+
 func GetAgentImage(cluster *clusterv1.ManagedCluster) (string, error) {
 	// image registry override by operator environment variable and mgh annotation
 	configOverrideImage := GetImage(GlobalHubAgentImageKey)
@@ -43,6 +45,14 @@ func GetAgentImage(cluster *clusterv1.ManagedCluster) (string, error) {
 		return "", err
 	}
 	return image, nil
+}
+
+func SetGlobalhubAgentRemoved(agentRemoved bool) {
+	isGlobalhubAgentRemoved = agentRemoved
+}
+
+func GetGlobalhubAgentRemoved() bool {
+	return isGlobalhubAgentRemoved
 }
 
 // https://github.com/open-cluster-management-io/ocm/blob/main/pkg/registration/spoke/addon/configuration.go

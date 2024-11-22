@@ -27,10 +27,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -64,20 +64,26 @@ var WatchedSecret = sets.NewString(
 var WatchedConfigMap = sets.NewString(
 	constants.PostgresCAConfigMap,
 )
-var started bool
 
-func StartController(initOption config.ControllerOption) error {
-	if started {
-		return nil
+var storageReconciler *StorageReconciler
+
+func (r *StorageReconciler) IsResourceRemoved() bool {
+	return true
+}
+
+func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if storageReconciler != nil {
+		return storageReconciler, nil
 	}
-	err := NewStorageReconciler(initOption.Manager,
-		initOption.OperatorConfig.GlobalResourceEnabled).SetupWithManager(initOption.Manager)
+	storageReconciler = NewStorageReconciler(initOption.Manager,
+		initOption.OperatorConfig.GlobalResourceEnabled)
+	err := storageReconciler.SetupWithManager(initOption.Manager)
 	if err != nil {
-		return err
+		storageReconciler = nil
+		return nil, err
 	}
-	started = true
 	log.Infof("inited storage controller")
-	return nil
+	return storageReconciler, nil
 }
 
 func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageReconciler {
@@ -149,9 +155,20 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
 	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
+	if !config.IsBYOPostgres() && !mgh.Spec.EnableMetrics {
+		err = utils.PruneMetricsResources(ctx, r.GetClient(),
+			map[string]string{
+				constants.GlobalHubMetricsLabel: "postgres",
+			})
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
@@ -269,7 +286,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 
 	// Check if backup is enabled
 	var backupEnabled bool
-	backupEnabled, reconcileErr = utils.IsBackupEnabled(ctx, r.GetClient())
+	backupEnabled, reconcileErr = commonutils.IsBackupEnabled(ctx, r.GetClient())
 	if reconcileErr != nil {
 		log.Error(reconcileErr, "failed to get backup status")
 		return true, reconcileErr

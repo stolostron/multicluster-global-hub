@@ -6,8 +6,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -20,6 +22,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
@@ -27,10 +30,16 @@ import (
 var _ = Describe("manager", Ordered, func() {
 	var mgh *v1alpha4.MulticlusterGlobalHub
 	var namespace string
+	var initOption config.ControllerOption
+	var reconciler *manager.ManagerReconciler
 	BeforeAll(func() {
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
 		mghName := "test-mgh"
-
+		reconciler = manager.NewManagerReconciler(runtimeManager, kubeClient, &config.OperatorConfig{
+			LogLevel:              "info",
+			EnablePprof:           false,
+			GlobalResourceEnabled: true,
+		})
 		// mgh
 		Expect(runtimeClient.Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -57,19 +66,21 @@ var _ = Describe("manager", Ordered, func() {
 			CACert:                  []byte("test-crt"),
 		})
 		config.SetDatabaseReady(true)
-
+		initOption = config.ControllerOption{
+			Manager:               runtimeManager,
+			MulticlusterGlobalHub: mgh,
+		}
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
 		Expect(err).To(Succeed())
 	})
 
-	It("should generate the manager resources", func() {
-		reconciler := manager.NewManagerReconciler(runtimeManager, kubeClient, &config.OperatorConfig{
-			LogLevel:              "info",
-			EnablePprof:           false,
-			GlobalResourceEnabled: true,
-		})
+	It("should start the manager controller", func() {
+		_, err := manager.StartController(initOption)
+		Expect(err).To(Succeed())
+	})
 
+	It("should generate the manager resources", func() {
 		_, err := reconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: mgh.Namespace,
@@ -96,6 +107,46 @@ var _ = Describe("manager", Ordered, func() {
 				return err
 			}
 			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			// service monitor
+			serviceMonitor := &promv1.ServiceMonitor{}
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      operatorconstants.GHServiceMonitorName,
+			}, serviceMonitor)
+			return err
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should delete the ServiceMonitor when mgh deleted", func() {
+		mgh.Finalizers = []string{"fz"}
+
+		err := runtimeClient.Update(ctx, mgh)
+		Expect(err).To(Succeed())
+
+		err = runtimeClient.Delete(ctx, mgh)
+		Expect(err).To(Succeed())
+
+		_, err = reconciler.Reconcile(ctx, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      mgh.Name,
+			},
+		})
+		Expect(err).To(Succeed())
+		Eventually(func() error {
+			serviceMonitor := &promv1.ServiceMonitor{}
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: utils.GetDefaultNamespace(),
+				Name:      operatorconstants.GHServiceMonitorName,
+			}, serviceMonitor)
+
+			if errors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("failed to delete service monitor, %v", err)
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 

@@ -22,11 +22,13 @@ import (
 	"testing"
 	"time"
 
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -611,5 +613,88 @@ func TestAnnotateManagedHubCluster(t *testing.T) {
 	}
 	if len(mc.Annotations) != 0 {
 		t.Error("Should not have annotation added")
+	}
+}
+
+func TestPruneMetricsResources(t *testing.T) {
+	tests := []struct {
+		name        string
+		initObjects []runtime.Object
+		wantErr     bool
+	}{
+		{
+			name: "remove configmap",
+			initObjects: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "cm-1",
+						Name:      "alert-name",
+						Labels: map[string]string{
+							"global-hub.open-cluster-management.io/metrics-resource": "postgres",
+						},
+					},
+					Data: map[string]string{
+						"alert": "test",
+					},
+				},
+			},
+		},
+		{
+			name: "remove servicemonitor",
+			initObjects: []runtime.Object{
+				&promv1.ServiceMonitor{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "sm-1",
+						Name:      "grafana-alert",
+						Labels: map[string]string{
+							"global-hub.open-cluster-management.io/metrics-resource": "postgres",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "remove podmonitor",
+			initObjects: []runtime.Object{
+				&promv1.PodMonitor{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "pm-1",
+						Name:      "alter-name",
+						Labels: map[string]string{
+							"global-hub.open-cluster-management.io/metrics-resource": "postgres",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "remove prometheus rule",
+			initObjects: []runtime.Object{
+				&promv1.PrometheusRule{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "pr-1",
+						Name:      "grafana-pro",
+						Labels: map[string]string{
+							"global-hub.open-cluster-management.io/metrics-resource": "postgres",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			corev1.AddToScheme(scheme.Scheme)
+			promv1.AddToScheme(scheme.Scheme)
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
+			err := PruneMetricsResources(ctx, fakeClient, map[string]string{
+				"global-hub.open-cluster-management.io/metrics-resource": "postgres",
+			})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("pruneMetricsResources() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }

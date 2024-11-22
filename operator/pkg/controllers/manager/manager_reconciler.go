@@ -54,26 +54,36 @@ type ManagerReconciler struct {
 	operatorConfig *config.OperatorConfig
 }
 
-var started bool
+var (
+	managerController *ManagerReconciler
+	isResourceRemoved = true
+)
 
-func StartController(initOption config.ControllerOption) error {
-	if started {
-		return nil
+func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if managerController != nil {
+		return managerController, nil
 	}
 	if config.GetTransporterConn() == nil {
-		return nil
+		return nil, nil
 	}
 	if config.GetStorageConnection() == nil {
-		return nil
+		return nil, nil
 	}
-	err := NewManagerReconciler(initOption.Manager,
-		initOption.KubeClient, initOption.OperatorConfig).SetupWithManager(initOption.Manager)
+	managerController = NewManagerReconciler(initOption.Manager,
+		initOption.KubeClient, initOption.OperatorConfig)
+
+	err := managerController.SetupWithManager(initOption.Manager)
 	if err != nil {
-		return err
+		managerController = nil
+		return managerController, err
 	}
-	started = true
 	log.Infof("inited manager controller")
-	return nil
+	return managerController, nil
+}
+
+func (r *ManagerReconciler) IsResourceRemoved() bool {
+	log.Infof("ManagerController resource removed: %v", isResourceRemoved)
+	return isResourceRemoved
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -121,10 +131,18 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	if err != nil {
 		return ctrl.Result{}, nil
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
-
+	if mgh.DeletionTimestamp != nil {
+		err = r.pruneServiceMonitorResources(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		isResourceRemoved = true
+		return ctrl.Result{}, nil
+	}
+	isResourceRemoved = false
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
@@ -179,7 +197,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	transportConn := config.GetTransporterConn()
 	if transportConn == nil || transportConn.BootstrapServer == "" {
 		log.Debug("Wait kafka connection created")
-
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
@@ -250,6 +267,23 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 	return r.setUpMetrics(ctx, mgh)
+}
+
+func (r *ManagerReconciler) pruneServiceMonitorResources(ctx context.Context) error {
+	mghServiceMonitor := &promv1.ServiceMonitor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconstants.GHServiceMonitorName,
+			Namespace: commonutils.GetDefaultNamespace(),
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	if err := r.GetClient().Delete(ctx, mghServiceMonitor); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	return nil
 }
 
 func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (ctrl.Result, error) {

@@ -53,13 +53,20 @@ type BackupReconciler struct {
 	Log logr.Logger
 }
 
+func (r *BackupReconciler) IsResourceRemoved() bool {
+	return true
+}
+
 func GetBackupController() *BackupReconciler {
 	return backupController
 }
 
-func StartBackupController(initOption config.ControllerOption) error {
+func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
 	if backupController != nil {
-		return nil
+		return backupController, nil
+	}
+	if !config.IsACMResourceReady() {
+		return nil, nil
 	}
 	c := &BackupReconciler{
 		Manager: initOption.Manager,
@@ -68,10 +75,10 @@ func StartBackupController(initOption config.ControllerOption) error {
 	}
 	err := c.SetupWithManager((initOption.Manager))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	backupController = c
-	return nil
+	return backupController, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

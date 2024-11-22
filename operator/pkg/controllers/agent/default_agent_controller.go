@@ -11,7 +11,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"open-cluster-management.io/api/addon/v1alpha1"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -21,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
@@ -35,8 +38,8 @@ import (
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=managedclusteraddons/status,verbs=update;patch
 
 var (
-	log                 = logger.DefaultZapLogger()
-	defaultAgentStarted = false
+	log                    = logger.DefaultZapLogger()
+	defaultAgentController *DefaultAgentController
 )
 
 type DefaultAgentController struct {
@@ -125,18 +128,19 @@ func NewDefaultAgentController(c client.Client) *DefaultAgentController {
 	}
 }
 
-func StartDefaultAgentController(initOption config.ControllerOption) error {
-	if defaultAgentStarted {
-		return nil
+func StartDefaultAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if defaultAgentController != nil {
+		return defaultAgentController, nil
 	}
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
-		return nil
+		return nil, nil
 	}
-	agentReconciler := NewDefaultAgentController(initOption.Manager.GetClient())
+	defaultAgentController = NewDefaultAgentController(initOption.Manager.GetClient())
 
 	err := ctrl.NewControllerManagedBy(initOption.Manager).
 		Named("default-agent-reconciler").
-		// primary watch for managedcluster
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
 		Watches(&clusterv1.ManagedCluster{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		// WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
 		// 	&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
@@ -152,19 +156,24 @@ func StartDefaultAgentController(initOption config.ControllerOption) error {
 			}), builder.WithPredicates(mghAddonPred)).
 		// secondary watch for managedclusteraddon
 		Watches(&v1alpha1.ClusterManagementAddOn{},
-			handler.EnqueueRequestsFromMapFunc(agentReconciler.renderAllManifestsHandler),
+			handler.EnqueueRequestsFromMapFunc(defaultAgentController.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
 		// secondary watch for transport credentials or image pull secret
 		Watches(&corev1.Secret{}, // the cache is set in manager
-			handler.EnqueueRequestsFromMapFunc(agentReconciler.renderAllManifestsHandler),
+			handler.EnqueueRequestsFromMapFunc(defaultAgentController.renderAllManifestsHandler),
 			builder.WithPredicates(secretPred)).
-		Complete(agentReconciler)
+		Complete(defaultAgentController)
 	if err != nil {
-		return err
+		defaultAgentController = nil
+		return nil, err
 	}
-	defaultAgentStarted = true
 	log.Info("the default addon reconciler is started")
-	return nil
+	return defaultAgentController, nil
+}
+
+func (c *DefaultAgentController) IsResourceRemoved() bool {
+	log.Infof("DefaultAgentController resource removed: %v", config.GetGlobalhubAgentRemoved())
+	return config.GetGlobalhubAgentRemoved()
 }
 
 func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -172,10 +181,27 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
 
+	if mgh.DeletionTimestamp != nil {
+		// delete ClusterManagementAddon firstly to trigger clean up addons.
+		if err := r.deleteClusterManagementAddon(ctx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
+		}
+
+		log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
+
+		// prune the hub resources until all addons are cleaned up
+		if err := r.waitUtilAddonDeleted(ctx); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to wait until all addons are deleted: %w", err)
+		}
+		log.Info("all addons are deleted")
+		config.SetGlobalhubAgentRemoved(true)
+		return ctrl.Result{}, nil
+	}
+	config.SetGlobalhubAgentRemoved(false)
 	err = utils.WaitTransporterReady(ctx, 10*time.Minute)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -221,6 +247,48 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+}
+
+func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
+	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: operatorconstants.GHClusterManagementAddonName,
+		},
+	}
+	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (r *DefaultAgentController) waitUtilAddonDeleted(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
+		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+		listOptions := []client.ListOption{
+			client.MatchingLabels(map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			}),
+		}
+
+		if err := r.List(ctx, addonList, listOptions...); err != nil {
+			return false, err
+		}
+
+		if len(addonList.Items) == 0 {
+			return true, nil
+		} else {
+			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
+			return false, nil
+		}
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster,

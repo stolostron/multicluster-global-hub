@@ -15,6 +15,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// ControllerInterface define the controller which started by meta controller
+type ControllerInterface interface {
+	IsResourceRemoved() bool
+}
+
 var controllerConfigMap *corev1.ConfigMap
 
 func LoadControllerConfig(ctx context.Context, kubeClient kubernetes.Interface) error {

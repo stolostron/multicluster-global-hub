@@ -28,8 +28,9 @@ var WatchedSecret = sets.NewString(
 )
 
 var (
-	log     = logger.DefaultZapLogger()
-	started bool
+	log                 = logger.DefaultZapLogger()
+	isResourceRemoved   = true
+	transportReconciler *TransportReconciler
 )
 
 type TransportReconciler struct {
@@ -37,17 +38,23 @@ type TransportReconciler struct {
 	transporter transport.Transporter
 }
 
-func StartController(controllerOption config.ControllerOption) error {
-	if started {
-		return nil
+func (c *TransportReconciler) IsResourceRemoved() bool {
+	log.Infof("TransportController resource removed: %v", isResourceRemoved)
+	return isResourceRemoved
+}
+
+func StartController(controllerOption config.ControllerOption) (config.ControllerInterface, error) {
+	if transportReconciler != nil {
+		return transportReconciler, nil
 	}
-	err := NewTransportReconciler(controllerOption.Manager).SetupWithManager(controllerOption.Manager)
+	transportReconciler = NewTransportReconciler(controllerOption.Manager)
+	err := transportReconciler.SetupWithManager(controllerOption.Manager)
 	if err != nil {
-		return err
+		transportReconciler = nil
+		return nil, err
 	}
-	started = true
 	log.Infof("inited transport controller")
-	return nil
+	return transportReconciler, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -107,10 +114,21 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
-
+	if mgh.DeletionTimestamp != nil {
+		if config.IsBYOKafka() {
+			isResourceRemoved = true
+			return ctrl.Result{}, nil
+		}
+		isResourceRemoved = protocol.IsResourceRemoved()
+		if !isResourceRemoved {
+			log.Info("Wait kafka resource removed")
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+		return ctrl.Result{}, nil
+	}
 	var reconcileErr error
 	defer func() {
 		if !config.IsBYOKafka() {
