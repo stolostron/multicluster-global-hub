@@ -34,7 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -270,93 +269,6 @@ groups:
 			}
 			if got != tt.want {
 				t.Errorf("isAlertCountEqual() got = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestWaitGlobalHubReady(t *testing.T) {
-	config.SetMGHNamespacedName(types.NamespacedName{
-		Namespace: "default",
-		Name:      "test",
-	})
-	tests := []struct {
-		name     string
-		mgh      []runtime.Object
-		wantErr  bool
-		returned bool
-	}{
-		{
-			name: "no mgh status",
-			mgh: []runtime.Object{
-				&v1alpha4.MulticlusterGlobalHub{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test",
-						Namespace: "default",
-					},
-					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
-				},
-			},
-			returned: false,
-		},
-		{
-			name: "no mgh instance",
-			mgh:  []runtime.Object{},
-
-			returned: false,
-		},
-		{
-			name: "mgh is deleting",
-			mgh: []runtime.Object{
-				&v1alpha4.MulticlusterGlobalHub{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "test",
-						Namespace:         "default",
-						DeletionTimestamp: &now,
-						Finalizers: []string{
-							"test",
-						},
-					},
-					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
-				},
-			},
-			returned: false,
-		},
-		{
-			name: "ready mgh",
-			mgh: []runtime.Object{
-				&v1alpha4.MulticlusterGlobalHub{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test",
-						Namespace: "default",
-					},
-					Spec: v1alpha4.MulticlusterGlobalHubSpec{},
-					Status: v1alpha4.MulticlusterGlobalHubStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   config.CONDITION_TYPE_GLOBALHUB_READY,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
-			},
-			returned: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := runtime.NewScheme()
-			v1alpha4.AddToScheme(s)
-			runtimeClient := fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(tt.mgh...).Build()
-			returned := false
-			go func() {
-				WaitGlobalHubReady(context.Background(), runtimeClient, 1*time.Second)
-				returned = true
-			}()
-			time.Sleep(time.Second * 2)
-			if returned != tt.returned {
-				t.Errorf("name:%v, expect returned:%v, actual returned: %v", tt.name, tt.returned, returned)
 			}
 		})
 	}

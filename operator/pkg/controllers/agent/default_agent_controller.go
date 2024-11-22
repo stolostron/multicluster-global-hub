@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -27,7 +26,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -193,18 +191,30 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 		log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
 
-		// prune the hub resources until all addons are cleaned up
-		if err := r.waitUtilAddonDeleted(ctx); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to wait until all addons are deleted: %w", err)
+		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+		listOptions := []client.ListOption{
+			client.MatchingLabels(map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			}),
 		}
+
+		if err := r.List(ctx, addonList, listOptions...); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if len(addonList.Items) != 0 {
+			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
+
 		log.Info("all addons are deleted")
 		config.SetGlobalhubAgentRemoved(true)
 		return ctrl.Result{}, nil
 	}
 	config.SetGlobalhubAgentRemoved(false)
-	err = utils.WaitTransporterReady(ctx, 10*time.Minute)
-	if err != nil {
-		return ctrl.Result{}, err
+	if config.GetTransporter() == nil {
+		log.Debug("wait transporter ready")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
@@ -259,33 +269,6 @@ func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Contex
 		if errors.IsNotFound(err) {
 			return nil
 		}
-		return err
-	}
-	return nil
-}
-
-func (r *DefaultAgentController) waitUtilAddonDeleted(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
-	if err := wait.PollUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (done bool, err error) {
-		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
-		listOptions := []client.ListOption{
-			client.MatchingLabels(map[string]string{
-				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			}),
-		}
-
-		if err := r.List(ctx, addonList, listOptions...); err != nil {
-			return false, err
-		}
-
-		if len(addonList.Items) == 0 {
-			return true, nil
-		} else {
-			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
-			return false, nil
-		}
-	}); err != nil {
 		return err
 	}
 	return nil
