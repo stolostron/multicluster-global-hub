@@ -156,7 +156,6 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	result, err = secretController.Reconcile(ctx, req)
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
-	utils.PrettyPrint(secretController.transportConfig.RestfulCredential)
 }
 
 var rootPEM = []byte(`
