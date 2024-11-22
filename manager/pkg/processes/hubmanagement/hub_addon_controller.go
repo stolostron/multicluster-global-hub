@@ -59,11 +59,11 @@ func (c *managerClusterAddonController) Reconcile(ctx context.Context, request c
 	}
 
 	if !addon.DeletionTimestamp.IsZero() {
-		if hubManagement == nil {
+		if hubStatusManager == nil {
 			log.Warn("The hub management process should be started")
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		}
-		err := hubManagement.inactive(ctx, []models.LeafHubHeartbeat{{
+		err := hubStatusManager.inactive(ctx, []models.LeafHubHeartbeat{{
 			Name: request.Namespace,
 		}})
 		if err != nil {
