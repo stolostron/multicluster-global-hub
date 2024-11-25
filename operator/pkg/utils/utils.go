@@ -23,7 +23,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -38,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
@@ -264,38 +262,6 @@ func CopyMap(newMap, originalMap map[string]string) {
 	}
 }
 
-func WaitGlobalHubReady(ctx context.Context,
-	client client.Client,
-	interval time.Duration,
-) (*v1alpha4.MulticlusterGlobalHub, error) {
-	mgh := &v1alpha4.MulticlusterGlobalHub{}
-
-	timeOutCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
-	defer cancel()
-
-	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
-		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
-		if errors.IsNotFound(err) {
-			log.Debug("wait until the mgh instance is created")
-			return false, nil
-		} else if err != nil {
-			return true, err
-		}
-
-		if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
-			return true, nil
-		}
-
-		log.Debug("mgh instance ready condition is not true")
-		return false, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return mgh, nil
-}
-
 func GetReadyMulticlusterGlobalHub(ctx context.Context, client client.Client) (*v1alpha4.MulticlusterGlobalHub, bool) {
 	mgh := &v1alpha4.MulticlusterGlobalHub{}
 	err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
@@ -388,17 +354,6 @@ func setResourcesFromCR(res *v1alpha4.ResourceRequirements, requests, limits cor
 			limits[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(res.Limits.Cpu().String())
 		}
 	}
-}
-
-func WaitTransporterReady(ctx context.Context, timeout time.Duration) error {
-	return wait.PollUntilContextTimeout(ctx, 1*time.Second, timeout, true,
-		func(ctx context.Context) (bool, error) {
-			if config.GetTransporter() == nil {
-				log.Debug("wait transporter ready")
-				return false, nil
-			}
-			return true, nil
-		})
 }
 
 func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) error {

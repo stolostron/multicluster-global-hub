@@ -20,11 +20,13 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,9 +36,9 @@ import (
 	agentconfig "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
@@ -375,8 +377,40 @@ func deployGlobalHub() {
 
 	// Before run test, the mgh should be ready
 	operatorconfig.SetMGHNamespacedName(types.NamespacedName{Namespace: mcgh.Namespace, Name: mcgh.Name})
-	_, err = operatorutils.WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
+	_, err = WaitGlobalHubReady(ctx, runtimeClient, 5*time.Second)
 	Expect(err).ShouldNot(HaveOccurred())
+}
+
+func WaitGlobalHubReady(ctx context.Context,
+	client client.Client,
+	interval time.Duration,
+) (*v1alpha4.MulticlusterGlobalHub, error) {
+	mgh := &v1alpha4.MulticlusterGlobalHub{}
+
+	timeOutCtx, cancel := context.WithTimeout(ctx, time.Minute*5)
+	defer cancel()
+
+	err := wait.PollUntilContextCancel(timeOutCtx, interval, true, func(ctx context.Context) (bool, error) {
+		err := client.Get(ctx, config.GetMGHNamespacedName(), mgh)
+		if errors.IsNotFound(err) {
+			klog.Infof("wait until the mgh instance is created")
+			return false, nil
+		} else if err != nil {
+			return true, err
+		}
+
+		if meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
+			return true, nil
+		}
+
+		klog.Info("mgh instance ready condition is not true")
+		return false, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return mgh, nil
 }
 
 func isLeaseUpdated(leaseName, namespace, deployName string, c client.Client) (bool, error) {
