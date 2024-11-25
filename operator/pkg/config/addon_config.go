@@ -28,7 +28,7 @@ import (
 	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -57,7 +57,7 @@ func GetGlobalhubAgentRemoved() bool {
 
 // https://github.com/open-cluster-management-io/ocm/blob/main/pkg/registration/spoke/addon/configuration.go
 func AgentCertificateSecretName() string {
-	return fmt.Sprintf("%s-%s-client-cert", operatorconstants.GHManagedClusterAddonName,
+	return fmt.Sprintf("%s-%s-client-cert", constants.GHManagedClusterAddonName,
 		strings.ReplaceAll(SignerName, "/", "-"))
 }
 

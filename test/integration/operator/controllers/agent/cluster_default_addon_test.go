@@ -20,7 +20,7 @@ var _ = Describe("deploy default addon", func() {
 	It("Should create agent when importing an bare OCP", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing an OCP Managed Clusters")
 		prepareCluster(clusterName,
@@ -33,7 +33,7 @@ var _ = Describe("deploy default addon", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -55,7 +55,7 @@ var _ = Describe("deploy default addon", func() {
 	It("Should create default addon with OCP label", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing clusters")
 		prepareCluster(clusterName,
@@ -70,7 +70,7 @@ var _ = Describe("deploy default addon", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -92,7 +92,7 @@ var _ = Describe("deploy default addon", func() {
 	It("Should create default addon and ACM", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 
 		By("By preparing an OCP Managed Clusters")
 		prepareCluster(clusterName,
@@ -113,7 +113,7 @@ var _ = Describe("deploy default addon", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())

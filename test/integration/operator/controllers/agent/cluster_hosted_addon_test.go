@@ -21,9 +21,9 @@ var _ = Describe("deploy hosted addon", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))                // managed hub cluster -> enable local cluster
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6)) // hosting cluster -> global hub
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 		hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
-			operatorconstants.GHManagedClusterAddonName, clusterName)
+			constants.GHManagedClusterAddonName, clusterName)
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
@@ -49,7 +49,7 @@ var _ = Describe("deploy hosted addon", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())
@@ -81,9 +81,9 @@ var _ = Describe("deploy hosted addon", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6))
 		workName := fmt.Sprintf("addon-%s-deploy-0",
-			operatorconstants.GHManagedClusterAddonName)
+			constants.GHManagedClusterAddonName)
 		hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
-			operatorconstants.GHManagedClusterAddonName, clusterName)
+			constants.GHManagedClusterAddonName, clusterName)
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
@@ -115,7 +115,7 @@ var _ = Describe("deploy hosted addon", func() {
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      operatorconstants.GHManagedClusterAddonName,
+				Name:      constants.GHManagedClusterAddonName,
 				Namespace: clusterName,
 			}, addon)
 		}, timeout, interval).ShouldNot(HaveOccurred())

@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -240,7 +239,7 @@ func TestPruneReconciler_hasManagedHub(t *testing.T) {
 			cmas: []runtime.Object{
 				&addonv1alpha1.ManagedClusterAddOn{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      operatorconstants.GHManagedClusterAddonName,
+						Name:      constants.GHManagedClusterAddonName,
 						Namespace: "mh1",
 					},
 				},
