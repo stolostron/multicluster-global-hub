@@ -23,7 +23,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -47,14 +46,6 @@ func AddLogConfigController(ctx context.Context, mgr ctrl.Manager) error {
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetName() == constants.GHConfigCMName
 	})
-
-	// set the logLevel before start the controller
-	_, err := logConfigCtrl.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
-		Namespace: constants.GHDefaultNamespace, Name: constants.GHConfigCMName,
-	}})
-	if err != nil {
-		return err
-	}
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
