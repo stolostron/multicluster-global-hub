@@ -45,6 +45,18 @@ import (
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
+// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheuses/api,resourceNames=k8s,verbs=get;create;update
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+
 //go:embed manifests
 var fs embed.FS
 
@@ -236,9 +248,6 @@ var secretPred = predicate.Funcs{
 	},
 }
 
-// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch
-
 func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
@@ -323,7 +332,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 	if err = operatorutils.ManipulateGlobalHubObjects(grafanaObjects, mgh, grafanaDeployer,
 		mapper, r.GetScheme()); err != nil {
-		err = fmt.Errorf("failed to create/update grafana objects: %w", err)
+		reconcileErr = fmt.Errorf("failed to create/update grafana objects: %w", err)
 		return ctrl.Result{}, reconcileErr
 	}
 

@@ -8,6 +8,18 @@ rules:
   - ""
   resources:
   - configmaps
+  - serviceaccounts
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - events
   verbs:
   - create
@@ -22,11 +34,7 @@ rules:
   - ""
   resources:
   - namespaces
-  - serviceaccounts
-  - services
   verbs:
-  - create
-  - delete
   - get
   - list
   - update
@@ -70,13 +78,6 @@ rules:
 - apiGroups:
   - addon.open-cluster-management.io
   resources:
-  - clustermanagementaddons/finalizers
-  - managedclusteraddons/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - addon.open-cluster-management.io
-  resources:
   - managedclusteraddons
   verbs:
   - create
@@ -87,6 +88,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - addon.open-cluster-management.io
+  resources:
+  - managedclusteraddons/finalizers
+  verbs:
+  - update
 - apiGroups:
   - addon.open-cluster-management.io
   resources:
@@ -112,7 +119,6 @@ rules:
   verbs:
   - get
   - list
-  - update
   - watch
 - apiGroups:
   - app.k8s.io
@@ -232,14 +238,6 @@ rules:
   - list
   - patch
   - update
-- apiGroups:
-  - cluster.open-cluster-management.io
-  resources:
-  - managedclustersets/bind
-  - managedclustersets/join
-  verbs:
-  - create
-  - delete
 - apiGroups:
   - config.open-cluster-management.io
   resources:

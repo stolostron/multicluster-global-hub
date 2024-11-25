@@ -36,8 +36,6 @@ var FS embed.FS
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=signers,resourceNames=open-cluster-management.io/globalhub-signer,verbs=sign
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=get;create
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;update;get;list;watch;patch
-// +kubebuilder:rbac:groups="",resources=configmaps,verbs=create;update;get;list;watch;delete;deletecollection;patch
-// +kubebuilder:rbac:groups="",resources=events,verbs=create;update;get;list;watch;delete;deletecollection;patch
 // +kubebuilder:rbac:groups=packages.operators.coreos.com,resources=packagemanifests,verbs=get;list;watch
 
 var addonManagerController *AddonManagerController

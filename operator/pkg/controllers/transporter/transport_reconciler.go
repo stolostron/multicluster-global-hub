@@ -23,6 +23,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+// +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkas;kafkatopics;kafkausers;kafkanodepools,verbs=get;create;list;watch;update;delete
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;delete;list;watch
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=podmonitors,verbs=get;create;delete;update;list;watch
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+
 var WatchedSecret = sets.NewString(
 	constants.GHTransportSecretName,
 )
@@ -106,8 +112,6 @@ func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
 	return &TransportReconciler{Manager: mgr}
 }
 
-// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;delete;list;watch
-
 // Resources reconcile the transport resources and also update transporter on the configuration
 func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
@@ -120,6 +124,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if mgh.DeletionTimestamp != nil {
 		if config.IsBYOKafka() {
 			isResourceRemoved = true
+			config.SetTransporterConn(nil)
 			return ctrl.Result{}, nil
 		}
 		isResourceRemoved = protocol.IsResourceRemoved()
@@ -127,6 +132,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Info("Wait kafka resource removed")
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+		config.SetTransporterConn(nil)
 		return ctrl.Result{}, nil
 	}
 	var reconcileErr error

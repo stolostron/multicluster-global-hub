@@ -43,6 +43,12 @@ import (
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+
 //go:embed manifests
 var fs embed.FS
 
