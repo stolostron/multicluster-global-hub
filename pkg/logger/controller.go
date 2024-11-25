@@ -63,8 +63,6 @@ func AddLogConfigController(ctx context.Context, mgr ctrl.Manager) error {
 }
 
 func (c *logConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	log := DefaultZapLogger()
-
 	configMap := &corev1.ConfigMap{}
 	if err := c.client.Get(ctx, request.NamespacedName, configMap); apierrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -74,7 +72,6 @@ func (c *logConfigController) Reconcile(ctx context.Context, request ctrl.Reques
 
 	logLevel := configMap.Data[string(LogLevelKey)]
 	if logLevel != "" {
-		log.Debugf("set the log level to: %s", logLevel)
 		SetLogLevel(LogLevel(logLevel))
 	}
 	return ctrl.Result{}, nil
