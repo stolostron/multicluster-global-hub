@@ -13,6 +13,8 @@ const (
 	Error LogLevel = "error"
 )
 
+var logLevel = Info
+
 func SetLogLevel(level LogLevel) {
 	if internalZapConfig == nil {
 		internalZapConfig = GetDefaultZapConfig()
@@ -29,4 +31,9 @@ func SetLogLevel(level LogLevel) {
 	default:
 		DefaultZapLogger().Warnf("set unknown logLevel: %s", level)
 	}
+	logLevel = level
+}
+
+func GetLogLevel() LogLevel {
+	return logLevel
 }

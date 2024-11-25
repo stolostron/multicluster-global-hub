@@ -28,6 +28,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 // GlobalHubAddonAgent defines the manifests of agent deployed on managed cluster
@@ -136,7 +137,7 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 		EnableGlobalResource:      a.operatorConfig.GlobalResourceEnabled,
 		AgentQPS:                  agentQPS,
 		AgentBurst:                agentBurst,
-		LogLevel:                  a.operatorConfig.LogLevel,
+		LogLevel:                  string(logger.GetLogLevel()),
 		EnablePprof:               a.operatorConfig.EnablePprof,
 		Resources:                 agentRes,
 		EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
