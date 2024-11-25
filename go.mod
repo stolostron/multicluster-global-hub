@@ -16,7 +16,7 @@ require (
 	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-co-op/gocron v1.23.0
-	github.com/go-kratos/kratos/v2 v2.8.0
+	github.com/go-kratos/kratos/v2 v2.8.2
 	github.com/go-logr/logr v1.4.2
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/uuid v1.6.0
@@ -235,7 +235,7 @@ require (
 	gorm.io/driver/mysql v1.5.6 // indirect
 	k8s.io/apiserver v0.31.1 // indirect
 	k8s.io/component-base v0.31.1 // indirect
-	k8s.io/klog/v2 v2.130.1
+	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240411171206-dc4e619f62f3 // indirect
 	open-cluster-management.io/sdk-go v0.15.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
