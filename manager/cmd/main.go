@@ -201,7 +201,7 @@ func createManager(ctx context.Context,
 	}
 
 	// add the configmap: logLevel
-	if err = controllers.AddConfigMapController(mgr); err != nil {
+	if err = logger.AddLogConfigController(ctx, mgr); err != nil {
 		return nil, fmt.Errorf("failed to add configmap controller to manager: %w", err)
 	}
 

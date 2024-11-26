@@ -13,10 +13,14 @@ const (
 	Error LogLevel = "error"
 )
 
+var logLevel = Info
+
 func SetLogLevel(level LogLevel) {
 	if internalZapConfig == nil {
 		internalZapConfig = GetDefaultZapConfig()
 	}
+	log := DefaultZapLogger()
+
 	switch level {
 	case Info:
 		internalZapConfig.Level.SetLevel(zapcore.InfoLevel)
@@ -29,4 +33,10 @@ func SetLogLevel(level LogLevel) {
 	default:
 		DefaultZapLogger().Warnf("set unknown logLevel: %s", level)
 	}
+	logLevel = level
+	log.Infof("set the logLevel: %s", string(level))
+}
+
+func GetLogLevel() LogLevel {
+	return logLevel
 }

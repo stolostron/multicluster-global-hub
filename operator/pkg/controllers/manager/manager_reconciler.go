@@ -253,7 +253,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			EnableGlobalResource:  r.operatorConfig.GlobalResourceEnabled,
 			ImportClusterInHosted: config.GetImportClusterInHosted(),
 			EnablePprof:           r.operatorConfig.EnablePprof,
-			LogLevel:              r.operatorConfig.LogLevel,
 			Resources:             utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedSpec),
 			WithACM:               config.IsACMResourceReady(),
 		}, nil
@@ -410,7 +409,6 @@ type ManagerVariables struct {
 	EnableGlobalResource  bool
 	ImportClusterInHosted bool
 	EnablePprof           bool
-	LogLevel              string
 	Resources             *corev1.ResourceRequirements
 	WithACM               bool
 }

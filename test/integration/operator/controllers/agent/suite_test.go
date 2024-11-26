@@ -116,7 +116,6 @@ var _ = BeforeSuite(func() {
 		MulticlusterGlobalHub: existMgh,
 		OperatorConfig: &config.OperatorConfig{
 			GlobalResourceEnabled: true,
-			LogLevel:              "info",
 			EnablePprof:           false,
 		},
 	}

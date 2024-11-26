@@ -16,7 +16,6 @@ type OperatorConfig struct {
 	LeaderElection        bool
 	GlobalResourceEnabled bool
 	EnablePprof           bool
-	LogLevel              string
 }
 
 type ControllerOption struct {

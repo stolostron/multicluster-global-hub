@@ -36,7 +36,6 @@ var _ = Describe("manager", Ordered, func() {
 		namespace = fmt.Sprintf("namespace-%s", rand.String(6))
 		mghName := "test-mgh"
 		reconciler = manager.NewManagerReconciler(runtimeManager, kubeClient, &config.OperatorConfig{
-			LogLevel:              "info",
 			EnablePprof:           false,
 			GlobalResourceEnabled: true,
 		})

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package logger
 
 import (
 	"context"
@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const (
@@ -36,26 +35,25 @@ const (
 	LogLevelKey     = "logLevel"
 )
 
-type managerConfigMapController struct {
+type logConfigController struct {
 	client client.Client
 }
 
-func AddConfigMapController(mgr ctrl.Manager) error {
-	configmapCtrl := &managerConfigMapController{
+func AddLogConfigController(ctx context.Context, mgr ctrl.Manager) error {
+	logConfigCtrl := &logConfigController{
 		client: mgr.GetClient(),
 	}
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
 		return object.GetName() == constants.GHConfigCMName
 	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).
 		WithEventFilter(configMapPredicate).
-		Complete(configmapCtrl)
+		Complete(logConfigCtrl)
 }
 
-func (c *managerConfigMapController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	log := logger.DefaultZapLogger()
-
+func (c *logConfigController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	configMap := &corev1.ConfigMap{}
 	if err := c.client.Get(ctx, request.NamespacedName, configMap); apierrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -65,8 +63,7 @@ func (c *managerConfigMapController) Reconcile(ctx context.Context, request ctrl
 
 	logLevel := configMap.Data[string(LogLevelKey)]
 	if logLevel != "" {
-		log.Infof("set the log level to: %s", logLevel)
-		logger.SetLogLevel(logger.LogLevel(logLevel))
+		SetLogLevel(LogLevel(logLevel))
 	}
 	return ctrl.Result{}, nil
 }

@@ -82,6 +82,10 @@ func doMain(ctx context.Context, cfg *rest.Config) error {
 		return fmt.Errorf("failed to create openshift image client: %w", err)
 	}
 
+	if err := logger.AddLogConfigController(ctx, mgr); err != nil {
+		return fmt.Errorf("failed to add the logLevel controller: %w", err)
+	}
+
 	err = controllers.NewMetaController(mgr, kubeClient, operatorConfig, imageClient).SetupWithManager(mgr)
 	if err != nil {
 		return fmt.Errorf("unable to create meta controller: %w", err)
