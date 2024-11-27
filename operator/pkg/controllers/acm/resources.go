@@ -34,6 +34,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs;clustermanagers,verbs=get;list;patch;update;watch
+
 var ACMResources = sets.NewString(
 	"multiclusterhubs.operator.open-cluster-management.io",
 	"clustermanagers.operator.open-cluster-management.io",
@@ -43,8 +47,6 @@ var (
 	log                   = logger.DefaultZapLogger()
 	acmResourceController *ACMResourceController
 )
-
-// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 
 type ACMResourceController struct {
 	manager.Manager
@@ -109,8 +111,7 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 					return false
 				},
 			}),
-		).
-		Complete(acmController)
+		).Complete(acmController)
 	if err != nil {
 		acmResourceController = nil
 		return nil, err
