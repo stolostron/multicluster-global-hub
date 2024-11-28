@@ -390,26 +390,6 @@ func Test_GetResources(t *testing.T) {
 			},
 			custom: true,
 		},
-		{
-			name:          "Test Zookeeper with default values",
-			component:     constants.Zookeeper,
-			cpuRequest:    constants.ZookeeperCPURequest,
-			cpuLimit:      "0",
-			memoryRequest: constants.ZookeeperMemoryRequest,
-			memoryLimit:   constants.ZookeeperMemoryLimit,
-		},
-		{
-			name:      "Test Zookeeper with customized values",
-			component: constants.Zookeeper,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
-				return &v1alpha4.AdvancedSpec{
-					Zookeeper: &v1alpha4.CommonSpec{
-						Resources: resReq,
-					},
-				}
-			},
-			custom: true,
-		},
 	}
 
 	resReq := &v1alpha4.ResourceRequirements{

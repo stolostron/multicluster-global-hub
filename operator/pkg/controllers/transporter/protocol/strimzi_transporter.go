@@ -47,27 +47,26 @@ const (
 	DefaultCatalogSourceNamespace = "openshift-marketplace"
 
 	// subscription - production
-	DefaultAMQChannel        = "amq-streams-2.7.x"
+	DefaultAMQChannel        = "amq-streams-2.8.x"
 	DefaultAMQPackageName    = "amq-streams"
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
 	// The KRaft Compatibility: https://github.com/orgs/strimzi/discussions/10836
-	CommunityChannel           = "strimzi-0.42.x"
+	CommunityChannel           = "strimzi-0.43.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
 )
 
 var (
-	DefaultAMQKafkaVersion         = "3.7.0"
+	DefaultAMQKafkaVersion         = "3.8.0"
 	KafkaStorageIdentifier   int32 = 0
 	KafkaStorageDeleteClaim        = false
 	DefaultPartition         int32 = 1
 	DefaultPartitionReplicas int32 = 3
 	// kafka metrics constants
-	KakfaMetricsConfigmapName       = "kafka-metrics"
-	KafkaMetricsConfigmapKeyRef     = "kafka-metrics-config.yml"
-	ZooKeeperMetricsConfigmapKeyRef = "zookeeper-metrics-config.yml"
+	KakfaMetricsConfigmapName   = "kafka-metrics"
+	KafkaMetricsConfigmapKeyRef = "kafka-metrics-config.yml"
 )
 
 // install the strimzi kafka cluster by operator
@@ -194,30 +193,23 @@ func (k *strimziTransporter) EnsureKafka() (bool, error) {
 		return true, nil
 	}
 
-	_, enableKRaft := k.mgh.Annotations[operatorconstants.EnableKRaft]
-
 	// Since the kafka cluster creation need the metric configmap, render the resource before creating the cluster
 	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
-	err = k.renderKafkaResources(k.mgh, enableKRaft)
+	err = k.renderKafkaResources(k.mgh)
 	if err != nil {
 		return true, err
 	}
 
-	if !enableKRaft {
-		// TODO: use manifest to create kafka cluster
-		err, _ = k.CreateUpdateKafkaCluster(k.mgh)
-		if err != nil {
-			return true, err
-		}
+	err, _ = k.CreateUpdateKafkaCluster(k.mgh)
+	if err != nil {
+		return true, err
 	}
 
 	return false, nil
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
-func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub,
-	enableKRaft bool,
-) error {
+func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	statusTopic := config.GetRawStatusTopic()
 	statusPlaceholderTopic := config.GetRawStatusTopic()
 	topicParttern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
@@ -227,7 +219,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	topicReplicas := DefaultPartitionReplicas
-	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic || enableKRaft {
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
 		topicReplicas = 1
 	}
 	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
@@ -248,10 +240,11 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusPlaceholderTopic string
 				TopicPartition         int32
 				TopicReplicas          int32
-				EnableKRaft            bool
 				KinDClusterIPAddress   string
 				EnableInventoryAPI     bool
 				KafkaInventoryTopic    string
+				StorageSize            string
+				StorageClass           string
 			}{
 				EnableMetrics:          mgh.Spec.EnableMetrics,
 				Namespace:              mgh.GetNamespace(),
@@ -263,10 +256,11 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusPlaceholderTopic: statusPlaceholderTopic,
 				TopicPartition:         DefaultPartition,
 				TopicReplicas:          topicReplicas,
-				EnableKRaft:            enableKRaft,
 				KinDClusterIPAddress:   brokerAdvertisedHost,
 				EnableInventoryAPI:     config.WithInventory(mgh),
 				KafkaInventoryTopic:    "kessel-inventory",
+				StorageSize:            config.GetKafkaStorageSize(mgh),
+				StorageClass:           mgh.Spec.DataLayerSpec.StorageClass,
 			}, nil
 		})
 	if err != nil {
@@ -580,9 +574,8 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 		kakfaReason:  "KafkaNotReady",
 		kafkaMessage: "Wait kafka cluster ready",
 	}
-	var err error
 
-	err = k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,
 		Namespace: k.kafkaClusterNamespace,
 	}, kafkaCluster)
@@ -647,7 +640,6 @@ func (k *strimziTransporter) CreateUpdateKafkaCluster(mgh *operatorv1alpha4.Mult
 	}
 
 	updatedKafka.Spec.Kafka.MetricsConfig = desiredKafka.Spec.Kafka.MetricsConfig
-	updatedKafka.Spec.Zookeeper.MetricsConfig = desiredKafka.Spec.Zookeeper.MetricsConfig
 
 	if !reflect.DeepEqual(updatedKafka.Spec, existingKafka.Spec) {
 		return k.manager.GetClient().Update(k.ctx, updatedKafka), true
@@ -672,41 +664,7 @@ func (k *strimziTransporter) getKafkaResources(
 	return kafkaSpecRes
 }
 
-func (k *strimziTransporter) getZookeeperResources(
-	mgh *operatorv1alpha4.MulticlusterGlobalHub,
-) *kafkav1beta2.KafkaSpecZookeeperResources {
-	zookeeperRes := operatorutils.GetResources(operatorconstants.Zookeeper, mgh.Spec.AdvancedSpec)
-
-	zookeeperSpecRes := &kafkav1beta2.KafkaSpecZookeeperResources{}
-	jsonData, err := json.Marshal(zookeeperRes)
-	if err != nil {
-		log.Error(err, "failed to marshal zookeeper resources")
-	}
-	err = json.Unmarshal(jsonData, zookeeperSpecRes)
-	if err != nil {
-		log.Error(err, "failed to unmarshal to KafkaSpecZookeeperResources")
-	}
-	return zookeeperSpecRes
-}
-
 func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
-	storageSize := config.GetKafkaStorageSize(mgh)
-	kafkaSpecKafkaStorageVolumesElem := kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
-		Id:          &KafkaStorageIdentifier,
-		Size:        &storageSize,
-		Type:        kafkav1beta2.KafkaSpecKafkaStorageVolumesElemTypePersistentClaim,
-		DeleteClaim: &KafkaStorageDeleteClaim,
-	}
-	kafkaSpecZookeeperStorage := kafkav1beta2.KafkaSpecZookeeperStorage{
-		Type:        kafkav1beta2.KafkaSpecZookeeperStorageTypePersistentClaim,
-		Size:        &storageSize,
-		DeleteClaim: &KafkaStorageDeleteClaim,
-	}
-
-	if mgh.Spec.DataLayerSpec.StorageClass != "" {
-		kafkaSpecKafkaStorageVolumesElem.Class = &mgh.Spec.DataLayerSpec.StorageClass
-		kafkaSpecZookeeperStorage.Class = &mgh.Spec.DataLayerSpec.StorageClass
-	}
 
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
@@ -720,7 +678,6 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 			Kafka: kafkav1beta2.KafkaSpecKafka{
 				Config: &apiextensions.JSON{Raw: []byte(`{
 "default.replication.factor": 3,
-"inter.broker.protocol.version": "3.7",
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
@@ -748,18 +705,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
 				Replicas: 3,
-				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
-					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
-					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
-						kafkaSpecKafkaStorageVolumesElem,
-					},
-				},
-				Version: &DefaultAMQKafkaVersion,
-			},
-			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas:  3,
-				Storage:   kafkaSpecZookeeperStorage,
-				Resources: k.getZookeeperResources(mgh),
+				Version:  &DefaultAMQKafkaVersion,
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
 				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},
@@ -781,7 +727,6 @@ func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.Multicluster
 	kafkaCluster *kafkav1beta2.Kafka,
 ) {
 	kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{}
-	zookeeperMetricsConfig := &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{}
 	if mgh.Spec.EnableMetrics {
 		kafkaMetricsConfig = &kafkav1beta2.KafkaSpecKafkaMetricsConfig{
 			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
@@ -792,17 +737,7 @@ func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.Multicluster
 				},
 			},
 		}
-		zookeeperMetricsConfig = &kafkav1beta2.KafkaSpecZookeeperMetricsConfig{
-			Type: kafkav1beta2.KafkaSpecZookeeperMetricsConfigTypeJmxPrometheusExporter,
-			ValueFrom: kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFrom{
-				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecZookeeperMetricsConfigValueFromConfigMapKeyRef{
-					Name: &KakfaMetricsConfigmapName,
-					Key:  &ZooKeeperMetricsConfigmapKeyRef,
-				},
-			},
-		}
 		kafkaCluster.Spec.Kafka.MetricsConfig = kafkaMetricsConfig
-		kafkaCluster.Spec.Zookeeper.MetricsConfig = zookeeperMetricsConfig
 	}
 }
 
@@ -811,7 +746,6 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 	kafkaCluster *kafkav1beta2.Kafka,
 ) {
 	kafkaPodAffinity := &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinity{}
-	zookeeperPodAffinity := &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinity{}
 	entityOperatorPodAffinity := &kafkav1beta2.KafkaSpecEntityOperatorTemplatePodAffinity{}
 
 	if mgh.Spec.NodeSelector != nil {
@@ -840,8 +774,6 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 			KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem,
 			0)
 
-		zookeeperNodeSelectorTermsElem := make([]kafkav1beta2.
-			KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
 		entityOperatorNodeSelectorTermsElem := make([]kafkav1beta2.
 			KafkaSpecEntityOperatorTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsElem, 0)
 
@@ -849,21 +781,11 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 		if err != nil {
 			log.Error("failed to unmarshal to kafkaNodeSelectorTermsElem: ", err)
 		}
-		err = json.Unmarshal(jsonData, &zookeeperNodeSelectorTermsElem)
-		if err != nil {
-			log.Error("failed to unmarshal to zookeeperNodeSelectorTermsElem: ", err)
-		}
 		err = json.Unmarshal(jsonData, &entityOperatorNodeSelectorTermsElem)
 		if err != nil {
 			log.Error("failed to unmarshal to entityOperatorNodeSelectorTermsElem: ", err)
 		}
 
-		zookeeperPodAffinity.NodeAffinity = &kafkav1beta2.KafkaSpecZookeeperTemplatePodAffinityNodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.
-				KafkaSpecZookeeperTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{
-				NodeSelectorTerms: zookeeperNodeSelectorTermsElem,
-			},
-		}
 		kafkaPodAffinity.NodeAffinity = &kafkav1beta2.KafkaSpecKafkaTemplatePodAffinityNodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &kafkav1beta2.
 				KafkaSpecKafkaTemplatePodAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution{
@@ -883,11 +805,6 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 					Affinity: kafkaPodAffinity,
 				},
 			}
-			kafkaCluster.Spec.Zookeeper.Template = &kafkav1beta2.KafkaSpecZookeeperTemplate{
-				Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
-					Affinity: zookeeperPodAffinity,
-				},
-			}
 			kafkaCluster.Spec.EntityOperator.Template = &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
 				Pod: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePod{
 					Affinity: entityOperatorPodAffinity,
@@ -895,7 +812,6 @@ func (k *strimziTransporter) setAffinity(mgh *operatorv1alpha4.MulticlusterGloba
 			}
 		} else {
 			kafkaCluster.Spec.Kafka.Template.Pod.Affinity = kafkaPodAffinity
-			kafkaCluster.Spec.Zookeeper.Template.Pod.Affinity = zookeeperPodAffinity
 			kafkaCluster.Spec.EntityOperator.Template.Pod.Affinity = entityOperatorPodAffinity
 		}
 	}
@@ -906,7 +822,6 @@ func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGl
 	kafkaCluster *kafkav1beta2.Kafka,
 ) {
 	kafkaTolerationsElem := make([]kafkav1beta2.KafkaSpecKafkaTemplatePodTolerationsElem, 0)
-	zookeeperTolerationsElem := make([]kafkav1beta2.KafkaSpecZookeeperTemplatePodTolerationsElem, 0)
 	entityOperatorTolerationsElem := make([]kafkav1beta2.KafkaSpecEntityOperatorTemplatePodTolerationsElem, 0)
 
 	if mgh.Spec.Tolerations != nil {
@@ -917,10 +832,6 @@ func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGl
 		err = json.Unmarshal(jsonData, &kafkaTolerationsElem)
 		if err != nil {
 			log.Error("failed to unmarshal to KafkaSpecruntimeKafkaTemplatePodTolerationsElem: ", err)
-		}
-		err = json.Unmarshal(jsonData, &zookeeperTolerationsElem)
-		if err != nil {
-			log.Error("failed to unmarshal to KafkaSpecZookeeperTemplatePodTolerationsElem: ", err)
 		}
 		err = json.Unmarshal(jsonData, &entityOperatorTolerationsElem)
 		if err != nil {
@@ -933,11 +844,6 @@ func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGl
 					Tolerations: kafkaTolerationsElem,
 				},
 			}
-			kafkaCluster.Spec.Zookeeper.Template = &kafkav1beta2.KafkaSpecZookeeperTemplate{
-				Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
-					Tolerations: zookeeperTolerationsElem,
-				},
-			}
 			kafkaCluster.Spec.EntityOperator.Template = &kafkav1beta2.KafkaSpecEntityOperatorTemplate{
 				Pod: &kafkav1beta2.KafkaSpecEntityOperatorTemplatePod{
 					Tolerations: entityOperatorTolerationsElem,
@@ -945,7 +851,6 @@ func (k *strimziTransporter) setTolerations(mgh *operatorv1alpha4.MulticlusterGl
 			}
 		} else {
 			kafkaCluster.Spec.Kafka.Template.Pod.Tolerations = kafkaTolerationsElem
-			kafkaCluster.Spec.Zookeeper.Template.Pod.Tolerations = zookeeperTolerationsElem
 			kafkaCluster.Spec.EntityOperator.Template.Pod.Tolerations = entityOperatorTolerationsElem
 		}
 	}

@@ -39,11 +39,6 @@ func (in *AdvancedSpec) DeepCopyInto(out *AdvancedSpec) {
 		*out = new(CommonSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Zookeeper != nil {
-		in, out := &in.Zookeeper, &out.Zookeeper
-		*out = new(CommonSpec)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.Postgres != nil {
 		in, out := &in.Postgres, &out.Postgres
 		*out = new(CommonSpec)

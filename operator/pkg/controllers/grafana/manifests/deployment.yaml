@@ -103,8 +103,6 @@ spec:
           name: grafana-dashboard-acm-strimzi-kafka
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-operator
           name: grafana-dashboard-acm-strimzi-operator
-        - mountPath: /grafana-dashboards/1/global-hub-strimzi-zookeeper
-          name: grafana-dashboard-acm-strimzi-zookeeper
         {{- end }}
         {{- if .EnablePostgresMetrics }}
         - mountPath: /grafana-dashboards/2/acm-global-postgres-tables
@@ -241,10 +239,6 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-strimzi-operator
         name: grafana-dashboard-acm-strimzi-operator
-      - configMap:
-          defaultMode: 420
-          name: grafana-dashboard-acm-strimzi-zookeeper
-        name: grafana-dashboard-acm-strimzi-zookeeper
       {{- end }}
       {{- if .EnablePostgresMetrics }}
       - configMap:

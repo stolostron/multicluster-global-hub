@@ -260,18 +260,6 @@ var _ = Describe("transporter", Ordered, func() {
 					},
 				},
 			},
-			Zookeeper: &v1alpha4.CommonSpec{
-				Resources: &v1alpha4.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
-					},
-				},
-			},
 		}
 		mgh.Spec.ImagePullSecret = "mgh-image-pull"
 
@@ -382,23 +370,18 @@ var _ = Describe("transporter", Ordered, func() {
 
 		entityOperatorToleration, _ := json.Marshal(kafka.Spec.EntityOperator.Template.Pod.Tolerations)
 		kafkaToleration, _ := json.Marshal(kafka.Spec.Kafka.Template.Pod.Tolerations)
-		zookeeperToleration, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Tolerations)
 		entityOperatorNodeAffinity, _ := json.Marshal(kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity)
 		kafkaNodeAffinity, _ := json.Marshal(kafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity)
-		zookeeperNodeAffinity, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
 		toleration := `[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready","operator":"Exists"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/worker","operator":"Exists"}]`
 
 		Expect(string(entityOperatorToleration)).To(Equal(toleration))
 		Expect(string(kafkaToleration)).To(Equal(toleration))
-		Expect(string(zookeeperToleration)).To(Equal(toleration))
 
 		// cannot compare the string, because the order is random
 		Expect(string(entityOperatorNodeAffinity)).To(ContainSubstring("node-role.kubernetes.io/worker"))
 		Expect(string(entityOperatorNodeAffinity)).To(ContainSubstring("topology.kubernetes.io/zone"))
 		Expect(string(kafkaNodeAffinity)).To(ContainSubstring("node-role.kubernetes.io/worker"))
 		Expect(string(kafkaNodeAffinity)).To(ContainSubstring("topology.kubernetes.io/zone"))
-		Expect(string(zookeeperNodeAffinity)).To(ContainSubstring("node-role.kubernetes.io/worker"))
-		Expect(string(zookeeperNodeAffinity)).To(ContainSubstring("topology.kubernetes.io/zone"))
 
 		// simulate to create a cluster named: hub1
 		clusterName := "hub1"

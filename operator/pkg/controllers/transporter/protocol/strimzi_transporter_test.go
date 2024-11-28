@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"testing"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -10,14 +9,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	constants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-)
-
-var (
-	mghName      = "mgh"
-	mghNamespace = "default"
-	now          = time.Now()
-	reason       = "KafkaNotReady"
-	message      = "Kafka cluster is not ready"
 )
 
 func TestNewStrimziTransporter(t *testing.T) {

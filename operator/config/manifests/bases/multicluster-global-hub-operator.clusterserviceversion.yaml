@@ -122,9 +122,9 @@ spec:
     kafka-kafka-0                                           1/1     Running   0          20m
     kafka-kafka-1                                           1/1     Running   0          20m
     kafka-kafka-2                                           1/1     Running   0          20m
-    kafka-zookeeper-0                                       1/1     Running   0          21m
-    kafka-zookeeper-1                                       1/1     Running   0          21m
-    kafka-zookeeper-2                                       1/1     Running   0          21m
+    kafka-kafka-dual-role-0                                 1/1     Running   0          20m
+    kafka-kafka-dual-role-1                                 1/1     Running   0          20m
+    kafka-kafka-dual-role-2                                 1/1     Running   0          20m
     multicluster-global-hub-grafana-5b7cfb6876-5rcnn        2/2     Running   0          19m
     multicluster-global-hub-grafana-5b7cfb6876-wq99v        2/2     Running   0          19m
     multicluster-global-hub-manager-7f56d78c49-hzfvw        1/1     Running   0          19m

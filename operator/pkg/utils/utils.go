@@ -324,13 +324,6 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 		if advanced != nil && advanced.Kafka != nil {
 			setResourcesFromCR(advanced.Kafka.Resources, requests, limits)
 		}
-	case operatorconstants.Zookeeper:
-		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryRequest)
-		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ZookeeperCPURequest)
-		limits[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ZookeeperMemoryLimit)
-		if advanced != nil && advanced.Zookeeper != nil {
-			setResourcesFromCR(advanced.Zookeeper.Resources, requests, limits)
-		}
 	}
 
 	resourceReq.Limits = limits

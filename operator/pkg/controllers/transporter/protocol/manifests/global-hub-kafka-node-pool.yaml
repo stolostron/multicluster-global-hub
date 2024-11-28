@@ -1,4 +1,3 @@
-{{ if .EnableKRaft }}
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaNodePool
 metadata:
@@ -7,7 +6,7 @@ metadata:
     strimzi.io/cluster: {{.KafkaCluster}}
   namespace: {{.Namespace}}
 spec:
-  replicas: 1
+  replicas: 3
   roles:
     - controller
     - broker
@@ -16,7 +15,9 @@ spec:
     volumes:
       - id: 0
         type: persistent-claim
-        size: 1Gi
+        size: {{.StorageSize}}
         deleteClaim: false
         kraftMetadata: shared
-{{ end }}
+        {{ if .StorageClass }}
+        class: {{.StorageClass}}
+        {{ end }}
