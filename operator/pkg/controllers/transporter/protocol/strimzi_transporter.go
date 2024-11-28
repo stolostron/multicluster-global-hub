@@ -673,6 +673,10 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
+			Annotations: map[string]string{
+				"strimzi.io/node-pools": "enabled",
+				"strimzi.io/kraft":      "enabled",
+			},
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
