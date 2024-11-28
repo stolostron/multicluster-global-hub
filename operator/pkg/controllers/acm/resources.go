@@ -113,8 +113,8 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 			}),
 		).Complete(acmController)
 	if err != nil {
-		acmResourceController = nil
 		return nil, err
 	}
+	acmResourceController = acmController
 	return acmResourceController, nil
 }
