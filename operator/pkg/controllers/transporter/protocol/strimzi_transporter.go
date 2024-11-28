@@ -708,8 +708,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
-				Replicas: 3,
-				Version:  &DefaultAMQKafkaVersion,
+				Version: &DefaultAMQKafkaVersion,
 			},
 			EntityOperator: &kafkav1beta2.KafkaSpecEntityOperator{
 				TopicOperator: &kafkav1beta2.KafkaSpecEntityOperatorTopicOperator{},

@@ -447,10 +447,6 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
-				Replicas: 1,
-				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
-					Type: "ephemeral",
-				},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
 						Name: "plain",
@@ -462,12 +458,6 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 "default.replication.factor": 3
 }`)},
 				Version: &kafkaVersion,
-			},
-			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas: 1,
-				Storage: kafkav1beta2.KafkaSpecZookeeperStorage{
-					Type: "ephemeral",
-				},
 			},
 		},
 		Status: &kafkav1beta2.KafkaStatus{
