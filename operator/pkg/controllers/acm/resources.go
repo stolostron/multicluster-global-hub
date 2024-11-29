@@ -58,6 +58,7 @@ func (r *ACMResourceController) IsResourceRemoved() bool {
 }
 
 func (r *ACMResourceController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile acm controller: %v", req)
 	r.Resources[req.Name] = true
 
 	if !r.readyToWatchACMResources() {
@@ -89,6 +90,7 @@ func (r *ACMResourceController) readyToWatchACMResources() bool {
 }
 
 func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start acm controller")
 	if acmResourceController != nil {
 		return acmResourceController, nil
 	}
@@ -116,5 +118,6 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 		return nil, err
 	}
 	acmResourceController = acmController
+	log.Infof("inited acm controller")
 	return acmResourceController, nil
 }

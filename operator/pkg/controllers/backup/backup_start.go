@@ -69,6 +69,7 @@ func GetBackupController() *BackupReconciler {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Infof("start backup controller")
 	if backupController != nil {
 		return backupController, nil
 	}
@@ -85,6 +86,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 		return nil, err
 	}
 	backupController = c
+	log.Infof("inited backup controller")
 	return backupController, nil
 }
 

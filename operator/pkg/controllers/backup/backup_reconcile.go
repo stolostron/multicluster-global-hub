@@ -53,6 +53,8 @@ var log = logger.DefaultZapLogger()
 // So for request.Namespace, we set it as request type, like "Secret","Configmap","MulticlusterGlobalHub" and so on.
 // In the reconcile, we identy the request kind and get it by request.Name.
 func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile backup")
+
 	// mgh is used to update backup condition
 	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
 	err := r.Client.List(ctx, mghList)

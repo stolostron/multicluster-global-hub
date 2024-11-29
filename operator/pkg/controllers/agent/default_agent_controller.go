@@ -128,6 +128,7 @@ func NewDefaultAgentController(c client.Client) *DefaultAgentController {
 }
 
 func StartDefaultAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start default agent controller")
 	if defaultAgentController != nil {
 		return defaultAgentController, nil
 	}
@@ -166,7 +167,7 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 		defaultAgentController = nil
 		return nil, err
 	}
-	log.Info("the default addon reconciler is started")
+	log.Info("the default agent controller is started")
 	return defaultAgentController, nil
 }
 
@@ -176,6 +177,8 @@ func (c *DefaultAgentController) IsResourceRemoved() bool {
 }
 
 func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile default agent controller: %v", req)
+
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil

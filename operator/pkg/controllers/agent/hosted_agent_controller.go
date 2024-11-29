@@ -56,6 +56,8 @@ var (
 )
 
 func StartHostedAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start hosted agent  controller")
+
 	if hostedAgentController != nil {
 		return hostedAgentController, nil
 	}
@@ -72,6 +74,7 @@ func StartHostedAgentController(initOption config.ControllerOption) (config.Cont
 		hostedAgentController = nil
 		return nil, err
 	}
+	log.Info("inited hosted agent controller")
 	return hostedAgentController, nil
 }
 
@@ -138,7 +141,7 @@ var mghPred = predicate.Funcs{
 }
 
 func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Debug("Reconcile ClusterManagementAddOn: %v", req.NamespacedName)
+	log.Debugf("reconcile ClusterManagementAddOn: %v", req.NamespacedName)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
 	if err != nil {
 		log.Error(err)

@@ -59,6 +59,7 @@ func NewWebhookReconciler(mgr ctrl.Manager,
 }
 
 func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start webhook controller")
 	if webhookReconciler != nil {
 		return webhookReconciler, nil
 	}
@@ -74,11 +75,12 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 }
 
 func (r *WebhookReconciler) IsResourceRemoved() bool {
-	log.Infof("WebhookController resource removed: %v", isResourceRemoved)
+	log.Infof("webhookController resource removed: %v", isResourceRemoved)
 	return isResourceRemoved
 }
 
 func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile webhook controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
 	if err != nil {
 		return ctrl.Result{}, err
