@@ -64,6 +64,10 @@ func AddHubManagement(mgr ctrl.Manager, producer transport.Producer) error {
 	if err := mgr.Add(instance); err != nil {
 		return err
 	}
+	// add hub addon controller to prune the agent and related resources
+	if err := AddManagedClusterAddonController(mgr); err != nil {
+		return fmt.Errorf("failed to add the addon controller for hub management: %w", err)
+	}
 	hubStatusManager = instance
 	return nil
 }
