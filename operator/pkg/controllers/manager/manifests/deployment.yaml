@@ -45,6 +45,7 @@ spec:
             - --enable-global-resource={{.EnableGlobalResource}}
             - --import-cluster-in-hosted={{.ImportClusterInHosted}}
             - --with-acm={{.WithACM}}
+            - --transport-failure-threshold={{.TransportFailureThreshold}}
             {{- if .SchedulerInterval}}
             - --scheduler-interval={{.SchedulerInterval}}
             {{- end}}

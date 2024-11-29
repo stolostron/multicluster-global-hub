@@ -126,6 +126,9 @@ func parseFlags() *config.OperatorConfig {
 	pflag.BoolVar(&config.GlobalResourceEnabled, "global-resource-enabled", false,
 		"Enable the global resource. It is expermental feature. Do not support upgrade.")
 	pflag.BoolVar(&config.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+	pflag.IntVar(&config.TransportFailureThreshold, "transport-failure-threshold", 10,
+		"Restart the pod if the transport error count exceeds the transport-failure-threshold within 5 minutes.")
+
 	pflag.Parse()
 
 	return config

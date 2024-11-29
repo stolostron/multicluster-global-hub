@@ -6,6 +6,7 @@ package producer
 import (
 	"context"
 	"fmt"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
@@ -113,7 +114,7 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportInterna
 		if err != nil {
 			return err
 		}
-		handleProducerEvents(p.log, eventChan)
+		handleProducerEvents(p.log, eventChan, transportConfig.FailureThreshold)
 		p.ceProtocol = kafkaProtocol
 	case string(transport.Chan):
 		if transportConfig.Extends == nil {
@@ -181,10 +182,12 @@ func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap), kafka_confluent.WithSenderTopic(defaultTopic))
 }
 
-func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event) {
+func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, transportFailureThreshold int) {
 	// Listen to all the events on the default events channel
 	// It's important to read these events otherwise the events channel will eventually fill up
 	go func() {
+		errorCount := 0
+		var lastErrorTime time.Time
 		for e := range eventChan {
 			switch ev := e.(type) {
 			case *kafka.Message:
@@ -194,7 +197,7 @@ func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event) {
 				// is already configured to do that.
 				m := ev
 				if m.TopicPartition.Error != nil {
-					log.Warnw("Delivery failed", "error", m.TopicPartition.Error)
+					log.Warnw("delivery failed", "error", m.TopicPartition.Error)
 				}
 			case kafka.Error:
 				// Generic client instance-level errors, such as
@@ -209,9 +212,19 @@ func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event) {
 					// to the application that currently there are no brokers to communicate with.
 					// But librdkafka will continue to try to reconnect indefinately,
 					// and it will attempt to re-send messages until message.timeout.ms or message.max.retries are exceeded.
-					log.Warnw("Transport producer client error, ignore it for most cases", "error", ev)
+					log.Warnw("transport producer client error, ignore it for most cases", "error", ev)
 				} else {
-					log.Warnw("Thransport producer client error", "error", ev)
+					log.Warnw("transport producer client error", "error", ev)
+
+					errorCount++
+					if errorCount >= transportFailureThreshold {
+						log.Panicf("transport producer error > 10 in 5 minutes, error: %v", ev)
+					}
+					// return panic when error more than 10 times in 5 minites
+					if lastErrorTime.Add(5 * time.Minute).Before(time.Now()) {
+						errorCount = 0
+					}
+					lastErrorTime = time.Now()
 				}
 			}
 		}

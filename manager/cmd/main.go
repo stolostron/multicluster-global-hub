@@ -119,6 +119,8 @@ func parseFlags() *configs.ManagerConfig {
 	pflag.BoolVar(&managerConfig.ImportClusterInHosted, "import-cluster-in-hosted", false,
 		"import cluster in hosted mode")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
+	pflag.IntVar(&managerConfig.TransportConfig.FailureThreshold, "transport-failure-threshold", 10,
+		"Restart the pod if the transport error count exceeds the transport-failure-threshold within 5 minutes.")
 	pflag.Parse()
 
 	pflag.Visit(func(f *pflag.Flag) {
