@@ -222,8 +222,6 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
 		topicReplicas = 1
 	}
-	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
-	brokerAdvertisedHost := mgh.Annotations[operatorconstants.KinDClusterIPKey]
 
 	// render the kafka objects
 	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())
@@ -240,7 +238,6 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusPlaceholderTopic string
 				TopicPartition         int32
 				TopicReplicas          int32
-				KinDClusterIPAddress   string
 				EnableInventoryAPI     bool
 				KafkaInventoryTopic    string
 				StorageSize            string
@@ -256,7 +253,6 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				StatusPlaceholderTopic: statusPlaceholderTopic,
 				TopicPartition:         DefaultPartition,
 				TopicReplicas:          topicReplicas,
-				KinDClusterIPAddress:   brokerAdvertisedHost,
 				EnableInventoryAPI:     config.WithInventory(mgh),
 				KafkaInventoryTopic:    "kessel-inventory",
 				StorageSize:            config.GetKafkaStorageSize(mgh),
@@ -666,6 +662,42 @@ func (k *strimziTransporter) getKafkaResources(
 
 func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
 
+	var nodePort int32 = 30093
+	listeners := []kafkav1beta2.KafkaSpecKafkaListenersElem{
+		{
+			Name: "plain",
+			Port: 9092,
+			Tls:  false,
+			Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
+		},
+		{
+			Name: "tls",
+			Port: 9093,
+			Tls:  true,
+			Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
+			Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
+				Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
+			},
+		},
+	}
+
+	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
+	brokerAdvertisedHost, exists := mgh.Annotations[operatorconstants.KinDClusterIPKey]
+	if exists {
+		listeners[1].Configuration = &kafkav1beta2.KafkaSpecKafkaListenersElemConfiguration{
+			Bootstrap: &kafkav1beta2.KafkaSpecKafkaListenersElemConfigurationBootstrap{
+				NodePort: &nodePort,
+			},
+			Brokers: []kafkav1beta2.KafkaSpecKafkaListenersElemConfigurationBrokersElem{
+				{
+					Broker:         0,
+					AdvertisedHost: &brokerAdvertisedHost,
+				},
+			},
+		}
+		listeners[1].Type = kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport
+	}
+
 	kafkaCluster := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      k.kafkaClusterName,
@@ -687,23 +719,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "transaction.state.log.min.isr": 2,
 "transaction.state.log.replication.factor": 3
 }`)},
-				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
-					{
-						Name: "plain",
-						Port: 9092,
-						Tls:  false,
-						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeInternal,
-					},
-					{
-						Name: "tls",
-						Port: 9093,
-						Tls:  true,
-						Type: kafkav1beta2.KafkaSpecKafkaListenersElemTypeRoute,
-						Authentication: &kafkav1beta2.KafkaSpecKafkaListenersElemAuthentication{
-							Type: kafkav1beta2.KafkaSpecKafkaListenersElemAuthenticationTypeTls,
-						},
-					},
-				},
+				Listeners: listeners,
 				Resources: k.getKafkaResources(mgh),
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,

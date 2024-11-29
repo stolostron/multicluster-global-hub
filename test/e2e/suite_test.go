@@ -304,7 +304,6 @@ func deployGlobalHub() {
 				"mgh-scheduler-interval":                                         "minute",
 				"global-hub.open-cluster-management.io/catalog-source-name":      "operatorhubio-catalog",
 				"global-hub.open-cluster-management.io/catalog-source-namespace": "olm",
-				"global-hub.open-cluster-management.io/enable-kraft":             "",
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
