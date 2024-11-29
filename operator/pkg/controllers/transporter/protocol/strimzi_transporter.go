@@ -52,7 +52,6 @@ const (
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
-	// The KRaft Compatibility: https://github.com/orgs/strimzi/discussions/10836
 	CommunityChannel           = "strimzi-0.43.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
@@ -661,7 +660,6 @@ func (k *strimziTransporter) getKafkaResources(
 }
 
 func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterGlobalHub) *kafkav1beta2.Kafka {
-
 	var nodePort int32 = 30093
 	listeners := []kafkav1beta2.KafkaSpecKafkaListenersElem{
 		{
