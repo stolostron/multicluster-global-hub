@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,6 +20,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -212,10 +212,7 @@ func (h *HubManagement) resync(ctx context.Context, hubName string) error {
 		return err
 	}
 
-	e := cloudevents.NewEvent()
-	e.SetType(constants.ResyncMsgKey)
-	e.SetSource(hubName)
-	_ = e.SetData(cloudevents.ApplicationJSON, payloadBytes)
+	e := utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventSourceGlobalHub, hubName, payloadBytes)
 
 	return h.producer.SendEvent(ctx, e)
 }
