@@ -687,7 +687,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				},
 			},
 		}
-		listeners[1].Type = kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport
+		listeners[0].Type = kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport
 	}
 
 	kafkaCluster := &kafkav1beta2.Kafka{
