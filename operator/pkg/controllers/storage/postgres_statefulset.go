@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,6 +47,12 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
 
+	// get the postgres image, the priority: 1. the current image; 2. the configured image
+	pgImage, err := getBuiltInPostgresImage(ctx, mgr.GetClient(), mgh.GetNamespace(), "multicluster-global-hub-postgres")
+	if err != nil {
+		return nil, err
+	}
+
 	// get the postgres objects
 	postgresRenderer, postgresDeployer := renderer.NewHoHRenderer(stsPostgresFS), deployer.NewHoHDeployer(mgr.GetClient())
 	postgresObjects, err := postgresRenderer.Render("manifests.sts", "",
@@ -71,7 +78,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				EnableInventoryAPI           bool
 			}{
 				Namespace:                    mgh.GetNamespace(),
-				PostgresImage:                config.GetImage(config.PostgresImageKey),
+				PostgresImage:                pgImage,
 				PostgresExporterImage:        config.GetImage(config.PostgresExporterImageKey),
 				ImagePullSecret:              mgh.Spec.ImagePullSecret,
 				ImagePullPolicy:              string(imagePullPolicy),
@@ -119,6 +126,24 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 			credential.postgresReadonlyUserPassword + partialPostgresURI,
 		CACert: []byte(ca),
 	}, nil
+}
+
+// The built-in postgres image should be upgrade manually
+func getBuiltInPostgresImage(ctx context.Context, c client.Client, namespace, name string) (string, error) {
+	defaultPostgresImage := config.GetImage(config.PostgresImageKey)
+	sts := &appsv1.StatefulSet{}
+	err := c.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, sts)
+	if err != nil && !errors.IsNotFound(err) {
+		return defaultPostgresImage, fmt.Errorf("failed to get the postgres StatefulSet: %w", err)
+	} else if errors.IsNotFound(err) {
+		return defaultPostgresImage, nil
+	}
+	if len(sts.Spec.Template.Spec.Containers) != 1 {
+		return defaultPostgresImage, fmt.Errorf("should contain 1 conatainer in Postgres StatefulSet, but got: %v", sts)
+	}
+	currentImage := sts.Spec.Template.Spec.Containers[0].Image
+	log.Debugf("the built-in Postgres continues to use the current image: %s", currentImage)
+	return currentImage, nil
 }
 
 func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
