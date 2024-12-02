@@ -182,6 +182,9 @@ const (
 	ManagedClusterMigrationFinalizer = "global-hub.open-cluster-management.io/migration-cleanup"
 	// ManagedClusterMigrating is under migrating so the global hub agent ignore reporting the status for the cluster
 	ManagedClusterMigrating = "global-hub.open-cluster-management.io/migrating"
+	// KlusterletAddonConfigAnnotation is an annotation which contains klusterletAddonConfig object
+	KlusterletAddonConfigAnnotation = "global-hub.open-cluster-management.io/klusterlet-addon-config"
+
 	// cloudevent source for global hub
 	CloudEventSourceGlobalHub = "global-hub"
 	// cloudevent extension keys

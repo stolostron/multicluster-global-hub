@@ -3,9 +3,11 @@ package syncers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +18,9 @@ import (
 
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // This is a temporary solution to wait for applying the klusterletconfig
@@ -88,9 +92,12 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			return err
 		}
 	}
+	managedClusters := managedClusterMigrationEvent.ManagedClusters
+	for _, managedCluster := range managedClusters {
+
+	}
 
 	// update managed cluster annotations to point to the new klusterlet config
-	managedClusters := managedClusterMigrationEvent.ManagedClusters
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{
@@ -138,6 +145,24 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		return err
 	}
 
+	return nil
+}
+
+// sendKlusterletAddonConfig sends the klusterletAddonConfig back to the global hub
+func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx context.Context, managedCluster string) error {
+	config := &addonv1.KlusterletAddonConfig{}
+	// send klusterletAddonConfig to global hub so that it can be transferred to the target cluster
+	if err := s.client.Get(ctx, types.NamespacedName{
+		Name: managedCluster,
+	}, config); err != nil {
+		return err
+	}
+	eventType := enum.KlusterletAddonConfigType
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, managedCluster, payloadToBytes)
+	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
+			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
+	}
 	return nil
 }
 
