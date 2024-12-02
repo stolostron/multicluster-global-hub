@@ -10,7 +10,6 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240911135016-682f3a9684e4
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/confluentinc/confluent-kafka-go/v2 v2.5.4
-	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/fergusstrange/embedded-postgres v1.17.0
