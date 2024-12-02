@@ -219,8 +219,8 @@ func GetConfluentConfigMapByUser(c client.Client, namespace, clusterName, userNa
 	cm := config.GetBasicConfigMap()
 	for _, condition := range kafkaCluster.Status.Conditions {
 		if *condition.Type == "Ready" && *condition.Status == "True" {
-			clusterCaCert := kafkaCluster.Status.Listeners[1].Certificates[0]
-			_ = cm.SetKey("bootstrap.servers", *kafkaCluster.Status.Listeners[1].BootstrapServers)
+			clusterCaCert := kafkaCluster.Status.Listeners[0].Certificates[0]
+			_ = cm.SetKey("bootstrap.servers", *kafkaCluster.Status.Listeners[0].BootstrapServers)
 			_ = cm.SetKey("security.protocol", "ssl")
 			_ = cm.SetKey("ssl.ca.pem", clusterCaCert)
 			_ = cm.SetKey("ssl.certificate.pem", clientCert)

@@ -503,8 +503,8 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConfi
 			}
 			credential := &transport.KafkaConfig{
 				ClusterID:       clusterIdentity,
-				BootstrapServer: *kafkaCluster.Status.Listeners[1].BootstrapServers,
-				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[1].Certificates[0])),
+				BootstrapServer: *kafkaCluster.Status.Listeners[0].BootstrapServers,
+				CACert:          base64.StdEncoding.EncodeToString([]byte(kafkaCluster.Status.Listeners[0].Certificates[0])),
 			}
 			return credential, nil
 		}
@@ -886,15 +886,6 @@ func (k *strimziTransporter) setImagePullSecret(mgh *operatorv1alpha4.Multiclust
 		desiredKafkaSpec.Kafka.Template = &kafkav1beta2.KafkaSpecKafkaTemplate{
 			Pod: &kafkav1beta2.KafkaSpecKafkaTemplatePod{
 				ImagePullSecrets: []kafkav1beta2.KafkaSpecKafkaTemplatePodImagePullSecretsElem{
-					{
-						Name: &mgh.Spec.ImagePullSecret,
-					},
-				},
-			},
-		}
-		desiredKafkaSpec.Zookeeper.Template = &kafkav1beta2.KafkaSpecZookeeperTemplate{
-			Pod: &kafkav1beta2.KafkaSpecZookeeperTemplatePod{
-				ImagePullSecrets: []kafkav1beta2.KafkaSpecZookeeperTemplatePodImagePullSecretsElem{
 					{
 						Name: &mgh.Spec.ImagePullSecret,
 					},

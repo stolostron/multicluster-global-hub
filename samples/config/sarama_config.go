@@ -89,11 +89,11 @@ func GetSaramaConfigFromKafkaUser() (string, *sarama.Config, error) {
 		return "", nil, err
 	}
 
-	bootstrapServer := *kafkaCluster.Status.Listeners[1].BootstrapServers
+	bootstrapServer := *kafkaCluster.Status.Listeners[0].BootstrapServers
 
 	// Load CA cert
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM([]byte(kafkaCluster.Status.Listeners[1].Certificates[0]))
+	caCertPool.AppendCertsFromPEM([]byte(kafkaCluster.Status.Listeners[0].Certificates[0]))
 	tlsConfig.RootCAs = caCertPool
 
 	kafkaUserSecret := &corev1.Secret{}

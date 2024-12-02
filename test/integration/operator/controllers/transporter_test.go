@@ -323,13 +323,6 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(string(kafka.Spec.Kafka.Resources.Requests.Raw)).To(Equal(`{"cpu":"1m","memory":"1Mi"}`))
 		Expect(string(kafka.Spec.Kafka.Resources.Limits.Raw)).To(Equal(`{"cpu":"2m","memory":"2Mi"}`))
 
-		Expect(kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity).NotTo(BeNil())
-		Expect(kafka.Spec.Zookeeper.Template.Pod.Tolerations).NotTo(BeEmpty())
-		Expect(kafka.Spec.Zookeeper.Template.Pod.ImagePullSecrets).NotTo(BeEmpty())
-
-		Expect(string(kafka.Spec.Zookeeper.Resources.Requests.Raw)).To(Equal(`{"cpu":"1m","memory":"1Mi"}`))
-		Expect(string(kafka.Spec.Zookeeper.Resources.Limits.Raw)).To(Equal(`{"cpu":"2m","memory":"2Mi"}`))
-
 		Expect(kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity).NotTo(BeNil())
 		Expect(kafka.Spec.EntityOperator.Template.Pod.Tolerations).NotTo(BeEmpty())
 		Expect(kafka.Spec.EntityOperator.Template.Pod.ImagePullSecrets).NotTo(BeEmpty())
@@ -429,7 +422,7 @@ var _ = Describe("transporter", Ordered, func() {
 })
 
 func UpdateKafkaClusterReady(c client.Client, ns string) error {
-	kafkaVersion := "3.5.0"
+	kafkaVersion := "3.8.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
 	clientCa := "kafka-clients-ca-cert"
@@ -449,9 +442,9 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 			Kafka: kafkav1beta2.KafkaSpecKafka{
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
-						Name: "plain",
-						Port: 9092,
-						Type: "internal",
+						Name: "tls",
+						Port: 9093,
+						Type: "nodeport",
 					},
 				},
 				Config: &apiextensions.JSON{Raw: []byte(`{
@@ -463,9 +456,6 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		Status: &kafkav1beta2.KafkaStatus{
 			ClusterId: &statusClusterId,
 			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-				{
-					BootstrapServers: &bootServer,
-				},
 				{
 					BootstrapServers: &bootServer,
 					Certificates: []string{
@@ -501,9 +491,6 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		}
 		existkafkaCluster.Status = &kafkav1beta2.KafkaStatus{
 			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-				{
-					BootstrapServers: &bootServer,
-				},
 				{
 					BootstrapServers: &bootServer,
 					Certificates: []string{
