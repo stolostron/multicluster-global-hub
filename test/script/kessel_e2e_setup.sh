@@ -52,6 +52,7 @@ metadata:
     global-hub.open-cluster-management.io/catalog-source-name: operatorhubio-catalog
     global-hub.open-cluster-management.io/catalog-source-namespace: olm
     global-hub.open-cluster-management.io/with-inventory: ""
+    global-hub.open-cluster-management.io/kafka-use-nodeport: ""
     global-hub.open-cluster-management.io/kind-cluster-ip: "$global_hub_node_ip"
   name: multiclusterglobalhub
   namespace: multicluster-global-hub
