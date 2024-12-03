@@ -673,8 +673,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		},
 	}
 
-	// brokerAdvertisedHost is used for test in KinD cluster. we need to use AdvertisedHost to pass tls authn.
-	brokerAdvertisedHost, exists := mgh.Annotations[operatorconstants.KinDClusterIPKey]
+	_, exists := mgh.Annotations[operatorconstants.KafkaUseNodeport]
 	if exists {
 		listeners[0].Configuration = &kafkav1beta2.KafkaSpecKafkaListenersElemConfiguration{
 			Bootstrap: &kafkav1beta2.KafkaSpecKafkaListenersElemConfigurationBootstrap{
@@ -682,8 +681,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 			},
 			Brokers: []kafkav1beta2.KafkaSpecKafkaListenersElemConfigurationBrokersElem{
 				{
-					Broker:         0,
-					AdvertisedHost: &brokerAdvertisedHost,
+					Broker: 0,
 				},
 			},
 		}

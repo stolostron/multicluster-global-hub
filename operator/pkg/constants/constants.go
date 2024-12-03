@@ -120,6 +120,8 @@ const (
 	// KinDClusterIPKey defines a KinD container host which is used for test.
 	// It will be inject to the server certificates of kafka and inventory
 	KinDClusterIPKey = "global-hub.open-cluster-management.io/kind-cluster-ip"
+	// KafkaUseNodeport indicates that Kafka is exposed via NodePort, and it is intended for testing purposes.
+	KafkaUseNodeport = "global-hub.open-cluster-management.io/kafka-use-nodeport"
 )
 
 // AggregationLevel specifies the level of aggregation leaf hubs should do before sending the information

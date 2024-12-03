@@ -70,16 +70,15 @@ spec:
   imagePullPolicy: IfNotPresent
 EOF
 
-# Create a temporary file to store stderr messages
-error_cache=$(mktemp)
+# Trap exit to ignore the function's exit 1
+trap '' EXIT
 
 # Wait the control planes are ready
-# Use a Subshell to Isolate the Exit
-(wait_cmd "kubectl get deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name") 2>>"$error_cache" || true
-(wait_cmd "kubectl get deploy/multicluster-global-hub-manager -n multicluster-global-hub --context $cluster_name") 2>>"$error_cache" || true
-(kubectl wait deploy/multicluster-global-hub-manager -n multicluster-global-hub --for condition=Available=True --timeout=60s --context "$cluster_name") || true
-(wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $cluster_name" 60) 2>>"$error_cache" || true
-(kubectl wait deploy/inventory-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name) || true
+wait_cmd "kubectl get deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name"
+wait_cmd "kubectl get deploy/multicluster-global-hub-manager -n multicluster-global-hub --context $cluster_name"
+kubectl wait deploy/multicluster-global-hub-manager -n multicluster-global-hub --for condition=Available=True --timeout=60s --context "$cluster_name"
+wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $cluster_name" 60
+kubectl wait deploy/inventory-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
 
 # Debug information
 kubectl get kafka -n multicluster-global-hub -oyaml --context $cluster_name || true
@@ -88,13 +87,6 @@ kubectl get mcgh -n multicluster-global-hub -oyaml --context $cluster_name || tr
 kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name || true
 kubectl get deploy -n multicluster-global-hub --context $cluster_name || true
 
-if [ -s "$error_cache" ]; then
-    echo "The following errors were encountered:"
-    cat "$error_cache"
-    rm "$error_cache"  # Clean up the temporary file
-    exit 1             # Exit with error status
-else
-    echo "All commands executed successfully."
-    rm "$error_cache"  # Clean up the temporary file
-fi
+# Restore default behavior
+trap - EXIT
 
