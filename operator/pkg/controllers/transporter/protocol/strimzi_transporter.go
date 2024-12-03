@@ -675,17 +675,38 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 
 	_, exists := mgh.Annotations[operatorconstants.KafkaUseNodeport]
 	if exists {
+		host := mgh.Annotations[operatorconstants.KinDClusterIPKey]
 		listeners[0].Configuration = &kafkav1beta2.KafkaSpecKafkaListenersElemConfiguration{
 			Bootstrap: &kafkav1beta2.KafkaSpecKafkaListenersElemConfigurationBootstrap{
 				NodePort: &nodePort,
 			},
 			Brokers: []kafkav1beta2.KafkaSpecKafkaListenersElemConfigurationBrokersElem{
 				{
-					Broker: 0,
+					Broker:         0,
+					AdvertisedHost: &host,
 				},
 			},
 		}
 		listeners[0].Type = kafkav1beta2.KafkaSpecKafkaListenersElemTypeNodeport
+	}
+
+	config := ""
+	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+		config = `{
+"default.replication.factor": 1,
+"min.insync.replicas": 1,
+"offsets.topic.replication.factor": 1,
+"transaction.state.log.min.isr": 1,
+"transaction.state.log.replication.factor": 1
+}`
+	} else {
+		config = `{
+"default.replication.factor": 3,
+"min.insync.replicas": 2,
+"offsets.topic.replication.factor": 3,
+"transaction.state.log.min.isr": 2,
+"transaction.state.log.replication.factor": 3
+}`
 	}
 
 	kafkaCluster := &kafkav1beta2.Kafka{
@@ -702,13 +723,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
-				Config: &apiextensions.JSON{Raw: []byte(`{
-"default.replication.factor": 3,
-"min.insync.replicas": 2,
-"offsets.topic.replication.factor": 3,
-"transaction.state.log.min.isr": 2,
-"transaction.state.log.replication.factor": 3
-}`)},
+				Config:    &apiextensions.JSON{Raw: []byte(config)},
 				Listeners: listeners,
 				Resources: k.getKafkaResources(mgh),
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{

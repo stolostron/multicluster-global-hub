@@ -6,7 +6,7 @@ metadata:
     strimzi.io/cluster: {{.KafkaCluster}}
   namespace: {{.Namespace}}
 spec:
-  replicas: 3
+  replicas: {{.TopicReplicas}}
   roles:
     - controller
     - broker
