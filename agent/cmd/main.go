@@ -124,6 +124,8 @@ func parseFlags() *configs.AgentConfig {
 		"The agent running namespace, also used as leader election namespace")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
 		"The goroutine number to propagate the bundles on managed cluster.")
+	pflag.IntVar(&agentConfig.TransportConfig.FailureThreshold, "transport-failure-threshold", 10,
+		"Restart the pod if the transport error count exceeds the transport-failure-threshold within 5 minutes.")
 	pflag.BoolVar(&agentConfig.SpecEnforceHohRbac, "enforce-hoh-rbac", false,
 		"enable hoh RBAC or not, default false")
 	pflag.IntVar(&agentConfig.StatusDeltaCountSwitchFactor,

@@ -44,6 +44,7 @@ type TransportInternalConfig struct {
 	KafkaCredential   *KafkaConfig
 	RestfulCredential *RestfulConfig
 	Extends           map[string]interface{}
+	FailureThreshold  int
 }
 
 // KafkaInternalConfig specifics the configuration for the global hub manager, agent, or even inventory

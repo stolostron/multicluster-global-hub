@@ -36,6 +36,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 				SpecTopic:   "spec",
 				StatusTopic: "status",
 			},
+			FailureThreshold: 100,
 		},
 		transportCallback: func(transportClient transport.TransportClient) error {
 			callbackInvoked = true
@@ -104,7 +105,9 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	secretController := &TransportCtrl{
 		secretNamespace: "default",
 		secretName:      "test-secret",
-		transportConfig: &transport.TransportInternalConfig{},
+		transportConfig: &transport.TransportInternalConfig{
+			FailureThreshold: 100,
+		},
 		transportCallback: func(transport.TransportClient) error {
 			callbackInvoked = true
 			return nil

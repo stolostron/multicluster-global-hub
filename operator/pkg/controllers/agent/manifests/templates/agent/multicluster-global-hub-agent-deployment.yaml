@@ -46,6 +46,7 @@ spec:
             - --burst={{.AgentBurst}}
             - --enable-pprof={{.EnablePprof}}
             - --enable-stackrox-integration={{.EnableStackroxIntegration}}
+            - --transport-failure-threshold={{.TransportFailureThreshold}}
             {{- if .StackroxPollInterval}}
             - --stackrox-poll-interval={{.StackroxPollInterval}}
             {{- end}}

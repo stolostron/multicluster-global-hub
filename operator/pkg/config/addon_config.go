@@ -87,20 +87,21 @@ var GlobalHubHostedAddonPlacementStrategy = v1alpha1.PlacementStrategy{
 }
 
 type ManifestsConfig struct {
-	HoHAgentImage         string
-	ImagePullPolicy       string
-	LeafHubID             string
-	TransportConfigSecret string
-	LeaseDuration         string
-	RenewDeadline         string
-	RetryPeriod           string
-	KlusterletNamespace   string
-	KlusterletWorkSA      string
-	EnableGlobalResource  bool
-	AgentQPS              float32
-	AgentBurst            int
-	LogLevel              string
-	EnablePprof           bool
+	HoHAgentImage             string
+	ImagePullPolicy           string
+	LeafHubID                 string
+	TransportConfigSecret     string
+	LeaseDuration             string
+	RenewDeadline             string
+	RetryPeriod               string
+	KlusterletNamespace       string
+	KlusterletWorkSA          string
+	EnableGlobalResource      bool
+	TransportFailureThreshold int
+	AgentQPS                  float32
+	AgentBurst                int
+	LogLevel                  string
+	EnablePprof               bool
 	// cannot use *corev1.ResourceRequirements, addonfactory.StructToValues removes the real value
 	Resources                 *Resources
 	EnableStackroxIntegration bool

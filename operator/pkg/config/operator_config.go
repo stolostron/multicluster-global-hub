@@ -10,12 +10,13 @@ import (
 )
 
 type OperatorConfig struct {
-	MetricsAddress        string
-	ProbeAddress          string
-	PodNamespace          string
-	LeaderElection        bool
-	GlobalResourceEnabled bool
-	EnablePprof           bool
+	MetricsAddress            string
+	ProbeAddress              string
+	PodNamespace              string
+	LeaderElection            bool
+	GlobalResourceEnabled     bool
+	EnablePprof               bool
+	TransportFailureThreshold int
 }
 
 type ControllerOption struct {
