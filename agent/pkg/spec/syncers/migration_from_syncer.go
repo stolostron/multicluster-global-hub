@@ -94,7 +94,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 	managedClusters := managedClusterMigrationEvent.ManagedClusters
 	for _, managedCluster := range managedClusters {
-
+		s.sendKlusterletAddonConfig(ctx, managedCluster)
 	}
 
 	// update managed cluster annotations to point to the new klusterlet config
@@ -157,12 +157,17 @@ func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx contex
 	}, config); err != nil {
 		return err
 	}
-	eventType := enum.KlusterletAddonConfigType
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, managedCluster, payloadToBytes)
-	if err := m.Producer.SendEvent(ctx, evt); err != nil {
-		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
-			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
+
+	payloadBytes, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal klusterletAddonConfig (%v) - %w", config, err)
 	}
+	eventType := enum.KlusterletAddonConfigType
+	evt := utils.ToCloudEvent(string(eventType), constants.CloudEventSourceGlobalHub, managedCluster, payloadBytes)
+	// if err := m.Producer.SendEvent(ctx, evt); err != nil {
+	// 	return fmt.Errorf("failed to send klusterletAddonConfig back to the global hub")
+	// }
+	fmt.Println(evt)
 	return nil
 }
 
