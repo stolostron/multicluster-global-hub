@@ -35,6 +35,7 @@ var manifests embed.FS
 var (
 	startedKafkaController = false
 	isResourceRemoved      = false
+	updateConn             bool
 )
 
 var log = logger.DefaultZapLogger()
@@ -91,6 +92,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.c,
 			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
+			updateConn,
 		)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)
@@ -128,7 +130,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	if needRequeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	config.SetTransporterConn(conn)
+	updateConn = config.SetTransporterConn(conn)
 
 	return ctrl.Result{}, nil
 }
@@ -146,6 +148,7 @@ var kafkaPred = predicate.Funcs{
 }
 
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
+	log.Info("start kafka controller")
 	if startedKafkaController {
 		return nil
 	}

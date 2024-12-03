@@ -125,6 +125,7 @@ func (r *GrafanaReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start grafana controller")
 	if grafanaController != nil {
 		return grafanaController, nil
 	}
@@ -141,7 +142,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 		grafanaController = nil
 		return grafanaController, err
 	}
-	log.Infof("inited grafana controller")
+	log.Infof("Inited grafana controller")
 	return grafanaController, nil
 }
 
@@ -249,6 +250,7 @@ var secretPred = predicate.Funcs{
 }
 
 func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile grafana controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
@@ -262,6 +264,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_GRAFANA_NAME, reconcileErr),
+			false,
 		)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)

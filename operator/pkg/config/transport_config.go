@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -42,9 +43,14 @@ var (
 	inventoryConn         *transport.RestfulConfig
 )
 
-func SetTransporterConn(conn *transport.KafkaConfig) {
-	log.Debug("Set Transporter Conn")
-	transporterConn = conn
+func SetTransporterConn(conn *transport.KafkaConfig) bool {
+	log.Debug("set Transporter Conn")
+	if conn != nil && !reflect.DeepEqual(conn, transporterConn) {
+		transporterConn = conn
+		log.Debug("update Transporter Conn")
+		return true
+	}
+	return false
 }
 
 func GetTransporterConn() *transport.KafkaConfig {

@@ -37,6 +37,7 @@ var (
 	log                 = logger.DefaultZapLogger()
 	isResourceRemoved   = true
 	transportReconciler *TransportReconciler
+	updateConn          bool
 )
 
 type TransportReconciler struct {
@@ -50,6 +51,7 @@ func (c *TransportReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(controllerOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start transport controller")
 	if transportReconciler != nil {
 		return transportReconciler, nil
 	}
@@ -114,6 +116,7 @@ func NewTransportReconciler(mgr ctrl.Manager) *TransportReconciler {
 
 // Resources reconcile the transport resources and also update transporter on the configuration
 func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile transport controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
@@ -143,6 +146,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
 			getTransportComponentStatus(reconcileErr),
+			updateConn,
 		)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)
@@ -187,8 +191,7 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		config.SetTransporterConn(conn)
-
+		updateConn = config.SetTransporterConn(conn)
 	}
 	return ctrl.Result{}, nil
 }

@@ -61,6 +61,8 @@ func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 }
 
 func StartAddonManagerController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start addon manager controller")
+
 	if addonManagerController != nil {
 		return addonManagerController, nil
 	}

@@ -141,14 +141,16 @@ func GetPGConnectionFromBuildInPostgres(ctx context.Context, client client.Clien
 
 // SetStorageConnection update the postgres connection
 func SetStorageConnection(conn *PostgresConnection) bool {
+	log.Debugf("Set Storage Connection: %v", conn == nil)
 	if conn != nil && !reflect.DeepEqual(conn, postgresConn) {
 		postgresConn = conn
+		log.Debugf("Update Storage Connection")
 		return true
 	}
 	return false
 }
 
 func GetStorageConnection() *PostgresConnection {
-	log.Debugf("Set Storage Connection: %v", postgresConn != nil)
+	log.Debugf("Get Storage Connection: %v", postgresConn != nil)
 	return postgresConn
 }

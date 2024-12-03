@@ -50,11 +50,12 @@ var (
 var log = logger.DefaultZapLogger()
 
 func (r *ManagedHubController) IsResourceRemoved() bool {
-	log.Infof("ManagedHubController resource removed: %v", isResourceRemoved)
+	log.Infof("managedHubController resource removed: %v", isResourceRemoved)
 	return isResourceRemoved
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start managedhub controller")
 	if managedHubController != nil {
 		return managedHubController, nil
 	}
@@ -72,6 +73,8 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 }
 
 func (r *ManagedHubController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile managedhub controller")
+
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
 	if err != nil {
 		return ctrl.Result{}, nil

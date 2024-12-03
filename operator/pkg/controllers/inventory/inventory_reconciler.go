@@ -68,6 +68,7 @@ func (r *InventoryReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start inventory controller")
 	if inventoryReconciler != nil {
 		return inventoryReconciler, nil
 	}
@@ -128,6 +129,7 @@ func NewInventoryReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *
 func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	req ctrl.Request,
 ) (ctrl.Result, error) {
+	log.Debugf("reconcile inventory controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, nil
@@ -142,6 +144,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_INVENTORY_API_NAME, reconcileErr),
+			false,
 		)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)

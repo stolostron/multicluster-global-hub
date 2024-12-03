@@ -232,6 +232,7 @@ func NeedUpdateConditions(conditions []metav1.Condition,
 func UpdateMGHComponent(ctx context.Context,
 	c client.Client,
 	desiredComponent v1alpha4.StatusCondition,
+	forceUpdate bool,
 ) error {
 	now := metav1.Time{Time: time.Now()}
 	desiredComponent.LastTransitionTime = now
@@ -248,8 +249,7 @@ func UpdateMGHComponent(ctx context.Context,
 		} else {
 			originComponent := curmgh.Status.Components[desiredComponent.Name]
 			originComponent.LastTransitionTime = now
-
-			if reflect.DeepEqual(desiredComponent, originComponent) {
+			if !forceUpdate && reflect.DeepEqual(desiredComponent, originComponent) {
 				return nil
 			}
 		}

@@ -75,13 +75,18 @@ var WatchedConfigMap = sets.NewString(
 	constants.PostgresCAConfigMap,
 )
 
-var storageReconciler *StorageReconciler
+var (
+	storageReconciler *StorageReconciler
+	updateConnection  bool
+)
 
 func (r *StorageReconciler) IsResourceRemoved() bool {
 	return true
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start storage controller")
+
 	if storageReconciler != nil {
 		return storageReconciler, nil
 	}
@@ -158,6 +163,7 @@ var secretPred = predicate.Funcs{
 }
 
 func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debug("reconcile storage controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, err
@@ -183,6 +189,7 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
 			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, reconcileErr),
+			updateConnection,
 		)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)
@@ -193,7 +200,7 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		reconcileErr = fmt.Errorf("storage not ready, Error: %v", err)
 		return ctrl.Result{}, reconcileErr
 	}
-	_ = config.SetStorageConnection(storageConn)
+	updateConnection = config.SetStorageConnection(storageConn)
 
 	needRequeue, err := r.reconcileDatabase(ctx, mgh)
 	if err != nil {
@@ -288,6 +295,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 		log.Infof("wait database ready")
 		return true, nil
 	}
+
 	defer func() {
 		if err := conn.Close(ctx); err != nil {
 			log.Error(err, "failed to close connection to database")

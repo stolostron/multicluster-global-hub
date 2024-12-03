@@ -85,6 +85,8 @@ var (
 )
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	log.Info("start manager controller")
+
 	if managerController != nil {
 		return managerController, nil
 	}
@@ -107,7 +109,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 }
 
 func (r *ManagerReconciler) IsResourceRemoved() bool {
-	log.Infof("ManagerController resource removed: %v", isResourceRemoved)
+	log.Infof("managerController resource removed: %v", isResourceRemoved)
 	return isResourceRemoved
 }
 
@@ -149,6 +151,7 @@ func NewManagerReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface,
 func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	req ctrl.Request,
 ) (ctrl.Result, error) {
+	log.Debug("reconcile manager controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
 	if err != nil {
 		return ctrl.Result{}, nil
@@ -170,6 +173,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_MANAGER_NAME, reconcileErr),
+			false,
 		)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)
