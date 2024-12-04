@@ -56,7 +56,7 @@ func (c *managerClusterAddonController) Reconcile(ctx context.Context, request c
 		if request.Namespace == "" {
 			return ctrl.Result{}, nil
 		}
-		log.Infof("inactive the agent when the global hub addon(%s) is deleted", addon.Namespace)
+		log.Infof("inactive the agent when the global hub addon(%s) is deleted", request.Namespace)
 		err := hubStatusManager.inactive(ctx, []models.LeafHubHeartbeat{{
 			Name: request.Namespace,
 		}})
