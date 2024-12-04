@@ -15,6 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,7 @@ import (
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterroles,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
@@ -125,7 +127,6 @@ func (r *GrafanaReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start grafana controller")
 	if grafanaController != nil {
 		return grafanaController, nil
 	}
@@ -135,6 +136,8 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	if config.GetStorageConnection() == nil {
 		return nil, nil
 	}
+	log.Info("start grafana controller")
+
 	grafanaController = NewGrafanaReconciler(initOption.Manager,
 		initOption.KubeClient)
 	err := grafanaController.SetupWithManager(initOption.Manager)
@@ -156,7 +159,17 @@ func (r *GrafanaReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.ConfigMap{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configmapPred)).
 		Watches(&appsv1.Deployment{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred))
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
+		Watches(&corev1.Service{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&corev1.ServiceAccount{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.ClusterRole{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.ClusterRoleBinding{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&routev1.Route{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
 
 	if _, err := mgr.GetRESTMapper().KindFor(schema.GroupVersionResource{
 		Group:    "image.openshift.io",
@@ -199,21 +212,6 @@ var imageStreamPred = predicate.Funcs{
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
-	},
-}
-
-var deplomentPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.ObjectNew.GetName() == config.COMPONENTS_GRAFANA_NAME
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == config.COMPONENTS_GRAFANA_NAME
 	},
 }
 

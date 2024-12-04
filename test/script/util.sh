@@ -376,8 +376,9 @@ install_crds() {
   # cluster managers
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml
 
-  # service monitor
+  # monitor
   kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_prometheusrules.yaml
 
   # addons
   kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml

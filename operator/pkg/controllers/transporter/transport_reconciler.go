@@ -51,10 +51,11 @@ func (c *TransportReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(controllerOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start transport controller")
 	if transportReconciler != nil {
 		return transportReconciler, nil
 	}
+	log.Info("start transport controller")
+
 	transportReconciler = NewTransportReconciler(controllerOption.Manager)
 	err := transportReconciler.SetupWithManager(controllerOption.Manager)
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
+	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -63,16 +64,13 @@ type StorageReconciler struct {
 	upgrade                bool
 	databaseReconcileCount int
 	enableGlobalResource   bool
+	enableMetrics          bool
 }
 
 var WatchedSecret = sets.NewString(
 	constants.GHStorageSecretName,
 	constants.GHBuiltInStorageSecretName,
 	config.PostgresCertName,
-)
-
-var WatchedConfigMap = sets.NewString(
-	constants.PostgresCAConfigMap,
 )
 
 var (
@@ -85,13 +83,13 @@ func (r *StorageReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start storage controller")
-
 	if storageReconciler != nil {
 		return storageReconciler, nil
 	}
+	log.Info("start storage controller")
+
 	storageReconciler = NewStorageReconciler(initOption.Manager,
-		initOption.OperatorConfig.GlobalResourceEnabled)
+		initOption.OperatorConfig.GlobalResourceEnabled, initOption.MulticlusterGlobalHub.Spec.EnableMetrics)
 	err := storageReconciler.SetupWithManager(initOption.Manager)
 	if err != nil {
 		storageReconciler = nil
@@ -101,12 +99,13 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	return storageReconciler, nil
 }
 
-func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource bool) *StorageReconciler {
+func NewStorageReconciler(mgr ctrl.Manager, enableGlobalResource, enableMetrics bool) *StorageReconciler {
 	return &StorageReconciler{
 		Manager:                mgr,
 		upgrade:                false,
 		databaseReconcileCount: 0,
 		enableGlobalResource:   enableGlobalResource,
+		enableMetrics:          enableMetrics,
 	}
 }
 
@@ -117,9 +116,15 @@ func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Watches(&corev1.ConfigMap{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configmapPred)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&appsv1.StatefulSet{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(statefulSetPred)).
+		Watches(&corev1.ServiceAccount{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&promv1.PrometheusRule{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&promv1.ServiceMonitor{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Complete(r)
 }
 
@@ -138,26 +143,22 @@ var statefulSetPred = predicate.Funcs{
 	},
 }
 
-var configmapPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return WatchedConfigMap.Has(e.Object.GetName())
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return WatchedConfigMap.Has(e.ObjectNew.GetName())
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return WatchedConfigMap.Has(e.Object.GetName())
-	},
-}
-
 var secretPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return WatchedSecret.Has(e.Object.GetName())
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
 		return WatchedSecret.Has(e.ObjectNew.GetName())
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
 		return WatchedSecret.Has(e.Object.GetName())
 	},
 }

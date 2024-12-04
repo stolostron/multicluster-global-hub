@@ -68,7 +68,6 @@ func (r *InventoryReconciler) IsResourceRemoved() bool {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start inventory controller")
 	if inventoryReconciler != nil {
 		return inventoryReconciler, nil
 	}
@@ -81,6 +80,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	if config.GetStorageConnection() == nil {
 		return nil, nil
 	}
+	log.Info("start inventory controller")
 
 	inventoryReconciler = NewInventoryReconciler(initOption.Manager,
 		initOption.KubeClient)
@@ -100,6 +100,12 @@ func (r *InventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
+		Watches(&corev1.Secret{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&corev1.Service{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&corev1.ServiceAccount{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Complete(r)
 }
 
