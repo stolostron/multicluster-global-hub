@@ -69,10 +69,11 @@ func GetBackupController() *BackupReconciler {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Infof("start backup controller")
 	if backupController != nil {
 		return backupController, nil
 	}
+	log.Infof("start backup controller")
+
 	if !config.IsACMResourceReady() {
 		return nil, nil
 	}

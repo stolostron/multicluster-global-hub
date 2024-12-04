@@ -9,9 +9,11 @@ import (
 	"strconv"
 	"time"
 
+	routev1 "github.com/openshift/api/route/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +21,7 @@ import (
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -85,11 +88,11 @@ var (
 )
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start manager controller")
-
 	if managerController != nil {
 		return managerController, nil
 	}
+	log.Info("start manager controller")
+
 	if config.GetTransporterConn() == nil {
 		return nil, nil
 	}
@@ -115,12 +118,32 @@ func (r *ManagerReconciler) IsResourceRemoved() bool {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ManagerReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("manager").
+	mgrBuilder := ctrl.NewControllerManagedBy(mgr).Named("manager").
 		For(&v1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
-		Complete(r)
+		Watches(&corev1.Service{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&corev1.ServiceAccount{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.ClusterRole{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.ClusterRoleBinding{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.Role{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&rbacv1.RoleBinding{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&routev1.Route{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
+
+	if config.IsACMResourceReady() {
+		mgrBuilder = mgrBuilder.
+			Watches(&v1alpha1.ClusterManagementAddOn{},
+				&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate))
+	}
+	return mgrBuilder.Complete(r)
 }
 
 var deploymentPred = predicate.Funcs{

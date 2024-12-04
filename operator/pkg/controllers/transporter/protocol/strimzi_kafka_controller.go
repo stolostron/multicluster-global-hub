@@ -148,7 +148,7 @@ var kafkaPred = predicate.Funcs{
 }
 
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
-	log.Info("start kafka controller")
+	log.Debug("start kafka controller")
 	if startedKafkaController {
 		return nil
 	}

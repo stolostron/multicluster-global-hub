@@ -55,10 +55,11 @@ func (r *ManagedHubController) IsResourceRemoved() bool {
 }
 
 func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start managedhub controller")
 	if managedHubController != nil {
 		return managedHubController, nil
 	}
+	log.Info("start managedhub controller")
+
 	if !config.IsACMResourceReady() {
 		return nil, nil
 	}

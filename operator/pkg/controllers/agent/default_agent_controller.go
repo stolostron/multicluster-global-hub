@@ -128,10 +128,11 @@ func NewDefaultAgentController(c client.Client) *DefaultAgentController {
 }
 
 func StartDefaultAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start default agent controller")
 	if defaultAgentController != nil {
 		return defaultAgentController, nil
 	}
+	log.Info("start default agent controller")
+
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
 	}
