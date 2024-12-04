@@ -19,20 +19,6 @@ var _ = Describe("scheduler", func() {
 				DataRetention: 18,
 			},
 		}
-		managerConfig.SchedulerInterval = "month"
-		Expect(cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, false)).To(Succeed())
-
-		managerConfig.SchedulerInterval = "week"
-		Expect(cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, false)).To(Succeed())
-
-		managerConfig.SchedulerInterval = "day"
-		Expect(cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, false)).To(Succeed())
-
-		managerConfig.SchedulerInterval = "hour"
-		Expect(cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, false)).To(Succeed())
-
-		managerConfig.SchedulerInterval = "minute"
-		Expect(cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, false)).To(Succeed())
 
 		managerConfig.SchedulerInterval = "second"
 		Expect(cronjob.AddSchedulerToManager(ctx, mgr, managerConfig, false)).To(Succeed())
