@@ -51,11 +51,17 @@ func AddManagedClusterAddonController(mgr ctrl.Manager) error {
 }
 
 func (c *managerClusterAddonController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	if hubStatusManager == nil {
+		log.Warn("The hub management process should be started")
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+	}
+
 	addon := &addonv1alpha1.ManagedClusterAddOn{}
 	if err := c.client.Get(ctx, request.NamespacedName, addon); apierrors.IsNotFound(err) {
 		if request.Namespace == "" {
 			return ctrl.Result{}, nil
 		}
+
 		log.Infof("inactive the agent when the global hub addon(%s) is deleted", request.Namespace)
 		err := hubStatusManager.inactive(ctx, []models.LeafHubHeartbeat{{
 			Name: request.Namespace,
@@ -66,10 +72,6 @@ func (c *managerClusterAddonController) Reconcile(ctx context.Context, request c
 	}
 
 	if !addon.DeletionTimestamp.IsZero() {
-		if hubStatusManager == nil {
-			log.Warn("The hub management process should be started")
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-		}
 		log.Infof("inactive the agent when the global hub addon(%s) is deleting", addon.Namespace)
 		err := hubStatusManager.inactive(ctx, []models.LeafHubHeartbeat{{
 			Name: request.Namespace,

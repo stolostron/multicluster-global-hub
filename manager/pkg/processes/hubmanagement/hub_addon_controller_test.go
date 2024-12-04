@@ -28,7 +28,7 @@ func (m *mockHubManagement) reactive(ctx context.Context, hubs []models.LeafHubH
 	return nil
 }
 
-func TestManagerClusterAddonController_Reconcile(t *testing.T) {
+func TestManagerClusterAddonReconcile(t *testing.T) {
 	scheme := runtime.NewScheme()
 	err := addonv1alpha1.AddToScheme(scheme)
 	assert.NoError(t, err)
@@ -40,7 +40,7 @@ func TestManagerClusterAddonController_Reconcile(t *testing.T) {
 		client: fakeClient,
 	}
 
-	t.Run("addon not found", func(t *testing.T) {
+	t.Run("hub manager is not ready", func(t *testing.T) {
 		request := ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: "test-namespace",
@@ -50,7 +50,7 @@ func TestManagerClusterAddonController_Reconcile(t *testing.T) {
 
 		res, err := controller.Reconcile(ctx, request)
 		assert.NoError(t, err)
-		assert.Equal(t, ctrl.Result{}, res)
+		assert.Equal(t, ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, res)
 	})
 
 	t.Run("addon with deletion timestamp", func(t *testing.T) {
