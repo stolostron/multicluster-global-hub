@@ -212,7 +212,7 @@ func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, tr
 					// to the application that currently there are no brokers to communicate with.
 					// But librdkafka will continue to try to reconnect indefinately,
 					// and it will attempt to re-send messages until message.timeout.ms or message.max.retries are exceeded.
-					log.Warnw("transport producer client error, ignore it for most cases", "error", ev)
+					log.Debugw("transport producer client error(ALL_BROKERS_DOWN), ignore it for most cases", "error", ev)
 				} else {
 					log.Warnw("transport producer client error", "error", ev)
 
