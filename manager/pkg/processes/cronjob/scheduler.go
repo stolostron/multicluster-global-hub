@@ -30,8 +30,6 @@ type GlobalHubJobScheduler struct {
 }
 
 func NewGlobalHubScheduler(scheduler *gocron.Scheduler, launchJobs []string) *GlobalHubJobScheduler {
-	// register the metrics before starting the jobs
-	task.RegisterMetrics()
 	return &GlobalHubJobScheduler{
 		scheduler:  scheduler,
 		launchJobs: launchJobs,
@@ -76,10 +74,12 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	}
 	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
 
-	return mgr.Add(&GlobalHubJobScheduler{
-		scheduler:  scheduler,
-		launchJobs: strings.Split(managerConfig.LaunchJobNames, ","),
-	})
+	// register the metrics before starting the jobs
+	task.RegisterMetrics()
+
+	return mgr.Add(NewGlobalHubScheduler(
+		scheduler,
+		strings.Split(managerConfig.LaunchJobNames, ",")))
 }
 
 func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
