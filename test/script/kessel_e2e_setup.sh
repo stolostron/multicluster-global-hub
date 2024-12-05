@@ -52,7 +52,7 @@ metadata:
     global-hub.open-cluster-management.io/catalog-source-name: operatorhubio-catalog
     global-hub.open-cluster-management.io/catalog-source-namespace: olm
     global-hub.open-cluster-management.io/with-inventory: ""
-    global-hub.open-cluster-management.io/enable-kraft: ""
+    global-hub.open-cluster-management.io/kafka-use-nodeport: ""
     global-hub.open-cluster-management.io/kind-cluster-ip: "$global_hub_node_ip"
   name: multiclusterglobalhub
   namespace: multicluster-global-hub
@@ -71,16 +71,23 @@ spec:
   imagePullPolicy: IfNotPresent
 EOF
 
+# Trap exit to ignore the function's exit 1
+trap '' EXIT
+
 # Wait the control planes are ready
 wait_cmd "kubectl get deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name"
 wait_cmd "kubectl get deploy/multicluster-global-hub-manager -n multicluster-global-hub --context $cluster_name"
-kubectl wait deploy/multicluster-global-hub-manager -n multicluster-global-hub --for condition=Available=True --timeout=600s --context "$cluster_name"
-wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $cluster_name"
+kubectl wait deploy/multicluster-global-hub-manager -n multicluster-global-hub --for condition=Available=True --timeout=60s --context "$cluster_name"
+wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $cluster_name" 60
 kubectl wait deploy/inventory-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
 
 # Debug information
-kubectl get kafka -n multicluster-global-hub -oyaml --context $cluster_name
-kubectl get pod -n multicluster-global-hub --context $cluster_name
+kubectl get kafka -n multicluster-global-hub -oyaml --context $cluster_name || true
+kubectl get pod -n multicluster-global-hub --context $cluster_name || true
 kubectl get mcgh -n multicluster-global-hub -oyaml --context $cluster_name || true
-kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name
-kubectl get deploy -n multicluster-global-hub --context $cluster_name
+kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name || true
+kubectl get deploy -n multicluster-global-hub --context $cluster_name || true
+
+# Restore default behavior
+trap - EXIT
+

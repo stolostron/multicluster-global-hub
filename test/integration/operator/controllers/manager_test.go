@@ -68,6 +68,7 @@ var _ = Describe("manager", Ordered, func() {
 		initOption = config.ControllerOption{
 			Manager:               runtimeManager,
 			MulticlusterGlobalHub: mgh,
+			OperatorConfig:        &config.OperatorConfig{},
 		}
 		// transport
 		err := CreateTestSecretTransport(runtimeClient, mgh.Namespace)
@@ -80,14 +81,7 @@ var _ = Describe("manager", Ordered, func() {
 	})
 
 	It("should generate the manager resources", func() {
-		_, err := reconciler.Reconcile(ctx, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: mgh.Namespace,
-				Name:      mgh.Name,
-			},
-		})
-		Expect(err).To(Succeed())
-
+		var err error
 		// deployment
 		Eventually(func() error {
 			deployment := &appsv1.Deployment{}

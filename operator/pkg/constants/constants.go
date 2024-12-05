@@ -120,8 +120,8 @@ const (
 	// KinDClusterIPKey defines a KinD container host which is used for test.
 	// It will be inject to the server certificates of kafka and inventory
 	KinDClusterIPKey = "global-hub.open-cluster-management.io/kind-cluster-ip"
-	// EnableKRaft enables run kafka with kraft
-	EnableKRaft = "global-hub.open-cluster-management.io/enable-kraft"
+	// KafkaUseNodeport indicates that Kafka is exposed via NodePort, and it is intended for testing purposes.
+	KafkaUseNodeport = "global-hub.open-cluster-management.io/kafka-use-nodeport"
 )
 
 // AggregationLevel specifies the level of aggregation leaf hubs should do before sending the information
@@ -179,12 +179,6 @@ const (
 	KafkaMemoryLimit   = "4Gi"
 	KafkaMemoryRequest = "128Mi"
 	KafkaCPURequest    = "25m"
-
-	// default resources for zookeeper
-	Zookeeper              = "zookeeper"
-	ZookeeperMemoryLimit   = "3Gi"
-	ZookeeperMemoryRequest = "500Mi"
-	ZookeeperCPURequest    = "20m"
 )
 
 const (

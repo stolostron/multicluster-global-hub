@@ -260,18 +260,6 @@ var _ = Describe("transporter", Ordered, func() {
 					},
 				},
 			},
-			Zookeeper: &v1alpha4.CommonSpec{
-				Resources: &v1alpha4.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPULimit),
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryLimit),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
-						corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),
-					},
-				},
-			},
 		}
 		mgh.Spec.ImagePullSecret = "mgh-image-pull"
 
@@ -335,13 +323,6 @@ var _ = Describe("transporter", Ordered, func() {
 		Expect(string(kafka.Spec.Kafka.Resources.Requests.Raw)).To(Equal(`{"cpu":"1m","memory":"1Mi"}`))
 		Expect(string(kafka.Spec.Kafka.Resources.Limits.Raw)).To(Equal(`{"cpu":"2m","memory":"2Mi"}`))
 
-		Expect(kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity).NotTo(BeNil())
-		Expect(kafka.Spec.Zookeeper.Template.Pod.Tolerations).NotTo(BeEmpty())
-		Expect(kafka.Spec.Zookeeper.Template.Pod.ImagePullSecrets).NotTo(BeEmpty())
-
-		Expect(string(kafka.Spec.Zookeeper.Resources.Requests.Raw)).To(Equal(`{"cpu":"1m","memory":"1Mi"}`))
-		Expect(string(kafka.Spec.Zookeeper.Resources.Limits.Raw)).To(Equal(`{"cpu":"2m","memory":"2Mi"}`))
-
 		Expect(kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity).NotTo(BeNil())
 		Expect(kafka.Spec.EntityOperator.Template.Pod.Tolerations).NotTo(BeEmpty())
 		Expect(kafka.Spec.EntityOperator.Template.Pod.ImagePullSecrets).NotTo(BeEmpty())
@@ -382,23 +363,18 @@ var _ = Describe("transporter", Ordered, func() {
 
 		entityOperatorToleration, _ := json.Marshal(kafka.Spec.EntityOperator.Template.Pod.Tolerations)
 		kafkaToleration, _ := json.Marshal(kafka.Spec.Kafka.Template.Pod.Tolerations)
-		zookeeperToleration, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Tolerations)
 		entityOperatorNodeAffinity, _ := json.Marshal(kafka.Spec.EntityOperator.Template.Pod.Affinity.NodeAffinity)
 		kafkaNodeAffinity, _ := json.Marshal(kafka.Spec.Kafka.Template.Pod.Affinity.NodeAffinity)
-		zookeeperNodeAffinity, _ := json.Marshal(kafka.Spec.Zookeeper.Template.Pod.Affinity.NodeAffinity)
 		toleration := `[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready","operator":"Exists"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/worker","operator":"Exists"}]`
 
 		Expect(string(entityOperatorToleration)).To(Equal(toleration))
 		Expect(string(kafkaToleration)).To(Equal(toleration))
-		Expect(string(zookeeperToleration)).To(Equal(toleration))
 
 		// cannot compare the string, because the order is random
 		Expect(string(entityOperatorNodeAffinity)).To(ContainSubstring("node-role.kubernetes.io/worker"))
 		Expect(string(entityOperatorNodeAffinity)).To(ContainSubstring("topology.kubernetes.io/zone"))
 		Expect(string(kafkaNodeAffinity)).To(ContainSubstring("node-role.kubernetes.io/worker"))
 		Expect(string(kafkaNodeAffinity)).To(ContainSubstring("topology.kubernetes.io/zone"))
-		Expect(string(zookeeperNodeAffinity)).To(ContainSubstring("node-role.kubernetes.io/worker"))
-		Expect(string(zookeeperNodeAffinity)).To(ContainSubstring("topology.kubernetes.io/zone"))
 
 		// simulate to create a cluster named: hub1
 		clusterName := "hub1"
@@ -446,7 +422,7 @@ var _ = Describe("transporter", Ordered, func() {
 })
 
 func UpdateKafkaClusterReady(c client.Client, ns string) error {
-	kafkaVersion := "3.5.0"
+	kafkaVersion := "3.8.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
 	clientCa := "kafka-clients-ca-cert"
@@ -464,15 +440,11 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
-				Replicas: 1,
-				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
-					Type: "ephemeral",
-				},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
 					{
-						Name: "plain",
-						Port: 9092,
-						Type: "internal",
+						Name: "tls",
+						Port: 9093,
+						Type: "nodeport",
 					},
 				},
 				Config: &apiextensions.JSON{Raw: []byte(`{
@@ -480,19 +452,10 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 }`)},
 				Version: &kafkaVersion,
 			},
-			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
-				Replicas: 1,
-				Storage: kafkav1beta2.KafkaSpecZookeeperStorage{
-					Type: "ephemeral",
-				},
-			},
 		},
 		Status: &kafkav1beta2.KafkaStatus{
 			ClusterId: &statusClusterId,
 			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-				{
-					BootstrapServers: &bootServer,
-				},
 				{
 					BootstrapServers: &bootServer,
 					Certificates: []string{
@@ -528,9 +491,6 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		}
 		existkafkaCluster.Status = &kafkav1beta2.KafkaStatus{
 			Listeners: []kafkav1beta2.KafkaStatusListenersElem{
-				{
-					BootstrapServers: &bootServer,
-				},
 				{
 					BootstrapServers: &bootServer,
 					Certificates: []string{

@@ -118,10 +118,6 @@ type AdvancedSpec struct {
 	// +optional
 	Kafka *CommonSpec `json:"kafka,omitempty"`
 
-	// Zookeeper specifies the desired state of zookeeper
-	// +optional
-	Zookeeper *CommonSpec `json:"zookeeper,omitempty"`
-
 	// Postgres specifies the desired state of postgres
 	// +optional
 	Postgres *CommonSpec `json:"postgres,omitempty"`

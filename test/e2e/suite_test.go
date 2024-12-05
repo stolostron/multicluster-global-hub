@@ -304,7 +304,8 @@ func deployGlobalHub() {
 				"mgh-scheduler-interval":                                         "minute",
 				"global-hub.open-cluster-management.io/catalog-source-name":      "operatorhubio-catalog",
 				"global-hub.open-cluster-management.io/catalog-source-namespace": "olm",
-				"global-hub.open-cluster-management.io/enable-kraft":             "",
+				"global-hub.open-cluster-management.io/kafka-use-nodeport":       "",
+				"global-hub.open-cluster-management.io/kind-cluster-ip":          os.Getenv("GLOBAL_HUB_NODE_IP"),
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{

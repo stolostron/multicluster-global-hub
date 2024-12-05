@@ -96,6 +96,9 @@ verbose=${verbose:=5}
 # Go programs typically use dynamic linking for C libraries: confluent-kafka package is used in e2e test
 export CGO_ENABLED=1
 
+# need set it as kafka advertiesehost to pass tls authn
+export GLOBAL_HUB_NODE_IP=${global_hub_node_ip}
+
 if [ "${filter}" = "e2e-test-prune" ]; then
   export ISPRUNE="true"
   echo "run prune"

@@ -195,8 +195,8 @@ github.com/cloudwego/base64x v0.1.4 h1:jwCgWpFanWmN8xoIUHa2rtzmkd5J2plF/dnLS6Xd/
 github.com/cloudwego/base64x v0.1.4/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJgA0rcu/8w=
 github.com/cloudwego/iasm v0.2.0 h1:1KNIy1I1H9hNNFEEH3DVnI4UujN+1zjpuk6gwHLTssg=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
-github.com/clyang82/strimzi-client-go v0.0.0-20240829073515-1fafe574af8b h1:dA0X/UTXHbX7iqZFnXd5mNDVwkR+h+v9Y41wBSotpms=
-github.com/clyang82/strimzi-client-go v0.0.0-20240829073515-1fafe574af8b/go.mod h1:7OPvvx8wg6NrP+3wbBoRlrE5UB0N0m3xeR/PZ2ofSHM=
+github.com/clyang82/strimzi-client-go v0.0.0-20241128142517-2098cd6dda19 h1:PCOeMeWqBzwrIC/ReekZipig4BEYGiHz/Gz+1Ou86nk=
+github.com/clyang82/strimzi-client-go v0.0.0-20241128142517-2098cd6dda19/go.mod h1:7OPvvx8wg6NrP+3wbBoRlrE5UB0N0m3xeR/PZ2ofSHM=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=

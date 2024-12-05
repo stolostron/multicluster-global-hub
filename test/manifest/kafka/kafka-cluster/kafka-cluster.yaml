@@ -27,25 +27,19 @@ metadata:
     strimzi.io/kraft: enabled
 spec:
   kafka:
-    version: 3.7.0
-    metadataVersion: 3.7-IV4
+    version: 3.8.0
+    metadataVersion: 3.8-IV0
     listeners:
-    - configuration:
-        useServiceDnsDomain: true
-      name: plain
-      port: 9092
-      tls: false
-      type: internal
     - authentication:
         type: tls
       configuration:
         bootstrap:
-          nodePort: 30095
+          nodePort: 30093
         brokers:
         - broker: 0
           advertisedHost: "NODE_PORT_HOST"
       name: external
-      port: 9095
+      port: 9093
       tls: true
       type: nodeport
     livenessProbe:

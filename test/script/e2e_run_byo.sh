@@ -62,7 +62,7 @@ if kubectl get secret "$transport_secret" -n "$target_namespace" --kubeconfig "$
 fi
 
 # wait the cluster is ready
-wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[1]}' | grep bootstrapServers"
+wait_cmd "kubectl get kafka kafka -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG -o jsonpath='{.status.listeners[0]}' | grep bootstrapServers"
 
 # wait the byo kafkatopic and kafkauser
 wait_cmd "kubectl get kafkatopic gh-spec -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
@@ -70,8 +70,8 @@ wait_cmd "kubectl get kafkatopic gh-status -n $kafka_namespace --kubeconfig $KAF
 wait_cmd "kubectl get kafkauser $byo_user -n $kafka_namespace --kubeconfig $KAFKA_KUBECONFIG | grep -C 1 True"
 echo "Kafka topic and user is ready"
 
-bootstrap_server=$(kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[1].bootstrapServers}')
-kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[1].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
+bootstrap_server=$(kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[0].bootstrapServers}')
+kubectl get kafka kafka -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.status.listeners[0].certificates[0]}' >"$CURRENT_DIR"/config/kafka-ca-cert.pem
 kubectl get secret $byo_user -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.data.user\.crt}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-cert.pem
 kubectl get secret $byo_user -n "$kafka_namespace" --kubeconfig "$KAFKA_KUBECONFIG" -o jsonpath='{.data.user\.key}' | base64 -d >"$CURRENT_DIR"/config/kafka-client-key.pem
 

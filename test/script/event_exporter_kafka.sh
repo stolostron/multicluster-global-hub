@@ -37,9 +37,9 @@ if ! kubectl get secret $standalone_user -n "$kafka_namespace" &>/dev/null; then
 fi
 
 cat <<EOF >"$CURRENT_DIR/kafka.yaml"
-bootstrap.server: $(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[1].bootstrapServers}')
+bootstrap.server: $(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[0].bootstrapServers}')
 topic.status: $status_topic
-ca.crt: $(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[1].certificates[0]}' | { if [[ "$OSTYPE" == "darwin"* ]]; then base64 -b 0; else base64 -w 0; fi; })
+ca.crt: $(kubectl get kafka kafka -n "$kafka_namespace" -o jsonpath='{.status.listeners[0].certificates[0]}' | { if [[ "$OSTYPE" == "darwin"* ]]; then base64 -b 0; else base64 -w 0; fi; })
 client.crt: $(kubectl get secret $standalone_user -n "$kafka_namespace" -o jsonpath='{.data.user\.crt}')
 client.key: $(kubectl get secret $standalone_user -n "$kafka_namespace" -o jsonpath='{.data.user\.key}')
 EOF

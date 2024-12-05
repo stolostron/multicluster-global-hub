@@ -386,6 +386,9 @@ install_crds() {
 
   # cluster
   kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
+
+  #proxy crd. required by olm
+  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
 }
 
 install_mch() {
@@ -412,36 +415,10 @@ enable_service_ca() {
 
 # deploy olm
 enable_olm() {
-  NS=olm
-  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' 2>/dev/null || echo "Waiting for CSV to appear")
-  if [[ "$csvPhase" == "Succeeded" ]]; then
-    echo "OLM is already installed in ${NS} namespace. Skipping..."
-    return
-  fi
-
-  #proxy crd
-  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
-
-  path="https://raw.githubusercontent.com/operator-framework/operator-lifecycle-manager/v0.28.0"
-  kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/crds.yaml"
-  kubectl --context "$1" wait --for=condition=Established -f "${path}/deploy/upstream/quickstart/crds.yaml" --timeout=60s
-  kubectl --context "$1" apply -f "${path}/deploy/upstream/quickstart/olm.yaml"
-
-  retries=300
-  csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' || echo "Waiting for CSV to appear")
-  while [[ $retries -gt 0 && "$csvPhase" != "Succeeded" ]]; do
-    echo "CSV packageserver(status.phase): ${csvPhase}"
-    sleep 1
-    retries=$((retries - 1))
-    csvPhase=$(kubectl --context "$1" get csv -n "${NS}" packageserver -o jsonpath='{.status.phase}' || echo "Waiting for CSV to appear")
-  done
-  if [ $retries == 0 ]; then
-    echo "CSV 'packageserver' failed to reach 'Succeeded' phase!"
-    exit 1
-  fi
-
-  kubectl --context "$1" rollout status -w deployment/packageserver --namespace="${NS}" --timeout=60s
-  echo "CSV 'packageserver' install succeeded"
+  kubectl config use-context "$1"
+  curl -L https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh -o install.sh
+  chmod +x install.sh
+  ./install.sh v0.30.0
 }
 
 wait_secret_ready() {
