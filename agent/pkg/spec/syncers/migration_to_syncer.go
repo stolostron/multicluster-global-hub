@@ -1,9 +1,13 @@
+// Copyright (c) 2024 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package syncers
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -11,6 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -56,6 +61,15 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		return err
 	}
 
+	klusterletAddonConfig := managedClusterMigrationToEvent.KlusterletAddonConfig
+	if klusterletAddonConfig != nil {
+		return wait.PollUntilContextTimeout(ctx, 1*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+			if err := s.client.Create(ctx, klusterletAddonConfig); err != nil {
+				return false, err
+			}
+			return true, nil
+		})
+	}
 	return nil
 }
 

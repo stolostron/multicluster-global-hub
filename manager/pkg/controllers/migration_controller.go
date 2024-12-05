@@ -416,7 +416,7 @@ func (m *MigrationController) syncMigrationTo(ctx context.Context,
 	if exists {
 		klusterletAddonConfig := &addonv1.KlusterletAddonConfig{}
 		if err := json.Unmarshal([]byte(klusterletAddonConfigStr), klusterletAddonConfig); err != nil {
-			return nil
+			return err
 		}
 		managedClusterMigrationToEvent.KlusterletAddonConfig = klusterletAddonConfig
 	}

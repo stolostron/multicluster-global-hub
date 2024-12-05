@@ -1,11 +1,14 @@
+// Copyright (c) 2024 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package managedcluster
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-kratos/kratos/v2/log"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,7 +47,8 @@ func RegisterKlusterletAddonConfigHandler(mgr ctrl.Manager, conflationManager *c
 }
 
 func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx context.Context, evt *cloudevents.Event) error {
-	log.Debugw("handle klusterlet addon config", "cloudevents", evt)
+	k.log.Debugw("handle klusterlet addon config", "cloudevents", evt)
+	fmt.Println("handleKlusterletAddonConfigEvent")
 	klusterletAddonConfig := &addonv1.KlusterletAddonConfig{}
 	if err := evt.DataAs(klusterletAddonConfig); err != nil {
 		return err
@@ -65,6 +69,9 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 	// update it into managedclustermigration CR
 	if len(migrationList.Items) > 0 {
 		migration := migrationList.Items[0]
+		if len(migration.GetAnnotations()) == 0 {
+			migration.Annotations = map[string]string{}
+		}
 		migration.Annotations[constants.KlusterletAddonConfigAnnotation] = string(klusterletAddonConfigData)
 		if err := k.manager.GetClient().Update(ctx, &migration); err != nil {
 			return err

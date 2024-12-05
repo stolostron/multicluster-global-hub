@@ -5,6 +5,7 @@ package configs
 
 import (
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -43,5 +44,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(authv1beta1.AddToScheme(scheme))
 	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(addonv1.SchemeBuilder.AddToScheme(scheme))
 	return scheme
 }
