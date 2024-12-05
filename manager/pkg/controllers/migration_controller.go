@@ -11,6 +11,7 @@ import (
 	"time"
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,6 +159,9 @@ func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err := m.ensureManagedServiceAccount(ctx, migration); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		// send the klusterletaddonconfig to the target cluster
+		return ctrl.Result{}, m.syncMigrationTo(ctx, migration)
 	} else {
 		// check if the secret is created by managedserviceaccount, if not, requeue after 1 second
 		desiredSecret := &corev1.Secret{}
@@ -181,7 +185,7 @@ func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 		// generate klusterletconfig
-		klusterletConfig := m.generateKlusterConfig(req)
+		klusterletConfig := m.generateKlusterletConfig(req)
 		// send the kubeconfig to managedclustermigration.Spec.From
 		migration := &migrationv1alpha1.ManagedClusterMigration{}
 		if err = m.Get(ctx, types.NamespacedName{
@@ -198,7 +202,7 @@ func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (
 	return ctrl.Result{}, nil
 }
 
-func (m *MigrationController) generateKlusterConfig(req ctrl.Request) *klusterletv1alpha1.KlusterletConfig {
+func (m *MigrationController) generateKlusterletConfig(req ctrl.Request) *klusterletv1alpha1.KlusterletConfig {
 	return &klusterletv1alpha1.KlusterletConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: klusterletConfigNamePrefix + req.Namespace,
@@ -407,6 +411,16 @@ func (m *MigrationController) syncMigrationTo(ctx context.Context,
 		ManagedServiceAccountName:             migration.Name,
 		ManagedServiceAccountInstallNamespace: msaNamespace,
 	}
+	// append klusterletAddonConfig if exists
+	klusterletAddonConfigStr, exists := migration.Annotations[constants.KlusterletAddonConfigAnnotation]
+	if exists {
+		klusterletAddonConfig := &addonv1.KlusterletAddonConfig{}
+		if err := json.Unmarshal([]byte(klusterletAddonConfigStr), klusterletAddonConfig); err != nil {
+			return nil
+		}
+		managedClusterMigrationToEvent.KlusterletAddonConfig = klusterletAddonConfig
+	}
+
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
 	if err != nil {
 		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",

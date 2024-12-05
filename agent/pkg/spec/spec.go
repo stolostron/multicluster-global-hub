@@ -14,12 +14,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.Consumer,
+func AddToManager(context context.Context, mgr ctrl.Manager, transportClient transport.TransportClient,
 	agentConfig *configs.AgentConfig,
 ) error {
 	log := logger.DefaultZapLogger()
-	if consumer == nil {
+	if transportClient.GetConsumer() == nil {
 		log.Info("the consumer is not initialized for the spec controllers")
+		return nil
+	}
+	if transportClient.GetProducer() == nil {
+		log.Info("the producer is not initialized for the spec controllers")
 		return nil
 	}
 
@@ -30,7 +34,7 @@ func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.
 	}
 
 	// add bundle dispatcher to manager
-	dispatcher, err := AddGenericDispatcher(mgr, consumer, *agentConfig)
+	dispatcher, err := AddGenericDispatcher(mgr, transportClient.GetConsumer(), *agentConfig)
 	if err != nil {
 		return fmt.Errorf("failed to add bundle dispatcher to runtime manager: %w", err)
 	}
@@ -44,7 +48,7 @@ func AddToManager(context context.Context, mgr ctrl.Manager, consumer transport.
 	}
 
 	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationFrom,
-		syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient()))
+		syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), transportClient))
 	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationTo,
 		syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient()))
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncer())

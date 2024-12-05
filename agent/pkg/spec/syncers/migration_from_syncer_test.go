@@ -274,7 +274,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client, nil)
 
 			// sync managed cluster migration
 			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
