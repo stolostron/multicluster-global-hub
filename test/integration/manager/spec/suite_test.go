@@ -23,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	agentconfigs "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec"
@@ -37,14 +39,15 @@ import (
 )
 
 var (
-	testenv         *envtest.Environment
-	cfg             *rest.Config
-	ctx             context.Context
-	cancel          context.CancelFunc
-	mgr             ctrl.Manager
-	runtimeClient   client.Client
-	testPostgres    *testpostgres.TestPostgres
-	consumer        transport.Consumer
+	testenv       *envtest.Environment
+	cfg           *rest.Config
+	ctx           context.Context
+	cancel        context.CancelFunc
+	mgr           ctrl.Manager
+	runtimeClient client.Client
+	testPostgres  *testpostgres.TestPostgres
+	// consumer        transport.Consumer
+	agentDispatcher agentspec.Dispatcher
 	producer        transport.Producer
 	multiclusterhub *mchv1.MultiClusterHub
 )
@@ -122,7 +125,11 @@ var _ = BeforeSuite(func() {
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 	managerConfig.TransportConfig.IsManager = false
-	consumer, err = genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)
+	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)
+	Expect(err).NotTo(HaveOccurred())
+	// use the dispatcher to consume events from transport
+	agentDispatcher, err = agentspec.AddGenericDispatcher(mgr, consumer,
+		agentconfigs.AgentConfig{LeafHubName: leafhubName})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Add db to transport")

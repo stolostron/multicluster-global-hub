@@ -23,7 +23,7 @@ type genericDispatcher struct {
 }
 
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config configs.AgentConfig,
-) (*genericDispatcher, error) {
+) (Dispatcher, error) {
 	if addToMgr {
 		return nil, nil
 	}

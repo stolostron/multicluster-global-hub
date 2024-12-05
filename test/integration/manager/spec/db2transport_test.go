@@ -19,6 +19,39 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
+var (
+	leafhubName        = "hub1"
+	ExpectedMessageIDs = map[string]string{
+		"ManagedClustersLabels":     "",
+		"ManagedClusterSets":        managedclustersetUID,
+		"ManagedClusterSetBindings": managedclustersetbindingUID,
+		"Policies":                  policyUID,
+		"PlacementRules":            placementruleUID,
+		"PlacementBindings":         placementbindingUID,
+		"Placements":                placementUID,
+		"Applications":              applicationUID,
+		"Subscriptions":             subscriptionUID,
+		"Channels":                  channelUID,
+	}
+)
+
+type agentSyncer struct {
+	eventType string
+}
+
+func newGenericAgentSyncer(eventType string) *agentSyncer {
+	return &agentSyncer{eventType: eventType}
+}
+
+func (s *agentSyncer) Sync(ctx context.Context, payload []byte) error {
+	expectedResourceId := ExpectedMessageIDs[s.eventType]
+	if strings.Contains(string(payload), expectedResourceId) {
+		fmt.Println("agent spec sync the resource from manager: ", s.eventType)
+		delete(ExpectedMessageIDs, s.eventType)
+	}
+	return nil
+}
+
 // go test ./test/integration/manager/spec -v -ginkgo.focus "Database to Transport Syncer"
 var _ = Describe("Database to Transport Syncer", Ordered, func() {
 	var db *gorm.DB
@@ -30,32 +63,9 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 	})
 
 	It("test resources can be synced through transport", func() {
-		ExpectedMessageIDs := make(map[string]string)
-		ExpectedMessageIDs["ManagedClustersLabels"] = ""
-		ExpectedMessageIDs["ManagedClusterSets"] = managedclustersetUID
-		ExpectedMessageIDs["ManagedClusterSetBindings"] = managedclustersetbindingUID
-		ExpectedMessageIDs["Policies"] = policyUID
-		ExpectedMessageIDs["PlacementRules"] = placementruleUID
-		ExpectedMessageIDs["PlacementBindings"] = placementbindingUID
-		ExpectedMessageIDs["Placements"] = placementUID
-		ExpectedMessageIDs["Applications"] = applicationUID
-		ExpectedMessageIDs["Subscriptions"] = subscriptionUID
-		ExpectedMessageIDs["Channels"] = channelUID
-
-		go func(ctx context.Context) {
-			for {
-				select {
-				case evt := <-consumer.EventChan():
-					// fmt.Println("get the event", evt)
-					if val, ok := ExpectedMessageIDs[evt.Type()]; ok && strings.Contains(string(evt.Data()), val) {
-						delete(ExpectedMessageIDs, evt.Type())
-					}
-				case <-ctx.Done():
-					fmt.Println("Task canceled:", ctx.Err())
-					return
-				}
-			}
-		}(ctx)
+		for eventType := range ExpectedMessageIDs {
+			agentDispatcher.RegisterSyncer(eventType, newGenericAgentSyncer(eventType))
+		}
 
 		By("ManagedClusterLabels")
 		labelPayload, err := json.Marshal(labelsToAdd)
@@ -148,7 +158,6 @@ var _ = Describe("Database to Transport Syncer", Ordered, func() {
 
 var (
 	managedclusterUID  = uuid.New().String()
-	leafhubName        = "hub1"
 	managedclusterName = "mc1"
 	labelsToAdd        = map[string]string{
 		"foo": "bar",
