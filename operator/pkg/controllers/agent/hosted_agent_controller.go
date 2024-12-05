@@ -56,14 +56,18 @@ var (
 )
 
 func StartHostedAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start hosted agent  controller")
-
 	if hostedAgentController != nil {
 		return hostedAgentController, nil
+	}
+	if !config.IsACMResourceReady() {
+		return nil, nil
 	}
 	if !config.GetImportClusterInHosted() {
 		return nil, nil
 	}
+
+	log.Info("start hosted agent  controller")
+
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
 	}

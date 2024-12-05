@@ -90,10 +90,11 @@ func (r *ACMResourceController) readyToWatchACMResources() bool {
 }
 
 func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start acm controller")
 	if acmResourceController != nil {
 		return acmResourceController, nil
 	}
+	log.Info("start acm controller")
+
 	acmController := &ACMResourceController{
 		Manager:   opts.Manager,
 		Resources: make(map[string]bool),
