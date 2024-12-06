@@ -249,4 +249,13 @@ rules:
   - create
   - update
   - delete
+- apiGroups:
+  - agent.open-cluster-management.io
+  resources:
+  - klusterletaddonconfigs
+  verbs:
+  - get
+  - create
+  - watch
+  - list
 {{- end -}}

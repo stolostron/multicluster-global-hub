@@ -82,7 +82,7 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 	}
 
 	// add spec controllers
-	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient.GetConsumer(), c.agentConfig); err != nil {
+	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 

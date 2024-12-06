@@ -1,3 +1,6 @@
+// Copyright (c) 2024 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package syncers
 
 import (
@@ -6,6 +9,7 @@ import (
 	"time"
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +40,9 @@ func TestMigrationFromSyncer(t *testing.T) {
 	}
 	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add klusterletv1alpha1 to scheme: %v", err)
+	}
+	if err := addonv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add addonv1 to scheme: %v", err)
 	}
 	testPayload := []byte(`
 {
@@ -241,6 +248,12 @@ func TestMigrationFromSyncer(t *testing.T) {
 						LeaseDurationSeconds: 60,
 					},
 				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
 			},
 			expectedBootstrapSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -274,7 +287,7 @@ func TestMigrationFromSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client, nil)
 
 			// sync managed cluster migration
 			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)

@@ -19,6 +19,7 @@ import (
 	speccontroller "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 )
 
@@ -93,7 +94,11 @@ var _ = BeforeSuite(func() {
 	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = speccontroller.AddToManager(ctx, mgr, genericConsumer, agentConfig)
+	transportClient := controller.TransportClient{}
+	transportClient.SetConsumer(genericConsumer)
+	transportClient.SetProducer(genericProducer)
+
+	err = speccontroller.AddToManager(ctx, mgr, &transportClient, agentConfig)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
