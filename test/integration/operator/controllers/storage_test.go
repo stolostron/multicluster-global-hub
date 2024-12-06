@@ -205,7 +205,7 @@ var _ = Describe("storage", Ordered, func() {
 		Eventually(func() error {
 			statefulSet := &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "multicluster-global-hub-postgres",
+					Name:      storage.BuiltinPostgresName,
 					Namespace: mgh.Namespace,
 				},
 			}

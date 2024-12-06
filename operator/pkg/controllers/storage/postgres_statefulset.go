@@ -22,11 +22,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-// Postgres: sts, service, secrert(credential), ca
-const BuiltinPostgresName = "multicluster-global-hub-postgresql"
-
 var (
-	builtinPostgresCAName     = fmt.Sprintf("%s-ca", BuiltinPostgresName)
+	BuiltinPostgresName       = config.COMPONENTS_POSTGRES_NAME // Postgres: sts, service, secrert(credential), ca
+	BuiltinPostgresCAName     = fmt.Sprintf("%s-ca", BuiltinPostgresName)
 	builtinPostgresCertName   = fmt.Sprintf("%s-cert", BuiltinPostgresName)
 	builtinPostgresConfigName = fmt.Sprintf("%s-config", BuiltinPostgresName)
 	builtinPostgresInitName   = fmt.Sprintf("%s-init", BuiltinPostgresName)
@@ -93,7 +91,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				Tolerations:                  mgh.Spec.Tolerations,
 				StorageSize:                  config.GetPostgresStorageSize(mgh),
 				PostgresConfigName:           builtinPostgresConfigName,
-				PostgresCaName:               builtinPostgresCAName,
+				PostgresCaName:               BuiltinPostgresCAName,
 				PostgresCertName:             builtinPostgresCertName,
 				PostgresInitName:             builtinPostgresInitName,
 				PostgresAdminUser:            postgresAdminUsername,
@@ -166,7 +164,7 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 func getPostgresCA(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub, c client.Client) (string, error) {
 	ca := &corev1.ConfigMap{}
 	if err := c.Get(ctx, types.NamespacedName{
-		Name:      builtinPostgresCAName,
+		Name:      BuiltinPostgresCAName,
 		Namespace: mgh.Namespace,
 	}, ca); err != nil {
 		return "", err
