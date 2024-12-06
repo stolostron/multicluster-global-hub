@@ -64,7 +64,7 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: postgres-credential-secret
+                  name: {{.StorageConfigSecret}}
                   key: database-url
             - name: WATCH_NAMESPACE
             {{- if .LaunchJobNames}}
@@ -161,7 +161,7 @@ spec:
       volumes:
       - name: postgres-credential
         secret:
-          secretName: postgres-credential-secret
+          secretName: {{.StorageConfigSecret}}
       {{- if .EnableGlobalResource }}
       - name: apiserver-certs
         secret:
