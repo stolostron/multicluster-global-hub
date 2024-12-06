@@ -72,7 +72,7 @@ var WatchedSecret = sets.NewString(
 )
 
 var WatchedConfigMap = sets.NewString(
-	builtinPostgresCAName,
+	BuiltinPostgresCAName,
 )
 
 var (
@@ -188,7 +188,7 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_POSTGRES_NAME, BuiltinPostgresName, reconcileErr),
+			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_POSTGRES_NAME, reconcileErr),
 			updateConnection,
 		)
 		if err != nil {
@@ -401,7 +401,7 @@ func generatePassword(length int) string {
 }
 
 func getDatabaseComponentStatus(ctx context.Context, c client.Client,
-	namespace string, name string, statefulsetName string, reconcileErr error,
+	namespace string, name string, reconcileErr error,
 ) v1alpha4.StatusCondition {
 	availableType := config.COMPONENTS_AVAILABLE
 	if reconcileErr != nil {
@@ -435,5 +435,5 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 			Message: "Use customized database, connection has set using provided secret",
 		}
 	}
-	return config.GetStatefulSetComponentStatus(ctx, c, namespace, statefulsetName)
+	return config.GetStatefulSetComponentStatus(ctx, c, namespace, name)
 }
