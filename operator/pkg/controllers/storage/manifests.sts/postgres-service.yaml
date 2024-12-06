@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: multicluster-global-hub-postgres
+  name: {{.Name}}
   namespace: {{.Namespace}}
   labels:
-    name: multicluster-global-hub-postgres
-    service: multicluster-global-hub-postgres
+    name: {{.Name}}
+    service: {{.Name}}
   annotations:
-    service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-postgres-certs
+    service.beta.openshift.io/serving-cert-secret-name: {{.PostgresCertName}}
 spec:
   ports:
   - port: 5432
@@ -21,4 +21,4 @@ spec:
     name: http
   {{- end }}
   selector:
-    name: multicluster-global-hub-postgres
+    name: {{.Name}}

@@ -69,8 +69,12 @@ type StorageReconciler struct {
 
 var WatchedSecret = sets.NewString(
 	constants.GHStorageSecretName,
-	constants.GHBuiltInStorageSecretName,
 	config.PostgresCertName,
+	BuiltinPostgresName,
+)
+
+var WatchedConfigMap = sets.NewString(
+	builtinPostgresCAName,
 )
 
 var (
@@ -131,15 +135,15 @@ func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 var statefulSetPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == config.COMPONENTS_POSTGRES_NAME
+			e.Object.GetName() == BuiltinPostgresName
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.ObjectNew.GetName() == config.COMPONENTS_POSTGRES_NAME
+			e.ObjectNew.GetName() == BuiltinPostgresName
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == config.COMPONENTS_POSTGRES_NAME
+			e.Object.GetName() == BuiltinPostgresName
 	},
 }
 
@@ -189,7 +193,7 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	var reconcileErr error
 	defer func() {
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, reconcileErr),
+			getDatabaseComponentStatus(ctx, r.GetClient(), mgh.Namespace, config.COMPONENTS_POSTGRES_NAME, BuiltinPostgresName, reconcileErr),
 			updateConnection,
 		)
 		if err != nil {
@@ -402,9 +406,8 @@ func generatePassword(length int) string {
 }
 
 func getDatabaseComponentStatus(ctx context.Context, c client.Client,
-	namespace string, reconcileErr error,
+	namespace string, name string, statefulsetName string, reconcileErr error,
 ) v1alpha4.StatusCondition {
-	name := config.COMPONENTS_POSTGRES_NAME
 	availableType := config.COMPONENTS_AVAILABLE
 	if reconcileErr != nil {
 		return v1alpha4.StatusCondition{
@@ -437,5 +440,5 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 			Message: "Use customized database, connection has set using provided secret",
 		}
 	}
-	return config.GetStatefulSetComponentStatus(ctx, c, namespace, name)
+	return config.GetStatefulSetComponentStatus(ctx, c, namespace, statefulsetName)
 }
