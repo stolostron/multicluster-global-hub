@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: multicluster-global-hub-postgres-config
+  name: {{.PostgresConfigName}}
   namespace: {{.Namespace}}
 data:
   postgresql.conf: |

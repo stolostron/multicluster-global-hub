@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: multicluster-global-hub-postgres
+  name: {{.Name}}
   namespace: {{.Namespace}}
 spec:
   replicas: 1
@@ -9,13 +9,13 @@ spec:
     matchLabels:
       app: multicluster-global-hub
       component: multicluster-global-hub-operator
-      name: multicluster-global-hub-postgres
+      name: {{.Name}}
   template:
     metadata:
       labels:
         app: multicluster-global-hub
         component: multicluster-global-hub-operator
-        name: multicluster-global-hub-postgres
+        name: {{.Name}}
     spec:
       containers:
       - env:
@@ -23,7 +23,7 @@ spec:
           valueFrom:
             secretKeyRef:
               key: database-admin-password
-              name: multicluster-global-hub-postgres
+              name: {{.Name}}
         - name: POSTGRESQL_SHARED_BUFFERS
           value: 64MB
         - name: POSTGRESQL_EFFECTIVE_CACHE_SIZE
@@ -39,7 +39,7 @@ spec:
             - --live
           initialDelaySeconds: 120
           timeoutSeconds: 10
-        name: multicluster-global-hub-postgres
+        name: {{.Name}}
         ports:
         - containerPort: 5432
           name: postgres
@@ -68,7 +68,7 @@ spec:
           name: postgresdb
           readOnly: false
         - mountPath: /opt/app-root/src/certs/
-          name: multicluster-global-hub-postgres-certs
+          name: postgresql-cert
         - mountPath: /opt/app-root/src/postgresql-cfg
           name: postgresql-cfg
         - mountPath: /opt/app-root/src/postgresql-start
@@ -83,17 +83,17 @@ spec:
         - name: DATA_SOURCE_URI
           valueFrom:
             secretKeyRef:
-              name: multicluster-global-hub-postgres
+              name: {{.Name}}
               key: database-uri
         - name: DATA_SOURCE_USER
           valueFrom:
             secretKeyRef:
-              name: multicluster-global-hub-postgres
+              name: {{.Name}}
               key: database-admin_user
         - name: DATA_SOURCE_PASS
           valueFrom:
             secretKeyRef:
-              name: multicluster-global-hub-postgres
+              name: {{.Name}}
               key: database-admin-password
         image: {{.PostgresExporterImage}}
         imagePullPolicy: {{.ImagePullPolicy}}
@@ -114,8 +114,7 @@ spec:
             path: /
             port: http
       {{- end }}
-      serviceAccount: multicluster-global-hub-postgres
-      serviceAccountName: multicluster-global-hub-postgres
+      serviceAccountName: {{.Name}}
       {{- if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
@@ -139,24 +138,24 @@ spec:
         {{- end}}
       {{- end }}
       volumes:
-      - configMap:
+      - name: postgresql-cfg
+        configMap:
           defaultMode: 420
-          name: multicluster-global-hub-postgres-config
-        name: postgresql-cfg
-      - configMap:
+          name: {{.PostgresConfigName}}
+      - name: postgresql-start
+        configMap:
           defaultMode: 420
-          name: multicluster-global-hub-postgres-init
-        name: postgresql-start
-      - name: multicluster-global-hub-postgres-certs
+          name: {{.PostgresInitName}}
+      - name: postgresql-cert
         secret:
           defaultMode: 416
-          secretName: multicluster-global-hub-postgres-certs
+          secretName: {{.PostgresCertName}}
   volumeClaimTemplates:
   - metadata:
       labels:
         app: multicluster-global-hub
         component: multicluster-global-hub-operator
-        name: multicluster-global-hub-postgres
+        name: {{.Name}}
       name: postgresdb
     spec:
       accessModes:

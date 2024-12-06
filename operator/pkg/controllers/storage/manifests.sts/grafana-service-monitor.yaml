@@ -15,5 +15,5 @@ spec:
     - multicluster-global-hub
   selector:
     matchLabels:
-      name: multicluster-global-hub-postgres
+      name: {{.Name}} # match to the service name
 {{- end }}

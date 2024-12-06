@@ -51,7 +51,7 @@ const (
 
 const (
 	COMPONENTS_KAFKA_NAME         = "kafka"
-	COMPONENTS_POSTGRES_NAME      = "multicluster-global-hub-postgres"
+	COMPONENTS_POSTGRES_NAME      = "multicluster-global-hub-postgresql"
 	COMPONENTS_MANAGER_NAME       = "multicluster-global-hub-manager"
 	COMPONENTS_GRAFANA_NAME       = "multicluster-global-hub-grafana"
 	COMPONENTS_INVENTORY_API_NAME = "inventory-api"
