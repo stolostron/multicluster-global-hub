@@ -86,6 +86,7 @@ const (
 // the global hub transport config secret for manager and agent
 const (
 	GHTransportConfigSecret = "transport-config" // #nosec G101
+	GHStorageConfigSecret   = "storage-config"   // #nosec G101
 )
 
 // global hub console secret/configmap names
