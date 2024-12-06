@@ -1,10 +1,9 @@
 package event
 
 import (
-	corev1 "k8s.io/api/core/v1"
-
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ManagedClusterMigrationFromEvent struct {

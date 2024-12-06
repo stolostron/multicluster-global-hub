@@ -6,7 +6,6 @@ package managedcluster
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
@@ -27,7 +26,7 @@ type klusterletAddonConfigHandler struct {
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
-	manager       ctrl.Manager
+	client        client.Client
 }
 
 func RegisterKlusterletAddonConfigHandler(mgr ctrl.Manager, conflationManager *conflator.ConflationManager) {
@@ -36,7 +35,7 @@ func RegisterKlusterletAddonConfigHandler(mgr ctrl.Manager, conflationManager *c
 		eventType:     string(enum.KlusterletAddonConfigType),
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.KlusterletAddonConfigPriority,
-		manager:       mgr,
+		client:        mgr.GetClient(),
 	}
 	conflationManager.Register(conflator.NewConflationRegistration(
 		k.eventPriority,
@@ -48,7 +47,6 @@ func RegisterKlusterletAddonConfigHandler(mgr ctrl.Manager, conflationManager *c
 
 func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx context.Context, evt *cloudevents.Event) error {
 	k.log.Debugw("handle klusterlet addon config", "cloudevents", evt)
-	fmt.Println("handleKlusterletAddonConfigEvent")
 	klusterletAddonConfig := &addonv1.KlusterletAddonConfig{}
 	if err := evt.DataAs(klusterletAddonConfig); err != nil {
 		return err
@@ -60,7 +58,7 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 	}
 
 	migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
-	if err := k.manager.GetClient().List(ctx, migrationList, &client.ListOptions{
+	if err := k.client.List(ctx, migrationList, &client.ListOptions{
 		Namespace: utils.GetDefaultNamespace(),
 	}); err != nil {
 		return err
@@ -73,7 +71,7 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 			migration.Annotations = map[string]string{}
 		}
 		migration.Annotations[constants.KlusterletAddonConfigAnnotation] = string(klusterletAddonConfigData)
-		if err := k.manager.GetClient().Update(ctx, &migration); err != nil {
+		if err := k.client.Update(ctx, &migration); err != nil {
 			return err
 		}
 	}

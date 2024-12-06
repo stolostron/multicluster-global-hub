@@ -9,6 +9,7 @@ import (
 	"time"
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +40,9 @@ func TestMigrationFromSyncer(t *testing.T) {
 	}
 	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add klusterletv1alpha1 to scheme: %v", err)
+	}
+	if err := addonv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add addonv1 to scheme: %v", err)
 	}
 	testPayload := []byte(`
 {
@@ -242,6 +246,12 @@ func TestMigrationFromSyncer(t *testing.T) {
 					Spec: clusterv1.ManagedClusterSpec{
 						HubAcceptsClient:     true,
 						LeaseDurationSeconds: 60,
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: "test",
 					},
 				},
 			},
