@@ -45,7 +45,9 @@ func RegisterKlusterletAddonConfigHandler(mgr ctrl.Manager, conflationManager *c
 	))
 }
 
-func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx context.Context, evt *cloudevents.Event) error {
+func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx context.Context,
+	evt *cloudevents.Event,
+) error {
 	k.log.Debugw("handle klusterlet addon config", "cloudevents", evt)
 	klusterletAddonConfig := &addonv1.KlusterletAddonConfig{}
 	if err := evt.DataAs(klusterletAddonConfig); err != nil {

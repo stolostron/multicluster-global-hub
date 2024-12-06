@@ -161,7 +161,9 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 }
 
 // sendKlusterletAddonConfig sends the klusterletAddonConfig back to the global hub
-func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx context.Context, managedCluster string) error {
+func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx context.Context,
+	managedCluster string,
+) error {
 	config := &addonv1.KlusterletAddonConfig{}
 	// send klusterletAddonConfig to global hub so that it can be transferred to the target cluster
 	if err := s.client.Get(ctx, types.NamespacedName{
@@ -180,6 +182,7 @@ func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx contex
 	config.SetSelfLink("")
 	config.SetResourceVersion("")
 	config.SetGeneration(0)
+	config.Status = addonv1.KlusterletAddonConfigStatus{}
 
 	payloadBytes, err := json.Marshal(config)
 	if err != nil {
