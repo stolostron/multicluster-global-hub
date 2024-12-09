@@ -8,6 +8,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -50,5 +51,6 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(appv1beta1.AddToScheme(scheme))
 	utilruntime.Must(clusterinfov1beta1.AddToScheme(scheme))
 	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(addonv1.SchemeBuilder.AddToScheme(scheme))
 	return scheme
 }

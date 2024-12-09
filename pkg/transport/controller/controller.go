@@ -60,6 +60,18 @@ func (c *TransportClient) GetRequester() transport.Requester {
 	return c.requester
 }
 
+func (c *TransportClient) SetProducer(producer transport.Producer) {
+	c.producer = producer
+}
+
+func (c *TransportClient) SetConsumer(consumer transport.Consumer) {
+	c.consumer = consumer
+}
+
+func (c *TransportClient) SetRequester(requester transport.Requester) {
+	c.requester = requester
+}
+
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
 	transportConfig *transport.TransportInternalConfig,
 ) *TransportCtrl {

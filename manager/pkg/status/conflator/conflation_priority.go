@@ -16,6 +16,7 @@ const (
 	LocalReplicatedPolicyEventPriority ConflationPriority = iota
 	LocalPlacementRulesSpecPriority    ConflationPriority = iota
 	SecurityAlertCountsPriority        ConflationPriority = iota
+	KlusterletAddonConfigPriority      ConflationPriority = iota
 
 	// enable global resource
 	CompliancePriority         ConflationPriority = iota

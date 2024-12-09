@@ -6,6 +6,7 @@ import (
 	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/generic"
@@ -17,7 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-func RegisterHandlers(cmr *conflator.ConflationManager, enableGlobalResource bool) {
+func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enableGlobalResource bool) {
 	// managed hub
 	managedhub.RegisterHubClusterHeartbeatHandler(cmr)
 	managedhub.RegsiterHubClusterInfoHandler(cmr)
@@ -25,6 +26,7 @@ func RegisterHandlers(cmr *conflator.ConflationManager, enableGlobalResource boo
 	// managed cluster
 	managedcluster.RegisterManagedClusterHandler(cmr)
 	managedcluster.RegisterManagedClusterEventHandler(cmr)
+	managedcluster.RegisterKlusterletAddonConfigHandler(mgr, cmr)
 
 	// local policy
 	policy.RegisterLocalPolicySpecHandler(cmr)

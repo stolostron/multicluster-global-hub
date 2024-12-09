@@ -1,9 +1,13 @@
+// Copyright (c) 2024 Red Hat, Inc.
+// Copyright Contributors to the Open Cluster Management project
+
 package syncers
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -11,6 +15,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -56,6 +62,16 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		return err
 	}
 
+	klusterletAddonConfig := managedClusterMigrationToEvent.KlusterletAddonConfig
+	if klusterletAddonConfig != nil {
+		return wait.PollUntilContextTimeout(ctx, 1*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+			if err := s.client.Create(ctx, klusterletAddonConfig); err != nil {
+				s.log.Debugf("cannot create klusterletAddonConfig %v", err)
+				return false, nil
+			}
+			return true, nil
+		})
+	}
 	return nil
 }
 
@@ -127,8 +143,13 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 
 	// patch cluster-manager only if it has changed
 	if clusterManagerChanged {
-		if err := s.client.Update(ctx, clusterManager); err != nil {
-			return err
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := s.client.Update(ctx, clusterManager); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			s.log.Errorw("failed to update clusterManager", "error", err)
 		}
 	}
 
@@ -169,8 +190,13 @@ func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context
 		if !apiequality.Semantic.DeepDerivative(migrationClusterRole, foundMigrationClusterRole) {
 			s.log.Infof("updating migration clusterrole %s", migrationClusterRole.GetName())
 			s.log.Debugf("updating migration clusterrole %v", migrationClusterRole)
-			if err := s.client.Update(ctx, migrationClusterRole); err != nil {
-				return err
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := s.client.Update(ctx, migrationClusterRole); err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
+				s.log.Errorw("failed to update migration ClusterRole", "error", err)
 			}
 		}
 	}
@@ -219,8 +245,13 @@ func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(c
 		if !apiequality.Semantic.DeepDerivative(registrationClusterRoleBinding, foundRegistrationClusterRoleBinding) {
 			s.log.Info("updating agent registration clusterrolebinding",
 				"clusterrolebinding", registrationClusterRoleBindingName)
-			if err := s.client.Update(ctx, registrationClusterRoleBinding); err != nil {
-				return err
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := s.client.Update(ctx, registrationClusterRoleBinding); err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
+				s.log.Errorw("failed to update migration ClusterRoleBinding", "error", err)
 			}
 		}
 	}
@@ -273,9 +304,15 @@ func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx contex
 				sarMigrationClusterRoleBinding.GetName())
 			s.log.Debugf("updating subjectaccessreviews clusterrolebinding %v",
 				sarMigrationClusterRoleBinding)
-			if err := s.client.Update(ctx, sarMigrationClusterRoleBinding); err != nil {
-				return err
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := s.client.Update(ctx, sarMigrationClusterRoleBinding); err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
+				s.log.Errorw("failed to update subjectaccessreviews ClusterRoleBinding", "error", err)
 			}
+
 		}
 	}
 
