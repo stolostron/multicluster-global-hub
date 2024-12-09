@@ -1,7 +1,7 @@
 {{- if .EnableKafkaMetrics }}
 apiVersion: v1
 data:
-  global-hub-strimzi-kafka.json: |
+  global-hub-strimzi-kraft.json: |
     {
       "annotations": {
         "list": [
@@ -22,707 +22,31 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 14,
+      "id": 15,
       "links": [],
-      "liveNow": false,
       "panels": [
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of brokers online",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#d44a3a",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 0
-                  },
-                  {
-                    "color": "#299c46",
-                    "value": 2
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 0,
-            "y": 0
-          },
-          "id": 46,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "repeatDirection": "h",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "count(kafka_server_replicamanager_leadercount{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Brokers Online",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of active controllers in the cluster",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#299c46",
-                    "value": null
-                  },
-                  {
-                    "color": "#e5ac0e",
-                    "value": 2
-                  },
-                  {
-                    "color": "#bf1b00"
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 3,
-            "y": 0
-          },
-          "id": 36,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_controller_kafkacontroller_activecontrollercount{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "refId": "A"
-            }
-          ],
-          "title": "Active Controllers",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Unclean leader election rate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "index": 0,
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "noValue": "0",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#299c46",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 2
-                  },
-                  {
-                    "color": "#d44a3a"
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 6,
-            "y": 0
-          },
-          "id": 38,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_controller_controllerstats_uncleanleaderelections_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"}[5m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "refId": "A"
-            }
-          ],
-          "title": "Unclean Leader Election Rate",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Replicas that are online",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#d44a3a",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 0
-                  },
-                  {
-                    "color": "#299c46",
-                    "value": 0
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 9,
-            "y": 0
-          },
-          "id": 40,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_server_replicamanager_partitioncount{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "refId": "A"
-            }
-          ],
-          "title": "Online Replicas",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of under-replicated partitions (| ISR | < | all replicas |).",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#508642",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 1
-                  },
-                  {
-                    "color": "#bf1b00",
-                    "value": 5
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 12,
-            "y": 0
-          },
-          "id": 30,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_server_replicamanager_underreplicatedpartitions{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 2,
-              "refId": "A"
-            }
-          ],
-          "title": "Under Replicated Partitions",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of partitions which are at their minimum in sync replica count (| ISR | == | min.insync.replicas |)",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "#508642",
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#508642",
-                    "value": null
-                  },
-                  {
-                    "color": "#ef843c",
-                    "value": 1
-                  },
-                  {
-                    "color": "#bf1b00",
-                    "value": 5
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 15,
-            "y": 0
-          },
-          "id": 102,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_cluster_partition_atminisr{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 2,
-              "refId": "A"
-            }
-          ],
-          "title": "Partitions at minimum ISR",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of partitions which are under their minimum in sync replica count (| ISR | < | min.insync.replicas |)",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "#508642",
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#508642",
-                    "value": null
-                  },
-                  {
-                    "color": "#ef843c",
-                    "value": 1
-                  },
-                  {
-                    "color": "#bf1b00",
-                    "value": 1
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 18,
-            "y": 0
-          },
-          "id": 103,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_cluster_partition_underminisr{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 2,
-              "refId": "A"
-            }
-          ],
-          "title": "Partitions under minimum ISR",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Number of partitions that don’t have an active leader and are hence not writable or readable",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "text": "N/A"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#508642",
-                    "value": null
-                  },
-                  {
-                    "color": "#ef843c",
-                    "value": 1
-                  },
-                  {
-                    "color": "#bf1b00",
-                    "value": 1
-                  }
-                ]
-              },
-              "unit": "none"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 3,
-            "x": 21,
-            "y": 0
-          },
-          "id": 32,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_controller_kafkacontroller_offlinepartitionscount{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "refId": "A"
-            }
-          ],
-          "title": "Offline Partitions Count",
-          "type": "stat"
-        },
-        {
           "collapsed": false,
-          "datasource": {
-            "type": "postgres",
-            "uid": "P244538DD76A4C61D"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 4
+            "y": 0
           },
           "id": 28,
           "panels": [],
           "targets": [
             {
-              "datasource": {
-                "type": "postgres",
-                "uid": "P244538DD76A4C61D"
-              },
+              "datasource": "${DS_PROMETHEUS}",
               "refId": "A"
             }
           ],
-          "title": "Kafka",
+          "title": "KRaft",
           "type": "row"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "description": "Kafka broker pods memory usage",
           "fieldConfig": {
             "defaults": {
@@ -783,7 +107,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 0,
-            "y": 5
+            "y": 1
           },
           "id": 82,
           "options": {
@@ -798,13 +122,11 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(container_memory_usage_bytes{namespace=\"$kubernetes_namespace\",pod=~\"$strimzi_cluster_name-$kafka_broker\",container=\"kafka\"}) by (pod)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(container_memory_usage_bytes{namespace=\"$kubernetes_namespace\",pod=~\"$strimzi_cluster_name-$kraft_node\",container=\"kafka\"}) by (pod)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -816,10 +138,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "description": "Aggregated Kafka broker pods CPU usage",
           "fieldConfig": {
             "defaults": {
@@ -880,7 +199,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 6,
-            "y": 5
+            "y": 1
           },
           "id": 81,
           "options": {
@@ -895,19 +214,15 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$kubernetes_namespace\",pod=~\"$strimzi_cluster_name-$kafka_broker\",container=\"kafka\"}[5m])) by (pod)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$kubernetes_namespace\",pod=~\"$strimzi_cluster_name-$kraft_node\",container=\"kafka\"}[5m])) by (pod)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ `{{pod}}` }}",
-              "range": true,
               "refId": "A"
             }
           ],
@@ -915,10 +230,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "description": "Kafka broker pods disk usage",
           "fieldConfig": {
             "defaults": {
@@ -979,7 +291,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 12,
-            "y": 5
+            "y": 1
           },
           "id": 83,
           "options": {
@@ -994,19 +306,15 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data(-[0-9]+)?-$strimzi_cluster_name-$kafka_broker\", persistentvolumeclaim!~\".*zookeeper(-[0-9]+)?$\"}) by (persistentvolumeclaim)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kubelet_volume_stats_available_bytes{namespace=\"$kubernetes_namespace\",persistentvolumeclaim=~\"data(-[0-9]+)?-$strimzi_cluster_name-$kraft_node\", persistentvolumeclaim!~\".*zookeeper(-[0-9]+)?$\"}) by (persistentvolumeclaim)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
               "legendFormat": "{{ `{{persistentvolumeclaim}}` }}",
-              "range": true,
               "refId": "A"
             }
           ],
@@ -1014,9 +322,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "description": "Open File Descriptors",
           "fieldConfig": {
             "defaults": {
@@ -1077,7 +383,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 18,
-            "y": 5
+            "y": 1
           },
           "id": 107,
           "options": {
@@ -1092,13 +398,11 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(process_open_fds{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",container=\"kafka\"}) by (kubernetes_pod_name)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(process_open_fds{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",container=\"kafka\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "hide": false,
               "intervalFactor": 1,
@@ -1173,7 +477,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 0,
-            "y": 12
+            "y": 8
           },
           "id": 93,
           "options": {
@@ -1188,14 +492,12 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
+              "datasource": "${DS_PROMETHEUS}",
               "editorMode": "code",
-              "expr": "sum(jvm_memory_used_bytes{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
+              "expr": "sum(jvm_memory_used_bytes{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
@@ -1208,6 +510,7 @@ data:
         },
         {
           "datasource": {
+            "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
           "fieldConfig": {
@@ -1269,7 +572,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 6,
-            "y": 12
+            "y": 8
           },
           "id": 95,
           "options": {
@@ -1284,16 +587,16 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(rate(jvm_gc_collection_seconds_sum{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}[5m])) by (kubernetes_pod_name)",
+              "datasource": "${DS_PROMETHEUS}",
+              "editorMode": "code",
+              "expr": "sum(rate(jvm_gc_collection_seconds_sum{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}[5m])) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "range": true,
               "refId": "A"
             }
           ],
@@ -1301,9 +604,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1363,7 +664,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 12,
-            "y": 12
+            "y": 8
           },
           "id": 97,
           "options": {
@@ -1378,13 +679,11 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(rate(jvm_gc_collection_seconds_count{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}[5m])) by (kubernetes_pod_name)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(rate(jvm_gc_collection_seconds_count{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}[5m])) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
@@ -1395,9 +694,7 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
           "description": "JVM thread count",
           "fieldConfig": {
             "defaults": {
@@ -1458,7 +755,7 @@ data:
             "h": 7,
             "w": 6,
             "x": 18,
-            "y": 12
+            "y": 8
           },
           "id": 108,
           "options": {
@@ -1473,13 +770,11 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(jvm_threads_current{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(jvm_threads_current{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
@@ -1490,354 +785,8 @@ data:
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Total incoming byte rate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "rgba(237, 129, 40, 0.89)",
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#d44a3a",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 0
-                  },
-                  {
-                    "color": "#299c46",
-                    "value": 2
-                  }
-                ]
-              },
-              "unit": "Bps"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 0,
-            "y": 19
-          },
-          "id": 98,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "repeatDirection": "h",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_bytesin_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Total Incoming Byte Rate",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Total outgoing byte rate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "rgba(237, 129, 40, 0.89)",
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#d44a3a",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 0
-                  },
-                  {
-                    "color": "#299c46",
-                    "value": 2
-                  }
-                ]
-              },
-              "unit": "Bps"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 6,
-            "y": 19
-          },
-          "id": 99,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "repeatDirection": "h",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_bytesout_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Total Outgoing Byte Rate",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Incoming messages rate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "rgba(237, 129, 40, 0.89)",
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#d44a3a",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 0
-                  },
-                  {
-                    "color": "#299c46",
-                    "value": 2
-                  }
-                ]
-              },
-              "unit": "wps"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 12,
-            "y": 19
-          },
-          "id": 100,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "repeatDirection": "h",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_messagesin_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Incoming Messages Rate",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Total produce request rate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [
-                {
-                  "options": {
-                    "match": "null",
-                    "result": {
-                      "color": "rgba(237, 129, 40, 0.89)",
-                      "text": "0"
-                    }
-                  },
-                  "type": "special"
-                }
-              ],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "#d44a3a",
-                    "value": null
-                  },
-                  {
-                    "color": "rgba(237, 129, 40, 0.89)",
-                    "value": 0
-                  },
-                  {
-                    "color": "#299c46",
-                    "value": 2
-                  }
-                ]
-              },
-              "unit": "reqps"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 4,
-            "w": 6,
-            "x": 18,
-            "y": 19
-          },
-          "id": 101,
-          "maxDataPoints": 100,
-          "options": {
-            "colorMode": "value",
-            "graphMode": "none",
-            "justifyMode": "auto",
-            "orientation": "horizontal",
-            "percentChangeColorMode": "standard",
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "fields": "",
-              "values": false
-            },
-            "showPercentChange": false,
-            "textMode": "auto",
-            "wideLayout": true
-          },
-          "pluginVersion": "11.1.0",
-          "repeatDirection": "h",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_totalproducerequests_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "",
-              "refId": "A"
-            }
-          ],
-          "title": "Total Produce Request Rate",
-          "type": "stat"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Byte rate",
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The average number of records appended per sec as the leader of the raft quorum.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -1889,15 +838,15 @@ data:
                   }
                 ]
               },
-              "unit": "bytes"
+              "unit": "short"
             },
             "overrides": []
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 8,
             "x": 0,
-            "y": 23
+            "y": 15
           },
           "id": 44,
           "options": {
@@ -1912,40 +861,26 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_bytesin_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_append_records_rate{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "hide": false,
               "instant": false,
               "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "Total Incoming Byte Rate",
+              "legendFormat": " {{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_bytesout_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "Total Outgoing Byte Rate",
-              "refId": "B"
             }
           ],
-          "title": "Byte Rate",
+          "title": "Append Metadata Records Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The average number of records fetched from the leader of the raft quorum.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2003,9 +938,9 @@ data:
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 23
+            "w": 8,
+            "x": 8,
+            "y": 15
           },
           "id": 58,
           "options": {
@@ -2020,27 +955,24 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_messagesin_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_fetch_records_rate{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
               "format": "time_series",
+              "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "Total Incoming Messages Rate",
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "D"
             }
           ],
-          "title": "Messages In Per Second",
+          "title": "Fetch Metadata Records Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Produce request rate",
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The average time in milliseconds to commit an entry in the raft log.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2078,6 +1010,101 @@ data:
                   "mode": "off"
                 }
               },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 15
+          },
+          "id": 112,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "7.4.5",
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_commit_latency_avg{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}) by (kubernetes_pod_name)",
+              "format": "time_series",
+              "hide": false,
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": " {{ `{{kubernetes_pod_name}}` }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Metadata Records Commit Latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The current quorum leader's id; -1 indicates unknown",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -2098,411 +1125,9 @@ data:
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 8,
             "x": 0,
-            "y": 31
-          },
-          "id": 50,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "10.3.3",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_totalproducerequests_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "Total Produce Request Rate",
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_failedproducerequests_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "Failed Produce Request Rate",
-              "refId": "B"
-            }
-          ],
-          "title": "Produce Request Rate",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Fetch request rate",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 31
-          },
-          "id": 56,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "10.3.3",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_brokertopicmetrics_totalfetchrequests_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "Fetch Request Rate",
-              "refId": "A"
-            },
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "  sum(irate(kafka_server_brokertopicmetrics_failedfetchrequests_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",topic=~\"$kafka_topic\",topic!=\"\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m]))",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "Failed Fetch Request Rate",
-              "refId": "B"
-            }
-          ],
-          "title": "Fetch Request Rate",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Average percentage of time network processor is idle",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "percent"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 39
-          },
-          "id": 60,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "10.3.3",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_network_socketserver_networkprocessoravgidle_percent{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}*100) by (kubernetes_pod_name)",
-              "format": "time_series",
-              "intervalFactor": 1,
-              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
-              "refId": "A"
-            }
-          ],
-          "title": "Network Processor Avg Idle Percent",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Average percentage of time request handler threads are idle",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "percent"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 39
-          },
-          "id": 62,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "none"
-            }
-          },
-          "pluginVersion": "10.3.3",
-          "targets": [
-            {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(kafka_server_kafkarequesthandlerpool_requesthandleravgidle_percent{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}*100) by (kubernetes_pod_name)",
-              "format": "time_series",
-              "hide": false,
-              "intervalFactor": 1,
-              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
-              "refId": "A"
-            }
-          ],
-          "title": "Request Handler Avg Idle Percent",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Disk writes",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "bytes"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 47
+            "y": 23
           },
           "id": 104,
           "options": {
@@ -2517,28 +1142,25 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_kafkaserver_linux_disk_write_bytes{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m])) by (kubernetes_pod_name)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_current_leader{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "hide": false,
+              "interval": "",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
-          "title": "Disk Writes",
+          "title": "Current Quorum Leader",
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Disk reads",
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The current voted leader's id; -1 indicates not voted for anyone",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2576,6 +1198,7 @@ data:
                   "mode": "off"
                 }
               },
+              "decimals": 0,
               "mappings": [],
               "thresholds": {
                 "mode": "absolute",
@@ -2590,15 +1213,15 @@ data:
                   }
                 ]
               },
-              "unit": "bytes"
+              "unit": "short"
             },
             "overrides": []
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 47
+            "w": 8,
+            "x": 8,
+            "y": 23
           },
           "id": 105,
           "options": {
@@ -2613,29 +1236,25 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "expr": "sum(irate(kafka_server_kafkaserver_linux_disk_read_bytes{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}[1m])) by (kubernetes_pod_name)",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_current_vote{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}) by (kubernetes_pod_name)",
               "format": "time_series",
               "hide": false,
+              "interval": "",
               "intervalFactor": 1,
               "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
-          "title": "Disk Reads",
+          "title": "Current Voted Leader",
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Top Connection Count for each listener",
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The current quorum epoch",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2667,7 +1286,101 @@ data:
                 "spanNulls": false,
                 "stacking": {
                   "group": "A",
-                  "mode": "normal"
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 0,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 23
+          },
+          "id": 113,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "7.4.5",
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_current_epoch{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}) by (kubernetes_pod_name)",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Current Quorum Epoch",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The number of bytes read off all sockets per second",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
                 },
                 "thresholdsStyle": {
                   "mode": "off"
@@ -2687,7 +1400,7 @@ data:
                   }
                 ]
               },
-              "unit": "none"
+              "unit": "bytes"
             },
             "overrides": []
           },
@@ -2695,9 +1408,9 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 55
+            "y": 31
           },
-          "id": 106,
+          "id": 114,
           "options": {
             "legend": {
               "calcs": [],
@@ -2710,31 +1423,25 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "topk(5,sum(kafka_server_socket_server_metrics_connection_count{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"}) by (kubernetes_pod_name, listener))",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(irate(kafka_server_raftchannelmetrics_incoming_byte_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}[5m])) by (kubernetes_pod_name)",
               "format": "time_series",
               "hide": false,
+              "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{listener}}` }}:{{ `{{kubernetes_pod_name}}` }}",
-              "range": true,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
-          "title": "Top 5 Connection Count per Listener",
+          "title": "Metadata Topic Incoming Bytes Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "description": "Top 10 log size",
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The number of outgoing bytes sent to all servers per second",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2794,9 +1501,9 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 55
+            "y": 31
           },
-          "id": 91,
+          "id": 115,
           "options": {
             "legend": {
               "calcs": [],
@@ -2809,32 +1516,401 @@ data:
               "sort": "none"
             }
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "7.4.5",
           "targets": [
             {
-              "datasource": {
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "builder",
-              "exemplar": false,
-              "expr": "topk(10, kafka_log_log_size{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",topic=~\"$kafka_topic\",partition=~\"$kafka_partition\"})",
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(irate(kafka_server_raftchannelmetrics_outgoing_byte_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}[5m])) by (kubernetes_pod_name)",
               "format": "time_series",
-              "instant": false,
+              "hide": false,
+              "interval": "",
               "intervalFactor": 1,
-              "legendFormat": "{{ `{{pod}}` }}:{{ `{{topic}}` }}:{{ `{{partition}}` }}",
-              "range": true,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
               "refId": "A"
             }
           ],
-          "title": "Top 10 Log Size",
+          "title": "Metadata Topic Outgoing Bytes Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The number of requests sent per second",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 39
+          },
+          "id": 116,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "7.4.5",
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(irate(kafka_server_raftchannelmetrics_request_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}[5m])) by (kubernetes_pod_name)",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Metadata Topic Requests Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The number of responses received per second",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 39
+          },
+          "id": 117,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "7.4.5",
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(irate(kafka_server_raftchannelmetrics_response_total{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\"}[5m])) by (kubernetes_pod_name)",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Metadata Topic Responses Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The high watermark maintained on this member; -1 if it is unknown.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 47
+          },
+          "id": 118,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "7.4.5",
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_high_watermark{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "refId": "A"
+            }
+          ],
+          "title": "High Watermark",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "description": "The current raft log end offset.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 47
+          },
+          "id": 119,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "7.4.5",
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(kafka_server_raftmetrics_log_end_offset{namespace=\"$kubernetes_namespace\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kraft_node\",strimzi_io_name=\"$strimzi_cluster_name-kafka\"}) by (kubernetes_pod_name)",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "{{ `{{kubernetes_pod_name}}` }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Log End Offset",
           "type": "timeseries"
         }
       ],
-      "refresh": "30s",
+      "refresh": "5s",
       "schemaVersion": 39,
       "tags": [
         "Strimzi",
-        "Kafka"
+        "Kafka",
+        "KRaft"
       ],
       "templating": {
         "list": [
@@ -2872,7 +1948,7 @@ data:
             "multi": false,
             "name": "kubernetes_namespace",
             "options": [],
-            "query": "query_result(kafka_server_replicamanager_leadercount)",
+            "query": "query_result(kafka_server_raftmetrics_current_leader)",
             "refresh": 1,
             "regex": "/.*namespace=\"([^\"]*).*/",
             "skipUrlSync": false,
@@ -2898,7 +1974,7 @@ data:
             "multi": false,
             "name": "strimzi_cluster_name",
             "options": [],
-            "query": "query_result(kafka_server_replicamanager_leadercount{namespace=\"$kubernetes_namespace\"})",
+            "query": "query_result(kafka_server_raftmetrics_current_leader{namespace=\"$kubernetes_namespace\"})",
             "refresh": 1,
             "regex": "/.*strimzi_io_cluster=\"([^\"]*).*/",
             "skipUrlSync": false,
@@ -2923,67 +1999,13 @@ data:
             "includeAll": true,
             "label": "Broker",
             "multi": false,
-            "name": "kafka_broker",
+            "name": "kraft_node",
             "options": [],
-            "query": "query_result(kafka_server_replicamanager_leadercount{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
+            "query": "query_result(kafka_server_raftmetrics_current_leader{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\"})",
             "refresh": 1,
             "regex": "/.*pod_name=\"$strimzi_cluster_name-([^\"]*).*/",
             "skipUrlSync": false,
             "sort": 0,
-            "tagValuesQuery": "",
-            "tagsQuery": "",
-            "type": "query",
-            "useTags": false
-          },
-          {
-            "allValue": ".+",
-            "current": {
-              "selected": false,
-              "text": "All",
-              "value": "$__all"
-            },
-            "datasource": {
-              "uid": "${DS_PROMETHEUS}"
-            },
-            "definition": "",
-            "hide": 0,
-            "includeAll": true,
-            "label": "Topic",
-            "multi": false,
-            "name": "kafka_topic",
-            "options": [],
-            "query": "query_result(kafka_cluster_partition_replicascount{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\"})",
-            "refresh": 1,
-            "regex": "/.*topic=\"([^\"]*).*/",
-            "skipUrlSync": false,
-            "sort": 0,
-            "tagValuesQuery": "",
-            "tagsQuery": "",
-            "type": "query",
-            "useTags": false
-          },
-          {
-            "allValue": ".*",
-            "current": {
-              "selected": false,
-              "text": "All",
-              "value": "$__all"
-            },
-            "datasource": {
-              "uid": "${DS_PROMETHEUS}"
-            },
-            "definition": "",
-            "hide": 0,
-            "includeAll": true,
-            "label": "Partition",
-            "multi": true,
-            "name": "kafka_partition",
-            "options": [],
-            "query": "query_result(kafka_log_log_size{namespace=\"$kubernetes_namespace\",strimzi_io_cluster=\"$strimzi_cluster_name\",kubernetes_pod_name=~\"$strimzi_cluster_name-$kafka_broker\",topic=~\"$kafka_topic\"})",
-            "refresh": 1,
-            "regex": "/.*partition=\"([^\"]*).*/",
-            "skipUrlSync": false,
-            "sort": 3,
             "tagValuesQuery": "",
             "tagsQuery": "",
             "type": "query",
@@ -3021,14 +2043,14 @@ data:
         ]
       },
       "timezone": "",
-      "title": "Global Hub - Strimzi Kafka",
-      "uid": "86cc98e66c294b299b37102f0cc74ead",
+      "title": "Global Hub - Strimzi KRaft",
+      "uid": "fe6h95qqu1zi8a",
       "version": 1,
       "weekStart": ""
     }
 kind: ConfigMap
 metadata:
-  name: grafana-dashboard-acm-strimzi-kafka
+  name: grafana-dashboard-acm-strimzi-kraft
   namespace: {{ .Namespace }}
   labels:
     global-hub.open-cluster-management.io/metrics-resource: strimzi
