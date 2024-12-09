@@ -292,7 +292,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
 	if err != nil {
 		reconcileErr = fmt.Errorf("failed to connect to database: %v", err)
-		log.Infof("wait database ready")
+		log.Infof("wait database ready, %v", reconcileErr)
 		return true, nil
 	}
 
