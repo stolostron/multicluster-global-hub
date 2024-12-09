@@ -1037,8 +1037,8 @@ github.com/openshift/library-go v0.0.0-20240723172506-8bb8fe6cc56d/go.mod h1:PdA
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/operator-framework/api v0.7.1/go.mod h1:L7IvLd/ckxJEJg/t4oTTlnHKAJIP/p51AvEslW3wYdY=
-github.com/operator-framework/api v0.17.7-0.20230626210316-aa3e49803e7b h1:prJEMyFQde4yxxaTuvqx1A/ukuCg/EZ2MbfdZiJwlls=
-github.com/operator-framework/api v0.17.7-0.20230626210316-aa3e49803e7b/go.mod h1:lnurXgadLnoZ7pufKMHkErr2BVOIZSpHtvEkHBcKvdk=
+github.com/operator-framework/api v0.27.0 h1:OrVaGKZJvbZo58HTv2guz7aURkhVKYhFqZ/6VpifiXI=
+github.com/operator-framework/api v0.27.0/go.mod h1:lg2Xx+S8NQWGYlEOvFwQvH46E5EK5IrAIL7HWfAhciM=
 github.com/operator-framework/operator-lifecycle-manager v0.22.0 h1:7DEWOq24HQ0l5xPOXMhn17XaJACgwoipz+JfQ7QCXZw=
 github.com/operator-framework/operator-lifecycle-manager v0.22.0/go.mod h1:4zssIIl23ohxS1nXRU9xTkBmwt+qleuHMO02BaWOHLA=
 github.com/operator-framework/operator-registry v1.17.5 h1:LR8m1rFz5Gcyje8WK6iYt+gIhtzqo52zMRALdmTYHT0=
