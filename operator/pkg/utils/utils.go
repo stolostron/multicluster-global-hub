@@ -20,9 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
-	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
@@ -144,13 +142,14 @@ func GetSubscriptionByName(ctx context.Context, k8sClient client.Client, namespa
 
 // IsCommunityMode returns true if operator is running in community mode
 func IsCommunityMode() bool {
-	image := os.Getenv("RELATED_IMAGE_POSTGRESQL")
-	if strings.Contains(image, "quay.io/stolostron") {
-		// image has quay.io/stolostron treat as community version
-		return true
-	} else {
-		return false
-	}
+	return true // TODO: for test
+	// image := os.Getenv("RELATED_IMAGE_POSTGRESQL")
+	// if strings.Contains(image, "quay.io/stolostron") {
+	// 	// image has quay.io/stolostron treat as community version
+	// 	return true
+	// } else {
+	// 	return false
+	// }
 }
 
 func ApplyConfigMap(ctx context.Context, runtimeClient client.Client, required *corev1.ConfigMap) (bool, error) {
