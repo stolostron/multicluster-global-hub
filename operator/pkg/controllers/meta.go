@@ -280,12 +280,17 @@ func updateReadyConditions(conds []metav1.Condition, phase v1alpha4.GlobalHubPha
 func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub) (bool, v1alpha4.GlobalHubPhaseType) {
 	phase := v1alpha4.GlobalHubRunning
 	desiredComponents := CheckDesiredComponent(mgh)
-	if len(mgh.Status.Components) != desiredComponents.Len() {
+	componentNum := len(mgh.Status.Components)
+	if componentNum < desiredComponents.Len() {
+		log.Debugf("processing components: expected at least %d, but got %d", desiredComponents.Len(), componentNum)
 		phase = v1alpha4.GlobalHubProgressing
 		return phase != mgh.Status.Phase, phase
 	}
 	for _, dcs := range mgh.Status.Components {
-		if !desiredComponents.Has(dcs.Name) {
+		// Deprecated: The built-in PostgreSQL name `multicluster-global-hub-postgres` has been changed to
+		// `multicluster-global-hub-postgresql` starting from Global Hub release 2.13.
+		if dcs.Name != "multicluster-global-hub-postgres" && !desiredComponents.Has(dcs.Name) {
+			log.Warnf("processing components: unsupported %s", dcs.Name)
 			phase = v1alpha4.GlobalHubProgressing
 		}
 		if dcs.Type == config.COMPONENTS_AVAILABLE {
