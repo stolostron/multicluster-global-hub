@@ -19,12 +19,18 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var partialPostgresURI = "@multicluster-global-hub-postgres." +
-	utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=verify-ca"
+var (
+	BuiltinPostgresName       = config.COMPONENTS_POSTGRES_NAME // Postgres: sts, service, secrert(credential), ca
+	BuiltinPostgresCAName     = fmt.Sprintf("%s-ca", BuiltinPostgresName)
+	builtinPostgresCertName   = fmt.Sprintf("%s-cert", BuiltinPostgresName)
+	builtinPostgresConfigName = fmt.Sprintf("%s-config", BuiltinPostgresName)
+	builtinPostgresInitName   = fmt.Sprintf("%s-init", BuiltinPostgresName)
+	builtinPartialPostgresURI = fmt.Sprintf("@%s.%s.svc:5432/hoh?sslmode=verify-ca", BuiltinPostgresName,
+		utils.GetDefaultNamespace())
+)
 
 type postgresCredential struct {
 	postgresAdminUsername        string
@@ -51,6 +57,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 	postgresObjects, err := postgresRenderer.Render("manifests.sts", "",
 		func(profile string) (interface{}, error) {
 			return struct {
+				Name                         string
 				Namespace                    string
 				PostgresImage                string
 				PostgresExporterImage        string
@@ -59,6 +66,10 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				ImagePullPolicy              string
 				NodeSelector                 map[string]string
 				Tolerations                  []corev1.Toleration
+				PostgresConfigName           string
+				PostgresCaName               string
+				PostgresCertName             string
+				PostgresInitName             string
 				PostgresAdminUser            string
 				PostgresAdminUserPassword    string
 				PostgresReadonlyUsername     string
@@ -70,6 +81,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				EnablePostgresMetrics        bool
 				EnableInventoryAPI           bool
 			}{
+				Name:                         BuiltinPostgresName,
 				Namespace:                    mgh.GetNamespace(),
 				PostgresImage:                config.GetImage(config.PostgresImageKey),
 				PostgresExporterImage:        config.GetImage(config.PostgresExporterImageKey),
@@ -78,13 +90,16 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				NodeSelector:                 mgh.Spec.NodeSelector,
 				Tolerations:                  mgh.Spec.Tolerations,
 				StorageSize:                  config.GetPostgresStorageSize(mgh),
+				PostgresConfigName:           builtinPostgresConfigName,
+				PostgresCaName:               BuiltinPostgresCAName,
+				PostgresCertName:             builtinPostgresCertName,
+				PostgresInitName:             builtinPostgresInitName,
 				PostgresAdminUser:            postgresAdminUsername,
 				PostgresAdminUserPassword:    credential.postgresAdminUserPassword,
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
 				StorageClass:                 mgh.Spec.DataLayerSpec.StorageClass,
-				PostgresURI: "multicluster-global-hub-postgres." +
-					utils.GetDefaultNamespace() + ".svc:5432/hoh?sslmode=disable",
+				PostgresURI:                  builtinPartialPostgresURI,
 				Resources: operatorutils.GetResources(operatorconstants.Postgres,
 					mgh.Spec.AdvancedSpec),
 				EnableMetrics:         mgh.Spec.EnableMetrics,
@@ -114,9 +129,9 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 	}
 	return &config.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
-			credential.postgresAdminUserPassword + partialPostgresURI,
+			credential.postgresAdminUserPassword + builtinPartialPostgresURI,
 		ReadonlyUserDatabaseURI: "postgresql://" + credential.postgresReadonlyUsername + ":" +
-			credential.postgresReadonlyUserPassword + partialPostgresURI,
+			credential.postgresReadonlyUserPassword + builtinPartialPostgresURI,
 		CACert: []byte(ca),
 	}, nil
 }
@@ -126,7 +141,7 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 ) (*postgresCredential, error) {
 	postgres := &corev1.Secret{}
 	if err := c.Get(ctx, types.NamespacedName{
-		Name:      constants.GHBuiltInStorageSecretName,
+		Name:      BuiltinPostgresName,
 		Namespace: mgh.Namespace,
 	}, postgres); err != nil && errors.IsNotFound(err) {
 		return &postgresCredential{
@@ -149,7 +164,7 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 func getPostgresCA(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub, c client.Client) (string, error) {
 	ca := &corev1.ConfigMap{}
 	if err := c.Get(ctx, types.NamespacedName{
-		Name:      constants.PostgresCAConfigMap,
+		Name:      BuiltinPostgresCAName,
 		Namespace: mgh.Namespace,
 	}, ca); err != nil {
 		return "", err
