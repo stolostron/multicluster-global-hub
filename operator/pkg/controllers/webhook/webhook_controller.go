@@ -12,15 +12,17 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
+	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
@@ -59,10 +61,14 @@ func NewWebhookReconciler(mgr ctrl.Manager,
 }
 
 func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
-	log.Info("start webhook controller")
 	if webhookReconciler != nil {
 		return webhookReconciler, nil
 	}
+	if !config.IsACMResourceReady() {
+		return nil, nil
+	}
+	log.Info("start webhook controller")
+
 	webhookReconciler = &WebhookReconciler{
 		c: opts.Manager.GetClient(),
 	}
@@ -131,29 +137,33 @@ type WebhookVariables struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *WebhookReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	c, err := controller.New("webhook-controller", mgr, controller.Options{
-		Reconciler: r,
-	})
-	if err != nil {
-		return err
-	}
-	return c.Watch(source.Kind(mgr.GetCache(), &globalhubv1alpha4.MulticlusterGlobalHub{},
-		&handler.TypedEnqueueRequestForObject[*globalhubv1alpha4.MulticlusterGlobalHub]{},
-		predicate.TypedFuncs[*globalhubv1alpha4.MulticlusterGlobalHub]{
-			CreateFunc: func(e event.TypedCreateEvent[*globalhubv1alpha4.MulticlusterGlobalHub]) bool {
-				return true
-			},
-			UpdateFunc: func(e event.TypedUpdateEvent[*globalhubv1alpha4.MulticlusterGlobalHub]) bool {
-				if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-					return true
-				}
-				return !reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
-			},
-			DeleteFunc: func(e event.TypedDeleteEvent[*globalhubv1alpha4.MulticlusterGlobalHub]) bool {
-				return false
-			},
-		},
-	))
+	return ctrl.NewControllerManagedBy(mgr).Named("webhook-controller").
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(mghPred)).
+		Watches(&addonv1alpha1.AddOnDeploymentConfig{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&clusterv1beta2.ManagedClusterSetBinding{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Watches(&clusterv1beta1.Placement{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+		Complete(r)
+}
+
+var mghPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+			return true
+		}
+		return !reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
 }
 
 func (r *WebhookReconciler) pruneWebhookResources(ctx context.Context) error {

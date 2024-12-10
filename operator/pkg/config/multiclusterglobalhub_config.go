@@ -38,6 +38,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -128,6 +129,27 @@ var MGHPred = predicate.Funcs{
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
+	},
+}
+
+// watch globalhub applied services
+var GeneralPredicate = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] !=
+			constants.GHOperatorOwnerLabelVal {
+			return false
+		}
+		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
+		return false
 	},
 }
 
