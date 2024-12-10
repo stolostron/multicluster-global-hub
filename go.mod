@@ -13,7 +13,7 @@ require (
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
-	github.com/fergusstrange/embedded-postgres v1.17.0
+	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-co-op/gocron v1.23.0
 	github.com/go-kratos/kratos/v2 v2.8.2
