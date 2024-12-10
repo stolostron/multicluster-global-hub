@@ -48,6 +48,7 @@ LABEL org.label-schema.vendor="Red Hat" \
 
 ENV USER_UID=1001
 ENV USER_NAME=agent
+ENV GIT_COMMIT=${VCS_REF}
 
 # install operator binary
 COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
