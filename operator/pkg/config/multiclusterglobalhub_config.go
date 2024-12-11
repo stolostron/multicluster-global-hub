@@ -79,7 +79,7 @@ var (
 		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
 		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
 		GrafanaImageKey:          "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
-		PostgresImageKey:         "registry.redhat.io/rhel9/postgresql-16:9.5-1732622748",
+		PostgresImageKey:         "quay.io/stolostron/postgresql-16:9.5-1732622748",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 		InventoryImageKey:        "quay.io/stolostron/inventory-api:latest",
 	}
