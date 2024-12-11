@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: multicluster-global-hub-postgres-init
+  name: {{.PostgresInitName}}
   namespace: {{.Namespace}}
 data:
   postgresql-start.sh: |

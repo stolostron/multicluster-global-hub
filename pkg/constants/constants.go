@@ -77,17 +77,16 @@ const (
 
 // global hub transport and storage secret and configmap names
 const (
-	GHTransportSecretName      = "multicluster-global-hub-transport" // #nosec G101
-	GHStorageSecretName        = "multicluster-global-hub-storage"   // #nosec G101
-	GHBuiltInStorageSecretName = "multicluster-global-hub-postgres"  // #nosec G101
-	KafkaCertSecretName        = "kafka-certs-secret"                // #nosec G101
-	GHDefaultStorageRetention  = "18m"                               // 18 months
-	PostgresCAConfigMap        = "multicluster-global-hub-postgres-ca"
+	GHTransportSecretName     = "multicluster-global-hub-transport" // #nosec G101
+	GHStorageSecretName       = "multicluster-global-hub-storage"   // #nosec G101
+	KafkaCertSecretName       = "kafka-certs-secret"                // #nosec G101
+	GHDefaultStorageRetention = "18m"                               // 18 months
 )
 
 // the global hub transport config secret for manager and agent
 const (
 	GHTransportConfigSecret = "transport-config" // #nosec G101
+	GHStorageConfigSecret   = "storage-config"   // #nosec G101
 )
 
 // global hub console secret/configmap names

@@ -12,7 +12,7 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
     apiVersion: v1
     kind: Service
     metadata:
-      name: multicluster-global-hub-postgres-lb
+      name: multicluster-global-hub-postgresql-lb
       namespace: multicluster-global-hub
     spec:
       ports:
@@ -21,7 +21,7 @@ The inspector is inspired by [acm-inspector](https://github.com/bjoydeep/acm-ins
         protocol: TCP
         targetPort: 5432
       selector:
-        name: multicluster-global-hub-postgres
+        name: multicluster-global-hub-postgresql
       type: LoadBalancer
     EOF
     ```

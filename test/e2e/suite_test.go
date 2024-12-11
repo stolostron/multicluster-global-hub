@@ -39,6 +39,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
@@ -161,7 +162,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).Should(Succeed())
 			time.Sleep(1 * time.Second)
 			databaseDefaultCaConfigMap, err := testClients.KubeClient().CoreV1().ConfigMaps(testOptions.GlobalHub.Namespace).
-				Get(ctx, "multicluster-global-hub-postgres-ca", metav1.GetOptions{})
+				Get(ctx, storage.BuiltinPostgresCAName, metav1.GetOptions{})
 			Expect(err).Should(Succeed())
 			caPath := "postgres.ca"
 			klog.Infof("postgres ca path: %v", caPath)
@@ -170,7 +171,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).Should(Succeed())
 
 			databaseDefaultSecret, err := testClients.KubeClient().CoreV1().Secrets(testOptions.GlobalHub.Namespace).
-				Get(ctx, "multicluster-global-hub-postgres", metav1.GetOptions{})
+				Get(ctx, storage.BuiltinPostgresName, metav1.GetOptions{})
 			Expect(err).Should(Succeed())
 			globalhubIp, err := getIP(testOptions.GlobalHub.ApiServer)
 			Expect(err).Should(Succeed())
@@ -446,14 +447,14 @@ func isLeaseUpdated(leaseName, namespace, deployName string, c client.Client) (b
 }
 
 func createPostgresService(ns string) error {
-	externalPostServiceName := "multicluster-global-hub-postgres-external"
+	externalPostServiceName := "multicluster-global-hub-postgresql-external"
 	postgresService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      externalPostServiceName,
 			Namespace: ns,
 			Labels: map[string]string{
 				"name":    externalPostServiceName,
-				"service": "multicluster-global-hub-postgres-external",
+				"service": "multicluster-global-hub-postgresql-external",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -466,7 +467,7 @@ func createPostgresService(ns string) error {
 				},
 			},
 			Selector: map[string]string{
-				"name": "multicluster-global-hub-postgres",
+				"name": storage.BuiltinPostgresName,
 			},
 			Type: corev1.ServiceTypeNodePort,
 		},

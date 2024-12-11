@@ -205,7 +205,7 @@ def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
     try:
         query = '''
         sum(
-            container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"multicluster-global-hub-postgres-.*"}
+            container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"multicluster-global-hub-postgresql-.*"}
           * on(pod)
             group_left(workload, workload_type) namespace_workload_pod:kube_pod_owner:relabel{cluster="", namespace="multicluster-global-hub", workload_type="statefulset"}
         ) by (pod) / (1024 * 1024)

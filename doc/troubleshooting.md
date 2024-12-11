@@ -29,7 +29,7 @@ Depending on the type of service, there are three ways to access the [provisione
         ```
     2. Access the database created by the built-in statefulset
         ```bash
-        kubectl exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT 1"
+        kubectl exec -it multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT 1"
         ```
 
 * `NodePort`
@@ -55,7 +55,7 @@ Depending on the type of service, there are three ways to access the [provisione
         apiVersion: v1
         kind: Service
         metadata:
-          name: multicluster-global-hub-postgres-nodeport
+          name: multicluster-global-hub-postgresql-nodeport
           namespace: multicluster-global-hub
         spec:
           ports:
@@ -94,7 +94,7 @@ Depending on the type of service, there are three ways to access the [provisione
         apiVersion: v1
         kind: Service
         metadata:
-          name: multicluster-global-hub-postgres-lb
+          name: multicluster-global-hub-postgresql-lb
           namespace: multicluster-global-hub
         spec:
           ports:
@@ -103,12 +103,12 @@ Depending on the type of service, there are three ways to access the [provisione
             protocol: TCP
             targetPort: 5432
           selector:
-            name: multicluster-global-hub-postgres
+            name: multicluster-global-hub-postgresql
           type: LoadBalancer
         EOF
 
         # get hostname
-        kubectl get svc multicluster-global-hub-postgres-lb -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
+        kubectl get svc multicluster-global-hub-postgresql-lb -ojsonpath='{.status.loadBalancer.ingress[0].hostname}'
         ```
 
 ## Running the must-gather command for troubleshooting
@@ -212,7 +212,7 @@ There are two goals for this job. One is create the partation tables for the fur
     kubectl exec -it $(kubectl get pods -n multicluster-global-hub -l postgres-operator.crunchydata.com/role=master -o jsonpath='{.items..metadata.name}') -c database -n multicluster-global-hub -- psql -U postgres -d hoh
 
     # or
-    kubectl exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh
+    kubectl exec -it multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- psql -U postgres -d hoh
     ```
 
   - Create the partition table for the next month

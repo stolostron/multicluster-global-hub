@@ -751,7 +751,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"prometheus-postgres-exporter|multicluster-global-hub-postgres\"}[5m])) by (pod)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{container=~\"prometheus-postgres-exporter|multicluster-global-hub-postgresql\"}[5m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "__auto",
@@ -853,7 +853,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(container_memory_usage_bytes{container=~\"prometheus-postgres-exporter|multicluster-global-hub-postgres\"}) by (pod)",
+              "expr": "sum(container_memory_usage_bytes{container=~\"prometheus-postgres-exporter|multicluster-global-hub-postgresql\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 2,
               "legendFormat": "__auto",

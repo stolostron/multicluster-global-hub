@@ -289,6 +289,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			PostgresCACert:            base64.StdEncoding.EncodeToString(storageConn.CACert),
 			TransportType:             string(transport.Kafka),
 			TransportConfigSecret:     constants.GHTransportConfigSecret,
+			StorageConfigSecret:       constants.GHStorageConfigSecret,
 			KafkaConfigYaml:           base64.StdEncoding.EncodeToString(kafkaConfigYaml),
 			Namespace:                 mgh.Namespace,
 			LeaseDuration:             strconv.Itoa(electionConfig.LeaseDuration),
@@ -445,6 +446,7 @@ type ManagerVariables struct {
 	DatabaseURL               string
 	PostgresCACert            string
 	TransportConfigSecret     string
+	StorageConfigSecret       string
 	KafkaConfigYaml           string
 	TransportType             string
 	Namespace                 string

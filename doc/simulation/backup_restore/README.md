@@ -37,7 +37,7 @@ More details about these items could be found [here](https://access.redhat.com/d
 ```
 [sh]# oc get replicationsource -A
 NAMESPACE                 NAME                                            SOURCE                                          LAST SYNC              DURATION          NEXT SYNC
-multicluster-global-hub   postgresdb-multicluster-global-hub-postgres-0   postgresdb-multicluster-global-hub-postgres-0   2024-01-05T07:15:24Z   1m47.599200873s   2024-01-05T08:00:00Z
+multicluster-global-hub   postgresdb-multicluster-global-hub-postgresql-0   postgresdb-multicluster-global-hub-postgresql-0   2024-01-05T07:15:24Z   1m47.599200873s   2024-01-05T08:00:00Z
 ```
 
 ## Stop backup
@@ -67,12 +67,12 @@ open-cluster-management-backup   restore-acm-passive-sync-acm-resources-schedule
 ```sh
 oc get ReplicationDestination
 NAME                                                 LAST SYNC              DURATION        NEXT SYNC
-b-multicluster-global-hub-postgres-020240105091547   2024-01-05T09:21:11Z   39.49297454s
+b-multicluster-global-hub-postgresql-020240105091547   2024-01-05T09:21:11Z   39.49297454s
 ```
 
 ```sh
 oc get pvc -A
 NAMESPACE                 NAME                                                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   AGE
-multicluster-global-hub   postgresdb-multicluster-global-hub-postgres-0                      Bound    pvc-a7aebea3-8d86-40df-a61e-fdf2ac95d0ef   25Gi       RWO            gp3-csi        7m9s
-multicluster-global-hub   volsync-b-multicluster-global-hub-postgres-020240105091547-cache   Bound    pvc-2376eeaf-dc32-4326-9c7b-d5ede983dfe1   1Gi        RWO            gp3-csi        6m59s
+multicluster-global-hub   postgresdb-multicluster-global-hub-postgresql-0                      Bound    pvc-a7aebea3-8d86-40df-a61e-fdf2ac95d0ef   25Gi       RWO            gp3-csi        7m9s
+multicluster-global-hub   volsync-b-multicluster-global-hub-postgresql-020240105091547-cache   Bound    pvc-2376eeaf-dc32-4326-9c7b-d5ede983dfe1   1Gi        RWO            gp3-csi        6m59s
 ```
