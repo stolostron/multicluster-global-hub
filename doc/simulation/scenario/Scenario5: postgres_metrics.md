@@ -25,7 +25,7 @@
     apiVersion: apps/v1
     kind: StatefulSet
     metadata:
-      name: multicluster-global-hub-postgres
+      name: multicluster-global-hub-postgresql
       namespace: multicluster-global-hub
     spec:
       persistentVolumeClaimRetentionPolicy:
@@ -44,9 +44,9 @@
               value: 128MB
             - name: WORK_MEM
               value: 16MB
-            image: quay.io/stolostron/postgresql-13:1-101
+            image: quay.io/stolostron/postgresql-16:9.5-1732622748
             imagePullPolicy: Always
-            name: multicluster-global-hub-postgres
+            name: multicluster-global-hub-postgresql
             resources:
               limits:
                 memory: 4Gi

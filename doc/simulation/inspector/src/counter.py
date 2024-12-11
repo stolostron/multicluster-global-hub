@@ -23,13 +23,13 @@ if not os.path.exists(output_path):
 def get_conn():
     v1 = client.CoreV1Api()
     # secret = v1.read_namespaced_secret(name="postgres-pguser-postgres", namespace=global_hub_namespace)
-    secret = v1.read_namespaced_secret(name="multicluster-global-hub-postgres", namespace=global_hub_namespace)
+    secret = v1.read_namespaced_secret(name="multicluster-global-hub-postgresql", namespace=global_hub_namespace)
     postgres_dict = {key: base64.b64decode(val).decode('utf-8') for key, val in secret.data.items()}
     print(postgres_dict)
     
     # need to expose the external host: 
     # kubectl patch postgrescluster postgres -p '{"spec":{"service":{"type":"LoadBalancer"}}}'  --type merge
-    service = v1.read_namespaced_service(name="multicluster-global-hub-postgres-lb", namespace=global_hub_namespace)
+    service = v1.read_namespaced_service(name="multicluster-global-hub-postgresql-lb", namespace=global_hub_namespace)
     external_host = service.status.load_balancer.ingress[0].hostname
     
     # Create connection to postgres

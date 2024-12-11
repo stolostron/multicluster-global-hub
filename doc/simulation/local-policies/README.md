@@ -26,9 +26,9 @@ kubectl exec -t $(kubectl get pods -n multicluster-global-hub -l postgres-operat
 ```
 If you have postgres statefulset installed, use the following commands to insert:
 ```bash
-kubectl cp create_local_policies.sql multicluster-global-hub/multicluster-global-hub-postgres-0:/tmp
-kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
-kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
+kubectl cp create_local_policies.sql multicluster-global-hub/multicluster-global-hub-postgresql-0:/tmp
+kubectl exec -t multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- ls -l /tmp/create_local_policies.sql
+kubectl exec -t multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/create_local_policies.sql
 ```
 
 2. Data Inserted into database
@@ -40,9 +40,9 @@ kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub --
 3. To simulate the scalability for 1 year, use the following script to generate 1 year data in `history.local_compliance`:
 
 ```bash
-kubectl cp history_local_compliance.sql multicluster-global-hub/multicluster-global-hub-postgres-0:/tmp
-kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub -- ls -l /tmp/history_local_compliance.sql
-kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/history_local_compliance.sql
+kubectl cp history_local_compliance.sql multicluster-global-hub/multicluster-global-hub-postgresql-0:/tmp
+kubectl exec -t multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- ls -l /tmp/history_local_compliance.sql
+kubectl exec -t multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- psql -U postgres -d hoh -f /tmp/history_local_compliance.sql
 ```
 
 4. Check the row count of `history.local_compliance` table:
@@ -56,7 +56,7 @@ kubectl exec -t multicluster-global-hub-postgres-0 -n multicluster-global-hub --
 ```
 OR
 ```bash
-# oc exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
+# oc exec -it multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- psql -U postgres -d hoh -c "SELECT count(*) from history.local_compliance"
  count
 --------
  7942000
@@ -68,7 +68,7 @@ OR
 ```bash
 # oc -n multicluster-global-hub exec -it hoh-pgha1-275z-0 -- df -h
 or
-oc -n multicluster-global-hub exec -it multicluster-global-hub-postgres-0 -- df -h
+oc -n multicluster-global-hub exec -it multicluster-global-hub-postgresql-0 -- df -h
 ```
 
 `/pgdata` uses about 3Gi space for `8 million` data.

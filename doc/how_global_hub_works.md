@@ -59,7 +59,7 @@ Manually running the summarization process typically means we need to recover hi
   You can use clients such as pgAdmin, tablePlush, etc. to connect to the Global Hub database. Alternatively, use the following command to connect directly.
 
   ```bash
-  kubectl exec -it multicluster-global-hub-postgres-0 -n multicluster-global-hub -- psql -U postgres -d hoh
+  kubectl exec -it multicluster-global-hub-postgresql-0 -n multicluster-global-hub -- psql -U postgres -d hoh
   ```
 
 2.Determine the date when it needs to be run, such as `2023-07-07`.

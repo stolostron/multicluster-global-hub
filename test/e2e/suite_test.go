@@ -447,14 +447,14 @@ func isLeaseUpdated(leaseName, namespace, deployName string, c client.Client) (b
 }
 
 func createPostgresService(ns string) error {
-	externalPostServiceName := "multicluster-global-hub-postgres-external"
+	externalPostServiceName := "multicluster-global-hub-postgresql-external"
 	postgresService := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      externalPostServiceName,
 			Namespace: ns,
 			Labels: map[string]string{
 				"name":    externalPostServiceName,
-				"service": "multicluster-global-hub-postgres-external",
+				"service": "multicluster-global-hub-postgresql-external",
 			},
 		},
 		Spec: corev1.ServiceSpec{
