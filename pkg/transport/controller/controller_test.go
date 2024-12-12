@@ -10,9 +10,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -199,3 +201,71 @@ Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
 -----END CERTIFICATE-----`)
 
 var keyPem = []byte("-----BEGIN EC PRIVATE KEY-----\nMHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49\nAwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q\nEKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==\n-----END EC PRIVATE KEY-----") // notsecret
+
+func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
+	tests := []struct {
+		name        string
+		kafkaConn   *transport.KafkaConfig
+		secret      *corev1.Secret
+		initObjects []runtime.Object
+	}{
+		{
+			name: "no new kafka",
+			kafkaConn: &transport.KafkaConfig{
+				IsNewKafkaCluster: false,
+			},
+			secret: nil,
+		},
+		{
+			name: "new kafka, has synced",
+			kafkaConn: &transport.KafkaConfig{
+				IsNewKafkaCluster: true,
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "transport-config",
+					Annotations: map[string]string{
+						constants.ResyncKafkaClientSecretAnnotation: "true",
+					},
+				},
+			},
+		},
+		{
+			name: "new kafka, do not synced",
+			kafkaConn: &transport.KafkaConfig{
+				IsNewKafkaCluster: true,
+				ClientSecretName:  "client-secret",
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "transport-config",
+				},
+			},
+			initObjects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "client-secret",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.secret != nil {
+				tt.initObjects = append(tt.initObjects, tt.secret)
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
+
+			c := &TransportCtrl{
+				runtimeClient: fakeClient,
+			}
+			if err := c.ResyncKafkaClientSecret(context.Background(), tt.kafkaConn, tt.secret); err != nil {
+				t.Errorf("TransportCtrl.ResyncKafkaClientSecret() error = %v", err)
+			}
+		})
+	}
+}

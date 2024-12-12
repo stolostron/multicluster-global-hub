@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
@@ -223,7 +224,10 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	if err != nil {
 		return false, err
 	}
-
+	err = c.ResyncKafkaClientSecret(ctx, kafkaConn, secret)
+	if err != nil {
+		return false, err
+	}
 	// update the wathing secret lits
 	if kafkaConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.CASecretName)
@@ -238,6 +242,44 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	}
 	c.transportConfig.KafkaCredential = kafkaConn
 	return true, nil
+}
+
+// Resync the kafka client secret because we recreate the kafka cluster.
+// TODO: Remove the code in globalhub 1.5
+func (c *TransportCtrl) ResyncKafkaClientSecret(ctx context.Context, kafkaConn *transport.KafkaConfig, secret *corev1.Secret) error {
+	log.Debugf("resync kafka client secret: %v", kafkaConn.IsNewKafkaCluster)
+	if !kafkaConn.IsNewKafkaCluster {
+		return nil
+	}
+
+	if secret.Annotations != nil {
+		if _, ok := secret.Annotations[constants.ResyncKafkaClientSecretAnnotation]; ok {
+			return nil
+		}
+	}
+	if kafkaConn.ClientSecretName == "" {
+		return nil
+	}
+	signedSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kafkaConn.ClientSecretName,
+			Namespace: secret.Namespace,
+		},
+	}
+	log.Infof("remove kafka client secret: %v", kafkaConn.ClientSecretName)
+
+	err := c.runtimeClient.Delete(ctx, signedSecret)
+	if err != nil {
+		return err
+	}
+	transportSecret := secret.DeepCopy()
+	if transportSecret.Annotations == nil {
+		transportSecret.Annotations = make(map[string]string)
+	}
+	log.Infof("update transport config secret")
+
+	transportSecret.Annotations[constants.ResyncKafkaClientSecretAnnotation] = "true"
+	return c.runtimeClient.Update(ctx, transportSecret)
 }
 
 func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *corev1.Secret) (
