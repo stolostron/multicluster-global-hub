@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,7 +29,7 @@ var (
 	builtinPostgresCertName   = fmt.Sprintf("%s-cert", BuiltinPostgresName)
 	builtinPostgresConfigName = fmt.Sprintf("%s-config", BuiltinPostgresName)
 	builtinPostgresInitName   = fmt.Sprintf("%s-init", BuiltinPostgresName)
-	builtinPartialPostgresURI = fmt.Sprintf("@%s.%s.svc:5432/hoh?sslmode=verify-ca", BuiltinPostgresName,
+	builtinPartialPostgresURI = fmt.Sprintf("%s.%s.svc:5432/hoh?sslmode=verify-ca", BuiltinPostgresName,
 		utils.GetDefaultNamespace())
 )
 
@@ -99,7 +100,9 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				PostgresReadonlyUsername:     credential.postgresReadonlyUsername,
 				PostgresReadonlyUserPassword: credential.postgresReadonlyUserPassword,
 				StorageClass:                 mgh.Spec.DataLayerSpec.StorageClass,
-				PostgresURI:                  builtinPartialPostgresURI,
+				// Postgres exporter should disable sslmode
+				// https://github.com/prometheus-community/postgres_exporter?tab=readme-ov-file#environment-variables
+				PostgresURI: strings.ReplaceAll(builtinPartialPostgresURI, "sslmode=verify-ca", "sslmode=disable"),
 				Resources: operatorutils.GetResources(operatorconstants.Postgres,
 					mgh.Spec.AdvancedSpec),
 				EnableMetrics:         mgh.Spec.EnableMetrics,
@@ -129,9 +132,9 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 	}
 	return &config.PostgresConnection{
 		SuperuserDatabaseURI: "postgresql://" + credential.postgresAdminUsername + ":" +
-			credential.postgresAdminUserPassword + builtinPartialPostgresURI,
+			credential.postgresAdminUserPassword + "@" + builtinPartialPostgresURI,
 		ReadonlyUserDatabaseURI: "postgresql://" + credential.postgresReadonlyUsername + ":" +
-			credential.postgresReadonlyUserPassword + builtinPartialPostgresURI,
+			credential.postgresReadonlyUserPassword + "@" + builtinPartialPostgresURI,
 		CACert: []byte(ca),
 	}, nil
 }

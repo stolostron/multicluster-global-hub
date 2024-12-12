@@ -12,7 +12,7 @@ spec:
   jobLabel: prometheus-postgres-exporter
   namespaceSelector:
     matchNames:
-    - multicluster-global-hub
+    - {{.Namespace}}
   selector:
     matchLabels:
       name: {{.Name}} # match to the service name
