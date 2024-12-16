@@ -101,6 +101,8 @@ spec:
         {{- if .EnableKafkaMetrics }}
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-kafka
           name: grafana-dashboard-acm-strimzi-kafka
+        - mountPath: /grafana-dashboards/1/global-hub-strimzi-kraft
+          name: grafana-dashboard-acm-strimzi-kraft
         - mountPath: /grafana-dashboards/1/global-hub-strimzi-operator
           name: grafana-dashboard-acm-strimzi-operator
         {{- end }}
@@ -235,6 +237,10 @@ spec:
           defaultMode: 420
           name: grafana-dashboard-acm-strimzi-kafka
         name: grafana-dashboard-acm-strimzi-kafka
+      - configMap:
+          defaultMode: 420
+          name: grafana-dashboard-acm-strimzi-kraft
+        name: grafana-dashboard-acm-strimzi-kraft
       - configMap:
           defaultMode: 420
           name: grafana-dashboard-acm-strimzi-operator
