@@ -92,8 +92,8 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		Expect(err).Should(Succeed())
 
 		name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
-		// the delta is 3 seconds, the next 7 seconds(10 - 3) events will be filtered
-		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(10*time.Second))
+		// the delta is 3 seconds, the next 5 seconds(8 - 3) events will be filtered
+		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(8*time.Second))
 
 		By("Create a expired event")
 		expiredEvent := &corev1.Event{
@@ -113,7 +113,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 		}
 		Expect(runtimeClient.Create(ctx, expiredEvent)).NotTo(HaveOccurred())
-		time.Sleep(7 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		By("Create a new event")
 		newEvent := &corev1.Event{
@@ -152,7 +152,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			gotEvent := false
 			for _, outEvent := range outEvents {
 				if outEvent.EventName == expiredEvent.Name {
-					Fail("should not get the expired event")
+					Fail("should not get the expired event: policy1.expired.123r543243333")
 				}
 				if outEvent.EventName == newEvent.Name {
 					gotEvent = true
@@ -163,7 +163,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 				return nil
 			}
 
-			fmt.Println(">>>>>>> got events")
+			fmt.Println(">>>>>>> not get the new event: policy1.newer.123r543245555")
 			utils.PrettyPrint(outEvents)
 			return fmt.Errorf("want event: %+v", newEvent)
 		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
