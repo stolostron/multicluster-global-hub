@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	managerconfig "github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
@@ -31,12 +32,23 @@ type PostgreSQL struct {
 
 // NewSpecPostgreSQL creates a new instance of PostgreSQL object.
 func NewSpecPostgreSQL(ctx context.Context, dataConfig *managerconfig.DatabaseConfig) (*PostgreSQL, error) {
-	pool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath,
-		int32(dataConfig.MaxOpenConns))
+	maxOpenConn, err := safeIntToInt32(dataConfig.MaxOpenConns)
+	if err != nil {
+		return nil, err
+	}
+	pool, err := database.PostgresConnPool(ctx, dataConfig.ProcessDatabaseURL, dataConfig.CACertPath, maxOpenConn)
 	if err != nil {
 		return nil, err
 	}
 	return &PostgreSQL{conn: pool}, nil
+}
+
+func safeIntToInt32(val int) (int32, error) {
+	// Check for overflow/underflow
+	if val > math.MaxInt32 || val < math.MinInt32 {
+		return 0, fmt.Errorf("value %d is out of range for int32", val)
+	}
+	return int32(val), nil
 }
 
 // Stop stops PostgreSQL and closes the connection pool.

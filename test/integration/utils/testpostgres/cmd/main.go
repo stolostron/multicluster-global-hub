@@ -36,8 +36,16 @@ func main() {
 		postgresDataPath = os.TempDir()
 	}
 	postgresDataPath = filepath.Join(postgresDataPath,
-		fmt.Sprintf(".embedded-postgres-go-%d", postgresPort),
+		fmt.Sprintf("/tmp/embedded-postgres-go-%d", postgresPort),
 		"extracted")
+
+	if _, err := os.Stat(postgresDataPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(postgresDataPath, 0o755); err != nil {
+			fmt.Printf("failed to create directory %s: %v", postgresDataPath, err)
+			os.Exit(1)
+		}
+	}
+
 	postgresConfig := embeddedpostgres.DefaultConfig()
 	postgresConfig = postgresConfig.Port(postgresPort)
 	postgresConfig = postgresConfig.RuntimePath(postgresDataPath)
