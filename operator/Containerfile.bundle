@@ -4,7 +4,7 @@ WORKDIR /workspace
 COPY ./operator/bundle ./bundle
 RUN ./bundle/konflux-patch.sh
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM scratch
 
 # Copy files to locations specified by labels.
 COPY --from=builder /workspace/bundle/manifests /manifests/
