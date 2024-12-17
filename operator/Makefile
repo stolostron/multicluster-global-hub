@@ -226,6 +226,8 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 	git diff -I 'createdAt' --exit-code
+	# remove bundle.Dockerfile
+	rm -rf bundle.Dockerfile
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
