@@ -10,6 +10,7 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -292,6 +293,23 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 		return ctrl.Result{}, err
 	}
 	log.Infof("kafka cluster deleted")
+
+	// Delete kafka pvc
+	kafkaPvc := &corev1.PersistentVolumeClaimList{}
+	pvcListOpts := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			"strimzi.io/cluster": KafkaClusterName,
+		}),
+	}
+	if err := r.c.List(ctx, kafkaPvc, pvcListOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+	for idx := range kafkaPvc.Items {
+		log.Infof("Delete kafka pvc %v", kafkaPvc.Items[idx].Name)
+		if err := r.c.Delete(ctx, &kafkaPvc.Items[idx]); err != nil && !errors.IsNotFound(err) {
+			return ctrl.Result{}, err
+		}
+	}
 
 	kafkaSub := &subv1alpha1.Subscription{}
 	err := r.c.Get(ctx, types.NamespacedName{
