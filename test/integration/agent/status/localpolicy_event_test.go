@@ -92,8 +92,8 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		Expect(err).Should(Succeed())
 
 		name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
-		// the delta is 3 seconds, the next 4 seconds(7 - 3) events will be filtered
-		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(7*time.Second))
+		// the delta is 3 seconds, the next 5 seconds(8 - 3) events will be filtered
+		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(8*time.Second))
 
 		By("Create a expired event")
 		expiredEvent := &corev1.Event{
@@ -113,7 +113,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 		}
 		Expect(runtimeClient.Create(ctx, expiredEvent)).NotTo(HaveOccurred())
-		time.Sleep(5 * time.Second)
+		time.Sleep(6 * time.Second)
 
 		By("Create a new event")
 		newEvent := &corev1.Event{
