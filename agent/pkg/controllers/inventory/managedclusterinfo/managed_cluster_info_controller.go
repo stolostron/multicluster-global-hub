@@ -180,10 +180,13 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.DistributionInfo.OCP.Version
 	case clusterinfov1beta1.KubeVendorEKS:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_EKS
+		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	case clusterinfov1beta1.KubeVendorGKE:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_GKE
+		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	default:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_KUBE_VENDOR_OTHER
+		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	}
 
 	// cluster status
