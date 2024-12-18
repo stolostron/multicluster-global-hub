@@ -20,5 +20,5 @@ export SECRET_NAME=<transport-secret-name> # default SECRET_NAME=multicluster-gl
 ## Producer and Consumer from different clients
 
 - [confluentinc/confluent-kafka-go](https://github.com/confluentinc/confluent-kafka-go)
-- [IBM/sarama](https://github.com/IBM/sarama)
+- [Shopify/sarama](https://github.com/Shopify/sarama)
 - [cloudevents/sdk-go](https://github.com/cloudevents/sdk-go)

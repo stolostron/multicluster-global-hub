@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/IBM/sarama"
+	"github.com/Shopify/sarama"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
