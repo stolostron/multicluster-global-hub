@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const errMessageFileNotFound = "no such file or directory"
@@ -68,7 +68,7 @@ func PostgresConnPool(ctx context.Context, databaseURI string, certPath string, 
 		config.MaxConns = size
 	}
 
-	dbConnectionPool, err := pgxpool.ConnectConfig(ctx, config)
+	dbConnectionPool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/spec/controllers/bundle"

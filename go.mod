@@ -13,7 +13,7 @@ require (
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
-	github.com/fergusstrange/embedded-postgres v1.17.0
+	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-co-op/gocron v1.23.0
 	github.com/go-kratos/kratos/v2 v2.8.2
@@ -21,7 +21,6 @@ require (
 	github.com/gonvenience/ytbx v1.4.4
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.5.5
-	github.com/jackc/pgx/v4 v4.18.3
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.20.1
 	github.com/onsi/gomega v1.34.2
@@ -157,15 +156,9 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgconn v1.14.3 // indirect
-	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgtype v1.14.0 // indirect
-	github.com/jackc/pgx/v5 v5.7.1 // indirect
-	github.com/jackc/puddle v1.3.0 // indirect
+	github.com/jackc/pgx/v5 v5.7.1
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.7.6 // indirect
