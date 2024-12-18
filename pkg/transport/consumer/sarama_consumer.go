@@ -3,7 +3,7 @@ package consumer
 import (
 	"context"
 
-	"github.com/IBM/sarama"
+	"github.com/Shopify/sarama"
 	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
