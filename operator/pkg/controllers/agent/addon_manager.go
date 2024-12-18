@@ -54,9 +54,6 @@ func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	if !meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
 		return false
 	}
-	if config.EnableInventory() {
-		return false
-	}
 	return true
 }
 
