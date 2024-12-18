@@ -24,7 +24,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 		localResourceId = fmt.Sprintf("test-cluster-%d", rand.Intn(100000))
 		clusterInfo := mockManagedClusterInfo(localResourceId, clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 			clusterinfov1beta1.CloudVendorAWS)
-		k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, "guest")
+		k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
 	})
 
 	It("Create", func() {

@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type ManagedClusterInfoInventorySyncer struct {
@@ -42,7 +43,12 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, err
 	}
 
-	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
+	// Need to get cluster id from managedcluster, because there is no clusterID in managedclusterinfo for non-openshift cluster
+	clusterId, err := utils.GetClusterId(ctx, r.runtimeClient, req.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	k8sCluster := GetK8SCluster(clusterInfo, clusterId, r.clientCN)
 
 	annotations := clusterInfo.GetAnnotations()
 	if annotations != nil {
@@ -122,7 +128,7 @@ func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester t
 }
 
 func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
-	clientCN string,
+	clusterId string, clientCN string,
 ) *kessel.K8SCluster {
 	kesselLabels := []*kessel.ResourceLabel{}
 	for key, value := range clusterInfo.Labels {
@@ -145,7 +151,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 			ConsoleHref:        clusterInfo.Status.ConsoleURL,
 		},
 		ResourceData: &kessel.K8SClusterDetail{
-			ExternalClusterId: clusterInfo.Status.ClusterID,
+			ExternalClusterId: clusterId,
 			KubeVersion:       clusterInfo.Status.Version,
 			Nodes:             []*kessel.K8SClusterDetailNodesInner{},
 		},
