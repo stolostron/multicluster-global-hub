@@ -23,7 +23,7 @@ var (
 	eventTimeCache         = make(map[string]time.Time)
 	lastEventTimeCache     = make(map[string]time.Time)
 	eventTimeCacheInterval = 5 * time.Second
-	deltaDuration          = 3 * time.Second
+	DeltaDuration          = 3 * time.Second
 	log                    = logger.DefaultZapLogger()
 )
 
@@ -43,7 +43,7 @@ func Newer(key string, val time.Time) bool {
 	}
 
 	// add noise to the time filter to ensure that events occurring very close together in time are not discarded
-	older := old.Add(-deltaDuration)
+	older := old.Add(-DeltaDuration)
 	return val.After(older)
 }
 
