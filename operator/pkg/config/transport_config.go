@@ -45,7 +45,11 @@ var (
 
 func SetTransporterConn(conn *transport.KafkaConfig) bool {
 	log.Debug("set Transporter Conn")
-	if conn != nil && !reflect.DeepEqual(conn, transporterConn) {
+	if conn == nil {
+		transporterConn = nil
+		return true
+	}
+	if !reflect.DeepEqual(conn, transporterConn) {
 		transporterConn = conn
 		log.Debug("update Transporter Conn")
 		return true
