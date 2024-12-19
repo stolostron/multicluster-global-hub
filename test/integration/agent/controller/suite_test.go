@@ -42,8 +42,11 @@ var _ = BeforeSuite(func() {
 	ctx, cancel = context.WithCancel(context.Background())
 
 	testenv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "manifest", "crd"),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "..", "manifest", "crd"),
+			},
+			MaxTime: 1 * time.Minute,
 		},
 	}
 

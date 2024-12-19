@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -65,8 +66,11 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "manifest", "crd"),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "..", "manifest", "crd"),
+			},
+			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
