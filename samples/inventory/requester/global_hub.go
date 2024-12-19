@@ -41,7 +41,7 @@ func globalHub(ctx context.Context) error {
 	}
 
 	clusterInfo := createMockClusterInfo("local-cluster")
-	k8sCluster := managedclusters.GetK8SCluster(clusterInfo, "guest")
+	k8sCluster := managedclusters.GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
 	createResp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -50,7 +50,7 @@ func globalHub(ctx context.Context) error {
 	fmt.Println("creating response", createResp)
 
 	clusterInfo = createMockClusterInfo("local-cluster")
-	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, "guest")
+	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
 	updatingResponse, err := requesterClient.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -59,7 +59,7 @@ func globalHub(ctx context.Context) error {
 	fmt.Println("updating response", updatingResponse)
 
 	clusterInfo = createMockClusterInfo("local-cluster")
-	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, "guest")
+	k8sCluster = managedclusters.GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
 	deletingResponse, err := requesterClient.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 		&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData})
 	if err != nil {
