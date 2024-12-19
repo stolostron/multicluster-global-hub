@@ -115,6 +115,9 @@ const (
 	ManagedClusterManagedByAnnotation = "global-hub.open-cluster-management.io/managed-by"
 	// identify the resource is from the global hub cluster
 	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"
+
+	// resync the kafka client secret in agent
+	ResyncKafkaClientSecretAnnotation = "global-hub.open-cluster-management.io/resign-kafka-client-secret" // #nosec G101
 )
 
 // store all the finalizers

@@ -217,7 +217,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 
 	transportConn := config.GetTransporterConn()
 	if transportConn == nil || transportConn.BootstrapServer == "" {
-		reconcileErr = fmt.Errorf("the transport connection(%s) must not be empty", transportConn)
+		reconcileErr = fmt.Errorf("the transport connection(%v) must not be empty", transportConn)
 		return ctrl.Result{}, reconcileErr
 	}
 

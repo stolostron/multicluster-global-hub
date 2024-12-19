@@ -15,7 +15,9 @@ import (
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -91,6 +93,7 @@ type strimziTransporter struct {
 	enableTLS bool
 	// default is false, to create topic for each managed hub
 	sharedTopics           bool
+	isNewKafkaCluster      bool
 	topicPartitionReplicas int32
 }
 
@@ -179,7 +182,15 @@ func WithSubName(name string) KafkaOption {
 // EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
 func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	log.Debug("reconcile global hub kafka transport...")
-	err := k.ensureSubscription(k.mgh)
+
+	// Delete old kafka cluster. Only used handle upgrade from globalhub 1.3->1.4
+	// TODO: Remove the code in globalhub 1.5
+	err := k.RemoveOldKafkaCluster(k.mgh.Namespace)
+	if err != nil {
+		return true, err
+	}
+
+	err = k.ensureSubscription(k.mgh)
 	if err != nil {
 		return true, err
 	}
@@ -205,6 +216,39 @@ func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	}
 
 	return false, nil
+}
+
+// RemoveOldKafkaCluster delete old kafka cluster.
+// TODO: Should be removed in globalhub 1.5
+func (k *strimziTransporter) RemoveOldKafkaCluster(ns string) error {
+	// Check if kafka resource exist
+	if _, err := k.manager.GetRESTMapper().KindFor(schema.GroupVersionResource{
+		Group:    "kafka.strimzi.io",
+		Version:  "v1beta2",
+		Resource: "kafkas",
+	}); err != nil {
+		if meta.IsNoMatchError(err) {
+			return nil
+		}
+		return err
+	}
+	existingKafka := &kafkav1beta2.Kafka{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      k.kafkaClusterName,
+		Namespace: ns,
+	}, existingKafka)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if existingKafka.Spec.Zookeeper == nil {
+		return nil
+	}
+	log.Infof("delete old kafka cluster")
+	k.isNewKafkaCluster = true
+	return k.manager.GetClient().Delete(k.ctx, existingKafka)
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
@@ -448,7 +492,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
-
+	credential.IsNewKafkaCluster = k.isNewKafkaCluster
 	// don't need to load the client cert/key from the kafka user, since it use the external kafkaUser
 	// userName := config.GetKafkaUserName(clusterName)
 	// if !k.enableTLS {
