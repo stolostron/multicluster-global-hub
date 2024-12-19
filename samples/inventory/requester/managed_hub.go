@@ -40,7 +40,8 @@ func managedHub(ctx context.Context, leafHubName string) error {
 		return err
 	}
 
-	k8sCluster := managedclusterinfo.GetK8SCluster(&clusterInfoList[0], requester.GetInventoryClientName(leafHubName))
+	k8sCluster := managedclusterinfo.GetK8SCluster(&clusterInfoList[0], clusterInfoList[0].Status.ClusterID,
+		requester.GetInventoryClientName(leafHubName))
 
 	resp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster},
