@@ -24,7 +24,7 @@ spec:
   - name: output-image
     value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-agent-globalhub-1-4:{{revision}}
   - name: dockerfile
-    value: agent/Containerfile.operator
+    value: agent/Containerfile.agent
   - name: path-context
     value: .
   pipelineSpec:
