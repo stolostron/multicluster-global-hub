@@ -68,9 +68,12 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		ControlPlane: envtest.ControlPlane{},
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "operator", "config", "crd", "bases"),
-			filepath.Join("..", "..", "manifest", "crd"),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "..", "operator", "config", "crd", "bases"),
+				filepath.Join("..", "..", "manifest", "crd"),
+			},
+			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
