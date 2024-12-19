@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	http "github.com/go-kratos/kratos/v2/transport/http"
+	"github.com/google/uuid"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	"github.com/project-kessel/inventory-client-go/v1beta1"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
@@ -13,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -24,6 +26,7 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 	// Setup scheme and mock requester
 	scheme := runtime.NewScheme()
 	_ = clusterinfov1beta1.AddToScheme(scheme)
+	_ = clusterv1.AddToScheme(scheme)
 	mockRequester := &MockRequest{}
 
 	// Define test cases
@@ -32,6 +35,7 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 	tests := []struct {
 		name           string
 		clusterInfo    *clusterinfov1beta1.ManagedClusterInfo
+		cluster        *clusterv1.ManagedCluster
 		expectedResult reconcile.Result
 		expectedError  bool
 	}{
@@ -40,10 +44,16 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-cluster",
-					Namespace: "default",
+					Namespace: "test-cluster",
 					Annotations: map[string]string{
 						constants.InventoryResourceCreatingAnnotationlKey: "",
 					},
+				},
+			},
+			cluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster",
+					UID:  types.UID(uuid.New().String()),
 				},
 			},
 			expectedResult: reconcile.Result{},
@@ -54,7 +64,13 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test-cluster",
-					Namespace:         "default",
+					Namespace:         "test-cluster",
+					CreationTimestamp: creatingTime,
+				},
+			},
+			cluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test-cluster",
 					CreationTimestamp: creatingTime,
 				},
 			},
@@ -66,10 +82,16 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 			clusterInfo: &clusterinfov1beta1.ManagedClusterInfo{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test-cluster",
-					Namespace:         "default",
+					Namespace:         "test-cluster",
 					CreationTimestamp: creatingTime,
 					DeletionTimestamp: &deletintTime,
 					Finalizers:        []string{constants.InventoryResourceFinalizer},
+				},
+			},
+			cluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test-cluster",
+					CreationTimestamp: creatingTime,
 				},
 			},
 			expectedResult: reconcile.Result{},
@@ -80,7 +102,7 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Setup the fake Kubernetes client with test objects
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.clusterInfo).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(tt.clusterInfo, tt.cluster).Build()
 
 			// Create the controller with the mock requester and fake client
 			r := &ManagedClusterInfoCtrl{
@@ -91,7 +113,7 @@ func TestManagedClusterInfoCtrlReconcile(t *testing.T) {
 
 			// Call the Reconcile method
 			result, err := r.Reconcile(context.TODO(), reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: "test-cluster", Namespace: "default"},
+				NamespacedName: types.NamespacedName{Name: "test-cluster", Namespace: "test-cluster"},
 			})
 
 			// Assert results

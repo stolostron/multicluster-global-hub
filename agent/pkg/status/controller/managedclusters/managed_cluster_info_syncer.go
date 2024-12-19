@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type ManagedClusterInfoCtrl struct {
@@ -41,7 +42,12 @@ func (r *ManagedClusterInfoCtrl) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	k8sCluster := GetK8SCluster(clusterInfo, r.clientCN)
+	// Need to get cluster id from managedcluster, because there is no clusterID in managedclusterinfo for non-openshift cluster
+	clusterId, err := utils.GetClusterId(ctx, r.runtimeClient, req.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	k8sCluster := GetK8SCluster(clusterInfo, clusterId, r.clientCN)
 
 	annotations := clusterInfo.GetAnnotations()
 	if annotations != nil {
@@ -120,7 +126,7 @@ func AddManagedClusterInfoCtrl(mgr ctrl.Manager, inventoryRequester transport.Re
 }
 
 func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
-	clientCN string,
+	clusterId string, clientCN string,
 ) *kessel.K8SCluster {
 	kesselLabels := []*kessel.ResourceLabel{}
 	for key, value := range clusterInfo.Labels {
@@ -172,10 +178,13 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.DistributionInfo.OCP.Version
 	case clusterinfov1beta1.KubeVendorEKS:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_EKS
+		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	case clusterinfov1beta1.KubeVendorGKE:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_GKE
+		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	default:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_KUBE_VENDOR_OTHER
+		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	}
 
 	// cluster status
