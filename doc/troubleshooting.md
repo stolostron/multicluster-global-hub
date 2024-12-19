@@ -64,12 +64,12 @@ Depending on the type of service, there are three ways to access the [provisione
             protocol: TCP
             targetPort: 5432
           selector:
-            name: multicluster-global-hub-postgres
+            name: multicluster-global-hub-postgresql
           type: NodePort
         EOF
 
         # get the postgres password
-        kubectl get secret multicluster-global-hub-postgres  -ojsonpath='{.data.database-admin-password}' | base64 -d
+        kubectl get secret multicluster-global-hub-postgresql  -ojsonpath='{.data.database-admin-password}' | base64 -d
         ```
 
 * `LoadBalancer`
