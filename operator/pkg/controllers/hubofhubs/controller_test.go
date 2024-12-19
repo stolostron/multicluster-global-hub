@@ -45,9 +45,12 @@ func TestMain(m *testing.M) {
 	}
 
 	testenv := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "..", "test", "manifest", "crd"),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "..", "config", "crd", "bases"),
+				filepath.Join("..", "..", "..", "..", "test", "manifest", "crd"),
+			},
+			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
