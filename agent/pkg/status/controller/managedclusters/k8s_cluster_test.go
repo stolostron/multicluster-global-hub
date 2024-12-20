@@ -16,7 +16,7 @@ func TestGetK8SClusterInfo(t *testing.T) {
 		clusterinfov1beta1.CloudVendorAWS)
 
 	// Call the function
-	k8sCluster := GetK8SCluster(clusterInfo, "guest")
+	k8sCluster := GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
 
 	// Assert the results
 	assert.NotNil(t, k8sCluster)
@@ -51,27 +51,27 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			clusterInfo: createMockClusterInfo("eks-cluster", clusterinfov1beta1.KubeVendorEKS, "",
 				clusterinfov1beta1.CloudVendorAzure),
 			expectedVendor:  kessel.K8SClusterDetail_EKS,
-			expectedVersion: "",
+			expectedVersion: "1.23.0",
 		},
 		{
 			name: "GKE Cluster",
 			clusterInfo: createMockClusterInfo("gke-cluster", clusterinfov1beta1.KubeVendorGKE, "",
 				clusterinfov1beta1.CloudVendorGoogle),
 			expectedVendor:  kessel.K8SClusterDetail_GKE,
-			expectedVersion: "",
+			expectedVersion: "1.23.0",
 		},
 		{
 			name: "Other Kubernetes Vendor",
 			clusterInfo: createMockClusterInfo("other-cluster", "SomeOtherVendor", "",
 				clusterinfov1beta1.CloudVendorBareMetal),
 			expectedVendor:  kessel.K8SClusterDetail_KUBE_VENDOR_OTHER,
-			expectedVersion: "",
+			expectedVersion: "1.23.0",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sCluster := GetK8SCluster(tc.clusterInfo, "guest")
+			k8sCluster := GetK8SCluster(tc.clusterInfo, tc.clusterInfo.Status.ClusterID, "guest")
 
 			assert.NotNil(t, k8sCluster)
 			assert.Equal(t, tc.expectedVendor, k8sCluster.ResourceData.KubeVendor)
