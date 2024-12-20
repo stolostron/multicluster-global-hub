@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
@@ -28,9 +29,12 @@ func TestMain(m *testing.M) {
 	ctx = context.TODO()
 	// start testenv
 	testenv := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
-			filepath.Join("..", "..", "..", "test", "manifest", "crd"),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "config", "crd", "bases"),
+				filepath.Join("..", "..", "..", "test", "manifest", "crd"),
+			},
+			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}

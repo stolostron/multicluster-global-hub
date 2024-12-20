@@ -62,9 +62,12 @@ var _ = BeforeSuite(func() {
 	By("Prepare envtest environment")
 	var err error
 	testenv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "manifest", "crd"),
-			filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases"),
+		CRDInstallOptions: envtest.CRDInstallOptions{
+			Paths: []string{
+				filepath.Join("..", "..", "..", "manifest", "crd"),
+				filepath.Join("..", "..", "..", "..", "operator", "config", "crd", "bases"),
+			},
+			MaxTime: 1 * time.Minute,
 		},
 		ErrorIfCRDPathMissing: true,
 	}
