@@ -225,9 +225,11 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	cd config/manager && $(KUSTOMIZE) edit set image quay.io/stolostron/multicluster-global-hub-operator=${IMG}
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
-	git diff -I 'createdAt' --exit-code
+	# ignore relatedImages
+	$(SED_COMMAND) '/relatedImages/,+12d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
 	# remove bundle.Dockerfile
 	rm -rf bundle.Dockerfile
+	git diff -I 'createdAt' --exit-code
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.

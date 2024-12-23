@@ -31,7 +31,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-12-17T14:08:40Z"
+    createdAt: "2024-12-23T02:38:25Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -943,17 +943,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  relatedImages:
-  - image: quay.io/stolostron/multicluster-global-hub-manager:latest
-    name: multicluster-global-hub-manager
-  - image: quay.io/stolostron/multicluster-global-hub-agent:latest
-    name: multicluster-global-hub-agent
-  - image: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
-    name: grafana
-  - image: quay.io/stolostron/postgresql-16:9.5-1732622748
-    name: postgresql
-  - image: quay.io/stolostron/inventory-api:latest
-    name: inventory-api
-  - image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
-    name: postgres-exporter
   version: 1.4.0-dev

@@ -17,6 +17,22 @@ if [ ! -f $csv_file ]; then
    exit 5
 fi
 
+# Append relatedImages to the CSV
+echo -e "  relatedImages:\n" \
+     " - name: multicluster-global-hub-manager\n" \
+     "   image: ${MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE}\n" \
+     " - name: multicluster-global-hub-agent\n" \
+     "   image: ${MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE}\n" \
+     " - name: grafana\n" \
+     "   image: ${MULTICLUSTER_GLOBAL_HUB_GRAFANA_IMAGE}\n" \
+     " - name: postgres-exporter\n" \
+     "   image: ${MULTICLUSTER_GLOBAL_HUB_POSTGRES_EXPORTER_IMAGE}\n" \
+     " - name: inventory-api\n" \
+     "   image: ${MULTICLUSTER_GLOBAL_HUB_KESSEL_INVENTORY_API_IMAGE}\n" \
+     " - name: postgresql\n" \
+     "   image: ${MULTICLUSTER_GLOBAL_HUB_POSTGRESQL_IMAGE}\n" \
+   >> "${csv_file}"
+
 # For backwards compatibility ... just in case, separately rip out docker.io
 # as this is no longer used as of version 0.2.0.
 sed -i \
