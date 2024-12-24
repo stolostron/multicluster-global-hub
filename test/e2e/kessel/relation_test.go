@@ -42,7 +42,7 @@ var _ = Describe("kafka-event: Relationship API", Ordered, func() {
 			data := &RelationshipData{}
 			err := event.DataAs(data)
 			if err != nil {
-				return fmt.Errorf("failed to decode the event: %v", event)
+				return fmt.Errorf("failed to decode the event due to: %v", err)
 			}
 
 			if data.ReporterData.SubjectLocalResourceId != relationship.ReporterData.SubjectLocalResourceId ||
@@ -73,7 +73,7 @@ var _ = Describe("kafka-event: Relationship API", Ordered, func() {
 			data := &RelationshipData{}
 			err := event.DataAs(data)
 			if err != nil {
-				return fmt.Errorf("failed to decode the event: %v", event)
+				return fmt.Errorf("failed to decode the event due to: %v", err)
 			}
 
 			if data.ReporterData.SubjectLocalResourceId != relationship.ReporterData.SubjectLocalResourceId ||
@@ -106,7 +106,7 @@ var _ = Describe("kafka-event: Relationship API", Ordered, func() {
 			data := &RelationshipData{}
 			err := event.DataAs(data)
 			if err != nil {
-				return fmt.Errorf("failed to decode the event: %v", event)
+				return fmt.Errorf("failed to decode the event due to: %v", err)
 			}
 
 			// TODO: the report data of the replactionship deletion is tweaked from the defination:

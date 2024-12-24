@@ -43,7 +43,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 			data := &ResourceData{}
 			err := event.DataAs(data)
 			if err != nil {
-				return fmt.Errorf("failed to decode the event: %v", event)
+				return fmt.Errorf("failed to decode the event due to: %v", err)
 			}
 
 			if data.ReporterData.LocalResourceId != localResourceId {
@@ -70,7 +70,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 			data := &ResourceData{}
 			err := event.DataAs(data)
 			if err != nil {
-				return fmt.Errorf("failed to decode the event: %v", event)
+				return fmt.Errorf("failed to decode the event due to: %v", err)
 			}
 
 			if data.ReporterData.LocalResourceId != localResourceId {
@@ -102,7 +102,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 			data := &ResourceData{}
 			err := event.DataAs(data)
 			if err != nil {
-				return fmt.Errorf("failed to decode the event: %v", event)
+				return fmt.Errorf("failed to decode the event due to: %v", err)
 			}
 
 			if data.ReporterData.LocalResourceId != localResourceId {
