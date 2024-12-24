@@ -24,7 +24,7 @@ var _ = Describe("kafka-event: Policy API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			resourceType := "redhat.inventory.resources.k8s-policy.created"
+			resourceType := "redhat.inventory.resources.k8s_policy.created"
 
 			event, ok := receivedEvents[resourceType]
 			if !ok {
@@ -51,7 +51,7 @@ var _ = Describe("kafka-event: Policy API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			resourceType := "redhat.inventory.resources.k8s-policy.updated"
+			resourceType := "redhat.inventory.resources.k8s_policy.updated"
 
 			event, ok := receivedEvents[resourceType]
 			if !ok {
@@ -83,7 +83,7 @@ var _ = Describe("kafka-event: Policy API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			resourceType := "redhat.inventory.resources.k8s-policy.deleted"
+			resourceType := "redhat.inventory.resources.k8s_policy.deleted"
 
 			event, ok := receivedEvents[resourceType]
 			if !ok {
@@ -108,7 +108,7 @@ var _ = Describe("kafka-event: Policy API", Ordered, func() {
 func getK8SPolicy(localResourceId string, reportInstanceId string) *kesselresources.K8SPolicy {
 	return &kesselresources.K8SPolicy{
 		Metadata: &kesselresources.Metadata{
-			ResourceType: "k8s-policy",
+			ResourceType: "k8s_policy",
 			// WorkspaceId:  "default",
 			// OrgId:        "",
 		},

@@ -164,7 +164,7 @@ func TestGetK8SClusterInfo(t *testing.T) {
 	clusterInfo := createMockClusterInfo("test-cluster", clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 		clusterinfov1beta1.CloudVendorAWS)
 
-	cluster := createMockCluster("test-cluster", "OpenShift", "4.10.0", "Amazon", "1.23.0")
+	cluster := createMockCluster("test-cluster", "OpenShift", "4.10.0", "AWS", "1.23.0")
 	// Call the function
 	k8sCluster := GetK8SCluster(clusterInfo, cluster, "guest")
 
@@ -174,7 +174,7 @@ func TestGetK8SClusterInfo(t *testing.T) {
 	assert.Equal(t, kessel.ReporterData_ACM, k8sCluster.ReporterData.ReporterType)
 	assert.Equal(t, "https://api.test-cluster.example.com", k8sCluster.ReporterData.ApiHref)
 	assert.Equal(t, "https://console.test-cluster.example.com", k8sCluster.ReporterData.ConsoleHref)
-	assert.Equal(t, "test-cluster-id", k8sCluster.ResourceData.ExternalClusterId)
+	assert.Equal(t, "23e5ae9e-c6b2-4793-be6b-2e52f870df10", k8sCluster.ResourceData.ExternalClusterId)
 	assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
 	assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)
 	assert.Equal(t, kessel.K8SClusterDetail_AWS_UPI, k8sCluster.ResourceData.CloudPlatform)
@@ -236,7 +236,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			assert.Equal(t, kessel.ReporterData_ACM, k8sCluster.ReporterData.ReporterType)
 			assert.Equal(t, "https://api.test-cluster.example.com", k8sCluster.ReporterData.ApiHref)
 			assert.Equal(t, "https://console.test-cluster.example.com", k8sCluster.ReporterData.ConsoleHref)
-			assert.Equal(t, "test-cluster-id", k8sCluster.ResourceData.ExternalClusterId)
+			assert.Equal(t, "23e5ae9e-c6b2-4793-be6b-2e52f870df10", k8sCluster.ResourceData.ExternalClusterId)
 			assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
 			assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)
 		})
@@ -256,7 +256,7 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
 					Name:  "id.k8s.io",
-					Value: uuid.New().String(),
+					Value: "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
 				},
 				{
 					Name:  "platform.open-cluster-management.io",
@@ -290,7 +290,7 @@ func createMockClusterInfo(name string, kubeVendor clusterinfov1beta1.KubeVendor
 			MasterEndpoint: "https://api.test-cluster.example.com",
 		},
 		Status: clusterinfov1beta1.ClusterInfoStatus{
-			ClusterID:   "test-cluster-id",
+			ClusterID:   "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
 			Version:     "1.23.0",
 			ConsoleURL:  "https://console.test-cluster.example.com",
 			CloudVendor: platform,

@@ -129,7 +129,6 @@ func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester t
 func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 	cluster *clusterv1.ManagedCluster, clientCN string,
 ) *kessel.K8SCluster {
-
 	clusterId := string(cluster.GetUID())
 	var vendorVersion, cloudVendor, kubeVersion, kubeVendor string
 	for _, claim := range cluster.Status.ClusterClaims {

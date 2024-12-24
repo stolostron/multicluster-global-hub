@@ -33,7 +33,7 @@ var _ = Describe("kafka-event: Relationship API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			resourceType := "redhat.inventory.resources_relationship.k8s-policy_ispropagatedto_k8s-cluster.created"
+			resourceType := "redhat.inventory.resources_relationship.k8spolicy_ispropagatedto_k8scluster.created"
 
 			event, ok := receivedEvents[resourceType]
 			if !ok {
@@ -64,7 +64,7 @@ var _ = Describe("kafka-event: Relationship API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			resourceType := "redhat.inventory.resources_relationship.k8s-policy_ispropagatedto_k8s-cluster.updated"
+			resourceType := "redhat.inventory.resources_relationship.k8spolicy_ispropagatedto_k8scluster.updated"
 
 			event, ok := receivedEvents[resourceType]
 			if !ok {
@@ -97,7 +97,7 @@ var _ = Describe("kafka-event: Relationship API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			resourceType := "redhat.inventory.resources_relationship.k8s-policy_ispropagatedto_k8s-cluster.deleted"
+			resourceType := "redhat.inventory.resources_relationship.k8spolicy_ispropagatedto_k8scluster.deleted"
 
 			event, ok := receivedEvents[resourceType]
 			if !ok {

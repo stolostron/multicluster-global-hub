@@ -35,7 +35,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			clusterType := "redhat.inventory.resources.k8s-cluster.created"
+			clusterType := "redhat.inventory.resources.k8s_cluster.created"
 			event, ok := receivedEvents[clusterType]
 			if !ok {
 				return fmt.Errorf("not recieve event %s:%s", clusterType, localResourceId)
@@ -61,7 +61,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			clusterType := "redhat.inventory.resources.k8s-cluster.updated"
+			clusterType := "redhat.inventory.resources.k8s_cluster.updated"
 
 			event, ok := receivedEvents[clusterType]
 			if !ok {
@@ -93,7 +93,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		Eventually(func() error {
-			clusterType := "redhat.inventory.resources.k8s-cluster.deleted"
+			clusterType := "redhat.inventory.resources.k8s_cluster.deleted"
 
 			event, ok := receivedEvents[clusterType]
 			if !ok {
