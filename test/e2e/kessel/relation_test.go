@@ -126,7 +126,7 @@ func getK8SPolicyToCluster(subjectLocalResourceId, objectLocalResourceId string,
 ) *kesselrelationships.K8SPolicyIsPropagatedToK8SCluster {
 	return &kesselrelationships.K8SPolicyIsPropagatedToK8SCluster{
 		Metadata: &kesselrelationships.Metadata{
-			RelationshipType: "k8s-policy_is-propagated-to_k8s-cluster",
+			RelationshipType: "k8spolicy_is-propagated-to_k8scluster",
 		},
 		RelationshipData: &kesselrelationships.K8SPolicyIsPropagatedToK8SClusterDetail{
 			Status:       kesselrelationships.K8SPolicyIsPropagatedToK8SClusterDetail_VIOLATIONS,

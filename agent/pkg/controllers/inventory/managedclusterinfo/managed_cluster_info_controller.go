@@ -162,7 +162,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 	}
 	k8sCluster := &kessel.K8SCluster{
 		Metadata: &kessel.Metadata{
-			ResourceType: "k8s-cluster",
+			ResourceType: "k8s_cluster",
 			Labels:       kesselLabels,
 		},
 		ReporterData: &kessel.ReporterData{
