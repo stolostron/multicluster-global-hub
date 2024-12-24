@@ -33,6 +33,7 @@ import (
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -629,6 +630,8 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 		return kafkaStatus, nil
 	}
 
+	k.isNewKafkaCluster = utils.HasAnnotation(kafkaCluster, constants.UpgradeKafkaFromZookeeperAnnotation)
+
 	if kafkaCluster.Spec != nil && kafkaCluster.Spec.Kafka.Listeners != nil {
 		// if the kafka cluster is already created, check if the tls is enabled
 		enableTLS := false
@@ -780,6 +783,9 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				UserOperator:  &kafkav1beta2.KafkaSpecEntityOperatorUserOperator{},
 			},
 		},
+	}
+	if k.isNewKafkaCluster {
+		kafkaCluster.Annotations[constants.UpgradeKafkaFromZookeeperAnnotation] = "true"
 	}
 
 	k.setAffinity(mgh, kafkaCluster)
