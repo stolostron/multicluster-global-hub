@@ -26,7 +26,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.35.1
-	github.com/openshift/api v0.0.0-20240527133614-ba11c1587003
+	github.com/openshift/api v0.0.0-20240919193929-2669d1ebc910
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
 	github.com/openshift/library-go v0.0.0-20240723172506-8bb8fe6cc56d
 	github.com/operator-framework/api v0.27.0
@@ -34,9 +34,10 @@ require (
 	github.com/project-kessel/inventory-api v0.0.0-20241010121445-cd6276d96dc8
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
+	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
@@ -131,7 +132,7 @@ require (
 	github.com/gonvenience/text v1.0.7 // indirect
 	github.com/gonvenience/wrap v1.1.2 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect

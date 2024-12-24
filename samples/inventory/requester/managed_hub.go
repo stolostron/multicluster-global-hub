@@ -11,6 +11,7 @@ import (
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -40,7 +41,12 @@ func managedHub(ctx context.Context, leafHubName string) error {
 		return err
 	}
 
-	k8sCluster := managedclusterinfo.GetK8SCluster(&clusterInfoList[0], clusterInfoList[0].Status.ClusterID,
+	cluster := &clusterv1.ManagedCluster{}
+	if err := c.Get(ctx, runtimeclient.ObjectKey{Name: clusterInfoList[0].GetName()}, cluster); err != nil {
+		return err
+	}
+
+	k8sCluster := managedclusterinfo.GetK8SCluster(&clusterInfoList[0], cluster,
 		requester.GetInventoryClientName(leafHubName))
 
 	resp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kesselresources "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
@@ -24,7 +25,8 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 		localResourceId = fmt.Sprintf("test-cluster-%d", rand.Intn(100000))
 		clusterInfo := mockManagedClusterInfo(localResourceId, clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 			clusterinfov1beta1.CloudVendorAWS)
-		k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
+		cluster := createMockCluster(localResourceId, "OpenShift", "4.10.0", "AWS", "1.23.0")
+		k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, cluster, "guest")
 	})
 
 	It("Create", func() {
@@ -159,4 +161,40 @@ func mockManagedClusterInfo(name string, kubeVendor clusterinfov1beta1.KubeVendo
 	}
 
 	return clusterInfo
+}
+
+func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion string,
+) *clusterv1.ManagedCluster {
+	return &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: clusterv1.ManagedClusterSpec{
+			HubAcceptsClient: true,
+		},
+		Status: clusterv1.ManagedClusterStatus{
+			ClusterClaims: []clusterv1.ManagedClusterClaim{
+				{
+					Name:  "id.k8s.io",
+					Value: uuid.New().String(),
+				},
+				{
+					Name:  "platform.open-cluster-management.io",
+					Value: platform,
+				},
+				{
+					Name:  "kubeversion.open-cluster-management.io",
+					Value: kubeVersion,
+				},
+				{
+					Name:  "version.openshift.io",
+					Value: vendorVersion,
+				},
+				{
+					Name:  "product.open-cluster-management.io",
+					Value: kubeVendor,
+				},
+			},
+		},
+	}
 }

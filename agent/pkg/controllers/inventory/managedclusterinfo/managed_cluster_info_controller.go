@@ -7,6 +7,7 @@ import (
 
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
+	"github.com/stolostron/multicloud-operators-foundation/pkg/klusterlet/clusterclaim"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +24,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type ManagedClusterInfoInventorySyncer struct {
@@ -43,12 +43,11 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 		return ctrl.Result{}, err
 	}
 
-	// Need to get cluster id from managedcluster, because there is no clusterID in managedclusterinfo for non-openshift cluster
-	clusterId, err := utils.GetClusterId(ctx, r.runtimeClient, req.Name)
-	if err != nil {
+	cluster := &clusterv1.ManagedCluster{}
+	if err := r.runtimeClient.Get(ctx, client.ObjectKey{Name: req.Name}, cluster); err != nil {
 		return ctrl.Result{}, err
 	}
-	k8sCluster := GetK8SCluster(clusterInfo, clusterId, r.clientCN)
+	k8sCluster := GetK8SCluster(clusterInfo, cluster, r.clientCN)
 
 	annotations := clusterInfo.GetAnnotations()
 	if annotations != nil {
@@ -128,8 +127,33 @@ func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester t
 }
 
 func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
-	clusterId string, clientCN string,
+	cluster *clusterv1.ManagedCluster, clientCN string,
 ) *kessel.K8SCluster {
+
+	clusterId := string(cluster.GetUID())
+	var vendorVersion, cloudVendor, kubeVersion, kubeVendor string
+	for _, claim := range cluster.Status.ClusterClaims {
+		if claim.Name == "id.k8s.io" {
+			clusterId = claim.Value
+		}
+		if claim.Name == "platform.open-cluster-management.io" {
+			cloudVendor = claim.Value
+		}
+		if claim.Name == "kubeversion.open-cluster-management.io" {
+			kubeVersion = claim.Value
+		}
+		if claim.Name == "version.openshift.io" {
+			vendorVersion = claim.Value
+		}
+		if claim.Name == "product.open-cluster-management.io" {
+			kubeVendor = claim.Value
+		}
+	}
+	// TODO: remove this after the vendorVersion is optional
+	if vendorVersion == "" {
+		vendorVersion = kubeVersion
+	}
+
 	kesselLabels := []*kessel.ResourceLabel{}
 	for key, value := range clusterInfo.Labels {
 		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
@@ -152,42 +176,39 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 		},
 		ResourceData: &kessel.K8SClusterDetail{
 			ExternalClusterId: clusterId,
-			KubeVersion:       clusterInfo.Status.Version,
+			KubeVersion:       kubeVersion,
 			Nodes:             []*kessel.K8SClusterDetailNodesInner{},
 		},
 	}
 
 	// platform
-	switch clusterInfo.Status.CloudVendor {
-	case clusterinfov1beta1.CloudVendorAWS:
+	switch cloudVendor {
+	case clusterclaim.PlatformAWS:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_AWS_UPI
-	case clusterinfov1beta1.CloudVendorGoogle:
+	case clusterclaim.PlatformGCP:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_GCP_UPI
-	case clusterinfov1beta1.CloudVendorBareMetal:
+	case clusterclaim.PlatformBareMetal:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_BAREMETAL_UPI
-	case clusterinfov1beta1.CloudVendorIBM:
+	case clusterclaim.PlatformIBM:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_IBMCLOUD_UPI
-	case clusterinfov1beta1.CloudVendorAzure:
+	case clusterclaim.PlatformAzure:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_AWS_UPI
 	default:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_CLOUD_PLATFORM_OTHER
 	}
 
 	// kubevendor, ony have the openshift version
-	switch clusterInfo.Status.KubeVendor {
-	case clusterinfov1beta1.KubeVendorOpenShift:
+	switch kubeVendor {
+	case clusterclaim.ProductOpenShift:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_OPENSHIFT
-		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.DistributionInfo.OCP.Version
-	case clusterinfov1beta1.KubeVendorEKS:
+	case clusterclaim.ProductEKS:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_EKS
-		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
-	case clusterinfov1beta1.KubeVendorGKE:
+	case clusterclaim.ProductGKE:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_GKE
-		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	default:
 		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_KUBE_VENDOR_OTHER
-		k8sCluster.ResourceData.VendorVersion = clusterInfo.Status.Version
 	}
+	k8sCluster.ResourceData.VendorVersion = vendorVersion
 
 	// cluster status
 	for _, cond := range clusterInfo.Status.Conditions {

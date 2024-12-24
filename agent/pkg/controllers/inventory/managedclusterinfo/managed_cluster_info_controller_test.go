@@ -164,8 +164,9 @@ func TestGetK8SClusterInfo(t *testing.T) {
 	clusterInfo := createMockClusterInfo("test-cluster", clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 		clusterinfov1beta1.CloudVendorAWS)
 
+	cluster := createMockCluster("test-cluster", "OpenShift", "4.10.0", "Amazon", "1.23.0")
 	// Call the function
-	k8sCluster := GetK8SCluster(clusterInfo, clusterInfo.Status.ClusterID, "guest")
+	k8sCluster := GetK8SCluster(clusterInfo, cluster, "guest")
 
 	// Assert the results
 	assert.NotNil(t, k8sCluster)
@@ -185,6 +186,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 	testCases := []struct {
 		name            string
 		clusterInfo     *clusterinfov1beta1.ManagedClusterInfo
+		cluster         *clusterv1.ManagedCluster
 		expectedVendor  kessel.K8SClusterDetail_KubeVendor
 		expectedVersion string
 	}{
@@ -192,6 +194,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			name: "OpenShift Cluster",
 			clusterInfo: createMockClusterInfo("openshift-cluster", clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 				clusterinfov1beta1.CloudVendorAWS),
+			cluster:         createMockCluster("openshift-cluster", "OpenShift", "4.10.0", "Amazon", "1.23.0"),
 			expectedVendor:  kessel.K8SClusterDetail_OPENSHIFT,
 			expectedVersion: "4.10.0",
 		},
@@ -199,6 +202,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			name: "EKS Cluster",
 			clusterInfo: createMockClusterInfo("eks-cluster", clusterinfov1beta1.KubeVendorEKS, "",
 				clusterinfov1beta1.CloudVendorAzure),
+			cluster:         createMockCluster("eks-cluster", "EKS", "", "Azure", "1.23.0"),
 			expectedVendor:  kessel.K8SClusterDetail_EKS,
 			expectedVersion: "1.23.0",
 		},
@@ -206,6 +210,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			name: "GKE Cluster",
 			clusterInfo: createMockClusterInfo("gke-cluster", clusterinfov1beta1.KubeVendorGKE, "",
 				clusterinfov1beta1.CloudVendorGoogle),
+			cluster:         createMockCluster("gke-cluster", "GKE", "", "Google", "1.23.0"),
 			expectedVendor:  kessel.K8SClusterDetail_GKE,
 			expectedVersion: "1.23.0",
 		},
@@ -213,6 +218,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			name: "Other Kubernetes Vendor",
 			clusterInfo: createMockClusterInfo("other-cluster", "SomeOtherVendor", "",
 				clusterinfov1beta1.CloudVendorBareMetal),
+			cluster:         createMockCluster("other-cluster", "SomeOtherVendor", "", "BareMetal", "1.23.0"),
 			expectedVendor:  kessel.K8SClusterDetail_KUBE_VENDOR_OTHER,
 			expectedVersion: "1.23.0",
 		},
@@ -220,7 +226,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sCluster := GetK8SCluster(tc.clusterInfo, tc.clusterInfo.Status.ClusterID, "guest")
+			k8sCluster := GetK8SCluster(tc.clusterInfo, tc.cluster, "guest")
 
 			assert.NotNil(t, k8sCluster)
 			assert.Equal(t, tc.expectedVendor, k8sCluster.ResourceData.KubeVendor)
@@ -234,6 +240,42 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
 			assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)
 		})
+	}
+}
+
+func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion string,
+) *clusterv1.ManagedCluster {
+	return &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: clusterv1.ManagedClusterSpec{
+			HubAcceptsClient: true,
+		},
+		Status: clusterv1.ManagedClusterStatus{
+			ClusterClaims: []clusterv1.ManagedClusterClaim{
+				{
+					Name:  "id.k8s.io",
+					Value: uuid.New().String(),
+				},
+				{
+					Name:  "platform.open-cluster-management.io",
+					Value: platform,
+				},
+				{
+					Name:  "kubeversion.open-cluster-management.io",
+					Value: kubeVersion,
+				},
+				{
+					Name:  "version.openshift.io",
+					Value: vendorVersion,
+				},
+				{
+					Name:  "product.open-cluster-management.io",
+					Value: kubeVendor,
+				},
+			},
+		},
 	}
 }
 
