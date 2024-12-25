@@ -10,8 +10,7 @@ type ResourceData struct {
 }
 
 type ResourceMetadata struct {
-	Id int64 `protobuf:"varint,3355,opt,name=id,proto3" json:"id,omitempty"`
-	// Id           string          `json:"id"`
+	Id           string          `json:"id"`
 	ResourceType string          `json:"resource_type"`
 	OrgId        string          `json:"org_id"`
 	CreatedAt    *time.Time      `json:"created_at,omitempty"`

@@ -78,7 +78,7 @@ var _ = Describe("kafka-event: cluster API", Ordered, func() {
 					data.ReporterData.LocalResourceId)
 			}
 
-			if data.ResourceData["cluster_status"] != "FAILED" {
+			if data.ResourceData["cluster_status"].(float64) != 3 {
 				return fmt.Errorf("K8SClusterStatus(%s), want %s, but got %s", clusterType, "FAILED",
 					data.ResourceData["cluster_status"])
 			}

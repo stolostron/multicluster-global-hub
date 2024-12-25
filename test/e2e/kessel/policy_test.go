@@ -68,7 +68,7 @@ var _ = Describe("kafka-event: Policy API", Ordered, func() {
 					data.ReporterData.LocalResourceId)
 			}
 
-			if data.ResourceData["severity"] != "HIGH" {
+			if data.ResourceData["severity"].(float64) != 4 {
 				return fmt.Errorf("PolicySeverity(%s), want %s, but got %s", resourceType, "HIGH",
 					data.ResourceData["severity"])
 			}
