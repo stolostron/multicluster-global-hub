@@ -6,8 +6,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	"github.com/IBM/sarama"
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/Shopify/sarama"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
