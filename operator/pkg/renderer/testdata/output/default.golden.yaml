@@ -61,7 +61,6 @@ spec:
       serviceAccountName: nginx
       tolerations:
       - key: node.kubernetes.io/unreachable
-        value: ""
         operator: Exists
         effect: NoExecute
         tolerationSeconds: 6000
