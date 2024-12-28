@@ -43,6 +43,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -122,6 +123,11 @@ var _ = BeforeSuite(func() {
 			EnablePprof:           false,
 		},
 	}
+	config.SetTransporterConn(&transport.KafkaConfig{
+		ClusterID:         "fake",
+		IsNewKafkaCluster: true,
+	})
+
 	By("start the addon manager and add addon controller to manager")
 	_, err = agent.StartAddonManagerController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())

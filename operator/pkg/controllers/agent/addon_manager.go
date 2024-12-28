@@ -50,7 +50,9 @@ func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	if !config.IsACMResourceReady() {
 		return false
 	}
-
+	if config.GetTransporterConn() == nil {
+		return false
+	}
 	if !meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
 		return false
 	}
