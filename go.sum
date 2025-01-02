@@ -1823,8 +1823,8 @@ gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81
 gotest.tools/v3 v3.0.2/go.mod h1:3SzNCllyD9/Y+b5r9JIKQ474KzkZyqLqEfYqMsX94Bk=
 gotest.tools/v3 v3.1.0 h1:rVV8Tcg/8jHUkPUorwjaMTtemIMVXfIPKiOqnhEhakk=
 gotest.tools/v3 v3.1.0/go.mod h1:fHy7eyTmJFO5bQbUsEGQ1v4m2J3Jz9eWL54TP2/ZuYQ=
-helm.sh/helm/v3 v3.16.3 h1:kb8bSxMeRJ+knsK/ovvlaVPfdis0X3/ZhYCSFRP+YmY=
-helm.sh/helm/v3 v3.16.3/go.mod h1:zeVWGDR4JJgiRbT3AnNsjYaX8OTJlIE9zC+Q7F7iUSU=
+helm.sh/helm/v3 v3.16.4 h1:rBn/h9MACw+QlhxQTjpl8Ifx+VTWaYsw3rguGBYBzr0=
+helm.sh/helm/v3 v3.16.4/go.mod h1:k8QPotUt57wWbi90w3LNmg3/MWcLPigVv+0/X4B8BzA=
 honnef.co/go/tools v0.0.0-20180728063816-88497007e858/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
