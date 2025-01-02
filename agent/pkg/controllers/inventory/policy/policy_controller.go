@@ -95,7 +95,7 @@ func (p *PolicyInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request)
 		if _, ok := annotations[constants.InventoryResourceCreatingAnnotationlKey]; ok {
 			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
 				ctx, &kessel.CreateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to create k8s-policy %v: %w", resp, err)
+				return ctrl.Result{}, fmt.Errorf("failed to create k8s_policy %v: %w", resp, err)
 			}
 			return ctrl.Result{}, nil
 		}
@@ -114,14 +114,14 @@ func (p *PolicyInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request)
 		if controllerutil.ContainsFinalizer(policy, constants.InventoryResourceFinalizer) {
 			if resp, err := p.requester.GetHttpClient().PolicyServiceClient.DeleteK8SPolicy(
 				ctx, deleteK8SClusterPolicy(*policy, p.reporterInstanceId)); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy %v: %w", resp, err)
+				return ctrl.Result{}, fmt.Errorf("failed to delete k8s_policy %v: %w", resp, err)
 			}
 			for _, compliancePerClusterStatus := range policy.Status.Status {
 				if resp, err := p.requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 					DeleteK8SPolicyIsPropagatedToK8SCluster(
 						ctx, deleteK8SPolicyIsPropagatedToK8SCluster(policy.Namespace+"/"+policy.Name,
 							compliancePerClusterStatus.ClusterName, p.reporterInstanceId)); err != nil {
-					return ctrl.Result{}, fmt.Errorf("failed to delete k8s-policy_is-propagated-to_k8s-cluster %v: %w", resp, err)
+					return ctrl.Result{}, fmt.Errorf("failed to delete k8spolicy_is-propagated-to_k8scluster %v: %w", resp, err)
 				}
 			}
 			// remove finalizer
@@ -135,7 +135,7 @@ func (p *PolicyInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if resp, err := p.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
 		ctx, &kessel.UpdateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy %v: %w", resp, err)
+		return ctrl.Result{}, fmt.Errorf("failed to update k8s_policy %v: %w", resp, err)
 	}
 	for _, compliancePerClusterStatus := range policy.Status.Status {
 		if resp, err := p.requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
@@ -143,7 +143,7 @@ func (p *PolicyInventorySyncer) Reconcile(ctx context.Context, req ctrl.Request)
 				ctx, updateK8SPolicyIsPropagatedToK8SCluster(policy.Namespace+"/"+policy.Name,
 					compliancePerClusterStatus.ClusterName, string(compliancePerClusterStatus.ComplianceState),
 					p.reporterInstanceId)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update k8s-policy_is-propagated-to_k8s-cluster %v: %w", resp, err)
+			return ctrl.Result{}, fmt.Errorf("failed to update k8spolicy_is-propagated-to_k8scluster %v: %w", resp, err)
 		}
 	}
 
@@ -164,7 +164,7 @@ func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, report
 	return &kesselv1betarelations.UpdateK8SPolicyIsPropagatedToK8SClusterRequest{
 		K8SpolicyIspropagatedtoK8Scluster: &kesselv1betarelations.K8SPolicyIsPropagatedToK8SCluster{
 			Metadata: &kesselv1betarelations.Metadata{
-				RelationshipType: "k8s-policy_ispropagatedto_k8s-cluster",
+				RelationshipType: "k8spolicy_ispropagatedto_k8scluster",
 			},
 			ReporterData: &kesselv1betarelations.ReporterData{
 				ReporterType:           kesselv1betarelations.ReporterData_ACM,
@@ -203,7 +203,7 @@ func generateK8SPolicy(policy *policiesv1.Policy, reporterInstanceId string) *ke
 	}
 	return &kessel.K8SPolicy{
 		Metadata: &kessel.Metadata{
-			ResourceType: "k8s-policy",
+			ResourceType: "k8s_policy",
 			Labels:       kesselLabels,
 		},
 		ReporterData: &kessel.ReporterData{

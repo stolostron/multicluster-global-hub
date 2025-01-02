@@ -10,8 +10,7 @@ type ResourceData struct {
 }
 
 type ResourceMetadata struct {
-	Id int64 `protobuf:"varint,3355,opt,name=id,proto3" json:"id,omitempty"`
-	// Id           string          `json:"id"`
+	Id           string          `json:"id"`
 	ResourceType string          `json:"resource_type"`
 	OrgId        string          `json:"org_id"`
 	CreatedAt    *time.Time      `json:"created_at,omitempty"`
@@ -36,13 +35,13 @@ type ResourceReporter struct {
 }
 
 type RelationshipData struct {
-	Metadata     RelationshipMetadata `json:"metadata"`
-	ReporterData RelationshipReporter `json:"reporter_data"`
-	Relationship Relationship         `json:"relationship_data,omitempty"`
+	Metadata     RelationshipMetadata   `json:"metadata"`
+	ReporterData RelationshipReporter   `json:"reporter_data"`
+	ResourceData map[string]interface{} `json:"resource_data,omitempty"`
 }
 
 type RelationshipMetadata struct {
-	Id               int64      `protobuf:"varint,3355,opt,name=id,proto3" json:"id,omitempty"`
+	Id               string     `json:"id"`
 	RelationshipType string     `json:"relationship_type"`
 	CreatedAt        *time.Time `json:"created_at,omitempty"`
 	UpdatedAt        *time.Time `json:"updated_at,omitempty"`
@@ -55,12 +54,4 @@ type RelationshipReporter struct {
 	ObjectLocalResourceId  string `json:"object_local_resource_id"`
 	ReporterVersion        string `json:"reporter_version"`
 	ReporterInstanceId     string `json:"reporter_instance_id"`
-}
-
-// TODO: Not defined relationship_data in eventing api
-// https://github.com/project-kessel/inventory-api/blob/main/internal/eventing/api/event.go#L32
-type Relationship struct {
-	Status    string `json:"status"`
-	PolicyId  int64  `json:"k8s_policy_id"`
-	ClusterId int64  `json:"k8s_cluster_id"`
 }
