@@ -39,7 +39,6 @@ for table in "${tables[@]}"; do
     continue
   fi
 
-  echo "> Latest created_at time for $table: $latest_time"
   # Delete records from the target table with a timestamp earlier than the latest time
   echo "> Deleting records from $table with created_at <= $latest_time"
   kubectl exec -it -c $TARGET_CONTAINER $TARGET_POD -n $NAMESPACE -- psql -U $DB_USER -d $DB_NAME -c "DELETE FROM $table WHERE created_at <= '$latest_time';"

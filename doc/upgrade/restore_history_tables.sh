@@ -20,6 +20,26 @@ kubectl exec -c $SOURCE_CONTAINER $SOURCE_POD -n $NAMESPACE -- pg_dump -U $DB_US
 kubectl cp $NAMESPACE/$SOURCE_POD:$REMOTE_PATH ./history_tables_backup.sql -c $SOURCE_CONTAINER >/dev/null 2>&1
 echo ">> Backup completed."
 
+echo ">> Removing duplicated history records from the target tables"
+
+table="history.local_compliance"
+echo "> Processing table: $table"
+
+# Get the latest timestamp from the source table
+latest_time=$(kubectl exec -it -c $SOURCE_CONTAINER $SOURCE_POD -n $NAMESPACE -- psql -U $DB_USER -d $DB_NAME -t -c "SELECT MAX(compliance_date) FROM $table;")
+latest_time=$(echo $latest_time | xargs) # Trim whitespace
+
+# Validate if latest_time is empty, NULL, or not a valid timestamp
+if [ -z "$latest_time" ] || [ "$latest_time" == "NULL" ] || ! [[ "$latest_time" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then
+  echo ">  No records(or invalid) found in $table"
+else
+  # Delete records from the target table with a compliance_date earlier than the latest_time
+  echo "> Deleting records from $table with compliance_date <= $latest_time"
+  kubectl exec -it -c $TARGET_CONTAINER $TARGET_POD -n $NAMESPACE -- psql -U $DB_USER -d $DB_NAME -c "DELETE FROM $table WHERE compliance_date <= '$latest_time';"
+fi
+
+echo ">> Completed removing duplicated history records."
+
 # Restore to target pod
 echo ">> Restoring history tables to $TARGET_POD ($TARGET_CONTAINER)..."
 kubectl cp ./history_tables_backup.sql $NAMESPACE/$TARGET_POD:$REMOTE_PATH -c $TARGET_CONTAINER
