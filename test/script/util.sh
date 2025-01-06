@@ -108,9 +108,16 @@ kind_cluster() {
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local cluster_name="$1"
   local kubeconfig="$dir/$cluster_name"
-  while [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name"; do
+  local max_retries=5
+  local counter=0
+  while [ $counter -lt $max_retries ] && ( [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name" ); do
     ensure_cluster "$cluster_name" "$kubeconfig"
+    counter=$((counter + 1))
   done
+  if [ $counter -eq $max_retries ]; then
+    echo "Failed to create cluster $cluster_name"
+    exit 1
+  fi
   echo "kind clusters: $(kind get clusters)"
 }
 
@@ -123,6 +130,7 @@ ensure_cluster() {
 
   if kind get clusters | grep -q "^$cluster_name$"; then
     kind delete cluster --name="$cluster_name"
+    docker rm -f "$cluster_name-control-plane"
   fi
 
   kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
