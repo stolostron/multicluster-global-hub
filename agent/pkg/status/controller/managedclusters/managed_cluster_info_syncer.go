@@ -149,7 +149,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 			ConsoleHref:        clusterInfo.Status.ConsoleURL,
 		},
 		ResourceData: &kessel.K8SClusterDetail{
-			ExternalClusterId: clusterInfo.Status.ClusterID,
+			ExternalClusterId: clusterId,
 			KubeVersion:       clusterInfo.Status.Version,
 			Nodes:             []*kessel.K8SClusterDetailNodesInner{},
 		},
