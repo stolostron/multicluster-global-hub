@@ -217,6 +217,21 @@ spec:
                       retention: 18m
                     description: Postgres specifies the desired state of postgres
                     properties:
+                      databaseInitSQL:
+                        description: DatabaseInitSQL defines the SQL to be executed
+                          on the built-in server. It references a ConfigMap, and the
+                          SQL should be idempotent, such as 'CREATE TABLE IF NOT EXISTS
+                          <table-name>'.
+                        properties:
+                          key:
+                            description: Key is the key in the ConfigMap where the
+                              SQL script is stored.
+                            type: string
+                          name:
+                            description: Name is the name of the ConfigMap containing
+                              the SQL.
+                            type: string
+                        type: object
                       retention:
                         default: 18m
                         description: |-

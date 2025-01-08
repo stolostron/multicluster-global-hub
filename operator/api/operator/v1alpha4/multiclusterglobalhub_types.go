@@ -174,6 +174,18 @@ type PostgresSpec struct {
 	// StorageSize specifies the size for storage
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
+
+	// DatabaseInitSQL defines the SQL to be executed on the built-in server. It references a ConfigMap, and the SQL should be idempotent, such as 'CREATE TABLE IF NOT EXISTS <table-name>'.
+	// +optional
+	DatabaseInitSQL DatabaseInitSQL `json:"databaseInitSQL,omitempty"`
+}
+
+type DatabaseInitSQL struct {
+	// Name is the name of the ConfigMap containing the SQL.
+	Name string `json:"name,omitempty"`
+
+	// Key is the key in the ConfigMap where the SQL script is stored.
+	Key string `json:"key,omitempty"`
 }
 
 // KafkaSpec defines the desired state of kafka
