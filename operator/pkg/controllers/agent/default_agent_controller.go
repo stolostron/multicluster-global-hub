@@ -261,7 +261,23 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+	if mgh.Spec.InstallAgentOnHub {
+		// if installed agent on hub cluster, global hub is installed in a brownfield cluster
+		if cluster.GetName() == constants.LocalClusterName ||
+			cluster.Labels[constants.LocalClusterName] == "true" ||
+			deployMode != operatorconstants.GHAgentDeployModeNone {
+			return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+		}
+	} else {
+		// if not installed agent on hub cluster, global hub is installed in a greenfield cluster
+		if cluster.GetName() == constants.LocalClusterName ||
+			cluster.Labels[constants.LocalClusterName] == "true" {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
@@ -457,6 +473,5 @@ func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, erro
 
 func filterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
-		obj.GetLabels()["openshiftVersion"] == "3" ||
-		obj.GetName() == constants.LocalClusterName
+		obj.GetLabels()["openshiftVersion"] == "3"
 }
