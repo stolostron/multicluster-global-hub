@@ -78,8 +78,10 @@ var WatchedConfigMap = sets.NewString(
 )
 
 var (
-	storageReconciler *StorageReconciler
-	updateConnection  bool
+	storageReconciler    *StorageReconciler
+	updateConnection     bool
+	initSQLConfigMapName string
+	appliedInitSQL       string
 )
 
 func (r *StorageReconciler) IsResourceRemoved() bool {
@@ -120,7 +122,7 @@ func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Watches(&corev1.ConfigMap{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configMapPredicate)).
 		Watches(&appsv1.StatefulSet{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(statefulSetPred)).
 		Watches(&corev1.ServiceAccount{},
@@ -164,6 +166,26 @@ var secretPred = predicate.Funcs{
 			return true
 		}
 		return WatchedSecret.Has(e.Object.GetName())
+	},
+}
+
+var configMapPredicate = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetName() == initSQLConfigMapName || WatchedConfigMap.Has(e.Object.GetName())
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetName() != initSQLConfigMapName && !WatchedConfigMap.Has(e.ObjectNew.GetName()) &&
+			e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] != constants.GHOperatorOwnerLabelVal {
+			return false
+		}
+		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			return true
+		}
+		return false
 	},
 }
 
@@ -283,83 +305,124 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 }
 
 func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
-	var reconcileErr error
+	var conn *pgx.Conn
+	var err error
+	var initSql string
+
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
-		reconcileErr = fmt.Errorf("storage connection is nil")
-		return true, reconcileErr
-	}
-	// if the operator is restarted, reconcile the database again
-	if r.databaseReconcileCount > 0 {
-		return false, nil
+		return false, fmt.Errorf("storage connection is nil")
 	}
 
-	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
-	if err != nil {
-		reconcileErr = fmt.Errorf("failed to connect to database: %v", err)
-		log.Infof("wait database ready, %v", reconcileErr)
-		return true, nil
+	// create the connection when initSql changed or the global hub database hasn't been initialized
+	configMapName := mgh.Spec.DataLayerSpec.Postgres.DatabaseInitSQL.Name
+	configMapKey := mgh.Spec.DataLayerSpec.Postgres.DatabaseInitSQL.Key
+	if configMapName != "" && configMapKey != "" {
+		configMap := &corev1.ConfigMap{}
+		err := r.GetClient().Get(ctx, types.NamespacedName{Namespace: mgh.Namespace, Name: configMapName}, configMap)
+		if err != nil {
+			log.Warnf("failed to get the initSql ConfigMap: %v", err)
+		} else {
+			initSql = configMap.Data[configMapKey]
+			if initSql == "" {
+				return false, fmt.Errorf("the init sql of configmap(%s - %s) is empty", configMapName, configMapKey)
+			}
+		}
 	}
 
 	defer func() {
-		if err := conn.Close(ctx); err != nil {
-			log.Error(err, "failed to close connection to database")
+		if conn != nil {
+			if err := conn.Close(ctx); err != nil {
+				log.Error(err, "failed to close connection to database")
+			}
 		}
 	}()
+	if initSql != appliedInitSQL || r.databaseReconcileCount == 0 {
+		conn, err = database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
+		if err != nil {
+			log.Infof("wait database ready, failed to connect database: %v", err)
+			return true, nil
+		}
+	}
 
+	// apply the init SQL from configMap
+	if initSql != appliedInitSQL {
+		if err = r.applyConfigMapInitSQL(ctx, conn, initSql); err != nil {
+			return false, err
+		}
+		log.Info("applied the init sql of ConfigMap successfully!")
+		appliedInitSQL = initSql
+	}
+
+	// apply the global hub init SQL when the operator restarted
+	if r.databaseReconcileCount == 0 {
+		err = r.applyGlobalHubInitSQL(ctx, conn, storageConn.ReadonlyUserDatabaseURI)
+		if err != nil {
+			return false, err
+		}
+		log.Debug("global hub database initialized")
+		r.databaseReconcileCount++
+	}
+
+	return false, nil
+}
+
+func (r *StorageReconciler) applyConfigMapInitSQL(ctx context.Context, conn *pgx.Conn, sql string) error {
+	_, err := conn.Exec(ctx, sql)
+	if err != nil {
+		return fmt.Errorf("failed to apply ConfigMapInit SQL: %w", err)
+	}
+	return nil
+}
+
+func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx.Conn, readonlyUserURI string) error {
 	// Check if backup is enabled
 	var backupEnabled bool
-	backupEnabled, reconcileErr = commonutils.IsBackupEnabled(ctx, r.GetClient())
-	if reconcileErr != nil {
-		log.Error(reconcileErr, "failed to get backup status")
-		return true, reconcileErr
+	backupEnabled, err := commonutils.IsBackupEnabled(ctx, r.GetClient())
+	if err != nil {
+		return fmt.Errorf("failed to get the backup status: %v", err)
 	}
 
 	if backupEnabled || !r.upgrade {
 		lockSql := fmt.Sprintf("select pg_advisory_lock(%s)", constants.LockId)
 		unLockSql := fmt.Sprintf("select pg_advisory_unlock(%s)", constants.LockId)
 		defer func() {
-			_, reconcileErr = conn.Exec(ctx, unLockSql)
-			if reconcileErr != nil {
-				log.Error(reconcileErr, "failed to unlock db")
+			_, err = conn.Exec(ctx, unLockSql)
+			if err != nil {
+				log.Errorf("failed to unlock db: %v", err)
 			}
 		}()
-		_, reconcileErr = conn.Exec(ctx, lockSql)
-		if reconcileErr != nil {
-			log.Error(reconcileErr, "failed to parse database_uri_with_readonlyuser")
-			return true, reconcileErr
+		_, err = conn.Exec(ctx, lockSql)
+		if err != nil {
+			return fmt.Errorf("failed to parse database_uri_with_readonlyuser: %v", err)
 		}
 	}
 
-	objURI, err := url.Parse(storageConn.ReadonlyUserDatabaseURI)
+	objURI, err := url.Parse(readonlyUserURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")
 	}
 	readonlyUsername := objURI.User.Username()
 
-	if reconcileErr = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); reconcileErr != nil {
-		return true, reconcileErr
+	if err = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
+		return fmt.Errorf("failed to apply the database sql: %v", err)
 	}
 
 	if r.enableGlobalResource {
-		if reconcileErr = applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); reconcileErr != nil {
-			return true, reconcileErr
+		if err = applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
+			return fmt.Errorf("failed to apply the database.old sql: %v", err)
 		}
 	}
 
 	if !r.upgrade {
-		reconcileErr = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
-		if reconcileErr != nil {
-			log.Error(reconcileErr, "failed to exec the upgrade sql files")
-			return true, reconcileErr
+		err = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
+		if err != nil {
+			return fmt.Errorf("failed to apply the upgrade sql: %v", err)
 		}
 		r.upgrade = true
 	}
 
-	log.Debug("database initialized")
-	r.databaseReconcileCount++
-
-	return false, nil
+	return nil
 }
 
 func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir, username string) error {
