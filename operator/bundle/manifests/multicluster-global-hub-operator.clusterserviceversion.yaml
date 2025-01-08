@@ -25,7 +25,6 @@ metadata:
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
     createdAt: "2024-07-03T06:52:02Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
-    olm.skipRange: '>=1.1.0 <1.2.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
       "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
       "spec": {}}'
@@ -34,7 +33,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: https://github.com/stolostron/multicluster-global-hub
     support: Red Hat
-  name: multicluster-global-hub-operator.v1.2.0-dev
+  name: multicluster-global-hub-operator.v1.2.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -934,4 +933,5 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.2.0-dev
+  replaces: multicluster-global-hub-operator.v1.2.0
+  version: 1.2.1
