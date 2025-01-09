@@ -265,7 +265,8 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		// if installed agent on hub cluster, global hub is installed in a brownfield cluster
 		if cluster.GetName() == constants.LocalClusterName ||
 			cluster.Labels[constants.LocalClusterName] == "true" ||
-			deployMode != operatorconstants.GHAgentDeployModeNone {
+			deployMode == operatorconstants.GHAgentDeployModeDefault ||
+			deployMode == operatorconstants.GHAgentDeployModeHosted {
 			return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 		}
 	} else {

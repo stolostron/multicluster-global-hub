@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -67,7 +68,7 @@ func prepareCluster(name string, labels, annotations map[string]string,
 	})).Should(Succeed())
 }
 
-// go test ./test/integration/operator/agent -ginkgo.focus "none addon" -v
+// go test ./test/integration/operator/controllers/agent -ginkgo.focus "none addon" -v
 var _ = Describe("none addon", func() {
 	It("Should not create addon in these cases", func() {
 		By("By preparing a non-OCP with deployMode label Managed Clusters")
@@ -145,5 +146,24 @@ var _ = Describe("none addon", func() {
 			time.Sleep(1 * time.Second)
 			return fmt.Errorf("check again %v", checkCount)
 		}, timeout, interval).ShouldNot(HaveOccurred())
+	})
+
+	It("Should not create agent for the local-cluster", func() {
+		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
+		By("By preparing an OCP Managed Clusters")
+		prepareCluster(clusterName,
+			map[string]string{"vendor": "OpenShift", "local-cluster": "true"},
+			map[string]string{},
+			[]clusterv1.ManagedClusterClaim{},
+			clusterAvailableCondition)
+
+		By("By checking the addon CR is is created in the cluster ns")
+		addon := &addonv1alpha1.ManagedClusterAddOn{}
+		Eventually(func() error {
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      constants.GHManagedClusterAddonName,
+				Namespace: clusterName,
+			}, addon)
+		}, duration, interval).Should(HaveOccurred())
 	})
 })
