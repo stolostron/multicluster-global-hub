@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
@@ -50,6 +52,7 @@ var (
 	ctx            context.Context
 	cancel         context.CancelFunc
 	operatorConfig *config.OperatorConfig
+	conn           *pgx.Conn
 
 	testNamespace = "default"
 )
@@ -93,6 +96,9 @@ var _ = BeforeSuite(func() {
 
 	// create test postgres
 	testPostgres, err = testpostgres.NewTestPostgres()
+	Expect(err).NotTo(HaveOccurred())
+
+	conn, err = database.PostgresConnection(ctx, testPostgres.URI, []byte(""))
 	Expect(err).NotTo(HaveOccurred())
 
 	// add scheme

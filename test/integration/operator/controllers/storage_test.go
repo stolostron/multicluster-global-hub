@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -23,10 +24,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator -ginkgo.focus "storage" -v
+// go test ./test/integration/operator/controllers -ginkgo.focus "storage" -v
 var _ = Describe("storage", Ordered, func() {
 	It("should init database with BYO", func() {
 		namespace := fmt.Sprintf("namespace-%s", rand.String(6))
@@ -47,10 +49,21 @@ var _ = Describe("storage", Ordered, func() {
 			},
 			Spec: v1alpha4.MulticlusterGlobalHubSpec{
 				EnableMetrics: true,
+				DataLayerSpec: v1alpha4.DataLayerSpec{
+					Postgres: v1alpha4.PostgresSpec{
+						DatabaseInitSQL: v1alpha4.DatabaseInitSQL{
+							Name: "pgcmain-bootstrap-sql",
+							Key:  "bootstrap.sql",
+						},
+					},
+				},
 			},
 		}
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
+
+		err = createInitSQLConfigMap(ctx, runtimeClient, namespace, "pgcmain-bootstrap-sql", "bootstrap.sql")
+		Expect(err).To(Succeed())
 
 		// storage secret
 		// pgURI := strings.Replace(testPostgres.URI, "sslmode=verify-ca", "sslmode=require", -1)
@@ -81,6 +94,14 @@ var _ = Describe("storage", Ordered, func() {
 			},
 		})
 		Expect(err).To(Succeed())
+
+		// check the database
+		exist := checkTableExistsInDatabase("hoh", "status", "managed_clusters")
+		Expect(exist).To(BeTrue())
+
+		// check the database
+		exist = checkTableExistsInDatabase("test", "public", "COMPANY")
+		Expect(exist).To(BeTrue())
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).To(Succeed())
@@ -225,3 +246,56 @@ var _ = Describe("storage", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
+
+// Function to check if a table exists in the given database
+func checkTableExistsInDatabase(databaseName, schemaName, tableName string) bool {
+	sql := fmt.Sprintf(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM %s.information_schema.tables
+			WHERE table_schema = $1
+			AND table_name = $2
+		)`, databaseName) // Use the provided database name in the query
+
+	var exists bool
+	err := conn.QueryRow(context.Background(), sql, schemaName, tableName).Scan(&exists)
+	if err != nil {
+		logger.DefaultZapLogger().Errorf("failed to checking if table exists:", err)
+		return false
+	}
+	return exists
+}
+
+// Function to create ConfigMap
+func createInitSQLConfigMap(ctx context.Context, c client.Client, namespace, name, sqlKey string) error {
+	// Define the ConfigMap with the provided SQL script
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			sqlKey: `
+-- Create the test database if it doesn't exist
+CREATE DATABASE test;
+
+-- Create the COMPANY table in the 'test' database
+CREATE TABLE IF NOT EXISTS public.COMPANY (
+  ID INT PRIMARY KEY NOT NULL,
+  NAME TEXT NOT NULL,
+  AGE INT NOT NULL,
+  ADDRESS CHAR(50),
+  SALARY REAL
+);
+`,
+		},
+	}
+
+	// Create the ConfigMap in Kubernetes
+	if err := c.Create(ctx, configMap); err != nil {
+		return fmt.Errorf("failed to create ConfigMap: %w", err)
+	}
+
+	log.Println("ConfigMap created successfully.")
+	return nil
+}
