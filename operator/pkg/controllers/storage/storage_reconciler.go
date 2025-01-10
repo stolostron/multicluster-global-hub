@@ -82,7 +82,7 @@ var WatchedConfigMap = sets.NewString(
 var (
 	storageReconciler          *StorageReconciler
 	updateConnection           bool
-	appliedPgUsers             string
+	appliedPgUserValue         string
 	postgresUserSecretTemplate = "postgresql-user-%s"
 )
 
@@ -294,7 +294,7 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	// Don't reconcile, or create the connection, when
 	// 1. postgres users isn't updated
 	// 2. database has been initialized
-	if (postgresUsersValue == "" || postgresUsersValue == appliedPgUsers) && r.databaseReconcileCount > 0 {
+	if (postgresUsersValue == "" || postgresUsersValue == appliedPgUserValue) && r.databaseReconcileCount > 0 {
 		return false, nil
 	}
 
@@ -317,12 +317,12 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	}
 
 	// apply the init users
-	if postgresUsersValue != "" && postgresUsersValue != appliedPgUsers {
+	if !config.IsBYOPostgres() && postgresUsersValue != "" && postgresUsersValue != appliedPgUserValue {
 		if err = r.applyPostgresUsers(ctx, conn, postgresUsersValue, mgh.Namespace); err != nil {
 			return false, err
 		}
 		log.Info("applied the annotation postgres users successfully!")
-		appliedPgUsers = postgresUsersValue
+		appliedPgUserValue = postgresUsersValue
 	}
 
 	// apply the global hub init SQL when the operator restarted
@@ -338,67 +338,30 @@ func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4
 	return false, nil
 }
 
-func (r *StorageReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Conn, pgUsersValue string, ns string) error {
-	var postgresUsers []AnnotationPGUsers
+func (r *StorageReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Conn, pgUsersValue string,
+	ns string,
+) error {
+	var postgresUsers []AnnotationPGUser
 	err := json.Unmarshal([]byte(pgUsersValue), &postgresUsers)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal postgres users from annotations: %v", err)
 	}
 
 	for _, user := range postgresUsers {
+		if err = r.createPostgresUser(ctx, conn, user, ns); err != nil {
+			return fmt.Errorf("error creating user %s: %v", user.Name, err)
+		}
 		for _, db := range user.Databases {
-			// Step 1: Create databases for the user
 			err = r.createDatabaseIfNotExists(ctx, conn, db)
 			if err != nil {
 				return fmt.Errorf("error creating database %s: %v", db, err)
 			}
-
-			// Step 2: Ensure the user exists and grant all privileges
 			err = r.grantPermissions(ctx, conn, user.Name, db)
 			if err != nil {
 				return fmt.Errorf("failed to grant permissions to user %s on database %s: %v", user.Name, db, err)
 			}
 		}
-
-		// Step 3: Generate the secret
-		userSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(postgresUserSecretTemplate, user),
-				Namespace: ns,
-			},
-		}
-		err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(userSecret), userSecret)
-		if err != nil && !errors.IsNotFound(err) {
-			return err
-		}
-
-		if errors.IsNotFound(err) {
-			password := generatePassword(16)
-			createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", user, password)
-			_, err = conn.Exec(ctx, createRoleQuery)
-			if err != nil {
-				return fmt.Errorf("error creating role %s password: %v", user, err)
-			}
-
-			storageConn := config.GetStorageConnection()
-			pgConfig, err := pgx.ParseConfig(storageConn.SuperuserDatabaseURI)
-			if err != nil {
-				return fmt.Errorf("failed the parse the supper user database URI")
-			}
-			// Store database connection details in the user secret
-			userSecret.Data["db.host"] = []byte(pgConfig.Host)
-			userSecret.Data["db.port"] = []byte(fmt.Sprintf("%d", pgConfig.Port))
-			userSecret.Data["db.user"] = []byte(user.Name)
-			userSecret.Data["db.password"] = []byte(password)
-			userSecret.Data["db.databases"] = []byte(strings.Join(user.Databases, ","))
-			err = r.GetClient().Create(ctx, userSecret)
-			log.Info("create the secret for the postgres user: %s", user.Name)
-			if err != nil {
-				return fmt.Errorf("failed to create the user %s secret", user.Name)
-			}
-		}
 	}
-
 	return nil
 }
 
@@ -415,9 +378,86 @@ func (r *StorageReconciler) createDatabaseIfNotExists(ctx context.Context, conn 
 		if err != nil {
 			return fmt.Errorf("error creating database %s: %v", dbName, err)
 		}
-		log.Infof("Database %s created.", dbName)
+		log.Infof("database %s created.", dbName)
 	} else {
-		log.Infof("Database %s already exists.", dbName)
+		log.Infof("database %s already exists.", dbName)
+	}
+
+	return nil
+}
+
+func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Conn, user AnnotationPGUser,
+	ns string,
+) error {
+	userSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf(postgresUserSecretTemplate, user.Name),
+			Namespace: ns,
+		},
+	}
+	err := r.GetClient().Get(ctx, client.ObjectKeyFromObject(userSecret), userSecret)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if err == nil {
+		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
+		previousDatabases := userSecret.Data["databases"]
+		currentDatabases := strings.Join(user.Databases, ",")
+		if string(previousDatabases) != currentDatabases {
+			userSecret.Data["databases"] = []byte(currentDatabases)
+			err = r.GetClient().Update(ctx, userSecret)
+			if err != nil {
+				return fmt.Errorf("failed to updating postgres user secret %s, err %v", user.Name, err)
+			}
+			log.Infof("update the postgres user secret databases: %s", userSecret.Name)
+		}
+		return nil
+	}
+
+	// secret is not exists
+	var roleExists bool
+	err = conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = $1)",
+		user.Name).Scan(&roleExists)
+	if err != nil {
+		return fmt.Errorf("error checking if role exists: %v", err)
+	}
+
+	password := generatePassword(16)
+	if roleExists {
+		// updatePasswordQuery := fmt.Sprintf("ALTER ROLE \"%s\" WITH PASSWORD '%s';", user.Name, password)
+		// _, err = conn.Exec(ctx, updatePasswordQuery)
+		// if err != nil {
+		// 	return fmt.Errorf("error updating password for role %s: %v", user.Name, err)
+		// }
+		log.Infof("postgres user already exist: %s", user.Name)
+	} else {
+		createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", user.Name, password)
+		_, err = conn.Exec(ctx, createRoleQuery)
+		if err != nil {
+			return fmt.Errorf("error creating role %s password: %v", user.Name, err)
+		}
+		log.Infof("create postgres user: %s", user.Name)
+	}
+
+	// create secret
+	storageConn := config.GetStorageConnection()
+	pgConfig, err := pgx.ParseConfig(storageConn.SuperuserDatabaseURI)
+	if err != nil {
+		return fmt.Errorf("failed the parse the supper user database URI")
+	}
+	userSecret.Data = map[string][]byte{
+		"db.host":     []byte(pgConfig.Host),
+		"db.port":     []byte(fmt.Sprintf("%d", pgConfig.Port)),
+		"db.user":     []byte(user.Name),
+		"db.password": []byte(password),
+		"databases":   []byte(strings.Join(user.Databases, ",")),
+		"ca":          storageConn.CACert,
+	}
+	err = r.GetClient().Create(ctx, userSecret)
+	log.Infof("create the postgresql user secret: %s", userSecret.Name)
+	if err != nil {
+		return fmt.Errorf("failed to create the postgresql user secret: %s", userSecret.Name)
 	}
 
 	return nil
@@ -429,7 +469,7 @@ func (r *StorageReconciler) grantPermissions(ctx context.Context, conn *pgx.Conn
 	if err != nil {
 		return fmt.Errorf("error granting permissions to user %s on database %s: %v", user, dbName, err)
 	}
-	log.Infof("Granted all privileges to user %s on database %s.\n", user, dbName)
+	log.Infof("granted all privileges to user %s on database %s.\n", user, dbName)
 	return nil
 }
 
@@ -564,7 +604,7 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 	return config.GetStatefulSetComponentStatus(ctx, c, namespace, name)
 }
 
-type AnnotationPGUsers struct {
+type AnnotationPGUser struct {
 	Name      string   `json:"name"`
 	Databases []string `json:"databases"`
 }
