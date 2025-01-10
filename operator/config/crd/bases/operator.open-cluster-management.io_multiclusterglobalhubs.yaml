@@ -55,6 +55,14 @@ spec:
                   retention: 18m
             description: Spec specifies the desired state of multicluster global hub
             properties:
+              InstallAgentOnLocal:
+                default: false
+                description: |-
+                  InstallAgentOnLocal determines whether deploy the Global Hub Agent on the local hub cluster or not.
+                  If set to true, the Global Hub Agent will be installed on the local hub cluster only.
+                  If set to false, the Global Hub Agent will not be installed on the local hub cluster.
+                  Currently, switching the value of this field is not supported after the Global Hub is installed.
+                type: boolean
               advanced:
                 description: AdvancedSpec specifies the advanced configurations for
                   the multicluster global hub

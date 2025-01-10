@@ -90,7 +90,7 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 // hosted: put the acm agent cluster control plane into acm hub cluster
 // global hub -> managed-hub(local-cluster)
 
-// go test ./test/integration/operator/agent -ginkgo.focus "other addons in hosted mode test" -v
+// go test ./test/integration/operator/controllers/agent -ginkgo.focus "other addons in hosted mode test" -v
 var _ = Describe("other addons in hosted mode test", Ordered, func() {
 	var hostedAddonReconciler *agent.HostedAgentController
 	BeforeAll(func() {

@@ -15,7 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-// go test ./test/integration/operator/agent -ginkgo.focus "deploy hosted addon" -v
+// go test ./test/integration/operator/controllers/agent -ginkgo.focus "deploy hosted addon" -v
 var _ = Describe("deploy hosted addon", func() {
 	It("Should create hosted addon in OCP", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))                // managed hub cluster -> enable local cluster
