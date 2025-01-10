@@ -135,14 +135,14 @@ var _ = Describe("deploy default addon", func() {
 	})
 
 	It("Should create agent for the local-cluster", func() {
-		By("set InstallAgentOnHub to true")
+		By("set InstallAgentOnLocal to true")
 		mghLookupKey := types.NamespacedName{Namespace: "default", Name: MGHName}
 		existingMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		Eventually(func() bool {
 			err := runtimeClient.Get(ctx, mghLookupKey, existingMGH)
 			return err == nil
 		}, timeout, interval).Should(BeTrue())
-		existingMGH.Spec.InstallAgentOnHub = true
+		existingMGH.Spec.InstallAgentOnLocal = true
 		Expect(runtimeClient.Update(ctx, existingMGH)).Should(Succeed())
 
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))
@@ -178,12 +178,12 @@ var _ = Describe("deploy default addon", func() {
 
 		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(8))
 
-		By("set InstallAgentOnHub to false as a default value")
+		By("set InstallAgentOnLocal to false as a default value")
 		Eventually(func() bool {
 			err := runtimeClient.Get(ctx, mghLookupKey, existingMGH)
 			return err == nil
 		}, timeout, interval).Should(BeTrue())
-		existingMGH.Spec.InstallAgentOnHub = false
+		existingMGH.Spec.InstallAgentOnLocal = false
 		Expect(runtimeClient.Update(ctx, existingMGH)).Should(Succeed())
 	})
 })

@@ -261,7 +261,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if mgh.Spec.InstallAgentOnHub {
+	if mgh.Spec.InstallAgentOnLocal {
 		// if installed agent on hub cluster, global hub is installed in a brownfield cluster
 		if cluster.GetName() == constants.LocalClusterName ||
 			cluster.Labels[constants.LocalClusterName] == "true" ||
