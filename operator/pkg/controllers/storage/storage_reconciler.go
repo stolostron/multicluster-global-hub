@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"embed"
+	"encoding/json"
 	"fmt"
 	iofs "io/fs"
 	"math/big"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -78,8 +80,10 @@ var WatchedConfigMap = sets.NewString(
 )
 
 var (
-	storageReconciler *StorageReconciler
-	updateConnection  bool
+	storageReconciler          *StorageReconciler
+	updateConnection           bool
+	appliedPgUsers             string
+	postgresUserSecretTemplate = "postgresql-user-%s"
 )
 
 func (r *StorageReconciler) IsResourceRemoved() bool {
@@ -283,83 +287,200 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 }
 
 func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
-	var reconcileErr error
-	storageConn := config.GetStorageConnection()
-	if storageConn == nil {
-		reconcileErr = fmt.Errorf("storage connection is nil")
-		return true, reconcileErr
-	}
-	// if the operator is restarted, reconcile the database again
-	if r.databaseReconcileCount > 0 {
+	var conn *pgx.Conn
+	var err error
+
+	postgresUsersValue := mgh.Annotations[operatorconstants.AnnotationBuiltInPostgresUsers]
+	// Don't reconcile, or create the connection, when
+	// 1. postgres users isn't updated
+	// 2. database has been initialized
+	if (postgresUsersValue == "" || postgresUsersValue == appliedPgUsers) && r.databaseReconcileCount > 0 {
 		return false, nil
 	}
 
-	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
-	if err != nil {
-		reconcileErr = fmt.Errorf("failed to connect to database: %v", err)
-		log.Infof("wait database ready, %v", reconcileErr)
-		return true, nil
-	}
-
 	defer func() {
-		if err := conn.Close(ctx); err != nil {
-			log.Error(err, "failed to close connection to database")
+		if conn != nil {
+			if err := conn.Close(ctx); err != nil {
+				log.Error(err, "failed to close connection to database")
+			}
 		}
 	}()
 
+	storageConn := config.GetStorageConnection()
+	if storageConn == nil {
+		return false, fmt.Errorf("storage connection is nil")
+	}
+	conn, err = database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
+	if err != nil {
+		log.Infof("wait database ready, failed to connect database: %v", err)
+		return true, nil
+	}
+
+	// apply the init users
+	if postgresUsersValue != "" && postgresUsersValue != appliedPgUsers {
+		if err = r.applyPostgresUsers(ctx, conn, postgresUsersValue, mgh.Namespace); err != nil {
+			return false, err
+		}
+		log.Info("applied the annotation postgres users successfully!")
+		appliedPgUsers = postgresUsersValue
+	}
+
+	// apply the global hub init SQL when the operator restarted
+	if r.databaseReconcileCount == 0 {
+		err = r.applyGlobalHubInitSQL(ctx, conn, storageConn.ReadonlyUserDatabaseURI)
+		if err != nil {
+			return false, err
+		}
+		log.Debug("global hub database initialized")
+		r.databaseReconcileCount++
+	}
+
+	return false, nil
+}
+
+func (r *StorageReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Conn, pgUsersValue string, ns string) error {
+	var postgresUsers []AnnotationPGUsers
+	err := json.Unmarshal([]byte(pgUsersValue), &postgresUsers)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal postgres users from annotations: %v", err)
+	}
+
+	for _, user := range postgresUsers {
+		for _, db := range user.Databases {
+			// Step 1: Create databases for the user
+			err = r.createDatabaseIfNotExists(ctx, conn, db)
+			if err != nil {
+				return fmt.Errorf("error creating database %s: %v", db, err)
+			}
+
+			// Step 2: Ensure the user exists and grant all privileges
+			err = r.grantPermissions(ctx, conn, user.Name, db)
+			if err != nil {
+				return fmt.Errorf("failed to grant permissions to user %s on database %s: %v", user.Name, db, err)
+			}
+		}
+
+		// Step 3: Generate the secret
+		userSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf(postgresUserSecretTemplate, user),
+				Namespace: ns,
+			},
+		}
+		err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(userSecret), userSecret)
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+
+		if errors.IsNotFound(err) {
+			password := generatePassword(16)
+			createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", user, password)
+			_, err = conn.Exec(ctx, createRoleQuery)
+			if err != nil {
+				return fmt.Errorf("error creating role %s password: %v", user, err)
+			}
+
+			storageConn := config.GetStorageConnection()
+			pgConfig, err := pgx.ParseConfig(storageConn.SuperuserDatabaseURI)
+			if err != nil {
+				return fmt.Errorf("failed the parse the supper user database URI")
+			}
+			// Store database connection details in the user secret
+			userSecret.Data["db.host"] = []byte(pgConfig.Host)
+			userSecret.Data["db.port"] = []byte(fmt.Sprintf("%d", pgConfig.Port))
+			userSecret.Data["db.user"] = []byte(user.Name)
+			userSecret.Data["db.password"] = []byte(password)
+			userSecret.Data["db.databases"] = []byte(strings.Join(user.Databases, ","))
+			err = r.GetClient().Create(ctx, userSecret)
+			log.Info("create the secret for the postgres user: %s", user.Name)
+			if err != nil {
+				return fmt.Errorf("failed to create the user %s secret", user.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *StorageReconciler) createDatabaseIfNotExists(ctx context.Context, conn *pgx.Conn, dbName string) error {
+	var exists bool
+	err := conn.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1);`, dbName).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("error checking if database %s exists: %v", dbName, err)
+	}
+
+	if !exists {
+		createDBQuery := fmt.Sprintf("CREATE DATABASE %s;", dbName)
+		_, err := conn.Exec(ctx, createDBQuery)
+		if err != nil {
+			return fmt.Errorf("error creating database %s: %v", dbName, err)
+		}
+		log.Infof("Database %s created.", dbName)
+	} else {
+		log.Infof("Database %s already exists.", dbName)
+	}
+
+	return nil
+}
+
+func (r *StorageReconciler) grantPermissions(ctx context.Context, conn *pgx.Conn, user, dbName string) error {
+	grantQuery := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s;", dbName, user)
+	_, err := conn.Exec(ctx, grantQuery)
+	if err != nil {
+		return fmt.Errorf("error granting permissions to user %s on database %s: %v", user, dbName, err)
+	}
+	log.Infof("Granted all privileges to user %s on database %s.\n", user, dbName)
+	return nil
+}
+
+func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx.Conn, readonlyUserURI string) error {
 	// Check if backup is enabled
 	var backupEnabled bool
-	backupEnabled, reconcileErr = commonutils.IsBackupEnabled(ctx, r.GetClient())
-	if reconcileErr != nil {
-		log.Error(reconcileErr, "failed to get backup status")
-		return true, reconcileErr
+	backupEnabled, err := commonutils.IsBackupEnabled(ctx, r.GetClient())
+	if err != nil {
+		return fmt.Errorf("failed to get the backup status: %v", err)
 	}
 
 	if backupEnabled || !r.upgrade {
 		lockSql := fmt.Sprintf("select pg_advisory_lock(%s)", constants.LockId)
 		unLockSql := fmt.Sprintf("select pg_advisory_unlock(%s)", constants.LockId)
 		defer func() {
-			_, reconcileErr = conn.Exec(ctx, unLockSql)
-			if reconcileErr != nil {
-				log.Error(reconcileErr, "failed to unlock db")
+			_, err = conn.Exec(ctx, unLockSql)
+			if err != nil {
+				log.Errorf("failed to unlock db: %v", err)
 			}
 		}()
-		_, reconcileErr = conn.Exec(ctx, lockSql)
-		if reconcileErr != nil {
-			log.Error(reconcileErr, "failed to parse database_uri_with_readonlyuser")
-			return true, reconcileErr
+		_, err = conn.Exec(ctx, lockSql)
+		if err != nil {
+			return fmt.Errorf("failed to parse database_uri_with_readonlyuser: %v", err)
 		}
 	}
 
-	objURI, err := url.Parse(storageConn.ReadonlyUserDatabaseURI)
+	objURI, err := url.Parse(readonlyUserURI)
 	if err != nil {
 		log.Error(err, "failed to parse database_uri_with_readonlyuser")
 	}
 	readonlyUsername := objURI.User.Username()
 
-	if reconcileErr = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); reconcileErr != nil {
-		return true, reconcileErr
+	if err = applySQL(ctx, conn, databaseFS, "database", readonlyUsername); err != nil {
+		return fmt.Errorf("failed to apply the database sql: %v", err)
 	}
 
 	if r.enableGlobalResource {
-		if reconcileErr = applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); reconcileErr != nil {
-			return true, reconcileErr
+		if err = applySQL(ctx, conn, databaseOldFS, "database.old", readonlyUsername); err != nil {
+			return fmt.Errorf("failed to apply the database.old sql: %v", err)
 		}
 	}
 
 	if !r.upgrade {
-		reconcileErr = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
-		if reconcileErr != nil {
-			log.Error(reconcileErr, "failed to exec the upgrade sql files")
-			return true, reconcileErr
+		err = applySQL(ctx, conn, upgradeFS, "upgrade", readonlyUsername)
+		if err != nil {
+			return fmt.Errorf("failed to apply the upgrade sql: %v", err)
 		}
 		r.upgrade = true
 	}
 
-	log.Debug("database initialized")
-	r.databaseReconcileCount++
-
-	return false, nil
+	return nil
 }
 
 func applySQL(ctx context.Context, conn *pgx.Conn, databaseFS embed.FS, rootDir, username string) error {
@@ -441,4 +562,9 @@ func getDatabaseComponentStatus(ctx context.Context, c client.Client,
 		}
 	}
 	return config.GetStatefulSetComponentStatus(ctx, c, namespace, name)
+}
+
+type AnnotationPGUsers struct {
+	Name      string   `json:"name"`
+	Databases []string `json:"databases"`
 }
