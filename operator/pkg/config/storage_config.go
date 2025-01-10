@@ -65,6 +65,10 @@ func IsBYOPostgres() bool {
 	return isBYOPostgres
 }
 
+func SetBYOPostgres(byo bool) {
+	isBYOPostgres = byo
+}
+
 func SetDatabaseReady(ready bool) {
 	databaseReady = ready
 }

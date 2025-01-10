@@ -211,7 +211,7 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	updateConnection = config.SetStorageConnection(storageConn)
 
-	needRequeue, err := r.reconcileDatabase(ctx, mgh)
+	needRequeue, err := r.ReconcileDatabase(ctx, mgh)
 	if err != nil {
 		reconcileErr = fmt.Errorf("database not ready, Error: %v", err)
 		return ctrl.Result{}, reconcileErr
@@ -286,7 +286,7 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 	return pgConnection, nil
 }
 
-func (r *StorageReconciler) reconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
+func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
 	var conn *pgx.Conn
 	var err error
 

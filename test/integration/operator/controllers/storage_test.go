@@ -26,9 +26,9 @@ import (
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
-// go test ./test/integration/operator -ginkgo.focus "storage" -v
+// go test ./test/integration/operator/controllers -ginkgo.focus "storage" -v
 var _ = Describe("storage", Ordered, func() {
-	It("should init database with BYO", func() {
+	It("should init database", func() {
 		namespace := fmt.Sprintf("namespace-%s", rand.String(6))
 		mghName := "test-mgh"
 
@@ -52,7 +52,7 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
 
-		// storage secret
+		// storage secret - BYO
 		// pgURI := strings.Replace(testPostgres.URI, "sslmode=verify-ca", "sslmode=require", -1)
 		storageSecret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -84,6 +84,21 @@ var _ = Describe("storage", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)
 		Expect(err).To(Succeed())
+
+		// reconcile database(annotation) -> mock builtin
+		config.SetBYOPostgres(false)
+		mgh.Annotations = map[string]string{
+			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser\", \"databases\": [\"test1\"]}]",
+		}
+		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
+		Expect(err).To(Succeed())
+		secret := &corev1.Secret{}
+		err = runtimeClient.Get(ctx, types.NamespacedName{
+			Namespace: mgh.Namespace,
+			Name:      "postgresql-user-testuser",
+		}, secret)
+		Expect(err).To(Succeed())
+		config.SetBYOPostgres(true)
 
 		err = runtimeClient.Delete(ctx, storageSecret)
 		Expect(err).To(Succeed())
