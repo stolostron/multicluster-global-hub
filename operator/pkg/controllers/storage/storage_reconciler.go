@@ -80,10 +80,10 @@ var WatchedConfigMap = sets.NewString(
 )
 
 var (
-	storageReconciler          *StorageReconciler
-	updateConnection           bool
-	appliedPgUserValue         string
-	postgresUserSecretTemplate = "postgresql-user-%s"
+	storageReconciler        *StorageReconciler
+	updateConnection         bool
+	appliedPgUserValue       string
+	postgresUserNameTemplate = "postgresql-user-%s"
 )
 
 func (r *StorageReconciler) IsResourceRemoved() bool {
@@ -391,7 +391,7 @@ func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Co
 ) error {
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(postgresUserSecretTemplate, user.Name),
+			Name:      fmt.Sprintf(postgresUserNameTemplate, user.Name),
 			Namespace: ns,
 		},
 	}
