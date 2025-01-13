@@ -16,7 +16,7 @@ require (
 	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/fergusstrange/embedded-postgres v1.30.0
 	github.com/gin-gonic/gin v1.10.0
-	github.com/go-co-op/gocron v1.23.0
+	github.com/go-co-op/gocron v1.37.0
 	github.com/go-kratos/kratos/v2 v2.8.3
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
@@ -66,6 +66,8 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.17.2
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require go.uber.org/atomic v1.11.0 // indirect
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.2-20240920164238-5a7b106cbb87.1 // indirect
