@@ -89,7 +89,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				EnableMetrics                bool
 				EnablePostgresMetrics        bool
 				EnableInventoryAPI           bool
-				PostgresCustomizedConfig     string
+				PostgresCustomizedConfig     []byte
 			}{
 				Name:                         BuiltinPostgresName,
 				Namespace:                    mgh.GetNamespace(),
@@ -117,7 +117,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				EnableMetrics:            mgh.Spec.EnableMetrics,
 				EnablePostgresMetrics:    (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
 				EnableInventoryAPI:       config.WithInventory(mgh),
-				PostgresCustomizedConfig: customizedConfig,
+				PostgresCustomizedConfig: []byte(customizedConfig),
 			}, nil
 		})
 	if err != nil {
@@ -188,7 +188,7 @@ func getPostgresCustomizedConfig(ctx context.Context, mgh *globalhubv1alpha4.Mul
 	}
 	customizedConfig := ""
 	if !errors.IsNotFound(err) {
-		customizedConfig = cm.Data["postgresql.conf"]
+		customizedConfig = fmt.Sprintf("\n%s", cm.Data["postgresql.conf"])
 	}
 	return customizedConfig, nil
 }
