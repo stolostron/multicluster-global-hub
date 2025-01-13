@@ -31,6 +31,7 @@ var (
 	builtinPostgresInitName   = fmt.Sprintf("%s-init", BuiltinPostgresName)
 	builtinPartialPostgresURI = fmt.Sprintf("%s.%s.svc:5432/hoh?sslmode=verify-ca", BuiltinPostgresName,
 		utils.GetDefaultNamespace())
+	BuiltinPostgresCustomizedConfigName = "multicluster-global-hub-custom-postgresql-config"
 )
 
 type postgresCredential struct {
@@ -52,6 +53,13 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 	if mgh.Spec.ImagePullPolicy != "" {
 		imagePullPolicy = mgh.Spec.ImagePullPolicy
 	}
+
+	// postgres configurable
+	customizedConfig, err := getPostgresCustomizedConfig(ctx, mgh, mgr.GetClient())
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("the postgres customized config: %s", customizedConfig)
 
 	// get the postgres objects
 	postgresRenderer, postgresDeployer := renderer.NewHoHRenderer(stsPostgresFS), deployer.NewHoHDeployer(mgr.GetClient())
@@ -81,6 +89,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				EnableMetrics                bool
 				EnablePostgresMetrics        bool
 				EnableInventoryAPI           bool
+				PostgresCustomizedConfig     string
 			}{
 				Name:                         BuiltinPostgresName,
 				Namespace:                    mgh.GetNamespace(),
@@ -105,13 +114,15 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 				PostgresURI: strings.ReplaceAll(builtinPartialPostgresURI, "sslmode=verify-ca", "sslmode=disable"),
 				Resources: operatorutils.GetResources(operatorconstants.Postgres,
 					mgh.Spec.AdvancedSpec),
-				EnableMetrics:         mgh.Spec.EnableMetrics,
-				EnablePostgresMetrics: (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
-				EnableInventoryAPI:    config.WithInventory(mgh),
+				EnableMetrics:            mgh.Spec.EnableMetrics,
+				EnablePostgresMetrics:    (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
+				EnableInventoryAPI:       config.WithInventory(mgh),
+				PostgresCustomizedConfig: customizedConfig,
 			}, nil
 		})
 	if err != nil {
-		return nil, fmt.Errorf("failed to render postgres manifests: %w", err)
+		log.Errorf("failed to render postgres manifests: %w", err)
+		return nil, err
 	}
 
 	// create restmapper for deployer to find GVR
@@ -162,6 +173,24 @@ func getPostgresCredential(ctx context.Context, mgh *globalhubv1alpha4.Multiclus
 		postgresReadonlyUsername:     string(postgres.Data["database-readonly-user"]),
 		postgresReadonlyUserPassword: string(postgres.Data["database-readonly-password"]),
 	}, nil
+}
+
+func getPostgresCustomizedConfig(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub,
+	c client.Client,
+) (string, error) {
+	cm := &corev1.ConfigMap{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      BuiltinPostgresCustomizedConfigName,
+		Namespace: mgh.Namespace,
+	}, cm)
+	if err != nil && !errors.IsNotFound(err) {
+		return "", fmt.Errorf("failed to get the postgres customized config: %v", err)
+	}
+	customizedConfig := ""
+	if !errors.IsNotFound(err) {
+		customizedConfig = cm.Data["postgresql.conf"]
+	}
+	return customizedConfig, nil
 }
 
 func getPostgresCA(ctx context.Context, mgh *globalhubv1alpha4.MulticlusterGlobalHub, c client.Client) (string, error) {

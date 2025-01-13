@@ -91,8 +91,9 @@ const (
 
 // global hub console secret/configmap names
 const (
-	CustomAlertName      = "multicluster-global-hub-custom-alerting"
-	CustomGrafanaIniName = "multicluster-global-hub-custom-grafana-config"
+	CustomAlertName              = "multicluster-global-hub-custom-alerting"
+	CustomGrafanaIniName         = "multicluster-global-hub-custom-grafana-config"
+	PostgresCustomizedConfigName = "multicluster-global-hub-custom-postgres-config"
 )
 
 const (
