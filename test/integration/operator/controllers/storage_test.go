@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
 
@@ -87,17 +88,32 @@ var _ = Describe("storage", Ordered, func() {
 
 		// reconcile database(annotation) -> mock builtin
 		config.SetBYOPostgres(false)
+		// add 1 test user
 		mgh.Annotations = map[string]string{
-			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser\", \"databases\": [\"test1\"]}]",
+			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser1\", \"databases\": [\"test1\"]}]",
 		}
 		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
 		Expect(err).To(Succeed())
 		secret := &corev1.Secret{}
 		err = runtimeClient.Get(ctx, types.NamespacedName{
 			Namespace: mgh.Namespace,
-			Name:      "postgresql-user-testuser",
+			Name:      "postgresql-user-testuser1",
 		}, secret)
 		Expect(err).To(Succeed())
+
+		// add 2 test users
+		mgh.Annotations = map[string]string{
+			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser1\", \"databases\": [\"test1\"]}, {\"name\": \"testuser2\", \"databases\": [\"test2\"]}]",
+		}
+		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
+		Expect(err).To(Succeed())
+		secret = &corev1.Secret{}
+		err = runtimeClient.Get(ctx, types.NamespacedName{
+			Namespace: mgh.Namespace,
+			Name:      "postgresql-user-testuser2",
+		}, secret)
+		Expect(err).To(Succeed())
+		utils.PrettyPrint(secret)
 		config.SetBYOPostgres(true)
 
 		err = runtimeClient.Delete(ctx, storageSecret)
