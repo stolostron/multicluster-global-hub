@@ -13,6 +13,16 @@ metadata:
           "spec": {}
         },
         {
+          "apiVersion": "operator.open-cluster-management.io/v1alpha1",
+          "kind": "MulticlusterGlobalHubAgent",
+          "metadata": {
+            "name": "multiclusterglobalhubagent"
+          },
+          "spec": {
+            "transportConfigSecretName": "transport-config"
+          }
+        },
+        {
           "apiVersion": "operator.open-cluster-management.io/v1alpha4",
           "kind": "MulticlusterGlobalHub",
           "metadata": {
@@ -31,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2024-12-25T06:09:28Z"
+    createdAt: "2025-01-14T11:53:57Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -89,6 +99,28 @@ spec:
           current state
         displayName: Conditions
         path: conditions
+      version: v1alpha1
+    - description: MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents
+        API
+      displayName: Multicluster Global Hub Agent
+      kind: MulticlusterGlobalHubAgent
+      name: multiclusterglobalhubagents.operator.open-cluster-management.io
+      specDescriptors:
+      - description: ImagePullPolicy specifies the pull policy of the multicluster
+          global hub agent image
+        displayName: Image Pull Policy
+        path: imagePullPolicy
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:imagePullPolicy
+      - description: ImagePullSecret specifies the pull secret of the multicluster
+          global hub agent image
+        displayName: Image Pull Secret
+        path: imagePullSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Tolerations causes all components to tolerate any taints
+        displayName: Tolerations
+        path: tolerations
       version: v1alpha1
     - description: MulticlusterGlobalHub defines the configuration for an instance
         of the multiCluster global hub
@@ -317,13 +349,16 @@ spec:
           - ""
           resources:
           - configmaps
-          - serviceaccounts
-          - services
+          - namespaces
+          - persistentvolumeclaims
+          - pods
+          - secrets
           verbs:
           - create
           - delete
           - get
           - list
+          - patch
           - update
           - watch
         - apiGroups:
@@ -342,23 +377,13 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - namespaces
-          verbs:
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - persistentvolumeclaims
-          - secrets
+          - serviceaccounts
+          - services
           verbs:
           - create
           - delete
           - get
           - list
-          - patch
           - update
           - watch
         - apiGroups:
@@ -454,13 +479,23 @@ spec:
           - apps.open-cluster-management.io
           resources:
           - channels
-          - placementrules
           - subscriptions
           verbs:
           - get
           - list
           - patch
           - update
+        - apiGroups:
+          - apps.open-cluster-management.io
+          resources:
+          - placementrules
+          - subscriptionreports
+          verbs:
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - authentication.open-cluster-management.io
           resources:
@@ -518,17 +553,8 @@ spec:
         - apiGroups:
           - cluster.open-cluster-management.io
           resources:
+          - clusterclaims
           - managedclusters
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - cluster.open-cluster-management.io
-          resources:
           - managedclustersetbindings
           - placements
           verbs:
@@ -538,15 +564,21 @@ spec:
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - cluster.open-cluster-management.io
           resources:
+          - managedclusters/finalizers
           - managedclustersets
+          - placementdecisions
+          - placementdecisions/finalizers
+          - placements/finalizers
           verbs:
           - get
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - config.open-cluster-management.io
           resources:
@@ -558,6 +590,15 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          - infrastructures
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - coordination.k8s.io
@@ -586,6 +627,15 @@ spec:
           verbs:
           - get
           - list
+          - watch
+        - apiGroups:
+          - internal.open-cluster-management.io
+          resources:
+          - managedclusterinfos
+          verbs:
+          - get
+          - list
+          - update
           - watch
         - apiGroups:
           - kafka.strimzi.io
@@ -638,6 +688,7 @@ spec:
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - multiclusterglobalhubagents
           - multiclusterglobalhubs
           verbs:
           - create
@@ -650,12 +701,14 @@ spec:
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - multiclusterglobalhubagents/finalizers
           - multiclusterglobalhubs/finalizers
           verbs:
           - update
         - apiGroups:
           - operator.open-cluster-management.io
           resources:
+          - multiclusterglobalhubagents/status
           - multiclusterglobalhubs/status
           verbs:
           - get
@@ -694,11 +747,14 @@ spec:
           resources:
           - placementbindings
           - policies
+          - policyautomations
+          - policysets
           verbs:
           - get
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - postgres-operator.crunchydata.com
           resources:

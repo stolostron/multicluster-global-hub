@@ -16,7 +16,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func setTransportConfigs(ctx context.Context, manifestsConfig *config.ManifestsConfig,
+func setTransportConfigs(manifestsConfig *config.ManifestsConfig,
 	cluster *clusterv1.ManagedCluster, c client.Client,
 ) error {
 	if config.EnableInventory() {

@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -36,39 +35,39 @@ import (
 func TestHostedAgentConfig(t *testing.T) {
 	tests := []struct {
 		name      string
-		cma       *v1alpha1.ClusterManagementAddOn
-		expectCma *v1alpha1.ClusterManagementAddOn
+		cma       *addonv1alpha1.ClusterManagementAddOn
+		expectCma *addonv1alpha1.ClusterManagementAddOn
 		want      bool
 	}{
 		{
 			name: "empty spec",
-			cma: &v1alpha1.ClusterManagementAddOn{
+			cma: &addonv1alpha1.ClusterManagementAddOn{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
 				},
 			},
-			expectCma: &v1alpha1.ClusterManagementAddOn{
+			expectCma: &addonv1alpha1.ClusterManagementAddOn{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
 				},
-				Spec: v1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: v1alpha1.InstallStrategy{
+				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: addonv1alpha1.InstallStrategy{
 						Type: "Manual",
-						Placements: []v1alpha1.PlacementStrategy{
+						Placements: []addonv1alpha1.PlacementStrategy{
 							{
-								PlacementRef: v1alpha1.PlacementRef{
+								PlacementRef: addonv1alpha1.PlacementRef{
 									Namespace: constants.GHDefaultNamespace,
 									Name:      "non-local-cluster",
 								},
-								Configs: []v1alpha1.AddOnConfig{
+								Configs: []addonv1alpha1.AddOnConfig{
 									{
-										ConfigReferent: v1alpha1.ConfigReferent{
+										ConfigReferent: addonv1alpha1.ConfigReferent{
 											Name:      "global-hub",
 											Namespace: constants.GHDefaultNamespace,
 										},
-										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
 											Group:    "addon.open-cluster-management.io",
 											Resource: "addondeploymentconfigs",
 										},
@@ -83,17 +82,17 @@ func TestHostedAgentConfig(t *testing.T) {
 		},
 		{
 			name: "has config in spec",
-			cma: &v1alpha1.ClusterManagementAddOn{
+			cma: &addonv1alpha1.ClusterManagementAddOn{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
 				},
-				Spec: v1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: v1alpha1.InstallStrategy{
+				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: addonv1alpha1.InstallStrategy{
 						Type: "Manual",
-						Placements: []v1alpha1.PlacementStrategy{
+						Placements: []addonv1alpha1.PlacementStrategy{
 							{
-								PlacementRef: v1alpha1.PlacementRef{
+								PlacementRef: addonv1alpha1.PlacementRef{
 									Namespace: "ns",
 									Name:      "pl",
 								},
@@ -102,33 +101,33 @@ func TestHostedAgentConfig(t *testing.T) {
 					},
 				},
 			},
-			expectCma: &v1alpha1.ClusterManagementAddOn{
+			expectCma: &addonv1alpha1.ClusterManagementAddOn{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
 				},
-				Spec: v1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: v1alpha1.InstallStrategy{
+				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: addonv1alpha1.InstallStrategy{
 						Type: "Manual",
-						Placements: []v1alpha1.PlacementStrategy{
+						Placements: []addonv1alpha1.PlacementStrategy{
 							{
-								PlacementRef: v1alpha1.PlacementRef{
+								PlacementRef: addonv1alpha1.PlacementRef{
 									Namespace: "ns",
 									Name:      "pl",
 								},
 							},
 							{
-								PlacementRef: v1alpha1.PlacementRef{
+								PlacementRef: addonv1alpha1.PlacementRef{
 									Namespace: constants.GHDefaultNamespace,
 									Name:      "non-local-cluster",
 								},
-								Configs: []v1alpha1.AddOnConfig{
+								Configs: []addonv1alpha1.AddOnConfig{
 									{
-										ConfigReferent: v1alpha1.ConfigReferent{
+										ConfigReferent: addonv1alpha1.ConfigReferent{
 											Name:      "global-hub",
 											Namespace: constants.GHDefaultNamespace,
 										},
-										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
 											Group:    "addon.open-cluster-management.io",
 											Resource: "addondeploymentconfigs",
 										},
@@ -143,27 +142,27 @@ func TestHostedAgentConfig(t *testing.T) {
 		},
 		{
 			name: "has needed config in spec",
-			cma: &v1alpha1.ClusterManagementAddOn{
+			cma: &addonv1alpha1.ClusterManagementAddOn{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
 				},
-				Spec: v1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: v1alpha1.InstallStrategy{
+				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: addonv1alpha1.InstallStrategy{
 						Type: "Manual",
-						Placements: []v1alpha1.PlacementStrategy{
+						Placements: []addonv1alpha1.PlacementStrategy{
 							{
-								PlacementRef: v1alpha1.PlacementRef{
+								PlacementRef: addonv1alpha1.PlacementRef{
 									Namespace: constants.GHDefaultNamespace,
 									Name:      "non-local-cluster",
 								},
-								Configs: []v1alpha1.AddOnConfig{
+								Configs: []addonv1alpha1.AddOnConfig{
 									{
-										ConfigReferent: v1alpha1.ConfigReferent{
+										ConfigReferent: addonv1alpha1.ConfigReferent{
 											Name:      "global-hub",
 											Namespace: constants.GHDefaultNamespace,
 										},
-										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
 											Group:    "addon.open-cluster-management.io",
 											Resource: "addondeploymentconfigs",
 										},
@@ -174,27 +173,27 @@ func TestHostedAgentConfig(t *testing.T) {
 					},
 				},
 			},
-			expectCma: &v1alpha1.ClusterManagementAddOn{
+			expectCma: &addonv1alpha1.ClusterManagementAddOn{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "work-manager",
 					Namespace: "c1",
 				},
-				Spec: v1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: v1alpha1.InstallStrategy{
+				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
+					InstallStrategy: addonv1alpha1.InstallStrategy{
 						Type: "Manual",
-						Placements: []v1alpha1.PlacementStrategy{
+						Placements: []addonv1alpha1.PlacementStrategy{
 							{
-								PlacementRef: v1alpha1.PlacementRef{
+								PlacementRef: addonv1alpha1.PlacementRef{
 									Namespace: constants.GHDefaultNamespace,
 									Name:      "non-local-cluster",
 								},
-								Configs: []v1alpha1.AddOnConfig{
+								Configs: []addonv1alpha1.AddOnConfig{
 									{
-										ConfigReferent: v1alpha1.ConfigReferent{
+										ConfigReferent: addonv1alpha1.ConfigReferent{
 											Name:      "global-hub",
 											Namespace: constants.GHDefaultNamespace,
 										},
-										ConfigGroupResource: v1alpha1.ConfigGroupResource{
+										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
 											Group:    "addon.open-cluster-management.io",
 											Resource: "addondeploymentconfigs",
 										},
@@ -282,7 +281,7 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 		{
 			name: "cma do not have placements",
 			cmas: []runtime.Object{
-				&v1alpha1.ClusterManagementAddOn{
+				&addonv1alpha1.ClusterManagementAddOn{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "work-manager",
 						Namespace: utils.GetDefaultNamespace(),
@@ -294,7 +293,7 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 		{
 			name: "cma do not have target placements",
 			cmas: []runtime.Object{
-				&v1alpha1.ClusterManagementAddOn{
+				&addonv1alpha1.ClusterManagementAddOn{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "work-manager",
 						Namespace: utils.GetDefaultNamespace(),
@@ -302,18 +301,18 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 					Spec: addonv1alpha1.ClusterManagementAddOnSpec{
 						InstallStrategy: addonv1alpha1.InstallStrategy{
 							Placements: []addonv1alpha1.PlacementStrategy{
-								v1alpha1.PlacementStrategy{
-									PlacementRef: v1alpha1.PlacementRef{
+								{
+									PlacementRef: addonv1alpha1.PlacementRef{
 										Namespace: constants.GHDefaultNamespace,
 										Name:      "global",
 									},
-									Configs: []v1alpha1.AddOnConfig{
+									Configs: []addonv1alpha1.AddOnConfig{
 										{
-											ConfigReferent: v1alpha1.ConfigReferent{
+											ConfigReferent: addonv1alpha1.ConfigReferent{
 												Name:      "global-hub",
 												Namespace: constants.GHDefaultNamespace,
 											},
-											ConfigGroupResource: v1alpha1.ConfigGroupResource{
+											ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
 												Group:    "addon.open-cluster-management.io",
 												Resource: "addondeploymentconfigs",
 											},
@@ -330,7 +329,7 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 		{
 			name: "cma have target placements",
 			cmas: []runtime.Object{
-				&v1alpha1.ClusterManagementAddOn{
+				&addonv1alpha1.ClusterManagementAddOn{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "work-manager",
 						Namespace: utils.GetDefaultNamespace(),
@@ -338,18 +337,18 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 					Spec: addonv1alpha1.ClusterManagementAddOnSpec{
 						InstallStrategy: addonv1alpha1.InstallStrategy{
 							Placements: []addonv1alpha1.PlacementStrategy{
-								v1alpha1.PlacementStrategy{
-									PlacementRef: v1alpha1.PlacementRef{
+								{
+									PlacementRef: addonv1alpha1.PlacementRef{
 										Namespace: constants.GHDefaultNamespace,
 										Name:      "non-local-cluster",
 									},
-									Configs: []v1alpha1.AddOnConfig{
+									Configs: []addonv1alpha1.AddOnConfig{
 										{
-											ConfigReferent: v1alpha1.ConfigReferent{
+											ConfigReferent: addonv1alpha1.ConfigReferent{
 												Name:      "global-hub",
 												Namespace: constants.GHDefaultNamespace,
 											},
-											ConfigGroupResource: v1alpha1.ConfigGroupResource{
+											ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
 												Group:    "addon.open-cluster-management.io",
 												Resource: "addondeploymentconfigs",
 											},
@@ -375,7 +374,7 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 			if err := hac.revertClusterManagementAddon(ctx); (err != nil) != tt.wantErr {
 				t.Errorf("PruneReconciler.revertClusterManagementAddon() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			cmaList := &v1alpha1.ClusterManagementAddOnList{}
+			cmaList := &addonv1alpha1.ClusterManagementAddOnList{}
 
 			err := hac.c.List(ctx, cmaList)
 			if err != nil {

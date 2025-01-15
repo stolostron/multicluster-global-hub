@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -50,7 +49,6 @@ type HostedAgentController struct {
 }
 
 var (
-	hostedAddonController        *HostedAgentController
 	isHostedAgentResourceRemoved = true
 	hostedAgentController        *HostedAgentController
 )
@@ -94,7 +92,7 @@ func NewHostedAgentController(mgr ctrl.Manager) *HostedAgentController {
 // SetupWithManager sets up the controller with the Manager.
 func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("AddonsController").
-		For(&v1alpha1.ClusterManagementAddOn{},
+		For(&addonv1alpha1.ClusterManagementAddOn{},
 			builder.WithPredicates(addonPred)).
 		// requeue all cma when mgh annotation changed.
 		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
@@ -178,7 +176,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	isHostedAgentResourceRemoved = false
-	cma := &v1alpha1.ClusterManagementAddOn{}
+	cma := &addonv1alpha1.ClusterManagementAddOn{}
 	err = r.c.Get(ctx, req.NamespacedName, cma)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -198,7 +196,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *HostedAgentController) revertClusterManagementAddon(ctx context.Context) error {
-	cmaList := &v1alpha1.ClusterManagementAddOnList{}
+	cmaList := &addonv1alpha1.ClusterManagementAddOnList{}
 	err := r.c.List(ctx, cmaList)
 	if err != nil {
 		return err
@@ -215,7 +213,7 @@ func (r *HostedAgentController) revertClusterManagementAddon(ctx context.Context
 	return nil
 }
 
-func (r *HostedAgentController) removeGlobalhubConfig(ctx context.Context, cma v1alpha1.ClusterManagementAddOn) error {
+func (r *HostedAgentController) removeGlobalhubConfig(ctx context.Context, cma addonv1alpha1.ClusterManagementAddOn) error {
 	if len(cma.Spec.InstallStrategy.Placements) == 0 {
 		return nil
 	}
@@ -250,7 +248,7 @@ func (r *HostedAgentController) pruneHostedResources(ctx context.Context) error 
 }
 
 func (r *HostedAgentController) hasManagedHub(ctx context.Context) (bool, error) {
-	mcaList := &v1alpha1.ManagedClusterAddOnList{}
+	mcaList := &addonv1alpha1.ManagedClusterAddOnList{}
 	err := r.c.List(ctx, mcaList)
 	if err != nil {
 		return false, err
@@ -265,7 +263,7 @@ func (r *HostedAgentController) hasManagedHub(ctx context.Context) (bool, error)
 }
 
 // addAddonConfig add the config to cma, will return true if the cma updated
-func addAddonConfig(cma *v1alpha1.ClusterManagementAddOn) bool {
+func addAddonConfig(cma *addonv1alpha1.ClusterManagementAddOn) bool {
 	if len(cma.Spec.InstallStrategy.Placements) == 0 {
 		cma.Spec.InstallStrategy.Placements = append(cma.Spec.InstallStrategy.Placements,
 			config.GlobalHubHostedAddonPlacementStrategy)

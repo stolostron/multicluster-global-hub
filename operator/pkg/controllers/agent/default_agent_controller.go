@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"open-cluster-management.io/api/addon/v1alpha1"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -146,7 +145,7 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 		// WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
 		// 	&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&v1alpha1.ManagedClusterAddOn{},
+		Watches(&addonv1alpha1.ManagedClusterAddOn{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
 					// only trigger the addon reconcile when addon is updated/deleted
@@ -156,7 +155,7 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 				}
 			}), builder.WithPredicates(mghAddonPred)).
 		// secondary watch for managedclusteraddon
-		Watches(&v1alpha1.ClusterManagementAddOn{},
+		Watches(&addonv1alpha1.ClusterManagementAddOn{},
 			handler.EnqueueRequestsFromMapFunc(defaultAgentController.renderAllManifestsHandler),
 			builder.WithPredicates(clusterManagementAddonPred)).
 		// secondary watch for transport credentials or image pull secret
@@ -222,7 +221,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
+	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name: operatorconstants.GHClusterManagementAddonName,
 	}, clusterManagementAddOn)
@@ -297,14 +296,14 @@ func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Contex
 }
 
 func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster,
-	cma *v1alpha1.ClusterManagementAddOn,
+	cma *addonv1alpha1.ClusterManagementAddOn,
 ) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster, cma)
 	if err != nil {
 		return err
 	}
 
-	existingAddon := &v1alpha1.ManagedClusterAddOn{
+	existingAddon := &addonv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
@@ -361,7 +360,7 @@ func ensureTransportResource(clusterName string) error {
 
 func (r *DefaultAgentController) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
-	existingAddon := &v1alpha1.ManagedClusterAddOn{
+	existingAddon := &addonv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
@@ -386,10 +385,10 @@ func (r *DefaultAgentController) removeResourcesAndAddon(ctx context.Context, cl
 	return trans.Prune(cluster.Name)
 }
 
-func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha1.ClusterManagementAddOn) (
-	*v1alpha1.ManagedClusterAddOn, error,
+func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1alpha1.ClusterManagementAddOn) (
+	*addonv1alpha1.ManagedClusterAddOn, error,
 ) {
-	expectedAddon := &v1alpha1.ManagedClusterAddOn{
+	expectedAddon := &addonv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHManagedClusterAddonName,
 			Namespace: cluster.Name,
@@ -406,7 +405,7 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *v1alpha
 				},
 			},
 		},
-		Spec: v1alpha1.ManagedClusterAddOnSpec{
+		Spec: addonv1alpha1.ManagedClusterAddOnSpec{
 			InstallNamespace: constants.GHAgentNamespace,
 		},
 	}

@@ -33,6 +33,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -281,7 +282,7 @@ func Test_GetResources(t *testing.T) {
 	tests := []struct {
 		name          string
 		component     string
-		advanced      func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec
+		advanced      func(resReq *shared.ResourceRequirements) *v1alpha4.AdvancedSpec
 		cpuRequest    string
 		memoryRequest string
 		custom        bool
@@ -295,7 +296,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Grafana with customized values",
 			component: constants.Grafana,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+			advanced: func(resReq *shared.ResourceRequirements) *v1alpha4.AdvancedSpec {
 				return &v1alpha4.AdvancedSpec{
 					Grafana: &v1alpha4.CommonSpec{
 						Resources: resReq,
@@ -313,7 +314,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Postgres with customized values",
 			component: constants.Postgres,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+			advanced: func(resReq *shared.ResourceRequirements) *v1alpha4.AdvancedSpec {
 				return &v1alpha4.AdvancedSpec{
 					Postgres: &v1alpha4.CommonSpec{
 						Resources: resReq,
@@ -331,7 +332,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Agent with customized values",
 			component: constants.Agent,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+			advanced: func(resReq *shared.ResourceRequirements) *v1alpha4.AdvancedSpec {
 				return &v1alpha4.AdvancedSpec{
 					Agent: &v1alpha4.CommonSpec{
 						Resources: resReq,
@@ -349,7 +350,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Manager with customized values",
 			component: constants.Manager,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+			advanced: func(resReq *shared.ResourceRequirements) *v1alpha4.AdvancedSpec {
 				return &v1alpha4.AdvancedSpec{
 					Manager: &v1alpha4.CommonSpec{
 						Resources: resReq,
@@ -367,7 +368,7 @@ func Test_GetResources(t *testing.T) {
 		{
 			name:      "Test Kafka with customized values",
 			component: constants.Kafka,
-			advanced: func(resReq *v1alpha4.ResourceRequirements) *v1alpha4.AdvancedSpec {
+			advanced: func(resReq *shared.ResourceRequirements) *v1alpha4.AdvancedSpec {
 				return &v1alpha4.AdvancedSpec{
 					Kafka: &v1alpha4.CommonSpec{
 						Resources: resReq,
@@ -378,7 +379,7 @@ func Test_GetResources(t *testing.T) {
 		},
 	}
 
-	resReq := &v1alpha4.ResourceRequirements{
+	resReq := &shared.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(customMemoryRequest),
 			corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(customCPURequest),

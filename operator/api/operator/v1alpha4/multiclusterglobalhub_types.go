@@ -19,6 +19,8 @@ package v1alpha4
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	shared "github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 )
 
 // DataLayerType specifies the type of data layer that global hub stores and transports the data.
@@ -141,18 +143,7 @@ type AdvancedSpec struct {
 type CommonSpec struct {
 	// Compute Resources required by this component
 	// +optional
-	Resources *ResourceRequirements `json:"resources,omitempty"`
-}
-
-// ResourceRequirements copied from corev1.ResourceRequirements
-// We do not need to support ResourceClaim
-type ResourceRequirements struct {
-	// Requests describes the minimum amount of compute resources required.
-	// If requests are omitted for a container, it defaults to the specified limits.
-	// If there are no specified limits, it defaults to an implementation-defined value.
-	// For more information, see: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-	// +optional
-	Requests corev1.ResourceList `json:"requests,omitempty"`
+	Resources *shared.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // DataLayerSpec is a discriminated union of data layer specific configuration.

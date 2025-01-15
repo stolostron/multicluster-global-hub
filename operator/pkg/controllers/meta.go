@@ -32,8 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/acm"
@@ -78,21 +80,37 @@ type MetaController struct {
 	imageClient          *imagev1client.ImageV1Client
 	mgr                  manager.Manager
 	operatorConfig       *config.OperatorConfig
-	upgraded             bool
 	startedControllerMap map[string]config.ControllerInterface
 }
 
-// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs;multiclusterglobalhubagents,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs/finalizers,verbs=update
-// +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=policies,verbs=get;list;patch;update
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles;rolebindings;clusterroles;clusterrolebindings,verbs=get;list;watch;create;update;delete
 
-func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
-) (ctrl.Result, error) {
+func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Check if mgh exist or deleting
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.client)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	mgha, err := config.GetMulticlusterGlobalHubAgent(ctx, r.client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if mgha != nil {
+		// deploy global hub agent
+		if err := agent.StartStandaloneAgentController(ctx, r.mgr); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if mgh == nil {
@@ -114,6 +132,10 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request,
 			Reason:  config.CONDITION_REASON_GLOBALHUB_UNINSTALL,
 			Message: config.CONDITION_MESSAGE_GLOBALHUB_UNINSTALL,
 		}, v1alpha4.GlobalHubUninstalling)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+
 		_, err = r.pruneGlobalHubResources(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -214,6 +236,8 @@ func (r *MetaController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("MetaController").
 		For(&v1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(config.MGHPred)).
+		Watches(&v1alpha1.MulticlusterGlobalHubAgent{},
+			&handler.EnqueueRequestForObject{}).
 		Complete(r)
 }
 

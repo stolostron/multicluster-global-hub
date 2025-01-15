@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -289,42 +291,41 @@ func GetResources(component string, advanced *v1alpha4.AdvancedSpec) *corev1.Res
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.GrafanaMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.GrafanaCPURequest)
 		if advanced != nil && advanced.Grafana != nil {
-			setResourcesFromCR(advanced.Grafana.Resources, requests)
+			SetResourcesFromCR(advanced.Grafana.Resources, requests)
 		}
 
 	case operatorconstants.Postgres:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.PostgresMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.PostgresCPURequest)
 		if advanced != nil && advanced.Postgres != nil {
-			setResourcesFromCR(advanced.Postgres.Resources, requests)
+			SetResourcesFromCR(advanced.Postgres.Resources, requests)
 		}
 
 	case operatorconstants.Manager:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.ManagerMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.ManagerCPURequest)
 		if advanced != nil && advanced.Manager != nil {
-			setResourcesFromCR(advanced.Manager.Resources, requests)
+			SetResourcesFromCR(advanced.Manager.Resources, requests)
 		}
 	case operatorconstants.Agent:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.AgentMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.AgentCPURequest)
 		if advanced != nil && advanced.Agent != nil {
-			setResourcesFromCR(advanced.Agent.Resources, requests)
+			SetResourcesFromCR(advanced.Agent.Resources, requests)
 		}
 	case operatorconstants.Kafka:
 		requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(operatorconstants.KafkaMemoryRequest)
 		requests[corev1.ResourceName(corev1.ResourceCPU)] = resource.MustParse(operatorconstants.KafkaCPURequest)
 		if advanced != nil && advanced.Kafka != nil {
-			setResourcesFromCR(advanced.Kafka.Resources, requests)
+			SetResourcesFromCR(advanced.Kafka.Resources, requests)
 		}
 	}
-
 	resourceReq.Requests = requests
 
 	return &resourceReq
 }
 
-func setResourcesFromCR(res *v1alpha4.ResourceRequirements, requests corev1.ResourceList) {
+func SetResourcesFromCR(res *shared.ResourceRequirements, requests corev1.ResourceList) {
 	if res != nil {
 		if res.Requests.Memory().String() != "0" {
 			requests[corev1.ResourceName(corev1.ResourceMemory)] = resource.MustParse(res.Requests.Memory().String())
@@ -432,7 +433,7 @@ func FilterManagedCluster(obj client.Object) bool {
 
 // ManipulateGlobalHubObjects will attach the owner reference, add specific labels to these objects
 func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
-	mgh *v1alpha4.MulticlusterGlobalHub, hohDeployer deployer.Deployer,
+	owner metav1.Object, hohDeployer deployer.Deployer,
 	mapper *restmapper.DeferredDiscoveryRESTMapper, scheme *runtime.Scheme,
 ) error {
 	// manipulate the object
@@ -444,7 +445,7 @@ func ManipulateGlobalHubObjects(objects []*unstructured.Unstructured,
 
 		if mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 			// for namespaced resource, set ownerreference of controller
-			if err := controllerutil.SetControllerReference(mgh, obj, scheme); err != nil {
+			if err := controllerutil.SetControllerReference(owner, obj, scheme); err != nil {
 				return err
 			}
 		}
