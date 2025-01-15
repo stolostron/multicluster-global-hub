@@ -45,7 +45,7 @@ metadata:
 
 The Global Hub also provides a way to customize the configuration of the built-in PostgreSQL server (refer to [PostgreSQL Configuration Settings](https://www.postgresql.org/docs/16/config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE)). Follow these steps to achieve it:
 
-1. Create a secret named `multicluster-global-hub-custom-postgresql-config` containing the `postgresql.conf`, as shown below:
+1. Create a ConfigMap named `multicluster-global-hub-custom-postgresql-config` containing the `postgresql.conf`, as shown below:
 
 ```yaml
 apiVersion: v1
