@@ -225,6 +225,18 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, mgh)).To(Succeed())
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh)).To(Succeed())
 
+		// add customized postgres configuration
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "multicluster-global-hub-custom-postgresql-config",
+				Namespace: namespace,
+			},
+			Data: map[string]string{
+				"postgresql.conf": "wal_level = logical\nmax_wal_size = 2GB\n",
+			},
+		}
+		Expect(runtimeClient.Create(ctx, cm)).To(Succeed())
+
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true, false)
 
 		// blocking until get the connection
@@ -246,6 +258,13 @@ var _ = Describe("storage", Ordered, func() {
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
+		// verify the customized configuration
+		cm = &corev1.ConfigMap{}
+		err = runtimeClient.Get(ctx, types.NamespacedName{Namespace: mgh.Namespace, Name: "multicluster-global-hub-postgresql-config"}, cm)
+		Expect(err).To(Succeed())
+		Expect(cm.Data["postgresql.conf"]).To(ContainSubstring("max_wal_size = 2GB"))
+		utils.PrettyPrint(cm.Data["postgresql.conf"])
 
 		// cleanup
 		Eventually(func() error {

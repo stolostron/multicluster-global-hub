@@ -78,6 +78,7 @@ var WatchedSecret = sets.NewString(
 
 var WatchedConfigMap = sets.NewString(
 	BuiltinPostgresCAName,
+	BuiltinPostgresCustomizedConfigName,
 )
 
 var (
@@ -125,7 +126,7 @@ func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(secretPred)).
 		Watches(&corev1.ConfigMap{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configMapPredicate)).
 		Watches(&appsv1.StatefulSet{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(statefulSetPred)).
 		Watches(&corev1.ServiceAccount{},
@@ -135,6 +136,20 @@ func (r *StorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&promv1.ServiceMonitor{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Complete(r)
+}
+
+var configMapPredicate = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return WatchedConfigMap.Has(e.Object.GetName())
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return WatchedConfigMap.Has(e.ObjectNew.GetName()) ||
+			e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GHOperatorOwnerLabelVal
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return WatchedConfigMap.Has(e.Object.GetName()) ||
+			e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] == constants.GHOperatorOwnerLabelVal
+	},
 }
 
 var statefulSetPred = predicate.Funcs{
