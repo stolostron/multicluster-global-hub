@@ -27,6 +27,7 @@ The multicluster global hub is useful when a single hub cluster cannot manage th
     - [Access the grafana](#access-the-grafana)
     - [Grafana dashboards](#grafana-dashboards)
     - [Cronjobs and Metrics](#cronjobs-and-metrics)
+  - [Built-in PostgreSQL Configuration](./global_hub_builtin_postgresql.md)
   - [Troubleshooting](./troubleshooting.md)
   - [Development preview features](./dev-preview.md)
   - [Known issues](#known-issues)
