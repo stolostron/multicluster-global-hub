@@ -1,25 +1,28 @@
-# Builtin Postgresql Configuration
+# Built-in PostgreSQL Configuration
 
-This section only introduce the features supported by builtin and postgres configuration provide by the global hub control plane
+## Initialize PostgreSQL User and Database via Global Hub API Annotation
 
-## Initialize the Postgres user and database by Annotation of Global Hub API
+To enhance the functionality of the Global Hub as a resource inventory, we provide an API annotation for Global Hub admins to easily initialize users and databases. Typically, users are granted read and write permissions only for the databases they create. The annotation key is `global-hub.open-cluster-management.io/postgres-users`, and its value is a JSON list that allows initializing multiple users at once. The format is:
 
-To enrich the functionality of the global hub as an resource inventory. We will expose the interface by the annotation of the API to make sure the global hub admin can initialize their user and database conveniently. Typically the user can only have the permission(write and read) for the created database. The anntation key is `global-hub.open-cluster-management.io/postgres-users` and the value is a json list which means you can initialized multi users at once, the format is `[{"name": "<user>", "databases": ["<db1>", "<db2>"]}]`. The following is an example
+```json
+[{"name": "<user>", "databases": ["<db1>", "<db2>"]}]
+```
+
+#### Example:
 
 ```bash
 $ kubectl patch mgh multiclusterglobalhub -n multicluster-global-hub --type='merge' \
   -p '{"metadata": {"annotations": {"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser\", \"databases\": [\"test1\"]}]"}}}'
-$ kubectl get mgh multiclusterglobalhub -n multicluster-global-hub -oyaml
+$ kubectl get mgh multiclusterglobalhub -n multicluster-global-hub -o yaml
 apiVersion: operator.open-cluster-management.io/v1alpha4
 kind: MulticlusterGlobalHub
 metadata:
   annotations:
-    global-hub.open-cluster-management.io/postgres-users: '[{"name": "testuser", "databases":
-      ["test1", "test2"]}]'
+    global-hub.open-cluster-management.io/postgres-users: '[{"name": "testuser", "databases": ["test1", "test2"]}]'
   ...
 ```
 
-After the annotation is patched, the control-plane will generate the secret with name `postgresql-user-<username>`, for the above example is `postgresql-user-testuser `. The secret will contains the credential on how to access the database by the user you just patched, the detial as follows
+After the annotation is applied, the control plane will generate a secret named `postgresql-user-<username>`. In the example above, the secret name will be `postgresql-user-testuser`. The secret will contain credentials for accessing the database by the user you specified. The details will appear as follows:
 
 ```bash
 apiVersion: v1
@@ -38,12 +41,11 @@ metadata:
 ...
 ```
 
+## Custom PostgreSQL Configuration
 
-## Postgres Customized Configuration
+The Global Hub also provides a way to customize the configuration of the built-in PostgreSQL server (refer to [PostgreSQL Configuration Settings](https://www.postgresql.org/docs/16/config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE)). Follow these steps to achieve it:
 
-The global hub also provide a way to customized the configuration(https://www.postgresql.org/docs/16/config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE) for the the builtin postgres sever, you can following the following step to achieve it.
-
-1. Create the secret named `multicluster-global-hub-custom-postgresql-config`, which contains the configuration `postgresql.conf`. As the following:
+1. Create a secret named `multicluster-global-hub-custom-postgresql-config` containing the `postgresql.conf`, as shown below:
 
 ```yaml
 apiVersion: v1
@@ -59,7 +61,7 @@ metadata:
   namespace: multicluster-global-hub
 ```
 
-2. Restart the instance of the postgres server to ensure the configuration take effect.
+2. Restart the PostgreSQL server instance to apply the configuration changes:
 
 ```
 kubectl delete pods -l name=multicluster-global-hub-postgresql
