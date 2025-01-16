@@ -113,7 +113,7 @@ type MulticlusterGlobalHubSpec struct {
 	// Currently, switching the value of this field is not supported after the Global Hub is installed.
 	// +kubebuilder:default=false
 	// +optional
-	InstallAgentOnLocal bool `json:"InstallAgentOnLocal,omitempty"`
+	InstallAgentOnLocal bool `json:"installAgentOnLocal,omitempty"`
 }
 
 type AdvancedSpec struct {
