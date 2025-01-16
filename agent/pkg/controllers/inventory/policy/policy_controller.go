@@ -23,7 +23,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 )
 
 type PolicyInventorySyncer struct {
@@ -55,7 +54,7 @@ func AddPolicyInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Req
 			if annotations == nil {
 				annotations = map[string]string{}
 			}
-			annotations[constants.InventoryResourceCreatingAnnotationlKey] = ""
+			annotations[constants.InventoryResourceCreatingAnnotationlKey] = "true"
 			e.Object.SetAnnotations(annotations)
 			return true
 		},
@@ -73,7 +72,7 @@ func AddPolicyInventorySyncer(mgr ctrl.Manager, inventoryRequester transport.Req
 		WithEventFilter(policyPredicate).
 		Complete(&PolicyInventorySyncer{
 			runtimeClient:      mgr.GetClient(),
-			reporterInstanceId: requester.GetInventoryClientName(configs.GetLeafHubName()),
+			reporterInstanceId: configs.GetLeafHubName(),
 			requester:          inventoryRequester,
 		})
 }
@@ -196,6 +195,12 @@ func deleteK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, reporterInstan
 func generateK8SPolicy(policy *policiesv1.Policy, reporterInstanceId string) *kessel.K8SPolicy {
 	kesselLabels := []*kessel.ResourceLabel{}
 	for key, value := range policy.Labels {
+		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
+			Key:   key,
+			Value: value,
+		})
+	}
+	for key, value := range policy.Annotations {
 		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
 			Key:   key,
 			Value: value,

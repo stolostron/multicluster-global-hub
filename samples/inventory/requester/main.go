@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
-	"log"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 func main() {
 	// leafHubName := "hub1"

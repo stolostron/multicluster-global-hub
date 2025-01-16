@@ -44,7 +44,7 @@ func globalHub(ctx context.Context) error {
 
 	clusterInfo := createMockClusterInfo("local-cluster")
 	cluster := createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster := managedclusterinfo.GetK8SCluster(clusterInfo, cluster, "guest")
+	k8sCluster := managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", c)
 	createResp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -54,7 +54,7 @@ func globalHub(ctx context.Context) error {
 
 	clusterInfo = createMockClusterInfo("local-cluster")
 	cluster = createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, cluster, "guest")
+	k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", c)
 	updatingResponse, err := requesterClient.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -64,7 +64,7 @@ func globalHub(ctx context.Context) error {
 
 	clusterInfo = createMockClusterInfo("local-cluster")
 	cluster = createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, cluster, "guest")
+	k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", c)
 	deletingResponse, err := requesterClient.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 		&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData})
 	if err != nil {
