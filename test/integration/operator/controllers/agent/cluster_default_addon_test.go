@@ -30,7 +30,7 @@ var _ = Describe("deploy default addon", func() {
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
 
-		By("By checking the addon CR is is created in the cluster ns")
+		By("By checking the addon CR is created in the cluster ns")
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{

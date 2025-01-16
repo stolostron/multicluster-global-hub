@@ -1,0 +1,6 @@
+apiVersion: operator.open-cluster-management.io/v1alpha1
+kind: MulticlusterGlobalHubAgent
+metadata:
+  name: multiclusterglobalhubagent
+spec:
+  transportConfigSecretName: transport-config

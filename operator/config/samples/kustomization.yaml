@@ -2,4 +2,5 @@
 resources:
 - operator_v1alpha4_multiclusterglobalhub.yaml
 - global_hub_v1alpha1_managedclustermigration.yaml
+- operator_v1alpha1_multiclusterglobalhubagent.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
