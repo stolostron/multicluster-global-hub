@@ -22,11 +22,8 @@ def check_global_hub_memory(start_time, end_time, step):
     global_hub_grafana_memory_usage(pc, start_time, end_time, step)
     global_hub_postgres_memory_usage(pc, start_time, end_time, step)
     global_hub_kafka_memory_usage(pc, start_time, end_time, step)
-<<<<<<< HEAD
     global_hub_kafka_operator_memory_usage(pc, start_time, end_time, step)
 
-=======
->>>>>>> 1e47f3cf (correct the inspector)
     # global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step)
     
 def kubeapi_memory_usage(pc, start_time, end_time, step):
