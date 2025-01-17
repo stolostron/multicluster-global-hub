@@ -198,8 +198,8 @@ def global_hub_grafana_memory_usage(pc, start_time, end_time, step):
     
 
 def global_hub_postgres_memory_usage(pc, start_time, end_time, step):
-    title = "Global Hub Postgres Memory MB"
-    file = "global-hub-postgres-memory-usage"
+    title = "Global Hub Postgresql Memory MB"
+    file = "global-hub-postgresql-memory-usage"
     print(title)
     
     try:
