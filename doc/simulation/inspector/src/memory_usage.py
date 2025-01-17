@@ -22,7 +22,7 @@ def check_global_hub_memory(start_time, end_time, step):
     global_hub_grafana_memory_usage(pc, start_time, end_time, step)
     global_hub_postgres_memory_usage(pc, start_time, end_time, step)
     global_hub_kafka_memory_usage(pc, start_time, end_time, step)
-    global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step)
+    # global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step)
     
 def kubeapi_memory_usage(pc, start_time, end_time, step):
 
@@ -245,7 +245,7 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     
     try:
         query = '''
-        sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-kafka-.*"}) by (pod) / (1024*1024*1024)
+        sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-kraft-.*"}) by (pod) / (1024*1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,

@@ -24,7 +24,7 @@ def check_global_hub_cpu(start_time, end_time, step):
     global_hub_grafana(pc, start_time, end_time, step)
     global_hub_postgres(pc, start_time, end_time, step)
     global_hub_kafka(pc, start_time, end_time, step)
-    global_hub_zookeeper_kafka(pc, start_time, end_time, step)
+    # global_hub_zookeeper_kafka(pc, start_time, end_time, step)
     
 def kubeapi_cpu_usage(pc, start_time, end_time, step):
     file = 'kubeapi-cpu-usage'
@@ -218,8 +218,8 @@ def global_hub_total(pc, start_time, end_time, step):
     print("-----------------------------------------------------------------------------------------")
 
 def global_hub_postgres(pc, start_time, end_time, step):
-    file = 'global-hub-postgres-cpu-usage'
-    title = 'Global Hub Postgres CPU'
+    file = 'global-hub-postgresql-cpu-usage'
+    title = 'Global Hub Postgresql CPU'
     print(title)
     try:
         query = '''
@@ -261,7 +261,7 @@ def global_hub_kafka(pc, start_time, end_time, step):
     try:
         query = '''
         sum(
-          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"kafka-kafka-.*"}
+          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"kafka-kraft-.*"}
         ) by (pod)
         '''
         cpu_trend = pc.custom_query_range(
