@@ -4,6 +4,8 @@
 
 You can execute the following script to create the hub clusters and join them into the global hub. To join these clusters to it, You must set the `KUBECONFIG` environment variable to enable these hubs can connect to the global hub. Besides, you also need to provide several parameters:
 
+> If you have installed the release version of ACM for the global hub, you need to [configure the image pull secret](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.12/html-single/clusters/index#import-gui-prereqs) for the KinD cluster.
+
 ```bash
 ./doc/simulation/setup/setup-cluster.sh 1:5 1:300 
 ```
