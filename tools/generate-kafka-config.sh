@@ -1,7 +1,27 @@
 #!/bin/bash
 
+set -e
+
 global_hub_namespace=${2:-"multicluster-global-hub"}
 kakfa_cluster_name=${3:-"kafka"}
+
+usage() {
+  cat <<EOF
+Usage: $(basename "${BASH_SOURCE[0]}") cluster_name [global_hub_namespace] [kafka_cluster_name]
+
+Create a KafkaTopic and KafkaUser in your cluster.
+Generate the Kafka configurations, including bootstrap.server, topic.status, ca.crt, client.crt, and client.key.
+
+Available options:
+
+  -h, --help                 Print this help message and exit
+  cluster_name               The OpenShift cluster that is used by the KafkaUser and KafkaTopic.
+  global_hub_namespace       The namespace of the Global Hub operator. Default is 'multicluster-global-hub'.
+  kafka_cluster_name         The Kafka cluster name. Default is 'kafka'.
+
+EOF
+  exit
+}
 
 # create a KafkaUser CR
 createKafkaUser() {
@@ -107,18 +127,23 @@ EOF
   echo ""
 }
 
+if [ $# -eq 0 -o $# -gt 3 ]; then
+  usage
+fi
+
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    -h | --help)
+      usage
+      ;;
+
+    *)
+      break
+      ;;
+  esac
+done
 # create a KafkaUser and KafkaTopic for the given name
 createKafkaTopic $1
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
 createKafkaUser $1
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
 generateKafkaConfig $1
-if [ $? -ne 0 ]; then
-    exit 1
-fi
