@@ -62,3 +62,14 @@ $ ./doc/simulation/setup/rotate-policy.sh 1:5 1:50 "Compliant"
 - `$1` - <hub_start:hub_end> - Managed hubs, from `hub1` to `hub5`
 - `$2` - <policy_start:policy_end> - Policies on each hub, from `rootpoicy-1` to `rootpolicy-50`
 - `$2` - The target compliance status
+
+
+## Note
+
+When creating these KinD clusters on your machine, please ensure that the KinD cluster is not running due to the following resource limitations.
+
+```
+sudo sysctl fs.inotify.max_user_instances=8192 >> /etc/sysctl.conf
+sudo sysctl fs.inotify.max_user_watches=524288 >> /etc/sysctl.conf
+sudo sysctl -p
+```
