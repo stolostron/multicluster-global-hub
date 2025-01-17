@@ -22,6 +22,8 @@ def check_global_hub_memory(start_time, end_time, step):
     global_hub_grafana_memory_usage(pc, start_time, end_time, step)
     global_hub_postgres_memory_usage(pc, start_time, end_time, step)
     global_hub_kafka_memory_usage(pc, start_time, end_time, step)
+    global_hub_kafka_operator_memory_usage(pc, start_time, end_time, step)
+
     # global_hub_kafka_zookeeper_memory_usage(pc, start_time, end_time, step)
     
 def kubeapi_memory_usage(pc, start_time, end_time, step):
@@ -246,6 +248,43 @@ def global_hub_kafka_memory_usage(pc, start_time, end_time, step):
     try:
         query = '''
         sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-kraft-.*"}) by (pod) / (1024*1024*1024)
+        '''
+        global_hub_trend = pc.custom_query_range(
+            query=query,
+            start_time=start_time,
+            end_time=end_time,
+            step=step,
+        )
+
+        global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
+        global_hub_trend_df["value"]=global_hub_trend_df["value"].astype(float)
+        global_hub_trend_df.index= pandas.to_datetime(global_hub_trend_df.index, unit="s")
+        global_hub_trend_df = global_hub_trend_df.sort_index(ascending=True)
+        global_hub_trend_df.rename(columns={"value": "memory"}, inplace = True)
+        
+        print(global_hub_trend_df.head(3))
+        # global_hub_trend_df.plot(title=total,figsize=(figure_with, figure_hight))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='memory', data=global_hub_trend_df, hue='pod')
+        plt.title(title)
+        
+        plt.savefig(output_path + "/" + file + ".png")
+        global_hub_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
+        plt.close('all')
+
+    except Exception as e:
+        print(Fore.RED+"Error in getting Memory (rss) for GH: ",e)  
+        print(Style.RESET_ALL)  
+    print("-----------------------------------------------------------------------------------------")
+
+def global_hub_kafka_operator_memory_usage(pc, start_time, end_time, step):
+    title = "Global Hub Kafka Operator Memory MB"
+    file = "global-hub-kafka-operator-memory-usage"
+    print(title)
+    
+    try:
+        query = '''
+        sum(container_memory_working_set_bytes{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", namespace="multicluster-global-hub", container!="", image!="", pod=~"kafka-entity-operator-.*|strimzi-cluster-operator-.*"}) by (pod) / (1024*1024)
         '''
         global_hub_trend = pc.custom_query_range(
             query=query,

@@ -24,6 +24,7 @@ def check_global_hub_cpu(start_time, end_time, step):
     global_hub_grafana(pc, start_time, end_time, step)
     global_hub_postgres(pc, start_time, end_time, step)
     global_hub_kafka(pc, start_time, end_time, step)
+    global_hub_kafka_operator(pc, start_time, end_time, step)
     # global_hub_zookeeper_kafka(pc, start_time, end_time, step)
     
 def kubeapi_cpu_usage(pc, start_time, end_time, step):
@@ -253,7 +254,44 @@ def global_hub_postgres(pc, start_time, end_time, step):
         print(Style.RESET_ALL) 
           
     print("-----------------------------------------------------------------------------------------")
+    
+def global_hub_kafka_operator(pc, start_time, end_time, step):
+    file = 'global-hub-kafka-operator-cpu-usage'
+    title = 'Global Hub Kafka operator CPU'
+    print(title)
+    try:
+        query = '''
+        sum(
+          node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{namespace="multicluster-global-hub", pod=~"kafka-entity-operator-.*|strimzi-cluster-operator-.*"}
+        ) by (pod)
+        '''
+        cpu_trend = pc.custom_query_range(
+          query=query,
+          start_time=start_time,
+          end_time=end_time,
+          step=step,
+        )
 
+        cpu_trend_df = MetricRangeDataFrame(cpu_trend)
+        cpu_trend_df["value"]=cpu_trend_df["value"].astype(float)
+        cpu_trend_df.index= pandas.to_datetime(cpu_trend_df.index, unit="s")
+        cpu_trend_df = cpu_trend_df.sort_index(ascending=True)
+        cpu_trend_df.rename(columns={"value": "cpu"}, inplace = True)
+        
+        print(cpu_trend_df.head(3))
+        plt.figure(figsize=(figure_with, figure_hight))  
+        sns.lineplot(x='timestamp', y='cpu', data=cpu_trend_df, hue='pod')
+        plt.title(title)
+        # cpu_trend_df.plot(title=title,figsize=(figure_with, figure_hight))
+        plt.savefig(output_path + "/" + file + ".png")
+        cpu_trend_df.to_csv(output_path + "/" + file + ".csv", index = True, header=True)
+        plt.close('all')
+    except Exception as e:
+        print(Fore.RED+"Error in getting CPU: ",e) 
+        print(Style.RESET_ALL) 
+          
+    print("-----------------------------------------------------------------------------------------")
+    
 def global_hub_kafka(pc, start_time, end_time, step):
     file = 'global-hub-kafka-broker-cpu-usage'
     title = 'Global Hub Kafka broker CPU'
