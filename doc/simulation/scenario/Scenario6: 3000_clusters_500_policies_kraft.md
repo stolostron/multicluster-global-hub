@@ -43,7 +43,7 @@ The global hub counters are used to count the managed clusters, compliances and 
 - The Changes of Compliance
 ![Compliances](./images/6-count-compliance.png)
 
-### The CPU and Memory Consumption of the Global Hub Components
+### The CPU and Memory of the Global Hub Components
 
 - Multicluster Global Hub Manager
 
@@ -79,7 +79,7 @@ cat /sys/fs/cgroup/memory.current
 276987904
 ```
 
-### The CPU and Memory Consumption of the Middlewares
+### The CPU and Memory of the Middlewares
 
 - Multicluster Global Hub Postgresql
 
@@ -95,3 +95,14 @@ cat /sys/fs/cgroup/memory.current
 
 ![Global Hub Kafka Operator CPU](./images/6-kafka-operator-cpu-usage.png)
 ![Global Hub Kafka Operator Memory](./images/6-kafka-operator-memory-usage.png)
+
+
+### CPU and Memory Summary
+
+  ---
+  | Type               | Manager | Agent | Operator | Grafana | Postgresql | Kafka Broker |
+  |---                 |---      |---    |---       |---      |---       |---           |
+  | Request CPU(m)     | 5       | 10    | 2        | 5       | 100      | 20           |
+  | Limit CPU(m)       | 500     | 50    | 100      | 50      | 8000     | 200          |
+  | Request Memory(Mi) | 60      | 300   | 70       | 150     | 60       | 2   Gi       |
+  | Limit Memory(Mi)   | 500     | 1200  | 200      | 800     | 1000     | 6   Gi       |
