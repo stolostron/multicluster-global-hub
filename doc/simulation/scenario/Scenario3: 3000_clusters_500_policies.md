@@ -80,7 +80,7 @@ cat /sys/fs/cgroup/memory.current
 ![Global Hub Kafka Zookeeper CPU](./images/3-kafka-zookeeper-cpu-usage.png)
 ![Global Hub Kafka Zookeeper Memory](./images/3-kafka-zookeeper-memory-usage.png)
 
-- CPU and Memory Summary
+### CPU and Memory Summary
 
   ---
   | Type               | Manager | Agent | Operator | Grafana | Postgres | Kafka Broker | Kafka Zookeeper |
