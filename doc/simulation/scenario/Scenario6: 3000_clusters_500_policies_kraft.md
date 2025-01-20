@@ -3,7 +3,7 @@
 ## Note
 
 - Switch the Kafka cluster to Kraft mode.
-- Operator Image:  `quay.io/stolostron/multicluster-global-hub-operator@sha256:26217377636f37d407dfeb03a553ec7d354cc95c4db3396d35ed439cf773061b`
+- Commit Image:  `fde5a1ff7e1b818b8f90e2c15f511ad46fa3e637`
 
 ## Scale
 
