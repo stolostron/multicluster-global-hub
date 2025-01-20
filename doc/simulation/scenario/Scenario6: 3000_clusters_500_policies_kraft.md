@@ -4,6 +4,7 @@
 
 - Switch the Kafka cluster to Kraft mode.
 - Commit Image:  `fde5a1ff7e1b818b8f90e2c15f511ad46fa3e637`
+- Ensure that `pprof` is enabled when setting up the environment
 
 ## Scale
 
