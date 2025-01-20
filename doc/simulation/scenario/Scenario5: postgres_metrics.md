@@ -1,4 +1,4 @@
-# Scenario 6: Postgres Metrics(release-2.11/globalhub-1.2)
+# Scenario 5: Postgres Metrics(release-2.11/globalhub-1.2)
 
 ## Scale
 
