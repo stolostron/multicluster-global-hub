@@ -31,7 +31,7 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 		clusterInfo := mockManagedClusterInfo(localClusterId, clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 			clusterinfov1beta1.CloudVendorAWS)
 		cluster := createMockCluster(localClusterId, "OpenShift", "4.10.0", "AWS", "1.23.0")
-		k8sCluster = managedclusterinfo.GetK8SCluster(clusterInfo, cluster, "guest")
+		k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", runtimeClient)
 
 		localPolicyId = fmt.Sprintf("test-policy-%d", rand.Intn(100000))
 		k8sPolicy = generateK8SPolicy(localPolicyId, "guest")

@@ -46,7 +46,7 @@ func AddHubClusterClaimController(mgr ctrl.Manager) error {
 		if object.GetName() == constants.HubClusterClaimName {
 			return false
 		}
-		clusterClaim, _ := getClusterClaim(context.Background(), mgr.GetClient(), constants.HubClusterClaimName)
+		clusterClaim, _ := utils.GetClusterClaim(context.Background(), mgr.GetClient(), constants.HubClusterClaimName)
 		return clusterClaim == nil
 	})
 	err := ctrl.NewControllerManagedBy(mgr).Named("hubclusterclaim-controller").
@@ -90,7 +90,7 @@ func updateHubClusterClaim(ctx context.Context, k8sClient client.Client,
 }
 
 func updateClusterClaim(ctx context.Context, k8sClient client.Client, name, value string) error {
-	clusterClaim, err := getClusterClaim(ctx, k8sClient, name)
+	clusterClaim, err := utils.GetClusterClaim(ctx, k8sClient, name)
 	if err != nil {
 		return err
 	}
@@ -99,21 +99,6 @@ func updateClusterClaim(ctx context.Context, k8sClient client.Client, name, valu
 	}
 	clusterClaim.Spec.Value = value
 	return k8sClient.Update(ctx, clusterClaim)
-}
-
-func getClusterClaim(ctx context.Context,
-	k8sClient client.Client,
-	name string,
-) (*clustersv1alpha1.ClusterClaim, error) {
-	clusterClaim := &clustersv1alpha1.ClusterClaim{}
-	err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, clusterClaim)
-	if errors.IsNotFound(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return clusterClaim, nil
 }
 
 func getClusterManager(ctx context.Context, client client.Client) (*operatorv1.ClusterManager, error) {

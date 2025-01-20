@@ -166,14 +166,12 @@ func TestGetK8SClusterInfo(t *testing.T) {
 
 	cluster := createMockCluster("test-cluster", "OpenShift", "4.10.0", "AWS", "1.23.0")
 	// Call the function
-	k8sCluster := GetK8SCluster(clusterInfo, cluster, "guest")
+	k8sCluster := GetK8SCluster(context.Background(), clusterInfo, cluster, "guest", nil)
 
 	// Assert the results
 	assert.NotNil(t, k8sCluster)
 	assert.Equal(t, "k8s_cluster", k8sCluster.Metadata.ResourceType)
 	assert.Equal(t, kessel.ReporterData_ACM, k8sCluster.ReporterData.ReporterType)
-	assert.Equal(t, "https://api.test-cluster.example.com", k8sCluster.ReporterData.ApiHref)
-	assert.Equal(t, "https://console.test-cluster.example.com", k8sCluster.ReporterData.ConsoleHref)
 	assert.Equal(t, "23e5ae9e-c6b2-4793-be6b-2e52f870df10", k8sCluster.ResourceData.ExternalClusterId)
 	assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
 	assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)
@@ -226,7 +224,7 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sCluster := GetK8SCluster(tc.clusterInfo, tc.cluster, "guest")
+			k8sCluster := GetK8SCluster(context.Background(), tc.clusterInfo, tc.cluster, "guest", nil)
 
 			assert.NotNil(t, k8sCluster)
 			assert.Equal(t, tc.expectedVendor, k8sCluster.ResourceData.KubeVendor)
@@ -234,8 +232,6 @@ func TestKubeVendorK8SCluster(t *testing.T) {
 			// Add more assertions for common fields
 			assert.Equal(t, "k8s_cluster", k8sCluster.Metadata.ResourceType)
 			assert.Equal(t, kessel.ReporterData_ACM, k8sCluster.ReporterData.ReporterType)
-			assert.Equal(t, "https://api.test-cluster.example.com", k8sCluster.ReporterData.ApiHref)
-			assert.Equal(t, "https://console.test-cluster.example.com", k8sCluster.ReporterData.ConsoleHref)
 			assert.Equal(t, "23e5ae9e-c6b2-4793-be6b-2e52f870df10", k8sCluster.ResourceData.ExternalClusterId)
 			assert.Equal(t, "1.23.0", k8sCluster.ResourceData.KubeVersion)
 			assert.Equal(t, kessel.K8SClusterDetail_READY, k8sCluster.ResourceData.ClusterStatus)

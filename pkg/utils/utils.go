@@ -14,12 +14,28 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+func GetClusterClaim(ctx context.Context,
+	k8sClient client.Client,
+	name string,
+) (*clustersv1alpha1.ClusterClaim, error) {
+	clusterClaim := &clustersv1alpha1.ClusterClaim{}
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: name}, clusterClaim)
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return clusterClaim, nil
+}
 
 func PrintRuntimeInfo() {
 	log := logger.DefaultZapLogger()

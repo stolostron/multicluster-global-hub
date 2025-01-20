@@ -57,8 +57,3 @@ func (c *InventoryClient) RefreshClient(ctx context.Context, restfulConn *transp
 func (c *InventoryClient) GetHttpClient() *v1beta1.InventoryHttpClient {
 	return c.httpClient
 }
-
-// GetInventoryClientName gives a inventory client name based on the cluster name, it's also the CN of the certificate
-func GetInventoryClientName(managedHubName string) string {
-	return fmt.Sprintf("%s-client", managedHubName)
-}

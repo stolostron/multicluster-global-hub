@@ -23,7 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type ManagedClusterInfoInventorySyncer struct {
@@ -47,7 +47,7 @@ func (r *ManagedClusterInfoInventorySyncer) Reconcile(ctx context.Context, req c
 	if err := r.runtimeClient.Get(ctx, client.ObjectKey{Name: req.Name}, cluster); err != nil {
 		return ctrl.Result{}, err
 	}
-	k8sCluster := GetK8SCluster(clusterInfo, cluster, r.clientCN)
+	k8sCluster := GetK8SCluster(ctx, clusterInfo, cluster, r.clientCN, r.runtimeClient)
 
 	annotations := clusterInfo.GetAnnotations()
 	if annotations != nil {
@@ -122,12 +122,14 @@ func AddManagedClusterInfoInventorySyncer(mgr ctrl.Manager, inventoryRequester t
 			log:           logger.ZapLogger("managedclusterinfo"),
 			runtimeClient: mgr.GetClient(),
 			requester:     inventoryRequester,
-			clientCN:      requester.GetInventoryClientName(configs.GetLeafHubName()),
+			clientCN:      configs.GetLeafHubName(),
 		})
 }
 
-func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
+func GetK8SCluster(ctx context.Context,
+	clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 	cluster *clusterv1.ManagedCluster, clientCN string,
+	r client.Client,
 ) *kessel.K8SCluster {
 	clusterId := string(cluster.GetUID())
 	var vendorVersion, cloudVendor, kubeVersion, kubeVendor string
@@ -148,6 +150,7 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 			kubeVendor = claim.Value
 		}
 	}
+
 	// TODO: remove this after the vendorVersion is optional
 	if vendorVersion == "" {
 		vendorVersion = kubeVersion
@@ -170,14 +173,24 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 			ReporterInstanceId: clientCN,
 			ReporterVersion:    configs.GetMCHVersion(),
 			LocalResourceId:    clusterInfo.Name,
-			ApiHref:            clusterInfo.Spec.MasterEndpoint,
-			ConsoleHref:        clusterInfo.Status.ConsoleURL,
 		},
 		ResourceData: &kessel.K8SClusterDetail{
 			ExternalClusterId: clusterId,
 			KubeVersion:       kubeVersion,
 			Nodes:             []*kessel.K8SClusterDetailNodesInner{},
 		},
+	}
+
+	if r != nil {
+		// managedhub console href and api href
+		consoleClaim, err := utils.GetClusterClaim(ctx, r, "consoleurl.cluster.open-cluster-management.io")
+		if err == nil && consoleClaim != nil {
+			k8sCluster.ReporterData.ConsoleHref = consoleClaim.Spec.Value
+		}
+		apiClaim, err := utils.GetClusterClaim(ctx, r, "apiserverurl.openshift.io")
+		if err == nil || apiClaim != nil {
+			k8sCluster.ReporterData.ConsoleHref = apiClaim.Spec.Value
+		}
 	}
 
 	// platform
@@ -217,6 +230,8 @@ func GetK8SCluster(clusterInfo *clusterinfov1beta1.ManagedClusterInfo,
 			} else {
 				k8sCluster.ResourceData.ClusterStatus = kessel.K8SClusterDetail_FAILED
 			}
+		} else {
+			k8sCluster.ResourceData.ClusterStatus = kessel.K8SClusterDetail_OFFLINE
 		}
 	}
 
