@@ -4,6 +4,8 @@
 
 You can execute the following script to create the hub clusters and join them into the global hub. To join these clusters to it, You must set the `KUBECONFIG` environment variable to enable these hubs can connect to the global hub. Besides, you also need to provide several parameters:
 
+> If you have installed the release version of ACM for the global hub, you need to [configure the image pull secret](https://docs.redhat.com/en/documentation/red_hat_advanced_cluster_management_for_kubernetes/2.12/html-single/clusters/index#import-gui-prereqs) for the KinD cluster.
+
 ```bash
 ./doc/simulation/setup/setup-cluster.sh 1:5 1:300 
 ```
@@ -60,3 +62,14 @@ $ ./doc/simulation/setup/rotate-policy.sh 1:5 1:50 "Compliant"
 - `$1` - <hub_start:hub_end> - Managed hubs, from `hub1` to `hub5`
 - `$2` - <policy_start:policy_end> - Policies on each hub, from `rootpoicy-1` to `rootpolicy-50`
 - `$2` - The target compliance status
+
+
+## Note
+
+When creating these KinD clusters on your machine, please ensure that the KinD cluster is not running due to the following resource limitations.
+
+```
+sudo sysctl fs.inotify.max_user_instances=8192 >> /etc/sysctl.conf
+sudo sysctl fs.inotify.max_user_watches=524288 >> /etc/sysctl.conf
+sudo sysctl -p
+```

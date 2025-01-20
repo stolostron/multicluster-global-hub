@@ -27,10 +27,10 @@ def global_hub_total_pvc_usage(pc, start_time, end_time, step):
 
     try:
         global_hub_trend = pc.custom_query_range(
-        query='sum(kubelet_volume_stats_used_bytes{job="kubelet", metrics_path="/metrics", namespace="multicluster-global-hub", persistentvolumeclaim=~"postgresdb-.*"}) by (persistentvolumeclaim) / (1024*1024*1024)',
-            start_time=start_time,
-            end_time=end_time,
-            step=step,
+        query='sum(kubelet_volume_stats_used_bytes{job="kubelet", metrics_path="/metrics", namespace="multicluster-global-hub"}) by (persistentvolumeclaim) / (1024*1024*1024)',
+        start_time=start_time,
+        end_time=end_time,
+        step=step,
         )
 
         global_hub_trend_df = MetricRangeDataFrame(global_hub_trend)
@@ -51,8 +51,8 @@ def global_hub_total_pvc_usage(pc, start_time, end_time, step):
     print("-----------------------------------------------------------------------------------------")
 
 def global_hub_postgres_pvc_usage(pc, start_time, end_time, step):
-    title = "Global Hub Postgres PVC Usage MB"
-    file = "global-hub-postgres-pvc-usage"
+    title = "Global Hub Postgresql PVC Usage MB"
+    file = "global-hub-postgresql-pvc-usage"
     print(title)
     
     try:
