@@ -73,21 +73,22 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 	}
 
 	// handle the event until it's metadata is marked as processed
-	err = wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
 			err = job.Handle(ctx, job.Event) // db connection released to pool when done
 			if err != nil {
 				job.Metadata.MarkAsUnprocessed()
-				log.Error(err, "failed to handle event", "type", job.Event.Type())
+				log.Warnf("failed to handle event (%s): %v", job.Event.Type(), err)
 			} else {
 				job.Metadata.MarkAsProcessed()
 			}
 			// retrying
-			if !job.Metadata.Processed() {
+			if !job.Metadata.Processed() || err != nil {
+				log.Info("retrying to handle the above")
 				return false, nil
 			}
 			// success or up to retry threshold
-			return job.Metadata.Processed(), err
+			return job.Metadata.Processed(), nil
 		})
 
 	worker.statistics.AddDatabaseMetrics(job.Event, time.Since(startTime), err)

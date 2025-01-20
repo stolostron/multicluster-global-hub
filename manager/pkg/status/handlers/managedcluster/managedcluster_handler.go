@@ -20,6 +20,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
+const BatchSize = 50
+
 type managedClusterHandler struct {
 	log           *zap.SugaredLogger
 	eventType     string
@@ -109,7 +111,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	}
 	err = db.Clauses(clause.OnConflict{
 		UpdateAll: true,
-	}).CreateInBatches(batchManagedClusters, 100).Error
+	}).CreateInBatches(batchManagedClusters, BatchSize).Error
 	if err != nil {
 		return err
 	}
