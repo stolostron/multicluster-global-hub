@@ -89,9 +89,17 @@ var _ = Describe("storage", Ordered, func() {
 		// reconcile database(annotation) -> mock builtin
 		config.SetBYOPostgres(false)
 		// add 1 test user
-		mgh.Annotations = map[string]string{
-			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser1\", \"databases\": [\"test1\"]}]",
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      storage.BuiltinPostgresCustomizedUsersName,
+				Namespace: mgh.Namespace,
+			},
+			Data: map[string]string{
+				"testuser1": "[\"test1\", \"test2\"]",
+			},
 		}
+		Expect(runtimeClient.Create(ctx, configMap)).To(Succeed())
+
 		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
 		Expect(err).To(Succeed())
 		secret := &corev1.Secret{}
@@ -102,9 +110,10 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		// add 2 test users
-		mgh.Annotations = map[string]string{
-			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser1\", \"databases\": [\"test1\"]}, {\"name\": \"testuser2\", \"databases\": [\"test2\"]}]",
-		}
+		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(configMap), configMap)).To(Succeed())
+		configMap.Data["testuser2"] = "[\"test3\"]"
+		Expect(runtimeClient.Update(ctx, configMap)).To(Succeed())
+
 		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
 		Expect(err).To(Succeed())
 		secret = &corev1.Secret{}
