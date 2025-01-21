@@ -64,7 +64,7 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
 		DoNothing: true,
-	}).CreateInBatches(managedClusterEvents, 100).Error
+	}).CreateInBatches(managedClusterEvents, BatchSize).Error
 	if err != nil {
 		return fmt.Errorf("failed handling leaf hub LocalPolicyStatusEvent event - %w", err)
 	}
