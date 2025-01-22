@@ -100,10 +100,45 @@ cat /sys/fs/cgroup/memory.current
 
 ### CPU and Memory Summary
 
+> Note: The following value is for each pod, in the high availability mode, there are 3 replicas for each kafka broker, and 2 replicas for manager
+  
+
+- 1500 clusters(5 hub, each with 300 clusters and 50 policies)
+
+  - Maximum CPU and memory usage for each component
+
+  ---
+  | Type               | Manager | Agent | Operator | Grafana | Postgresql | Kafka Broker |
+  |---                 |---      |---    |---       |---      |---         |---           |
+  | Maximum CPU(m)     | 15      | 10    | 60       | 6.5     | 2200       | 65           |
+  | Maximum Memory(Mi) | 260     | 300   | 130      | 165     | 130        | 3.92   Gi    |
+
+  - Recommendation CPU and memory usage for each component
+
   ---
   | Type               | Manager | Agent | Operator | Grafana | Postgresql | Kafka Broker |
   |---                 |---      |---    |---       |---      |---       |---           |
   | Request CPU(m)     | 5       | 10    | 2        | 5       | 100      | 20           |
-  | Limit CPU(m)       | 500     | 50    | 100      | 50      | 8000     | 200          |
+  | Limit CPU(m)       | 30      | 20    | 120      | 30      | 4400     | 150          |
   | Request Memory(Mi) | 60      | 300   | 70       | 150     | 60       | 2   Gi       |
-  | Limit Memory(Mi)   | 500     | 1200  | 200      | 800     | 1000     | 6   Gi       |
+  | Limit Memory(Mi)   | 512     | 512   | 256      | 512     | 256      | 5   Gi       |
+
+- 3000 clusters(10 hub, each with 300 clusters and 50 policies)
+
+  - Maximum CPU and memory usage for each component
+
+  ---
+  | Type               | Manager | Agent | Operator | Grafana | Postgresql | Kafka Broker |
+  |---                 |---      |---    |---       |---      |---         |---           |
+  | Maximum CPU(m)     | 29      | 10    | 60       | 6.5     | 5000       | 65           |
+  | Maximum Memory(Mi) | 370     | 300   | 130      | 165     | 290        | 4   Gi       |
+
+  - Recommendation CPU and memory usage for each component
+
+  ---
+  | Type               | Manager | Agent | Operator | Grafana | Postgresql | Kafka Broker |
+  |---                 |---      |---    |---       |---      |---       |---           |
+  | Request CPU(m)     | 5       | 10    | 2        | 5       | 100      | 20           |
+  | Limit CPU(m)       | 60      | 50    | 120      | 50      | 8000     | 168          |
+  | Request Memory(Mi) | 60      | 300   | 70       | 150     | 60       | 2   Gi       |
+  | Limit Memory(Mi)   | 600     | 600   | 256      | 800     | 600      | 6   Gi       |
