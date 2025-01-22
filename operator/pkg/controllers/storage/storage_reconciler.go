@@ -30,7 +30,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -79,12 +78,13 @@ var WatchedSecret = sets.NewString(
 var WatchedConfigMap = sets.NewString(
 	BuiltinPostgresCAName,
 	BuiltinPostgresCustomizedConfigName,
+	BuiltinPostgresCustomizedUsersName,
 )
 
 var (
 	storageReconciler        *StorageReconciler
 	updateConnection         bool
-	appliedPgUserValue       string
+	appliedConfigMapUsers    map[string]string
 	postgresUserNameTemplate = "postgresql-user-%s"
 )
 
@@ -198,6 +198,8 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
+		appliedConfigMapUsers = nil
+		updateConnection = false
 		_ = config.SetStorageConnection(nil)
 	}
 	if !config.IsBYOPostgres() && !mgh.Spec.EnableMetrics {
@@ -304,13 +306,16 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 
 func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
 	var conn *pgx.Conn
-	var err error
 
-	postgresUsersValue := mgh.Annotations[operatorconstants.AnnotationBuiltInPostgresUsers]
+	pgUsers, err := r.getPostgresUsers(ctx, mgh)
+	if err != nil {
+		return false, err
+	}
+
 	// Don't reconcile, or create the connection, when
 	// 1. postgres users isn't updated
 	// 2. database has been initialized
-	if (postgresUsersValue == "" || postgresUsersValue == appliedPgUserValue) && r.databaseReconcileCount > 0 {
+	if pgUsers == nil && r.databaseReconcileCount > 0 {
 		return false, nil
 	}
 
@@ -333,12 +338,12 @@ func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4
 	}
 
 	// apply the init users
-	if !config.IsBYOPostgres() && postgresUsersValue != "" && postgresUsersValue != appliedPgUserValue {
-		if err = r.applyPostgresUsers(ctx, conn, postgresUsersValue, mgh); err != nil {
+	if !config.IsBYOPostgres() && pgUsers != nil {
+		if err = r.applyPostgresUsers(ctx, conn, pgUsers.Data, mgh); err != nil {
 			return false, err
 		}
 		log.Info("applied the annotation postgres users successfully!")
-		appliedPgUserValue = postgresUsersValue
+		appliedConfigMapUsers = pgUsers.Data
 	}
 
 	// apply the global hub init SQL when the operator restarted
@@ -354,34 +359,71 @@ func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4
 	return false, nil
 }
 
-func (r *StorageReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Conn, pgUsersValue string,
-	mgh *v1alpha4.MulticlusterGlobalHub,
-) error {
-	var postgresUsers []AnnotationPGUser
-	err := json.Unmarshal([]byte(pgUsersValue), &postgresUsers)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal postgres users from annotations: %v", err)
+func (r *StorageReconciler) getPostgresUsers(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
+	*corev1.ConfigMap, error,
+) {
+	currentCM := &corev1.ConfigMap{}
+	err := r.GetClient().Get(ctx, client.ObjectKey{
+		Name:      BuiltinPostgresCustomizedUsersName,
+		Namespace: mgh.Namespace,
+	}, currentCM)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, fmt.Errorf("unable to fetch ConfigMap: %w", err)
 	}
 
-	for _, user := range postgresUsers {
-		// create postgres user
-		pwd, err := r.createPostgresUser(ctx, conn, user)
+	// not found the ConfigMap
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
+
+	if !configMapDataEqual(currentCM.Data, appliedConfigMapUsers) {
+		return currentCM, nil
+	}
+	return nil, nil // No change detected
+}
+
+func configMapDataEqual(data1, data2 map[string]string) bool {
+	if len(data1) != len(data2) {
+		return false
+	}
+	for key, value := range data1 {
+		if data2[key] != value {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *StorageReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Conn, pgUsers map[string]string,
+	mgh *v1alpha4.MulticlusterGlobalHub,
+) error {
+	for userName, dbStr := range pgUsers {
+
+		// parse the databases
+		var dbs []string
+		err := json.Unmarshal([]byte(dbStr), &dbs)
 		if err != nil {
-			return fmt.Errorf("error creating postgres user %s: %v", user.Name, err)
+			return fmt.Errorf("failed to parse ConfigMap value: %w", err)
+		}
+
+		// create postgres user
+		pwd, err := r.createPostgresUser(ctx, conn, userName)
+		if err != nil {
+			return fmt.Errorf("error creating postgres user %s: %v", userName, err)
 		}
 		// create database and add permission for the user
-		for _, db := range user.Databases {
+		for _, db := range dbs {
 			err = r.createDatabaseIfNotExists(ctx, conn, db)
 			if err != nil {
 				return fmt.Errorf("error creating database %s: %v", db, err)
 			}
-			err = r.grantPermissions(ctx, conn, user.Name, db)
+			err = r.grantPermissions(ctx, conn, userName, db)
 			if err != nil {
-				return fmt.Errorf("failed to grant permissions to user %s on database %s: %v", user.Name, db, err)
+				return fmt.Errorf("failed to grant permissions to user %s on database %s: %v", userName, db, err)
 			}
 		}
 		// create the secret for the postgres user and databases
-		if err = r.createPostgresUserSecret(ctx, user, mgh, pwd); err != nil {
+		if err = r.createPostgresUserSecret(ctx, userName, pwd, dbStr, mgh); err != nil {
 			return fmt.Errorf("error creating postgres user secret %v", err)
 		}
 	}
@@ -410,11 +452,11 @@ func (r *StorageReconciler) createDatabaseIfNotExists(ctx context.Context, conn 
 }
 
 // createPostgresUser return the password of the created user, if the password is empty if the user is already existing
-func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Conn, user AnnotationPGUser,
+func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Conn, userName string,
 ) (string, error) {
 	var roleExists bool
 	err := conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = $1)",
-		user.Name).Scan(&roleExists)
+		userName).Scan(&roleExists)
 	if err != nil {
 		return "", fmt.Errorf("error checking if role exists: %v", err)
 	}
@@ -426,26 +468,26 @@ func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Co
 		// if err != nil {
 		// 	return fmt.Errorf("error updating password for role %s: %v", user.Name, err)
 		// }
-		log.Infof("postgres user already exist: %s", user.Name)
+		log.Infof("postgres user already exist: %s", userName)
 	} else {
 		password = generatePassword(16)
-		createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", user.Name, password)
+		createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", userName, password)
 		_, err = conn.Exec(ctx, createRoleQuery)
 		if err != nil {
-			return "", fmt.Errorf("error creating role %s password: %v", user.Name, err)
+			return "", fmt.Errorf("error creating role %s: %v", userName, err)
 		}
-		log.Infof("create postgres user: %s", user.Name)
+		log.Infof("create postgres user: %s", userName)
 	}
 
 	return password, nil
 }
 
-func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, user AnnotationPGUser,
-	mgh *v1alpha4.MulticlusterGlobalHub, password string,
+func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userName string, password string, dbs string,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(postgresUserNameTemplate, user.Name),
+			Name:      fmt.Sprintf(postgresUserNameTemplate, userName),
 			Namespace: mgh.Namespace,
 		},
 	}
@@ -458,12 +500,11 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, user A
 	if err == nil {
 		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
 		previousDatabases := userSecret.Data["databases"]
-		currentDatabases := strings.Join(user.Databases, ",")
-		if string(previousDatabases) != currentDatabases {
-			userSecret.Data["databases"] = []byte(currentDatabases)
+		if string(previousDatabases) != dbs {
+			userSecret.Data["databases"] = []byte(dbs)
 			err = r.GetClient().Update(ctx, userSecret)
 			if err != nil {
-				return fmt.Errorf("failed to updating postgres user secret %s, err %v", user.Name, err)
+				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)
 			}
 			log.Infof("update the postgres user secret databases: %s", userSecret.Name)
 		}
@@ -479,8 +520,8 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, user A
 	userSecret.Data = map[string][]byte{
 		"db.host":   []byte(pgConfig.Host),
 		"db.port":   []byte(fmt.Sprintf("%d", pgConfig.Port)),
-		"db.user":   []byte(user.Name),
-		"databases": []byte(strings.Join(user.Databases, ",")),
+		"db.user":   []byte(userName),
+		"databases": []byte(dbs),
 		"ca":        storageConn.CACert,
 	}
 	if password != "" {

@@ -75,9 +75,6 @@ const (
 	// development environments, where is is convenient to reduce the poll interval. The value should be a string
 	// that can be parsed with the time.ParseDuration function.
 	AnnotationMGHWithStackroxPollInterval = "global-hub.open-cluster-management.io/with-stackrox-poll-interval"
-
-	// AnnotationBuiltInPostgresUser indicates to create the postgres users and databases based on the value configuration
-	AnnotationBuiltInPostgresUsers = "global-hub.open-cluster-management.io/postgres-users"
 )
 
 // hub installation constants

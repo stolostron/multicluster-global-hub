@@ -89,31 +89,59 @@ var _ = Describe("storage", Ordered, func() {
 		// reconcile database(annotation) -> mock builtin
 		config.SetBYOPostgres(false)
 		// add 1 test user
-		mgh.Annotations = map[string]string{
-			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser1\", \"databases\": [\"test1\"]}]",
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      storage.BuiltinPostgresCustomizedUsersName,
+				Namespace: mgh.Namespace,
+			},
+			Data: map[string]string{
+				"testuser1": "[\"test1\", \"test2\"]",
+			},
 		}
-		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
-		Expect(err).To(Succeed())
-		secret := &corev1.Secret{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{
-			Namespace: mgh.Namespace,
-			Name:      "postgresql-user-testuser1",
-		}, secret)
-		Expect(err).To(Succeed())
+		Expect(runtimeClient.Create(ctx, configMap)).To(Succeed())
+
+		// verify the tesetuser1
+		Eventually(func() error {
+			_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
+			if err != nil {
+				return err
+			}
+
+			secret := &corev1.Secret{}
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      "postgresql-user-testuser1",
+			}, secret)
+			if err != nil {
+				return err
+			}
+			utils.PrettyPrint(secret)
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// add 2 test users
-		mgh.Annotations = map[string]string{
-			"global-hub.open-cluster-management.io/postgres-users": "[{\"name\": \"testuser1\", \"databases\": [\"test1\"]}, {\"name\": \"testuser2\", \"databases\": [\"test2\"]}]",
-		}
-		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
-		Expect(err).To(Succeed())
-		secret = &corev1.Secret{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{
-			Namespace: mgh.Namespace,
-			Name:      "postgresql-user-testuser2",
-		}, secret)
-		Expect(err).To(Succeed())
-		utils.PrettyPrint(secret)
+		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(configMap), configMap)).To(Succeed())
+		configMap.Data["testuser2"] = "[\"test3\"]"
+		Expect(runtimeClient.Update(ctx, configMap)).To(Succeed())
+		// verify the tesetuser2
+		Eventually(func() error {
+			_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
+			if err != nil {
+				return err
+			}
+
+			secret := &corev1.Secret{}
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      "postgresql-user-testuser2",
+			}, secret)
+			if err != nil {
+				return err
+			}
+			utils.PrettyPrint(secret)
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		config.SetBYOPostgres(true)
 
 		err = runtimeClient.Delete(ctx, storageSecret)

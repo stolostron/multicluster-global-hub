@@ -32,6 +32,7 @@ var (
 	builtinPartialPostgresURI = fmt.Sprintf("%s.%s.svc:5432/hoh?sslmode=verify-ca", BuiltinPostgresName,
 		utils.GetDefaultNamespace())
 	BuiltinPostgresCustomizedConfigName = "multicluster-global-hub-custom-postgresql-config"
+	BuiltinPostgresCustomizedUsersName  = "multicluster-global-hub-custom-postgresql-users"
 )
 
 type postgresCredential struct {
