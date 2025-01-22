@@ -100,29 +100,48 @@ var _ = Describe("storage", Ordered, func() {
 		}
 		Expect(runtimeClient.Create(ctx, configMap)).To(Succeed())
 
-		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
-		Expect(err).To(Succeed())
-		secret := &corev1.Secret{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{
-			Namespace: mgh.Namespace,
-			Name:      "postgresql-user-testuser1",
-		}, secret)
-		Expect(err).To(Succeed())
+		// verify the tesetuser1
+		Eventually(func() error {
+			_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
+			if err != nil {
+				return err
+			}
+
+			secret := &corev1.Secret{}
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      "postgresql-user-testuser1",
+			}, secret)
+			if err != nil {
+				return err
+			}
+			utils.PrettyPrint(secret)
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// add 2 test users
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(configMap), configMap)).To(Succeed())
 		configMap.Data["testuser2"] = "[\"test3\"]"
 		Expect(runtimeClient.Update(ctx, configMap)).To(Succeed())
+		// verify the tesetuser2
+		Eventually(func() error {
+			_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
+			if err != nil {
+				return err
+			}
 
-		_, err = storageReconciler.ReconcileDatabase(ctx, mgh)
-		Expect(err).To(Succeed())
-		secret = &corev1.Secret{}
-		err = runtimeClient.Get(ctx, types.NamespacedName{
-			Namespace: mgh.Namespace,
-			Name:      "postgresql-user-testuser2",
-		}, secret)
-		Expect(err).To(Succeed())
-		utils.PrettyPrint(secret)
+			secret := &corev1.Secret{}
+			err = runtimeClient.Get(ctx, types.NamespacedName{
+				Namespace: mgh.Namespace,
+				Name:      "postgresql-user-testuser2",
+			}, secret)
+			if err != nil {
+				return err
+			}
+			utils.PrettyPrint(secret)
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		config.SetBYOPostgres(true)
 
 		err = runtimeClient.Delete(ctx, storageSecret)

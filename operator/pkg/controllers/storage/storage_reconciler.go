@@ -474,7 +474,7 @@ func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Co
 		createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", userName, password)
 		_, err = conn.Exec(ctx, createRoleQuery)
 		if err != nil {
-			return "", fmt.Errorf("error creating role %s password: %v", userName, err)
+			return "", fmt.Errorf("error creating role %s: %v", userName, err)
 		}
 		log.Infof("create postgres user: %s", userName)
 	}
