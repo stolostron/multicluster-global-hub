@@ -342,7 +342,7 @@ func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4
 		if err = r.applyPostgresUsers(ctx, conn, pgUsers.Data, mgh); err != nil {
 			return false, err
 		}
-		log.Info("applied the annotation postgres users successfully!")
+		log.Infof("applied the postgresql users from ConfigMap(%s) successfully!", pgUsers.Name)
 		appliedConfigMapUsers = pgUsers.Data
 	}
 
@@ -510,7 +510,7 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 			if err != nil {
 				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)
 			}
-			log.Infof("update the postgres user secret user: %s", userSecret.Name)
+			log.Infof("update the postgres user secret: %s", userSecret.Name)
 		}
 		return nil
 	}
