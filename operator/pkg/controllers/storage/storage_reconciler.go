@@ -503,8 +503,10 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 	if err == nil {
 		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
 		previousDatabases := userSecret.Data["databases"]
-		if string(previousDatabases) != dbs {
+		previousUser := userSecret.Data["db.user"]
+		if string(previousDatabases) != dbs || string(previousUser) != userName {
 			userSecret.Data["databases"] = []byte(dbs)
+			userSecret.Data["db.user"] = []byte(userName)
 			err = r.GetClient().Update(ctx, userSecret)
 			if err != nil {
 				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)
