@@ -502,9 +502,10 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 	// update the databases if exists
 	if err == nil {
 		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
-		if string(userSecret.Data["databases"]) != dbs || string(userSecret.Data["db.user"]) != userName {
-			userSecret.Data["databases"] = []byte(dbs)
-			userSecret.Data["db.user"] = []byte(userName)
+		if string(userSecret.Data[BuiltinPostgresCustomizedUserSecretDBKey]) != dbs ||
+			string(userSecret.Data[BuiltinPostgresCustomizedUserSecretUserKey]) != userName {
+			userSecret.Data[BuiltinPostgresCustomizedUserSecretDBKey] = []byte(dbs)
+			userSecret.Data[BuiltinPostgresCustomizedUserSecretUserKey] = []byte(userName)
 			err = r.GetClient().Update(ctx, userSecret)
 			if err != nil {
 				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)
@@ -521,11 +522,11 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 		return fmt.Errorf("failed the parse the supper user database URI")
 	}
 	userSecret.Data = map[string][]byte{
-		"db.host":   []byte(pgConfig.Host),
-		"db.port":   []byte(fmt.Sprintf("%d", pgConfig.Port)),
-		"db.user":   []byte(userName),
-		"databases": []byte(dbs),
-		"ca":        storageConn.CACert,
+		"db.host": []byte(pgConfig.Host),
+		"db.port": []byte(fmt.Sprintf("%d", pgConfig.Port)),
+		BuiltinPostgresCustomizedUserSecretUserKey: []byte(userName),
+		BuiltinPostgresCustomizedUserSecretDBKey:   []byte(dbs),
+		"ca":                                       storageConn.CACert,
 	}
 	if password != "" {
 		userSecret.Data["db.password"] = []byte(password)
