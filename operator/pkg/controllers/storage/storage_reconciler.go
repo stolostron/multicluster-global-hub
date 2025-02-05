@@ -438,7 +438,7 @@ func (r *StorageReconciler) createDatabaseIfNotExists(ctx context.Context, conn 
 	}
 
 	if !exists {
-		createDBQuery := fmt.Sprintf("CREATE DATABASE %s;", dbName)
+		createDBQuery := fmt.Sprintf("CREATE DATABASE \"%s\";", dbName)
 		_, err := conn.Exec(ctx, createDBQuery)
 		if err != nil {
 			return fmt.Errorf("error creating database %s: %v", dbName, err)
@@ -485,9 +485,12 @@ func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Co
 func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userName string, password string, dbs string,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
+	// convert the userName to a valid secret name
+	userSecretName := strings.ReplaceAll(userName, "_", "-")
+
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(postgresUserNameTemplate, userName),
+			Name:      fmt.Sprintf(postgresUserNameTemplate, userSecretName),
 			Namespace: mgh.Namespace,
 		},
 	}
@@ -541,7 +544,7 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 }
 
 func (r *StorageReconciler) grantPermissions(ctx context.Context, conn *pgx.Conn, user, dbName string) error {
-	grantQuery := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s;", dbName, user)
+	grantQuery := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";", dbName, user)
 	_, err := conn.Exec(ctx, grantQuery)
 	if err != nil {
 		return fmt.Errorf("error granting permissions to user %s on database %s: %v", user, dbName, err)
