@@ -40,8 +40,8 @@ const (
 	PostgresCustomizedUserSecretUserKey      = "db.user"
 	PostgresCustomizedUserSecretHostKey      = "db.host"
 	PostgresCustomizedUserSecretPortKey      = "db.port"
-	PostgresCustomizedUserSecretCACertKey    = "db.ca_cert"
-	PostgresCustomizedUserSecretPasswordKey  = "db.password"
+	PostgresCustomizedUserSecretCACertKey    = "db.ca_cert"  // #nosec G101
+	PostgresCustomizedUserSecretPasswordKey  = "db.password" // #nosec G101
 )
 
 type postgresCredential struct {
