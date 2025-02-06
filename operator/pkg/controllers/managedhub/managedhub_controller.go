@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -106,11 +107,10 @@ func NewManagedHubController(mgr ctrl.Manager) *ManagedHubController {
 func (r *ManagedHubController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("ManagedHubController").
-		WatchesMetadata(
-			&clusterv1.ManagedCluster{},
-			&handler.EnqueueRequestForObject{},
-			builder.WithPredicates(mcPred),
-		).
+		For(&v1alpha4.MulticlusterGlobalHub{},
+			builder.WithPredicates(config.MGHPred)).
+		Watches(&clusterv1.ManagedCluster{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(mcPred)).
 		Complete(r)
 }
 
