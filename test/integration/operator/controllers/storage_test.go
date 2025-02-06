@@ -95,7 +95,7 @@ var _ = Describe("storage", Ordered, func() {
 				Namespace: mgh.Namespace,
 			},
 			Data: map[string]string{
-				"testuser1": "[\"test1\", \"test2\"]",
+				"test-user1": "[\"test1\", \"test2\"]",
 			},
 		}
 		Expect(runtimeClient.Create(ctx, configMap)).To(Succeed())
@@ -110,7 +110,7 @@ var _ = Describe("storage", Ordered, func() {
 			secret := &corev1.Secret{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
 				Namespace: mgh.Namespace,
-				Name:      "postgresql-user-testuser1",
+				Name:      "postgresql-user-test-user1",
 			}, secret)
 			if err != nil {
 				return err
@@ -121,7 +121,7 @@ var _ = Describe("storage", Ordered, func() {
 
 		// add 2 test users
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(configMap), configMap)).To(Succeed())
-		configMap.Data["testuser2"] = "[\"test3\"]"
+		configMap.Data["test_user2"] = "[\"test3\"]"
 		Expect(runtimeClient.Update(ctx, configMap)).To(Succeed())
 		// verify the tesetuser2
 		Eventually(func() error {
@@ -133,12 +133,16 @@ var _ = Describe("storage", Ordered, func() {
 			secret := &corev1.Secret{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
 				Namespace: mgh.Namespace,
-				Name:      "postgresql-user-testuser2",
+				Name:      "postgresql-user-test-user2",
 			}, secret)
 			if err != nil {
 				return err
 			}
 			utils.PrettyPrint(secret)
+			if string(secret.Data["db.user"]) != "test_user2" ||
+				string(secret.Data["db.names"]) != "[\"test3\"]" {
+				return fmt.Errorf("unexpected secret: %v", secret)
+			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
