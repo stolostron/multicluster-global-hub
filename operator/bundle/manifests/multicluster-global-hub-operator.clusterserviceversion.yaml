@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-01-14T11:53:57Z"
+    createdAt: "2025-02-06T13:42:20Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -105,6 +105,10 @@ spec:
       displayName: Multicluster Global Hub Agent
       kind: MulticlusterGlobalHubAgent
       name: multiclusterglobalhubagents.operator.open-cluster-management.io
+      resources:
+      - kind: Deployment
+        name: multicluster-global-hub-operator
+        version: v1
       specDescriptors:
       - description: ImagePullPolicy specifies the pull policy of the multicluster
           global hub agent image
@@ -121,6 +125,18 @@ spec:
       - description: Tolerations causes all components to tolerate any taints
         displayName: Tolerations
         path: tolerations
+      - description: TransportConfigSecretName specifies the secret which is used
+          to connect to the global hub Kafka. You can get kafka.yaml content using
+          `tools/generate-kafka-config.sh` from the global hub environment. Then you
+          can create the secret in the current environment by running `kubectl create
+          secret generic transport-config -n "multicluster-global-hub" --from-file=kafka.yaml="./kafka.yaml"`
+        displayName: Transport Config Secret Name
+        path: transportConfigSecretName
+      statusDescriptors:
+      - description: Conditions represents the latest available observations of the
+          current state
+        displayName: Conditions
+        path: conditions
       version: v1alpha1
     - description: MulticlusterGlobalHub defines the configuration for an instance
         of the multiCluster global hub
