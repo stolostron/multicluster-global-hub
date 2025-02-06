@@ -55,10 +55,12 @@ func TestNewKafkaCluster(t *testing.T) {
 	tests := []struct {
 		name                 string
 		mgh                  *v1alpha4.MulticlusterGlobalHub
+		replica              int32
 		expectedKafkaCluster string
 	}{
 		{
-			name: "availabilityConfig is Basic",
+			name:    "availabilityConfig is Basic",
+			replica: 1,
 			mgh: &v1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-mgh",
@@ -129,7 +131,8 @@ func TestNewKafkaCluster(t *testing.T) {
 }`,
 		},
 		{
-			name: "availabilityConfig is High",
+			name:    "availabilityConfig is High",
+			replica: 3,
 			mgh: &v1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-mgh",
@@ -200,7 +203,8 @@ func TestNewKafkaCluster(t *testing.T) {
 		},
 
 		{
-			name: "availabilityConfig is Basic and expose via nodeport",
+			name:    "availabilityConfig is High and expose via nodeport",
+			replica: 3,
 			mgh: &v1alpha4.MulticlusterGlobalHub{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-mgh",
@@ -287,6 +291,7 @@ func TestNewKafkaCluster(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			transporter := NewStrimziTransporter(nil, tt.mgh)
+			transporter.topicPartitionReplicas = tt.replica
 			cluster := transporter.newKafkaCluster(tt.mgh)
 			clusterBytes, _ := json.Marshal(cluster)
 			// Replace spaces
