@@ -34,10 +34,14 @@ var (
 )
 
 const (
-	BuiltinPostgresCustomizedConfigName        = "multicluster-global-hub-custom-postgresql-config"
-	BuiltinPostgresCustomizedUsersName         = "multicluster-global-hub-custom-postgresql-users"
-	BuiltinPostgresCustomizedUserSecretDBKey   = "databases"
-	BuiltinPostgresCustomizedUserSecretUserKey = "db.user"
+	BuiltinPostgresCustomizedConfigName      = "multicluster-global-hub-custom-postgresql-config"
+	BuiltinPostgresCustomizedUsersName       = "multicluster-global-hub-custom-postgresql-users"
+	PostgresCustomizedUserSecretDatabasesKey = "db.names"
+	PostgresCustomizedUserSecretUserKey      = "db.user"
+	PostgresCustomizedUserSecretHostKey      = "db.host"
+	PostgresCustomizedUserSecretPortKey      = "db.port"
+	PostgresCustomizedUserSecretCACertKey    = "db.ca_cert"
+	PostgresCustomizedUserSecretPasswordKey  = "db.password"
 )
 
 type postgresCredential struct {

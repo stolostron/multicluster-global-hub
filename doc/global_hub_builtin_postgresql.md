@@ -27,8 +27,8 @@ After the configMap is applied, the control plane will generate a secret named `
 ```bash
 apiVersion: v1
 data:
-  ca: LS...K
-  databases: WyJ0ZXN0MSIsICJ0ZXN0MiJd
+  db.ca_cert: LS...K
+  db.names: WyJ0ZXN0MSIsICJ0ZXN0MiJd
   db.host: ***
   db.password: ***
   db.port: NTQzMg==

@@ -502,10 +502,10 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 	// update the databases if exists
 	if err == nil {
 		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
-		if string(userSecret.Data[BuiltinPostgresCustomizedUserSecretDBKey]) != dbs ||
-			string(userSecret.Data[BuiltinPostgresCustomizedUserSecretUserKey]) != userName {
-			userSecret.Data[BuiltinPostgresCustomizedUserSecretDBKey] = []byte(dbs)
-			userSecret.Data[BuiltinPostgresCustomizedUserSecretUserKey] = []byte(userName)
+		if string(userSecret.Data[PostgresCustomizedUserSecretDatabasesKey]) != dbs ||
+			string(userSecret.Data[PostgresCustomizedUserSecretUserKey]) != userName {
+			userSecret.Data[PostgresCustomizedUserSecretDatabasesKey] = []byte(dbs)
+			userSecret.Data[PostgresCustomizedUserSecretUserKey] = []byte(userName)
 			err = r.GetClient().Update(ctx, userSecret)
 			if err != nil {
 				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)
@@ -522,14 +522,14 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 		return fmt.Errorf("failed the parse the supper user database URI")
 	}
 	userSecret.Data = map[string][]byte{
-		"db.host": []byte(pgConfig.Host),
-		"db.port": []byte(fmt.Sprintf("%d", pgConfig.Port)),
-		BuiltinPostgresCustomizedUserSecretUserKey: []byte(userName),
-		BuiltinPostgresCustomizedUserSecretDBKey:   []byte(dbs),
-		"ca":                                       storageConn.CACert,
+		PostgresCustomizedUserSecretHostKey:      []byte(pgConfig.Host),
+		PostgresCustomizedUserSecretPortKey:      []byte(fmt.Sprintf("%d", pgConfig.Port)),
+		PostgresCustomizedUserSecretUserKey:      []byte(userName),
+		PostgresCustomizedUserSecretDatabasesKey: []byte(dbs),
+		PostgresCustomizedUserSecretCACertKey:    storageConn.CACert,
 	}
 	if password != "" {
-		userSecret.Data["db.password"] = []byte(password)
+		userSecret.Data[PostgresCustomizedUserSecretPasswordKey] = []byte(password)
 	}
 	err = controllerutil.SetControllerReference(mgh, userSecret, r.Manager.GetScheme())
 	if err != nil {
