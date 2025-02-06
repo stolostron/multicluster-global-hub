@@ -41,6 +41,8 @@ metadata:
 ...
 ```
 
+Note: If the `<username>` contains characters '_', they will be replaced with '-' in the secret name. For example, if the `<username>` is `test_user`, the secret name will be `postgresql-user-test-user`.
+
 ## Custom PostgreSQL Server Configuration
 
 The Global Hub also provides a way to customize the configuration of the built-in PostgreSQL server (refer to [PostgreSQL Configuration Settings](https://www.postgresql.org/docs/16/config-setting.html#CONFIG-SETTING-CONFIGURATION-FILE)). Follow these steps to achieve it:

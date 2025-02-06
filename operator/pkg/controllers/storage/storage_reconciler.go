@@ -342,7 +342,7 @@ func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4
 		if err = r.applyPostgresUsers(ctx, conn, pgUsers.Data, mgh); err != nil {
 			return false, err
 		}
-		log.Info("applied the annotation postgres users successfully!")
+		log.Infof("applied the postgresql users from ConfigMap(%s) successfully!", pgUsers.Name)
 		appliedConfigMapUsers = pgUsers.Data
 	}
 
@@ -438,7 +438,7 @@ func (r *StorageReconciler) createDatabaseIfNotExists(ctx context.Context, conn 
 	}
 
 	if !exists {
-		createDBQuery := fmt.Sprintf("CREATE DATABASE %s;", dbName)
+		createDBQuery := fmt.Sprintf("CREATE DATABASE \"%s\";", dbName)
 		_, err := conn.Exec(ctx, createDBQuery)
 		if err != nil {
 			return fmt.Errorf("error creating database %s: %v", dbName, err)
@@ -485,9 +485,12 @@ func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Co
 func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userName string, password string, dbs string,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) error {
+	// convert the userName to a valid secret name
+	userSecretName := strings.ReplaceAll(userName, "_", "-")
+
 	userSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(postgresUserNameTemplate, userName),
+			Name:      fmt.Sprintf(postgresUserNameTemplate, userSecretName),
 			Namespace: mgh.Namespace,
 		},
 	}
@@ -499,14 +502,15 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 	// update the databases if exists
 	if err == nil {
 		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
-		previousDatabases := userSecret.Data["databases"]
-		if string(previousDatabases) != dbs {
-			userSecret.Data["databases"] = []byte(dbs)
+		if string(userSecret.Data[BuiltinPostgresCustomizedUserSecretDBKey]) != dbs ||
+			string(userSecret.Data[BuiltinPostgresCustomizedUserSecretUserKey]) != userName {
+			userSecret.Data[BuiltinPostgresCustomizedUserSecretDBKey] = []byte(dbs)
+			userSecret.Data[BuiltinPostgresCustomizedUserSecretUserKey] = []byte(userName)
 			err = r.GetClient().Update(ctx, userSecret)
 			if err != nil {
 				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)
 			}
-			log.Infof("update the postgres user secret databases: %s", userSecret.Name)
+			log.Infof("update the postgres user secret: %s", userSecret.Name)
 		}
 		return nil
 	}
@@ -518,11 +522,11 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 		return fmt.Errorf("failed the parse the supper user database URI")
 	}
 	userSecret.Data = map[string][]byte{
-		"db.host":   []byte(pgConfig.Host),
-		"db.port":   []byte(fmt.Sprintf("%d", pgConfig.Port)),
-		"db.user":   []byte(userName),
-		"databases": []byte(dbs),
-		"ca":        storageConn.CACert,
+		"db.host": []byte(pgConfig.Host),
+		"db.port": []byte(fmt.Sprintf("%d", pgConfig.Port)),
+		BuiltinPostgresCustomizedUserSecretUserKey: []byte(userName),
+		BuiltinPostgresCustomizedUserSecretDBKey:   []byte(dbs),
+		"ca":                                       storageConn.CACert,
 	}
 	if password != "" {
 		userSecret.Data["db.password"] = []byte(password)
@@ -541,7 +545,7 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 }
 
 func (r *StorageReconciler) grantPermissions(ctx context.Context, conn *pgx.Conn, user, dbName string) error {
-	grantQuery := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE %s TO %s;", dbName, user)
+	grantQuery := fmt.Sprintf("GRANT ALL PRIVILEGES ON DATABASE \"%s\" TO \"%s\";", dbName, user)
 	_, err := conn.Exec(ctx, grantQuery)
 	if err != nil {
 		return fmt.Errorf("error granting permissions to user %s on database %s: %v", user, dbName, err)
