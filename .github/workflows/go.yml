@@ -41,3 +41,21 @@ jobs:
 
       - name: bundle
         run: cd operator && make bundle
+
+  scorecard-test:
+    name: bundle scorecard test
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1
+
+      - name: Download operator-sdk
+        uses: drmendes/setup-k8s-operator-sdk@v1.1.5
+        with:
+          version: "^1.34.1"
+      
+      - name: scorecard
+        run: cd operator && operator-sdk scorecard ./bundle/
