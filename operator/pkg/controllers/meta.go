@@ -310,12 +310,18 @@ func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub) (bool, v1alpha4.Global
 		phase = v1alpha4.GlobalHubProgressing
 		return phase != mgh.Status.Phase, phase
 	}
+
+	// Deprecated: The built-in PostgreSQL name `multicluster-global-hub-postgres` has been changed to
+	// `multicluster-global-hub-postgresql` starting from Global Hub release 2.13.
+	// If the new instance is not ready, we should keep the phase as progressing.
+	newPgInstance := false
 	for _, dcs := range mgh.Status.Components {
-		// Deprecated: The built-in PostgreSQL name `multicluster-global-hub-postgres` has been changed to
-		// `multicluster-global-hub-postgresql` starting from Global Hub release 2.13.
-		if dcs.Name != "multicluster-global-hub-postgres" && !desiredComponents.Has(dcs.Name) {
-			log.Warnf("processing components: unsupported %s", dcs.Name)
-			phase = v1alpha4.GlobalHubProgressing
+		// ingore the status of the old pg instance before upgrade
+		if dcs.Name == "multicluster-global-hub-postgres" {
+			continue
+		}
+		if dcs.Name == "multicluster-global-hub-postgresql" {
+			newPgInstance = true
 		}
 		if dcs.Type == config.COMPONENTS_AVAILABLE {
 			if dcs.Status == config.RECONCILE_ERROR {
@@ -326,6 +332,11 @@ func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub) (bool, v1alpha4.Global
 			}
 		}
 	}
+	if !newPgInstance && phase != v1alpha4.GlobalHubError {
+		log.Info("upgrading pg component to 'multicluster-global-hub-postgresql'")
+		phase = v1alpha4.GlobalHubProgressing
+	}
+
 	return phase != mgh.Status.Phase, phase
 }
 
