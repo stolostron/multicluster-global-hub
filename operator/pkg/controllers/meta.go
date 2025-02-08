@@ -316,6 +316,10 @@ func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub) (bool, v1alpha4.Global
 	// If the new instance is not ready, we should keep the phase as progressing.
 	newPgInstance := false
 	for _, dcs := range mgh.Status.Components {
+		// ingore the status of the old pg instance before upgrade
+		if dcs.Name == "multicluster-global-hub-postgres" {
+			continue
+		}
 		if dcs.Name == "multicluster-global-hub-postgresql" {
 			newPgInstance = true
 		}
