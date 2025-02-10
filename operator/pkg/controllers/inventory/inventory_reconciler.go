@@ -2,13 +2,11 @@ package inventory
 
 import (
 	"context"
-	"embed"
 	"encoding/base64"
 	"fmt"
 	"net/url"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,11 +33,11 @@ import (
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory/manifests"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -49,48 +47,13 @@ import (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
 
-//go:embed manifests
-var fs embed.FS
-
-var (
-	log                 = logger.DefaultZapLogger()
-	inventoryReconciler *InventoryReconciler
-)
-
 type InventoryReconciler struct {
 	kubeClient kubernetes.Interface
 	ctrl.Manager
-	log logr.Logger
 }
 
 func (r *InventoryReconciler) IsResourceRemoved() bool {
 	return true
-}
-
-func StartController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	if inventoryReconciler != nil {
-		return inventoryReconciler, nil
-	}
-	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
-		return nil, nil
-	}
-	if config.GetTransporterConn() == nil {
-		return nil, nil
-	}
-	if config.GetStorageConnection() == nil {
-		return nil, nil
-	}
-	log.Info("start inventory controller")
-
-	inventoryReconciler = NewInventoryReconciler(initOption.Manager,
-		initOption.KubeClient)
-	err := inventoryReconciler.SetupWithManager(initOption.Manager)
-	if err != nil {
-		inventoryReconciler = nil
-		return nil, err
-	}
-	log.Infof("inited inventory controller")
-	return inventoryReconciler, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -126,7 +89,6 @@ var deploymentPred = predicate.Funcs{
 
 func NewInventoryReconciler(mgr ctrl.Manager, kubeClient kubernetes.Interface) *InventoryReconciler {
 	return &InventoryReconciler{
-		log:        ctrl.Log.WithName("inventory"),
 		Manager:    mgr,
 		kubeClient: kubeClient,
 	}
@@ -176,7 +138,8 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 	}
 
 	// create new HoHRenderer and HoHDeployer
-	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
+	hohRenderer, hohDeployer := renderer.NewHoHRenderer(manifests.InventoryManifestFiles),
+		deployer.NewHoHDeployer(r.GetClient())
 
 	// create discovery client
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
@@ -229,7 +192,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	inventoryObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
+	inventoryObjects, err := hohRenderer.Render("inventory-api", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image                 string
 			Replicas              int32
