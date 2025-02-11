@@ -468,7 +468,7 @@ func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Co
 		// if err != nil {
 		// 	return fmt.Errorf("error updating password for role %s: %v", user.Name, err)
 		// }
-		log.Infof("postgres user already exist: %s", userName)
+		log.Infof("postgres user '%s' already exists; skipping password generation.", userName)
 	} else {
 		password = generatePassword(16)
 		createRoleQuery := fmt.Sprintf("CREATE ROLE \"%s\" LOGIN PASSWORD '%s';", userName, password)
@@ -499,13 +499,26 @@ func (r *StorageReconciler) createPostgresUserSecret(ctx context.Context, userNa
 		return err
 	}
 
-	// update the databases if exists
+	// update the secret:
+	// 1. databases is changed
+	// 2. userName is changed, and updated the password if the password is not empty
 	if err == nil {
 		log.Infof("the postgresql user secret already exists: %s", userSecret.Name)
-		if string(userSecret.Data[PostgresCustomizedUserSecretDatabasesKey]) != dbs ||
-			string(userSecret.Data[PostgresCustomizedUserSecretUserKey]) != userName {
+
+		updated := false
+		if string(userSecret.Data[PostgresCustomizedUserSecretDatabasesKey]) != dbs {
+			updated = true
 			userSecret.Data[PostgresCustomizedUserSecretDatabasesKey] = []byte(dbs)
+		}
+
+		if string(userSecret.Data[PostgresCustomizedUserSecretUserKey]) != userName {
+			updated = true
 			userSecret.Data[PostgresCustomizedUserSecretUserKey] = []byte(userName)
+			userSecret.Data[PostgresCustomizedUserSecretPasswordKey] = []byte(password)
+			log.Warnf("overwrite the postgres user secret %s with db user %s", userSecret.Name, userName)
+		}
+
+		if updated {
 			err = r.GetClient().Update(ctx, userSecret)
 			if err != nil {
 				return fmt.Errorf("failed to updating postgres user secret %s, err %v", userName, err)

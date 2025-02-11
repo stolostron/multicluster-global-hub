@@ -41,7 +41,11 @@ metadata:
 ...
 ```
 
-Note: If the `<username>` contains characters '_', they will be replaced with '-' in the secret name. For example, if the `<username>` is `test_user`, the secret name will be `postgresql-user-test-user`.
+**Note**
+
+1. If the `<username>` contains characters '_', they will be replaced with '-' in the secret name. For example, if the `<username>` is `test_user`, the secret name will be `postgresql-user-test-user`.
+
+2. `test_user` and `test-user` are distinct in the database but identical(`postgresql-user-test-user`) in the Kubernetes secret name. Avoid using both in the ConfigMap, as the secret data (user, password, databases) will be overwritten by the last applied entry.
 
 ## Custom PostgreSQL Server Configuration
 
