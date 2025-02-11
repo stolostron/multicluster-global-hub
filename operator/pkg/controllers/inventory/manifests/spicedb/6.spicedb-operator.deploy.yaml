@@ -63,26 +63,13 @@ spec:
             memory: 64Mi
         securityContext:
           allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
-          readOnlyRootFilesystem: true
-          runAsGroup: 65532
-          runAsNonRoot: true
-          runAsUser: 65532
-          seccompProfile:
-            type: RuntimeDefault
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
         - mountPath: /opt/operator
           name: config
           readOnly: true
       securityContext:
-        runAsGroup: 65532
         runAsNonRoot: true
-        runAsUser: 65532
-        seccompProfile:
-          type: RuntimeDefault
       serviceAccountName: spicedb-operator
       {{- if .ImagePullSecret }}
       imagePullSecrets:
