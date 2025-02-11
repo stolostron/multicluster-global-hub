@@ -5,8 +5,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
@@ -26,7 +24,17 @@ import (
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// +kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=jobs,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups="",resources=services,verbs=patch
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=create;get;list;watch;delete;update
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=patch
+// +kubebuilder:rbac:groups=authzed.com,resources=spicedbclusters,verbs=create;delete;get;list;patch;update;watch;deletecollection
+// +kubebuilder:rbac:groups=authzed.com,resources=spicedbclusters/status,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=patch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=patch
 
 // The manifests of the spicedb operator is from
 // https://github.com/authzed/spicedb-operator/releases/download/v1.18.0/bundle.yaml
@@ -93,15 +101,14 @@ var spiceDBdeploymentPred = predicate.Funcs{
 
 func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile spicedb controller")
-
-	mgh := &v1alpha4.MulticlusterGlobalHub{ObjectMeta: metav1.ObjectMeta{Name: req.Name, Namespace: req.Namespace}}
-	if err := r.GetClient().Get(ctx, types.NamespacedName{Name: req.Name, Namespace: req.Namespace}, mgh); err != nil {
-		log.Errorf("failed to get mgh %s, err:%v", req.Name, err)
-		return ctrl.Result{}, err
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		log.Errorf("failed to get mgh, err:%v", err)
+		return ctrl.Result{}, nil
 	}
 
 	// TODO: might consider whether to delete the operator(and operand created by user) when the mgh is deleted
-	if config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 
