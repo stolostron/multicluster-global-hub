@@ -29,7 +29,6 @@ spec:
         - --crd=false
         - --config
         - /opt/operator/update-graph.yaml
-
         image: {{.Image}}
         imagePullPolicy: {{.ImagePullPolicy}}
         livenessProbe:
