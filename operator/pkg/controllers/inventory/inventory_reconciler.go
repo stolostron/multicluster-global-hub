@@ -38,6 +38,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -46,6 +47,37 @@ import (
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;delete;patch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;delete
+
+var (
+	log                 = logger.DefaultZapLogger()
+	inventoryReconciler *InventoryReconciler
+)
+
+func StartInventoryController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if inventoryReconciler != nil {
+		return inventoryReconciler, nil
+	}
+	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
+		return nil, nil
+	}
+	if config.GetTransporterConn() == nil {
+		return nil, nil
+	}
+	if config.GetStorageConnection() == nil {
+		return nil, nil
+	}
+	log.Info("start inventory controller")
+
+	inventoryReconciler = NewInventoryReconciler(initOption.Manager,
+		initOption.KubeClient)
+	err := inventoryReconciler.SetupWithManager(initOption.Manager)
+	if err != nil {
+		inventoryReconciler = nil
+		return nil, err
+	}
+	log.Infof("inited inventory controller")
+	return inventoryReconciler, nil
+}
 
 type InventoryReconciler struct {
 	kubeClient kubernetes.Interface
