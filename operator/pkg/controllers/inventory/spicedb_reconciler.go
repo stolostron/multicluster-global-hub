@@ -3,13 +3,6 @@ package inventory
 import (
 	"context"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory/manifests"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
-	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +16,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory/manifests"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=create;get;list;watch;delete;update
 
 // The manifests of the spicedb operator is from
 // https://github.com/authzed/spicedb-operator/releases/download/v1.18.0/bundle.yaml

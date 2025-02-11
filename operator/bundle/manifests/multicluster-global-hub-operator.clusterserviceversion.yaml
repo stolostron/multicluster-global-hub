@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-02-06T13:42:20Z"
+    createdAt: "2025-02-11T10:20:16Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -467,8 +467,11 @@ spec:
           resources:
           - customresourcedefinitions
           verbs:
+          - create
+          - delete
           - get
           - list
+          - update
           - watch
         - apiGroups:
           - app.k8s.io
@@ -858,6 +861,8 @@ spec:
                   value: quay.io/stolostron/inventory-api:latest
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+                - name: RELATED_IMAGE_SPICEDB
+                  value: ghcr.io/authzed/spicedb-operator:v1.18.0
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
