@@ -155,6 +155,21 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 	return transporter
 }
 
+func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
+	existingKafkaTopic := &kafkav1beta2.KafkaTopic{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      k.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic + ".global-hub",
+		Namespace: k.mgh.Namespace,
+	}, existingKafkaTopic)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return k.topicPartitionReplicas, nil
+		}
+		return k.topicPartitionReplicas, err
+	}
+	return *existingKafkaTopic.Spec.Replicas, nil
+}
+
 func WithNamespacedName(name types.NamespacedName) KafkaOption {
 	return func(sk *strimziTransporter) {
 		sk.kafkaClusterName = name.Name
@@ -203,6 +218,12 @@ func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	if !installed {
 		return true, nil
 	}
+
+	topicPartitionReplicas, err := k.getCurrentReplicas()
+	if err != nil {
+		return true, err
+	}
+	k.topicPartitionReplicas = topicPartitionReplicas
 
 	// Since the kafka cluster creation need the metric configmap, render the resource before creating the cluster
 	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
@@ -262,10 +283,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
 		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
-	topicReplicas := DefaultPartitionReplicas
-	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-		topicReplicas = 1
-	}
+	topicReplicas := k.topicPartitionReplicas
 
 	// render the kafka objects
 	kafkaRenderer, kafkaDeployer := renderer.NewHoHRenderer(manifests), deployer.NewHoHDeployer(k.manager.GetClient())
@@ -738,7 +756,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 	}
 
 	config := ""
-	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+	if k.topicPartitionReplicas != DefaultPartitionReplicas {
 		config = `{
 "default.replication.factor": 1,
 "min.insync.replicas": 1,
