@@ -2,9 +2,14 @@ package inventory
 
 import (
 	"context"
+	"fmt"
+	"net/url"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/kubernetes"
@@ -18,9 +23,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory/manifests"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -41,6 +48,12 @@ import (
 // It has defined some cluster scoped resources, such as: ClusterRole, ClusterRoleBinding, etc.
 
 var spiceDBReconciler *SpiceDBReconciler
+
+const (
+	SpiceDBConfigSecretName = "spicedb-config"
+	SpiceDBPostgresUser     = "spicedbuser"
+	SpiceDBPostgresDatabase = "spicedb"
+)
 
 func StartSpiceDBController(initOption config.ControllerOption) (config.ControllerInterface, error) {
 	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
@@ -113,7 +126,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// create new HoHRenderer and HoHDeployer
-	hohRenderer, hohDeployer := renderer.NewHoHRenderer(manifests.SpiceDBManifestFiles),
+	hohRenderer, hohDeployer := renderer.NewHoHRenderer(manifests.SpiceDBOperatorManifestFiles),
 		deployer.NewHoHDeployer(r.GetClient())
 
 	// create discovery client
@@ -135,7 +148,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		replicas = 2
 	}
 
-	inventoryObjects, err := hohRenderer.Render("spicedb", "", func(profile string) (interface{}, error) {
+	inventoryObjects, err := hohRenderer.Render("spicedb-operator", "", func(profile string) (interface{}, error) {
 		return struct {
 			Namespace       string
 			Replicas        int32
@@ -162,5 +175,79 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.Errorf("failed to manipulate spicedb inventory objects: %v", err)
 		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
+
+func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
+	ctrl.Result, error,
+) {
+	storageConn := config.GetStorageConnection()
+	if storageConn == nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	secret := &corev1.Secret{}
+	err := r.GetClient().Get(ctx, types.NamespacedName{Name: SpiceDBConfigSecretName, Namespace: mgh.Namespace}, secret)
+	if err != nil && errors.IsNotFound(err) {
+		// Secret not found, create it
+		conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
+		if err != nil {
+			log.Infof("wait database ready, failed to connect database: %v", err)
+			return ctrl.Result{}, err
+		}
+		defer func() {
+			if conn != nil {
+				if err := conn.Close(ctx); err != nil {
+					log.Error(err, "failed to close connection to database")
+				}
+			}
+		}()
+		password, err := storage.CreatePostgresUser(ctx, conn, SpiceDBPostgresUser)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		parsedURL, err := url.Parse(storageConn.SuperuserDatabaseURI)
+		if err != nil {
+			log.Info("failed to parse database uri")
+			return ctrl.Result{}, err
+		}
+		databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", SpiceDBPostgresUser, password,
+			parsedURL.Hostname(), parsedURL.Port(), SpiceDBPostgresDatabase)
+		// create user and database
+		fmt.Println(databaseURL)
+	}
+
+	return ctrl.Result{}, nil
+}
+
+// // createSpiceDBSecret ensures that the Secret "spicedb-config" exists in the "spicedb" namespace.
+// func createSpiceDBPostgresSecret(ctx context.Context, c client.Client, secretName, namespace string) error {
+// 	// Define the Secret object
+// 	secret := &corev1.Secret{}
+// 	err := c.Get(ctx, types.NamespacedName{Name: secretName, Namespace: namespace}, secret)
+// 	if err != nil {
+// 		if errors.IsNotFound(err) {
+// 			// Secret not found, create it
+// 			newSecret := &corev1.Secret{
+// 				ObjectMeta: controllerutil.ObjectMeta{
+// 					Name:      secretName,
+// 					Namespace: namespace,
+// 				},
+// 				StringData: map[string]string{
+// 					"datastore_uri": "...",
+// 					"preshared_key": "...",
+// 				},
+// 			}
+
+// 			if err := c.Create(ctx, newSecret); err != nil {
+// 				return err
+// 			}
+// 			return nil
+// 		}
+// 		// Return other errors (e.g., API server errors)
+// 		return err
+// 	}
+// 	// Secret already exists, no need to create
+// 	return nil
+// }
