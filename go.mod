@@ -60,13 +60,16 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.15.0
 	open-cluster-management.io/multicloud-operators-subscription v0.15.0
 	sigs.k8s.io/application v0.8.3
-	sigs.k8s.io/controller-runtime v0.19.0
+	sigs.k8s.io/controller-runtime v0.20.1
 	sigs.k8s.io/kustomize/api v0.18.0
 	sigs.k8s.io/kustomize/kyaml v0.18.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require go.uber.org/atomic v1.11.0 // indirect
+require (
+	github.com/google/btree v1.1.3 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+)
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.2-20240920164238-5a7b106cbb87.1 // indirect
