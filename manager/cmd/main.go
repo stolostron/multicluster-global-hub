@@ -18,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
-	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -338,13 +337,6 @@ func initCache(config *rest.Config, cacheOpts cache.Options) (cache.Cache, error
 		},
 		&corev1.PersistentVolumeClaim{}: {
 			Field: fields.OneTermEqualSelector(namespacePath, managerNamespace),
-		},
-		&addonv1alpha1.ManagedClusterAddOn{}: {
-			Field: fields.SelectorFromSet(
-				fields.Set{
-					"metadata.name": constants.GHManagedClusterAddonName,
-				},
-			),
 		},
 	}
 	return cache.New(config, cacheOpts)
