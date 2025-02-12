@@ -408,7 +408,7 @@ func GetMulticlusterGlobalHub(ctx context.Context, c client.Client) (*v1alpha4.M
 		return nil, err
 	}
 	if len(mghList.Items) != 1 {
-		log.Infof("mgh should have 1 instance, but got %v", len(mghList.Items))
+		log.Debugf("mgh may have 1 instance, but got %v", len(mghList.Items))
 		return nil, nil
 	}
 	return &mghList.Items[0], nil
@@ -421,7 +421,7 @@ func GetMulticlusterGlobalHubAgent(ctx context.Context, c client.Client) (*v1alp
 		return nil, err
 	}
 	if len(mghaList.Items) != 1 {
-		log.Infof("mgha should have 1 instance, but got %v", len(mghaList.Items))
+		log.Debugf("mgha may have 1 instance, but got %v", len(mghaList.Items))
 		return nil, nil
 	}
 	return &mghaList.Items[0], nil

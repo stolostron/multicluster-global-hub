@@ -133,7 +133,7 @@ ensure_cluster() {
     docker rm -f "$cluster_name-control-plane"
   fi
 
-  kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
+  kind create cluster --name "$cluster_name" --wait 5m
 
   # modify the context = KinD cluster name = kubeconfig name
   kubectl config delete-context "$cluster_name" 2>/dev/null || true
@@ -363,11 +363,25 @@ enable_router() {
 
 install_crds() {
   local ctx=$1
+  local install_acm_crds=$2
   # router
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
   path="https://raw.githubusercontent.com/openshift/router/$ROUTE_VERSION"
   kubectl --context "$ctx" apply -f $path/deploy/route_crd.yaml
 
+  #proxy crd. required by olm
+  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
+
+  # monitor
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
+  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_prometheusrules.yaml
+
+  # clusterID from clusterversion
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
+
+  if [ "$install_acm_crds" = false ]; then
+    return
+  fi
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
@@ -376,17 +390,12 @@ install_crds() {
 
   # clusterinfo for rest
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_internal.open-cluster-management.io_managedclusterinfos.crd.yaml
-  # clusterID from clusterversion
-  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
+
   # managedserviceaccount
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_06_authentication.open-cluster-management.io_managedserviceaccounts.crd.yaml
 
   # cluster managers
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml
-
-  # monitor
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_prometheusrules.yaml
 
   # addons
   kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml
@@ -395,9 +404,6 @@ install_crds() {
 
   # cluster
   kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
-
-  #proxy crd. required by olm
-  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
 }
 
 install_mch() {
