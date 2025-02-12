@@ -7,6 +7,7 @@ import (
 	"time"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -70,7 +71,6 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
 
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true, false)
-		Expect(err).To(Succeed())
 		err = storageReconciler.SetupWithManager(runtimeManager)
 		Expect(err).To(Succeed())
 
@@ -87,15 +87,18 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		// reconcile database(annotation) -> mock builtin
+		postgresUserReconciler := &storage.PostgresConfigUserReconciler{Manager: runtimeManager}
+		err = postgresUserReconciler.SetupWithManager(runtimeManager)
+		Expect(err).To(Succeed())
 		config.SetBYOPostgres(false)
 		// add 1 test user
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      storage.BuiltinPostgresCustomizedUsersName,
+				Name:      storage.PostgresCustomizedUsersConfigMapName,
 				Namespace: mgh.Namespace,
 			},
 			Data: map[string]string{
-				"test-user1": "[\"test1\", \"test2\"]",
+				"test-user1": "[\"test1\", \"test-2\"]",
 			},
 		}
 		Expect(runtimeClient.Create(ctx, configMap)).To(Succeed())
@@ -115,13 +118,33 @@ var _ = Describe("storage", Ordered, func() {
 			if err != nil {
 				return err
 			}
+			config, err := pgx.ParseConfig(testPostgres.URI)
+			if err != nil {
+				return err
+			}
+			// verification in database
+			config.User = "test-user1"
+			config.Database = "test1"
+			config.Password = string(secret.Data[storage.PostgresCustomizedUserSecretPasswordKey])
+			conn, err := pgx.ConnectConfig(ctx, config)
+			if err != nil {
+				return err
+			}
+			_, err = conn.Exec(ctx, createSchemaResourceSQL)
+			if err != nil {
+				return fmt.Errorf("unable to create resource in customized schema: %v", err)
+			}
+			_, err = conn.Exec(ctx, createPublicSchemaResourceSQL)
+			if err != nil {
+				return fmt.Errorf("unable to create resource in public schema: %v", err)
+			}
 			utils.PrettyPrint(secret)
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		// add 2 test users
 		Expect(runtimeClient.Get(ctx, client.ObjectKeyFromObject(configMap), configMap)).To(Succeed())
-		configMap.Data["test_user2"] = "[\"test3\"]"
+		configMap.Data["test_user2"] = "[\"test3\", \"test_4\"]"
 		Expect(runtimeClient.Update(ctx, configMap)).To(Succeed())
 		// verify the tesetuser2
 		Eventually(func() error {
@@ -140,7 +163,7 @@ var _ = Describe("storage", Ordered, func() {
 			}
 			utils.PrettyPrint(secret)
 			if string(secret.Data["db.user"]) != "test_user2" ||
-				string(secret.Data["db.names"]) != "[\"test3\"]" {
+				string(secret.Data["db.names"]) != "[\"test3\", \"test_4\"]" {
 				return fmt.Errorf("unexpected secret: %v", secret)
 			}
 			return nil
@@ -307,3 +330,43 @@ var _ = Describe("storage", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
+
+const createPublicSchemaResourceSQL = `-- Step 1: Create the table
+CREATE TABLE test_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Step 2: Modify the table by adding a new column
+ALTER TABLE test_table ADD COLUMN updated_at TIMESTAMP;
+
+-- Step 3: Create an index on the 'name' column
+CREATE INDEX idx_name ON test_table (name);
+
+-- Step 4: Create the trigger function
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 5: Attach the trigger to the table
+CREATE TRIGGER update_test_table_timestamp
+BEFORE UPDATE ON test_table
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();`
+
+const createSchemaResourceSQL = `
+-- Create a schema
+CREATE SCHEMA my_schema;
+
+-- Create a table in the new schema
+CREATE TABLE my_schema.my_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`

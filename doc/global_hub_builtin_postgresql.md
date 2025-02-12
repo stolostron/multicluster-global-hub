@@ -8,7 +8,7 @@ To enhance the functionality of the Global Hub as a resource inventory, we utili
 <userName>: "[<database1>, <database2>]"
 ```
 
-#### Example:
+### Example
 
 ```bash
 cat <<EOF | kubectl apply -f -
@@ -41,7 +41,17 @@ metadata:
 ...
 ```
 
-Note: If the `<username>` contains characters '_', they will be replaced with '-' in the secret name. For example, if the `<username>` is `test_user`, the secret name will be `postgresql-user-test-user`.
+### User Permission
+
+1. By default, a user (or role) has full permissions on the database and any schemas they create. This includes the ability to create schemas, tables, indexes, and triggers within their own schemas.
+
+2. Additionally, we explicitly grant the user full permissions on the `public` schema, enabling the user to create tables, indexes, and triggers within the public schema.
+
+### Note
+
+1. If the `<username>` contains characters '_', they will be replaced with '-' in the secret name. For example, if the `<username>` is `test_user`, the secret name will be `postgresql-user-test-user`.
+
+2. `test_user` and `test-user` are distinct in the database but identical(`postgresql-user-test-user`) in the Kubernetes secret name. Avoid using both in the ConfigMap, as the secret data (user, password, databases) will be overwritten by the last applied entry.
 
 ## Custom PostgreSQL Server Configuration
 
