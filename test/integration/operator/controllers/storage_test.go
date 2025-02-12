@@ -71,7 +71,6 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, storageSecret)).To(Succeed())
 
 		storageReconciler := storage.NewStorageReconciler(runtimeManager, true, false)
-		Expect(err).To(Succeed())
 		err = storageReconciler.SetupWithManager(runtimeManager)
 		Expect(err).To(Succeed())
 
@@ -88,6 +87,9 @@ var _ = Describe("storage", Ordered, func() {
 		Expect(err).To(Succeed())
 
 		// reconcile database(annotation) -> mock builtin
+		postgresUserReconciler := &storage.PostgresConfigUserReconciler{Manager: runtimeManager}
+		err = postgresUserReconciler.SetupWithManager(runtimeManager)
+		Expect(err).To(Succeed())
 		config.SetBYOPostgres(false)
 		// add 1 test user
 		configMap := &corev1.ConfigMap{
