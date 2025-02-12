@@ -70,7 +70,7 @@ func (r *PostgresConfigUserReconciler) IsResourceRemoved() bool {
 }
 
 func (r *PostgresConfigUserReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("storageController").
+	return ctrl.NewControllerManagedBy(mgr).Named("postgresUserController").
 		For(&corev1.ConfigMap{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
