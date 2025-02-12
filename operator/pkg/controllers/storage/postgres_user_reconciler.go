@@ -85,8 +85,7 @@ func (r *PostgresConfigUserReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		Watches(&corev1.Secret{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
-					return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-						PostgresCustomizedUsersConfigMapName
+					return false
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					return e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
