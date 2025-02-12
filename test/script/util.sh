@@ -133,7 +133,7 @@ ensure_cluster() {
     docker rm -f "$cluster_name-control-plane"
   fi
 
-  kind create cluster --name "$cluster_name" --wait 5m
+  kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
 
   # modify the context = KinD cluster name = kubeconfig name
   kubectl config delete-context "$cluster_name" 2>/dev/null || true
