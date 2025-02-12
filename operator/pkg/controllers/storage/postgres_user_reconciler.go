@@ -31,14 +31,14 @@ const (
 	BuiltinPostgresAdminUserName = "postgres"
 
 	PostgresCustomizedUsersConfigMapName     = "multicluster-global-hub-custom-postgresql-users"
-	PostgresCustomizedUserPasswordSalt       = "f9c67c8e7d2a1b42e5b8fa22417cd696" // A random, fixed salt string
+	PostgresCustomizedUserPasswordSalt       = "f9c67c8e7d2a1b42e5b8fa22417cd696" // #nosec G101
 	PostgresCustomizedUserSecretDatabasesKey = "db.names"
 	PostgresCustomizedUserSecretUserKey      = "db.user"
 	PostgresCustomizedUserSecretHostKey      = "db.host"
 	PostgresCustomizedUserSecretPortKey      = "db.port"
-	PostgresCustomizedUserSecretCACertKey    = "db.ca_cert"  // #nosec G101
-	PostgresCustomizedUserSecretPasswordKey  = "db.password" // #nosec G101
-	PostgresCustomizedUserSecretNamePrefix   = "postgresql-user"
+	PostgresCustomizedUserSecretCACertKey    = "db.ca_cert"      // #nosec G101
+	PostgresCustomizedUserSecretPasswordKey  = "db.password"     // #nosec G101
+	PostgresCustomizedUserSecretNamePrefix   = "postgresql-user" // #nosec G101
 )
 
 var (
