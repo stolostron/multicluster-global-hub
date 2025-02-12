@@ -407,7 +407,7 @@ func (r *StorageReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Co
 		}
 
 		// create postgres user
-		pwd, err := r.createPostgresUser(ctx, conn, userName)
+		pwd, err := CreatePostgresUser(ctx, conn, userName)
 		if err != nil {
 			return fmt.Errorf("error creating postgres user %s: %v", userName, err)
 		}
@@ -451,8 +451,8 @@ func (r *StorageReconciler) createDatabaseIfNotExists(ctx context.Context, conn 
 	return nil
 }
 
-// createPostgresUser return the password of the created user, if the password is empty if the user is already existing
-func (r *StorageReconciler) createPostgresUser(ctx context.Context, conn *pgx.Conn, userName string,
+// CreatePostgresUser return the password of the created user, if the password is empty if the user is already existing
+func CreatePostgresUser(ctx context.Context, conn *pgx.Conn, userName string,
 ) (string, error) {
 	var roleExists bool
 	err := conn.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = $1)",

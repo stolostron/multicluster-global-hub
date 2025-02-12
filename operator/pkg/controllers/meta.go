@@ -69,7 +69,8 @@ var controllerStartFuncMap = map[string]Func{
 	"managedhub":       managedhub.StartController,
 	"acm":              acm.StartController,
 	"backup":           backup.StartController,
-	"inventory":        inventory.StartController,
+	"inventory":        inventory.StartInventoryController,
+	"spicedb":          inventory.StartSpiceDBController,
 }
 
 var log = logger.DefaultZapLogger()
