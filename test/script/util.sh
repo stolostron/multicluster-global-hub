@@ -363,18 +363,18 @@ enable_router() {
 
 install_crds() {
   local ctx=$1
-  local install_acm_crds=$2
+  local install_acm_crds=${2:-true}
   # router
   kubectl create ns openshift-ingress --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
   path="https://raw.githubusercontent.com/openshift/router/$ROUTE_VERSION"
   kubectl --context "$ctx" apply -f $path/deploy/route_crd.yaml
 
   #proxy crd. required by olm
-  kubectl --context "$1" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
+  kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_03_config-operator_01_proxies.crd.yaml
 
   # monitor
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_prometheusrules.yaml
+  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_servicemonitors.crd.yaml
+  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_04_monitoring.coreos.com_prometheusrules.yaml
 
   # clusterID from clusterversion
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/clusterversion.crd.yaml
@@ -398,12 +398,12 @@ install_crds() {
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_clustermanagers.crd.yaml
 
   # addons
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_02_addon.open-cluster-management.io_addondeploymentconfigs.crd.yaml
+  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_01_addon.open-cluster-management.io_managedclusteraddons.crd.yaml
+  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_addon.open-cluster-management.io_clustermanagementaddons.crd.yaml
+  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_02_addon.open-cluster-management.io_addondeploymentconfigs.crd.yaml
 
   # cluster
-  kubectl --context "$1" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
+  kubectl --context "$ctx" apply -f "$CURRENT_DIR"/../manifest/crd/0000_00_cluster.open-cluster-management.io_managedclusters.crd.yaml
 }
 
 install_mch() {
