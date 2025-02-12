@@ -44,7 +44,6 @@ const (
 var (
 	postgresUserNameTemplate = "postgresql-user-%s"
 	configUserReconciler     *PostgresConfigUserReconciler
-	appliedConfigMapUsers    map[string]string
 )
 
 func StartPostgresConfigUserController(initOption config.ControllerOption) (config.ControllerInterface, error) {
@@ -109,7 +108,6 @@ func (r *PostgresConfigUserReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 	if mgh.DeletionTimestamp != nil {
-		appliedConfigMapUsers = nil
 		return ctrl.Result{}, nil
 	}
 
@@ -122,7 +120,7 @@ func (r *PostgresConfigUserReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, fmt.Errorf("unable to fetch ConfigMap: %w", err)
 	}
-	if errors.IsNotFound(err) || pgUsers.Data == nil || configMapDataEqual(pgUsers.Data, appliedConfigMapUsers) {
+	if errors.IsNotFound(err) || pgUsers.Data == nil {
 		return ctrl.Result{}, nil
 	}
 
@@ -150,8 +148,6 @@ func (r *PostgresConfigUserReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, err
 	}
 	log.Infof("applied the postgresql users successfully!")
-	appliedConfigMapUsers = pgUsers.Data
-
 	return ctrl.Result{}, nil
 }
 

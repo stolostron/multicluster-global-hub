@@ -191,7 +191,6 @@ func (r *StorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
-		appliedConfigMapUsers = nil
 		updateConnection = false
 		_ = config.SetStorageConnection(nil)
 	}
