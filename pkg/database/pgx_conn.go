@@ -15,9 +15,17 @@ import (
 const errMessageFileNotFound = "no such file or directory"
 
 func PostgresConnection(ctx context.Context, URI string, cert []byte) (*pgx.Conn, error) {
+	return PostgresDBConn(ctx, URI, cert, "")
+}
+
+func PostgresDBConn(ctx context.Context, URI string, cert []byte, db string) (*pgx.Conn, error) {
 	config, err := GetPostgresConfig(URI, cert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get database config: %w", err)
+	}
+
+	if db != "" {
+		config.Database = db
 	}
 
 	conn, err := pgx.ConnectConfig(ctx, config)
