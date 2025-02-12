@@ -7,6 +7,7 @@ import (
 	"time"
 
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -114,6 +115,26 @@ var _ = Describe("storage", Ordered, func() {
 			}, secret)
 			if err != nil {
 				return err
+			}
+			config, err := pgx.ParseConfig(testPostgres.URI)
+			if err != nil {
+				return err
+			}
+			// verification in database
+			config.User = "test-user1"
+			config.Database = "test1"
+			config.Password = string(secret.Data[storage.PostgresCustomizedUserSecretPasswordKey])
+			conn, err := pgx.ConnectConfig(ctx, config)
+			if err != nil {
+				return err
+			}
+			_, err = conn.Exec(ctx, createSchemaResourceSQL)
+			if err != nil {
+				return fmt.Errorf("unable to create resource in customized schema: %v", err)
+			}
+			_, err = conn.Exec(ctx, createPublicSchemaResourceSQL)
+			if err != nil {
+				return fmt.Errorf("unable to create resource in public schema: %v", err)
 			}
 			utils.PrettyPrint(secret)
 			return nil
@@ -307,3 +328,43 @@ var _ = Describe("storage", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
+
+const createPublicSchemaResourceSQL = `-- Step 1: Create the table
+CREATE TABLE test_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Step 2: Modify the table by adding a new column
+ALTER TABLE test_table ADD COLUMN updated_at TIMESTAMP;
+
+-- Step 3: Create an index on the 'name' column
+CREATE INDEX idx_name ON test_table (name);
+
+-- Step 4: Create the trigger function
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 5: Attach the trigger to the table
+CREATE TRIGGER update_test_table_timestamp
+BEFORE UPDATE ON test_table
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();`
+
+const createSchemaResourceSQL = `
+-- Create a schema
+CREATE SCHEMA my_schema;
+
+-- Create a table in the new schema
+CREATE TABLE my_schema.my_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+`
