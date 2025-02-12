@@ -70,6 +70,7 @@ var controllerStartFuncMap = map[string]Func{
 	"acm":              acm.StartController,
 	"backup":           backup.StartController,
 	"inventory":        inventory.StartController,
+	"postgresUser":     storage.StartPostgresConfigUserController,
 }
 
 var log = logger.DefaultZapLogger()

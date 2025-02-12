@@ -76,14 +76,11 @@ var WatchedSecret = sets.NewString(
 var WatchedConfigMap = sets.NewString(
 	BuiltinPostgresCAName,
 	BuiltinPostgresCustomizedConfigName,
-	BuiltinPostgresCustomizedUsersName,
 )
 
 var (
-	storageReconciler        *StorageReconciler
-	updateConnection         bool
-	appliedConfigMapUsers    map[string]string
-	postgresUserNameTemplate = "postgresql-user-%s"
+	storageReconciler *StorageReconciler
+	updateConnection  bool
 )
 
 func (r *StorageReconciler) IsResourceRemoved() bool {
@@ -94,8 +91,6 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	if storageReconciler != nil {
 		return storageReconciler, nil
 	}
-	log.Info("start storage controller")
-
 	storageReconciler = NewStorageReconciler(initOption.Manager,
 		initOption.OperatorConfig.GlobalResourceEnabled, initOption.MulticlusterGlobalHub.Spec.EnableMetrics)
 	err := storageReconciler.SetupWithManager(initOption.Manager)
@@ -103,7 +98,7 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 		storageReconciler = nil
 		return nil, err
 	}
-	log.Infof("inited storage controller")
+	log.Info("start storage controller")
 	return storageReconciler, nil
 }
 
@@ -303,46 +298,25 @@ func (r *StorageReconciler) ReconcileStorage(ctx context.Context,
 }
 
 func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (bool, error) {
-	var conn *pgx.Conn
-
-	pgUsers, err := r.getPostgresUsers(ctx, mgh)
-	if err != nil {
-		return false, err
-	}
-
-	// Don't reconcile, or create the connection, when
-	// 1. postgres users isn't updated
-	// 2. database has been initialized
-	if pgUsers == nil && r.databaseReconcileCount > 0 {
+	// Don't reconcile, or create the connection, when database has been initialized
+	if r.databaseReconcileCount > 0 {
 		return false, nil
 	}
-
-	defer func() {
-		if conn != nil {
-			if err := conn.Close(ctx); err != nil {
-				log.Error(err, "failed to close connection to database")
-			}
-		}
-	}()
-
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
 		return false, fmt.Errorf("storage connection is nil")
 	}
-	conn, err = database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
+	conn, err := database.PostgresConnection(ctx, storageConn.SuperuserDatabaseURI, storageConn.CACert)
+	defer func() {
+		if conn != nil {
+			if e := conn.Close(ctx); e != nil {
+				log.Error(err, "failed to close connection to database")
+			}
+		}
+	}()
 	if err != nil {
 		log.Infof("wait database ready, failed to connect database: %v", err)
 		return true, nil
-	}
-
-	// apply the init users
-	if !config.IsBYOPostgres() && pgUsers != nil {
-		if err = applyPostgresUsers(ctx, conn, pgUsers.Data, mgh,
-			r.Manager.GetClient(), r.Manager.GetScheme()); err != nil {
-			return false, err
-		}
-		log.Infof("applied the postgresql users from ConfigMap(%s) successfully!", pgUsers.Name)
-		appliedConfigMapUsers = pgUsers.Data
 	}
 
 	// apply the global hub init SQL when the operator restarted
@@ -354,43 +328,7 @@ func (r *StorageReconciler) ReconcileDatabase(ctx context.Context, mgh *v1alpha4
 		log.Debug("global hub database initialized")
 		r.databaseReconcileCount++
 	}
-
 	return false, nil
-}
-
-func (r *StorageReconciler) getPostgresUsers(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
-	*corev1.ConfigMap, error,
-) {
-	currentCM := &corev1.ConfigMap{}
-	err := r.GetClient().Get(ctx, client.ObjectKey{
-		Name:      BuiltinPostgresCustomizedUsersName,
-		Namespace: mgh.Namespace,
-	}, currentCM)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, fmt.Errorf("unable to fetch ConfigMap: %w", err)
-	}
-
-	// not found the ConfigMap
-	if errors.IsNotFound(err) {
-		return nil, nil
-	}
-
-	if !configMapDataEqual(currentCM.Data, appliedConfigMapUsers) {
-		return currentCM, nil
-	}
-	return nil, nil // No change detected
-}
-
-func configMapDataEqual(data1, data2 map[string]string) bool {
-	if len(data1) != len(data2) {
-		return false
-	}
-	for key, value := range data1 {
-		if data2[key] != value {
-			return false
-		}
-	}
-	return true
 }
 
 func (r *StorageReconciler) applyGlobalHubInitSQL(ctx context.Context, conn *pgx.Conn, readonlyUserURI string) error {

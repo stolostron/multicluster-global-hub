@@ -92,7 +92,7 @@ var _ = Describe("storage", Ordered, func() {
 		// add 1 test user
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      storage.BuiltinPostgresCustomizedUsersName,
+				Name:      storage.PostgresCustomizedUsersConfigMapName,
 				Namespace: mgh.Namespace,
 			},
 			Data: map[string]string{

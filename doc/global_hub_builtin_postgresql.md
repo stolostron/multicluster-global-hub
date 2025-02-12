@@ -43,9 +43,9 @@ metadata:
 
 ### User Permission
 
-1. By default, a user (role) has full permissions on the database and any schemas they create, but not on existing schemas. This includes the ability to create schemas, tables, indexes, and triggers within their own schemas.
+1. By default, a user (or role) has full permissions on the database and any schemas they create. This includes the ability to create schemas, tables, indexes, and triggers within their own schemas.
 
-2. Additionally, we explicitly grant the user full permissions on the `public` schema, enabling them to create tables, indexes, and triggers within it.
+2. Additionally, we explicitly grant the user full permissions on the `public` schema, enabling the user to create tables, indexes, and triggers within the public schema.
 
 ### Note
 
