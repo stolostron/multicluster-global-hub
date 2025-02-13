@@ -9,17 +9,13 @@ import (
 	"time"
 
 	spicedbv1alpha1 "github.com/authzed/spicedb-operator/pkg/apis/authzed/v1alpha1"
-	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/jackc/pgx/v5"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -78,16 +74,8 @@ func StartSpiceDBController(initOption config.ControllerOption) (config.Controll
 	if config.GetStorageConnection() == nil {
 		return nil, nil
 	}
-	log.Info("start spiceDB controller")
-
-	dClient, err := dynamic.NewForConfig(initOption.Manager.GetConfig())
-	if err != nil {
-		return nil, err
-	}
 
 	spiceDBCtrl := &SpiceDBReconciler{
-		kClient: initOption.KubeClient,
-		dClient: dClient,
 		Manager: initOption.Manager,
 	}
 	if err := spiceDBCtrl.SetupWithManager(initOption.Manager); err != nil {
@@ -95,13 +83,11 @@ func StartSpiceDBController(initOption config.ControllerOption) (config.Controll
 		return nil, err
 	}
 	spiceDBReconciler = spiceDBCtrl
-	log.Infof("init spiceDB controller")
+	log.Info("start spiceDB controller")
 	return spiceDBReconciler, nil
 }
 
 type SpiceDBReconciler struct {
-	kClient kubernetes.Interface
-	dClient *dynamic.DynamicClient
 	ctrl.Manager
 }
 
@@ -114,6 +100,9 @@ func (r *SpiceDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("spicedb").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBdeploymentPred)).
+		Watches(&corev1.Secret{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBSecretPred)).
+		Watches(&spicedbv1alpha1.SpiceDBCluster{}, &handler.EnqueueRequestForObject{},
+			builder.WithPredicates(spiceDBClusterPred)).
 		Complete(r)
 }
 
@@ -129,6 +118,36 @@ var spiceDBdeploymentPred = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_SPICEDB_OPERATOR_NAME
+	},
+}
+
+var spiceDBSecretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigSecretName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == SpiceDBConfigSecretName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigSecretName
+	},
+}
+
+var spiceDBClusterPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigClusterName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == SpiceDBConfigClusterName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigClusterName
 	},
 }
 
@@ -156,7 +175,6 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	imagePullPolicy := corev1.PullAlways
@@ -180,7 +198,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}{
 			Namespace:       mgh.Namespace,
 			Replicas:        replicas,
-			Image:           config.GetImage(config.SpiceDBImageKey),
+			Image:           config.GetImage(config.SpiceDBOperatorImageKey),
 			ImagePullPolicy: string(imagePullPolicy),
 			ImagePullSecret: mgh.Spec.ImagePullSecret,
 			NodeSelector:    mgh.Spec.NodeSelector,
@@ -196,7 +214,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	return r.ReconcileCluster(ctx, mgh)
 }
 
 func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
@@ -229,6 +247,7 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},
 		},
+		StringData: map[string]string{},
 	}
 	err = controllerutil.SetControllerReference(mgh, spicedbConfigSecret, r.GetScheme())
 	if err != nil {
@@ -264,7 +283,14 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 	configData := map[string]interface{}{
 		"replicas":        replicas,
 		"datastoreEngine": "postgres",
+		"image":           config.GetImage(config.SpiceDBInstanceImageKey),
 	}
+
+	imagePullPolicy := corev1.PullAlways
+	if mgh.Spec.ImagePullPolicy != "" {
+		imagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+	imagePullSecret := mgh.Spec.ImagePullSecret
 
 	configJSON, err := json.Marshal(configData)
 	if err != nil {
@@ -285,18 +311,12 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 	}
 
 	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
-	currentUnstructed, err := r.dClient.Resource(v1alpha1ClusterGVR).Namespace(expectedCluster.Namespace).Get(
-		ctx, expectedCluster.Name, metav1.GetOptions{})
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(&expectedCluster), currentCluster)
 	if err != nil && !errors.IsNotFound(err) {
 		return ctrl.Result{}, fmt.Errorf("failed get spicedb cluster instance: %w", err)
 	} else if errors.IsNotFound(err) {
 		// create
-		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&expectedCluster)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to convert deployment to unstructured: %w", err)
-		}
-		unstructuredCluster := &unstructured.Unstructured{Object: unstructuredObj}
-		_, err = r.dClient.Resource(v1alpha1ClusterGVR).Namespace(expectedCluster.Namespace).Create(ctx, unstructuredCluster, metav1.CreateOptions{})
+		err = r.GetClient().Create(ctx, &expectedCluster)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
 		}
@@ -305,22 +325,13 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 	}
 
 	// update
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(currentUnstructed.UnstructuredContent(), currentCluster)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
 	if !reflect.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
 		!reflect.DeepEqual(currentCluster.Spec.Config, expectedCluster.Spec.Config) ||
 		currentCluster.Spec.SecretRef != expectedCluster.Spec.SecretRef {
 		currentCluster.Labels = expectedCluster.Labels
 		currentCluster.Spec.Config = expectedCluster.Spec.Config
 		currentCluster.Spec.SecretRef = expectedCluster.Spec.SecretRef
-		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(currentCluster)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to convert deployment to unstructured: %w", err)
-		}
-		unstructuredCluster := &unstructured.Unstructured{Object: unstructuredObj}
-		_, err = r.dClient.Resource(v1alpha1ClusterGVR).Namespace(expectedCluster.Namespace).Update(ctx, unstructuredCluster, metav1.UpdateOptions{})
+		err = r.GetClient().Update(ctx, currentCluster)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
 		}

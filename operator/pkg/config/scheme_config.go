@@ -2,6 +2,7 @@ package config
 
 import (
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	spicedbv1alpha1 "github.com/authzed/spicedb-operator/pkg/apis/authzed/v1alpha1"
 	postgresv1beta1 "github.com/crunchydata/postgres-operator/pkg/apis/postgres-operator.crunchydata.com/v1beta1"
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
@@ -57,6 +58,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(postgresv1beta1.AddToScheme(scheme))
 	utilruntime.Must(imagev1.AddToScheme(scheme))
+	utilruntime.Must(spicedbv1alpha1.AddToScheme(scheme))
 
 	// add Kafka scheme
 	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))
