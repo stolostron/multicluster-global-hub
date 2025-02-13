@@ -255,9 +255,14 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 		}
 	}
 
+	replicas := int32(1)
+	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
+		replicas = 2
+	}
+
 	// create spicedb cluster
 	configData := map[string]interface{}{
-		"replicas":        2,
+		"replicas":        replicas,
 		"datastoreEngine": "postgres",
 	}
 
