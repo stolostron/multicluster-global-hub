@@ -2,17 +2,29 @@ package inventory
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/url"
+	"reflect"
 	"time"
 
+	spicedbv1alpha1 "github.com/authzed/spicedb-operator/pkg/apis/authzed/v1alpha1"
+	"github.com/go-kratos/kratos/v2/errors"
+	"github.com/jackc/pgx/v5"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -23,6 +35,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -42,12 +55,17 @@ import (
 // https://github.com/authzed/spicedb-operator/releases/download/v1.18.0/bundle.yaml
 // It has defined some cluster scoped resources, such as: ClusterRole, ClusterRoleBinding, etc.
 
-var spiceDBReconciler *SpiceDBReconciler
+var (
+	spiceDBReconciler  *SpiceDBReconciler
+	v1alpha1ClusterGVR = spicedbv1alpha1.SchemeGroupVersion.WithResource(spicedbv1alpha1.SpiceDBClusterResourceName)
+)
 
 const (
-	SpiceDBConfigSecretName = "spicedb-config"
-	SpiceDBPostgresUser     = "spicedbuser"
-	SpiceDBPostgresDatabase = "spicedb"
+	SpiceDBConfigSecretName         = "spicedb-secret-config"
+	SpiceDBConfigSecretURIKey       = "datastore_uri"
+	SpiceDBConfigSecretPreSharedKey = "preshared_key"
+	SpiceDBConfigSecretPreSharedVal = "averysecretpresharedkey"
+	SpiceDBConfigClusterName        = "spicedb"
 )
 
 func StartSpiceDBController(initOption config.ControllerOption) (config.ControllerInterface, error) {
@@ -62,9 +80,15 @@ func StartSpiceDBController(initOption config.ControllerOption) (config.Controll
 	}
 	log.Info("start spiceDB controller")
 
+	dClient, err := dynamic.NewForConfig(initOption.Manager.GetConfig())
+	if err != nil {
+		return nil, err
+	}
+
 	spiceDBCtrl := &SpiceDBReconciler{
-		kubeClient: initOption.KubeClient,
-		Manager:    initOption.Manager,
+		kClient: initOption.KubeClient,
+		dClient: dClient,
+		Manager: initOption.Manager,
 	}
 	if err := spiceDBCtrl.SetupWithManager(initOption.Manager); err != nil {
 		spiceDBReconciler = nil
@@ -76,7 +100,8 @@ func StartSpiceDBController(initOption config.ControllerOption) (config.Controll
 }
 
 type SpiceDBReconciler struct {
-	kubeClient kubernetes.Interface
+	kClient kubernetes.Interface
+	dClient *dynamic.DynamicClient
 	ctrl.Manager
 }
 
@@ -186,38 +211,115 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to parse database uri: %w", err)
 	}
-	pgConfig.database = InventoryDatabaseName
+
+	// Refer https://github.com/authzed/spicedb-operator/blob/main/examples/cockroachdb-tls-ingress/spicedb/spicedb.yaml
+	pgURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		url.QueryEscape(pgConfig.User),
+		url.QueryEscape(pgConfig.Password),
+		pgConfig.Host,
+		pgConfig.Port,
+		InventoryDatabaseName,
+		"disable",
+	)
+	spicedbConfigSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SpiceDBConfigSecretName,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+	}
+	err = controllerutil.SetControllerReference(mgh, spicedbConfigSecret, r.GetScheme())
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to set ownerReference: %w", err)
+	}
+
+	// reconcile secret
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(spicedbConfigSecret), spicedbConfigSecret)
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed to get secret %s: %w", spicedbConfigSecret.Name, err)
+	} else if errors.IsNotFound(err) {
+		spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] = pgURI
+		// TODO: remove the hardcode
+		spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] = SpiceDBConfigSecretPreSharedVal
+		if err = r.GetClient().Create(ctx, spicedbConfigSecret); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create secret %s: %w", spicedbConfigSecret.Name, err)
+		}
+	} else {
+		if spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] != pgURI ||
+			spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] != SpiceDBConfigSecretPreSharedVal {
+			if err = r.GetClient().Update(ctx, spicedbConfigSecret); err != nil {
+				return ctrl.Result{}, fmt.Errorf("failed to update secret %s: %w", spicedbConfigSecret.Name, err)
+			}
+		}
+	}
+
+	// create spicedb cluster
+	configData := map[string]interface{}{
+		"replicas":        2,
+		"datastoreEngine": "postgres",
+	}
+
+	configJSON, err := json.Marshal(configData)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed marshaling spicedb config: %w", err)
+	}
+	expectedCluster := spicedbv1alpha1.SpiceDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: mgh.Namespace,
+			Name:      SpiceDBConfigClusterName,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		Spec: spicedbv1alpha1.ClusterSpec{
+			SecretRef: spicedbConfigSecret.Name,
+			Config:    configJSON,
+		},
+	}
+
+	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
+	currentUnstructed, err := r.dClient.Resource(v1alpha1ClusterGVR).Namespace(expectedCluster.Namespace).Get(
+		ctx, expectedCluster.Name, metav1.GetOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed get spicedb cluster instance: %w", err)
+	} else if errors.IsNotFound(err) {
+		// create
+		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&expectedCluster)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to convert deployment to unstructured: %w", err)
+		}
+		unstructuredCluster := &unstructured.Unstructured{Object: unstructuredObj}
+		_, err = r.dClient.Resource(v1alpha1ClusterGVR).Namespace(expectedCluster.Namespace).Create(ctx, unstructuredCluster, metav1.CreateOptions{})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
+		}
+		log.Infof("spicedb cluster is created %s", expectedCluster.Name)
+		return ctrl.Result{}, nil
+	}
+
+	// update
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(currentUnstructed.UnstructuredContent(), currentCluster)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !reflect.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
+		!reflect.DeepEqual(currentCluster.Spec.Config, expectedCluster.Spec.Config) ||
+		currentCluster.Spec.SecretRef != expectedCluster.Spec.SecretRef {
+		currentCluster.Labels = expectedCluster.Labels
+		currentCluster.Spec.Config = expectedCluster.Spec.Config
+		currentCluster.Spec.SecretRef = expectedCluster.Spec.SecretRef
+		unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(currentCluster)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to convert deployment to unstructured: %w", err)
+		}
+		unstructuredCluster := &unstructured.Unstructured{Object: unstructuredObj}
+		_, err = r.dClient.Resource(v1alpha1ClusterGVR).Namespace(expectedCluster.Namespace).Update(ctx, unstructuredCluster, metav1.UpdateOptions{})
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
+		}
+	}
 
 	return ctrl.Result{}, nil
 }
-
-// // createSpiceDBSecret ensures that the Secret "spicedb-config" exists in the "spicedb" namespace.
-// func createSpiceDBPostgresSecret(ctx context.Context, c client.Client, secretName, namespace string) error {
-// 	// Define the Secret object
-// 	secret := &corev1.Secret{}
-// 	err := c.Get(ctx, types.NamespacedName{Name: secretName, Namespace: namespace}, secret)
-// 	if err != nil {
-// 		if errors.IsNotFound(err) {
-// 			// Secret not found, create it
-// 			newSecret := &corev1.Secret{
-// 				ObjectMeta: controllerutil.ObjectMeta{
-// 					Name:      secretName,
-// 					Namespace: namespace,
-// 				},
-// 				StringData: map[string]string{
-// 					"datastore_uri": "...",
-// 					"preshared_key": "...",
-// 				},
-// 			}
-
-// 			if err := c.Create(ctx, newSecret); err != nil {
-// 				return err
-// 			}
-// 			return nil
-// 		}
-// 		// Return other errors (e.g., API server errors)
-// 		return err
-// 	}
-// 	// Secret already exists, no need to create
-// 	return nil
-// }

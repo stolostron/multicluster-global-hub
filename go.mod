@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/IBM/sarama v1.44.0
 	github.com/RedHatInsights/strimzi-client-go v0.34.2
+	github.com/authzed/spicedb-operator v1.18.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20241021120453-70fb95191324
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
@@ -66,10 +67,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require (
-	github.com/gorilla/websocket v1.5.3 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
-)
+require go.uber.org/atomic v1.11.0 // indirect
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.2-20240920164238-5a7b106cbb87.1 // indirect
