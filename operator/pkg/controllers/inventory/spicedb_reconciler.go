@@ -159,7 +159,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: might consider whether to delete the operator(and operand created by user) when the mgh is deleted
+	// the secret, spicedb-operator and spicedbcluster all added ownerReference with mgh
 	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
