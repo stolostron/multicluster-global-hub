@@ -60,6 +60,7 @@ const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
 	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
 	InventoryImageKey            = "inventory_api"
+	SpiceDBImageKey              = "spicedb"
 	OauthProxyImageKey           = "oauth_proxy"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
@@ -83,6 +84,7 @@ var (
 		PostgresImageKey:         "quay.io/stolostron/postgresql-16:9.5-1732622748",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 		InventoryImageKey:        "quay.io/stolostron/inventory-api:latest",
+		SpiceDBImageKey:          "ghcr.io/authzed/spicedb-operator:v1.18.0",
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"

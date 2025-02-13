@@ -17,6 +17,7 @@ import (
 
 // ControllerInterface define the controller which started by meta controller
 type ControllerInterface interface {
+	// IsResourceRemoved is flag, use to check if the resource is removed in the reconcile loop
 	IsResourceRemoved() bool
 }
 

@@ -8,10 +8,13 @@ rules:
   - ""
   resources:
   - configmaps
+  - jobs
   - namespaces
   - persistentvolumeclaims
   - pods
   - secrets
+  - serviceaccounts
+  - services
   verbs:
   - create
   - delete
@@ -19,6 +22,14 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - ""
@@ -31,18 +42,6 @@ rules:
   - get
   - list
   - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
   - update
   - watch
 - apiGroups:
@@ -110,8 +109,11 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - create
+  - delete
   - get
   - list
+  - update
   - watch
 - apiGroups:
   - app.k8s.io
@@ -126,6 +128,17 @@ rules:
   - apps
   resources:
   - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - statefulsets
   verbs:
   - create
@@ -173,6 +186,43 @@ rules:
   verbs:
   - create
   - get
+- apiGroups:
+  - authzed.com
+  resources:
+  - spicedbclusters
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - authzed.com
+  resources:
+  - spicedbclusters/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - certificates.k8s.io
   resources:
@@ -428,6 +478,16 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
   - rolebindings
   - roles
   verbs:
@@ -435,6 +495,7 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
