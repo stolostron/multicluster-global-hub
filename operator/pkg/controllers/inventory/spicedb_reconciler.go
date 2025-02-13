@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"reflect"
 	"time"
 
 	spicedbv1alpha1 "github.com/authzed/spicedb-operator/pkg/apis/authzed/v1alpha1"
 	"github.com/jackc/pgx/v5"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
@@ -307,7 +307,35 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 		Spec: spicedbv1alpha1.ClusterSpec{
 			SecretRef: spicedbConfigSecret.Name,
 			Config:    configJSON,
+			Patches:   make([]spicedbv1alpha1.Patch, 0),
 		},
+	}
+	if imagePullSecret != "" {
+		pullSecretPatch := spicedbv1alpha1.Patch{
+			Kind: "Deployment",
+			Patch: json.RawMessage(`{
+                "op": "replace",
+                "path": "/spec/template/spec/imagePullSecrets",
+                "value": [
+                    {
+                        "name": "` + imagePullSecret + `"
+                    }
+                ]
+            }`),
+		}
+		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, pullSecretPatch)
+	}
+	if imagePullPolicy != "" {
+		// JSON6902 Patch
+		pullPolicyPatch := spicedbv1alpha1.Patch{
+			Kind: "Deployment",
+			Patch: json.RawMessage(`{
+                "op": "replace",
+                "path": "/spec/template/spec/containers/0/imagePullPolicy",
+                "value": "` + imagePullPolicy + `"
+            }`),
+		}
+		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, pullPolicyPatch)
 	}
 
 	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
@@ -325,12 +353,10 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 	}
 
 	// update
-	if !reflect.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
-		!reflect.DeepEqual(currentCluster.Spec.Config, expectedCluster.Spec.Config) ||
-		currentCluster.Spec.SecretRef != expectedCluster.Spec.SecretRef {
+	if !equality.Semantic.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
+		!equality.Semantic.DeepEqual(currentCluster.Spec, expectedCluster.Spec) {
 		currentCluster.Labels = expectedCluster.Labels
-		currentCluster.Spec.Config = expectedCluster.Spec.Config
-		currentCluster.Spec.SecretRef = expectedCluster.Spec.SecretRef
+		currentCluster.Spec = expectedCluster.Spec
 		err = r.GetClient().Update(ctx, currentCluster)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
