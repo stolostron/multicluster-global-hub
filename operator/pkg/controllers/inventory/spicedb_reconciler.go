@@ -273,7 +273,43 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 			}
 		}
 	}
+	expectedCluster, err := getSpiceDBCluster(mgh)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	err = controllerutil.SetControllerReference(mgh, expectedCluster, r.GetScheme())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(expectedCluster), currentCluster)
+	if err != nil && !errors.IsNotFound(err) {
+		return ctrl.Result{}, fmt.Errorf("failed get spicedb cluster instance: %w", err)
+	} else if errors.IsNotFound(err) {
+		// create
+		err = r.GetClient().Create(ctx, expectedCluster)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
+		}
+		log.Infof("spicedb cluster is created %s", expectedCluster.Name)
+		return ctrl.Result{}, nil
+	}
 
+	// update
+	if !equality.Semantic.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
+		!equality.Semantic.DeepEqual(currentCluster.Spec, expectedCluster.Spec) {
+		currentCluster.Labels = expectedCluster.Labels
+		currentCluster.Spec = expectedCluster.Spec
+		err = r.GetClient().Update(ctx, currentCluster)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.SpiceDBCluster, error) {
 	replicas := int32(1)
 	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
 		replicas = 2
@@ -294,9 +330,9 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 
 	configJSON, err := json.Marshal(configData)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed marshaling spicedb config: %w", err)
+		return nil, fmt.Errorf("failed marshaling spicedb config: %w", err)
 	}
-	expectedCluster := spicedbv1alpha1.SpiceDBCluster{
+	spicedbCluster := spicedbv1alpha1.SpiceDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: mgh.Namespace,
 			Name:      SpiceDBConfigClusterName,
@@ -305,7 +341,7 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 			},
 		},
 		Spec: spicedbv1alpha1.ClusterSpec{
-			SecretRef: spicedbConfigSecret.Name,
+			SecretRef: SpiceDBConfigSecretName,
 			Config:    configJSON,
 			Patches:   make([]spicedbv1alpha1.Patch, 0),
 		},
@@ -323,7 +359,7 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
                 ]
             }`),
 		}
-		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, pullSecretPatch)
+		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, pullSecretPatch)
 	}
 	if imagePullPolicy != "" {
 		// JSON6902 Patch
@@ -335,13 +371,13 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
                 "value": "` + imagePullPolicy + `"
             }`),
 		}
-		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, pullPolicyPatch)
+		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, pullPolicyPatch)
 	}
 
 	if len(mgh.Spec.Tolerations) > 0 {
 		bytes, err := json.Marshal(mgh.Spec.Tolerations)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to marshal tolerations: %w", err)
+			return nil, fmt.Errorf("failed to marshal tolerations: %w", err)
 		}
 		tolerationsPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
@@ -352,13 +388,13 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 					}
 			`),
 		}
-		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, tolerationsPatch)
+		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, tolerationsPatch)
 	}
 
 	if len(mgh.Spec.NodeSelector) > 0 {
 		bytes, err := json.Marshal(mgh.Spec.NodeSelector)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to marshal nodeSelector: %w", err)
+			return nil, fmt.Errorf("failed to marshal nodeSelector: %w", err)
 		}
 		nodeSelectorPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
@@ -370,33 +406,7 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
             }
         ]`),
 		}
-		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, nodeSelectorPatch)
+		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, nodeSelectorPatch)
 	}
-
-	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
-	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(&expectedCluster), currentCluster)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, fmt.Errorf("failed get spicedb cluster instance: %w", err)
-	} else if errors.IsNotFound(err) {
-		// create
-		err = r.GetClient().Create(ctx, &expectedCluster)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
-		}
-		log.Infof("spicedb cluster is created %s", expectedCluster.Name)
-		return ctrl.Result{}, nil
-	}
-
-	// update
-	if !equality.Semantic.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
-		!equality.Semantic.DeepEqual(currentCluster.Spec, expectedCluster.Spec) {
-		currentCluster.Labels = expectedCluster.Labels
-		currentCluster.Spec = expectedCluster.Spec
-		err = r.GetClient().Update(ctx, currentCluster)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return &spicedbCluster, nil
 }
