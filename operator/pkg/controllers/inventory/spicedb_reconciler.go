@@ -338,6 +338,41 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, pullPolicyPatch)
 	}
 
+	if len(mgh.Spec.Tolerations) > 0 {
+		bytes, err := json.Marshal(mgh.Spec.Tolerations)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to marshal tolerations: %w", err)
+		}
+		tolerationsPatch := spicedbv1alpha1.Patch{
+			Kind: "Deployment",
+			Patch: json.RawMessage(`{
+							"op": "replace",
+							"path": "/spec/template/spec/tolerations",
+							"value": ` + string(bytes) + `
+					}
+			`),
+		}
+		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, tolerationsPatch)
+	}
+
+	if len(mgh.Spec.NodeSelector) > 0 {
+		bytes, err := json.Marshal(mgh.Spec.NodeSelector)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to marshal nodeSelector: %w", err)
+		}
+		nodeSelectorPatch := spicedbv1alpha1.Patch{
+			Kind: "Deployment",
+			Patch: json.RawMessage(`[
+            {
+                "op": "replace",
+                "path": "/spec/template/spec/nodeSelector",
+                "value": ` + string(bytes) + `
+            }
+        ]`),
+		}
+		expectedCluster.Spec.Patches = append(expectedCluster.Spec.Patches, nodeSelectorPatch)
+	}
+
 	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
 	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(&expectedCluster), currentCluster)
 	if err != nil && !errors.IsNotFound(err) {
