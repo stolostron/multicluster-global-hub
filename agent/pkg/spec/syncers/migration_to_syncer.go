@@ -209,7 +209,7 @@ func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context
 func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	registrationClusterRoleName := "system:open-cluster-management:managedcluster:bootstrap:agent-registration"
+	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
 	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
