@@ -355,14 +355,14 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 		pullSecretPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
 			Patch: json.RawMessage(`{
-                "op": "replace",
-                "path": "/spec/template/spec/imagePullSecrets",
-                "value": [
-                    {
-                        "name": "` + imagePullSecret + `"
-                    }
-                ]
-            }`),
+					"op": "replace",
+					"path": "/spec/template/spec/imagePullSecrets",
+					"value": [
+							{
+									"name": "` + imagePullSecret + `"
+							}
+					]
+				}`),
 		}
 		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, pullSecretPatch)
 	}
@@ -371,10 +371,10 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 		pullPolicyPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
 			Patch: json.RawMessage(`{
-                "op": "replace",
-                "path": "/spec/template/spec/containers/0/imagePullPolicy",
-                "value": "` + imagePullPolicy + `"
-            }`),
+					"op": "replace",
+					"path": "/spec/template/spec/containers/0/imagePullPolicy",
+					"value": "` + imagePullPolicy + `"
+				}`),
 		}
 		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, pullPolicyPatch)
 	}
@@ -386,12 +386,12 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 		}
 		tolerationsPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
-			Patch: json.RawMessage(`{
-							"op": "replace",
-							"path": "/spec/template/spec/tolerations",
-							"value": ` + string(bytes) + `
-					}
-			`),
+			Patch: json.RawMessage(fmt.Sprintf(`{
+					"op": "replace",
+					"path": "/spec/template/spec/tolerations",
+					"value": %s
+				}
+			`, string(bytes))),
 		}
 		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, tolerationsPatch)
 	}
@@ -403,13 +403,11 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 		}
 		nodeSelectorPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
-			Patch: json.RawMessage(`[
-            {
-                "op": "replace",
-                "path": "/spec/template/spec/nodeSelector",
-                "value": ` + string(bytes) + `
-            }
-        ]`),
+			Patch: json.RawMessage(fmt.Sprintf(`{
+					"op": "replace",
+					"path": "/spec/template/spec/nodeSelector",
+					"value": %s
+				}`, string(bytes))),
 		}
 		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, nodeSelectorPatch)
 	}
