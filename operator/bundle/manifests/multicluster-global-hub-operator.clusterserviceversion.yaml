@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-02-14T06:48:50Z"
+    createdAt: "2025-02-14T08:24:47Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -920,11 +920,9 @@ spec:
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
                 - name: RELATED_IMAGE_SPICEDB_OPERATOR
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb-operator
-                    :latest
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb-operator:latest
                 - name: RELATED_IMAGE_SPICEDB_INSTANCE
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb
-                    :latest
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1077,6 +1075,4 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-      :latest
-    name: spicedb-instance
   version: 1.4.0-dev

@@ -51,10 +51,9 @@ import (
 // https://github.com/authzed/spicedb-operator/releases/download/v1.18.0/bundle.yaml
 // It has defined some cluster scoped resources, such as: ClusterRole, ClusterRoleBinding, etc.
 
-var (
-	spiceDBReconciler  *SpiceDBReconciler
-	v1alpha1ClusterGVR = spicedbv1alpha1.SchemeGroupVersion.WithResource(spicedbv1alpha1.SpiceDBClusterResourceName)
-)
+var spiceDBReconciler *SpiceDBReconciler
+
+var spiceDBInstanceReconciler *spiceDBClusterReconciler
 
 const (
 	SpiceDBConfigSecretName         = "spicedb-secret-config"
@@ -106,9 +105,6 @@ func (r *SpiceDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("spicedb").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBdeploymentPred)).
-		Watches(&corev1.Secret{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBSecretPred)).
-		Watches(&spicedbv1alpha1.SpiceDBCluster{}, &handler.EnqueueRequestForObject{},
-			builder.WithPredicates(spiceDBClusterPred)).
 		Complete(r)
 }
 
@@ -124,36 +120,6 @@ var spiceDBdeploymentPred = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_SPICEDB_OPERATOR_NAME
-	},
-}
-
-var spiceDBSecretPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == SpiceDBConfigSecretName
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.ObjectNew.GetName() == SpiceDBConfigSecretName
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == SpiceDBConfigSecretName
-	},
-}
-
-var spiceDBClusterPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == SpiceDBConfigClusterName
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.ObjectNew.GetName() == SpiceDBConfigClusterName
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
-			e.Object.GetName() == SpiceDBConfigClusterName
 	},
 }
 
@@ -220,12 +186,80 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	return r.ReconcileCluster(ctx, mgh)
+	// start watch the resource spiceDBCluster
+	if spiceDBInstanceReconciler == nil {
+		reconciler, err := startSpiceDBController(r.Manager)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		spiceDBInstanceReconciler = reconciler
+	}
+	return ctrl.Result{}, nil
 }
 
-func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
+type spiceDBClusterReconciler struct {
+	ctrl.Manager
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func startSpiceDBController(mgr ctrl.Manager) (*spiceDBClusterReconciler, error) {
+	reconciler := &spiceDBClusterReconciler{
+		Manager: mgr,
+	}
+	err := ctrl.NewControllerManagedBy(mgr).Named("spicedb-cluster").
+		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
+		Watches(&corev1.Secret{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBSecretPred)).
+		Watches(&spicedbv1alpha1.SpiceDBCluster{}, &handler.EnqueueRequestForObject{},
+			builder.WithPredicates(spiceDBClusterPred)).
+		Complete(reconciler)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start the spicedb cluster %w", err)
+	}
+	return reconciler, nil
+}
+
+var spiceDBSecretPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigSecretName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == SpiceDBConfigSecretName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigSecretName
+	},
+}
+
+var spiceDBClusterPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigClusterName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.ObjectNew.GetName() == SpiceDBConfigClusterName
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == SpiceDBConfigClusterName
+	},
+}
+
+func (r *spiceDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	ctrl.Result, error,
 ) {
+	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.GetClient())
+	if err != nil {
+		log.Errorf("failed to get mgh, err:%v", err)
+		return ctrl.Result{}, nil
+	}
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
+	}
+
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil {
 		log.Info("the storage connection is not ready")
