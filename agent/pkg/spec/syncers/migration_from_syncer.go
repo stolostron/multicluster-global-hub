@@ -64,6 +64,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		}, foundBootstrapSecret); err != nil {
 		if apierrors.IsNotFound(err) {
 			s.log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
+			s.log.Debugf("creating bootstrap secret %v", bootstrapSecret)
 			if err := s.client.Create(ctx, bootstrapSecret); err != nil {
 				return err
 			}
@@ -73,6 +74,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	} else {
 		// update the bootstrap secret if it already exists
 		s.log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
+		s.log.Debugf("updating bootstrap secret %v", bootstrapSecret)
 		if err := s.client.Update(ctx, bootstrapSecret); err != nil {
 			return err
 		}
