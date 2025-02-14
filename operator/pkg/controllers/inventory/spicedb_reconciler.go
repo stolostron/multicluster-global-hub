@@ -64,6 +64,12 @@ const (
 	SpiceDBConfigClusterName        = "spicedb"
 )
 
+// TODO:
+// 1. Currently, we use MGH to initialize the SpiceDB operator and cluster, applying customized configurations
+// such as image pull secrets, node selectors, tolerations, etc. However, we have not applied a ResourceQuota to
+// these components, as it may not be suitable for SpiceDB.
+// 2. The preshared token used to connect to SpiceDB is hardcoded for now. It will be removed once we introduce
+// TLS-based connections.
 func StartSpiceDBController(initOption config.ControllerOption) (config.ControllerInterface, error) {
 	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
 		return nil, nil
