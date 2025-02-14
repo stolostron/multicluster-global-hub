@@ -132,7 +132,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	// the secret, spicedb-operator and spicedbcluster all added ownerReference with mgh
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil || !config.WithInventory(mgh) {
 		return ctrl.Result{}, nil
 	}
 
@@ -256,7 +256,7 @@ func (r *spiceDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		log.Errorf("failed to get mgh, err:%v", err)
 		return ctrl.Result{}, nil
 	}
-	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil {
+	if mgh == nil || config.IsPaused(mgh) || mgh.DeletionTimestamp != nil || !config.WithInventory(mgh) {
 		return ctrl.Result{}, nil
 	}
 
