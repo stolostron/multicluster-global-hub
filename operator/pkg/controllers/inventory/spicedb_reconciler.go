@@ -260,7 +260,6 @@ func (r *SpiceDBReconciler) ReconcileCluster(ctx context.Context, mgh *v1alpha4.
 		return ctrl.Result{}, fmt.Errorf("failed to get secret %s: %w", spicedbConfigSecret.Name, err)
 	} else if errors.IsNotFound(err) {
 		spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] = pgURI
-		// TODO: remove the hardcode
 		spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] = SpiceDBConfigSecretPreSharedVal
 		if err = r.GetClient().Create(ctx, spicedbConfigSecret); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create secret %s: %w", spicedbConfigSecret.Name, err)
