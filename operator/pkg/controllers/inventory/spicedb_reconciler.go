@@ -58,7 +58,7 @@ var (
 
 const (
 	SpiceDBConfigSecretName         = "spicedb-secret-config"
-	SpiceDBConfigSecretURIKey       = "datastore_uri"
+	SpiceDBConfigSecretURIKey       = "datastore_uri" // #nosec G101
 	SpiceDBConfigSecretPreSharedKey = "preshared_key"
 	SpiceDBConfigSecretPreSharedVal = "averysecretpresharedkey"
 	SpiceDBConfigClusterName        = "spicedb"
