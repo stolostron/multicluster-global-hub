@@ -192,8 +192,8 @@ github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf h1:91HOb+
 github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf/go.mod h1:lL7kSWAE/V8VI4Wh0jbL2v/jvqsm6tjmaQBSvxcv4uE=
 github.com/cloudflare/cfssl v1.6.5 h1:46zpNkm6dlNkMZH/wMW22ejih6gIaJbzL2du6vD7ZeI=
 github.com/cloudflare/cfssl v1.6.5/go.mod h1:Bk1si7sq8h2+yVEDrFJiz3d7Aw+pfjjJSZVaD+Taky4=
-github.com/clyang82/strimzi-client-go v0.0.0-20240829073515-1fafe574af8b h1:dA0X/UTXHbX7iqZFnXd5mNDVwkR+h+v9Y41wBSotpms=
-github.com/clyang82/strimzi-client-go v0.0.0-20240829073515-1fafe574af8b/go.mod h1:7OPvvx8wg6NrP+3wbBoRlrE5UB0N0m3xeR/PZ2ofSHM=
+github.com/clyang82/strimzi-client-go v0.0.0-20231109195608-2970025ccbac h1:Avd3ySas6WHq/NtEEI7gB+JShHQ2Gt1SYegI0+rHs68=
+github.com/clyang82/strimzi-client-go v0.0.0-20231109195608-2970025ccbac/go.mod h1:7OPvvx8wg6NrP+3wbBoRlrE5UB0N0m3xeR/PZ2ofSHM=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
