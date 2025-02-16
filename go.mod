@@ -230,4 +230,4 @@ require (
 
 replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
 
-replace github.com/RedHatInsights/strimzi-client-go => github.com/clyang82/strimzi-client-go v0.0.0-20241128142517-2098cd6dda19
+replace github.com/RedHatInsights/strimzi-client-go => github.com/clyang82/strimzi-client-go v0.0.0-20231109195608-2970025ccbac
