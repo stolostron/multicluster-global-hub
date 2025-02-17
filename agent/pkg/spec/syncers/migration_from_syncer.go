@@ -53,6 +53,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 		return err
 	}
+	s.log.Debugf("received managed cluster migration event %s", string(payload))
 
 	// create or update bootstrap secret
 	bootstrapSecret := managedClusterMigrationEvent.BootstrapSecret

@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
@@ -68,51 +67,18 @@ var migrationLog = logger.ZapLogger("migration-ctrl")
 func (m *MigrationController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("migration-controller").
 		For(&migrationv1alpha1.ManagedClusterMigration{}).
-		Watches(&v1beta1.ManagedServiceAccount{},
-			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-				if !obj.GetDeletionTimestamp().IsZero() {
-					// trigger to recreate the msa
-					return []reconcile.Request{
-						{
-							NamespacedName: types.NamespacedName{
-								Name:      obj.GetName(),
-								Namespace: utils.GetDefaultNamespace(),
-							},
-						},
-					}
-				}
-				return []reconcile.Request{
-					{
-						NamespacedName: types.NamespacedName{
-							Name:      obj.GetName(),
-							Namespace: obj.GetNamespace(),
-						},
-					},
-				}
-			}),
+		Watches(&corev1.Secret{}, &handler.EnqueueRequestForObject{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
-					return false
+					return e.Object.GetLabels()[constants.LabelKeyIsManagedServiceAccount] == "true"
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					labels := e.ObjectNew.GetLabels()
-					if value, ok := labels["owner"]; ok {
-						if value == strings.ToLower(constants.ManagedClusterMigrationKind) {
-							return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
-						}
-						return false
+					if e.ObjectNew.GetLabels()[constants.LabelKeyIsManagedServiceAccount] == "true" {
+						return e.ObjectOld.GetResourceVersion() != e.ObjectNew.GetResourceVersion()
 					}
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
-					e.Object.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
-					labels := e.Object.GetLabels()
-					if value, ok := labels["owner"]; ok {
-						if value == strings.ToLower(constants.ManagedClusterMigrationKind) {
-							return !e.DeleteStateUnknown
-						}
-						return false
-					}
 					return false
 				},
 			})).
@@ -163,12 +129,22 @@ func (m *MigrationController) Reconcile(ctx context.Context, req ctrl.Request) (
 		// send the klusterletaddonconfig to the target cluster
 		return ctrl.Result{}, m.syncMigrationTo(ctx, migration)
 	} else {
+		// check if the managedserviceaccout is created by managedclustermigration
+		msa := &v1beta1.ManagedServiceAccount{}
+		if err := m.Client.Get(ctx, req.NamespacedName, msa); err != nil {
+			if apierrors.IsNotFound(err) {
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		}
+		if msa.GetLabels()["owner"] != strings.ToLower(constants.ManagedClusterMigrationKind) {
+			// return since the managedserviceaccount is not created by managedclustermigration
+			return ctrl.Result{}, nil
+		}
+
 		// check if the secret is created by managedserviceaccount, if not, requeue after 1 second
 		desiredSecret := &corev1.Secret{}
-		if err := m.Client.Get(ctx, types.NamespacedName{
-			Name:      req.Name,
-			Namespace: req.Namespace,
-		}, desiredSecret); err != nil {
+		if err := m.Client.Get(ctx, req.NamespacedName, desiredSecret); err != nil {
 			if apierrors.IsNotFound(err) {
 				return ctrl.Result{Requeue: true, RequeueAfter: time.Second}, nil
 			}
