@@ -67,8 +67,6 @@ spec:
         - mountPath: /opt/operator
           name: config
           readOnly: true
-      securityContext:
-        runAsNonRoot: false
       serviceAccountName: spicedb-operator
       {{- if .ImagePullSecret }}
       imagePullSecrets:
