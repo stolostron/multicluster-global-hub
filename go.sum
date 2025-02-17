@@ -188,8 +188,8 @@ github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-
 github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-682f3a9684e4/go.mod h1:xiar5+gk13WqyAUQ/cpcxcjD1IhLe/PeilSfCdPcfMU=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.13.0 h1:9pmrGMlV4iTh6xuwujjZVWV2Z7la6mVWYc/0PLAhrrE=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.13.0/go.mod h1:qbC/i+d6hP3jDpbLQpdh4l9/cB8+eqKWrazkriLCMTM=
-github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf h1:91HOb+vxZZQ1rJTJtvhJPRl2qyQa5bqh7lrIYhQSDnQ=
-github.com/cloudevents/sdk-go/v2 v2.15.3-0.20240329120647-e6a74efbacbf/go.mod h1:lL7kSWAE/V8VI4Wh0jbL2v/jvqsm6tjmaQBSvxcv4uE=
+github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250214143010-93e1a8d64cd6 h1:UIEjFfVO2RW9T7sRyVYmqBYTfANzDK7/ow5f5tXpxWA=
+github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250214143010-93e1a8d64cd6/go.mod h1:5YWqklyhDSmGzBK/JENKKXdulbPq0JFf3c/KEnMLqgg=
 github.com/cloudflare/cfssl v1.6.5 h1:46zpNkm6dlNkMZH/wMW22ejih6gIaJbzL2du6vD7ZeI=
 github.com/cloudflare/cfssl v1.6.5/go.mod h1:Bk1si7sq8h2+yVEDrFJiz3d7Aw+pfjjJSZVaD+Taky4=
 github.com/clyang82/strimzi-client-go v0.0.0-20240829073515-1fafe574af8b h1:dA0X/UTXHbX7iqZFnXd5mNDVwkR+h+v9Y41wBSotpms=
@@ -1229,8 +1229,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
-github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
-github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/testcontainers/testcontainers-go v0.31.0 h1:W0VwIhcEVhRflwL9as3dhY6jXjVCA27AkmbnZ+UTh3U=
 github.com/testcontainers/testcontainers-go v0.31.0/go.mod h1:D2lAoA0zUFiSY+eAflqK5mcUx/A5hrrORaEQrd0SefI=
