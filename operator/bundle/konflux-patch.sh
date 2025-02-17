@@ -4,7 +4,7 @@ set -e
 
 export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE=quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-agent-globalhub-1-4@sha256:8deff677f5a42ac4a85425cb889fe5c520cf1caebc6ea1fd86eefd566997b1be
 export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE=quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-manager-globalhub-1-4@sha256:ed275d6600d9896b601cdf0fd1c52c827f1bcad12356b539c42674dba5731fc2
-export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE=quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-operator-globalhub-1-4@sha256:fa5a8ef790410c1265024752f9e0f37aeae2c65d0cedc0f42cb978c7a170d269
+export MULTICLUSTER_GLOBAL_HUB_OPERATOR_IMAGE=quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-operator-globalhub-1-4@sha256:ecf3fe709844ef6d92768cd5507f5909ca87d9f2ac187e56b0fdf0535c112b12
 export MULTICLUSTER_GLOBAL_HUB_GRAFANA_IMAGE=quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/glo-grafana-globalhub-1-4@sha256:d4b73f8f8e4db0d987a1b177d8513be589fdf048f843a43690b0e3ff52963bba
 export MULTICLUSTER_GLOBAL_HUB_POSTGRES_EXPORTER_IMAGE=quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/postgres-exporter-globalhub-1-4@sha256:d52c54efdff996c765f2cf2e6189e57ae4133c5840d1f0623319401cb6456b14
 export MULTICLUSTER_GLOBAL_HUB_KESSEL_INVENTORY_API_IMAGE=quay.io/redhat-services-prod/project-kessel-tenant/kessel-inventory/inventory-api@sha256:3635f102ae791afb5c4056e12973ce6e56463b545c9658ca7841cf516db6807f
