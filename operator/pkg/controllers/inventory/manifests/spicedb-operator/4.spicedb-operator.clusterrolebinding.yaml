@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: spicedb-operator
+  name: multicluster-global-hub:spicedb-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: spicedb-operator
+  name: multicluster-global-hub:spicedb-operator
 subjects:
 - kind: ServiceAccount
   name: spicedb-operator
