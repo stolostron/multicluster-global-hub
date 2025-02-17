@@ -208,9 +208,8 @@ func startSpiceDBController(mgr ctrl.Manager) (*spiceDBClusterReconciler, error)
 	}
 	err := ctrl.NewControllerManagedBy(mgr).Named("spicedb-cluster").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
-		Watches(&corev1.Secret{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBSecretPred)).
-		Watches(&spicedbv1alpha1.SpiceDBCluster{}, &handler.EnqueueRequestForObject{},
-			builder.WithPredicates(spiceDBClusterPred)).
+		Owns(&corev1.Secret{}, builder.WithPredicates(spiceDBSecretPred)).
+		Owns(&spicedbv1alpha1.SpiceDBCluster{}, builder.WithPredicates(spiceDBClusterPred)).
 		Complete(reconciler)
 	if err != nil {
 		return nil, fmt.Errorf("failed to start the spicedb cluster %w", err)
@@ -271,6 +270,9 @@ func (r *spiceDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Refer https://github.com/authzed/spicedb-operator/blob/main/examples/cockroachdb-tls-ingress/spicedb/spicedb.yaml
+	// TODO: Currently using the 'disable' method to establish the connection.
+	// Other methods have not been validated. GH itself uses `required-ca`,
+	// so we might need to update both to support `verify-full`.
 	pgURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
 		url.QueryEscape(pgConfig.User),
 		url.QueryEscape(pgConfig.Password),
