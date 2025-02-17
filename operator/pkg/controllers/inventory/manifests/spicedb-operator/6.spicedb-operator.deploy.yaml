@@ -68,6 +68,7 @@ spec:
           name: config
           readOnly: true
       securityContext:
+        runAsUser: 1001
         runAsNonRoot: true
       serviceAccountName: spicedb-operator
       {{- if .ImagePullSecret }}
