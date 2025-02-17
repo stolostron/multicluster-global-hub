@@ -88,6 +88,9 @@ kubectl get mcgh -n multicluster-global-hub -oyaml --context $cluster_name || tr
 kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name || true
 kubectl get deploy -n multicluster-global-hub --context $cluster_name || true
 
+# debug
+kubectl describe deploy spicedb-operator -n multicluster-global-hub --context $cluster_name
+kubectl get deploy spicedb-operator -n multicluster-global-hub -oyaml --context $cluster_name
+
 # Restore default behavior
 trap - EXIT
-
