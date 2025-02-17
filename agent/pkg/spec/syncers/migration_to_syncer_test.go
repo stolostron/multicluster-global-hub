@@ -108,7 +108,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				RoleRef: rbacv1.RoleRef{
 					Kind:     "ClusterRole",
-					Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+					Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					APIGroup: "rbac.authorization.k8s.io",
 				},
 			},
@@ -330,7 +330,7 @@ func TestMigrationToSyncer(t *testing.T) {
 					},
 					RoleRef: rbacv1.RoleRef{
 						Kind:     "ClusterRole",
-						Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
 						APIGroup: "rbac.authorization.k8s.io",
 					},
 				},
@@ -395,7 +395,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				RoleRef: rbacv1.RoleRef{
 					Kind:     "ClusterRole",
-					Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+					Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					APIGroup: "rbac.authorization.k8s.io",
 				},
 			},
@@ -454,7 +454,7 @@ func TestMigrationToSyncer(t *testing.T) {
 					},
 					RoleRef: rbacv1.RoleRef{
 						Kind:     "ClusterRole",
-						Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
 						APIGroup: "rbac.authorization.k8s.io",
 					},
 				},
@@ -519,7 +519,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				RoleRef: rbacv1.RoleRef{
 					Kind:     "ClusterRole",
-					Name:     "system:open-cluster-management:managedcluster:bootstrap:agent-registration",
+					Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
 					APIGroup: "rbac.authorization.k8s.io",
 				},
 			},
