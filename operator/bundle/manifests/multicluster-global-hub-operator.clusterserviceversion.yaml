@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-02-06T13:42:20Z"
+    createdAt: "2025-02-14T08:24:47Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -365,10 +365,13 @@ spec:
           - ""
           resources:
           - configmaps
+          - jobs
           - namespaces
           - persistentvolumeclaims
           - pods
           - secrets
+          - serviceaccounts
+          - services
           verbs:
           - create
           - delete
@@ -376,6 +379,14 @@ spec:
           - list
           - patch
           - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - endpoints
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - ""
@@ -388,18 +399,6 @@ spec:
           - get
           - list
           - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - serviceaccounts
-          - services
-          verbs:
-          - create
-          - delete
-          - get
-          - list
           - update
           - watch
         - apiGroups:
@@ -467,8 +466,11 @@ spec:
           resources:
           - customresourcedefinitions
           verbs:
+          - create
+          - delete
           - get
           - list
+          - update
           - watch
         - apiGroups:
           - app.k8s.io
@@ -483,6 +485,17 @@ spec:
           - apps
           resources:
           - deployments
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
           - statefulsets
           verbs:
           - create
@@ -530,6 +543,43 @@ spec:
           verbs:
           - create
           - get
+        - apiGroups:
+          - authzed.com
+          resources:
+          - spicedbclusters
+          verbs:
+          - create
+          - delete
+          - deletecollection
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - authzed.com
+          resources:
+          - spicedbclusters/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - certificates.k8s.io
           resources:
@@ -785,6 +835,16 @@ spec:
           resources:
           - clusterrolebindings
           - clusterroles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
           - rolebindings
           - roles
           verbs:
@@ -792,6 +852,7 @@ spec:
           - delete
           - get
           - list
+          - patch
           - update
           - watch
         - apiGroups:
@@ -858,6 +919,10 @@ spec:
                   value: quay.io/stolostron/inventory-api:latest
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+                - name: RELATED_IMAGE_SPICEDB_OPERATOR
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb-operator:latest
+                - name: RELATED_IMAGE_SPICEDB_INSTANCE
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:

@@ -50,12 +50,13 @@ const (
 )
 
 const (
-	COMPONENTS_KAFKA_NAME         = "kafka"
-	COMPONENTS_POSTGRES_NAME      = "multicluster-global-hub-postgresql"
-	COMPONENTS_MANAGER_NAME       = "multicluster-global-hub-manager"
-	COMPONENTS_AGENT_NAME         = "multicluster-global-hub-agent"
-	COMPONENTS_GRAFANA_NAME       = "multicluster-global-hub-grafana"
-	COMPONENTS_INVENTORY_API_NAME = "inventory-api"
+	COMPONENTS_KAFKA_NAME            = "kafka"
+	COMPONENTS_POSTGRES_NAME         = "multicluster-global-hub-postgresql"
+	COMPONENTS_MANAGER_NAME          = "multicluster-global-hub-manager"
+	COMPONENTS_AGENT_NAME            = "multicluster-global-hub-agent"
+	COMPONENTS_GRAFANA_NAME          = "multicluster-global-hub-grafana"
+	COMPONENTS_INVENTORY_API_NAME    = "inventory-api"
+	COMPONENTS_SPICEDB_OPERATOR_NAME = "spicedb-operator"
 )
 
 // NOTE: the status of Inventory deploy

@@ -90,4 +90,3 @@ kubectl get deploy -n multicluster-global-hub --context $cluster_name || true
 
 # Restore default behavior
 trap - EXIT
-

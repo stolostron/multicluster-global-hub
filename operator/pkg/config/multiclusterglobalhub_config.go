@@ -60,6 +60,8 @@ const (
 	GlobalHubAgentImageKey       = "multicluster_global_hub_agent"
 	GlobalHubManagerImageKey     = "multicluster_global_hub_manager"
 	InventoryImageKey            = "inventory_api"
+	SpiceDBOperatorImageKey      = "spicedb_operator"
+	SpiceDBInstanceImageKey      = "spicedb_instance"
 	OauthProxyImageKey           = "oauth_proxy"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
@@ -67,9 +69,10 @@ const (
 	GHPostgresDefaultStorageSize = "25Gi"
 	// default values for the global hub configured by the operator
 	// We may expose these as CRD fields in the future
-	AggregationLevel       = "full"
-	EnableLocalPolicies    = "true"
-	AgentHeartbeatInterval = "60s"
+	AggregationLevel           = "full"
+	EnableLocalPolicies        = "true"
+	AgentHeartbeatInterval     = "60s"
+	RedHatKesselQuayIORegistry = "quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations"
 )
 
 var (
@@ -83,6 +86,8 @@ var (
 		PostgresImageKey:         "quay.io/stolostron/postgresql-16:9.5-1732622748",
 		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
 		InventoryImageKey:        "quay.io/stolostron/inventory-api:latest",
+		SpiceDBOperatorImageKey:  fmt.Sprintf("%s/spicedb-operator:latest", RedHatKesselQuayIORegistry),
+		SpiceDBInstanceImageKey:  fmt.Sprintf("%s/spicedb:latest", RedHatKesselQuayIORegistry),
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"

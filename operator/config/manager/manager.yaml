@@ -60,6 +60,10 @@ spec:
           value: quay.io/stolostron/inventory-api:latest
         - name: RELATED_IMAGE_POSTGRES_EXPORTER
           value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+        - name: RELATED_IMAGE_SPICEDB_OPERATOR
+          value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb-operator:latest
+        - name: RELATED_IMAGE_SPICEDB_INSTANCE
+          value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
