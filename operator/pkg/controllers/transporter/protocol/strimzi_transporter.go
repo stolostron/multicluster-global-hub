@@ -156,11 +156,17 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 }
 
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
+	statusTopic := k.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
+	if strings.Contains(statusTopic, ".*") {
+		statusTopic = strings.Replace(statusTopic, ".*", "", -1)
+	}
 	existingKafkaTopic := &kafkav1beta2.KafkaTopic{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
-		Name:      k.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic + ".global-hub",
+		Name:      statusTopic + ".global-hub",
 		Namespace: k.mgh.Namespace,
 	}, existingKafkaTopic)
+	log.Debugf("existing kafkatopic: %v, err:%v", existingKafkaTopic, err)
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return k.topicPartitionReplicas, nil
