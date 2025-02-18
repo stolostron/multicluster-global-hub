@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
@@ -67,6 +68,36 @@ var migrationLog = logger.ZapLogger("migration-ctrl")
 func (m *MigrationController) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("migration-controller").
 		For(&migrationv1alpha1.ManagedClusterMigration{}).
+		Watches(&v1beta1.ManagedServiceAccount{},
+			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      obj.GetName(),
+							Namespace: utils.GetDefaultNamespace(),
+						},
+					},
+				}
+			}),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					e.Object.SetDeletionTimestamp(&metav1.Time{Time: time.Now()})
+					labels := e.Object.GetLabels()
+					if value, ok := labels["owner"]; ok {
+						if value == strings.ToLower(constants.ManagedClusterMigrationKind) {
+							return !e.DeleteStateUnknown
+						}
+						return false
+					}
+					return false
+				},
+			})).
 		Watches(&corev1.Secret{}, &handler.EnqueueRequestForObject{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
@@ -79,6 +110,9 @@ func (m *MigrationController) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
+					// case 1: the secret is deleted by user. In this case, the secret will be created by managedserviceaccount
+					// so we do not need to handle it in deleteFunc. instead, we handle it in createFunc.
+					// case 2: the secret is deleted by managedserviceaccount. we will handle it in managedserviceaccount deleteFunc.
 					return false
 				},
 			})).
