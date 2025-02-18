@@ -63,6 +63,7 @@ const (
 	InventoryImageKey            = "inventory_api"
 	SpiceDBOperatorImageKey      = "spicedb_operator"
 	SpiceDBInstanceImageKey      = "spicedb_instance"
+	SpiceDBRelationsAPIImageKey  = "relations_api"
 	OauthProxyImageKey           = "oauth_proxy"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
@@ -80,15 +81,16 @@ var (
 	mghNamespacedName  = types.NamespacedName{}
 	oauthSessionSecret = ""
 	imageOverrides     = map[string]string{
-		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
-		GrafanaImageKey:          "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
-		PostgresImageKey:         "quay.io/stolostron/postgresql-16:9.5-1732622748",
-		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
-		InventoryImageKey:        "quay.io/stolostron/inventory-api:latest",
-		SpiceDBOperatorImageKey:  fmt.Sprintf("%s/spicedb-operator:latest", RedHatKesselQuayIORegistry),
-		SpiceDBInstanceImageKey:  fmt.Sprintf("%s/spicedb:latest", RedHatKesselQuayIORegistry),
+		GlobalHubAgentImageKey:      "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		GlobalHubManagerImageKey:    "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		OauthProxyImageKey:          "quay.io/stolostron/origin-oauth-proxy:4.9",
+		GrafanaImageKey:             "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
+		PostgresImageKey:            "quay.io/stolostron/postgresql-16:9.5-1732622748",
+		PostgresExporterImageKey:    "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
+		InventoryImageKey:           "quay.io/stolostron/inventory-api:latest",
+		SpiceDBOperatorImageKey:     fmt.Sprintf("%s/spicedb-operator:latest", RedHatKesselQuayIORegistry),
+		SpiceDBInstanceImageKey:     fmt.Sprintf("%s/spicedb:latest", RedHatKesselQuayIORegistry),
+		SpiceDBRelationsAPIImageKey: fmt.Sprintf("%s/relations-api:latest", RedHatKesselQuayIORegistry),
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"

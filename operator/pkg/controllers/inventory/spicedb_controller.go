@@ -195,48 +195,48 @@ func (r *spiceDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// relations api
 	operandConfig := config.GetOperandConfig(mgh)
-
-	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(manifests.RelationsAPIFiles),
 		deployer.NewHoHDeployer(r.GetClient())
-
-	// create discovery client
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
 	if err != nil {
 		log.Errorf("failed to create discovery client: %v", err)
 		return ctrl.Result{}, err
 	}
-
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	inventoryObjects, err := hohRenderer.Render("spicedb-operator", "", func(profile string) (interface{}, error) {
+	relationsAPIObjects, err := hohRenderer.Render("relations-api", "", func(profile string) (interface{}, error) {
 		return struct {
-			Namespace       string
-			Replicas        int32
-			Image           string
-			ImagePullPolicy string
-			ImagePullSecret string
-			NodeSelector    map[string]string
-			Tolerations     []corev1.Toleration
+			Namespace                       string
+			Replicas                        int32
+			Image                           string
+			ImagePullPolicy                 string
+			ImagePullSecret                 string
+			NodeSelector                    map[string]string
+			Tolerations                     []corev1.Toleration
+			SpiceDBConfigClusterName        string
+			SpiceDBConfigSecretName         string
+			SpiceDBConfigSecretPreSharedKey string
 		}{
-			Namespace:       mgh.Namespace,
-			Replicas:        replicas,
-			Image:           config.GetImage(config.SpiceDBOperatorImageKey),
-			ImagePullPolicy: string(imagePullPolicy),
-			ImagePullSecret: mgh.Spec.ImagePullSecret,
-			NodeSelector:    mgh.Spec.NodeSelector,
-			Tolerations:     mgh.Spec.Tolerations,
+			Namespace:                       mgh.Namespace,
+			Replicas:                        operandConfig.Replicas,
+			Image:                           config.GetImage(config.SpiceDBRelationsAPIImageKey),
+			ImagePullPolicy:                 string(operandConfig.ImagePullPolicy),
+			ImagePullSecret:                 operandConfig.ImagePullSecret,
+			NodeSelector:                    operandConfig.NodeSelector,
+			Tolerations:                     operandConfig.Tolerations,
+			SpiceDBConfigClusterName:        SpiceDBConfigClusterName,
+			SpiceDBConfigSecretName:         SpiceDBConfigSecretName,
+			SpiceDBConfigSecretPreSharedKey: SpiceDBConfigSecretPreSharedKey,
 		}, nil
 	})
 	if err != nil {
-		log.Errorf("failed to render spicedb inventory objects: %v", err)
+		log.Errorf("failed to render spicedb relations api objects: %v", err)
 		return ctrl.Result{}, err
 	}
-	if err = utils.ManipulateGlobalHubObjects(inventoryObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
-		log.Errorf("failed to manipulate spicedb inventory objects: %v", err)
+	if err = utils.ManipulateGlobalHubObjects(relationsAPIObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
+		log.Errorf("failed to manipulate spicedb realtions api objects: %v", err)
 		return ctrl.Result{}, err
 	}
-
 	return ctrl.Result{}, nil
 }
 
