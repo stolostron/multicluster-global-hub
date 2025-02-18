@@ -196,6 +196,8 @@ const (
 	CloudEventTypeMigrationFrom = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.from"
 	// CloudEventTypeManagedClusterMigrationTo is the cloud event type for managed cluster migration to
 	CloudEventTypeMigrationTo = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.to"
+	// LabelKeyIsManagedServiceAccount is from     managed-serviceaccount/pkg/common/constants.go
+	LabelKeyIsManagedServiceAccount = "authentication.open-cluster-management.io/is-managed-serviceaccount"
 )
 
 const (

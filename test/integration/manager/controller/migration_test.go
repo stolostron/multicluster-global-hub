@@ -121,6 +121,9 @@ var _ = Describe("migration", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "migration",
 					Namespace: "hub2",
+					Labels: map[string]string{
+						"authentication.open-cluster-management.io/is-managed-serviceaccount": "true",
+					},
 				},
 				Data: map[string][]byte{
 					"ca.crt": []byte("test"),
@@ -148,16 +151,15 @@ var _ = Describe("migration", Ordered, func() {
 			}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 		})
 
-		It("should have bootstrap secret generated after managedserviceaccount is reconciled", func() {
-			msa := &v1beta1.ManagedServiceAccount{}
+		It("should have bootstrap secret generated if the secret is updated", func() {
+			secret := &corev1.Secret{}
 			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
 				Name:      "migration",
 				Namespace: "hub2",
-			}, msa)).To(Succeed())
+			}, secret)).To(Succeed())
 
-			// mimic the managedserviceaccount is reconciled
-			msa.Spec.Rotation.Validity = metav1.Duration{Duration: 3600 * time.Hour}
-			Expect(mgr.GetClient().Update(testCtx, msa)).To(Succeed())
+			secret.Data["ca.crt"] = []byte("updated")
+			Expect(mgr.GetClient().Update(testCtx, secret)).To(Succeed())
 
 			Eventually(func() error {
 				if migrationReconciler.BootstrapSecret == nil {
@@ -400,6 +402,9 @@ var _ = Describe("migration", Ordered, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "migration",
 					Namespace: "hub3",
+					Labels: map[string]string{
+						"authentication.open-cluster-management.io/is-managed-serviceaccount": "true",
+					},
 				},
 				Data: map[string][]byte{
 					"ca.crt": []byte("test"),
@@ -433,16 +438,15 @@ var _ = Describe("migration", Ordered, func() {
 			}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 		})
 
-		It("should have bootstrap secret generated after managedserviceaccount is reconciled", func() {
-			msa := &v1beta1.ManagedServiceAccount{}
+		It("should have bootstrap secret generated if the secret is updated", func() {
+			secret := &corev1.Secret{}
 			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
 				Name:      "migration",
 				Namespace: "hub3",
-			}, msa)).To(Succeed())
+			}, secret)).To(Succeed())
 
-			// mimic the managedserviceaccount is reconciled
-			msa.Spec.Rotation.Validity = metav1.Duration{Duration: 3600 * time.Hour}
-			Expect(mgr.GetClient().Update(testCtx, msa)).To(Succeed())
+			secret.Data["ca.crt"] = []byte("updated")
+			Expect(mgr.GetClient().Update(testCtx, secret)).To(Succeed())
 
 			Eventually(func() error {
 				if migrationReconciler.BootstrapSecret == nil {
@@ -461,7 +465,7 @@ var _ = Describe("migration", Ordered, func() {
 			}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 		})
 
-		It("should have received the migration event", func() {
+		It("should have the migration event received", func() {
 			Eventually(func() error {
 				if fromEvent1 == nil {
 					return fmt.Errorf("fromEvent1 is nil")

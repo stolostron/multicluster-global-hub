@@ -38,10 +38,12 @@ func NewManagedClusterMigrationToSyncer(client client.Client) *managedClusterMig
 
 func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.to cloud event
+	s.log.Info("received cloudevent from the global hub")
 	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationToEvent); err != nil {
 		return err
 	}
+	s.log.Debugf("received cloudevent %v", string(payload))
 
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
@@ -207,7 +209,7 @@ func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context
 func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	registrationClusterRoleName := "system:open-cluster-management:managedcluster:bootstrap:agent-registration"
+	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
 	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
