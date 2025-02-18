@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relations-api
+  namespace: {{.Namespace}}
+  labels:
+    app: relations-api
+spec:
+  replicas: {{.Replicas}}
+  selector:
+    matchLabels:
+      app: relations-api
+  template:
+    metadata:
+      labels:
+        app: relations-api
+    spec:
+      containers:
+        - name: api
+          image: {{.Image}}
+          imagePullPolicy: {{.ImagePullPolicy}}
+          ports:
+            - containerPort: 8000
+            - containerPort: 9000
+          env:
+            - name: SPICEDB_PRESHARED
+              valueFrom:
+                secretKeyRef:
+                  key: {{.SpiceDBConfigSecretPreSharedKey}}
+                  name: {{.SpiceDBConfigSecretName}}
+            - name: SPICEDB_ENDPOINT
+              value: {{.SpiceDBConfigClusterName}}.{{.NAMESPACE}}.svc.cluster.local:50051
+      {{- if .ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{.ImagePullSecret}}
+      {{- end }}
+      {{- if .NodeSelector }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      {{- end }}
+      {{- if .Tolerations }}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          {{- if .Value}}
+          value: "{{.Value}}"
+          {{- end}}
+          effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
+          tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
+        {{- end}}
+      {{- end }}

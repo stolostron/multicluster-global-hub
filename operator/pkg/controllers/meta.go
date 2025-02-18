@@ -71,7 +71,7 @@ var controllerStartFuncMap = map[string]Func{
 	"backup":           backup.StartController,
 	"postgresUser":     storage.StartPostgresConfigUserController,
 	"inventory":        inventory.StartInventoryController,
-	"spicedb":          inventory.StartSpiceDBController,
+	"spicedb":          inventory.StartSpiceDBReconciler,
 }
 
 var log = logger.DefaultZapLogger()

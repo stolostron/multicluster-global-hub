@@ -28,6 +28,7 @@ import (
 	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -430,4 +431,31 @@ func GetMulticlusterGlobalHubAgent(ctx context.Context, c client.Client) (*v1alp
 		return nil, nil
 	}
 	return &mghaList.Items[0], nil
+}
+
+type OperandConfig struct {
+	Replicas        int32
+	ImagePullPolicy corev1.PullPolicy
+	ImagePullSecret string
+	NodeSelector    map[string]string
+	Tolerations     []corev1.Toleration
+}
+
+func GetOperandConfig(mgh *v1alpha4.MulticlusterGlobalHub) *OperandConfig {
+	operandConfig := &OperandConfig{
+		Replicas:        1,
+		ImagePullPolicy: corev1.PullAlways,
+		NodeSelector:    mgh.Spec.NodeSelector,
+		Tolerations:     mgh.Spec.Tolerations,
+	}
+	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
+		operandConfig.Replicas = 2
+	}
+	if mgh.Spec.ImagePullPolicy != "" {
+		operandConfig.ImagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+	if mgh.Spec.ImagePullSecret != "" {
+		operandConfig.ImagePullSecret = mgh.Spec.ImagePullSecret
+	}
+	return operandConfig
 }
