@@ -29,7 +29,7 @@ spec:
                   key: {{.SpiceDBConfigSecretPreSharedKey}}
                   name: {{.SpiceDBConfigSecretName}}
             - name: SPICEDB_ENDPOINT
-              value: {{.SpiceDBConfigClusterName}}.{{.NAMESPACE}}.svc.cluster.local:50051
+              value: {{.SpiceDBConfigClusterName}}.{{.Namespace}}.svc.cluster.local:50051
       {{- if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
