@@ -9,6 +9,8 @@ updates:
   directory: "/"
   schedule:
     interval: weekly
+  labels:
+    - "ok-to-test"
   commit-message:
       prefix: ":seedling:"
   open-pull-requests-limit: 3
@@ -16,6 +18,8 @@ updates:
   directory: "/"
   schedule:
       interval: "monthly"
+  labels:
+    - "ok-to-test"
   commit-message:
       prefix: ":seedling:"
   groups:
