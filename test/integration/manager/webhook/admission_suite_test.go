@@ -55,7 +55,7 @@ var (
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Controller Integration Suite")
+	RunSpecs(t, "Controller Integration Suite test21")
 }
 
 var _ = BeforeSuite(func() {
