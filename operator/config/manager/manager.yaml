@@ -65,7 +65,7 @@ spec:
         - name: RELATED_IMAGE_SPICEDB_INSTANCE
           value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
         - name: RELATED_IMAGE_RELATIONS_API
-          value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:relations-api:latest
+          value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/relations-api:latest
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:
