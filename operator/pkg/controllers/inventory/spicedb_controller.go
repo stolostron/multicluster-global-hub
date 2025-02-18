@@ -53,7 +53,7 @@ func startSpiceDBController(mgr ctrl.Manager) (*spiceDBClusterReconciler, error)
 	reconciler := &spiceDBClusterReconciler{
 		Manager: mgr,
 	}
-	err := ctrl.NewControllerManagedBy(mgr).Named("spicedb-cluster").
+	err := ctrl.NewControllerManagedBy(mgr).Named("spicedb-controller").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
 		Owns(&corev1.Secret{}, builder.WithPredicates(spiceDBSecretPred)).
 		Owns(&spicedbv1alpha1.SpiceDBCluster{}, builder.WithPredicates(spiceDBClusterPred)).

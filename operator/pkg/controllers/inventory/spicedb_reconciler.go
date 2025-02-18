@@ -80,7 +80,7 @@ func (r *SpiceDBReconciler) IsResourceRemoved() bool {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *SpiceDBReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("spicedb").
+	return ctrl.NewControllerManagedBy(mgr).Named("spicedb-reconciler").
 		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(spiceDBdeploymentPred)).
 		Complete(r)
