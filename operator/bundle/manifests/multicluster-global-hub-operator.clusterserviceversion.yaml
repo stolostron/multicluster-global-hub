@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-02-14T08:24:47Z"
+    createdAt: "2025-02-18T03:15:31Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -923,6 +923,8 @@ spec:
                   value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb-operator:latest
                 - name: RELATED_IMAGE_SPICEDB_INSTANCE
                   value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
+                - name: RELATED_IMAGE_RELATIONS_API
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:relations-api:latest
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
