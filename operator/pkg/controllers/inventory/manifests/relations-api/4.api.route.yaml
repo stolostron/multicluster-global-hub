@@ -1,0 +1,34 @@
+# Route for HTTP (Port 8000)
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: relations-api-http
+  namespace: {{.Namespace}}
+  labels:
+    app: relations-api
+spec:
+  to:
+    kind: Service
+    name: relations-api
+  port:
+    targetPort: http
+  tls:
+    termination: edge  # OpenShift terminates TLS and forwards HTTP
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: relations-api-grpc
+  namespace: {{.Namespace}}
+  labels:
+    app: relations-api
+spec:
+  to:
+    kind: Service
+    name: relations-api
+  port:
+    targetPort: grpc
+  tls:
+    termination: passthrough  # gRPC needs end-to-end TLS
+    insecureEdgeTerminationPolicy: None

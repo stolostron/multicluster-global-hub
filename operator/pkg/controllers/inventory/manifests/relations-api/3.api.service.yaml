@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: relations-api
+  namespace: {{.Namespace}}
+spec:
+  selector:
+    app: relations-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+    - name: grpc
+      port: 9000
+      targetPort: 9000

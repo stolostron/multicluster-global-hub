@@ -19,6 +19,14 @@ spec:
       - name: api
         image: {{.Image}}
         imagePullPolicy: {{.ImagePullPolicy}}
+        livenessProbe:
+          httpGet:
+            path: /api/authz/livez
+            port: 8000
+        readinessProbe:
+          httpGet:
+            path: /api/authz/readyz
+            port: 8000
         ports:
         - name: http
           containerPort: 8000
