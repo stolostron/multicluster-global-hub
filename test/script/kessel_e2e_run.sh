@@ -61,7 +61,7 @@ spec:
   selector:
     name: relations-api
 EOF
-relations_http_url="${kind_cluster_ip}:30080"
+relations_http_url="http://${kind_cluster_ip}:30080"
 
 http_url="${kind_cluster_ip}:30081"
 kubectl get secret inventory-api-server-ca-certs -n "$namespace" -ojsonpath='{.data.ca\.crt}' | base64 -d >/tmp/ca.crt
