@@ -41,7 +41,7 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}, 5*time.Second).Should(BeTrue())
 		})
 
-		It("Should not add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
+		It("Should add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
 			testPlacement := &clusterv1beta1.Placement{
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-placement-",
