@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: relations-api
   namespace: {{.Namespace}}
+  annotations:
+    description: Exposes and http endpoint
 spec:
   selector:
     app: relations-api
@@ -10,6 +12,8 @@ spec:
     - name: http
       port: 8000
       targetPort: 8000
+      protocol: TCP
     - name: grpc
       port: 9000
       targetPort: 9000
+      protocol: TCP
