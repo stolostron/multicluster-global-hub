@@ -110,7 +110,7 @@ kind_cluster() {
   local kubeconfig="$dir/$cluster_name"
   local max_retries=5
   local counter=0
-  while [ $counter -lt $max_retries ] && ( [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name" ); do
+  while [ $counter -lt $max_retries ] && ! (kind get clusters | grep -xq "$cluster_name"); do
     ensure_cluster "$cluster_name" "$kubeconfig"
     counter=$((counter + 1))
   done
