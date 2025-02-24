@@ -6,7 +6,7 @@ cd run
 cp -r ../backup ./
 cp -r ../common ./
 
-git clone git@github.com:open-cluster-management-io/policy-collection.git
+git clone https://github.com/open-cluster-management-io/policy-collection.git
 
 sed -i 's/<AWS_BUCKET>/'$AWS_BUCKET'/g' common/data-protection-app.yaml
 
