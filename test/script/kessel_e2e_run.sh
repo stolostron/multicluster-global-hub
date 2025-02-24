@@ -37,6 +37,7 @@ spec:
   selector:
     name: inventory-api
 EOF
+transport_endpoint="${kind_cluster_ip}:30081"
 
 # create a nodeport to expose the relations api
 cat <<EOF | kubectl apply -f -
@@ -52,24 +53,23 @@ spec:
       port: 8000
       targetPort: 8000
       protocol: TCP
-      nodePort: 30080  # NodePort for HTTP server
+      nodePort: 30806  # NodePort for HTTP server
     - name: grpc
       port: 9000
-      targetPort: 9000
+      targetPort: 30906
       protocol: TCP
       nodePort: 30090  # NodePort for gRPC server
   selector:
-    name: relations-api
+    app: relations-api
 EOF
-relations_http_url="http://${kind_cluster_ip}:30080"
+relations_http_url="http://${kind_cluster_ip}:30806"
 
-http_url="${kind_cluster_ip}:30081"
 kubectl get secret inventory-api-server-ca-certs -n "$namespace" -ojsonpath='{.data.ca\.crt}' | base64 -d >/tmp/ca.crt
 kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.crt}' | base64 -d >/tmp/client.crt
 kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.key}' | base64 -d >/tmp/client.key
 
 cat <<EOF >"$CURRENT_DIR/rest.yaml"
-host: $http_url
+host: $transport_endpoint
 ca.crt: $(kubectl get secret inventory-api-server-ca-certs -n "$namespace" -ojsonpath='{.data.ca\.crt}')
 client.crt: $(kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.crt}')
 client.key: $(kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.key}')
