@@ -61,7 +61,7 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.15.0
 	open-cluster-management.io/multicloud-operators-subscription v0.15.0
 	sigs.k8s.io/application v0.8.3
-	sigs.k8s.io/controller-runtime v0.19.0
+	sigs.k8s.io/controller-runtime v0.19.1
 	sigs.k8s.io/kustomize/api v0.18.0
 	sigs.k8s.io/kustomize/kyaml v0.18.1
 	sigs.k8s.io/yaml v1.4.0
@@ -231,4 +231,4 @@ require (
 
 replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
 
-replace github.com/RedHatInsights/strimzi-client-go => github.com/clyang82/strimzi-client-go v0.0.0-20241128142517-2098cd6dda19
+replace github.com/RedHatInsights/strimzi-client-go => github.com/clyang82/strimzi-client-go v0.0.0-20250121005940-9cb2d8ffefe4
