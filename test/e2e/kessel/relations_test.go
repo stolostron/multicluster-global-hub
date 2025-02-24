@@ -60,7 +60,6 @@ var _ = Describe("relations api", Ordered, func() {
 
 		body, err := io.ReadAll(res.Body)
 		Expect(err).ToNot(HaveOccurred())
-		fmt.Println(string(body))
 		Expect(res.StatusCode).To(Equal(200))
 		Expect(string(body)).To(ContainSubstring("consistencyToken"))
 	})
