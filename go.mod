@@ -27,7 +27,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.36.1
-	github.com/openshift/api v0.0.0-20240919193929-2669d1ebc910
+	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
 	github.com/openshift/library-go v0.0.0-20240723172506-8bb8fe6cc56d
 	github.com/operator-framework/api v0.27.0
