@@ -3,7 +3,6 @@ package kessel
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"net/http"
 
