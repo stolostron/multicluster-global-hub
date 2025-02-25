@@ -15,10 +15,7 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 export ISBYO="true"
 
-# CleanUp globalhub
-bash "$CURRENT_DIR/e2e_clean_globalhub.sh"
-
-target_namespace=${TARGET_NAMESPACE:-"multicluster-global-hub"}
+target_namespace=${TARGET_NAMESPACE:-"mgh"}
 
 ######################################### Generate Storage Secret ###################################################
 storage_secret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
@@ -81,7 +78,9 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
   --from-file=ca.crt="$CURRENT_DIR"/config/kafka-ca-cert.pem \
   --from-file=client.crt="$CURRENT_DIR"/config/kafka-client-cert.pem \
   --from-file=client.key="$CURRENT_DIR"/config/kafka-client-key.pem
-
 echo "transport secret is ready in $target_namespace namespace!"
+
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -f "e2e-test-localpolicy,e2e-test-grafana"
+bash "$CURRENT_DIR/e2e_run.sh" -n $target_namespace -f "e2e-test-localpolicy,e2e-test-grafana"
+
+unset ISBYO
