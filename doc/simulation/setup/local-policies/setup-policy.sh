@@ -83,7 +83,7 @@ if [ -n "$policy_last" ] && [ "$policy_last" -gt 0 ]; then
 fi
 
 # Max concurrent jobs
-MAX_CONCURRENT_JOBS=15
+MAX_CONCURRENT_JOBS=10
 CURRENT_JOBS=0
 
 # Loop through the sequence
