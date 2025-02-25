@@ -20,14 +20,14 @@ echo ">> Generate policy ${policy_start}~${policy_end} on hub ${hub_start}~${hub
 
 REPO_DIR="$(cd "$(dirname ${BASH_SOURCE[0]})/../../.." ; pwd -P)"
 export KUBECONFIG=${KUBECONFIG}
-source ${REPO_DIR}/doc/simulation/local-policies/policy.sh
+source ${REPO_DIR}/doc/simulation/setup/local-policies/policy.sh
 cluster_dir=${REPO_DIR}/doc/simulation/kubeconfig
 mkdir -p ${cluster_dir}
 
 for i in $(seq $hub_start $hub_end); do
     hub_cluster=hub$i
     kubeconfig="${cluster_dir}/${hub_cluster}"
-    bash ${REPO_DIR}/doc/simulation/local-policies/setup-policy.sh $2 $kubeconfig &
+    bash ${REPO_DIR}/doc/simulation/setup/local-policies/setup-policy.sh $2 $kubeconfig &
 done
 
 wait

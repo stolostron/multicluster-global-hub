@@ -17,7 +17,7 @@ KUBECONFIG=$2
 echo ">> Generate policy ${policy_start}~${policy_end} on $KUBECONFIG"
 
 REPO_DIR="$(
-  cd "$(dirname ${BASH_SOURCE[0]})/../../.."
+  cd "$(dirname ${BASH_SOURCE[0]})/../../../.."
   pwd -P
 )"
 CURRENT_DIR=$(
@@ -83,7 +83,7 @@ if [ -n "$policy_last" ] && [ "$policy_last" -gt 0 ]; then
 fi
 
 # Max concurrent jobs
-MAX_CONCURRENT_JOBS=10
+MAX_CONCURRENT_JOBS=15
 CURRENT_JOBS=0
 
 # Loop through the sequence

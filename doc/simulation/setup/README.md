@@ -20,7 +20,7 @@ That means create `5` managed hubs and each has `300` managed clusters.
 Running the following script to create the policies on all the managed hubs.
 
 ```bash
-./doc/simulation/setup/setup-policy.sh 1:5 1:50 
+./doc/simulation/setup/setup-policy.sh 6:10 1:50 
 ```
 
 - `$1` - <hub_start:hub_end> - Managed hubs, from `hub1` to `hub5`
