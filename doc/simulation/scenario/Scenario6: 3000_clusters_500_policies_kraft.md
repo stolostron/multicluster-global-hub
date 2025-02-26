@@ -142,3 +142,24 @@ cat /sys/fs/cgroup/memory.current
   | Limit CPU(m)       | 60      | 50    | 120      | 50      | 8000     | 168          |
   | Request Memory(Mi) | 60      | 300   | 70       | 150     | 60       | 2   Gi       |
   | Limit Memory(Mi)   | 600     | 600   | 256      | 800     | 600      | 6   Gi       |
+
+  ### Limit the Kafka Memory Consumption
+
+  Since transitioning Kafka from Zookeeper to KRaft (dual-mode), the broker and controller now run on a single node, leading to higher memory consumption during the large-scale simulation test.
+
+  Each pod consumes up to `4 GB` of memory. To address potential customer concerns about memory usage, we provide the following configuration options to limit the JVM footprint:
+
+  You can set the heap size to `1 GB`. With this configuration, we tested the performance and found no significant degradation due to garbage collection from limited RAM. The memory footprint remains under `1.6 GB`.
+
+  ```yaml
+  spec:
+    entityOperator:
+      ...
+    kafka:
+      ...
+      jvmOptions:
+      -Xms: 1G
+      -Xmx: 1G
+  ```
+
+  ![Global Hub Kafka Broker Memory](./images/6-kafka-broker-memory-usage-jvm.png)
