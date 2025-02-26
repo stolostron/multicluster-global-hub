@@ -90,7 +90,7 @@ EOF
 
     # mock the NS/MultiClusterHub so that the agent can start
     kubectl create ns multicluster-global-hub --dry-run=client -oyaml | kubectl --kubeconfig $kubeconfig apply -f -
-    kubectl apply -f $REPO_DIR/doc/simulation/managed-clusters/multiclusterhub.yaml --kubeconfig $kubeconfig
+    kubectl apply -f $REPO_DIR/doc/simulation/setup/managed-clusters/multiclusterhub.yaml --kubeconfig $kubeconfig
 
     # apply the import resources
     kubectl apply --kubeconfig $kubeconfig -f $klusterlet_crd
