@@ -111,96 +111,34 @@ func (r *spiceDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		log.Info("the storage connection is not ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	pgConfig, err := pgx.ParseConfig(storageConn.SuperuserDatabaseURI)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to parse database uri: %w", err)
-	}
 
-	// Refer https://github.com/authzed/spicedb-operator/blob/main/examples/cockroachdb-tls-ingress/spicedb/spicedb.yaml
-	// TODO: Currently using the 'disable' method to establish the connection.
-	// Other methods have not been validated. GH itself uses `required-ca`,
-	// so we might need to update both to support `verify-full`.
-	pgURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		url.QueryEscape(pgConfig.User),
-		url.QueryEscape(pgConfig.Password),
-		pgConfig.Host,
-		pgConfig.Port,
-		InventoryDatabaseName,
-		"disable",
-	)
-	spicedbConfigSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      SpiceDBConfigSecretName,
-			Namespace: mgh.Namespace,
-			Labels: map[string]string{
-				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
-			},
-		},
-		StringData: map[string]string{},
-	}
-	err = controllerutil.SetControllerReference(mgh, spicedbConfigSecret, r.GetScheme())
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to set ownerReference: %w", err)
-	}
-
-	// reconcile secret
-	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(spicedbConfigSecret), spicedbConfigSecret)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, fmt.Errorf("failed to get secret %s: %w", spicedbConfigSecret.Name, err)
-	} else if errors.IsNotFound(err) {
-		spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] = pgURI
-		spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] = SpiceDBConfigSecretPreSharedVal
-		if err = r.GetClient().Create(ctx, spicedbConfigSecret); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create secret %s: %w", spicedbConfigSecret.Name, err)
-		}
-	} else {
-		if spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] != pgURI ||
-			spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] != SpiceDBConfigSecretPreSharedVal {
-			if err = r.GetClient().Update(ctx, spicedbConfigSecret); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to update secret %s: %w", spicedbConfigSecret.Name, err)
-			}
-		}
-	}
-	expectedCluster, err := getSpiceDBCluster(mgh)
-	if err != nil {
+	// reconcile storage secret for spiceDB cluster
+	if err = r.reconcileStorageSecret(ctx, storageConn, mgh); err != nil {
 		return ctrl.Result{}, err
 	}
-	err = controllerutil.SetControllerReference(mgh, expectedCluster, r.GetScheme())
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
-	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(expectedCluster), currentCluster)
-	if err != nil && !errors.IsNotFound(err) {
-		return ctrl.Result{}, fmt.Errorf("failed get spicedb cluster instance: %w", err)
-	} else if errors.IsNotFound(err) {
-		// create
-		err = r.GetClient().Create(ctx, expectedCluster)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
-		}
-		log.Infof("spicedb cluster is created %s", expectedCluster.Name)
-	}
 
-	// update
-	if !equality.Semantic.DeepEqual(currentCluster.Labels, expectedCluster.Labels) ||
-		!equality.Semantic.DeepEqual(currentCluster.Spec, expectedCluster.Spec) {
-		currentCluster.Labels = expectedCluster.Labels
-		currentCluster.Spec = expectedCluster.Spec
-		err = r.GetClient().Update(ctx, currentCluster)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create spicedb cluster: %w", err)
-		}
+	// reconcile spiceDB cluster
+	if err = r.reconcileSpiceDBCluster(ctx, mgh); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// relations api
+	if err = r.reconcileRelationsAPI(ctx, mgh); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile relations api: %w", err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *spiceDBClusterReconciler) reconcileRelationsAPI(ctx context.Context,
+	mgh *v1alpha4.MulticlusterGlobalHub,
+) error {
 	operandConfig := config.GetOperandConfig(mgh)
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(manifests.RelationsAPIFiles),
 		deployer.NewHoHDeployer(r.GetClient())
 	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
 	if err != nil {
 		log.Errorf("failed to create discovery client: %v", err)
-		return ctrl.Result{}, err
+		return err
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
@@ -231,16 +169,75 @@ func (r *spiceDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	})
 	if err != nil {
 		log.Errorf("failed to render spicedb relations api objects: %v", err)
-		return ctrl.Result{}, err
+		return err
 	}
 	if err = utils.ManipulateGlobalHubObjects(relationsAPIObjects, mgh, hohDeployer, mapper, r.GetScheme()); err != nil {
 		log.Errorf("failed to manipulate spicedb realtions api objects: %v", err)
-		return ctrl.Result{}, err
+		return err
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.SpiceDBCluster, error) {
+func (r *spiceDBClusterReconciler) reconcileStorageSecret(ctx context.Context,
+	pgConn *config.PostgresConnection,
+	mgh *v1alpha4.MulticlusterGlobalHub,
+) error {
+	pgConfig, err := pgx.ParseConfig(pgConn.SuperuserDatabaseURI)
+	if err != nil {
+		return fmt.Errorf("failed to parse database uri: %w", err)
+	}
+
+	// Refer https://github.com/authzed/spicedb-operator/blob/main/examples/cockroachdb-tls-ingress/spicedb/spicedb.yaml
+	// TODO: Currently using the 'disable' method to establish the connection.
+	// Other methods have not been validated. GH itself uses `required-ca`,
+	// so we might need to update both to support `verify-full`.
+	pgURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		url.QueryEscape(pgConfig.User),
+		url.QueryEscape(pgConfig.Password),
+		pgConfig.Host,
+		pgConfig.Port,
+		InventoryDatabaseName,
+		"disable",
+	)
+	spicedbConfigSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      SpiceDBConfigSecretName,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
+			},
+		},
+		StringData: map[string]string{},
+	}
+	err = controllerutil.SetControllerReference(mgh, spicedbConfigSecret, r.GetScheme())
+	if err != nil {
+		return fmt.Errorf("failed to set ownerReference: %w", err)
+	}
+
+	// reconcile secret
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(spicedbConfigSecret), spicedbConfigSecret)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed to get secret %s: %w", spicedbConfigSecret.Name, err)
+	} else if errors.IsNotFound(err) {
+		spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] = pgURI
+		spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] = SpiceDBConfigSecretPreSharedVal
+		if err = r.GetClient().Create(ctx, spicedbConfigSecret); err != nil {
+			return fmt.Errorf("failed to create secret %s: %w", spicedbConfigSecret.Name, err)
+		}
+	} else {
+		if spicedbConfigSecret.StringData[SpiceDBConfigSecretURIKey] != pgURI ||
+			spicedbConfigSecret.StringData[SpiceDBConfigSecretPreSharedKey] != SpiceDBConfigSecretPreSharedVal {
+			if err = r.GetClient().Update(ctx, spicedbConfigSecret); err != nil {
+				return fmt.Errorf("failed to update secret %s: %w", spicedbConfigSecret.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (r *spiceDBClusterReconciler) reconcileSpiceDBCluster(ctx context.Context,
+	mgh *v1alpha4.MulticlusterGlobalHub,
+) error {
 	operandConfig := config.GetOperandConfig(mgh)
 
 	// create spicedb cluster
@@ -252,9 +249,9 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 
 	configJSON, err := json.Marshal(configData)
 	if err != nil {
-		return nil, fmt.Errorf("failed marshaling spicedb config: %w", err)
+		return fmt.Errorf("failed marshaling spicedb config: %w", err)
 	}
-	spicedbCluster := spicedbv1alpha1.SpiceDBCluster{
+	spicedbCluster := &spicedbv1alpha1.SpiceDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: mgh.Namespace,
 			Name:      SpiceDBConfigClusterName,
@@ -299,7 +296,7 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 	if len(operandConfig.Tolerations) > 0 {
 		bytes, err := json.Marshal(operandConfig.Tolerations)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal tolerations: %w", err)
+			return fmt.Errorf("failed to marshal tolerations: %w", err)
 		}
 		tolerationsPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
@@ -316,7 +313,7 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 	if len(operandConfig.NodeSelector) > 0 {
 		bytes, err := json.Marshal(operandConfig.NodeSelector)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal nodeSelector: %w", err)
+			return fmt.Errorf("failed to marshal nodeSelector: %w", err)
 		}
 		nodeSelectorPatch := spicedbv1alpha1.Patch{
 			Kind: "Deployment",
@@ -328,5 +325,30 @@ func getSpiceDBCluster(mgh *v1alpha4.MulticlusterGlobalHub) (*spicedbv1alpha1.Sp
 		}
 		spicedbCluster.Spec.Patches = append(spicedbCluster.Spec.Patches, nodeSelectorPatch)
 	}
-	return &spicedbCluster, nil
+
+	if err = controllerutil.SetControllerReference(mgh, spicedbCluster, r.GetScheme()); err != nil {
+		return err
+	}
+	currentCluster := &spicedbv1alpha1.SpiceDBCluster{}
+	err = r.GetClient().Get(ctx, client.ObjectKeyFromObject(spicedbCluster), currentCluster)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("failed get spicedb cluster instance: %w", err)
+	} else if errors.IsNotFound(err) {
+		// create
+		if err = r.GetClient().Create(ctx, spicedbCluster); err != nil {
+			return fmt.Errorf("failed to create spicedb cluster: %w", err)
+		}
+		log.Infof("spicedb cluster is created %s", spicedbCluster.Name)
+	}
+
+	// update
+	if !equality.Semantic.DeepEqual(currentCluster.Labels, spicedbCluster.Labels) ||
+		!equality.Semantic.DeepEqual(currentCluster.Spec, spicedbCluster.Spec) {
+		currentCluster.Labels = spicedbCluster.Labels
+		currentCluster.Spec = spicedbCluster.Spec
+		if err = r.GetClient().Update(ctx, currentCluster); err != nil {
+			return fmt.Errorf("failed to create spicedb cluster: %w", err)
+		}
+	}
+	return nil
 }

@@ -74,7 +74,7 @@ const (
 	AggregationLevel           = "full"
 	EnableLocalPolicies        = "true"
 	AgentHeartbeatInterval     = "60s"
-	RedHatKesselQuayIORegistry = "quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations"
+	RedHatKesselQuayIORegistry = "quay.io/redhat-services-prod/project-kessel-tenant"
 )
 
 var (
@@ -87,10 +87,10 @@ var (
 		GrafanaImageKey:             "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
 		PostgresImageKey:            "quay.io/stolostron/postgresql-16:9.5-1732622748",
 		PostgresExporterImageKey:    "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
-		InventoryImageKey:           "quay.io/stolostron/inventory-api:latest",
-		SpiceDBOperatorImageKey:     fmt.Sprintf("%s/spicedb-operator:latest", RedHatKesselQuayIORegistry),
-		SpiceDBInstanceImageKey:     fmt.Sprintf("%s/spicedb:latest", RedHatKesselQuayIORegistry),
-		SpiceDBRelationsAPIImageKey: fmt.Sprintf("%s/relations-api:latest", RedHatKesselQuayIORegistry),
+		InventoryImageKey:           fmt.Sprintf("%s/kessel-inventory/inventory-api:latest", RedHatKesselQuayIORegistry),
+		SpiceDBOperatorImageKey:     fmt.Sprintf("%s/kessel-relations/spicedb-operator:latest", RedHatKesselQuayIORegistry),
+		SpiceDBInstanceImageKey:     fmt.Sprintf("%s/kessel-relations/spicedb:latest", RedHatKesselQuayIORegistry),
+		SpiceDBRelationsAPIImageKey: fmt.Sprintf("%s/kessel-relations/relations-api:latest", RedHatKesselQuayIORegistry),
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
