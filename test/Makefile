@@ -16,6 +16,7 @@ e2e-cleanup:
 
 e2e-test-all: tidy vendor
 	sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana,e2e-test-agent" -v $(VERBOSE)
+	sh ./test/script/e2e_run_qe.sh
 	sh ./test/script/e2e_run.sh -f "e2e-test-prune" -v $(VERBOSE)
 	sh ./test/script/e2e_clean_globalhub.sh
 	sh ./test/script/e2e_run_byo.sh -v $(VERBOSE)
