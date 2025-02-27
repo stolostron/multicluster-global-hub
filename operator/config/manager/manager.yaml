@@ -57,7 +57,7 @@ spec:
         - name: RELATED_IMAGE_POSTGRESQL
           value: quay.io/stolostron/postgresql-16:9.5-1732622748
         - name: RELATED_IMAGE_INVENTORY_API
-          value: quay.io/stolostron/inventory-api:latest
+          value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-inventory/inventory-api:latest
         - name: RELATED_IMAGE_POSTGRES_EXPORTER
           value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
         - name: RELATED_IMAGE_SPICEDB_OPERATOR
