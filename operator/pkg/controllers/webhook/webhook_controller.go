@@ -37,6 +37,7 @@ import (
 // +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=placements,verbs=create;get;list;patch;update;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,resourceNames=global,verbs=create;delete
 
 //go:embed manifests
 var fs embed.FS

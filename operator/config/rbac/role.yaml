@@ -289,6 +289,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - cluster.open-cluster-management.io
+  resourceNames:
+  - global
+  resources:
+  - managedclustersets/bind
+  verbs:
+  - create
+  - delete
+- apiGroups:
   - config.open-cluster-management.io
   resources:
   - klusterletconfigs
