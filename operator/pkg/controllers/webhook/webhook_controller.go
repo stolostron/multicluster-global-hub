@@ -139,7 +139,7 @@ func (r *WebhookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&clusterv1beta2.ManagedClusterSetBinding{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(webhookPred)).
 		Watches(&clusterv1beta1.Placement{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Complete(r)
@@ -157,6 +157,33 @@ var mghPred = predicate.Funcs{
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
+	},
+}
+
+var webhookPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
+			old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
+			if len(new.Webhooks) != len(old.Webhooks) ||
+				new.Webhooks[0].Name != old.Webhooks[0].Name ||
+				!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
+					old.Webhooks[0].AdmissionReviewVersions) ||
+				!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
+				!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
+				return true
+			}
+			return false
+		}
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal
 	},
 }
 
