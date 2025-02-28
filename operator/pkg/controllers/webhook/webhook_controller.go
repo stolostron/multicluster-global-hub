@@ -42,22 +42,14 @@ import (
 var fs embed.FS
 
 var (
-	log                      = logger.DefaultZapLogger()
-	isResourceRemoved        = true
-	startedWebhookController = false
-	webhookReconciler        *WebhookReconciler
+	log               = logger.DefaultZapLogger()
+	isResourceRemoved = true
+	webhookReconciler *WebhookReconciler
 )
 
 type WebhookReconciler struct {
 	ctrl.Manager
 	c client.Client
-}
-
-func NewWebhookReconciler(mgr ctrl.Manager,
-) *WebhookReconciler {
-	return &WebhookReconciler{
-		c: mgr.GetClient(),
-	}
 }
 
 func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
@@ -70,7 +62,8 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 	log.Info("start webhook controller")
 
 	webhookReconciler = &WebhookReconciler{
-		c: opts.Manager.GetClient(),
+		c:       opts.Manager.GetClient(),
+		Manager: opts.Manager,
 	}
 	if err := webhookReconciler.SetupWithManager(opts.Manager); err != nil {
 		webhookReconciler = nil
