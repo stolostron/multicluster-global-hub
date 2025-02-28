@@ -10,3 +10,6 @@ var InventoryManifestFiles embed.FS
 
 //go:embed spicedb-operator
 var SpiceDBOperatorManifestFiles embed.FS
+
+//go:embed relations-api
+var RelationsAPIFiles embed.FS

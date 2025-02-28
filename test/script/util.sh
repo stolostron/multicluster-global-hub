@@ -110,7 +110,8 @@ kind_cluster() {
   local kubeconfig="$dir/$cluster_name"
   local max_retries=5
   local counter=0
-  while [ $counter -lt $max_retries ] && ( [ ! -f "$kubeconfig" ] || ! kubectl config get-contexts -o name | grep -wq "$cluster_name" ); do
+  while [ $counter -lt $max_retries ] && ! (kind get clusters 2>/dev/null | grep -xq "$cluster_name"); do
+    echo "creating cluster $cluster_name"
     ensure_cluster "$cluster_name" "$kubeconfig"
     counter=$((counter + 1))
   done
@@ -124,13 +125,9 @@ kind_cluster() {
 ensure_cluster() {
   local cluster_name="$1"
   local kubeconfig="$2"
-  if [ -f "$kubeconfig" ] && kubectl config get-contexts -o name | grep -wq "$cluster_name"; then
-    return 0
-  fi
 
-  if kind get clusters | grep -q "^$cluster_name$"; then
+  if kind get clusters 2>/dev/null | grep -xq "$cluster_name"; then
     kind delete cluster --name="$cluster_name"
-    docker rm -f "$cluster_name-control-plane"
   fi
 
   kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m

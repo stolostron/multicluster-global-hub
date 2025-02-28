@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spicedb-schema
+  namespace: {{.Namespace}}
+data:
+  schema.zed: |-
+    definition rbac/principal {}
+
+    definition rbac/group {
+      permission member = t_member
+      relation t_member: rbac/principal | rbac/group#member
+    }
+
+    definition rbac/role {
+      permission view_widget = t_view_widget
+      relation t_view_widget: rbac/principal:*
+      permission use_widget = t_use_widget
+      relation t_use_widget: rbac/principal:*
+    }
+
+    definition rbac/role_binding {
+      permission subject = t_subject
+      relation t_subject: rbac/principal | rbac/group#member
+      permission granted = t_granted
+      relation t_granted: rbac/role
+      permission view_widget = (subject & t_granted->view_widget)
+      permission use_widget = (subject & t_granted->use_widget)
+    }
+
+    definition rbac/workspace {
+      permission parent = t_parent
+      relation t_parent: rbac/workspace
+      permission user_grant = t_user_grant
+      relation t_user_grant: rbac/role_binding
+      permission view_widget = t_user_grant->view_widget + t_parent->view_widget
+      permission use_widget = t_user_grant->use_widget + t_parent->use_widget
+    }
+
+    definition rbac/widget {
+      permission workspace = t_workspace
+      relation t_workspace: rbac/workspace
+      permission view = t_workspace->view_widget + use
+      permission use = t_workspace->use_widget
+    }

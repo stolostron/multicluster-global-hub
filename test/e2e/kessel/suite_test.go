@@ -139,4 +139,5 @@ type Options struct {
 	KafkaUser           string `yaml:"kafkauser"`
 	KafkaTopic          string `yaml:"kafkatopic"`
 	KafkaCluster        string `yaml:"kafkacluster"`
+	RelationsHTTPURL    string `yaml:"relationshttpurl"`
 }

@@ -64,7 +64,7 @@ var _ = Describe("spicedb", Ordered, func() {
 			CACert:               []byte("test-crt"),
 		})
 
-		_, err := inventory.StartSpiceDBController(config.ControllerOption{
+		_, err := inventory.StartSpiceDBReconciler(config.ControllerOption{
 			Manager: runtimeManager, MulticlusterGlobalHub: mgh,
 		})
 		Expect(err).To(Succeed())
