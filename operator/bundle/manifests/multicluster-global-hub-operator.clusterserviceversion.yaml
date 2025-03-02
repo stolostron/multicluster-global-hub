@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-02-06T13:42:20Z"
+    createdAt: "2025-03-02T00:30:49Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -595,6 +595,15 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resourceNames:
+          - global
+          resources:
+          - managedclustersets/bind
+          verbs:
+          - create
+          - delete
         - apiGroups:
           - config.open-cluster-management.io
           resources:
