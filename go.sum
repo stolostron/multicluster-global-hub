@@ -778,8 +778,8 @@ github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace/go.mod h1:McXfInJRrz
 github.com/spf13/viper v1.3.2/go.mod h1:ZiWeW+zYFKm7srdB9IoDzzZXaJaI5eL9QjNiN/DMA2s=
 github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118 h1:etBoN2TXjxiTNZ/pmvbHuKSvJWm7ml+QGWrHPTeHQ+g=
 github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118/go.mod h1:Sflr4YW8MRsymgNLJDcOAv4oyfeiTRyEDR7PRBkg788=
-github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4 h1:uK6AKdfrhCKkrEllKDF8W1QtDoWN7HI8qoxVnn6kpIM=
-github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4/go.mod h1:WyEG4DcVm+zrFgoOFejnMB1Ua8qsX3YwKF2/i8U+HIw=
+github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95 h1:z2QDPHUQ7z7wtwvzc5L2bZXNdC8BSwfZJOYcftHtJQc=
+github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95/go.mod h1:PwxZgjLdGggA24kPreXgzGR+zntTkIcd/qEJHB81jPQ=
 github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2 h1:mTzmvs5bOuPmqcygfzEBeRpPm6yVJCRPtVw+npAf+aM=
 github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2/go.mod h1:Hiv2CrXCvsiJMwNBhwd6XCKVEh01/owjFmN5a7eUjd4=
 github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f h1:vKFrnwEqWoR1jJeioWzQhqSzCqBSN31M4w4HOxBfIxc=
