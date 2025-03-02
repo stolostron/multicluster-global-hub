@@ -28,12 +28,12 @@ require (
 	github.com/onsi/ginkgo/v2 v2.21.0
 	github.com/onsi/gomega v1.36.1
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
-	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
-	github.com/openshift/library-go v0.0.0-20240723172506-8bb8fe6cc56d
+	github.com/openshift/client-go v0.0.0-20250125113824-8e1f0b8fa9a7
+	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
 	github.com/operator-framework/api v0.27.0
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.74.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
