@@ -21,12 +21,12 @@ require (
 	github.com/go-kratos/kratos/v2 v2.8.3
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
-	github.com/gonvenience/ytbx v1.4.4
+	github.com/gonvenience/ytbx v1.4.6
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.9.4
 	github.com/lib/pq v1.10.9
-	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/gomega v1.36.2
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
 	github.com/openshift/client-go v0.0.0-20240528061634-b054aa794d87
 	github.com/openshift/library-go v0.0.0-20240723172506-8bb8fe6cc56d
@@ -96,7 +96,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -118,16 +118,15 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/gonvenience/bunt v1.3.5 // indirect
-	github.com/gonvenience/neat v1.3.13 // indirect
-	github.com/gonvenience/term v1.0.2 // indirect
-	github.com/gonvenience/text v1.0.7 // indirect
-	github.com/gonvenience/wrap v1.2.0 // indirect
+	github.com/gonvenience/bunt v1.4.0 // indirect
+	github.com/gonvenience/neat v1.3.15 // indirect
+	github.com/gonvenience/term v1.0.3 // indirect
+	github.com/gonvenience/text v1.0.8 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
