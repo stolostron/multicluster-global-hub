@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -45,11 +46,12 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg     *rest.Config
-	testEnv *envtest.Environment
-	ctx     context.Context
-	cancel  context.CancelFunc
-	c       client.Client
+	cfg              *rest.Config
+	testEnv          *envtest.Environment
+	ctx              context.Context
+	cancel           context.CancelFunc
+	c                client.Client
+	localClusterName = "renamed-local-cluster"
 )
 
 func TestControllers(t *testing.T) {
@@ -115,6 +117,18 @@ var _ = BeforeSuite(func() {
 	go func() {
 		_ = m.Start(ctx)
 	}()
+
+	// create the renamed local cluster
+	renamedLocalcluster := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: localClusterName,
+			Labels: map[string]string{
+				constants.LocalClusterName: "true",
+			},
+		},
+	}
+	err = c.Create(ctx, renamedLocalcluster, &client.CreateOptions{})
+	Expect(err).NotTo(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

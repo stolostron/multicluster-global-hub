@@ -76,7 +76,10 @@ func Test_setHostedAnnotations(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := setHostedAnnotations(tt.cluster); got != tt.want {
+			adh := admissionHandler{
+				localClusterName: constants.LocalClusterName,
+			}
+			if got := adh.setHostedAnnotations(tt.cluster); got != tt.want {
 				t.Errorf("name:%v, setHostedAnnotations() = %v, want %v", tt.name, got, tt.want)
 			}
 		})
@@ -207,7 +210,10 @@ func Test_isInHostedCluster(t *testing.T) {
 		ctx := context.Background()
 		client := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(tt.cluster).Build()
 		t.Run(tt.name, func(t *testing.T) {
-			if got, err := isInHostedCluster(ctx, client, "test"); got != tt.want {
+			adh := admissionHandler{
+				localClusterName: constants.LocalClusterName,
+			}
+			if got, err := adh.isInHostedCluster(ctx, client, "test"); got != tt.want {
 				t.Errorf("isInHostedCluster() = %v, want %v", got, tt.want)
 				t.Errorf("err:%v", err)
 			}

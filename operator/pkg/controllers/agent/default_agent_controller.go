@@ -262,16 +262,14 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 	if mgh.Spec.InstallAgentOnLocal {
 		// if installed agent on hub cluster, global hub is installed in a brownfield cluster
-		if cluster.GetName() == constants.LocalClusterName ||
-			cluster.Labels[constants.LocalClusterName] == "true" ||
+		if cluster.Labels[constants.LocalClusterName] == "true" ||
 			deployMode == operatorconstants.GHAgentDeployModeDefault ||
 			deployMode == operatorconstants.GHAgentDeployModeHosted {
 			return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 		}
 	} else {
 		// if not installed agent on hub cluster, global hub is installed in a greenfield cluster
-		if cluster.GetName() == constants.LocalClusterName ||
-			cluster.Labels[constants.LocalClusterName] == "true" {
+		if cluster.Labels[constants.LocalClusterName] == "true" {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
