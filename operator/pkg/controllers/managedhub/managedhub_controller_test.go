@@ -120,7 +120,10 @@ func TestManagedHubController_pruneManagedHubs(t *testing.T) {
 			initObjects: []runtime.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "local-cluster",
+						Name: "local-cluster-rename",
+						Labels: map[string]string{
+							"local-cluster": "true",
+						},
 					},
 				},
 			},
