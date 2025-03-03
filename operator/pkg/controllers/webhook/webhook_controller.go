@@ -37,27 +37,20 @@ import (
 // +kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=placements,verbs=create;get;list;patch;update;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/bind,resourceNames=global,verbs=create;delete
 
 //go:embed manifests
 var fs embed.FS
 
 var (
-	log                      = logger.DefaultZapLogger()
-	isResourceRemoved        = true
-	startedWebhookController = false
-	webhookReconciler        *WebhookReconciler
+	log               = logger.DefaultZapLogger()
+	isResourceRemoved = true
+	webhookReconciler *WebhookReconciler
 )
 
 type WebhookReconciler struct {
 	ctrl.Manager
 	c client.Client
-}
-
-func NewWebhookReconciler(mgr ctrl.Manager,
-) *WebhookReconciler {
-	return &WebhookReconciler{
-		c: mgr.GetClient(),
-	}
 }
 
 func StartController(opts config.ControllerOption) (config.ControllerInterface, error) {
@@ -70,7 +63,8 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 	log.Info("start webhook controller")
 
 	webhookReconciler = &WebhookReconciler{
-		c: opts.Manager.GetClient(),
+		c:       opts.Manager.GetClient(),
+		Manager: opts.Manager,
 	}
 	if err := webhookReconciler.SetupWithManager(opts.Manager); err != nil {
 		webhookReconciler = nil
@@ -145,7 +139,7 @@ func (r *WebhookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&clusterv1beta2.ManagedClusterSetBinding{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&admissionregistrationv1.MutatingWebhookConfiguration{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(webhookPred)).
 		Watches(&clusterv1beta1.Placement{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Complete(r)
@@ -163,6 +157,33 @@ var mghPred = predicate.Funcs{
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
+	},
+}
+
+var webhookPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal {
+			new := e.ObjectNew.(*admissionregistrationv1.MutatingWebhookConfiguration)
+			old := e.ObjectOld.(*admissionregistrationv1.MutatingWebhookConfiguration)
+			if len(new.Webhooks) != len(old.Webhooks) ||
+				new.Webhooks[0].Name != old.Webhooks[0].Name ||
+				!reflect.DeepEqual(new.Webhooks[0].AdmissionReviewVersions,
+					old.Webhooks[0].AdmissionReviewVersions) ||
+				!reflect.DeepEqual(new.Webhooks[0].Rules, old.Webhooks[0].Rules) ||
+				!reflect.DeepEqual(new.Webhooks[0].ClientConfig.Service, old.Webhooks[0].ClientConfig.Service) {
+				return true
+			}
+			return false
+		}
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal
 	},
 }
 
