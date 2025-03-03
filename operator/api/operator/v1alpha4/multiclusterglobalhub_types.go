@@ -114,6 +114,8 @@ type MulticlusterGlobalHubSpec struct {
 	// If set to false, the Global Hub Agent will not be installed on the local hub cluster.
 	// Currently, switching the value of this field is not supported after the Global Hub is installed.
 	// +kubebuilder:default=false
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	// +optional
 	InstallAgentOnLocal bool `json:"installAgentOnLocal,omitempty"`
 }
