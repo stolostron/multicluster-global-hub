@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -210,23 +211,30 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 		initObjects []runtime.Object
 	}{
 		{
-			name: "no new kafka",
+			name: "default install",
 			kafkaConn: &transport.KafkaConfig{
 				IsNewKafkaCluster: false,
+				ClusterID:         "0001",
 			},
-			secret: nil,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+					Name:      "transport-config",
+				},
+			},
 		},
 		{
 			name: "new kafka, has synced",
 			kafkaConn: &transport.KafkaConfig{
 				IsNewKafkaCluster: true,
+				ClusterID:         "0001",
 			},
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "transport-config",
 					Annotations: map[string]string{
-						constants.ResyncKafkaClientSecretAnnotation: "true",
+						constants.KafkaClusterIdAnnotation: "0001",
 					},
 				},
 			},
@@ -236,6 +244,7 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 			kafkaConn: &transport.KafkaConfig{
 				IsNewKafkaCluster: true,
 				ClientSecretName:  "client-secret",
+				ClusterID:         "0001",
 			},
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -265,6 +274,13 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 			}
 			if err := c.ResyncKafkaClientSecret(context.Background(), tt.kafkaConn, tt.secret); err != nil {
 				t.Errorf("TransportCtrl.ResyncKafkaClientSecret() error = %v", err)
+			}
+			secret := &corev1.Secret{}
+			if err := c.runtimeClient.Get(context.Background(), client.ObjectKeyFromObject(tt.secret), secret); err != nil {
+				if secret.Annotations[constants.KafkaClusterIdAnnotation] != tt.kafkaConn.ClusterID {
+					t.Errorf("secret.Annotations[constants.KafkaClusterIdAnnotation]:%v,tt.kafkaConn.ClusterID:%v",
+						secret.Annotations[constants.KafkaClusterIdAnnotation], tt.kafkaConn.ClusterID)
+				}
 			}
 		})
 	}
