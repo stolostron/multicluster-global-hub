@@ -28,7 +28,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
-	github.com/openshift/client-go v0.0.0-20250125113824-8e1f0b8fa9a7
+	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
 	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
 	github.com/operator-framework/api v0.27.0
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
