@@ -117,8 +117,8 @@ const (
 	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"
 	// identy the kafka is upgrade from zookeeper mode
 	UpgradeKafkaFromZookeeperAnnotation = "global-hub.open-cluster-management.io/upgrade-from-zookeeper"
-	// resync the kafka client secret in agent
-	ResyncKafkaClientSecretAnnotation = "global-hub.open-cluster-management.io/resign-kafka-client-secret" // #nosec G101
+	// kafka-cluster-id save the current kafka cluster id
+	KafkaClusterIdAnnotation = "global-hub.open-cluster-management.io/kafka-cluster-id" // #nosec G101
 )
 
 // store all the finalizers
