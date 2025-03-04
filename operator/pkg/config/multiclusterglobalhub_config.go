@@ -28,6 +28,7 @@ import (
 	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -62,6 +63,7 @@ const (
 	InventoryImageKey            = "inventory_api"
 	SpiceDBOperatorImageKey      = "spicedb_operator"
 	SpiceDBInstanceImageKey      = "spicedb_instance"
+	SpiceDBRelationsAPIImageKey  = "relations_api"
 	OauthProxyImageKey           = "oauth_proxy"
 	GrafanaImageKey              = "grafana"
 	PostgresImageKey             = "postgresql"
@@ -72,22 +74,23 @@ const (
 	AggregationLevel           = "full"
 	EnableLocalPolicies        = "true"
 	AgentHeartbeatInterval     = "60s"
-	RedHatKesselQuayIORegistry = "quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations"
+	RedHatKesselQuayIORegistry = "quay.io/redhat-services-prod/project-kessel-tenant"
 )
 
 var (
 	mghNamespacedName  = types.NamespacedName{}
 	oauthSessionSecret = ""
 	imageOverrides     = map[string]string{
-		GlobalHubAgentImageKey:   "quay.io/stolostron/multicluster-global-hub-agent:latest",
-		GlobalHubManagerImageKey: "quay.io/stolostron/multicluster-global-hub-manager:latest",
-		OauthProxyImageKey:       "quay.io/stolostron/origin-oauth-proxy:4.9",
-		GrafanaImageKey:          "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
-		PostgresImageKey:         "quay.io/stolostron/postgresql-16:9.5-1732622748",
-		PostgresExporterImageKey: "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
-		InventoryImageKey:        "quay.io/stolostron/inventory-api:latest",
-		SpiceDBOperatorImageKey:  fmt.Sprintf("%s/spicedb-operator:latest", RedHatKesselQuayIORegistry),
-		SpiceDBInstanceImageKey:  fmt.Sprintf("%s/spicedb:latest", RedHatKesselQuayIORegistry),
+		GlobalHubAgentImageKey:      "quay.io/stolostron/multicluster-global-hub-agent:latest",
+		GlobalHubManagerImageKey:    "quay.io/stolostron/multicluster-global-hub-manager:latest",
+		OauthProxyImageKey:          "quay.io/stolostron/origin-oauth-proxy:4.9",
+		GrafanaImageKey:             "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
+		PostgresImageKey:            "quay.io/stolostron/postgresql-16:9.5-1732622748",
+		PostgresExporterImageKey:    "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
+		InventoryImageKey:           fmt.Sprintf("%s/kessel-inventory/inventory-api:latest", RedHatKesselQuayIORegistry),
+		SpiceDBOperatorImageKey:     fmt.Sprintf("%s/kessel-relations/spicedb-operator:latest", RedHatKesselQuayIORegistry),
+		SpiceDBInstanceImageKey:     fmt.Sprintf("%s/kessel-relations/spicedb:latest", RedHatKesselQuayIORegistry),
+		SpiceDBRelationsAPIImageKey: fmt.Sprintf("%s/kessel-relations/relations-api:latest", RedHatKesselQuayIORegistry),
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"
@@ -430,4 +433,31 @@ func GetMulticlusterGlobalHubAgent(ctx context.Context, c client.Client) (*v1alp
 		return nil, nil
 	}
 	return &mghaList.Items[0], nil
+}
+
+type OperandConfig struct {
+	Replicas        int32
+	ImagePullPolicy corev1.PullPolicy
+	ImagePullSecret string
+	NodeSelector    map[string]string
+	Tolerations     []corev1.Toleration
+}
+
+func GetOperandConfig(mgh *v1alpha4.MulticlusterGlobalHub) *OperandConfig {
+	operandConfig := &OperandConfig{
+		Replicas:        1,
+		ImagePullPolicy: corev1.PullAlways,
+		NodeSelector:    mgh.Spec.NodeSelector,
+		Tolerations:     mgh.Spec.Tolerations,
+	}
+	if mgh.Spec.AvailabilityConfig == v1alpha4.HAHigh {
+		operandConfig.Replicas = 2
+	}
+	if mgh.Spec.ImagePullPolicy != "" {
+		operandConfig.ImagePullPolicy = mgh.Spec.ImagePullPolicy
+	}
+	if mgh.Spec.ImagePullSecret != "" {
+		operandConfig.ImagePullSecret = mgh.Spec.ImagePullSecret
+	}
+	return operandConfig
 }

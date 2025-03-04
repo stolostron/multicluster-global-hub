@@ -1,0 +1,16 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: relations-api
+  namespace: {{.Namespace}}
+  labels:
+    app: relations-api
+spec:
+  to:
+    kind: Service
+    name: relations-api
+  tls:
+    termination: edge  # OpenShift terminates TLS and forwards HTTP
+    insecureEdgeTerminationPolicy: Redirect
+# TODO: To expose the gRPC endpoint with route, have to use passthrough termination and enable TLS connection
+# More information can visit https://www.redhat.com/en/blog/grpc-or-http/2-ingress-connectivity-in-openshift

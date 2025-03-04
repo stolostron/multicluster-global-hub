@@ -12,7 +12,7 @@ source "$CURRENT_DIR/util.sh"
 
 kind_cluster_name="global-hub-kessel"
 kind_cluster_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ${kind_cluster_name}-control-plane)
-inventory_namespace=${INVENTORY_NAMESPACE:-"multicluster-global-hub"}
+namespace=${namespace:-"multicluster-global-hub"}
 
 # create a nodeport to expose the inventory api
 cat <<EOF | kubectl apply -f -
@@ -20,7 +20,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: inventory-api-external
-  namespace: $inventory_namespace
+  namespace: $namespace
 spec:
   type: NodePort
   ports:
@@ -37,22 +37,47 @@ spec:
   selector:
     name: inventory-api
 EOF
+transport_endpoint="${kind_cluster_ip}:30081"
 
-http_url="${kind_cluster_ip}:30081"
-kubectl get secret inventory-api-server-ca-certs -n "$inventory_namespace" -ojsonpath='{.data.ca\.crt}' | base64 -d >/tmp/ca.crt
-kubectl get secret inventory-api-guest-certs -n "$inventory_namespace" -ojsonpath='{.data.tls\.crt}' | base64 -d >/tmp/client.crt
-kubectl get secret inventory-api-guest-certs -n "$inventory_namespace" -ojsonpath='{.data.tls\.key}' | base64 -d >/tmp/client.key
+# create a nodeport to expose the relations api
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Service
+metadata:
+  name: relations-api-external
+  namespace: $namespace
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      protocol: TCP
+      nodePort: 30806  # NodePort for HTTP server
+    - name: grpc
+      port: 9000
+      targetPort: 30906
+      protocol: TCP
+      nodePort: 30090  # NodePort for gRPC server
+  selector:
+    app: relations-api
+EOF
+relations_http_url="http://${kind_cluster_ip}:30806"
+
+kubectl get secret inventory-api-server-ca-certs -n "$namespace" -ojsonpath='{.data.ca\.crt}' | base64 -d >/tmp/ca.crt
+kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.crt}' | base64 -d >/tmp/client.crt
+kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.key}' | base64 -d >/tmp/client.key
 
 cat <<EOF >"$CURRENT_DIR/rest.yaml"
-host: $http_url
-ca.crt: $(kubectl get secret inventory-api-server-ca-certs -n "$inventory_namespace" -ojsonpath='{.data.ca\.crt}')
-client.crt: $(kubectl get secret inventory-api-guest-certs -n "$inventory_namespace" -ojsonpath='{.data.tls\.crt}')
-client.key: $(kubectl get secret inventory-api-guest-certs -n "$inventory_namespace" -ojsonpath='{.data.tls\.key}')
+host: $transport_endpoint
+ca.crt: $(kubectl get secret inventory-api-server-ca-certs -n "$namespace" -ojsonpath='{.data.ca\.crt}')
+client.crt: $(kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.crt}')
+client.key: $(kubectl get secret inventory-api-guest-certs -n "$namespace" -ojsonpath='{.data.tls\.key}')
 EOF
 
 transport_config_name=transport-config-guest
-kubectl delete secret $transport_config_name -n "$inventory_namespace" --ignore-not-found
-kubectl create secret generic $transport_config_name -n "$inventory_namespace" \
+kubectl delete secret $transport_config_name -n "$namespace" --ignore-not-found
+kubectl create secret generic $transport_config_name -n "$namespace" \
   --from-file=rest.yaml="$CURRENT_DIR/rest.yaml"
 rm "$CURRENT_DIR/rest.yaml"
 echo "inventory rest api configuration is ready!"
@@ -65,12 +90,13 @@ export KUBECONFIG=${CONFIG_DIR}/${kind_cluster_name}
 OPTION_FILE="${CONFIG_DIR}/kessel-options.yaml"
 cat <<EOF >"$OPTION_FILE"
 options:
-  namespace: $inventory_namespace 
+  namespace: $namespace 
   transportconfig: $transport_config_name
   kubeconfig: "$CONFIG_DIR/global-hub-kessel"
   kafkauser: global-hub-kafka-user
   kafkatopic: kessel-inventory
   kafkacluster: kafka
+  relationshttpurl: $relations_http_url
 EOF
 
 ginkgo -v --fail-fast "$TEST_DIR/e2e/kessel" --output-dir="$CONFIG_DIR" --junit-report=report.xml -- -options="$OPTION_FILE"

@@ -46,7 +46,6 @@ echo "Kafka cluster is ready"
 
 # generate resource for standalone agent
 export KAFKA_NAMESPACE=kafka
-export SECRET_NAMESPACE=open-cluster-management
 bash "$CURRENT_DIR/event_exporter_kafka.sh" "$KAFKA_KUBECONFIG" "$SECRET_KUBECONFIG"
 echo "Kafka standalone secret is ready! KUBECONFIG=$SECRET_KUBECONFIG"
 

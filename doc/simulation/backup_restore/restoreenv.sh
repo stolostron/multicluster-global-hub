@@ -13,7 +13,7 @@ sed -i 's/<AWS_ACCESS_KEY_ID>/'$AWS_ACCESS_KEY_ID'/g' common/credentials-velero
 sed -i 's/<AWS_ACCESS_KEY_SECRET>/'$AWS_SECRET_ACCESS_KEY'/g' common/credentials-velero
 sed -i 's/<AWS_BUCKET>/'$AWS_BUCKET'/g' common/data-protection-app.yaml
 
-git clone git@github.com:open-cluster-management-io/policy-collection.git
+git clone https://github.com/open-cluster-management-io/policy-collection.git
 
 
 ##clean up

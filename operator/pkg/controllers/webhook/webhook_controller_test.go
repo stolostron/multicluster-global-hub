@@ -17,7 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -148,7 +147,7 @@ func TestWebhookResources(t *testing.T) {
 			kafkav1beta2.AddToScheme(scheme.Scheme)
 			subv1alpha1.AddToScheme(scheme.Scheme)
 			addonv1alpha1.AddToScheme(scheme.Scheme)
-			v1alpha4.AddToScheme(scheme.Scheme)
+			globalhubv1alpha4.AddToScheme(scheme.Scheme)
 			config.SetImportClusterInHosted(tt.mgh)
 			config.SetACMResourceReady(true)
 			tt.initObjects = append(tt.initObjects, tt.mgh)
