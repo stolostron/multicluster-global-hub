@@ -244,41 +244,51 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	return true, nil
 }
 
-// Resync the kafka client secret because we recreate the kafka cluster.
-// TODO: Remove the code in globalhub 1.5
+// Resync the kafka client secret because we recreate the kafka cluster in globalhub 1.4 and restore case.
 func (c *TransportCtrl) ResyncKafkaClientSecret(ctx context.Context, kafkaConn *transport.KafkaConfig, secret *corev1.Secret) error {
-	log.Debugf("resync kafka client secret: %v", kafkaConn.IsNewKafkaCluster)
-	if !kafkaConn.IsNewKafkaCluster {
+	if kafkaConn.ClusterID == "" {
 		return nil
 	}
 
+	isKafkaClusterIdEqual := true
+	// if stored kafka cluster id is same as current cluster id, return
 	if secret.Annotations != nil {
-		if _, ok := secret.Annotations[constants.ResyncKafkaClientSecretAnnotation]; ok {
+		if secret.Annotations[constants.KafkaClusterIdAnnotation] == kafkaConn.ClusterID {
+			log.Debugf("cluster id is equal")
 			return nil
 		}
+		isKafkaClusterIdEqual = false
 	}
-	if kafkaConn.ClientSecretName == "" {
-		return nil
-	}
-	signedSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      kafkaConn.ClientSecretName,
-			Namespace: secret.Namespace,
-		},
-	}
-	log.Infof("remove kafka client secret: %v", kafkaConn.ClientSecretName)
 
-	err := c.runtimeClient.Delete(ctx, signedSecret)
-	if err != nil {
-		return err
+	log.Debugf("isNewKafkaCluster: %v", kafkaConn.IsNewKafkaCluster)
+	log.Debugf("isKafkaClusterIdEqual : %v", isKafkaClusterIdEqual)
+
+	// if it's new cluster(upgrade from 1.3 to 1.4) or cluster is not equal (restore globalhub)
+	if kafkaConn.IsNewKafkaCluster || !isKafkaClusterIdEqual {
+		if kafkaConn.ClientSecretName == "" {
+			return nil
+		}
+		signedSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kafkaConn.ClientSecretName,
+				Namespace: secret.Namespace,
+			},
+		}
+		log.Infof("remove kafka client secret: %v", kafkaConn.ClientSecretName)
+
+		err := c.runtimeClient.Delete(ctx, signedSecret)
+		if err != nil {
+			return err
+		}
 	}
+
 	transportSecret := secret.DeepCopy()
 	if transportSecret.Annotations == nil {
 		transportSecret.Annotations = make(map[string]string)
 	}
 	log.Infof("update transport config secret")
 
-	transportSecret.Annotations[constants.ResyncKafkaClientSecretAnnotation] = "true"
+	transportSecret.Annotations[constants.KafkaClusterIdAnnotation] = kafkaConn.ClusterID
 	return c.runtimeClient.Update(ctx, transportSecret)
 }
 
