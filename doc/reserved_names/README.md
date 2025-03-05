@@ -22,7 +22,7 @@ List all annotations are used by multicluster global hub.
 |global-hub.open-cluster-management.io/import-cluster-in-hosted=true\|false | This annotation is used to identify if managedhub cluster should be imported in hosted mode |
 | global-hub.open-cluster-management.io/with-inventory                | This annotation is used to identify the common inventory is deployed.                                                                  |
 | global-hub.open-cluster-management.io/with-stackrox-integration | This annotation enables the experimental integration with [Stackrox](https://github.com/stackrox).|
-| global-hub.open-cluster-management.io/resign-kafka-client-secret | This annotation is used to identify if the kafka client secret is resynced in agent.|
+| global-hub.open-cluster-management.io/kafka-cluster-id | This annotation save the kafka cluster id in transport-config secret in agent part, it is used to identify if the kafka cluster changed.|
 
 # Finalizer
 
