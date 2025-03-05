@@ -47,7 +47,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		if err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		if cluster.Name == constants.LocalClusterName {
+		if cluster.Labels[constants.LocalClusterName] == "true" {
 			return admission.Allowed("")
 		}
 
