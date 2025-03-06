@@ -124,6 +124,9 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 			manager: mgr,
 		}
 		config.SetTransporter(transporter)
+		if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
+			transporter.topicPartitionReplicas = 1
+		}
 	}
 
 	transporter.mgh = mgh
@@ -148,32 +151,25 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		}
 	}
 
-	if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-		transporter.topicPartitionReplicas = 1
-	}
-
 	return transporter
 }
 
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
-	statusTopic := k.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
-	if strings.Contains(statusTopic, ".*") {
-		statusTopic = strings.Replace(statusTopic, ".*", "", -1)
-	}
-	existingKafkaTopic := &kafkav1beta2.KafkaTopic{}
+	existingKafkaNodepool := &kafkav1beta2.KafkaNodePool{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
-		Name:      statusTopic + ".global-hub",
+		Name:      "kraft",
 		Namespace: k.mgh.Namespace,
-	}, existingKafkaTopic)
-	log.Debugf("existing kafkatopic: %v, err:%v", existingKafkaTopic, err)
-
+	}, existingKafkaNodepool)
+	log.Debugf("existing kafkaNodepool: %v, err:%v", existingKafkaNodepool, err)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return k.topicPartitionReplicas, nil
 		}
 		return k.topicPartitionReplicas, err
 	}
-	return *existingKafkaTopic.Spec.Replicas, nil
+
+	log.Debugf("existing kafkaNodepool: %v", existingKafkaNodepool.Spec.Replicas)
+	return existingKafkaNodepool.Spec.Replicas, nil
 }
 
 func WithNamespacedName(name types.NamespacedName) KafkaOption {
