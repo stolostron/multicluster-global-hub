@@ -31,10 +31,10 @@ const (
 
 // Condition Types
 const (
-	MigrationResourcePrepared  = "ResourceInitialized"
-	MigrationClusterRegistered = "ClusterRegistered" // -> Phase: Migrating
-	MigrationResourceDeployed  = "ResourceDeployed"  // -> Phase: Migrating
-	MigrationCompleted         = "MigrationCompleted"
+	MigrationResourceInitialized = "ResourceInitialized"
+	MigrationClusterRegistered   = "ClusterRegistered" // -> Phase: Migrating
+	MigrationResourceDeployed    = "ResourceDeployed"  // -> Phase: Migrating
+	MigrationCompleted           = "MigrationCompleted"
 )
 
 // +kubebuilder:object:root=true

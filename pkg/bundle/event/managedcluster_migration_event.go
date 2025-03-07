@@ -7,9 +7,11 @@ import (
 )
 
 type ManagedClusterMigrationFromEvent struct {
-	ManagedClusters  []string                             `json:"managedClusters"`
-	BootstrapSecret  *corev1.Secret                       `json:"bootstrapSecret"`
-	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig"`
+	// Allowed values: "initializing", "registering"
+	Stage            string                               `json:"stage"`
+	ManagedClusters  []string                             `json:"managedClusters,omitempty"`
+	BootstrapSecret  *corev1.Secret                       `json:"bootstrapSecret,omitempty"`
+	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig,omitempty"`
 }
 
 type ManagedClusterMigrationToEvent struct {
