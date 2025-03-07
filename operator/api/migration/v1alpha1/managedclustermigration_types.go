@@ -20,6 +20,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Migration Phases
+const (
+	PhaseInitializing = "Initializing"
+	PhaseValidating   = "Validating"
+	PhaseMigrating    = "Migrating"
+	PhaseCompleted    = "Completed"
+	PhaseFailed       = "Failed"
+)
+
+// Condition Types
+const (
+	MigrationResourceInitialized = "ResourceInitialized"
+	MigrationClusterRegistered   = "ClusterRegistered" // -> Phase: Migrating
+	MigrationResourceDeployed    = "ResourceDeployed"  // -> Phase: Migrating
+	MigrationCompleted           = "MigrationCompleted"
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,multicluster-global-hub-manager}}
@@ -51,6 +68,11 @@ type ManagedClusterMigrationSpec struct {
 
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
+	// Phase represents the current phase of the migration
+	// +kubebuilder:validation:Enum=Initializing;Validating;Migrating;Completed;Failed
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	Phase string `json:"phase,omitempty"`
+
 	// Conditions represents the latest available observations of the current state
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

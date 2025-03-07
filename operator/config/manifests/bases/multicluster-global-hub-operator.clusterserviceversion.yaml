@@ -64,6 +64,9 @@ spec:
           current state
         displayName: Conditions
         path: conditions
+      - description: Phase represents the current phase of the migration
+        displayName: Phase
+        path: phase
       version: v1alpha1
     - description: MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents
         API
