@@ -26,7 +26,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/util"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.ZapLogger("backup-ctrl")
 
 const (
 	serverInternalErrorMsg                      = "internal error"
@@ -253,6 +256,7 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 		fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", err)
 		return
 	}
+	log.Debugf("lastManagedCluster: %v", lastManagedCluster)
 	if err == nil {
 		if err := json.Unmarshal(payload, lastManagedCluster); err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
@@ -292,6 +296,7 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 			fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to managedCluster: %v\n", err)
 			return
 		}
+		log.Debugf("managedCluster: %v", managedCluster)
 
 		managedClusterList.Items = append(managedClusterList.Items, managedCluster)
 		lastManagedClusterName = managedCluster.GetName()

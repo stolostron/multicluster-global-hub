@@ -130,7 +130,8 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 		if err != nil {
 			return err
 		}
-		return db.Create(&models.ManagedClusterLabel{
+
+		err = db.Create(&models.ManagedClusterLabel{
 			ID:                 clusterID,
 			LeafHubName:        leafHubName,
 			ManagedClusterName: managedClusterName,
@@ -138,6 +139,14 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 			DeletedLabelKeys:   keysToRemovePayload,
 			Version:            0,
 		}).Error
+		if err != nil {
+			log.Errorf("failed to create cluster label, err: %v", err)
+			return err
+		}
+		log.Debugf("cluster %v labelsToAdd %v ", managedClusterName, labelsToAdd)
+		log.Debugf("cluster %v labelsToRemove %v ", managedClusterName, labelsToRemove)
+
+		return err
 	}
 
 	var (
