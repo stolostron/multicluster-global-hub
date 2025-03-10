@@ -62,6 +62,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	secretIsReady := false
 	notReadyClusters := []string{}
 
+	// To Hub
 	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
 	tokenSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -85,6 +86,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, err
 	}
 
+	// From Hub
 	// send the migration event to migration.from managed hub(s)
 	db := database.GetGorm()
 	for fromHubName, clusters := range leafHubToClusters {
