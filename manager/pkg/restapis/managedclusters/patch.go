@@ -108,12 +108,17 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	}
 	db := database.GetGorm()
 	conn := database.GetConn()
+	log.Debugf("update labels, labels to add: %v", labelsToAdd)
+	log.Debugf("update labels, labels to remove: %v", labelsToRemove)
+	log.Debugf("clusterID: %v, leafHubName: %v, managedClusterName: %v", clusterID, leafHubName, managedClusterName)
 
+	log.Debugf("lock database")
 	err := database.Lock(conn)
 	if err != nil {
 		return err
 	}
 	defer database.Unlock(conn)
+	log.Debugf("locked database")
 
 	managedClusterLabels := []models.ManagedClusterLabel{}
 	err = db.Where(models.ManagedClusterLabel{ID: clusterID}).Find(&managedClusterLabels).Error
@@ -121,6 +126,7 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}
 
+	log.Debugf("err:%v, managedClusterLabels:%v", err, managedClusterLabels)
 	if err == gorm.ErrRecordNotFound || len(managedClusterLabels) == 0 {
 		labelToLoadPayload, err := json.Marshal(labelsToAdd)
 		if err != nil {
@@ -163,6 +169,9 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 	}
 	existVersion := managedClusterLabels[0].Version
 
+	log.Debugf("existLabels:%v", existLabels)
+	log.Debugf("existLabelsToRemoveSlice:%v", existLabelsToRemoveSlice)
+
 	err = updateRow(clusterID, labelsToAdd, existLabels, labelsToRemove,
 		getMap(existLabelsToRemoveSlice), existVersion)
 	if err != nil {
@@ -202,6 +211,8 @@ func updateRow(clusterID string, labelsToAdd, existLabelsToAdd map[string]string
 	for key, value := range labelsToAdd {
 		newLabelsToAdd[key] = value
 	}
+	log.Debugf("newLabelsToAdd: %v", newLabelsToAdd)
+	log.Debugf("newLabelsToRemove: %v", newLabelsToRemove)
 
 	db := database.GetGorm()
 	newLabelsToAddPayload, err := json.Marshal(newLabelsToAdd)
@@ -212,6 +223,7 @@ func updateRow(clusterID string, labelsToAdd, existLabelsToAdd map[string]string
 	if err != nil {
 		return err
 	}
+
 	ret := db.Model(&models.ManagedClusterLabel{}).Where(&models.ManagedClusterLabel{
 		ID:      clusterID,
 		Version: int(existVersion),
