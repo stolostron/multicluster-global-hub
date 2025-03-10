@@ -120,6 +120,7 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Infof("reconcile managed cluster migration %v", req)
 	mcm := &migrationv1alpha1.ManagedClusterMigration{}
 	// the migration name is the same as managedserviceaccount and the secret
 	err := m.Get(ctx, types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: req.Name}, mcm)
@@ -146,6 +147,14 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 			}
 		}
 		return ctrl.Result{}, nil
+	}
+
+	// add finalizer
+	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+	}
+	if err := m.Update(ctx, mcm); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// initializing

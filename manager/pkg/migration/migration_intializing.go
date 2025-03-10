@@ -3,7 +3,6 @@ package migration
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
@@ -33,10 +31,7 @@ const (
 	ConditionReasonClusterNotSynced = "ClusterNotSynced"
 )
 
-var (
-	initializingTimeout = 5 * time.Minute
-	migrationNotReady   = errors.New("migration resource is not ready")
-)
+var initializingTimeout = 5 * time.Minute
 
 // Initializing:
 //  1. From Hub: sync the required clusters to databases
@@ -46,16 +41,11 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 ) (bool, error) {
 	if mcm.Status.Phase == "" {
 		mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
-		if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-			controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
-		}
-		if err := m.Update(ctx, mcm); err != nil {
-			return false, err
-		}
+		m.Client.Status().Update(ctx, mcm)
 	}
 
 	// only handle the intializing stage
-	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing {
+	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
 		return false, nil
 	}
 
@@ -155,23 +145,24 @@ func (m *ClusterMigrationController) UpdateCondition(
 		LastTransitionTime: metav1.Now(),
 	}
 
-	updated := false
-
+	requireUpdate := false
+	exist := false
 	// Check if the condition already exists and update if necessary
 	for i, cond := range mcm.Status.Conditions {
 		if cond.Type == conditionType {
+			exist = true
 			if cond.Status != status || cond.Reason != reason || cond.Message != message {
+				requireUpdate = true
 				mcm.Status.Conditions[i] = newCondition
-				updated = true
 			}
 			break
 		}
 	}
 
 	// Append new condition if not found
-	if !updated {
+	if !exist {
 		mcm.Status.Conditions = append(mcm.Status.Conditions, newCondition)
-		updated = true
+		requireUpdate = true
 	}
 
 	// Handle phase updates based on condition type and status
@@ -179,25 +170,25 @@ func (m *ClusterMigrationController) UpdateCondition(
 	case status == metav1.ConditionFalse:
 		if mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
 			mcm.Status.Phase = migrationv1alpha1.PhaseFailed
-			updated = true
+			requireUpdate = true
 		}
 	case status == metav1.ConditionTrue:
 		switch conditionType {
 		case migrationv1alpha1.MigrationResourceInitialized, migrationv1alpha1.MigrationClusterRegistered:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
 				mcm.Status.Phase = migrationv1alpha1.PhaseMigrating
-				updated = true
+				requireUpdate = true
 			}
 		case migrationv1alpha1.MigrationResourceDeployed:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
-				updated = true
+				requireUpdate = true
 			}
 		}
 	}
 
 	// Update the resource in Kubernetes only if there was a change
-	if updated {
+	if requireUpdate {
 		return m.Status().Update(ctx, mcm)
 	}
 	return nil

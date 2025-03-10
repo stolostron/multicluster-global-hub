@@ -158,13 +158,13 @@ CREATE TABLE IF NOT EXISTS security.alert_counts (
 );
 
 CREATE TABLE IF NOT EXISTS status.managed_cluster_migration (
-    id SERIAL PRIMARY KEY,  
+    id SERIAL PRIMARY KEY,
     from_hub TEXT NOT NULL,
     to_hub TEXT NOT NULL,
     cluster_name TEXT NOT NULL,
-    payload JSONB NOT NULL, 
-    stage TEXT NOT NULL CHECK (stage IN ('initializing', 'validating', 'registering', 'deploying', 'completed')),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    payload JSONB NOT NULL,
+    stage TEXT NOT NULL,
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    updated_at timestamp without time zone DEFAULT now() NOT NULL,
     UNIQUE (from_hub, to_hub, cluster_name) -- Ensures uniqueness of the migration record
 );

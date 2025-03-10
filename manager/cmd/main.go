@@ -26,6 +26,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
@@ -98,7 +99,7 @@ func parseFlags() *configs.ManagerConfig {
 		40*time.Second, "The committer interval for transport layer.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
 		"The path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
+	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "10m",
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.RestAPIServerConfig.ClusterAPIURL, "cluster-api-url",
 		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")
@@ -258,7 +259,7 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 		}
 
 		// start managedclustermigration controller
-		if err := controllers.NewMigrationController(mgr.GetClient(), producer,
+		if err := migration.NewMigrationController(mgr.GetClient(), producer,
 			managerConfig.ImportClusterInHosted).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
