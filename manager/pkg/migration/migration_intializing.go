@@ -105,7 +105,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			}
 		}
 		if !clusterResourcesSynced {
-			err := m.specToFromHub(ctx, fromHubName, migrationv1alpha1.PhaseInitializing, clusters, nil, nil)
+			err := m.specToFromHub(ctx, fromHubName, mcm.Spec.To, migrationv1alpha1.PhaseInitializing, clusters, nil, nil)
 			if err != nil {
 				return false, err
 			}
@@ -201,11 +201,12 @@ func (m *ClusterMigrationController) UpdateCondition(
 	return nil
 }
 
-func (m *ClusterMigrationController) specToFromHub(ctx context.Context, fromHub string, stage string,
+func (m *ClusterMigrationController) specToFromHub(ctx context.Context, fromHub string, toHub string, stage string,
 	managedClusters []string, klusterletConfig *klusterletv1alpha1.KlusterletConfig, bootstrapSecret *corev1.Secret,
 ) error {
 	managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{
 		Stage:            stage,
+		ToHub:            toHub,
 		ManagedClusters:  managedClusters,
 		BootstrapSecret:  bootstrapSecret,
 		KlusterletConfig: klusterletConfig,
