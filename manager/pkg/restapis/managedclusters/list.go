@@ -29,7 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
-var log = logger.ZapLogger("backup-ctrl")
+var log = logger.ZapLogger("rest-api")
 
 const (
 	serverInternalErrorMsg                      = "internal error"

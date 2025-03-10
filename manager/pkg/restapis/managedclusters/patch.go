@@ -80,7 +80,7 @@ func PatchManagedCluster() gin.HandlerFunc {
 		fmt.Fprintf(gin.DefaultWriter, "labels to remove: %v\n", labelsToRemove)
 
 		retryAttempts := optimisticConcurrencyRetryAttempts
-
+		log.Debugf("retryAttempts: %v", retryAttempts)
 		for retryAttempts > 0 {
 			err = updateLabels(clusterID, leafHubName, managedClusterName, labelsToAdd,
 				labelsToRemove)
@@ -92,9 +92,11 @@ func PatchManagedCluster() gin.HandlerFunc {
 		}
 
 		if err != nil {
+			log.Errorf("update label failed, err: %v", err)
 			ginCtx.String(http.StatusInternalServerError, "internal error")
 			fmt.Fprintf(gin.DefaultWriter, "error in updating managed cluster labels: %v\n", err)
 		}
+		log.Debugf("managed cluster label patched")
 
 		ginCtx.String(http.StatusOK, "managed cluster label patched")
 	}
@@ -103,14 +105,15 @@ func PatchManagedCluster() gin.HandlerFunc {
 func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd map[string]string,
 	labelsToRemove map[string]struct{},
 ) error {
+	log.Debugf("update labels, labels to add: %v", labelsToAdd)
+	log.Debugf("update labels, labels to remove: %v", labelsToRemove)
+	log.Debugf("clusterID: %v, leafHubName: %v, managedClusterName: %v", clusterID, leafHubName, managedClusterName)
+
 	if len(labelsToAdd) == 0 && len(labelsToRemove) == 0 {
 		return nil
 	}
 	db := database.GetGorm()
 	conn := database.GetConn()
-	log.Debugf("update labels, labels to add: %v", labelsToAdd)
-	log.Debugf("update labels, labels to remove: %v", labelsToRemove)
-	log.Debugf("clusterID: %v, leafHubName: %v, managedClusterName: %v", clusterID, leafHubName, managedClusterName)
 
 	log.Debugf("lock database")
 	err := database.Lock(conn)
