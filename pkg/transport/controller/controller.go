@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +37,7 @@ type TransportCtrl struct {
 	extraSecretNames []string
 
 	transportConfig *transport.TransportInternalConfig
-
+	needReconnect   bool
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
 	transportCallback TransportCallback
 	transportClient   *TransportClient
@@ -76,7 +78,9 @@ func (c *TransportClient) SetRequester(requester transport.Requester) {
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
 	transportConfig *transport.TransportInternalConfig,
 ) *TransportCtrl {
+	log.Debug("###########*************************")
 	return &TransportCtrl{
+		needReconnect:     true,
 		secretNamespace:   namespace,
 		secretName:        name,
 		transportCallback: callback,
@@ -87,8 +91,20 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 }
 
 func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	klog.Errorf("#######################################")
+
+	log.Debugf("#########in transport reconcile 1")
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	log.Debugf("#########in transport reconcile:%v", c.needReconnect)
+	klog.Errorf("######################################:%v #", c.needReconnect)
+
+	if c.transportClient.consumer != nil && !c.needReconnect {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	log.Debugf("#########*************in transport reconcile")
+	klog.Errorf("######################################:%v #", c.needReconnect)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -112,16 +128,22 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 	var updated bool
 	var err error
+	log.Debugf("#########in transport reconcile:%v", c.transportConfig.TransportType)
+	klog.Errorf("######################################:%v #", c.needReconnect)
+
 	switch c.transportConfig.TransportType {
 	case string(transport.Kafka):
 		updated, err = c.ReconcileKafkaCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		log.Debugf("#########in transport reconcile:%v", updated)
+
+		if err := c.ReconcileConsumer(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		if updated {
-			if err := c.ReconcileConsumer(ctx); err != nil {
-				return ctrl.Result{}, err
-			}
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -131,6 +153,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		klog.Errorf("######################################:%v #", c.needReconnect)
+
 		if updated {
 			if err := c.ReconcileRequester(ctx); err != nil {
 				return ctrl.Result{}, err
@@ -141,7 +165,10 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	}
 
 	if !updated {
-		return ctrl.Result{}, nil
+		klog.Errorf("######################################:%v #", c.needReconnect)
+
+		c.needReconnect = false
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	if c.transportCallback != nil {
@@ -149,8 +176,10 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
 		}
 	}
+	klog.Errorf("######################################:%v #", c.needReconnect)
 
-	return ctrl.Result{}, nil
+	c.needReconnect = false
+	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 // ReconcileProducer, transport config is changed, then create/update the producer
@@ -176,23 +205,25 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		return nil
 	}
 
+	log.Debugf("#########in transport reconcile:%v", c.transportClient.consumer)
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
 		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
+		c.transportClient.consumer = receiver
+
 		go func() {
 			if err = receiver.Start(ctx); err != nil {
 				log.Errorf("failed to start the consumser: %v", err)
 			}
+			c.transportClient.consumer = nil
+			c.needReconnect = true
+			klog.Errorf("#############@@@@@@@@@@@@@@@@##:%v", c.needReconnect)
 		}()
-		c.transportClient.consumer = receiver
-	} else {
-		if err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig); err != nil {
-			return fmt.Errorf("failed to reconnect the consumer: %w", err)
-		}
 	}
+
 	return nil
 }
 
@@ -319,18 +350,35 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 // SetupWithManager sets up the controller with the Manager.
 func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	c.runtimeClient = mgr.GetClient()
+
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return c.credentialSecret(e.Object.GetName())
+			klog.Errorf("#######################################:%v", c.needReconnect)
+
+			if !c.credentialSecret(e.Object.GetName()) {
+				return false
+			}
+			c.needReconnect = true
+			klog.Errorf("#######################################:%v", c.needReconnect)
+
+			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
+			klog.Errorf("#######################################:%v", c.needReconnect)
+
 			if !c.credentialSecret(e.ObjectNew.GetName()) {
 				return false
 			}
 			newSecret := e.ObjectNew.(*corev1.Secret)
 			oldSecret := e.ObjectOld.(*corev1.Secret)
 			// only enqueue the obj when secret data changed
-			return !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
+			if reflect.DeepEqual(newSecret.Data, oldSecret.Data) {
+				return false
+			}
+			klog.Errorf("#######################################:%v", c.needReconnect)
+
+			c.needReconnect = true
+			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false

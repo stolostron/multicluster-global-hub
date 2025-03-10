@@ -1,0 +1,439 @@
+sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana,e2e-test-agent" -v 
+namespace: multicluster-global-hub
+latest: Pulling from ldpliu/multicluster-global-hub-agent
+Digest: sha256:c2e623c8ce29720078128a279993846173a60f1a0205b766cbd82f9551bfbce4
+Status: Image is up to date for quay.io/ldpliu/multicluster-global-hub-agent:latest
+quay.io/ldpliu/multicluster-global-hub-agent:latest
+latest: Pulling from ldpliu/multicluster-global-hub-agent
+Digest: sha256:c2e623c8ce29720078128a279993846173a60f1a0205b766cbd82f9551bfbce4
+Status: Image is up to date for quay.io/ldpliu/multicluster-global-hub-agent:latest
+quay.io/ldpliu/multicluster-global-hub-agent:latest
+configmap/multicluster-global-hub-config created
+[38;5;9m[1mGinkgo detected a version mismatch between the Ginkgo CLI and the version of Ginkgo imported by your packages:[0m
+  Ginkgo CLI Version:
+    [1m2.17.2[0m
+  Mismatched package versions found:
+    [1m2.22.2[0m used by e2e
+
+  [38;5;243mGinkgo will continue to attempt to run but you may see errors (including flag
+  parsing errors) and should either update your go.mod or your version of the
+  Ginkgo CLI to match.
+
+  To install the matching version of the CLI run
+    [1mgo install github.com/onsi/ginkgo/v2/ginkgo[0m[38;5;243m
+  from a path that contains a go.mod file.  Alternatively you can use
+    [1mgo run github.com/onsi/ginkgo/v2/ginkgo[0m[38;5;243m
+  from a path that contains a go.mod file to invoke the matching version of the
+  Ginkgo CLI.
+
+  If you are attempting to test multiple packages that each have a different
+  version of the Ginkgo library with a single Ginkgo CLI that is currently
+  unsupported.
+  [0m
+unable to get inCluster config unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined
+unable to get inCluster config unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined
+unable to get inCluster config unable to load in-cluster configuration, KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be defined
+Running Suite: Client Suite - /root/go/src/github.com/stolostron/multicluster-global-hub/test/e2e
+=================================================================================================
+Random Seed: [1m1741846980[0m
+
+Will run [1m32[0m of [1m43[0m specs
+I0313 06:23:13.704782 2203382 suite_test.go:101] Isbyo: 
+I0313 06:23:13.704831 2203382 suite_test.go:106] isPrune: 
+W0313 06:23:13.851648 2203382 render.go:131] CRD servicemonitors.monitoring.coreos.com already exists, updating!
+W0313 06:23:13.872589 2203382 render.go:131] CRD operatorgroups.operators.coreos.com already exists, updating!
+W0313 06:23:13.914504 2203382 render.go:131] CRD subscriptions.operators.coreos.com already exists, updating!
+W0313 06:23:14.183656 2203382 render.go:148] Namespace multicluster-global-hub already exists, updating!
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-operator/multicluster-global-hub-operator: quay.io/ldpliu/multicluster-global-hub-operator
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
+deployment image: multicluster-global-hub/multicluster-global-hub-grafana/grafana-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/multicluster-global-hub-manager: quay.io/ldpliu/multicluster-global-hub-manager:latest
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/oauth-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/multicluster-global-hub-manager: quay.io/ldpliu/multicluster-global-hub-manager:latest
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/oauth-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/multicluster-global-hub-manager: quay.io/ldpliu/multicluster-global-hub-manager:latest
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/oauth-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/multicluster-global-hub-manager: quay.io/ldpliu/multicluster-global-hub-manager:latest
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/oauth-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/multicluster-global-hub-manager: quay.io/ldpliu/multicluster-global-hub-manager:latest
+deployment image: multicluster-global-hub/multicluster-global-hub-manager/oauth-proxy: quay.io/stolostron/origin-oauth-proxy:4.9
+I0313 06:26:25.132156 2203382 suite_test.go:166] postgres ca path: postgres.ca
+E0313 06:26:25.147689 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:26:35.149267 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:26:45.150982 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:26:55.153423 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:27:05.156707 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:27:15.158384 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:27:25.161009 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:27:35.163464 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:27:45.165387 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:27:55.167312 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:28:05.169372 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:28:15.171209 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:28:25.173533 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:28:35.175732 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:28:45.177140 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:28:55.179716 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:29:05.181688 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:29:15.183415 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:29:25.185402 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:29:35.188442 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:29:45.191213 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:29:55.192980 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:30:05.196136 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:30:15.198351 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:30:25.200258 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:30:35.202271 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:30:45.204252 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:30:55.206699 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:31:05.209563 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:31:15.212525 2203382 suite_test.go:194] get managedcluster error:managed cluster number: want 2, got 0
+E0313 06:31:25.215927 2203382 suite_test.go:194] get managedcluster error:<nil>
+I0313 06:31:25.221996 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:31:25.222013 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available vendor:OpenShift] 
+I0313 06:31:25.222025 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:31:25.222031 2203382 cluster_test.go:312] failed to add label [local-policy: test] to cluster hub1-cluster1 
+I0313 06:31:35.231740 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:31:35.231761 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:31:35.231776 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:31:35.237997 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:31:35.238020 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:31:35.238030 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:31:35.238034 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available vendor:OpenShift] 
+I0313 06:31:35.238039 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:31:35.238044 2203382 cluster_test.go:312] failed to add label [local-policy: test] to cluster hub2-cluster1 
+I0313 06:31:45.244628 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:31:45.244647 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:31:45.244660 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:31:45.244664 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:31:45.244669 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0mlocal policy events: 
+hub1 hub1-cluster1 local-policy-namespace.policy-limitrange.182c4914248d764d NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace default non_compliant
+hub2 hub2-cluster1 local-policy-namespace.policy-limitrange.182c49147351416a NonCompliant; violation - limitranges [container-mem-limit-range] not found in namespace default non_compliant
+[38;5;10m•[0mlocal root policy events: 
+hub1 policy-limitrange.182c491410be7948 Policy local-policy-namespace/policy-limitrange was propagated to cluster hub1-cluster1 unknown
+hub2 policy-limitrange.182c49145fed8205 Policy local-policy-namespace/policy-limitrange was propagated to cluster hub2-cluster1 unknown
+[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0mnamespace "local-policy-namespace" deleted
+policy.policy.open-cluster-management.io "policy-limitrange" deleted
+placementbinding.policy.open-cluster-management.io "binding-policy-limitrange" deleted
+placementrule.apps.open-cluster-management.io "placementrule-policy-limitrange" deleted
+
+namespace "local-policy-namespace" deleted
+policy.policy.open-cluster-management.io "policy-limitrange" deleted
+placementbinding.policy.open-cluster-management.io "binding-policy-limitrange" deleted
+placementrule.apps.open-cluster-management.io "placementrule-policy-limitrange" deleted
+
+[38;5;10m•[0mI0313 06:32:05.081581 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:05.081619 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:32:05.081643 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:32:05.081649 2203382 cluster_test.go:312] failed to add label [global-policy: test] to cluster hub1-cluster1 
+I0313 06:32:15.089573 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:15.089624 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available global-policy:test local-policy:test vendor:OpenShift] 
+I0313 06:32:15.089639 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+[38;5;10m•[0m[38;5;10m•[0mI0313 06:32:22.572213 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:22.572233 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available global-policy:test local-policy:test vendor:OpenShift] 
+I0313 06:32:22.572250 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:22.572255 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:32:22.572261 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:22.572266 2203382 cluster_test.go:312] failed to add label [global-policy: test] to cluster hub2-cluster1 
+I0313 06:32:32.581624 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:32.581643 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available global-policy:test local-policy:test vendor:OpenShift] 
+I0313 06:32:32.581655 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:32.581660 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available global-policy:test local-policy:test vendor:OpenShift] 
+I0313 06:32:32.581669 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:32.591571 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:32.591589 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available global-policy:test local-policy:test vendor:OpenShift] 
+I0313 06:32:32.591600 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:32:42.601983 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:42.602003 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:32:42.602015 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+[38;5;10m•[0mI0313 06:32:42.763844 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:42.763879 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:32:42.763890 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:42.763894 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available global-policy:test local-policy:test vendor:OpenShift] 
+I0313 06:32:42.763901 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:52.774399 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:32:52.774417 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:32:52.774428 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:32:52.774432 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:32:52.774437 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+[38;5;10m•[0m[38;5;10m•[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0mI0313 06:32:58.802240 2203382 grafana_test.go:315] Get grafana path:v1/provisioning/alert-rules
+I0313 06:32:58.802261 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/v1/provisioning/alert-rules
+[38;5;10m•[0mI0313 06:32:59.036782 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/pAqtIGj4k
+I0313 06:32:59.036803 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/pAqtIGj4k
+I0313 06:32:59.250525 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/868845a4d1334958bd62303c5ccb4c19
+I0313 06:32:59.250554 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/868845a4d1334958bd62303c5ccb4c19
+I0313 06:32:59.449886 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/0e0ddb7f16b946f99d96a483a4a3f95f
+I0313 06:32:59.449909 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/0e0ddb7f16b946f99d96a483a4a3f95f
+I0313 06:32:59.645837 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/b67e0727891f4121ae2dde09671520ae
+I0313 06:32:59.645858 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/b67e0727891f4121ae2dde09671520ae
+I0313 06:32:59.851911 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/fbf66c88-ba14-4553-90b7-55ea5870faab
+I0313 06:32:59.851932 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/fbf66c88-ba14-4553-90b7-55ea5870faab
+I0313 06:33:00.067594 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/9bb3bee6a17e47f9a231f6d77f2408fa
+I0313 06:33:00.067616 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/9bb3bee6a17e47f9a231f6d77f2408fa
+I0313 06:33:00.268130 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/5a3a577af7894943aa6e7ca8408502fb
+I0313 06:33:00.268152 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/5a3a577af7894943aa6e7ca8408502fb
+I0313 06:33:00.466712 2203382 grafana_test.go:315] Get grafana path:dashboards/uid/5a3a577af7894943aa6e7ca8408502fa
+I0313 06:33:00.466734 2203382 grafana_test.go:327] Sending request: http://10.244.0.31:3001/api/dashboards/uid/5a3a577af7894943aa6e7ca8408502fa
+[38;5;10m•[0mcreate local policy with placement namespace/local-placement created
+policy.policy.open-cluster-management.io/policy-limitrange created
+placementbinding.policy.open-cluster-management.io/binding-policy-limitrange created
+placement.cluster.open-cluster-management.io/placement-policy-limitrange created
+managedclustersetbinding.cluster.open-cluster-management.io/global created
+
+create local policy with placement namespace/local-placement created
+policy.policy.open-cluster-management.io/policy-limitrange created
+placementbinding.policy.open-cluster-management.io/binding-policy-limitrange created
+placement.cluster.open-cluster-management.io/placement-policy-limitrange created
+managedclustersetbinding.cluster.open-cluster-management.io/global created
+
+[38;5;10m•[0mdelete local policy with placement namespace "local-placement" deleted
+policy.policy.open-cluster-management.io "policy-limitrange" deleted
+placementbinding.policy.open-cluster-management.io "binding-policy-limitrange" deleted
+placement.cluster.open-cluster-management.io "placement-policy-limitrange" deleted
+managedclustersetbinding.cluster.open-cluster-management.io "global" deleted
+
+delete local policy with placement namespace "local-placement" deleted
+policy.policy.open-cluster-management.io "policy-limitrange" deleted
+placementbinding.policy.open-cluster-management.io "binding-policy-limitrange" deleted
+placement.cluster.open-cluster-management.io "placement-policy-limitrange" deleted
+managedclustersetbinding.cluster.open-cluster-management.io "global" deleted
+
+[38;5;10m•[0mI0313 06:33:13.725081 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:13.725100 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test local-policy-placement:test vendor:OpenShift] 
+I0313 06:33:13.725111 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:13.725116 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test local-policy-placement:test vendor:OpenShift] 
+I0313 06:33:13.725122 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:13.725128 2203382 cluster_test.go:312] failed to add label [cluster.open-cluster-management.io/clusterset: clusterset1] to cluster hub2-cluster1 
+I0313 06:33:23.731832 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:23.731851 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:23.731862 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:23.731866 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:clusterset1 feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:23.731884 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:24.161707 2203382 placement_test.go:172] deploy inform policy with placement: namespace/global-placement created
+policy.policy.open-cluster-management.io/policy-limitrange created
+placementbinding.policy.open-cluster-management.io/binding-policy-limitrange created
+placement.cluster.open-cluster-management.io/placement-policy-limitrange created
+managedclustersetbinding.cluster.open-cluster-management.io/clusterset1 created
+managedclusterset.cluster.open-cluster-management.io/clusterset1 created
+I0313 06:33:27.196651 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:27.196669 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:27.196680 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:27.196684 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:clusterset1 feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:27.196689 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:37.205152 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:37.205171 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:37.205182 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:37.205186 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:37.205191 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+[]
+I0313 06:33:42.609176 2203382 placement_test.go:208] delete inform policy with placement: namespace "global-placement" deleted
+policy.policy.open-cluster-management.io "policy-limitrange" deleted
+placementbinding.policy.open-cluster-management.io "binding-policy-limitrange" deleted
+placement.cluster.open-cluster-management.io "placement-policy-limitrange" deleted
+managedclustersetbinding.cluster.open-cluster-management.io "clusterset1" deleted
+managedclusterset.cluster.open-cluster-management.io "clusterset1" deleted
+[38;5;10m•[0mI0313 06:33:43.070810 2203382 placement_test.go:229] create application with placementoutputnamespace/git-application-samples-ns created
+channel.apps.open-cluster-management.io/git-application-samples created
+namespace/helloworld created
+application.app.k8s.io/helloworld created
+subscription.apps.open-cluster-management.io/helloworld-appsub created
+placement.cluster.open-cluster-management.io/app-placement created
+managedclustersetbinding.cluster.open-cluster-management.io/default created
+managedclusterset.cluster.open-cluster-management.io/default configured
+I0313 06:33:43.077129 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:43.077148 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:43.077160 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:33:43.077166 2203382 cluster_test.go:312] failed to add label [app: test] to cluster hub1-cluster1 
+I0313 06:33:53.087306 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:53.087322 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:53.087336 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:33:53.094477 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:33:53.094489 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:53.094500 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:53.094505 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:33:53.094510 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:33:53.094516 2203382 cluster_test.go:312] failed to add label [app: test] to cluster hub2-cluster1 
+I0313 06:34:03.121732 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:03.121751 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:03.121782 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:03.121787 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:03.121796 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+[38;5;10m•[0mI0313 06:34:12.199702 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:12.199719 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:12.199735 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:12.199739 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:12.199755 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:12.199760 2203382 cluster_test.go:312] failed to add label [cluster.open-cluster-management.io/clusterset: clusterset1] to cluster hub2-cluster1 
+I0313 06:34:22.208685 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:22.208704 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:22.208716 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:22.208721 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:clusterset1 feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:22.208727 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:27.727324 2203382 placement_test.go:259] delete application with placementoutputnamespace "git-application-samples-ns" deleted
+channel.apps.open-cluster-management.io "git-application-samples" deleted
+namespace "helloworld" deleted
+application.app.k8s.io "helloworld" deleted
+subscription.apps.open-cluster-management.io "helloworld-appsub" deleted
+placement.cluster.open-cluster-management.io "app-placement" deleted
+managedclustersetbinding.cluster.open-cluster-management.io "default" deleted
+managedclusterset.cluster.open-cluster-management.io "default" deleted
+I0313 06:34:27.734584 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:27.734601 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:27.734613 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:27.734617 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:clusterset1 feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:27.735582 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:37.746106 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:37.746125 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:37.746138 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:37.746143 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:37.746149 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:37.753652 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:37.753668 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:37.753679 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:34:47.764239 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:47.764261 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:47.764279 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:34:47.771389 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:47.771406 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:47.771417 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:47.771421 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:47.771427 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:57.781913 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:57.781933 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:57.781945 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:34:57.781948 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:57.781953 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+status.subscription_reports: hub2-cluster1/hub2-cluster1 status.subscription_reports: hub1-cluster1/hub1-cluster1 [38;5;10m•[0mE0313 06:34:57.809923 2203382 backup_test.go:46] pvc:postgresdb-multicluster-global-hub-postgresql-0, label:map[app:multicluster-global-hub cluster.open-cluster-management.io/backup-hub-pvc:globalhub component:multicluster-global-hub-operator name:multicluster-global-hub-postgresql]
+[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0mI0313 06:34:59.258506 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:34:59.258526 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:34:59.258537 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:34:59.258543 2203382 cluster_test.go:312] failed to add label [app: test] to cluster hub1-cluster1 
+I0313 06:35:09.266390 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:35:09.266409 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:09.266421 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+[38;5;10m•[0mI0313 06:35:17.330658 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:35:17.330677 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:17.330694 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:35:17.330699 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:17.330705 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:35:17.330711 2203382 cluster_test.go:312] failed to add label [app: test] to cluster hub2-cluster1 
+I0313 06:35:27.339407 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:35:27.339426 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:27.339438 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:35:27.339443 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:27.339450 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:35:42.452297 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:35:42.452315 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:42.452326 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:35:52.461905 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:35:52.461924 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:52.461934 2203382 cluster_test.go:280] managedClusterName: hub1-cluster1 
+I0313 06:35:52.469227 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:35:52.469244 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:52.469254 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:35:52.469259 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[app:test cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:35:52.469267 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:36:02.478589 2203382 cluster_test.go:277] len(managedClusterList):2 
+I0313 06:36:02.478609 2203382 cluster_test.go:279] managedcluster: hub1-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:36:02.478626 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+I0313 06:36:02.478632 2203382 cluster_test.go:279] managedcluster: hub2-cluster1, label: map[cluster.open-cluster-management.io/clusterset:default feature.open-cluster-management.io/addon-application-manager:available local-policy:test vendor:OpenShift] 
+I0313 06:36:02.478648 2203382 cluster_test.go:280] managedClusterName: hub2-cluster1 
+[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;10m•[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m[38;5;14mS[0m
+
+[38;5;10m[1mRan 32 of 43 Specs in 782.358 seconds[0m
+[38;5;10m[1mSUCCESS![0m -- [38;5;10m[1m32 Passed[0m | [38;5;9m[1m0 Failed[0m | [38;5;11m[1m0 Pending[0m | [38;5;14m[1m11 Skipped[0m
+PASS
+
+Ginkgo ran 1 suite in 13m15.762582331s
+Test Suite Passed
+sh ./test/script/e2e_run_qe.sh
+Using default tag: latest
+latest: Pulling from hchenxa/acmqe-hoh-e2e
+Digest: sha256:05829c58bb4f5eedf576642f02f10c0cec11721461ea26af5071dd11106b4b57
+Status: Image is up to date for quay.io/hchenxa/acmqe-hoh-e2e:latest
+quay.io/hchenxa/acmqe-hoh-e2e:latest
+81c91729516dcaf564524abf79e2bea2b960a1e177a9ac7bc2f68ae63d9b33c9
+Running Suite: GlobalHub E2E Test Suite - /root/go/src/github.com/stolostron/multicluster-global-hub
+====================================================================================================
+Random Seed: [1m1741847779[0m
+
+Will run [1m29[0m of [1m29[0m specs
+[38;5;243m------------------------------[0m
+[0m[1m[BeforeSuite] [0m
+[38;5;243m/root/go/src/github.com/stolostron/acmqe-hoh-e2e/pkg/test/e2e/mgh_e2e_suite_test.go:63[0m
+[38;5;10m[BeforeSuite] PASSED [1.437 seconds][0m
+[38;5;243m------------------------------[0m
+[0mData Retention [0m[1mRHACM4K-37331: HoH: As the globalhub admin, I was able to config the data retention time in mcgh operand CR[0m [38;5;204m[e2e, retention][0m
+[38;5;243m/root/go/src/github.com/stolostron/acmqe-hoh-e2e/pkg/test/e2e/data_retention_test.go:165[0m
+  [1mSTEP:[0m Generate the partition table event.local_policies [38;5;243m@ 03/13/25 06:36:21.224[0m
+  [1mSTEP:[0m Generate the partition table event.local_policies [38;5;243m@ 03/13/25 06:36:21.234[0m
+  [1mSTEP:[0m Generate the partition table event.local_root_policies [38;5;243m@ 03/13/25 06:36:21.242[0m
+  [1mSTEP:[0m Generate the partition table event.local_root_policies [38;5;243m@ 03/13/25 06:36:21.249[0m
+  [1mSTEP:[0m Generate the partition table history.local_compliance [38;5;243m@ 03/13/25 06:36:21.257[0m
+  [1mSTEP:[0m Generate the partition table history.local_compliance [38;5;243m@ 03/13/25 06:36:21.263[0m
+  [1mSTEP:[0m Generate the partition table event.managed_clusters [38;5;243m@ 03/13/25 06:36:21.268[0m
+  [1mSTEP:[0m Generate the partition table event.managed_clusters [38;5;243m@ 03/13/25 06:36:21.275[0m
+  [1mSTEP:[0m Check the retention data should be deleted [38;5;243m@ 03/13/25 06:36:21.603[0m
+  [1mSTEP:[0m Check whether the record were deleted in table status.managed_clusters [38;5;243m@ 03/13/25 06:36:21.603[0m
+  [1mSTEP:[0m Check whether the record were deleted in table status.leaf_hubs [38;5;243m@ 03/13/25 06:36:41.61[0m
+  [1mSTEP:[0m Check whether the record were deleted in table local_spec.policies [38;5;243m@ 03/13/25 06:36:41.611[0m
+  [1mSTEP:[0m Check the remainDeleteTime data should not be deleted [38;5;243m@ 03/13/25 06:36:41.612[0m
+  [1mSTEP:[0m Check whether the record were not deleted in table status.managed_clusters [38;5;243m@ 03/13/25 06:36:41.612[0m
+  [1mSTEP:[0m Check whether the record were not deleted in table status.leaf_hubs [38;5;243m@ 03/13/25 06:36:41.613[0m
+  [1mSTEP:[0m Check whether the record were not deleted in table local_spec.policies [38;5;243m@ 03/13/25 06:36:41.615[0m
+  [1mSTEP:[0m Check the retention job log should be recorded [38;5;243m@ 03/13/25 06:36:41.616[0m
+  [1mSTEP:[0m Check whether the retention table status.managed_clusters was recorded [38;5;243m@ 03/13/25 06:36:41.616[0m
+  [1mSTEP:[0m Check whether the retention table status.leaf_hubs was recorded [38;5;243m@ 03/13/25 06:36:41.616[0m
+  [1mSTEP:[0m Check whether the retention table local_spec.policies was recorded [38;5;243m@ 03/13/25 06:36:41.617[0m
+  [1mSTEP:[0m Check the partition table should be removed [38;5;243m@ 03/13/25 06:36:41.618[0m
+  [1mSTEP:[0m Check whether the partition table event.local_policies was removed [38;5;243m@ 03/13/25 06:36:41.618[0m
+  [1mSTEP:[0m Check whether the partition table event.local_root_policies was removed [38;5;243m@ 03/13/25 06:36:41.621[0m
+  [1mSTEP:[0m Check whether the partition table history.local_compliance was removed [38;5;243m@ 03/13/25 06:36:41.622[0m
+  [1mSTEP:[0m Check whether the partition table event.managed_clusters was removed [38;5;243m@ 03/13/25 06:36:41.622[0m
+  [1mSTEP:[0m Check the partition job log should be recorded [38;5;243m@ 03/13/25 06:36:41.623[0m
+  [1mSTEP:[0m Check whether the partition table event.local_policies was recorded [38;5;243m@ 03/13/25 06:36:41.623[0m
+  [1mSTEP:[0m Check whether the partition table event.local_root_policies was recorded [38;5;243m@ 03/13/25 06:36:41.623[0m
+  [1mSTEP:[0m Check whether the partition table history.local_compliance was recorded [38;5;243m@ 03/13/25 06:36:41.624[0m
+  [1mSTEP:[0m Check whether the partition table event.managed_clusters was recorded [38;5;243m@ 03/13/25 06:36:41.624[0m

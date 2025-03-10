@@ -64,7 +64,6 @@ func ListManagedClusters() gin.HandlerFunc {
 
 	return func(ginCtx *gin.Context) {
 		labelSelector := ginCtx.Query("labelSelector")
-
 		selectorInSql := ""
 		var err error
 

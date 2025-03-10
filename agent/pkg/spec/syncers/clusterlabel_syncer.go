@@ -20,6 +20,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var log = logger.DefaultZapLogger()
+
 const (
 	// periodicApplyInterval = 5 * time.Second
 	hohFieldManager = "mgh-agent"
@@ -51,7 +53,9 @@ func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, payloa
 	if err := json.Unmarshal(payload, bundle); err != nil {
 		return err
 	}
+	syncer.log.Debugf("start sync bundle: %v", bundle)
 	syncer.setLatestBundle(bundle) // uses latestBundle
+	syncer.log.Debugf("handle bundle: %v", bundle)
 	syncer.handleBundle()
 
 	return nil
@@ -59,6 +63,7 @@ func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, payloa
 
 func (syncer *managedClusterLabelsBundleSyncer) setLatestBundle(newBundle *specbundle.ManagedClusterLabelsSpecBundle) {
 	syncer.latestBundleLock.Lock()
+	syncer.log.Debugf("lock sync bundle")
 	defer syncer.latestBundleLock.Unlock()
 
 	syncer.latestBundle = newBundle
@@ -67,8 +72,10 @@ func (syncer *managedClusterLabelsBundleSyncer) setLatestBundle(newBundle *specb
 func (syncer *managedClusterLabelsBundleSyncer) handleBundle() {
 	syncer.latestBundleLock.Lock()
 	defer syncer.latestBundleLock.Unlock()
-
+	log.Debugf("handle managedClusterLabelsBundleSyncer bundle")
 	for _, managedClusterLabelsSpec := range syncer.latestBundle.Objects {
+		log.Debugf("managedClusterLabelsSpec:%v", *managedClusterLabelsSpec)
+
 		lastProcessedTimestampPtr := syncer.getManagedClusterLastProcessedTimestamp(managedClusterLabelsSpec.ClusterName)
 		if managedClusterLabelsSpec.UpdateTimestamp.After(*lastProcessedTimestampPtr) { // handle (success) once
 			syncer.bundleProcessingWaitingGroup.Add(1)
@@ -115,11 +122,13 @@ func (s *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 		for key, value := range labelsSpec.Labels {
 			managedCluster.Labels[key] = value
 		}
+		log.Debugf("managedCluster.Labels: %v", managedCluster.Labels)
 
 		// delete labels by key
 		for _, labelKey := range labelsSpec.DeletedLabelKeys {
 			delete(managedCluster.Labels, labelKey)
 		}
+		log.Debugf("managedCluster.Labels: %v", managedCluster.Labels)
 
 		if err := s.updateManagedFieldEntry(managedCluster, labelsSpec); err != nil {
 			s.log.Error(err, "failed to update managed cluster", "name", labelsSpec.ClusterName)
