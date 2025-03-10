@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -87,7 +88,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 					return fmt.Errorf("want messsage %s, got %s", eventMessage, clusterEvent.Message)
 				}
 				return nil
-			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+			}, 3*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 
 			By("Delete the cluster event from the leafhub")
 			Expect(hubClient.Delete(ctx, clusterEvent)).To(Succeed())
@@ -273,8 +274,10 @@ func getManagedClusterByName(client *http.Client, managedClusterName string) (
 	if err != nil {
 		return nil, err
 	}
-
+	klog.Infof("len(managedClusterList):%v \n", len(managedClusterList.Items))
 	for _, managedCluster := range managedClusterList.Items {
+		klog.Infof("managedcluster: %v, label: %v \n", managedCluster.Name, managedCluster.Labels)
+		klog.Infof("managedClusterName: %v \n", managedClusterName)
 		if managedCluster.Name == managedClusterName {
 			return &managedCluster, nil
 		}
@@ -306,8 +309,9 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 				return nil
 			}
 		}
+		klog.Infof("failed to add label [%s: %s] to cluster %s \n", labelKey, labelVal, cluster.Name)
 		return fmt.Errorf("failed to add label [%s: %s] to cluster %s", labelKey, labelVal, cluster.Name)
-	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	}, 3*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
 func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string) {
@@ -334,7 +338,7 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 			}
 		}
 		return nil
-	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	}, 3*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
 func updateClusterLabelByAPI(client *http.Client, patches []patch, managedClusterID string) error {

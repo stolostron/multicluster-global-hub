@@ -6,7 +6,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
 	genericpayload "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.ZapLogger("generic-handler")
 
 type genericHandler struct {
 	eventData *genericpayload.GenericObjectBundle
@@ -32,16 +35,19 @@ func NewGenericHandler(eventData *genericpayload.GenericObjectBundle, opts ...Ha
 }
 
 func (h *genericHandler) Get() interface{} {
+	log.Debugf("get obj:%v", *h.eventData)
 	return h.eventData
 }
 
 func (h *genericHandler) Update(obj client.Object) bool {
+	log.Debugf("update obj:%v", obj)
+
 	if h.shouldUpdate != nil {
 		if updated := h.shouldUpdate(obj); !updated {
+			log.Debugf("h.shouldUpdate false")
 			return false
 		}
 	}
-
 	index := getObjectIndexByUID(obj.GetUID(), (*h.eventData))
 	if index == -1 { // object not found, need to add it to the bundle
 		(*h.eventData) = append((*h.eventData), obj)
@@ -49,6 +55,8 @@ func (h *genericHandler) Update(obj client.Object) bool {
 	}
 
 	old := (*h.eventData)[index]
+	log.Debugf("obj: %v", old)
+
 	if h.isSpec && old.GetGeneration() == obj.GetGeneration() {
 		return false
 	}
@@ -121,6 +129,8 @@ func WithSpec(onlySpec bool) HandlerOption {
 }
 
 func WithShouldUpdate(shouldUpdate func(client.Object) bool) HandlerOption {
+	log.Debugf("g.shouldUpdate:%v, shouldUpdate:%v", shouldUpdate, shouldUpdate)
+
 	return func(g *genericHandler) {
 		g.shouldUpdate = shouldUpdate
 	}

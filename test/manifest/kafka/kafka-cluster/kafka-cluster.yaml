@@ -37,7 +37,7 @@ spec:
           nodePort: 30093
         brokers:
         - broker: 0
-          advertisedHost: "NODE_PORT_HOST"
+          advertisedHost: "172.18.0.4"
       name: external
       port: 9093
       tls: true

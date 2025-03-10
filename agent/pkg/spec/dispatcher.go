@@ -59,42 +59,58 @@ func (d *genericDispatcher) Start(ctx context.Context) error {
 }
 
 func (d *genericDispatcher) dispatch(ctx context.Context) {
+	d.log.Debugf("in dispatch")
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case evt := <-d.consumer.EventChan():
+			d.log.Debugf("in event chan")
 			// if destination is explicitly specified and does not match, drop bundle
 			clusterNameVal, err := evt.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)
 			if err != nil {
 				d.log.Infow("event dropped due to cluster name retrieval error", "error", err)
 				continue
 			}
+			d.log.Debugf("in event chan")
+
 			clusterName, ok := clusterNameVal.(string)
 			if !ok {
 				d.log.Infow("event dropped due to invalid cluster name", "clusterName", clusterNameVal)
 				continue
 			}
+			d.log.Debugf("in event chan:%v", clusterName)
+
 			if clusterName != transport.Broadcast && clusterName != d.agentConfig.LeafHubName {
 				// d.log.Infow("event dropped due to cluster name mismatch", "clusterName", clusterName)
 				continue
 			}
+			d.log.Debugf("in event chan")
+
 			syncer, found := d.syncers[evt.Type()]
 			if !found {
 				d.log.Debugw("dispatching to the default generic syncer", "eventType", evt.Type())
 				syncer = d.syncers[constants.GenericSpecMsgKey]
 			}
+			d.log.Debugf("in event chan")
+
 			if syncer == nil || evt == nil {
 				d.log.Warnw("nil syncer or event: incompatible event will be resolved after upgrade.",
 					"syncer", syncer, "event", evt)
 				continue
 			}
+			d.log.Debugf("in event chan")
+
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				d.log.Debugf("in event chan")
+
 				if err := syncer.Sync(ctx, evt.Data()); err != nil {
+					d.log.Debugf("in event chan:%v", err)
 					return err
 				}
 				return nil
 			}); err != nil {
+				d.log.Debugf("in event chan:%v", err)
 				d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 			}
 		}
