@@ -1277,8 +1277,8 @@ open-cluster-management.io/addon-framework v0.11.0 h1:ZJxphgHQ36VUJF0RIag+nzcEn5
 open-cluster-management.io/addon-framework v0.11.0/go.mod h1:ruMU8i/dciz3qCv2CQ46Cu1b7rkK7TpvB+W4bRwHf+I=
 open-cluster-management.io/api v0.15.0 h1:lRee1KOlGHZb2scTA7ff9E9Fxt2hJc7jpkHnaCbvkOU=
 open-cluster-management.io/api v0.15.0/go.mod h1:9erZEWEn4bEqh0nIX2wA7f/s3KCuFycQdBrPrRzi0QM=
-open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0 h1:r20lNdYf/dZll6d9MRlWv9CAMcW+YO5PGG25odV+FgY=
-open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0/go.mod h1:ZRc+w6JPLUXUGcfR6cYBL+2yufaNWsn7Vi/JugStDuw=
+open-cluster-management.io/governance-policy-propagator v0.15.0 h1:tSDJcq8p/UQHBDMFZmYhPstaBevPCnMJPuYiOH7MPbo=
+open-cluster-management.io/governance-policy-propagator v0.15.0/go.mod h1:I1LbX78mavWMv6W3YAeSjCq2YBfSS0RpOBWOskpbLng=
 open-cluster-management.io/managed-serviceaccount v0.7.0 h1:OShodBB3i+rMXjR9xEF6ySp9yBeiiLlEOAKvPA2v3i4=
 open-cluster-management.io/managed-serviceaccount v0.7.0/go.mod h1:NNKqC+cePQ9HH0r7mb9CYSk/hXGsNYu9+K4YfcZTwAk=
 open-cluster-management.io/multicloud-operators-channel v0.15.0 h1:5DjxcZrhQhS/+A+zYx0/tUqKqE8m4mped3Gb9aRt6CE=
