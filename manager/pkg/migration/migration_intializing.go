@@ -41,7 +41,9 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 ) (bool, error) {
 	if mcm.Status.Phase == "" {
 		mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
-		m.Client.Status().Update(ctx, mcm)
+		if err := m.Client.Status().Update(ctx, mcm); err != nil {
+			return false, err
+		}
 	}
 
 	// only handle the intializing stage
@@ -166,13 +168,12 @@ func (m *ClusterMigrationController) UpdateCondition(
 	}
 
 	// Handle phase updates based on condition type and status
-	switch {
-	case status == metav1.ConditionFalse:
+	if status == metav1.ConditionFalse {
 		if mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
 			mcm.Status.Phase = migrationv1alpha1.PhaseFailed
 			requireUpdate = true
 		}
-	case status == metav1.ConditionTrue:
+	} else {
 		switch conditionType {
 		case migrationv1alpha1.MigrationResourceInitialized, migrationv1alpha1.MigrationClusterRegistered:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
