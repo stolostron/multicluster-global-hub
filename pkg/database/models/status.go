@@ -105,7 +105,7 @@ type ManagedClusterMigration struct {
 	ToHub       string         `gorm:"not null;index"`
 	ClusterName string         `gorm:"not null;index"`
 	Payload     datatypes.JSON `gorm:"type:jsonb"`
-	Stage       string         `gorm:"type:text;not null;check:stage IN ('initializing', 'validating', 'registering', 'deploying', 'completed')"`
+	Stage       string         `gorm:"type:text;not null"`
 	CreatedAt   time.Time      `gorm:"autoCreateTime"`
 	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`
 }
