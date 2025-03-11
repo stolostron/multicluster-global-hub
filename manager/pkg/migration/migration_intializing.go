@@ -51,11 +51,15 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, nil
 	}
 
-	secretIsReady := false
+	tokenSecretIsReady := true
 	notReadyClusters := []string{}
 
 	// To Hub
 	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
+	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
+		return false, err
+	}
+
 	tokenSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcm.Name,
@@ -66,10 +70,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	} else if apierrors.IsNotFound(err) {
-		secretIsReady = true
-		if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
-			return false, err
-		}
+		tokenSecretIsReady = false
 	}
 
 	// check the migration clusters in the databases, if not, send it again
@@ -106,7 +107,9 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}
 
-	if (!secretIsReady || len(notReadyClusters) > 0) && time.Since(mcm.CreationTimestamp.Time) < initializingTimeout {
+	// If the token secret is not synced, or the migration clusters is not backup into the database, requeue and wait
+	if (!tokenSecretIsReady || len(notReadyClusters) > 0) &&
+		time.Since(mcm.CreationTimestamp.Time) < initializingTimeout {
 		log.Info("Waiting for migration resource to be ready")
 		return true, nil
 	}
@@ -114,7 +117,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	conditionMessage := ConditionMessageResourcePrepared
 	conditionReason := ConditionReasonResourcePrepared
 	conditionStatus := metav1.ConditionTrue
-	if !secretIsReady {
+	if !tokenSecretIsReady {
 		conditionMessage = fmt.Sprintf("token secret is not found %s/%s", tokenSecret.Namespace, tokenSecret.Name)
 		conditionReason = ConditionReasonSecretMissing
 		conditionStatus = metav1.ConditionFalse
