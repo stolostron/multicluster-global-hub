@@ -72,7 +72,8 @@ fmt:
 	git diff --exit-code
 	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/operator/\|multicluster-global-hub/manager/" ./pkg
 	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/manager/" ./operator
-	! grep -ir "multicluster-global-hub/manager/" ./agent
+	! grep -ir "multicluster-global-hub/manager/\|multicluster-global-hub/operator/" ./agent | grep -v "multicluster-global-hub/operator/api"
+	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/operator/" ./manager | grep -v "multicluster-global-hub/operator/api"
 
 .PHONY: strict-fmt				##formats the code
 strict-fmt:
