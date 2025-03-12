@@ -105,6 +105,16 @@ export CGO_ENABLED=1
 # need set it as kafka advertiesehost to pass tls authn
 export GLOBAL_HUB_NODE_IP=${global_hub_node_ip}
 
+# set log level to debug
+cat <<EOF | kubectl apply --kubeconfig $GH_KUBECONFIG -n $GH_NAMESPACE -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-config
+data:
+  logLevel: debug
+EOF
+
 if [ "${filter}" = "e2e-test-prune" ]; then
   export ISPRUNE="true"
   echo "run prune"
