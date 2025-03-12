@@ -6,6 +6,7 @@ FROM registry.ci.openshift.org/stolostron/builder:go1.22-linux AS builder
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
+COPY ./operator/api ./operator/api
 COPY ./agent/ ./agent/
 COPY ./pkg/ ./pkg/
 

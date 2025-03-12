@@ -98,7 +98,7 @@ func parseFlags() *configs.ManagerConfig {
 		40*time.Second, "The committer interval for transport layer.")
 	pflag.StringVar(&managerConfig.DatabaseConfig.CACertPath, "postgres-ca-path", "/postgres-ca/ca.crt",
 		"The path of CA certificate for kafka bootstrap server.")
-	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "1m",
+	pflag.StringVar(&managerConfig.StatisticsConfig.LogInterval, "statistics-log-interval", "10m",
 		"The log interval for statistics.")
 	pflag.StringVar(&managerConfig.RestAPIServerConfig.ClusterAPIURL, "cluster-api-url",
 		"https://kubernetes.default.svc:443", "The cluster API URL for nonK8s API server.")

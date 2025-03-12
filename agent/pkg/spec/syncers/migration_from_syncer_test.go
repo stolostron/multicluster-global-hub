@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+// Deprecated
 func TestMigrationFromSyncer(t *testing.T) {
 	sleepForApplying = 2 * time.Second
 	ctx := context.Background()

@@ -1,6 +1,14 @@
 --- the CREATE TRIGGER only for postgre 14
 --- CREATE TRIGGER set_timestamp BEFORE UPDATE ON history.applications FOR EACH ROW EXECUTE FUNCTION public.trigger_set_timestamp();
 
+DROP TRIGGER IF EXISTS update_managed_cluster_migration_updated_on ON status.managed_cluster_migration;
+CREATE TRIGGER update_managed_cluster_migration_updated_on
+    BEFORE UPDATE
+    ON
+        status.managed_cluster_migration
+    FOR EACH ROW
+EXECUTE PROCEDURE public.trigger_set_timestamp();
+
 -- set the cluster_id to compliance table
 DROP TRIGGER IF EXISTS update_compliance_table ON local_status.compliance;
 CREATE TRIGGER update_compliance_table AFTER INSERT OR UPDATE ON local_status.compliance FOR EACH ROW WHEN (pg_trigger_depth() < 1) EXECUTE FUNCTION public.set_cluster_id_to_local_compliance();

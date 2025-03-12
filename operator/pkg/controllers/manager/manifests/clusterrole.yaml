@@ -178,8 +178,10 @@ rules:
   - "global-hub.open-cluster-management.io"
   resources:
   - managedclustermigrations
+  - managedclustermigrations/status
   verbs:
   - get
   - list
   - watch
   - update
+  - patch

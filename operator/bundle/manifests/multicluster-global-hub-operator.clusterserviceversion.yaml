@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-03-03T11:46:15Z"
+    createdAt: "2025-03-10T08:13:07Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -99,6 +99,9 @@ spec:
           current state
         displayName: Conditions
         path: conditions
+      - description: Phase represents the current phase of the migration
+        displayName: Phase
+        path: phase
       version: v1alpha1
     - description: MulticlusterGlobalHubAgent is the Schema for the multiclusterglobalhubagents
         API
@@ -699,9 +702,11 @@ spec:
           - global-hub.open-cluster-management.io
           resources:
           - managedclustermigrations
+          - managedclustermigrations/status
           verbs:
           - get
           - list
+          - patch
           - update
           - watch
         - apiGroups:

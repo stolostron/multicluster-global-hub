@@ -98,3 +98,18 @@ type SubscriptionReport struct {
 func (SubscriptionReport) TableName() string {
 	return "status.subscription_reports"
 }
+
+type ManagedClusterMigration struct {
+	ID          uint           `gorm:"primaryKey;autoIncrement"`
+	FromHub     string         `gorm:"not null;index"`
+	ToHub       string         `gorm:"not null;index"`
+	ClusterName string         `gorm:"not null;index"`
+	Payload     datatypes.JSON `gorm:"type:jsonb"`
+	Stage       string         `gorm:"type:text;not null"`
+	CreatedAt   time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time      `gorm:"autoUpdateTime"`
+}
+
+func (ManagedClusterMigration) TableName() string {
+	return "status.managed_cluster_migration"
+}

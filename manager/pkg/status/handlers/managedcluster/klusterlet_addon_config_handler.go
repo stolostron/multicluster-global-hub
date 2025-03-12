@@ -8,14 +8,18 @@ import (
 	"encoding/json"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/types"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
+	"gorm.io/gorm/clause"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -59,23 +63,58 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 		return err
 	}
 
-	migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
-	if err := k.client.List(ctx, migrationList, &client.ListOptions{
-		Namespace: utils.GetDefaultNamespace(),
-	}); err != nil {
-		return err
-	}
-
-	// update it into managedclustermigration CR
-	if len(migrationList.Items) > 0 {
-		migration := migrationList.Items[0]
-		if len(migration.GetAnnotations()) == 0 {
-			migration.Annotations = map[string]string{}
-		}
-		migration.Annotations[constants.KlusterletAddonConfigAnnotation] = string(klusterletAddonConfigData)
-		if err := k.client.Update(ctx, &migration); err != nil {
+	// TODO: deprecated in the migrating stage
+	toCluster, ok := evt.Extensions()[constants.CloudEventExtensionKeyClusterName]
+	if !ok || toCluster == "" {
+		migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
+		if err := k.client.List(ctx, migrationList, &client.ListOptions{
+			Namespace: utils.GetDefaultNamespace(),
+		}); err != nil {
 			return err
 		}
+
+		// update it into managedclustermigration CR
+		if len(migrationList.Items) > 0 {
+			migration := migrationList.Items[0]
+			if len(migration.GetAnnotations()) == 0 {
+				migration.Annotations = map[string]string{}
+			}
+			migration.Annotations[constants.KlusterletAddonConfigAnnotation] = string(klusterletAddonConfigData)
+			if err := k.client.Update(ctx, &migration); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	toHub, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
+	if err != nil {
+		k.log.Warn("failed to parse migration to hub from event", "error", err)
+	}
+
+	// LeafHubName
+	fromHub := evt.Source()
+
+	cluster := klusterletAddonConfig.Name
+
+	mcm := models.ManagedClusterMigration{
+		FromHub:     fromHub,
+		ToHub:       toHub,
+		ClusterName: cluster,
+		Payload:     klusterletAddonConfigData,
+		Stage:       migrationv1alpha1.PhaseInitializing,
+	}
+
+	db := database.GetGorm()
+	err = db.Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
+		DoUpdates: clause.Assignments(map[string]interface{}{
+			"payload": klusterletAddonConfigData,
+		}),
+	}).Create(&mcm).Error
+	if err != nil {
+		k.log.Errorf("failed to update the migration initializing data into db: %v", err)
+		return err
 	}
 
 	return nil

@@ -20,6 +20,8 @@ import (
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -35,6 +37,7 @@ type managedClusterMigrationFromSyncer struct {
 	log             *zap.SugaredLogger
 	client          client.Client
 	transportClient transport.TransportClient
+	bundleVersion   *eventversion.Version
 }
 
 func NewManagedClusterMigrationFromSyncer(client client.Client,
@@ -44,6 +47,7 @@ func NewManagedClusterMigrationFromSyncer(client client.Client,
 		log:             logger.ZapLogger("managed-cluster-migration-from-syncer"),
 		client:          client,
 		transportClient: transportClient,
+		bundleVersion:   eventversion.NewVersion(),
 	}
 }
 
@@ -55,6 +59,19 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 	s.log.Debugf("received managed cluster migration event %s", string(payload))
 
+	// send KlusterletAddonConfig to the global hub and then propogate to the target cluster
+	if managedClusterMigrationEvent.Stage == migrationv1alpha1.PhaseInitializing {
+		managedClusters := managedClusterMigrationEvent.ManagedClusters
+		toHub := managedClusterMigrationEvent.ToHub
+		for _, managedCluster := range managedClusters {
+			if err := s.sendKlusterletAddonConfig(ctx, managedCluster, toHub); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// TODO: deprecated in the migrating stage
 	// create or update bootstrap secret
 	bootstrapSecret := managedClusterMigrationEvent.BootstrapSecret
 	foundBootstrapSecret := &corev1.Secret{}
@@ -127,10 +144,9 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			return err
 		}
 	}
-
 	// send KlusterletAddonConfig to the global hub and then propogate to the target cluster
 	for _, managedCluster := range managedClusters {
-		if err := s.sendKlusterletAddonConfig(ctx, managedCluster); err != nil {
+		if err := s.sendKlusterletAddonConfig(ctx, managedCluster, ""); err != nil {
 			return err
 		}
 	}
@@ -151,7 +167,6 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			return err
 		}
 	}
-
 	time.Sleep(sleepForApplying)
 	if err := s.detachManagedClusters(ctx, managedClusters); err != nil {
 		s.log.Error(err, "failed to detach managed clusters")
@@ -163,7 +178,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 
 // sendKlusterletAddonConfig sends the klusterletAddonConfig back to the global hub
 func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx context.Context,
-	managedCluster string,
+	managedCluster string, toHub string,
 ) error {
 	config := &addonv1.KlusterletAddonConfig{}
 	// send klusterletAddonConfig to global hub so that it can be transferred to the target cluster
@@ -190,17 +205,19 @@ func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx contex
 		return fmt.Errorf("failed to marshal klusterletAddonConfig (%v) - %w", config, err)
 	}
 
-	version := eventversion.NewVersion()
-	version.Incr() // first generation -> reset
+	s.bundleVersion.Incr()
 	e := cloudevents.NewEvent()
 	e.SetType(string(enum.KlusterletAddonConfigType))
-	e.SetSource(constants.CloudEventSourceGlobalHub)
-	e.SetExtension(eventversion.ExtVersion, version.String())
+
+	e.SetSource(configs.GetLeafHubName())
+	e.SetExtension(constants.CloudEventExtensionKeyClusterName, toHub)
+	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
 	_ = e.SetData(cloudevents.ApplicationJSON, payloadBytes)
 	if s.transportClient != nil {
 		if err := s.transportClient.GetProducer().SendEvent(ctx, e); err != nil {
 			return fmt.Errorf("failed to send klusterletAddonConfig back to the global hub, due to %v", err)
 		}
+		s.bundleVersion.Next()
 	}
 	return nil
 }
