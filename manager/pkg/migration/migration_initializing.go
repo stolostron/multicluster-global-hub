@@ -126,7 +126,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
-		metav1.ConditionTrue, ConditionMessageResourcePrepared, ConditionMessageResourcePrepared)
+		metav1.ConditionTrue, ConditionReasonResourcePrepared, ConditionMessageResourcePrepared)
 	if err != nil {
 		return false, err
 	}
