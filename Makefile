@@ -73,7 +73,6 @@ fmt:
 	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/operator/\|multicluster-global-hub/manager/" ./pkg
 	! grep -ir "multicluster-global-hub/agent/\|multicluster-global-hub/manager/" ./operator
 	! grep -ir "multicluster-global-hub/manager/" ./agent
-	! grep -ir "multicluster-global-hub/agent/" ./manager
 
 .PHONY: strict-fmt				##formats the code
 strict-fmt:

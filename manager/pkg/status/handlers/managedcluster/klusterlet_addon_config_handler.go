@@ -22,6 +22,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type klusterletAddonConfigHandler struct {
@@ -60,6 +61,30 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 	klusterletAddonConfigData, err := json.Marshal(klusterletAddonConfig)
 	if err != nil {
 		return err
+	}
+
+	// TODO: deprecated in the migrating stage
+	toCluster, ok := evt.Extensions()[constants.CloudEventExtensionKeyClusterName]
+	if !ok || toCluster == "" {
+		migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
+		if err := k.client.List(ctx, migrationList, &client.ListOptions{
+			Namespace: utils.GetDefaultNamespace(),
+		}); err != nil {
+			return err
+		}
+
+		// update it into managedclustermigration CR
+		if len(migrationList.Items) > 0 {
+			migration := migrationList.Items[0]
+			if len(migration.GetAnnotations()) == 0 {
+				migration.Annotations = map[string]string{}
+			}
+			migration.Annotations[constants.KlusterletAddonConfigAnnotation] = string(klusterletAddonConfigData)
+			if err := k.client.Update(ctx, &migration); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	toHub, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])

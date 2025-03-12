@@ -10,8 +10,10 @@ import (
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -29,9 +31,10 @@ const (
 	ConditionReasonResourcePrepared = "ResourcePrepared"
 	ConditionReasonSecretMissing    = "SecretMissing"
 	ConditionReasonClusterNotSynced = "ClusterNotSynced"
+	ConditionReasonTimeout          = "Timeout"
 )
 
-var initializingTimeout = 5 * time.Minute
+var migrationStageTimeout = 5 * time.Minute
 
 // Initializing:
 //  1. From Hub: sync the required clusters to databases
@@ -51,7 +54,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, nil
 	}
 
-	tokenSecretIsReady := true
 	notReadyClusters := []string{}
 
 	// To Hub
@@ -70,7 +72,13 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	} else if apierrors.IsNotFound(err) {
-		tokenSecretIsReady = false
+		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
+			metav1.ConditionFalse, ConditionReasonSecretMissing,
+			fmt.Sprintf("token secret(%s/%s) is not found!", tokenSecret.Namespace, tokenSecret.Name))
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	// check the migration clusters in the databases, if not, send it again
@@ -107,32 +115,45 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}
 
-	// If the token secret is not synced, or the migration clusters is not backup into the database, requeue and wait
-	if (!tokenSecretIsReady || len(notReadyClusters) > 0) &&
-		time.Since(mcm.CreationTimestamp.Time) < initializingTimeout {
-		log.Info("Waiting for migration resource to be ready")
+	if len(notReadyClusters) > 0 {
+		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
+			metav1.ConditionFalse, ConditionReasonClusterNotSynced,
+			fmt.Sprintf("clusters %v are not synced into db", notReadyClusters))
+		if err != nil {
+			return false, err
+		}
 		return true, nil
 	}
 
-	conditionMessage := ConditionMessageResourcePrepared
-	conditionReason := ConditionReasonResourcePrepared
-	conditionStatus := metav1.ConditionTrue
-	if !tokenSecretIsReady {
-		conditionMessage = fmt.Sprintf("token secret is not found %s/%s", tokenSecret.Namespace, tokenSecret.Name)
-		conditionReason = ConditionReasonSecretMissing
-		conditionStatus = metav1.ConditionFalse
-	}
-	if len(notReadyClusters) > 0 {
-		conditionMessage = fmt.Sprintf("clusters are synced into db %v", notReadyClusters)
-		conditionReason = ConditionReasonClusterNotSynced
-		conditionStatus = metav1.ConditionFalse
-	}
-	err = m.UpdateCondition(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized, conditionStatus,
-		conditionReason, conditionMessage)
+	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
+		metav1.ConditionTrue, ConditionMessageResourcePrepared, ConditionMessageResourcePrepared)
 	if err != nil {
-		return false, fmt.Errorf("failed to update migration condition: %w", err)
+		return false, err
 	}
 	return false, nil
+}
+
+// update with conflict error, and also add timeout validating in the conditions
+func (m *ClusterMigrationController) UpdateConditionWithRetry(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string,
+) error {
+	// timeout
+	if status == metav1.ConditionFalse && time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
+		reason = ConditionReasonTimeout
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := m.Client.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
+			return err
+		}
+		if err := m.UpdateCondition(ctx, mcm, conditionType, status, reason, message); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (m *ClusterMigrationController) UpdateCondition(
@@ -150,49 +171,31 @@ func (m *ClusterMigrationController) UpdateCondition(
 		LastTransitionTime: metav1.Now(),
 	}
 
-	requireUpdate := false
-	exist := false
-	// Check if the condition already exists and update if necessary
-	for i, cond := range mcm.Status.Conditions {
-		if cond.Type == conditionType {
-			exist = true
-			if cond.Status != status || cond.Reason != reason || cond.Message != message {
-				requireUpdate = true
-				mcm.Status.Conditions[i] = newCondition
-			}
-			break
-		}
-	}
-
-	// Append new condition if not found
-	if !exist {
-		mcm.Status.Conditions = append(mcm.Status.Conditions, newCondition)
-		requireUpdate = true
-	}
+	update := meta.SetStatusCondition(&mcm.Status.Conditions, newCondition)
 
 	// Handle phase updates based on condition type and status
 	if status == metav1.ConditionFalse {
-		if mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
+		if reason == ConditionReasonTimeout && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
 			mcm.Status.Phase = migrationv1alpha1.PhaseFailed
-			requireUpdate = true
+			update = true
 		}
 	} else {
 		switch conditionType {
 		case migrationv1alpha1.MigrationResourceInitialized, migrationv1alpha1.MigrationClusterRegistered:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
 				mcm.Status.Phase = migrationv1alpha1.PhaseMigrating
-				requireUpdate = true
+				update = true
 			}
 		case migrationv1alpha1.MigrationResourceDeployed:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
-				requireUpdate = true
+				update = true
 			}
 		}
 	}
 
 	// Update the resource in Kubernetes only if there was a change
-	if requireUpdate {
+	if update {
 		return m.Status().Update(ctx, mcm)
 	}
 	return nil
