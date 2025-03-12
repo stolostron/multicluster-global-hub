@@ -68,6 +68,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 				return err
 			}
 		}
+		return nil
 	}
 
 	// TODO: deprecated in the migrating stage
