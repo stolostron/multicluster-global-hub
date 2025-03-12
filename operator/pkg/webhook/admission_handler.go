@@ -33,13 +33,15 @@ func NewAdmissionHandler(c client.Client, s *runtime.Scheme) admission.Handler {
 }
 
 type admissionHandler struct {
-	client  client.Client
-	decoder admission.Decoder
+	client           client.Client
+	decoder          admission.Decoder
+	localClusterName string
 }
 
 func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	log.Infof("admission webhook is called, name:%v, namespace:%v, kind:%v, operation:%v", req.Name,
+	log.Debugf("admission webhook is called, name:%v, namespace:%v, kind:%v, operation:%v", req.Name,
 		req.Namespace, req.Kind.Kind, req.Operation)
+
 	switch req.Kind.Kind {
 	case "ManagedCluster":
 		cluster := &clusterv1.ManagedCluster{}
@@ -47,7 +49,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		if err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		if cluster.Name == constants.LocalClusterName {
+		if cluster.Labels[constants.LocalClusterName] == "true" {
 			return admission.Allowed("")
 		}
 
@@ -56,7 +58,12 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Allowed("")
 		}
 
-		changed := setHostedAnnotations(cluster)
+		a.localClusterName, err = getLocalClusterName(ctx, a.client)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+
+		changed := a.setHostedAnnotations(cluster)
 		if !changed {
 			return admission.Allowed("")
 		}
@@ -76,8 +83,17 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
+		if klusterletaddonconfig.Spec.ClusterLabels[constants.LocalClusterName] == "true" {
+			return admission.Allowed("")
+		}
+
+		a.localClusterName, err = getLocalClusterName(ctx, a.client)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+
 		// only handle hosted clusters
-		isHosted, err := isInHostedCluster(ctx, a.client, klusterletaddonconfig.Namespace)
+		isHosted, err := a.isInHostedCluster(ctx, a.client, klusterletaddonconfig.Namespace)
 		if err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
@@ -101,8 +117,22 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 	}
 }
 
+func getLocalClusterName(ctx context.Context, client client.Client) (string, error) {
+	mcList := &clusterv1.ManagedClusterList{}
+	err := client.List(ctx, mcList)
+	if err != nil {
+		return "", fmt.Errorf("there is no clusters, the local clusters should enable,err:%v", err.Error())
+	}
+	for _, mc := range mcList.Items {
+		if mc.Labels[constants.LocalClusterName] == "true" {
+			return mc.Name, nil
+		}
+	}
+	return "", fmt.Errorf("the local clusters should be enabled")
+}
+
 // isInHostedCluster check if the cluster has hosted annotations
-func isInHostedCluster(ctx context.Context, client client.Client, mcName string) (bool, error) {
+func (a *admissionHandler) isInHostedCluster(ctx context.Context, client client.Client, mcName string) (bool, error) {
 	mc := &clusterv1.ManagedCluster{}
 	err := client.Get(ctx, types.NamespacedName{Name: mcName}, mc)
 	if err != nil {
@@ -115,7 +145,7 @@ func isInHostedCluster(ctx context.Context, client client.Client, mcName string)
 	}
 
 	if (mc.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted) &&
-		(mc.Annotations[constants.AnnotationClusterHostingClusterName] == constants.LocalClusterName) {
+		(mc.Annotations[constants.AnnotationClusterHostingClusterName] == a.localClusterName) {
 		return true, nil
 	}
 	return false, nil
@@ -141,16 +171,16 @@ func disableAddons(klusterletaddonconfig *addonv1.KlusterletAddonConfig) bool {
 }
 
 // setHostedAnnotations set hosted annotation for cluster, and return true if changed
-func setHostedAnnotations(cluster *clusterv1.ManagedCluster) bool {
+func (a *admissionHandler) setHostedAnnotations(cluster *clusterv1.ManagedCluster) bool {
 	if (cluster.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted) &&
-		(cluster.Annotations[constants.AnnotationClusterHostingClusterName] == constants.LocalClusterName) {
+		(cluster.Annotations[constants.AnnotationClusterHostingClusterName] == a.localClusterName) {
 		return false
 	}
 	if cluster.Annotations == nil {
 		cluster.Annotations = map[string]string{}
 	}
 	cluster.Annotations[constants.AnnotationClusterDeployMode] = constants.ClusterDeployModeHosted
-	cluster.Annotations[constants.AnnotationClusterHostingClusterName] = constants.LocalClusterName
+	cluster.Annotations[constants.AnnotationClusterHostingClusterName] = a.localClusterName
 	return true
 }
 

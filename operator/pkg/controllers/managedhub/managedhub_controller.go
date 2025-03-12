@@ -133,7 +133,7 @@ func (r *ManagedHubController) pruneManagedHubs(ctx context.Context) error {
 	}
 
 	for idx, managedHub := range clusters.Items {
-		if managedHub.Name == constants.LocalClusterName {
+		if managedHub.Labels[constants.LocalClusterName] == "true" {
 			continue
 		}
 		orgAnnotations := managedHub.GetAnnotations()

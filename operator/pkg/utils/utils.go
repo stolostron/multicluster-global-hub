@@ -344,7 +344,8 @@ func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) erro
 
 	for idx := range clusters.Items {
 		managedHub := &clusters.Items[idx]
-		if managedHub.Name == constants.LocalClusterName {
+
+		if managedHub.Labels[constants.LocalClusterName] == "true" {
 			continue
 		}
 
@@ -387,7 +388,7 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 			continue
 		}
 
-		if managedHub.Name == constants.LocalClusterName {
+		if managedHub.Labels[constants.LocalClusterName] == "true" {
 			continue
 		}
 		orgAnnotations := managedHub.GetAnnotations()
@@ -428,7 +429,7 @@ func TriggerManagedHubAddons(ctx context.Context, c client.Client, addonManager 
 func FilterManagedCluster(obj client.Object) bool {
 	return obj.GetLabels()["vendor"] != "OpenShift" ||
 		obj.GetLabels()["openshiftVersion"] == "3" ||
-		obj.GetName() == constants.LocalClusterName
+		obj.GetLabels()[constants.LocalClusterName] == "true"
 }
 
 // ManipulateGlobalHubObjects will attach the owner reference, add specific labels to these objects

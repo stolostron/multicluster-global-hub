@@ -41,7 +41,7 @@ var _ = Describe("Multicluster hub webhook", func() {
 				if mc.Annotations[constants.AnnotationClusterDeployMode] != constants.ClusterDeployModeHosted {
 					return false
 				}
-				if mc.Annotations[constants.AnnotationClusterHostingClusterName] != constants.LocalClusterName {
+				if mc.Annotations[constants.AnnotationClusterHostingClusterName] != localClusterName {
 					return false
 				}
 				return true
