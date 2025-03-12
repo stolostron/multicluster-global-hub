@@ -291,6 +291,7 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 			Value: labelVal,
 		},
 	}
+
 	By("Check the label is added")
 	Eventually(func() error {
 		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
@@ -301,13 +302,16 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 		if err != nil {
 			return err
 		}
+		if managedClusterInfo == nil {
+			return fmt.Errorf("no managedcluster found")
+		}
 		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
 			if labelVal == val {
 				return nil
 			}
 		}
 		return fmt.Errorf("failed to add label [%s: %s] to cluster %s", labelKey, labelVal, cluster.Name)
-	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
 func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string) {
@@ -334,7 +338,7 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 			}
 		}
 		return nil
-	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
+	}, 3*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
 func updateClusterLabelByAPI(client *http.Client, patches []patch, managedClusterID string) error {

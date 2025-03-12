@@ -35,10 +35,6 @@ echo "Delete mgh"
 wait_cmd "kubectl delete multiclusterglobalhubs --all -n $GH_NAMESPACE --ignore-not-found=true"
 
 export TARGET_NAMESPACE=$GH_NAMESPACE
-cd operator
-make undeploy
-
-cd $CURRENT_DIR
 
 kubectl delete clusterrolebinding multicluster-global-hub-operator-rolebinding --ignore-not-found=true
 kubectl delete clusterrolebinding multicluster-global-hub-operator-aggregated-clusterrolebinding --ignore-not-found=true
@@ -61,6 +57,9 @@ if [[ ! -z $(kubectl get kafka -n "$GH_NAMESPACE" --ignore-not-found=true) ]]; t
   echo "Failed to delete kafka"
   exit 1
 fi
+
+cd operator
+make undeploy
 
 ## clean
 wait_cmd "kubectl delete crd kafkas.kafka.strimzi.io --ignore-not-found=true"

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,7 +36,7 @@ type TransportCtrl struct {
 	extraSecretNames []string
 
 	transportConfig *transport.TransportInternalConfig
-
+	needReconnect   bool
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
 	transportCallback TransportCallback
 	transportClient   *TransportClient
@@ -82,6 +83,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		transportCallback: callback,
 		transportClient:   &TransportClient{},
 		transportConfig:   transportConfig,
+		needReconnect:     true,
 		extraSecretNames:  make([]string, 2),
 	}
 }
@@ -89,6 +91,10 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	if c.transportClient.consumer != nil && !c.needReconnect {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,10 +124,12 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+
+		if err := c.ReconcileConsumer(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
+
 		if updated {
-			if err := c.ReconcileConsumer(ctx); err != nil {
-				return ctrl.Result{}, err
-			}
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -141,7 +149,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 	}
 
 	if !updated {
-		return ctrl.Result{}, nil
+		c.needReconnect = false
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
 	if c.transportCallback != nil {
@@ -149,8 +158,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
 		}
 	}
-
-	return ctrl.Result{}, nil
+	c.needReconnect = false
+	return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 // ReconcileProducer, transport config is changed, then create/update the producer
@@ -182,16 +191,15 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
+		c.transportClient.consumer = receiver
+
 		go func() {
 			if err = receiver.Start(ctx); err != nil {
 				log.Errorf("failed to start the consumser: %v", err)
 			}
+			c.transportClient.consumer = nil
+			c.needReconnect = true
 		}()
-		c.transportClient.consumer = receiver
-	} else {
-		if err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig); err != nil {
-			return fmt.Errorf("failed to reconnect the consumer: %w", err)
-		}
 	}
 	return nil
 }
@@ -319,9 +327,14 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 // SetupWithManager sets up the controller with the Manager.
 func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	c.runtimeClient = mgr.GetClient()
+
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return c.credentialSecret(e.Object.GetName())
+			if !c.credentialSecret(e.Object.GetName()) {
+				return false
+			}
+			c.needReconnect = true
+			return true
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			if !c.credentialSecret(e.ObjectNew.GetName()) {
@@ -330,7 +343,11 @@ func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 			newSecret := e.ObjectNew.(*corev1.Secret)
 			oldSecret := e.ObjectOld.(*corev1.Secret)
 			// only enqueue the obj when secret data changed
-			return !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
+			if reflect.DeepEqual(newSecret.Data, oldSecret.Data) {
+				return false
+			}
+			c.needReconnect = true
+			return true
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
