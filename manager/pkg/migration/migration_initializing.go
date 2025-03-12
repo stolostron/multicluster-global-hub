@@ -49,12 +49,11 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}
 
-	// only handle the intializing stage
-	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
+	// skip if the phase isn't Initializing and the MigrationResourceInitialized condition is True
+	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing &&
+		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceInitialized) {
 		return false, nil
 	}
-
-	notReadyClusters := []string{}
 
 	// To Hub
 	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
@@ -89,6 +88,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	// From Hub
 	// send the migration event to migration.from managed hub(s)
+	notReadyClusters := []string{}
 	db := database.GetGorm()
 	for fromHubName, clusters := range leafHubToClusters {
 		clusterResourcesSynced := true
@@ -100,7 +100,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		for i, cluster := range initialized {
 			initializedClusters[i] = cluster.ClusterName
 		}
-		// assert whether synced
+		// assert whether synced, if synced, change the cluster status into migrating
 		for _, cluster := range clusters {
 			if !utils.ContainsString(initializedClusters, cluster) {
 				notReadyClusters = append(notReadyClusters, cluster)
@@ -201,6 +201,7 @@ func (m *ClusterMigrationController) UpdateCondition(
 	return nil
 }
 
+// specToFromHub specifies the manager send the message into "From Hub" via spec path(or topic)
 func (m *ClusterMigrationController) specToFromHub(ctx context.Context, fromHub string, toHub string, stage string,
 	managedClusters []string, klusterletConfig *klusterletv1alpha1.KlusterletConfig, bootstrapSecret *corev1.Secret,
 ) error {

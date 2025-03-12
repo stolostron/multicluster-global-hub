@@ -102,7 +102,7 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 		ToHub:       toHub,
 		ClusterName: cluster,
 		Payload:     klusterletAddonConfigData,
-		Stage:       migrationv1alpha1.PhaseInitializing,
+		Stage:       migrationv1alpha1.MigrationResourceInitialized,
 	}
 
 	db := database.GetGorm()
