@@ -18,6 +18,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
+var log = logger.ZapLogger("labels-watcher")
+
 const (
 	labelsTableName             = "managed_clusters_labels"
 	clusterTableName            = "managed_clusters"
@@ -66,7 +68,7 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 			return
 
 		case <-labelsTrimmerTicker.C:
-
+			log.Debugf("labelsTrimmerTicker")
 			_, cancelFunc := context.WithTimeout(ctx, watcher.intervalPolicy.GetMaxInterval())
 
 			// update the deleted label keys to label table by the managed cluster table
@@ -106,10 +108,12 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsPeriodicall
 
 func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCluster() bool {
 	leafHubToLabelsSpecBundleMap, err := getLabelBundleWithDeletedKey()
+	log.Debugf("leafHubToLabelsSpecBundleMap: %v, err: %v", leafHubToLabelsSpecBundleMap, err)
 	if err != nil {
 		watcher.log.Error(err, "trimming cycle skipped")
 		return false
 	}
+	log.Debugf("updateDeletedLabelsByManagedCluster")
 	conn := database.GetConn()
 	err = database.Lock(conn)
 	if err != nil {
@@ -120,9 +124,12 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 
 	result := true
 	// iterate over entries
+	log.Debugf("updateDeletedLabelsByManagedCluster")
+
 	for _, managedClusterLabelsSpecBundle := range leafHubToLabelsSpecBundleMap {
 		// fetch actual labels status reflected in status DB
 		for _, managedClusterLabelsSpec := range managedClusterLabelsSpecBundle.Objects {
+			log.Debugf("managedClusterLabelsSpec: %v", managedClusterLabelsSpec)
 			labelsStatus, err := getLabelsFromManagedCluster(managedClusterLabelsSpecBundle.LeafHubName,
 				managedClusterLabelsSpec.ClusterName)
 			if err != nil {
@@ -153,13 +160,16 @@ func (watcher *managedClusterLabelsStatusWatcher) updateDeletedLabelsByManagedCl
 				result = false
 				continue
 			}
+			log.Debugf("update label table by managed cluster table successfully", "leafHub",
+				managedClusterLabelsSpecBundle.LeafHubName,
+				"managedCluster", managedClusterLabelsSpec.ClusterName, "version", managedClusterLabelsSpec.Version)
 
 			watcher.log.Debugw("update label table by managed cluster table successfully", "leafHub",
 				managedClusterLabelsSpecBundle.LeafHubName,
 				"managedCluster", managedClusterLabelsSpec.ClusterName, "version", managedClusterLabelsSpec.Version)
 		}
 	}
-
+	log.Debugf("result: %v", result)
 	return result
 }
 

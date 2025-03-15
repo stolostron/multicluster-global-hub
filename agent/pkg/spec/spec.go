@@ -18,13 +18,14 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	agentConfig *configs.AgentConfig,
 ) error {
 	log := logger.DefaultZapLogger()
+
 	if transportClient.GetConsumer() == nil {
 		log.Info("the consumer is not initialized for the spec controllers")
-		return nil
+		return fmt.Errorf("the consumer is not initialized")
 	}
 	if transportClient.GetProducer() == nil {
 		log.Info("the producer is not initialized for the spec controllers")
-		return nil
+		return fmt.Errorf("the producer is not initialized")
 	}
 
 	// add worker pool to manager
@@ -39,10 +40,12 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 		return fmt.Errorf("failed to add bundle dispatcher to runtime manager: %w", err)
 	}
 
+	log.Infof("agentConfig.EnableGlobalResource:%v", agentConfig.EnableGlobalResource)
 	// register syncer to the dispatcher
 	if agentConfig.EnableGlobalResource {
 		dispatcher.RegisterSyncer(constants.GenericSpecMsgKey,
 			syncers.NewGenericSyncer(workers, agentConfig))
+		log.Debugf("regist ManagedClustersLabelsMsgKey")
 		dispatcher.RegisterSyncer(constants.ManagedClustersLabelsMsgKey,
 			syncers.NewManagedClusterLabelSyncer(workers))
 	}

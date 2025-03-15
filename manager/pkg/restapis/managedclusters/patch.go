@@ -80,7 +80,7 @@ func PatchManagedCluster() gin.HandlerFunc {
 		fmt.Fprintf(gin.DefaultWriter, "labels to remove: %v\n", labelsToRemove)
 
 		retryAttempts := optimisticConcurrencyRetryAttempts
-
+		log.Debugf("retryAttempts: %v", retryAttempts)
 		for retryAttempts > 0 {
 			err = updateLabels(clusterID, leafHubName, managedClusterName, labelsToAdd,
 				labelsToRemove)
@@ -92,9 +92,11 @@ func PatchManagedCluster() gin.HandlerFunc {
 		}
 
 		if err != nil {
+			log.Errorf("update label failed, err: %v", err)
 			ginCtx.String(http.StatusInternalServerError, "internal error")
 			fmt.Fprintf(gin.DefaultWriter, "error in updating managed cluster labels: %v\n", err)
 		}
+		log.Debugf("managed cluster label patched")
 
 		ginCtx.String(http.StatusOK, "managed cluster label patched")
 	}
@@ -103,17 +105,23 @@ func PatchManagedCluster() gin.HandlerFunc {
 func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd map[string]string,
 	labelsToRemove map[string]struct{},
 ) error {
+	log.Debugf("update labels, labels to add: %v", labelsToAdd)
+	log.Debugf("update labels, labels to remove: %v", labelsToRemove)
+	log.Debugf("clusterID: %v, leafHubName: %v, managedClusterName: %v", clusterID, leafHubName, managedClusterName)
+
 	if len(labelsToAdd) == 0 && len(labelsToRemove) == 0 {
 		return nil
 	}
 	db := database.GetGorm()
 	conn := database.GetConn()
 
+	log.Debugf("lock database")
 	err := database.Lock(conn)
 	if err != nil {
 		return err
 	}
 	defer database.Unlock(conn)
+	log.Debugf("locked database")
 
 	managedClusterLabels := []models.ManagedClusterLabel{}
 	err = db.Where(models.ManagedClusterLabel{ID: clusterID}).Find(&managedClusterLabels).Error
@@ -121,6 +129,7 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 		return fmt.Errorf("failed to read from managed_clusters_labels: %w", err)
 	}
 
+	log.Debugf("err:%v, managedClusterLabels:%v", err, managedClusterLabels)
 	if err == gorm.ErrRecordNotFound || len(managedClusterLabels) == 0 {
 		labelToLoadPayload, err := json.Marshal(labelsToAdd)
 		if err != nil {
@@ -130,7 +139,8 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 		if err != nil {
 			return err
 		}
-		return db.Create(&models.ManagedClusterLabel{
+
+		err = db.Create(&models.ManagedClusterLabel{
 			ID:                 clusterID,
 			LeafHubName:        leafHubName,
 			ManagedClusterName: managedClusterName,
@@ -138,6 +148,14 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 			DeletedLabelKeys:   keysToRemovePayload,
 			Version:            0,
 		}).Error
+		if err != nil {
+			log.Errorf("failed to create cluster label, err: %v", err)
+			return err
+		}
+		log.Debugf("cluster %v labelsToAdd %v ", managedClusterName, labelsToAdd)
+		log.Debugf("cluster %v labelsToRemove %v ", managedClusterName, labelsToRemove)
+
+		return err
 	}
 
 	var (
@@ -153,6 +171,9 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 		return fmt.Errorf("failed to unmarshal currentLabelToRemoveSlice: %w", err)
 	}
 	existVersion := managedClusterLabels[0].Version
+
+	log.Debugf("existLabels:%v", existLabels)
+	log.Debugf("existLabelsToRemoveSlice:%v", existLabelsToRemoveSlice)
 
 	err = updateRow(clusterID, labelsToAdd, existLabels, labelsToRemove,
 		getMap(existLabelsToRemoveSlice), existVersion)
@@ -193,6 +214,8 @@ func updateRow(clusterID string, labelsToAdd, existLabelsToAdd map[string]string
 	for key, value := range labelsToAdd {
 		newLabelsToAdd[key] = value
 	}
+	log.Debugf("newLabelsToAdd: %v", newLabelsToAdd)
+	log.Debugf("newLabelsToRemove: %v", newLabelsToRemove)
 
 	db := database.GetGorm()
 	newLabelsToAddPayload, err := json.Marshal(newLabelsToAdd)
@@ -203,6 +226,7 @@ func updateRow(clusterID string, labelsToAdd, existLabelsToAdd map[string]string
 	if err != nil {
 		return err
 	}
+
 	ret := db.Model(&models.ManagedClusterLabel{}).Where(&models.ManagedClusterLabel{
 		ID:      clusterID,
 		Version: int(existVersion),
