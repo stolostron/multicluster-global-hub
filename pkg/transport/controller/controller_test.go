@@ -41,6 +41,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			},
 			FailureThreshold: 100,
 		},
+		needReconnect: true,
 		transportCallback: func(transportClient transport.TransportClient) error {
 			callbackInvoked = true
 			return nil
@@ -117,6 +118,7 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
+		needReconnect:   true,
 	}
 
 	ctx := context.TODO()
@@ -271,6 +273,7 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 
 			c := &TransportCtrl{
 				runtimeClient: fakeClient,
+				needReconnect: true,
 			}
 			if err := c.ResyncKafkaClientSecret(context.Background(), tt.kafkaConn, tt.secret); err != nil {
 				t.Errorf("TransportCtrl.ResyncKafkaClientSecret() error = %v", err)
