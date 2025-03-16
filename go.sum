@@ -113,8 +113,8 @@ github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20241021120453-
 github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20241021120453-70fb95191324/go.mod h1:OqlroyhmlpHHUd8FxbpQbu3L5MNBH6VdV93TQMenTj0=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2 h1:dl2xbFLV2FGd3OBNC6ncSN9l+gPNEP0DYE+1yKVV5DQ=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2/go.mod h1:jXfl9I1Q78+4zdYGTjHNQcrbNtJL63jpzSgVE2rE79U=
-github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250219134349-d834326be327 h1:pZ1Q4+YURFa0k2x1QqKBYKsVtvCs78rItpdiZFPfrGk=
-github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250219134349-d834326be327/go.mod h1:5YWqklyhDSmGzBK/JENKKXdulbPq0JFf3c/KEnMLqgg=
+github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250313141547-88bebb1fe04f h1:1SngS2jUn8y5/wG6Pv/+qubeREnGJy/31SO9U1QBA+0=
+github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250313141547-88bebb1fe04f/go.mod h1:5YWqklyhDSmGzBK/JENKKXdulbPq0JFf3c/KEnMLqgg=
 github.com/cloudflare/cfssl v1.6.5 h1:46zpNkm6dlNkMZH/wMW22ejih6gIaJbzL2du6vD7ZeI=
 github.com/cloudflare/cfssl v1.6.5/go.mod h1:Bk1si7sq8h2+yVEDrFJiz3d7Aw+pfjjJSZVaD+Taky4=
 github.com/cloudwego/base64x v0.1.4 h1:jwCgWpFanWmN8xoIUHa2rtzmkd5J2plF/dnLS6Xd/0Y=
