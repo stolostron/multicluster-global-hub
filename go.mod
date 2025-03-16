@@ -27,8 +27,8 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
-	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
+	github.com/openshift/api v0.0.0-20250313134101-8a7efbfb5316
+	github.com/openshift/client-go v0.0.0-20250313171320-82b12a9e232b
 	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
 	github.com/operator-framework/api v0.27.0
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
@@ -47,9 +47,9 @@ require (
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 	helm.sh/helm/v3 v3.17.1
-	k8s.io/api v0.32.2
+	k8s.io/api v0.32.3
 	k8s.io/apiextensions-apiserver v0.32.2
-	k8s.io/apimachinery v0.32.2
+	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.2
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.32.2
@@ -199,14 +199,14 @@ require (
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.35.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7
-	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.11.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/term v0.29.0 // indirect
-	golang.org/x/text v0.22.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
@@ -223,9 +223,9 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	open-cluster-management.io/sdk-go v0.15.0 // indirect
-	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
 replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
