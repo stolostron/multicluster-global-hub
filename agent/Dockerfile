@@ -1,7 +1,7 @@
 # Copyright Contributors to the Open Cluster Management project
 
 # Stage 1: build the target binaries
-FROM registry.ci.openshift.org/stolostron/builder:go1.22-linux AS builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.23-linux AS builder
 
 WORKDIR /workspace
 
@@ -19,11 +19,10 @@ ENV USER_NAME=agent
 # install operator binary
 COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
 
+RUN microdnf update -y && microdnf clean all
+
 COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
-
-RUN microdnf update -y && \
-    microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/agent"]
