@@ -1,6 +1,7 @@
 module github.com/stolostron/multicluster-global-hub
 
 go 1.23.2
+toolchain go1.24.1
 
 require (
 	github.com/IBM/sarama v1.45.1
@@ -47,12 +48,12 @@ require (
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 	helm.sh/helm/v3 v3.17.1
-	k8s.io/api v0.32.2
+	k8s.io/api v0.32.3
 	k8s.io/apiextensions-apiserver v0.32.2
-	k8s.io/apimachinery v0.32.2
-	k8s.io/client-go v0.32.2
+	k8s.io/apimachinery v0.32.3
+	k8s.io/client-go v0.32.3
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.32.2
+	k8s.io/kube-aggregator v0.32.3
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	open-cluster-management.io/addon-framework v0.11.0
 	open-cluster-management.io/api v0.15.0
@@ -218,8 +219,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
-	k8s.io/apiserver v0.32.2 // indirect
-	k8s.io/component-base v0.32.2 // indirect
+	k8s.io/apiserver v0.32.3 // indirect
+	k8s.io/component-base v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	open-cluster-management.io/sdk-go v0.15.0 // indirect
