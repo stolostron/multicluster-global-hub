@@ -27,7 +27,7 @@ const (
 )
 
 // Migrating:
-//  1. From Hub: register the cluster into To Hub
+//  1. From Hub: select the cluster hasn't been synced to the new hub. -> event with migrating
 //  2. To Hub: deploy the addon config into the current Hub
 func (m *ClusterMigrationController) migrating(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
@@ -82,12 +82,12 @@ func (m *ClusterMigrationController) migrating(ctx context.Context,
 	conditionReason := conditionReasonAddonConfigNotDeployed
 	conditionStatus := metav1.ConditionTrue
 	if len(registeringClusters) > 0 {
-		// generate the kubeconfig for these clusters
 		bootstrapSecret, err := m.generateBootstrapSecret(ctx, mcm)
 		if err != nil {
 			return false, err
 		}
-		// update the condition
+
+		// sending to from hub cluster with migrating notifications
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
 			notRegisterClusters = append(notRegisterClusters, clusters...)
@@ -106,9 +106,9 @@ func (m *ClusterMigrationController) migrating(ctx context.Context,
 			mcm.Spec.To)
 		conditionReason = conditionReasonClusterNotRegistered
 		conditionStatus = metav1.ConditionFalse
-		return true, nil
 	}
 
+	// update the registered migration items in database
 	if len(registeredClusters) > 0 {
 		err := db.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
@@ -168,10 +168,6 @@ func (m *ClusterMigrationController) migrating(ctx context.Context,
 		return true, nil
 	}
 
-	if meta.IsStatusConditionFalse(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
-		log.Info("waiting clusters to be registered to new hub")
-		return true, nil
-	}
 	return false, nil
 }
 
