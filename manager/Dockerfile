@@ -20,11 +20,11 @@ ENV USER_NAME=manager
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
 
+
+RUN microdnf update -y && microdnf clean all
+
 COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
-
-RUN microdnf update -y && \
-    microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/manager"]

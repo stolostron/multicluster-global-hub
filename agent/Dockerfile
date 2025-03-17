@@ -19,11 +19,10 @@ ENV USER_NAME=agent
 # install operator binary
 COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
 
+RUN microdnf update -y && microdnf clean all
+
 COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
-
-RUN microdnf update -y && \
-    microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/agent"]
