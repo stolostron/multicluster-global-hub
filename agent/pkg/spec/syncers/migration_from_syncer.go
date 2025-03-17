@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
@@ -28,6 +29,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+)
+
+const (
+	klusterletConfigNamePrefix = "migration-"
+	bootstrapSecretNamePrefix  = "bootstrap-"
 )
 
 // This is a temporary solution to wait for applying the klusterletconfig
@@ -59,7 +65,6 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 	s.log.Debugf("received managed cluster migration event %s", string(payload))
 
-	// send KlusterletAddonConfig to the global hub and then propogate to the target cluster
 	if managedClusterMigrationEvent.Stage == migrationv1alpha1.PhaseInitializing {
 		managedClusters := managedClusterMigrationEvent.ManagedClusters
 		toHub := managedClusterMigrationEvent.ToHub
@@ -67,6 +72,13 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			if err := s.sendKlusterletAddonConfig(ctx, managedCluster, toHub); err != nil {
 				return err
 			}
+		}
+		return nil
+	}
+
+	if managedClusterMigrationEvent.Stage == migrationv1alpha1.PhaseMigrating {
+		if err := s.registering(ctx, managedClusterMigrationEvent); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -119,8 +131,9 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			return err
 		}
 	}
+
 	managedClusters := managedClusterMigrationEvent.ManagedClusters
-	// update managed cluster annotations to point to the new klusterlet config
+	// update managed cluster annotations to point to the new klusterletconfig
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{
@@ -174,6 +187,139 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	return nil
+}
+
+func (m *managedClusterMigrationFromSyncer) registering(
+	ctx context.Context, migratingEvt *bundleevent.ManagedClusterMigrationFromEvent,
+) error {
+	// ensure bootstrap kubeconfig secret
+	bootstrapSecret := migratingEvt.BootstrapSecret
+	foundBootstrapSecret := &corev1.Secret{}
+	if err := m.client.Get(ctx,
+		types.NamespacedName{
+			Name:      bootstrapSecret.Name,
+			Namespace: bootstrapSecret.Namespace,
+		}, foundBootstrapSecret); err != nil {
+		if apierrors.IsNotFound(err) {
+			m.log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
+			if err := m.client.Create(ctx, bootstrapSecret); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		// update the bootstrap secret if it already exists
+		m.log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
+		if err := m.client.Update(ctx, bootstrapSecret); err != nil {
+			return err
+		}
+	}
+
+	// ensure klusterletconfig
+	klusterletConfig := &klusterletv1alpha1.KlusterletConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: klusterletConfigNamePrefix + migratingEvt.ToHub,
+		},
+		Spec: klusterletv1alpha1.KlusterletConfigSpec{
+			BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
+				Type: operatorv1.LocalSecrets,
+				LocalSecrets: operatorv1.LocalSecretsConfig{
+					KubeConfigSecrets: []operatorv1.KubeConfigSecret{
+						{
+							Name: bootstrapSecret.Name,
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
+		if apierrors.IsNotFound(err) {
+			if err := m.client.Create(ctx, klusterletConfig); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	containBootstrapSecret := false
+	kubeConfigSecrets := klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets
+	for _, kubeConfigSecret := range kubeConfigSecrets {
+		if kubeConfigSecret.Name == bootstrapSecret.Name {
+			containBootstrapSecret = true
+		}
+	}
+	if !containBootstrapSecret {
+		klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets = append(kubeConfigSecrets,
+			operatorv1.KubeConfigSecret{Name: bootstrapSecret.Name})
+		if err := m.client.Update(ctx, klusterletConfig); err != nil {
+			return err
+		}
+	}
+
+	// update managed cluster annotations to point to the new klusterletconfig
+	managedClusters := migratingEvt.ManagedClusters
+	for _, managedCluster := range managedClusters {
+		mc := &clusterv1.ManagedCluster{}
+		if err := m.client.Get(ctx, types.NamespacedName{
+			Name: managedCluster,
+		}, mc); err != nil {
+			return err
+		}
+		annotations := mc.Annotations
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		_, migrating := annotations[constants.ManagedClusterMigrating]
+		if migrating && annotations["agent.open-cluster-management.io/klusterlet-config"] == klusterletConfig.Name {
+			continue
+		}
+		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
+		annotations[constants.ManagedClusterMigrating] = ""
+		mc.SetAnnotations(annotations)
+		if err := m.client.Update(ctx, mc); err != nil {
+			return err
+		}
+	}
+
+	// set the hub accept client into false to trigger the re-registering
+	for _, managedCluster := range managedClusters {
+		mc := &clusterv1.ManagedCluster{}
+		if err := m.client.Get(ctx, types.NamespacedName{
+			Name: managedCluster,
+		}, mc); err != nil {
+			return err
+		}
+		mc.Spec.HubAcceptsClient = false
+		m.log.Infof("updating managedcluster %s to set HubAcceptsClient as false", mc.Name)
+		if err := m.client.Update(ctx, mc); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *managedClusterMigrationFromSyncer) ensureKlusterletConfig(toHub string) *klusterletv1alpha1.KlusterletConfig {
+	return &klusterletv1alpha1.KlusterletConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: klusterletConfigNamePrefix + toHub,
+		},
+		Spec: klusterletv1alpha1.KlusterletConfigSpec{
+			BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
+				Type: operatorv1.LocalSecrets,
+				LocalSecrets: operatorv1.LocalSecretsConfig{
+					KubeConfigSecrets: []operatorv1.KubeConfigSecret{
+						{
+							Name: bootstrapSecretNamePrefix + toHub,
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 // sendKlusterletAddonConfig sends the klusterletAddonConfig back to the global hub
