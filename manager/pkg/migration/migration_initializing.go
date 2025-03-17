@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -108,7 +107,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			}
 		}
 		if !clusterResourcesSynced {
-			err := m.specToFromHub(ctx, fromHubName, mcm.Spec.To, migrationv1alpha1.PhaseInitializing, clusters, nil, nil)
+			err := m.specToFromHub(ctx, fromHubName, mcm.Spec.To, migrationv1alpha1.PhaseInitializing, clusters, nil)
 			if err != nil {
 				return false, err
 			}
@@ -203,14 +202,13 @@ func (m *ClusterMigrationController) UpdateCondition(
 
 // specToFromHub specifies the manager send the message into "From Hub" via spec path(or topic)
 func (m *ClusterMigrationController) specToFromHub(ctx context.Context, fromHub string, toHub string, stage string,
-	managedClusters []string, klusterletConfig *klusterletv1alpha1.KlusterletConfig, bootstrapSecret *corev1.Secret,
+	managedClusters []string, bootstrapSecret *corev1.Secret,
 ) error {
 	managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{
-		Stage:            stage,
-		ToHub:            toHub,
-		ManagedClusters:  managedClusters,
-		BootstrapSecret:  bootstrapSecret,
-		KlusterletConfig: klusterletConfig,
+		Stage:           stage,
+		ToHub:           toHub,
+		ManagedClusters: managedClusters,
+		BootstrapSecret: bootstrapSecret,
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)

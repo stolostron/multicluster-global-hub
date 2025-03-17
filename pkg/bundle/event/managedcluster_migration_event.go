@@ -8,10 +8,11 @@ import (
 
 type ManagedClusterMigrationFromEvent struct {
 	// Allowed values: "initializing", "registering"
-	Stage            string                               `json:"stage"`
-	ToHub            string                               `json:"toHub"`
-	ManagedClusters  []string                             `json:"managedClusters,omitempty"`
-	BootstrapSecret  *corev1.Secret                       `json:"bootstrapSecret,omitempty"`
+	Stage           string         `json:"stage"`
+	ToHub           string         `json:"toHub"`
+	ManagedClusters []string       `json:"managedClusters,omitempty"`
+	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
+	// Deprecated: generate in the 
 	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig,omitempty"`
 }
 
