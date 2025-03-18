@@ -12,7 +12,7 @@ COPY ./pkg/ ./pkg/
 RUN go build -o bin/agent ./agent/cmd/agent/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ENV USER_UID=1001
 ENV USER_NAME=agent
 
@@ -22,8 +22,7 @@ COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
 COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
 RUN  /usr/local/scripts/user_setup
 
-RUN microdnf update && \
-    microdnf clean all
+RUN microdnf update -y && microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/agent"]
