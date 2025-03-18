@@ -171,7 +171,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	if requeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	// TODO: completed
 	return ctrl.Result{}, nil
 }
 
