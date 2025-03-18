@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-kratos/kratos/v2/errors"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -20,9 +23,6 @@ import (
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-kratos/kratos/v2/errors"
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -123,9 +123,8 @@ func (s *managedClusterMigrationToSyncer) sendCleanupKlusterletAddonConfig(ctx c
 ) error {
 	config := &addonv1.KlusterletAddonConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:              managedCluster,
-			Namespace:         managedCluster,
-			DeletionTimestamp: &metav1.Time{time.Now()},
+			Name:      managedCluster,
+			Namespace: managedCluster,
 		},
 	}
 
