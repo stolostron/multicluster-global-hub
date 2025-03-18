@@ -26,13 +26,13 @@ var _ = Describe("ResyncBundle", func() {
 		// resync the cluster info
 		payloadBytes, err := json.Marshal([]string{string(enum.HubClusterInfoType)})
 		Expect(err).NotTo(HaveOccurred())
-		err = genericProducer.SendEvent(ctx, utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventSourceGlobalHub, transport.Broadcast, payloadBytes))
+		err = genericProducer.SendEvent(ctx, utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventGlobalHubClusterName, transport.Broadcast, payloadBytes))
 		Expect(err).NotTo(HaveOccurred())
 
 		// resync the unknow message
 		payloadBytes, err = json.Marshal([]string{"unknownMsg"})
 		Expect(err).NotTo(HaveOccurred())
-		err = genericProducer.SendEvent(ctx, utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventSourceGlobalHub, transport.Broadcast, payloadBytes))
+		err = genericProducer.SendEvent(ctx, utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventGlobalHubClusterName, transport.Broadcast, payloadBytes))
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() error {

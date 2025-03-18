@@ -60,7 +60,8 @@ var _ = Describe("ManagerClusterLabelBundle", func() {
 		payloadBytes, err := json.Marshal(managedClusterLabelsSpecBundle)
 		Expect(err).NotTo(HaveOccurred())
 
-		evt := utils.ToCloudEvent(constants.ManagedClustersLabelsMsgKey, constants.CloudEventSourceGlobalHub, agentConfig.LeafHubName, payloadBytes)
+		evt := utils.ToCloudEvent(constants.ManagedClustersLabelsMsgKey, constants.CloudEventGlobalHubClusterName,
+			agentConfig.LeafHubName, payloadBytes)
 		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 

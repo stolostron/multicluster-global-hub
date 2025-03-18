@@ -34,7 +34,7 @@ func TestHandleKlusterletAddonConfigEvent(t *testing.T) {
 
 	evt := cloudevents.NewEvent()
 	evt.SetType(string(enum.KlusterletAddonConfigType))
-	evt.SetSource(constants.CloudEventSourceGlobalHub)
+	evt.SetSource(constants.CloudEventGlobalHubClusterName)
 	evt.SetExtension(eventversion.ExtVersion, "1.0")
 	_ = evt.SetData(cloudevents.ApplicationJSON, []byte(`{
 "kind": "KlusterletAddonConfig",
