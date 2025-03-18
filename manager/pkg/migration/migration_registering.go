@@ -54,7 +54,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonClusterNotRegistered
 		}
-		log.Infof("migration registering condition %s(%s): %s", condType, condReason, condMsg)
+		log.Infof("registering condition %s(%s): %s", condType, condReason, condMsg)
 		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg)
 		if err != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, err)

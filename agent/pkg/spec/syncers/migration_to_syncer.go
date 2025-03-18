@@ -7,10 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-kratos/kratos/v2/errors"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -18,7 +16,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,7 +40,7 @@ func NewManagedClusterMigrationToSyncer(client client.Client,
 	transportClient transport.TransportClient,
 ) *managedClusterMigrationToSyncer {
 	return &managedClusterMigrationToSyncer{
-		log:             logger.ZapLogger("managed-cluster-migration-to-syncer"),
+		log:             logger.DefaultZapLogger(),
 		client:          client,
 		transportClient: transportClient,
 		bundleVersion:   eventversion.NewVersion(),
@@ -79,46 +76,42 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	}
 
 	klusterletAddonConfig := managedClusterMigrationToEvent.KlusterletAddonConfig
+	existingAddonConfig := &addonv1.KlusterletAddonConfig{}
 	if klusterletAddonConfig != nil {
-		err := wait.PollUntilContextTimeout(ctx, 1*time.Second, 3*time.Minute, true, func(ctx context.Context) (
-			bool, error,
-		) {
-			existingAddonConfig := &addonv1.KlusterletAddonConfig{}
-			err := s.client.Get(ctx, client.ObjectKey{
-				Name: klusterletAddonConfig.Name, Namespace: klusterletAddonConfig.Namespace,
-			}, existingAddonConfig)
-			if err != nil {
-				if errors.IsNotFound(err) {
-					if err := s.client.Create(ctx, klusterletAddonConfig); err != nil {
-						s.log.Debugf("cannot create klusterletAddonConfig %v", err)
-						return false, nil
-					} else {
-						return true, nil
-					}
-				}
-				s.log.Debugf("failed to get the klusterletAddonConfig %v", err)
-				return false, nil
-			} else {
-				if !apiequality.Semantic.DeepDerivative(existingAddonConfig.Spec, klusterletAddonConfig.Spec) {
-					existingAddonConfig.Spec = klusterletAddonConfig.Spec
-					if err := s.client.Update(ctx, klusterletAddonConfig); err != nil {
-						s.log.Debugf("cannot update klusterletAddonConfig %v", err)
-						return false, nil
-					}
-				}
+		err := s.client.Get(ctx, client.ObjectKeyFromObject(klusterletAddonConfig), existingAddonConfig)
+		if err != nil && !apierrors.IsNotFound(err) {
+			s.log.Errorf("failed to get the klusterletAddonConfig %v", err)
+			return err
+		} else if apierrors.IsNotFound(err) {
+			s.log.Infof("deploying migration addonConfigs %s", klusterletAddonConfig.GetName())
+			if err := s.client.Create(ctx, klusterletAddonConfig); err != nil {
+				s.log.Errorf("cannot create klusterletAddonConfig %v", err)
+				return err
 			}
-			return true, nil
-		})
+		}
+
+		if !apiequality.Semantic.DeepDerivative(existingAddonConfig.Spec, klusterletAddonConfig.Spec) {
+			s.log.Infof("updating migration addonConfigs %s", klusterletAddonConfig.GetName())
+			existingAddonConfig.Spec = klusterletAddonConfig.Spec
+			if err := s.client.Update(ctx, klusterletAddonConfig); err != nil {
+				s.log.Errorf("cannot update klusterletAddonConfig %v", err)
+				return err
+			}
+		}
+
+		// If it's directly sent to the global hub, mark it as completed.
+		s.log.Infof("sending addonConfigs applied confirmation %s", klusterletAddonConfig.Name)
+		err = s.sendAddonConfigConfirmation(ctx, klusterletAddonConfig.Name, constants.CloudEventGlobalHubClusterName)
 		if err != nil {
 			return err
 		}
-
 	}
+
 	return nil
 }
 
 // sendKlusterletAddonConfig sends the klusterletAddonConfig back to the global hub
-func (s *managedClusterMigrationToSyncer) sendCleanupKlusterletAddonConfig(ctx context.Context,
+func (s *managedClusterMigrationToSyncer) sendAddonConfigConfirmation(ctx context.Context,
 	managedCluster string, toHub string,
 ) error {
 	config := &addonv1.KlusterletAddonConfig{
@@ -137,8 +130,7 @@ func (s *managedClusterMigrationToSyncer) sendCleanupKlusterletAddonConfig(ctx c
 	e := cloudevents.NewEvent()
 	e.SetType(string(enum.KlusterletAddonConfigType))
 	e.SetSource(configs.GetLeafHubName())
-	// If it's directly sent to the global hub, mark it as completed.
-	e.SetExtension(constants.CloudEventExtensionKeyClusterName, constants.CloudEventGlobalHubClusterName)
+	e.SetExtension(constants.CloudEventExtensionKeyClusterName, toHub)
 	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
 	_ = e.SetData(cloudevents.ApplicationJSON, payloadBytes)
 	if s.transportClient != nil {

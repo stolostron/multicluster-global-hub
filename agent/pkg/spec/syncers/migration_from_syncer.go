@@ -66,6 +66,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	s.log.Debugf("received managed cluster migration event %s", string(payload))
 
 	if managedClusterMigrationEvent.Stage == migrationv1alpha1.PhaseInitializing {
+		s.log.Infof("initializing managed cluster migration event")
 		managedClusters := managedClusterMigrationEvent.ManagedClusters
 		toHub := managedClusterMigrationEvent.ToHub
 		for _, managedCluster := range managedClusters {
@@ -77,6 +78,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	if managedClusterMigrationEvent.Stage == migrationv1alpha1.PhaseMigrating {
+		s.log.Infof("registering managed cluster migration event")
 		if err := s.registering(ctx, managedClusterMigrationEvent); err != nil {
 			return err
 		}
@@ -84,6 +86,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	if managedClusterMigrationEvent.Stage == migrationv1alpha1.PhaseCompleted {
+		s.log.Infof("completed managed cluster migration event")
 		if err := s.cleanup(ctx, managedClusterMigrationEvent); err != nil {
 			return err
 		}
@@ -109,7 +112,7 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 			return err
 		}
 	} else {
-		m.log.Infof("deleting bootstrap secret %s", bootstrapSecret.GetName())
+		m.log.Infof("delete bootstrap secret %s", bootstrapSecret.GetName())
 		if err := m.client.Delete(ctx, bootstrapSecret); err != nil {
 			return err
 		}
@@ -128,12 +131,13 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 			return err
 		}
 	} else {
+		m.log.Infof("delete klusterletconfig secret %s", klusterletConfig.GetName())
 		if err := m.client.Delete(ctx, klusterletConfig); err != nil {
 			return err
 		}
 	}
 
-	// update managed cluster annotations to point to the new klusterletconfig
+	m.log.Infof("detach clusters %v", migratingEvt.ManagedClusters)
 	if err := m.detachManagedClusters(ctx, migratingEvt.ManagedClusters); err != nil {
 		m.log.Errorf("failed to detach managed clusters: %v", err)
 		return err
@@ -237,7 +241,7 @@ func (m *managedClusterMigrationFromSyncer) registering(
 	}
 
 	// ensure the bootstrap secret is propagated into the managed cluster
-	time.Sleep(sleepForApplying)
+	// time.Sleep(sleepForApplying)
 
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {

@@ -38,7 +38,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonAddonConfigNotDeployed
 		}
-		log.Info("migration deploying condition %s(%s): %s", condType, condReason, condMsg)
+		log.Infof("deploying condition %s(%s): %s", condType, condReason, condMsg)
 		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg)
 		if err != nil {
 			log.Errorf("failed to update the condition %v", err)
