@@ -22,28 +22,51 @@ import (
 
 const (
 	conditionReasonClusterNotRegistered   = "ClusterNotRegistered"
+	conditionReasonClusterRegistered      = "ClusterRegistered"
 	conditionReasonAddonConfigNotDeployed = "AddonConfigNotDeployed"
-	conditionReasonClusterMigrated        = "ClusterMigrated"
+	conditionReasonAddonConfigDeployed    = "AddonConfigDeployed"
 )
 
-// Migrating:
-//  1. From Hub: select the cluster hasn't been synced to the new hub. -> event with migrating
-//  2. To Hub: deploy the addon config into the current Hub
-func (m *ClusterMigrationController) migrating(ctx context.Context,
+// Migrating - registering:
+//  1. Source Hub: set the bootstrap secret for the migrating clusters, change hubAccpetClient to trigger registering
+//     Related Issue: https://issues.redhat.com/browse/ACM-15758
+//  2. Destination Hub: don't need to do anything
+//  3. Global Hub: update the staging in database from MigrationResourceInitialized -> MigrationClusterRegistered
+func (m *ClusterMigrationController) registering(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	// skip if the phase isn't Migrating and the MigrationResourceDeployed condition is True
 	if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating &&
-		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
+		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationClusterRegistered) {
 		return false, nil
 	}
 
-	// To From: select the registering items to start registering
-	var registering []models.ManagedClusterMigration
+	log.Info("migration registering")
+
+	condType := migrationv1alpha1.MigrationClusterRegistered
+	condStatus := metav1.ConditionTrue
+	condReason := conditionReasonClusterRegistered
+	condMsg := "All the migrated clusters have been registered"
+	var err error
+
+	defer func() {
+		if err != nil {
+			condMsg = err.Error()
+			condStatus = metav1.ConditionFalse
+			condReason = conditionReasonClusterNotRegistered
+		}
+		log.Infof("migration registering condition %s(%s): %s", condType, condReason, condMsg)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg)
+		if err != nil {
+			log.Errorf("failed to update the %s condition: %v", condType, err)
+		}
+	}()
+
+	// To From: select the initialized items to start initialized
+	var initialized []models.ManagedClusterMigration
 	db := database.GetGorm()
-	err := db.Where(&models.ManagedClusterMigration{
+	err = db.Where(&models.ManagedClusterMigration{
 		Stage: migrationv1alpha1.MigrationResourceInitialized,
-	}).Find(&registering).Error
+	}).Find(&initialized).Error
 	if err != nil {
 		return false, err
 	}
@@ -51,18 +74,22 @@ func (m *ClusterMigrationController) migrating(ctx context.Context,
 	// check if the cluster is synced to "To Hub"
 	// if not, sent registering event to "From hub", else change the item into registered
 	registeringClusters := map[string][]string{}
-	registeredClusters := make([]models.ManagedClusterMigration, 0)
-	for _, m := range registering {
+	updateRegisteredClusters := make([]models.ManagedClusterMigration, 0)
+	registeredClusters := map[string][]string{}
+	for _, m := range initialized {
 		cluster := models.ManagedCluster{}
 		err := db.Where("payload->'metadata'->>'name' = ?", m.ClusterName).First(&cluster).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) { // error
 			return false, err
 		} else if errors.Is(err, gorm.ErrRecordNotFound) { // not found -> migrating
-			log.Warn("cluster(%s) is not found in the table", m.ClusterName)
+			condStatus = metav1.ConditionFalse
+			condReason = conditionReasonClusterNotRegistered
+			condMsg = fmt.Sprintf("cluster(%s) is not found in the table", m.ClusterName)
+			log.Warn(condMsg)
 		} else { // found
 			if cluster.LeafHubName == m.ToHub { // synced into target hub
-				log.Info("cluster(%s) is switched to hub(%s) in the table", m.ClusterName, m.ToHub)
-				err := db.Where(&models.ManagedClusterMigration{
+				log.Infof("cluster(%s) is switched to hub(%s) in the table", m.ClusterName, m.ToHub)
+				err := db.Model(&models.ManagedClusterMigration{}).Where(&models.ManagedClusterMigration{
 					ClusterName: m.ClusterName,
 					ToHub:       m.ToHub, FromHub: m.FromHub,
 				}).Update("stage", migrationv1alpha1.MigrationClusterRegistered).Error
@@ -70,28 +97,45 @@ func (m *ClusterMigrationController) migrating(ctx context.Context,
 					return false, err
 				}
 				m.Stage = migrationv1alpha1.MigrationClusterRegistered
-				registeredClusters = append(registeredClusters, m)
+				updateRegisteredClusters = append(updateRegisteredClusters, m)
+				registeredClusters[m.FromHub] = append(registeredClusters[m.FromHub], m.ClusterName)
 			} else {
-				log.Info("cluster(%s) is not switched into hub(%s)", m.ClusterName, m.ToHub)
+				log.Infof("cluster(%s) is not switched into hub(%s)", m.ClusterName, m.ToHub)
 				registeringClusters[m.FromHub] = append(registeringClusters[m.FromHub], m.ClusterName)
 			}
 		}
 	}
 
-	conditionMessage := "All the migrated clusters have been registered"
-	conditionReason := conditionReasonAddonConfigNotDeployed
-	conditionStatus := metav1.ConditionTrue
-	if len(registeringClusters) > 0 {
-		bootstrapSecret, err := m.generateBootstrapSecret(ctx, mcm)
+	// forword the bootstrap secret to the source hub
+	bootstrapSecret, err := m.generateBootstrapSecret(ctx, mcm)
+	if err != nil {
+		return false, err
+	}
+
+	if len(updateRegisteredClusters) > 0 {
+		// registed successful, send complated event: detach the clusters, config and secret
+		for sourceHub, clusters := range registeredClusters {
+			err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.PhaseCompleted,
+				clusters, bootstrapSecret)
+		}
+
+		// update the registered migration items in database
+		err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
+			UpdateAll: true,
+		}).CreateInBatches(updateRegisteredClusters, 10).Error
 		if err != nil {
 			return false, err
 		}
+	}
 
+	if len(registeringClusters) > 0 {
 		// sending to from hub cluster with migrating notifications
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
 			notRegisterClusters = append(notRegisterClusters, clusters...)
-			err = m.specToFromHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.PhaseMigrating, clusters, bootstrapSecret)
+			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.PhaseMigrating, clusters,
+				bootstrapSecret)
 			if err != nil {
 				return false, err
 			}
@@ -102,72 +146,14 @@ func (m *ClusterMigrationController) migrating(ctx context.Context,
 		if len(notRegisterClusters) > 3 {
 			clusters = append(notRegisterClusters[:3], "...")
 		}
-		conditionMessage = fmt.Sprintf("The clusters %v are not registered into hub(%s)", clusters,
+		condMsg = fmt.Sprintf("The clusters %v are not registered into hub(%s)", clusters,
 			mcm.Spec.To)
-		conditionReason = conditionReasonClusterNotRegistered
-		conditionStatus = metav1.ConditionFalse
-	}
+		condReason = conditionReasonClusterNotRegistered
+		condStatus = metav1.ConditionFalse
 
-	// update the registered migration items in database
-	if len(registeredClusters) > 0 {
-		err := db.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
-			UpdateAll: true,
-		}).CreateInBatches(registeredClusters, 10).Error
-		if err != nil {
-			return false, err
-		}
-	}
-
-	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationClusterRegistered,
-		conditionStatus, conditionReason, conditionMessage)
-	if err != nil {
-		return false, err
-	}
-
-	if len(registeringClusters) > 0 {
 		log.Info("waiting clusters to be registered to new hub")
 		return true, nil
 	}
-
-	// deploy
-	var deploying []models.ManagedClusterMigration
-	err = db.Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationClusterRegistered,
-	}).Find(&deploying).Error
-	if err != nil {
-		return false, err
-	}
-
-	conditionMessage = "All the migrated cluster configs have been deployed"
-	conditionReason = conditionReasonClusterMigrated
-	conditionStatus = metav1.ConditionTrue
-	if len(deploying) > 0 {
-		migratingMessages := []string{}
-		for idx, m := range deploying {
-			migratingMessages = append(migratingMessages, m.ClusterName)
-			// if the migrating clusters more than 3, only show the first 3 items in the condition message
-			if idx == 2 {
-				migratingMessages = append(migratingMessages, "...")
-				break
-			}
-		}
-		conditionMessage = fmt.Sprintf("The cluster configs %v are not deployed into hub(%s)",
-			migratingMessages, mcm.Spec.To)
-		conditionStatus = metav1.ConditionFalse
-		conditionReason = conditionReasonAddonConfigNotDeployed
-	}
-
-	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceDeployed,
-		conditionStatus, conditionReason, conditionMessage)
-	if err != nil {
-		return false, err
-	}
-
-	if len(deploying) > 0 {
-		return true, nil
-	}
-
 	return false, nil
 }
 
@@ -192,7 +178,7 @@ func (m *ClusterMigrationController) generateBootstrapSecret(ctx context.Context
 	}
 
 	config := clientcmdapi.NewConfig()
-	config.Clusters[mcm.GetName()] = &clientcmdapi.Cluster{
+	config.Clusters[toHubCluster] = &clientcmdapi.Cluster{
 		Server:                   managedCluster.Spec.ManagedClusterClientConfigs[0].URL,
 		CertificateAuthorityData: desiredSecret.Data["ca.crt"],
 	}

@@ -12,11 +12,12 @@ type ManagedClusterMigrationFromEvent struct {
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
-	// Deprecated: generate in the 
+	// Deprecated
 	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig,omitempty"`
 }
 
 type ManagedClusterMigrationToEvent struct {
+	Stage                                 string                         `json:"stage"`
 	ManagedServiceAccountName             string                         `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string                         `json:"managedServiceAccountInstallNamespace"`
 	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig"`

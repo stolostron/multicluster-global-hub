@@ -394,10 +394,10 @@ func (m *MigrationController) syncMigrationFrom(ctx context.Context,
 	}
 
 	eventType := constants.CloudEventTypeMigrationFrom
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, fromHub, payloadBytes)
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub, payloadBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
-			eventType, constants.CloudEventSourceGlobalHub, fromHub, err)
+			eventType, constants.CloudEventGlobalHubClusterName, fromHub, err)
 	}
 
 	return nil
@@ -439,10 +439,10 @@ func (m *MigrationController) syncMigrationTo(ctx context.Context,
 
 	// send the event to the destination managed hub
 	eventType := constants.CloudEventTypeMigrationTo
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, payloadToBytes)
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
-			eventType, constants.CloudEventSourceGlobalHub, migration.Spec.To, err)
+			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
 	}
 
 	return nil
