@@ -2,7 +2,7 @@
 # Copyright Contributors to the Open Cluster Management project
 
 # Stage 1: build the target binaries
-FROM registry.ci.openshift.org/stolostron/builder:go1.21-linux AS builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.23-linux AS builder
 
 WORKDIR /workspace
 COPY go.sum go.mod ./
@@ -12,7 +12,7 @@ COPY ./pkg ./pkg
 RUN CGO_ENABLED=0 go build -a -installsuffix cgo -o bin/multicluster-global-hub-operator operator/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
     USER_UID=1001 \
@@ -21,8 +21,7 @@ ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
 # install operator binary
 COPY --from=builder /workspace/bin/multicluster-global-hub-operator ${OPERATOR}
 
-RUN microdnf update && \
-    microdnf clean all
+RUN microdnf update -y && microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/multicluster-global-hub-operator"]
