@@ -31,8 +31,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 )
 
-// go test -run ^TestMigrationFromSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
+// go test -run ^TestMigrationSourceHubSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
 func TestMigrationSourceHubSyncer(t *testing.T) {
+	sleepForApplying = 1
+
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
@@ -59,9 +61,10 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 		receivedMigrationEventBundle bundleevent.ManagedClusterMigrationFromEvent
 		initObjects                  []client.Object
 		expectedProduceEvent         *cloudevents.Event
+		expectedObjects              []client.Object
 	}{
 		{
-			name: "initializing: migrate cluster1 from hub1 to hub2",
+			name: "Initializing: migrate cluster1 from hub1 to hub2",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -95,17 +98,96 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				return &evt
 			}(),
 		},
+		{
+			name: "Migrating: migrate cluster1 from hub1 to hub2",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+				ToHub: "hub2",
+				Stage: migrationv1alpha1.PhaseMigrating,
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bootstrapSecretNamePrefix + "hub2",
+						Namespace: "multicluster-engine",
+					},
+					Data: map[string][]byte{
+						"test1": []byte(`payload`),
+					},
+				},
+				ManagedClusters: []string{"cluster1"},
+			},
+			expectedProduceEvent: nil,
+			expectedObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bootstrapSecretNamePrefix + "hub2",
+						Namespace: "multicluster-engine",
+					},
+				},
+				&klusterletv1alpha1.KlusterletConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: klusterletConfigNamePrefix + "hub2",
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						// Namespace: "cluster1",
+					},
+				},
+			},
+		},
+		{
+			name: "Completed: migrate cluster1 from hub1 to hub2",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+				ToHub: "hub2",
+				Stage: migrationv1alpha1.PhaseCompleted,
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bootstrapSecretNamePrefix + "hub2",
+						Namespace: "multicluster-engine",
+					},
+					Data: map[string][]byte{
+						"test1": []byte(`payload`),
+					},
+				},
+				ManagedClusters: []string{"cluster1"},
+			},
+			expectedProduceEvent: nil,
+			expectedObjects:      nil,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			client := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(c.initObjects...).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
+				c.initObjects...).Build()
 
 			producer := ProducerMock{}
 			transportClient := &controller.TransportClient{}
 			transportClient.SetProducer(&producer)
 
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client, transportClient)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(fakeClient, transportClient)
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
@@ -120,15 +202,21 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}
 
 			sentEvent := producer.sentEvent
-			expectEvent := c.expectedProduceEvent
 
+			expectEvent := c.expectedProduceEvent
 			if expectEvent != nil {
 				// fmt.Println(sentEvent)
 				assert.Equal(t, sentEvent.Type(), expectEvent.Type())
 				assert.Equal(t, sentEvent.Source(), expectEvent.Source())
 				assert.Equal(t, sentEvent.Extensions(), sentEvent.Extensions())
-			} else {
-				assert.Nil(t, sentEvent)
+			}
+
+			if c.expectedObjects != nil {
+				for _, obj := range c.expectedObjects {
+					err = fakeClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+					assert.Nil(t, err)
+					// utils.PrettyPrint(obj)
+				}
 			}
 		})
 	}
