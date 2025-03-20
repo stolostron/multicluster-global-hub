@@ -7,7 +7,7 @@ export KUBECTL_VERSION=v1.28.1
 export CLUSTERADM_VERSION=0.8.2
 export KIND_VERSION=v0.23.0
 export ROUTE_VERSION=release-4.12
-export GO_VERSION=go1.21.7
+export GO_VERSION=go1.23.6
 export GINKGO_VERSION=v2.17.2
 
 # Environment Variables 
@@ -100,7 +100,7 @@ kind_cluster() {
 
 init_hub() {
   echo -e "${CYAN} Init Hub $1 ... $NC"
-  clusteradm init --wait --context "$1" 2>&1
+  clusteradm init --wait --context "$1" >/dev/null 2>&1 # not echo the senetive information
   kubectl wait deployment -n open-cluster-management cluster-manager --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-controller --for condition=Available=True --timeout=200s --context "$1"
   kubectl wait deployment -n open-cluster-management-hub cluster-manager-registration-webhook --for condition=Available=True --timeout=200s --context "$1"
@@ -504,8 +504,8 @@ check_golang() {
     sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
     sudo rm $GO_VERSION.linux-amd64.tar.gz
   fi
-  if [[ $(go version) < "go version go1.20" ]]; then
-    echo "go version is less than 1.20, update to $GO_VERSION"
+  if [[ $(go version) < "go version go1.23" ]]; then
+    echo "go version is less than 1.23, update to $GO_VERSION"
     sudo rm -rf /usr/local/go
     wget https://dl.google.com/go/$GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
     sudo tar -C /usr/local/ -xvf $GO_VERSION.linux-amd64.tar.gz >/dev/null 2>&1
