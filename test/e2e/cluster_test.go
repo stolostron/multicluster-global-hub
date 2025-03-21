@@ -310,7 +310,7 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 				return nil
 			}
 		}
-		return fmt.Errorf("failed to add label [%s: %s] to cluster %s", labelKey, labelVal, cluster.Name)
+		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, managedClusterInfo: %v", labelKey, labelVal, cluster.Name, *managedClusterInfo)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 

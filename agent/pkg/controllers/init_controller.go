@@ -6,6 +6,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/rest"
@@ -83,7 +84,7 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 
 	// add spec controllers
 	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to add spec syncer: %w", err)
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	// all the controller started, then add the lease controller

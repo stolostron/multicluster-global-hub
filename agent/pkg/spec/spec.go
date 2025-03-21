@@ -19,11 +19,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 ) error {
 	log := logger.DefaultZapLogger()
 	if transportClient.GetConsumer() == nil {
-		log.Info("the consumer is not initialized for the spec controllers")
 		return fmt.Errorf("the consumer is not initialized")
 	}
 	if transportClient.GetProducer() == nil {
-		log.Info("the producer is not initialized for the spec controllers")
 		return fmt.Errorf("the producer is not initialized")
 	}
 

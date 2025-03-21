@@ -36,9 +36,6 @@ wait_cmd "kubectl delete multiclusterglobalhubs --all -n $GH_NAMESPACE --ignore-
 
 export TARGET_NAMESPACE=$GH_NAMESPACE
 
-kubectl delete clusterrolebinding multicluster-global-hub-operator-rolebinding --ignore-not-found=true
-kubectl delete clusterrolebinding multicluster-global-hub-operator-aggregated-clusterrolebinding --ignore-not-found=true
-
 ## wait kafka/kafkatopic/kafka user be deleted
 echo "Check kafkatopics deleted"
 if [[ ! -z $(kubectl get kafkatopic -n "$GH_NAMESPACE" --ignore-not-found=true) ]]; then
