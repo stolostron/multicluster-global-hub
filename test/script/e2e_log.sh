@@ -23,6 +23,8 @@ echo ">> COMPONENT=$COMPONENT NAMESPACE=$NAMESPACE CLUSTER=$CLUSTER_NAME"
 kubectl describe deploy "$COMPONENT" -n "$NAMESPACE"
 kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
 
+echo ">>>> managedclusters"
+kubectl get mcl -oyaml
 
 [ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
 

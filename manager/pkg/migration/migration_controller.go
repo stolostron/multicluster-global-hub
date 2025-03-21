@@ -113,7 +113,9 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	log.Infof("reconcile managed cluster migration %v", req)
 	mcm := &migrationv1alpha1.ManagedClusterMigration{}
 	// the migration name is the same as managedserviceaccount and the secret
+
 	err := m.Get(ctx, types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: req.Name}, mcm)
+	log.Infof("get mr %v", err)
 	if apierrors.IsNotFound(err) {
 		// If the custom resource is not found then it usually means that it was deleted or not created
 		// In this way, we will stop the reconciliation
@@ -128,11 +130,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	if !mcm.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 			if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
+				log.Errorf("failed to delete msa: %v", err)
 				return ctrl.Result{}, err
 			}
 
 			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
 			if err := m.Update(ctx, mcm); err != nil {
+				log.Errorf("failed to remove finalizer: %v", err)
 				return ctrl.Result{}, err
 			}
 		}
@@ -143,15 +147,21 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
 	}
+
 	if err := m.Update(ctx, mcm); err != nil {
 		return ctrl.Result{}, err
 	}
+	log.Infof("initialzing")
 
 	// initializing
 	requeue, err := m.initializing(ctx, mcm)
 	if err != nil {
+		log.Errorf("failed to initializeing: %v", err)
 		return ctrl.Result{}, err
 	}
+
+	log.Infof("requeue %v", requeue)
+
 	if requeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}

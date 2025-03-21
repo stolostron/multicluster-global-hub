@@ -176,6 +176,7 @@ var _ = BeforeSuite(func() {
 			superuserDatabaseURI := "postgresql://postgres" + ":" +
 				string(databaseDefaultSecret.Data["database-admin-password"]) + "@" + globalhubIp +
 				":32433/hoh?sslmode=verify-ca"
+
 			Eventually(func() (err error) {
 				err = database.InitGormInstance(&database.DatabaseConfig{
 					URL:        superuserDatabaseURI,
