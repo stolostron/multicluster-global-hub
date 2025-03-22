@@ -48,7 +48,7 @@ var _ = Describe("GenericSpecBundle", func() {
 		payloadBytes, err := json.Marshal(baseBundle)
 		Expect(err).NotTo(HaveOccurred())
 
-		evt := utils.ToCloudEvent("Placements", constants.CloudEventSourceGlobalHub, transport.Broadcast, payloadBytes)
+		evt := utils.ToCloudEvent("Placements", constants.CloudEventGlobalHubClusterName, transport.Broadcast, payloadBytes)
 		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -100,7 +100,7 @@ var _ = Describe("GenericSpecBundle", func() {
 		payloadBytes, err := json.Marshal(baseBundle)
 		Expect(err).NotTo(HaveOccurred())
 
-		evt := utils.ToCloudEvent("Placementbinding", constants.CloudEventSourceGlobalHub, transport.Broadcast, payloadBytes)
+		evt := utils.ToCloudEvent("Placementbinding", constants.CloudEventGlobalHubClusterName, transport.Broadcast, payloadBytes)
 		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -139,7 +139,7 @@ var _ = Describe("GenericSpecBundle", func() {
 		By("Send Config Bundle by transport")
 		payloadBytes, err := json.Marshal(baseBundle)
 		Expect(err).NotTo(HaveOccurred())
-		evt := utils.ToCloudEvent("Config", constants.CloudEventSourceGlobalHub, transport.Broadcast, payloadBytes)
+		evt := utils.ToCloudEvent("Config", constants.CloudEventGlobalHubClusterName, transport.Broadcast, payloadBytes)
 		err = genericProducer.SendEvent(ctx, evt)
 		Expect(err).NotTo(HaveOccurred())
 

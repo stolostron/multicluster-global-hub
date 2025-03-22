@@ -189,7 +189,7 @@ const (
 	KlusterletAddonConfigAnnotation = "global-hub.open-cluster-management.io/klusterlet-addon-config"
 
 	// cloudevent source for global hub
-	CloudEventSourceGlobalHub = "global-hub"
+	CloudEventGlobalHubClusterName = "global-hub"
 	// cloudevent extension keys
 	CloudEventExtensionKeyClusterName = "clustername"
 	// CloudEventTypeManagedClusterMigrationFrom is the cloud event type for managed cluster migration from

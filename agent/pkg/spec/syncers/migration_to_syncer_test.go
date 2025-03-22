@@ -546,7 +546,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client, nil)
 
 			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
 			if err != nil {

@@ -186,10 +186,10 @@ var _ = Describe("migration", Ordered, func() {
 				if toEvent == nil {
 					return fmt.Errorf("toEvent is nil")
 				}
-				if fromEvent.Source() != constants.CloudEventSourceGlobalHub {
+				if fromEvent.Source() != constants.CloudEventGlobalHubClusterName {
 					return fmt.Errorf("fromEvent source is not correct")
 				}
-				if toEvent.Source() != constants.CloudEventSourceGlobalHub {
+				if toEvent.Source() != constants.CloudEventGlobalHubClusterName {
 					return fmt.Errorf("toEvent source is not correct")
 				}
 				if fromEvent.Type() != constants.CloudEventTypeMigrationFrom {
@@ -476,13 +476,13 @@ var _ = Describe("migration", Ordered, func() {
 				if toEvent == nil {
 					return fmt.Errorf("toEvent is nil")
 				}
-				if fromEvent1.Source() != constants.CloudEventSourceGlobalHub {
+				if fromEvent1.Source() != constants.CloudEventGlobalHubClusterName {
 					return fmt.Errorf("fromEvent1 source is not correct")
 				}
-				if fromEvent2.Source() != constants.CloudEventSourceGlobalHub {
+				if fromEvent2.Source() != constants.CloudEventGlobalHubClusterName {
 					return fmt.Errorf("fromEvent2 source is not correct")
 				}
-				if toEvent.Source() != constants.CloudEventSourceGlobalHub {
+				if toEvent.Source() != constants.CloudEventGlobalHubClusterName {
 					return fmt.Errorf("toEvent source is not correct")
 				}
 				if fromEvent1.Type() != constants.CloudEventTypeMigrationFrom {

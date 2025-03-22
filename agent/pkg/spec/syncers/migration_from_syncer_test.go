@@ -5,26 +5,36 @@ package syncers
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
-	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 )
 
-// Deprecated
-func TestMigrationFromSyncer(t *testing.T) {
-	sleepForApplying = 2 * time.Second
+// go test -run ^TestMigrationSourceHubSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
+func TestMigrationSourceHubSyncer(t *testing.T) {
+	sleepForApplying = 1
+
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {
@@ -45,204 +55,20 @@ func TestMigrationFromSyncer(t *testing.T) {
 	if err := addonv1.SchemeBuilder.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add addonv1 to scheme: %v", err)
 	}
-	testPayload := []byte(`
-{
-	"managedclusters": [
-		"test"
-	],
-	"bootstrapsecret": {
-		"apiVersion": "v1",
-		"kind": "Secret",
-		"metadata": {
-			"name": "test",
-			"namespace": "test"
-		},
-		"data": {
-			"test": "dGVzdA=="
-		}
-	},
-	"klusterletconfig": {
-		"apiVersion": "klusterletconfig.open-cluster-management.io/v1alpha1",
-		"kind": "KlusterletConfig",
-		"metadata": {
-			"name": "test"
-		},
-		"spec": {
-			"bootstrapKubeConfigs": {
-				"type": "LocalSecrets",
-				"localSecrets": {
-					"kubeConfigSecrets": [
-						{
-							"name": "test"
-						}
-					]
-				}
-			}
-		}
-	}
-}`)
 
 	cases := []struct {
-		name                     string
-		initObjects              []client.Object
-		expectedBootstrapSecret  *corev1.Secret
-		expectedKlusterletConfig *klusterletv1alpha1.KlusterletConfig
+		name                         string
+		receivedMigrationEventBundle bundleevent.ManagedClusterMigrationFromEvent
+		initObjects                  []client.Object
+		expectedProduceEvent         *cloudevents.Event
+		expectedObjects              []client.Object
 	}{
 		{
-			name: "migration without existing bootstrap secret",
+			name: "Initializing: migrate cluster1 from hub1 to hub2",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: clusterv1.ManagedClusterSpec{
-						HubAcceptsClient:     true,
-						LeaseDurationSeconds: 60,
-					},
-				},
-			},
-			expectedBootstrapSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "test",
-				},
-				Data: map[string][]byte{
-					"test": []byte("test"),
-				},
-			},
-			expectedKlusterletConfig: &klusterletv1alpha1.KlusterletConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: klusterletv1alpha1.KlusterletConfigSpec{
-					BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-						Type: operatorv1.LocalSecrets,
-						LocalSecrets: operatorv1.LocalSecretsConfig{
-							KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-								{
-									Name: "test",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "migration with existing bootstrap secret",
-			initObjects: []client.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test",
-						Namespace: "test",
-					},
-					Data: map[string][]byte{
-						"test": []byte("foo"),
-					},
-				},
-				&clusterv1.ManagedCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: clusterv1.ManagedClusterSpec{
-						HubAcceptsClient:     true,
-						LeaseDurationSeconds: 60,
-					},
-				},
-			},
-			expectedBootstrapSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "test",
-				},
-				Data: map[string][]byte{
-					"test": []byte("test"),
-				},
-			},
-			expectedKlusterletConfig: &klusterletv1alpha1.KlusterletConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: klusterletv1alpha1.KlusterletConfigSpec{
-					BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-						Type: operatorv1.LocalSecrets,
-						LocalSecrets: operatorv1.LocalSecretsConfig{
-							KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-								{
-									Name: "test",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "migration with existing klusterlet config",
-			initObjects: []client.Object{
-				&klusterletv1alpha1.KlusterletConfig{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: klusterletv1alpha1.KlusterletConfigSpec{
-						BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-							Type: operatorv1.LocalSecrets,
-							LocalSecrets: operatorv1.LocalSecretsConfig{
-								KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-									{
-										Name: "test",
-									},
-								},
-							},
-						},
-					},
-				},
-				&clusterv1.ManagedCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-					},
-					Spec: clusterv1.ManagedClusterSpec{
-						HubAcceptsClient:     true,
-						LeaseDurationSeconds: 60,
-					},
-				},
-			},
-			expectedBootstrapSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "test",
-				},
-				Data: map[string][]byte{
-					"test": []byte("test"),
-				},
-			},
-			expectedKlusterletConfig: &klusterletv1alpha1.KlusterletConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: klusterletv1alpha1.KlusterletConfigSpec{
-					BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-						Type: operatorv1.LocalSecrets,
-						LocalSecrets: operatorv1.LocalSecretsConfig{
-							KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-								{
-									Name: "test",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "migration with manager cluster having annotation",
-			initObjects: []client.Object{
-				&clusterv1.ManagedCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test",
-						Annotations: map[string]string{
-							"open-cluster-management.io/klusterlet-config": "test",
-						},
+						Name: "cluster1",
 					},
 					Spec: clusterv1.ManagedClusterSpec{
 						HubAcceptsClient:     true,
@@ -251,70 +77,160 @@ func TestMigrationFromSyncer(t *testing.T) {
 				},
 				&addonv1.KlusterletAddonConfig{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test",
-						Namespace: "test",
+						Name:      "cluster1",
+						Namespace: "cluster1",
 					},
 				},
 			},
-			expectedBootstrapSecret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test",
-					Namespace: "test",
-				},
-				Data: map[string][]byte{
-					"test": []byte("test"),
-				},
+			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+				ToHub:           "hub2",
+				Stage:           migrationv1alpha1.PhaseInitializing,
+				ManagedClusters: []string{"cluster1"},
 			},
-			expectedKlusterletConfig: &klusterletv1alpha1.KlusterletConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: klusterletv1alpha1.KlusterletConfigSpec{
-					BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-						Type: operatorv1.LocalSecrets,
-						LocalSecrets: operatorv1.LocalSecretsConfig{
-							KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-								{
-									Name: "test",
-								},
-							},
-						},
+			expectedProduceEvent: func() *cloudevents.Event {
+				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
+
+				evt := cloudevents.NewEvent()
+				evt.SetType(string(enum.KlusterletAddonConfigType))
+				evt.SetSource("hub1")
+				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
+				evt.SetExtension(eventversion.ExtVersion, "0.1")
+				return &evt
+			}(),
+		},
+		{
+			name: "Migrating: migrate cluster1 from hub1 to hub2",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
 					},
 				},
 			},
+			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+				ToHub: "hub2",
+				Stage: migrationv1alpha1.PhaseMigrating,
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bootstrapSecretNamePrefix + "hub2",
+						Namespace: "multicluster-engine",
+					},
+					Data: map[string][]byte{
+						"test1": []byte(`payload`),
+					},
+				},
+				ManagedClusters: []string{"cluster1"},
+			},
+			expectedProduceEvent: nil,
+			expectedObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bootstrapSecretNamePrefix + "hub2",
+						Namespace: "multicluster-engine",
+					},
+				},
+				&klusterletv1alpha1.KlusterletConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: klusterletConfigNamePrefix + "hub2",
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						// Namespace: "cluster1",
+					},
+				},
+			},
+		},
+		{
+			name: "Completed: migrate cluster1 from hub1 to hub2",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+				ToHub: "hub2",
+				Stage: migrationv1alpha1.PhaseCompleted,
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      bootstrapSecretNamePrefix + "hub2",
+						Namespace: "multicluster-engine",
+					},
+					Data: map[string][]byte{
+						"test1": []byte(`payload`),
+					},
+				},
+				ManagedClusters: []string{"cluster1"},
+			},
+			expectedProduceEvent: nil,
+			expectedObjects:      nil,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			client := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(client, nil)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(c.initObjects...).WithObjects(
+				c.initObjects...).Build()
+
+			producer := ProducerMock{}
+			transportClient := &controller.TransportClient{}
+			transportClient.SetProducer(&producer)
+
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(fakeClient, transportClient)
+
+			payload, err := json.Marshal(c.receivedMigrationEventBundle)
+			assert.Nil(t, err)
+			if err != nil {
+				t.Errorf("Failed to marshal payload of managed cluster migration: %v", err)
+			}
 
 			// sync managed cluster migration
-			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
+			err = managedClusterMigrationSyncer.Sync(ctx, payload)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)
 			}
 
-			if c.expectedBootstrapSecret != nil {
-				foundBootstrapSecret := &corev1.Secret{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedBootstrapSecret.Name, Namespace: c.expectedBootstrapSecret.Namespace}, foundBootstrapSecret); err != nil {
-					t.Errorf("Failed to get bootstrap secret: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedBootstrapSecret, foundBootstrapSecret) {
-					t.Errorf("Expected bootstrap secret %v, but got %v", c.expectedBootstrapSecret, foundBootstrapSecret)
-				}
+			sentEvent := producer.sentEvent
+
+			expectEvent := c.expectedProduceEvent
+			if expectEvent != nil {
+				// fmt.Println(sentEvent)
+				assert.Equal(t, sentEvent.Type(), expectEvent.Type())
+				assert.Equal(t, sentEvent.Source(), expectEvent.Source())
+				assert.Equal(t, sentEvent.Extensions(), sentEvent.Extensions())
 			}
 
-			if c.expectedKlusterletConfig != nil {
-				foundKlusterletConfig := &klusterletv1alpha1.KlusterletConfig{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedKlusterletConfig.Name}, foundKlusterletConfig); err != nil {
-					t.Errorf("Failed to get klusterlet config: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedKlusterletConfig, foundKlusterletConfig) {
-					t.Errorf("Expected klusterlet config %v, but got %v", c.expectedKlusterletConfig, foundKlusterletConfig)
+			if c.expectedObjects != nil {
+				for _, obj := range c.expectedObjects {
+					err = fakeClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+					assert.Nil(t, err)
+					// utils.PrettyPrint(obj)
 				}
 			}
 		})
 	}
+}
+
+type ProducerMock struct {
+	sentEvent *cloudevents.Event
+}
+
+func (m *ProducerMock) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	m.sentEvent = &evt
+	return nil
+}
+
+func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig) error {
+	return nil
 }
