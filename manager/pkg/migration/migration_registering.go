@@ -86,6 +86,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			condReason = conditionReasonClusterNotRegistered
 			condMsg = fmt.Sprintf("cluster(%s) is not found in the table", m.ClusterName)
 			log.Warn(condMsg)
+			registeringClusters[m.FromHub] = append(registeringClusters[m.FromHub], m.ClusterName)
 		} else { // found
 			if cluster.LeafHubName == m.ToHub { // synced into target hub
 				log.Infof("cluster(%s) is switched to hub(%s) in the table", m.ClusterName, m.ToHub)
@@ -106,7 +107,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		}
 	}
 
-	// forword the bootstrap secret to the source hub
+	// forward the bootstrap secret to the source hub
 	bootstrapSecret, err := m.generateBootstrapSecret(ctx, mcm)
 	if err != nil {
 		return false, err
