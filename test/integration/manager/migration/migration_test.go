@@ -258,7 +258,7 @@ var _ = Describe("migration", Ordered, func() {
 			},
 		})
 		Expect(err).To(Succeed())
-		err = db.Save(models.ManagedCluster{
+		err = db.Model(models.ManagedCluster{}).Create(&models.ManagedCluster{
 			ClusterID:   "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
 			LeafHubName: "hub1",
 			Payload:     clusterPayload,
@@ -292,11 +292,8 @@ var _ = Describe("migration", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		// mock the cluster is registered
-		err = db.Save(models.ManagedCluster{
-			ClusterID:   "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
-			LeafHubName: "hub2",
-			Payload:     clusterPayload,
-		}).Error
+		err = db.Model(&models.ManagedCluster{}).Where("cluster_id = ?",
+			"23e5ae9e-c6b2-4793-be6b-2e52f870df10").Update("leaf_hub_name", "hub2").Error
 		Expect(err).To(Succeed())
 
 		// check the migration status is registered
@@ -317,6 +314,12 @@ var _ = Describe("migration", Ordered, func() {
 				migrationv1alpha1.MigrationClusterRegistered)
 			if registeredCond.Status == metav1.ConditionFalse {
 				return fmt.Errorf("the registering condition should be set into true")
+			}
+
+			registeredCond = meta.FindStatusCondition(migrationInstance.Status.Conditions,
+				migrationv1alpha1.MigrationResourceDeployed)
+			if registeredCond == nil {
+				return fmt.Errorf("the ResourceDeployed condition should appears in the migration CR")
 			}
 
 			utils.PrettyPrint(migrationInstance.Status)
