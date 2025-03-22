@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -110,7 +109,6 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	return nil
 }
 
-// sendKlusterletAddonConfig sends the klusterletAddonConfig back to the global hub
 func (s *managedClusterMigrationToSyncer) sendAddonConfigConfirmation(ctx context.Context,
 	managedCluster string, toHub string,
 ) error {
@@ -126,20 +124,8 @@ func (s *managedClusterMigrationToSyncer) sendAddonConfigConfirmation(ctx contex
 		return fmt.Errorf("failed to marshal klusterletAddonConfig (%v) - %w", config, err)
 	}
 
-	s.bundleVersion.Incr()
-	e := cloudevents.NewEvent()
-	e.SetType(string(enum.KlusterletAddonConfigType))
-	e.SetSource(configs.GetLeafHubName())
-	e.SetExtension(constants.CloudEventExtensionKeyClusterName, toHub)
-	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
-	_ = e.SetData(cloudevents.ApplicationJSON, payloadBytes)
-	if s.transportClient != nil {
-		if err := s.transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf("failed to send klusterletAddonConfig back to the global hub, due to %v", err)
-		}
-		s.bundleVersion.Next()
-	}
-	return nil
+	return SendEvent(ctx, s.transportClient, string(enum.KlusterletAddonConfigType), configs.GetLeafHubName(),
+		toHub, payloadBytes, s.bundleVersion)
 }
 
 func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Context,

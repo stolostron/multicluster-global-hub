@@ -6,10 +6,10 @@ package syncers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
@@ -29,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -290,21 +291,30 @@ func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx contex
 		return fmt.Errorf("failed to marshal klusterletAddonConfig (%v) - %w", config, err)
 	}
 
-	s.bundleVersion.Incr()
-	e := cloudevents.NewEvent()
-	e.SetType(string(enum.KlusterletAddonConfigType))
+	return SendEvent(ctx, s.transportClient, string(enum.KlusterletAddonConfigType), configs.GetLeafHubName(),
+		toHub, payloadBytes, s.bundleVersion)
+}
 
-	e.SetSource(configs.GetLeafHubName())
-	e.SetExtension(constants.CloudEventExtensionKeyClusterName, toHub)
-	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
-	_ = e.SetData(cloudevents.ApplicationJSON, payloadBytes)
-	if s.transportClient != nil {
-		if err := s.transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf("failed to send klusterletAddonConfig back to the global hub, due to %v", err)
+func SendEvent(
+	ctx context.Context,
+	transportClient transport.TransportClient,
+	eventType string,
+	source string,
+	clusterName string,
+	payloadBytes []byte,
+	version *eventversion.Version,
+) error {
+	version.Incr()
+	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
+	e.SetExtension(eventversion.ExtVersion, version.String())
+	if transportClient != nil {
+		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
+			return fmt.Errorf("failed to send event(%s) from %s to %s: %v", eventType, source, clusterName, err)
 		}
-		s.bundleVersion.Next()
+		version.Next()
+		return nil
 	}
-	return nil
+	return errors.New("transport client must not be nil")
 }
 
 func (s *managedClusterMigrationFromSyncer) detachManagedClusters(ctx context.Context, managedClusters []string) error {
