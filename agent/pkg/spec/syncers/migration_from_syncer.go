@@ -242,7 +242,7 @@ func (m *managedClusterMigrationFromSyncer) registering(
 	}
 
 	// ensure the bootstrap secret is propagated into the managed cluster
-	// time.Sleep(sleepForApplying)
+	time.Sleep(sleepForApplying)
 
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
