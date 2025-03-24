@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-kratos/kratos/v2/log"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
@@ -266,16 +267,15 @@ func (m *managedClusterMigrationFromSyncer) registering(
 func (s *managedClusterMigrationFromSyncer) sendKlusterletAddonConfig(ctx context.Context,
 	managedCluster string, toHub string,
 ) error {
-	config := &addonv1.KlusterletAddonConfig{}
+	config := &addonv1.KlusterletAddonConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: managedCluster, Namespace: managedCluster},
+	}
 	// send klusterletAddonConfig to global hub so that it can be transferred to the target cluster
-	if err := s.client.Get(ctx, types.NamespacedName{
-		Name:      managedCluster,
-		Namespace: managedCluster,
-	}, config); err != nil {
+	if err := s.client.Get(ctx, client.ObjectKeyFromObject(config), config); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		return nil
+		log.Infof("klusterletAddonConfig %s doesn't exist", managedCluster)
 	}
 	// do cleanup
 	config.SetManagedFields(nil)
