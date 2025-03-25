@@ -81,6 +81,6 @@ kubectl create secret generic "$transport_secret" -n "$target_namespace" --kubec
 echo "transport secret is ready in $target_namespace namespace!"
 
 ## run e2e
-bash "$CURRENT_DIR/e2e_run.sh" -n $target_namespace -f "e2e-test-localpolicy,e2e-test-grafana"
+bash "$CURRENT_DIR/e2e_run.sh" -n $target_namespace -f "e2e-test-localpolicy,e2e-test-grafana,e2e-test-local-agent"
 
 unset ISBYO

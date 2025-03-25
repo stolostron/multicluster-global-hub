@@ -191,10 +191,14 @@ var _ = BeforeSuite(func() {
 	By("Validate the clusters on database")
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
-		klog.Errorf("get managedcluster error:%v", err)
-		return err
+		if err != nil {
+			return err
+		}
+		if len(managedClusters) != (ExpectedMH * ExpectedMC) {
+			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(managedClusters))
+		}
+		return nil
 	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
-	Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 })
 
 var _ = AfterSuite(func() {
@@ -375,7 +379,7 @@ func waitGlobalhubReadyAndLeaseUpdated() {
 			return err
 		}
 		if !updated {
-			return fmt.Errorf("lease not updated")
+			return fmt.Errorf("manager lease not updated")
 		}
 		return nil
 	}, 5*time.Minute, 1*time.Second).Should(Succeed())

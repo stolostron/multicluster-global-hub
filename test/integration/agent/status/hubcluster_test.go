@@ -7,10 +7,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -41,16 +41,16 @@ var _ = Describe("HubClusterInfo", Ordered, func() {
 	})
 
 	It("should get the cluster info", func() {
-		By("Create clusterclaim with name <id.k8s.io> in the managed hub cluster")
-		clusterClaim := &clustersv1alpha1.ClusterClaim{
+		By("Create clusterVersion with name <version> in the managed hub cluster")
+		clusterVersion := &configv1.ClusterVersion{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "id.k8s.io",
+				Name: "version",
 			},
-			Spec: clustersv1alpha1.ClusterClaimSpec{
-				Value: "00000000-0000-0000-0000-000000000001",
+			Spec: configv1.ClusterVersionSpec{
+				ClusterID: "00000000-0000-0000-0000-000000000001",
 			},
 		}
-		Expect(runtimeClient.Create(ctx, clusterClaim)).Should(Succeed())
+		Expect(runtimeClient.Create(ctx, clusterVersion)).Should(Succeed())
 
 		By("Check the hub cluster info bundle can be read from cloudevents consumer")
 		Eventually(func() error {
@@ -115,8 +115,8 @@ var _ = Describe("HubClusterInfo", Ordered, func() {
 				return err
 			}
 
-			if clusterInfo.ClusterId != clusterClaim.Spec.Value {
-				return fmt.Errorf("want %v, got %v", clusterClaim.Spec.Value, clusterInfo.ClusterId)
+			if clusterInfo.ClusterId != string(clusterVersion.Spec.ClusterID) {
+				return fmt.Errorf("want %v, got %v", string(clusterVersion.Spec.ClusterID), clusterInfo.ClusterId)
 			}
 			if !strings.Contains(clusterInfo.ConsoleURL, consoleRoute.Spec.Host) {
 				return fmt.Errorf("want %v, got %v", consoleRoute.Spec.Host, clusterInfo.ConsoleURL)

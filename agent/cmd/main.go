@@ -7,14 +7,12 @@ import (
 	"os"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -89,10 +87,14 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
+	transportSecretName := constants.GHTransportConfigSecret
+	if agentConfig.LeafHubName == constants.LocalClusterName {
+		transportSecretName = constants.GHTransportConfigSecret + "-" + constants.LocalClusterName
+	}
 	// add transport ctrl to manager
 	err = controller.NewTransportCtrl(
 		agentConfig.PodNamespace,
-		constants.GHTransportConfigSecret,
+		transportSecretName,
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
 	).SetupWithManager(mgr)
@@ -161,17 +163,9 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 		return fmt.Errorf("the leaf-hub-name must not be empty")
 	}
 	if agentConfig.LeafHubName == "" {
-		clusterVersion := &configv1.ClusterVersion{
-			ObjectMeta: metav1.ObjectMeta{Name: "version"},
-		}
-		err := c.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+		err, clusterID := utils.GetClusterIdFromClusterVersion(c, ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get the ClusterVersion(version): %w", err)
-		}
-
-		clusterID := string(clusterVersion.Spec.ClusterID)
-		if clusterID == "" {
-			return fmt.Errorf("the clusterId from ClusterVersion must not be empty")
+			return err
 		}
 		agentConfig.LeafHubName = clusterID
 	}
