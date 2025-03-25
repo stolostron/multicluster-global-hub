@@ -125,21 +125,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if !mcm.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-			if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
-			if err := m.Update(ctx, mcm); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		return ctrl.Result{}, nil
-	}
-
-	// add finalizer
+	// add finalizer if resources is not being deleted
 	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
 	}
@@ -156,6 +142,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	// registering
 	requeue, err = m.registering(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -164,6 +151,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	// deploying
 	requeue, err = m.deploying(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -171,6 +159,27 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	if requeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
+
+	// completed
+	requeue, err = m.completed(ctx, mcm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if requeue {
+		return ctrl.Result{RequeueAfter: deleteInterval}, nil
+	}
+
+	// Remove finalizer when all stages have been successfully pruned
+	if !mcm.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+			if err := m.Update(ctx, mcm); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
