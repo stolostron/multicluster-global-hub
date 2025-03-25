@@ -34,6 +34,7 @@ const (
 	//nolint: go:S103
 	LocalRootPolicyEventType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy"
 	ManagedClusterEventType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster"
+	CGUEventType             EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.clustergroupupgrade"
 
 	PlacementDecisionType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementdecision"
 	//nolint: go:S103
