@@ -1,4 +1,4 @@
-package agent
+package addon
 
 import (
 	"context"

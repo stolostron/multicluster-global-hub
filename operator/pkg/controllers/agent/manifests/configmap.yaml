@@ -3,6 +3,8 @@ kind: ConfigMap
 metadata:
   name: multicluster-global-hub-agent-config
   namespace: {{.Namespace}}
+  labels:
+    component: multicluster-global-hub-agent
 data:
   managedClusters: "5s"
   policies: "5s"

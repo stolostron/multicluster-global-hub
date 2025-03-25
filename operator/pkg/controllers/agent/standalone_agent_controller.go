@@ -34,7 +34,7 @@ import (
 
 var (
 	standaloneAgentStarted = false
-	//go:embed manifests/standalone-agent
+	//go:embed manifests
 	fs embed.FS
 )
 
@@ -160,7 +160,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	agentObjects, err := hohRenderer.Render("manifests/standalone-agent", "", func(profile string) (interface{}, error) {
+	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image           string
 			ImagePullSecret string

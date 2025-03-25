@@ -2,6 +2,8 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: multicluster-global-hub:multicluster-global-hub-agent
+  labels:
+    component: multicluster-global-hub-agent
 subjects:
 - kind: ServiceAccount
   name: multicluster-global-hub-agent
