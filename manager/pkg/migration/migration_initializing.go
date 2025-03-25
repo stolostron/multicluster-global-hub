@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	ConditionMessageResourcePrepared = "Initialized all required resources"
+	ConditionMessageResourcePrepared = "All required resources initialized"
 
 	ConditionReasonTokenSecretMissing = "TokenSecretMissing"
 	ConditionReasonClusterNotSynced   = "ClusterNotSynced"
@@ -128,7 +128,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	if len(initializingClusters) > 0 {
 		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
 			metav1.ConditionFalse, ConditionReasonClusterNotSynced,
-			fmt.Sprintf("clusters %v are not synced into db", initializingClusters))
+			fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters))
 		if err != nil {
 			return false, err
 		}

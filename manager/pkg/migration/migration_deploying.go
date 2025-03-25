@@ -29,7 +29,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	condType := migrationv1alpha1.MigrationResourceDeployed
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonAddonConfigDeployed
-	condMsg := "All the migrated cluster addonConfigs have been deployed"
+	condMsg := "AddonConfigs have been deployed to all migrated clusters"
 	var err error
 
 	defer func() {
@@ -80,8 +80,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 				break
 			}
 		}
-		condMsg = fmt.Sprintf("The cluster configs %v are not deployed into hub(%s)",
-			migratingMessages, mcm.Spec.To)
+		condMsg = fmt.Sprintf("Cluster AddonConfigs %v have not been deployed to hub %s", migratingMessages, mcm.Spec.To)
 		condStatus = metav1.ConditionFalse
 		condReason = conditionReasonAddonConfigNotDeployed
 		return true, nil
