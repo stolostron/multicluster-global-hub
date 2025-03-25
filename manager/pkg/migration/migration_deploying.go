@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -47,32 +48,49 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 
 	log.Info("migration deploying")
 
-	// registered
-	var registered []models.ManagedClusterMigration
+	// registeredClusters
+	var registeredClusters []models.ManagedClusterMigration
 	db := database.GetGorm()
 	err = db.Where(&models.ManagedClusterMigration{
 		Stage: migrationv1alpha1.MigrationClusterRegistered,
-	}).Find(&registered).Error
+	}).Find(&registeredClusters).Error
 	if err != nil {
 		return false, err
 	}
 
 	// deploy addonConfigs
-	for _, deploy := range registered {
-		klusterAddonConfig := &addonv1.KlusterletAddonConfig{}
-		if err := json.Unmarshal([]byte(deploy.Payload), klusterAddonConfig); err != nil {
+	var deploying []models.ManagedClusterMigration
+	for _, registered := range registeredClusters {
+		klusterletAddonConfig := &addonv1.KlusterletAddonConfig{}
+		if err := json.Unmarshal([]byte(registered.Payload), klusterletAddonConfig); err != nil {
 			return false, err
 		}
 
-		if err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseMigrating, klusterAddonConfig); err != nil {
+		defaultAddonConfig := &addonv1.KlusterletAddonConfig{}
+		if apiequality.Semantic.DeepDerivative(klusterletAddonConfig.Spec, defaultAddonConfig.Spec) {
+			err = db.Model(&models.ManagedClusterMigration{}).
+				Where("to_hub = ?", registered.ToHub).
+				Where("cluster_name = ?", registered.ClusterName).
+				Update("stage", migrationv1alpha1.PhaseCompleted).Error
+			if err != nil {
+				return false, err
+			}
+			log.Infof("AddonConfig %s is default(none), skip deploying to %s", registered.ClusterName, registered.ToHub)
+			continue
+		}
+
+		// send to destination hub to deploy the addonConfig, the status mark it as Completed
+		deploying = append(deploying, registered)
+		if err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseMigrating,
+			klusterletAddonConfig); err != nil {
 			return false, err
 		}
 	}
 
 	// update condition
-	if len(registered) > 0 {
+	if len(deploying) > 0 {
 		migratingMessages := []string{}
-		for idx, m := range registered {
+		for idx, m := range deploying {
 			migratingMessages = append(migratingMessages, m.ClusterName)
 			// if the migrating clusters more than 3, only show the first 3 items in the condition message
 			if idx == 2 {

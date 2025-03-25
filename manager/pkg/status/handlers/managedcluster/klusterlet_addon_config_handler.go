@@ -91,7 +91,6 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 		FromHub:     fromHub,
 		ToHub:       toHub,
 		ClusterName: cluster,
-		Payload:     klusterletAddonConfigData,
 		Stage:       migrationv1alpha1.MigrationResourceInitialized,
 	}
 

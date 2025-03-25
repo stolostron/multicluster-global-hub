@@ -8,6 +8,7 @@ import (
 	"time"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	"gorm.io/gorm/clause"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -48,13 +49,13 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			return false, err
 		}
 	}
-	log.Info("migration initializing")
 
 	// skip if the phase isn't Initializing and the MigrationResourceInitialized condition is True
 	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing &&
 		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceInitialized) {
 		return false, nil
 	}
+	log.Info("migration initializing")
 
 	// To Hub
 	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
@@ -103,7 +104,8 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	for fromHubName, clusters := range sourceHubToClusters {
 		clusterResourcesSynced := true
 		var initialized []models.ManagedClusterMigration
-		if err = db.Where("from_hub = ? AND to_hub = ?", fromHubName, mcm.Spec.To).Find(&initialized).Error; err != nil {
+		if err = db.Where("from_hub = ? AND to_hub = ? AND stage <> ?", fromHubName,
+			mcm.Spec.To, "").Find(&initialized).Error; err != nil {
 			return false, err
 		}
 		initializedClusters := make([]string, len(initialized))
@@ -303,11 +305,26 @@ func getSourceClusters(mcm *migrationv1alpha1.ManagedClusterMigration) (map[stri
 		if err := rows.Scan(&leafHubName, &managedClusterName); err != nil {
 			return nil, fmt.Errorf("failed to scan leaf hub name and managed cluster name - %w", err)
 		}
-		// If the cluser is synced into the to hub, ignore it.
+		// If the cluster is synced into the to hub, ignore it.
 		if leafHubName == mcm.Spec.To {
 			continue
 		}
 		managedClusterMap[leafHubName] = append(managedClusterMap[leafHubName], managedClusterName)
+
+		// save into database
+		mcm := models.ManagedClusterMigration{
+			FromHub:     leafHubName,
+			ToHub:       mcm.Spec.To,
+			ClusterName: managedClusterName,
+		}
+		err = db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
+			DoNothing: true,
+		}).Create(&mcm).Error
+		if err != nil {
+			log.Errorf("failed to init record into database: %v", err)
+			return nil, err
+		}
 	}
 	return managedClusterMap, nil
 }
