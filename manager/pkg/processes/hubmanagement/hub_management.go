@@ -212,7 +212,7 @@ func (h *HubManagement) resync(ctx context.Context, hubName string) error {
 		return err
 	}
 
-	e := utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventSourceGlobalHub, hubName, payloadBytes)
+	e := utils.ToCloudEvent(constants.ResyncMsgKey, constants.CloudEventGlobalHubClusterName, hubName, payloadBytes)
 
 	return h.producer.SendEvent(ctx, e)
 }

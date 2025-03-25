@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -26,19 +26,19 @@ import (
 )
 
 const (
-	ConditionMessageResourcePrepared = "All required resources have been prepared."
+	ConditionMessageResourcePrepared = "All required resources initialized"
 
-	ConditionReasonResourcePrepared = "ResourcePrepared"
-	ConditionReasonSecretMissing    = "SecretMissing"
-	ConditionReasonClusterNotSynced = "ClusterNotSynced"
-	ConditionReasonTimeout          = "Timeout"
+	ConditionReasonTokenSecretMissing = "TokenSecretMissing"
+	ConditionReasonClusterNotSynced   = "ClusterNotSynced"
+	ConditionReasonResourcePrepared   = "ResourcePrepared"
+	ConditionReasonTimeout            = "Timeout"
 )
 
 var migrationStageTimeout = 5 * time.Minute
 
 // Initializing:
-//  1. From Hub: sync the required clusters to databases
-//  2. To Hub: create managedserviceaccount
+//  1. Source Hub: sync the required clusters to databases
+//  2. Destination Hub: create managedserviceaccount, Set autoApprove for the SA
 func (m *ClusterMigrationController) initializing(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
@@ -48,13 +48,13 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			return false, err
 		}
 	}
+	log.Info("migration initializing")
 
-	// only handle the intializing stage
-	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
+	// skip if the phase isn't Initializing and the MigrationResourceInitialized condition is True
+	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing &&
+		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceInitialized) {
 		return false, nil
 	}
-
-	notReadyClusters := []string{}
 
 	// To Hub
 	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
@@ -73,7 +73,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, err
 	} else if apierrors.IsNotFound(err) {
 		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
-			metav1.ConditionFalse, ConditionReasonSecretMissing,
+			metav1.ConditionFalse, ConditionReasonTokenSecretMissing,
 			fmt.Sprintf("token secret(%s/%s) is not found!", tokenSecret.Namespace, tokenSecret.Name))
 		if err != nil {
 			return false, err
@@ -81,16 +81,26 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return true, nil
 	}
 
+	// set destination hub to autoApprove for the sa
+	// Important: Registration must occur only after autoApprove is successfully set.
+	// Thinking - Ensure that autoApprove is properly configured before proceeding.
+	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
+		return false, err
+	}
+
+	log.Info("migration bootstrap kubeconfig secret token is ready")
+
 	// check the migration clusters in the databases, if not, send it again
-	leafHubToClusters, err := getLeafHubToClusters(mcm)
+	sourceHubToClusters, err := getSourceClusters(mcm)
 	if err != nil {
 		return false, err
 	}
 
 	// From Hub
 	// send the migration event to migration.from managed hub(s)
+	initializingClusters := []string{}
 	db := database.GetGorm()
-	for fromHubName, clusters := range leafHubToClusters {
+	for fromHubName, clusters := range sourceHubToClusters {
 		clusterResourcesSynced := true
 		var initialized []models.ManagedClusterMigration
 		if err = db.Where("from_hub = ? AND to_hub = ?", fromHubName, mcm.Spec.To).Find(&initialized).Error; err != nil {
@@ -100,25 +110,25 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		for i, cluster := range initialized {
 			initializedClusters[i] = cluster.ClusterName
 		}
-		// assert whether synced
+		// assert whether synced, if synced, change the cluster status into migrating
 		for _, cluster := range clusters {
 			if !utils.ContainsString(initializedClusters, cluster) {
-				notReadyClusters = append(notReadyClusters, cluster)
+				initializingClusters = append(initializingClusters, cluster)
 				clusterResourcesSynced = false
 			}
 		}
 		if !clusterResourcesSynced {
-			err := m.specToFromHub(ctx, fromHubName, mcm.Spec.To, migrationv1alpha1.PhaseInitializing, clusters, nil, nil)
+			err := m.sendEventToSourceHub(ctx, fromHubName, mcm.Spec.To, migrationv1alpha1.PhaseInitializing, clusters, nil)
 			if err != nil {
 				return false, err
 			}
 		}
 	}
 
-	if len(notReadyClusters) > 0 {
+	if len(initializingClusters) > 0 {
 		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
 			metav1.ConditionFalse, ConditionReasonClusterNotSynced,
-			fmt.Sprintf("clusters %v are not synced into db", notReadyClusters))
+			fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters))
 		if err != nil {
 			return false, err
 		}
@@ -130,6 +140,8 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	if err != nil {
 		return false, err
 	}
+
+	log.Info("migration klusterletconfigs have been synced into the database")
 	return false, nil
 }
 
@@ -154,6 +166,47 @@ func (m *ClusterMigrationController) UpdateConditionWithRetry(ctx context.Contex
 		}
 		return nil
 	})
+}
+
+// sendEventToDestinationHub:
+// 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
+// 2. if KlusterletAddonConfig is not nil -> deploying
+func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration, stage string, addonConfig *addonv1.KlusterletAddonConfig,
+) error {
+	// default managedserviceaccount addon namespace
+	msaNamespace := "open-cluster-management-agent-addon"
+	if m.importClusterInHosted {
+		// hosted mode, the  managedserviceaccount addon namespace
+		msaNamespace = "open-cluster-management-global-hub-agent-addon"
+	}
+	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
+	// if user specifies the managedserviceaccount addon namespace, then use it
+	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
+		msaNamespace = val
+	}
+	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{
+		Stage:                                 stage,
+		ManagedServiceAccountName:             migration.Name,
+		ManagedServiceAccountInstallNamespace: msaNamespace,
+	}
+	if addonConfig != nil {
+		managedClusterMigrationToEvent.KlusterletAddonConfig = addonConfig
+	}
+
+	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
+	if err != nil {
+		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",
+			managedClusterMigrationToEvent, err)
+	}
+
+	eventType := constants.CloudEventTypeMigrationTo
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
+	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
+			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
+	}
+	return nil
 }
 
 func (m *ClusterMigrationController) UpdateCondition(
@@ -201,15 +254,17 @@ func (m *ClusterMigrationController) UpdateCondition(
 	return nil
 }
 
-func (m *ClusterMigrationController) specToFromHub(ctx context.Context, fromHub string, toHub string, stage string,
-	managedClusters []string, klusterletConfig *klusterletv1alpha1.KlusterletConfig, bootstrapSecret *corev1.Secret,
+// sendEventToSourceHub specifies the manager send the message into "From Hub" via spec path(or topic)
+// 1. Initializing: request sync the klusterletconfig from source hub
+// 2. Migrating: forward bootstrap kubeconfig secret into source hub, to register into the destination hub
+func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string, toHub string,
+	stage string, managedClusters []string, bootstrapSecret *corev1.Secret,
 ) error {
 	managedClusterMigrationFromEvent := &bundleevent.ManagedClusterMigrationFromEvent{
-		Stage:            stage,
-		ToHub:            toHub,
-		ManagedClusters:  managedClusters,
-		BootstrapSecret:  bootstrapSecret,
-		KlusterletConfig: klusterletConfig,
+		Stage:           stage,
+		ToHub:           toHub,
+		ManagedClusters: managedClusters,
+		BootstrapSecret: bootstrapSecret,
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)
@@ -219,15 +274,16 @@ func (m *ClusterMigrationController) specToFromHub(ctx context.Context, fromHub 
 	}
 
 	eventType := constants.CloudEventTypeMigrationFrom
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, fromHub, payloadBytes)
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub, payloadBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
-			eventType, constants.CloudEventSourceGlobalHub, fromHub, err)
+			eventType, constants.CloudEventGlobalHubClusterName, fromHub, err)
 	}
 	return nil
 }
 
-func getLeafHubToClusters(mcm *migrationv1alpha1.ManagedClusterMigration) (map[string][]string, error) {
+// getSourceClusters return a map, key the is the from hub name, and value is the clusters of the hub
+func getSourceClusters(mcm *migrationv1alpha1.ManagedClusterMigration) (map[string][]string, error) {
 	db := database.GetGorm()
 	managedClusterMap := make(map[string][]string)
 	if mcm.Spec.From != "" {

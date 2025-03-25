@@ -108,7 +108,7 @@ func syncObjectsBundle(ctx context.Context, producer transport.Producer, eventTy
 		return false, fmt.Errorf("failed to sync marshal bundle(%s)", eventType)
 	}
 
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventSourceGlobalHub, transport.Broadcast, payloadBytes)
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, transport.Broadcast, payloadBytes)
 	if err := producer.SendEvent(ctx, evt); err != nil {
 		return false, fmt.Errorf("failed to sync message(%s) from table(%s) to destination(%s) - %w",
 			eventType, dbTableName, transport.Broadcast, err)

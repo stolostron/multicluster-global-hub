@@ -9,8 +9,10 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -21,6 +23,7 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -31,7 +34,7 @@ var _ = Describe("migration", Ordered, func() {
 	var genericConsumer *genericconsumer.GenericConsumer
 	var testCtx context.Context
 	var testCtxCancel context.CancelFunc
-	var fromEvent, toEvent *cloudevents.Event
+	var sourceHubEvent, destinationHubEvent *cloudevents.Event
 	BeforeAll(func() {
 		testCtx, testCtxCancel = context.WithCancel(ctx)
 		var err error
@@ -68,11 +71,11 @@ var _ = Describe("migration", Ordered, func() {
 					}
 					switch clusterName {
 					case "hub1":
-						fromEvent = evt
-						fmt.Println("received from event", fromEvent)
+						sourceHubEvent = evt
+						fmt.Println("received from event", sourceHubEvent)
 					case "hub2":
-						toEvent = evt
-						fmt.Println("received to event", toEvent)
+						destinationHubEvent = evt
+						fmt.Println("received to event", destinationHubEvent)
 					default:
 						logf.Log.Info("dropping bundle due to cluster name mismatch", "clusterName", clusterName)
 					}
@@ -169,12 +172,12 @@ var _ = Describe("migration", Ordered, func() {
 
 	It("should get the from hub event created", func() {
 		Eventually(func() error {
-			payload := fromEvent.Data()
+			payload := sourceHubEvent.Data()
 			if payload == nil {
 				return fmt.Errorf("wait for the event sent to from hub")
 			}
 
-			Expect(fromEvent.Type()).To(Equal(constants.CloudEventTypeMigrationFrom))
+			Expect(sourceHubEvent.Type()).To(Equal(constants.CloudEventTypeMigrationFrom))
 
 			// handle migration.from cloud event
 			managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
@@ -190,14 +193,22 @@ var _ = Describe("migration", Ordered, func() {
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
-	It("should switch the migration phase into migrating", func() {
-		// sync the item from hub1 into database
+	It("should switch the migration phase from initialing into migrating", func() {
+		// The initializing resources is synced in the database by the status path from source hub to global hub
+		addonConfig := addonv1.KlusterletAddonConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cluster1",
+				Namespace: "cluster1",
+			},
+		}
+		addonConfigPayload, err := json.Marshal(addonConfig)
+		Expect(err).To(Succeed())
 		mcm := &models.ManagedClusterMigration{
 			FromHub:     "hub1",
 			ToHub:       "hub2",
 			ClusterName: "cluster1",
-			Payload:     []byte(`{}`),
-			Stage:       migrationv1alpha1.PhaseInitializing,
+			Payload:     addonConfigPayload,
+			Stage:       migrationv1alpha1.MigrationResourceInitialized,
 		}
 		Expect(db.Save(mcm).Error).To(Succeed())
 
@@ -215,7 +226,100 @@ var _ = Describe("migration", Ordered, func() {
 			}
 
 			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseMigrating {
-				return fmt.Errorf("wait for the migration initializing to be ready")
+				return fmt.Errorf("wait for the migration Migrating to be ready: %s", migrationInstance.Status.Phase)
+			}
+
+			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
+				migrationv1alpha1.MigrationClusterRegistered)
+			if registeredCond == nil {
+				return fmt.Errorf("the registering condition should appears in the migration CR")
+			}
+
+			utils.PrettyPrint(migrationInstance.Status)
+
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("should switch the migration phase from migrating into deploying", func() {
+		// create the migrating cluster in status table
+		By("create the migrating cluster in database")
+		clusterPayload, err := json.Marshal(&clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster1",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		})
+		Expect(err).To(Succeed())
+		err = db.Model(models.ManagedCluster{}).Create(&models.ManagedCluster{
+			ClusterID:   "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
+			LeafHubName: "hub1",
+			Payload:     clusterPayload,
+			Error:       database.ErrorNone,
+		}).Error
+		Expect(err).To(Succeed())
+
+		// get the register event in the source hub
+		Eventually(func() error {
+			payload := sourceHubEvent.Data()
+			if payload == nil {
+				return fmt.Errorf("wait for the event sent to from hub")
+			}
+			if sourceHubEvent.Type() != constants.CloudEventTypeMigrationFrom {
+				return fmt.Errorf("source hub should receive event %s, but got %s", constants.CloudEventTypeMigrationFrom,
+					sourceHubEvent.Type())
+			}
+			managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
+			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
+				return err
+			}
+			if managedClusterMigrationEvent.Stage != migrationv1alpha1.PhaseMigrating {
+				return fmt.Errorf("source hub should receive %s event, but got %s", migrationv1alpha1.PhaseMigrating,
+					managedClusterMigrationEvent.Stage)
+			}
+			if managedClusterMigrationEvent.BootstrapSecret == nil {
+				return fmt.Errorf("source hub should receive Migrating event with bootstrapSecret")
+			}
+
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+
+		// mock the cluster is registered
+		err = db.Model(&models.ManagedCluster{}).Where("cluster_id = ?",
+			"23e5ae9e-c6b2-4793-be6b-2e52f870df10").Update("leaf_hub_name", "hub2").Error
+		Expect(err).To(Succeed())
+
+		// check the migration status is registered
+		migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "migration",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+		}
+		Eventually(func() error {
+			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+
+			// db should changed into deploying
+			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
+				migrationv1alpha1.MigrationClusterRegistered)
+			if registeredCond.Status == metav1.ConditionFalse {
+				return fmt.Errorf("the registering condition should be set into true")
+			}
+
+			registeredCond = meta.FindStatusCondition(migrationInstance.Status.Conditions,
+				migrationv1alpha1.MigrationResourceDeployed)
+			if registeredCond == nil {
+				return fmt.Errorf("the ResourceDeployed condition should appears in the migration CR")
 			}
 
 			utils.PrettyPrint(migrationInstance.Status)

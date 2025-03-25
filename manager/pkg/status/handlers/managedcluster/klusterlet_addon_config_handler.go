@@ -22,7 +22,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type klusterletAddonConfigHandler struct {
@@ -63,49 +62,39 @@ func (k *klusterletAddonConfigHandler) handleKlusterletAddonConfigEvent(ctx cont
 		return err
 	}
 
-	// TODO: deprecated in the migrating stage
-	toCluster, ok := evt.Extensions()[constants.CloudEventExtensionKeyClusterName]
-	if !ok || toCluster == "" {
-		migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
-		if err := k.client.List(ctx, migrationList, &client.ListOptions{
-			Namespace: utils.GetDefaultNamespace(),
-		}); err != nil {
-			return err
-		}
+	toHub, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
+	if err != nil {
+		k.log.Error("failed to parse migration to hub from event", "error", err)
+		return err
+	}
 
-		// update it into managedclustermigration CR
-		if len(migrationList.Items) > 0 {
-			migration := migrationList.Items[0]
-			if len(migration.GetAnnotations()) == 0 {
-				migration.Annotations = map[string]string{}
-			}
-			migration.Annotations[constants.KlusterletAddonConfigAnnotation] = string(klusterletAddonConfigData)
-			if err := k.client.Update(ctx, &migration); err != nil {
-				return err
-			}
+	db := database.GetGorm()
+	cluster := klusterletAddonConfig.Name
+
+	// Deploying confirmation -> if it is for global hub, mark it as completed
+	if toHub == constants.CloudEventGlobalHubClusterName {
+		toHub := evt.Source()
+		err = db.Model(&models.ManagedClusterMigration{}).
+			Where("to_hub = ?", toHub).
+			Where("cluster_name = ?", cluster).
+			Update("stage", migrationv1alpha1.PhaseCompleted).Error
+		if err != nil {
+			k.log.Errorf("failed to mark the completed status for %s - $s in db: %v", toHub, cluster, err)
+			return err
 		}
 		return nil
 	}
 
-	toHub, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
-	if err != nil {
-		k.log.Warn("failed to parse migration to hub from event", "error", err)
-	}
-
 	// LeafHubName
 	fromHub := evt.Source()
-
-	cluster := klusterletAddonConfig.Name
-
 	mcm := models.ManagedClusterMigration{
 		FromHub:     fromHub,
 		ToHub:       toHub,
 		ClusterName: cluster,
 		Payload:     klusterletAddonConfigData,
-		Stage:       migrationv1alpha1.PhaseInitializing,
+		Stage:       migrationv1alpha1.MigrationResourceInitialized,
 	}
 
-	db := database.GetGorm()
 	err = db.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
 		DoUpdates: clause.Assignments(map[string]interface{}{

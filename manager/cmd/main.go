@@ -26,6 +26,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/cronjob"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/processes/hubmanagement"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis"
@@ -258,7 +259,7 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 		}
 
 		// start managedclustermigration controller
-		if err := controllers.NewMigrationController(mgr.GetClient(), producer,
+		if err := migration.NewMigrationController(mgr.GetClient(), producer,
 			managerConfig.ImportClusterInHosted).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}

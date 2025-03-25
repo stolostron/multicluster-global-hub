@@ -8,14 +8,16 @@ import (
 
 type ManagedClusterMigrationFromEvent struct {
 	// Allowed values: "initializing", "registering"
-	Stage            string                               `json:"stage"`
-	ToHub            string                               `json:"toHub"`
-	ManagedClusters  []string                             `json:"managedClusters,omitempty"`
-	BootstrapSecret  *corev1.Secret                       `json:"bootstrapSecret,omitempty"`
+	Stage           string         `json:"stage"`
+	ToHub           string         `json:"toHub"`
+	ManagedClusters []string       `json:"managedClusters,omitempty"`
+	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
+	// Deprecated
 	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig,omitempty"`
 }
 
 type ManagedClusterMigrationToEvent struct {
+	Stage                                 string                         `json:"stage"`
 	ManagedServiceAccountName             string                         `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string                         `json:"managedServiceAccountInstallNamespace"`
 	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig"`
