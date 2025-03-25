@@ -27,11 +27,11 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configmap, err := config.GetConfluentConfigMapByTranportConfig("", "test-consumer-Id")
+	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "test-consumer-Id")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
-	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configmap),
+	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
 		kafka_confluent.WithReceiverTopics([]string{topic}))
 	if err != nil {
 		log.Fatalf("failed to subscribe topic: %v", err)
