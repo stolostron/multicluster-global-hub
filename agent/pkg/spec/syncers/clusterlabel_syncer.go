@@ -132,7 +132,7 @@ func (s *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 			return
 		}
 
-		s.log.Debug("managed cluster updated", "name", labelsSpec.ClusterName)
+		s.log.Debug("managed cluster updated ", " name ", labelsSpec.ClusterName)
 		s.managedClusterMarkUpdated(labelsSpec, lastProcessedTimestampPtr)
 	}))
 }

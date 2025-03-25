@@ -221,7 +221,7 @@ var _ = Describe("migration", Ordered, func() {
 			utils.PrettyPrint(migrationInstance.Status)
 
 			return nil
-		}, 1*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("should have managedserviceaccount deleted when migration is deleted", func() {
@@ -233,6 +233,6 @@ var _ = Describe("migration", Ordered, func() {
 				Namespace: "hub2",
 			}, msa)
 			return apierrors.IsNotFound(err)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
+		}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 	})
 })

@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -33,8 +36,8 @@ type TransportCtrl struct {
 	secretNamespace  string
 	secretName       string
 	extraSecretNames []string
-
-	transportConfig *transport.TransportInternalConfig
+	workqueue        workqueue.TypedRateLimitingInterface[ctrl.Request]
+	transportConfig  *transport.TransportInternalConfig
 
 	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
 	transportCallback TransportCallback
@@ -89,6 +92,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	log.Debugf("reconcile transport ctrl:%v", request.NamespacedName)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -118,10 +122,11 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		// the consumer should reconcile in either credential updated or consumer exit
+		if err := c.ReconcileConsumer(ctx); err != nil {
+			return ctrl.Result{}, err
+		}
 		if updated {
-			if err := c.ReconcileConsumer(ctx); err != nil {
-				return ctrl.Result{}, err
-			}
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -182,16 +187,16 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
+		c.transportClient.consumer = receiver
 		go func() {
+			log.Debug("start consumer")
 			if err = receiver.Start(ctx); err != nil {
 				log.Errorf("failed to start the consumser: %v", err)
 			}
+			log.Infof("need reconcile transport ctrl")
+			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
+			c.transportClient.consumer = nil
 		}()
-		c.transportClient.consumer = receiver
-	} else {
-		if err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig); err != nil {
-			return fmt.Errorf("failed to reconnect the consumer: %w", err)
-		}
 	}
 	return nil
 }
@@ -338,7 +343,16 @@ func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, builder.WithPredicates(secretPred)).
-		Complete(c)
+		WithOptions(
+			controller.TypedOptions[ctrl.Request]{
+				NewQueue: func(controllerName string, rateLimiter workqueue.TypedRateLimiter[ctrl.Request]) workqueue.TypedRateLimitingInterface[ctrl.Request] {
+					c.workqueue = workqueue.NewTypedRateLimitingQueueWithConfig(rateLimiter, workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
+						Name: controllerName,
+					})
+					return c.workqueue
+				},
+			},
+		).Complete(c)
 }
 
 func (c *TransportCtrl) credentialSecret(name string) bool {
