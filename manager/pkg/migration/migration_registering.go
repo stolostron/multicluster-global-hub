@@ -45,7 +45,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	condType := migrationv1alpha1.MigrationClusterRegistered
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonClusterRegistered
-	condMsg := "All the migrated clusters have been registered"
+	condMsg := "Registered all the migrated clusters"
 	var err error
 
 	defer func() {
@@ -176,6 +176,10 @@ func (m *ClusterMigrationController) generateBootstrapSecret(ctx context.Context
 		Name: toHubCluster,
 	}, managedCluster); err != nil {
 		return nil, err
+	}
+
+	if len(managedCluster.Spec.ManagedClusterClientConfigs) == 0 {
+		return nil, fmt.Errorf("no ManagedClusterClientConfigs found for hub %s", toHubCluster)
 	}
 
 	config := clientcmdapi.NewConfig()

@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	ConditionMessageResourcePrepared = "All required resources have been prepared"
+	ConditionMessageResourcePrepared = "Initialized all required resources"
 
 	ConditionReasonTokenSecretMissing = "TokenSecretMissing"
 	ConditionReasonClusterNotSynced   = "ClusterNotSynced"

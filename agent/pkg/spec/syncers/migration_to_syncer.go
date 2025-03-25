@@ -92,7 +92,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		if !apiequality.Semantic.DeepDerivative(existingAddonConfig.Spec, klusterletAddonConfig.Spec) {
 			s.log.Infof("updating migration addonConfigs %s", klusterletAddonConfig.GetName())
 			existingAddonConfig.Spec = klusterletAddonConfig.Spec
-			if err := s.client.Update(ctx, klusterletAddonConfig); err != nil {
+			if err := s.client.Update(ctx, existingAddonConfig); err != nil {
 				s.log.Errorf("cannot update klusterletAddonConfig %v", err)
 				return err
 			}
