@@ -231,7 +231,7 @@ func GetConfluentConfigMapByUser(c client.Client, namespace, clusterName, userNa
 	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", namespace, clusterName)
 }
 
-func GetConfluentConfigMapByTranportConfig(namespace, consumerGroupID string) (*kafka.ConfigMap, error) {
+func GetConfluentConfigMapByTransportConfig(namespace, consumerGroupID string) (*kafka.ConfigMap, error) {
 	kubeconfig, err := DefaultKubeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubeconfig")
