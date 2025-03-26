@@ -125,21 +125,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if !mcm.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-			if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
-			if err := m.Update(ctx, mcm); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		return ctrl.Result{}, nil
-	}
-
-	// add finalizer
+	// add finalizer if resources is not being deleted
 	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
 	}
@@ -175,6 +161,25 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// completed
+	requeue, err = m.completed(ctx, mcm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if requeue {
+		return ctrl.Result{RequeueAfter: 20 * time.Second}, nil
+	}
+
+	// Remove finalizer when all stages have been successfully pruned
+	if !mcm.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+
+			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+			if err := m.Update(ctx, mcm); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
 
 	return ctrl.Result{}, nil
 }

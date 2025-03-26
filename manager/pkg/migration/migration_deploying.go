@@ -71,7 +71,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 			err = db.Model(&models.ManagedClusterMigration{}).
 				Where("to_hub = ?", registered.ToHub).
 				Where("cluster_name = ?", registered.ClusterName).
-				Update("stage", migrationv1alpha1.PhaseCompleted).Error
+				Update("stage", migrationv1alpha1.MigrationResourceDeployed).Error
 			if err != nil {
 				return false, err
 			}

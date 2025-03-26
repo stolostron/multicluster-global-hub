@@ -35,6 +35,42 @@ const (
 func (m *ClusterMigrationController) registering(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
+	if !mcm.DeletionTimestamp.IsZero() {
+		// Deleting the Bootstrap secret from the source hub, also the klusterletConfig
+		// After deleted finshied the database should be empty
+		// To From: select the initialized items to start initialized
+		var deployed []models.ManagedClusterMigration
+		err := database.GetGorm().Where(&models.ManagedClusterMigration{
+			Stage: migrationv1alpha1.MigrationResourceDeployed,
+		}).Find(&deployed).Error
+		if err != nil {
+			return false, err
+		}
+
+		if len(deployed) == 0 {
+			return false, nil
+		}
+
+		cleaningClusters := map[string][]string{}
+		for _, d := range deployed {
+			cleaningClusters[d.FromHub] = append(cleaningClusters[d.FromHub], d.ClusterName)
+		}
+		// deployed the resource in destination hub, send complated event to soure hub
+		// detach the clusters, config and secret
+		bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
+		for sourceHub, clusters := range cleaningClusters {
+			err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.MigrationCompleted,
+				clusters, bootstrapSecret)
+			if err != nil {
+				log.Errorf("failed to send cleanup event into source hub(%s)", sourceHub)
+				return false, err
+			}
+		}
+
+		// confirm in the status event -> change the status into
+
+	}
+
 	if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating &&
 		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationClusterRegistered) {
 		return false, nil
@@ -74,8 +110,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	// check if the cluster is synced to "To Hub"
 	// if not, sent registering event to "From hub", else change the item into registered
 	registeringClusters := map[string][]string{}
-	updateRegisteredClusters := make([]models.ManagedClusterMigration, 0)
-	registeredClusters := map[string][]string{}
+	registeredClusters := make([]models.ManagedClusterMigration, 0)
 	for _, m := range initialized {
 		cluster := models.ManagedCluster{}
 		err := db.Where("payload->'metadata'->>'name' = ?", m.ClusterName).First(&cluster).Error
@@ -98,8 +133,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 					return false, err
 				}
 				m.Stage = migrationv1alpha1.MigrationClusterRegistered
-				updateRegisteredClusters = append(updateRegisteredClusters, m)
-				registeredClusters[m.FromHub] = append(registeredClusters[m.FromHub], m.ClusterName)
+				registeredClusters = append(registeredClusters, m)
 			} else {
 				log.Infof("cluster(%s) is not switched into hub(%s)", m.ClusterName, m.ToHub)
 				registeringClusters[m.FromHub] = append(registeringClusters[m.FromHub], m.ClusterName)
@@ -113,18 +147,12 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, err
 	}
 
-	if len(updateRegisteredClusters) > 0 {
-		// registed successful, send complated event: detach the clusters, config and secret
-		for sourceHub, clusters := range registeredClusters {
-			err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.PhaseCompleted,
-				clusters, bootstrapSecret)
-		}
-
+	if len(registeredClusters) > 0 {
 		// update the registered migration items in database
 		err := db.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "from_hub"}, {Name: "to_hub"}, {Name: "cluster_name"}},
 			UpdateAll: true,
-		}).CreateInBatches(updateRegisteredClusters, 10).Error
+		}).CreateInBatches(registeredClusters, 10).Error
 		if err != nil {
 			return false, err
 		}
@@ -135,8 +163,8 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
 			notRegisterClusters = append(notRegisterClusters, clusters...)
-			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.PhaseMigrating, clusters,
-				bootstrapSecret)
+			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.MigrationClusterRegistered,
+				clusters, bootstrapSecret)
 			if err != nil {
 				return false, err
 			}
@@ -201,15 +229,24 @@ func (m *ClusterMigrationController) generateBootstrapSecret(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
+	bootstrapSecret := getBootstrapSecret(toHubCluster, kubeconfigBytes)
+	return bootstrapSecret, nil
+}
 
-	bootstrapSecret := &corev1.Secret{
+func getBootstrapSecret(sourceHubCluster string, kubeconfigBytes []byte) *corev1.Secret {
+	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapSecretNamePrefix + toHubCluster,
+			Name:      bootstrapSecretNamePrefix + sourceHubCluster,
 			Namespace: "multicluster-engine",
 		},
 		Data: map[string][]byte{
 			"kubeconfig": kubeconfigBytes,
 		},
 	}
-	return bootstrapSecret, nil
+	if kubeconfigBytes != nil {
+		secret.Data = map[string][]byte{
+			"kubeconfig": kubeconfigBytes,
+		}
+	}
+	return secret
 }
