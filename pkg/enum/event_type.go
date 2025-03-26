@@ -5,42 +5,36 @@ const EventTypePrefix = "io.open-cluster-management.operator.multiclusterglobalh
 type EventType string
 
 const (
-	HubClusterInfoType        EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info"
-	HubClusterHeartbeatType   EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat"
-	KlusterletAddonConfigType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.klusterletaddonconfig"
-	ManagedClusterType        EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
-	ManagedClusterInfoType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedclusterinfo"
-	SubscriptionReportType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.report"
-	SubscriptionStatusType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.status"
+	HubClusterInfoType        EventType = EventTypePrefix + "managedhub.info"
+	HubClusterHeartbeatType   EventType = EventTypePrefix + "managedhub.heartbeat"
+	KlusterletAddonConfigType EventType = EventTypePrefix + "managedcluster.klusterletaddonconfig"
+	ManagedClusterType        EventType = EventTypePrefix + "managedcluster"
+	ManagedClusterInfoType    EventType = EventTypePrefix + "managedclusterinfo"
+	SubscriptionReportType    EventType = EventTypePrefix + "subscription.report"
+	SubscriptionStatusType    EventType = EventTypePrefix + "subscription.status"
 
 	// used by the local resources
-	//nolint: go:S103
-	LocalComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompliance"
-	//nolint: go:S103
-	LocalCompleteComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localcompletecompliance"
-	LocalPolicySpecType         EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.localspec"
+	LocalComplianceType         EventType = EventTypePrefix + "policy.localcompliance"
+	LocalCompleteComplianceType EventType = EventTypePrefix + "policy.localcompletecompliance"
+	LocalPolicySpecType         EventType = EventTypePrefix + "policy.localspec"
 
 	// used by the global resources
-	ComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.compliance"
-	//nolint: go:S103
-	CompleteComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.completecompliance"
-
-	DeltaComplianceType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.deltacompliance"
-	MiniComplianceType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.policy.minicompliance"
+	ComplianceType         EventType = EventTypePrefix + "policy.compliance"
+	CompleteComplianceType EventType = EventTypePrefix + "policy.completecompliance"
+	DeltaComplianceType    EventType = EventTypePrefix + "policy.deltacompliance"
+	MiniComplianceType     EventType = EventTypePrefix + "policy.minicompliance"
 
 	// used to send kube events
-	//nolint: go:S103
-	LocalReplicatedPolicyEventType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.localreplicatedpolicy"
-	//nolint: go:S103
-	LocalRootPolicyEventType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.localrootpolicy"
-	ManagedClusterEventType  EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster"
+	LocalReplicatedPolicyEventType EventType = EventTypePrefix + "event.localreplicatedpolicy"
+	LocalRootPolicyEventType       EventType = EventTypePrefix + "event.localrootpolicy"
 
-	PlacementDecisionType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementdecision"
-	//nolint: go:S103
-	LocalPlacementRuleSpecType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.localspec"
-	PlacementRuleSpecType      EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placementrule.spec"
-	PlacementSpecType          EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.placement.spec"
+	ManagedClusterEventType EventType = EventTypePrefix + "event.managedcluster"
+
+	PlacementDecisionType      EventType = EventTypePrefix + "placementdecision"
+	LocalPlacementRuleSpecType EventType = EventTypePrefix + "placementrule.localspec"
+	PlacementRuleSpecType      EventType = EventTypePrefix + "placementrule.spec"
+	PlacementSpecType          EventType = EventTypePrefix + "placement.spec"
 
 	// Used to send security alerts:
-	SecurityAlertCountsType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.security.alertcounts"
+	SecurityAlertCountsType EventType = EventTypePrefix + "security.alertcounts"
 )
