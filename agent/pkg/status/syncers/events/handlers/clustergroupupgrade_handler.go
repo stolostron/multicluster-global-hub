@@ -19,8 +19,8 @@ import (
 )
 
 func NewClusterGroupUpgradeEventEmitter() interfaces.Emitter {
-	name := strings.Replace(string(enum.CGUEventType), enum.EventTypePrefix, "", -1)
-	return generic.NewGenericEmitter(enum.CGUEventType, generic.WithPostSend(
+	name := strings.Replace(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "", -1)
+	return generic.NewGenericEmitter(enum.ClusterGroupUpgradesEventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {
 			events, ok := data.(*event.ClusterGroupUpgradeEventBundle)
@@ -46,12 +46,12 @@ type clusterGroupUpgradeEventHandler struct {
 }
 
 func NewClusterGroupUpgradeEventHandler(ctx context.Context, c client.Client) *clusterGroupUpgradeEventHandler {
-	name := strings.Replace(string(enum.CGUEventType), enum.EventTypePrefix, "", -1)
+	name := strings.Replace(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "", -1)
 	filter.RegisterTimeFilter(name)
 	return &clusterGroupUpgradeEventHandler{
 		ctx:           ctx,
 		name:          name,
-		eventType:     string(enum.CGUEventType),
+		eventType:     string(enum.ClusterGroupUpgradesEventType),
 		runtimeClient: c,
 		payload:       &event.ClusterGroupUpgradeEventBundle{},
 	}
