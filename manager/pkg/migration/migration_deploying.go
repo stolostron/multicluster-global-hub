@@ -21,6 +21,10 @@ import (
 func (m *ClusterMigrationController) deploying(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
+	if !mcm.DeletionTimestamp.IsZero() {
+		return false, nil
+	}
+
 	// skip if the phase isn't Migrating and the MigrationResourceDeployed condition is True
 	if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating &&
 		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
@@ -66,6 +70,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 			return false, err
 		}
 
+		// mark it is deployed if the resource is default value
 		defaultAddonConfig := &addonv1.KlusterletAddonConfig{}
 		if apiequality.Semantic.DeepDerivative(klusterletAddonConfig.Spec, defaultAddonConfig.Spec) {
 			err = db.Model(&models.ManagedClusterMigration{}).

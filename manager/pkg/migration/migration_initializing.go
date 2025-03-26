@@ -49,6 +49,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
 			return false, err
 		}
+		return false, nil
 	}
 
 	if mcm.Status.Phase == "" {

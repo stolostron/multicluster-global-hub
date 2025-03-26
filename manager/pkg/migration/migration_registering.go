@@ -36,39 +36,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
 	if !mcm.DeletionTimestamp.IsZero() {
-		// Deleting the Bootstrap secret from the source hub, also the klusterletConfig
-		// After deleted finshied the database should be empty
-		// To From: select the initialized items to start initialized
-		var deployed []models.ManagedClusterMigration
-		err := database.GetGorm().Where(&models.ManagedClusterMigration{
-			Stage: migrationv1alpha1.MigrationResourceDeployed,
-		}).Find(&deployed).Error
-		if err != nil {
-			return false, err
-		}
-
-		if len(deployed) == 0 {
-			return false, nil
-		}
-
-		cleaningClusters := map[string][]string{}
-		for _, d := range deployed {
-			cleaningClusters[d.FromHub] = append(cleaningClusters[d.FromHub], d.ClusterName)
-		}
-		// deployed the resource in destination hub, send complated event to soure hub
-		// detach the clusters, config and secret
-		bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
-		for sourceHub, clusters := range cleaningClusters {
-			err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.MigrationCompleted,
-				clusters, bootstrapSecret)
-			if err != nil {
-				log.Errorf("failed to send cleanup event into source hub(%s)", sourceHub)
-				return false, err
-			}
-		}
-
-		// confirm in the status event -> change the status into
-
+		return false, nil
 	}
 
 	if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating &&

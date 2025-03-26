@@ -172,7 +172,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	// Remove finalizer when all stages have been successfully pruned
 	if !mcm.DeletionTimestamp.IsZero() {
 		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-
 			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
 			if err := m.Update(ctx, mcm); err != nil {
 				return ctrl.Result{}, err
