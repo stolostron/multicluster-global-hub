@@ -84,7 +84,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub:           "hub2",
-				Stage:           migrationv1alpha1.PhaseInitializing,
+				Stage:           migrationv1alpha1.MigrationResourceInitialized,
 				ManagedClusters: []string{"cluster1"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
@@ -113,7 +113,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.PhaseMigrating,
+				Stage: migrationv1alpha1.MigrationClusterRegistered,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
@@ -161,7 +161,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.PhaseCompleted,
+				Stage: migrationv1alpha1.MigrationResourceDeployed,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
