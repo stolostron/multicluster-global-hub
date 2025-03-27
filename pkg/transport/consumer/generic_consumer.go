@@ -158,11 +158,14 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		c.log.Debugw("received message", "event.Source", event.Source(), "event.Type", event.Type())
 
 		chunk, isChunk := c.assembler.messageChunk(event)
+		c.log.Debugf("chunk: %v", isChunk)
 		if !isChunk {
+			c.log.Debugf("chunk: %v", isChunk)
 			c.eventChan <- &event
 			return ceprotocol.ResultACK
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
+			c.log.Debugf("payload: %v", payload)
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
 				c.log.Error(err, "failed the set the assembled data to event")
 			} else {

@@ -53,6 +53,7 @@ func (d *genericDispatcher) Start(ctx context.Context) error {
 	go d.dispatch(ctx)
 
 	<-ctx.Done() // blocking wait for stop event
+
 	d.log.Info("stopped dispatching bundles")
 
 	return nil
@@ -60,10 +61,12 @@ func (d *genericDispatcher) Start(ctx context.Context) error {
 
 func (d *genericDispatcher) dispatch(ctx context.Context) {
 	for {
+		d.log.Debug("dispatch")
 		select {
 		case <-ctx.Done():
 			return
 		case evt := <-d.consumer.EventChan():
+			d.log.Debugf("get event: %v", evt.Type())
 			// if destination is explicitly specified and does not match, drop bundle
 			clusterNameVal, err := evt.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)
 			if err != nil {
@@ -80,6 +83,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				continue
 			}
 			syncer, found := d.syncers[evt.Type()]
+			d.log.Debug("found: %v", found)
 			if !found {
 				d.log.Debugw("dispatching to the default generic syncer", "eventType", evt.Type())
 				syncer = d.syncers[constants.GenericSpecMsgKey]
@@ -90,6 +94,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				continue
 			}
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				d.log.Debug("sync data: %v", evt.Data())
 				if err := syncer.Sync(ctx, evt.Data()); err != nil {
 					return err
 				}
