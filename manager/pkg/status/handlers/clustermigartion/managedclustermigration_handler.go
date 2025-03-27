@@ -105,7 +105,7 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		}
 	}
 
-	// from source hub -> migratoin completed
+	// from source hub -> migration completed
 	if bundle.Stage == migrationv1alpha1.MigrationCompleted {
 		for _, cluster := range bundle.ManagedClusters {
 			log.Infof("cleaned up the source hub resources: %s", evt.Source())

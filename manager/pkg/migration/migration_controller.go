@@ -166,7 +166,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	if requeue {
-		return ctrl.Result{RequeueAfter: 20 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: deleteInterval}, nil
 	}
 
 	// Remove finalizer when all stages have been successfully pruned

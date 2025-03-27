@@ -12,6 +12,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
+var deleteInterval = 5 * time.Minute
+
 // Completed:
 // 1. Once the resource deployed in the destination hub, Clean up the resources in the source hub
 // 2. 5 minutes after completion: delete the migration CR, delete the completed items in db
@@ -49,11 +51,16 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			return false, err
 		}
 	}
+	if len(cleaningClusters) > 0 {
+		log.Info("waiting resource to be cleaned up")
+		return true, nil
+	}
 
 	// wait the completed up to 5 minutes, delete the CR, completed items in db
 	cond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed)
-	if time.Since(cond.LastTransitionTime.Time) < 5*time.Minute {
-		log.Info("migration completed, waiting to clean up")
+	interval := time.Since(cond.LastTransitionTime.Time)
+	if interval < deleteInterval {
+		log.Infof("migration completed, waiting to clean up: %f - %f", interval, deleteInterval.Seconds())
 		return true, nil
 	}
 
@@ -72,4 +79,8 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	}
 
 	return false, nil
+}
+
+func SetDeleteDuration(interval time.Duration) {
+	deleteInterval = interval
 }
