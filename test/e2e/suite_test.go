@@ -184,15 +184,21 @@ var _ = BeforeSuite(func() {
 			}, 1*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 		}
 		db = database.GetGorm()
+		By("Validate the clusters on database")
 	} else {
 		waitGlobalhubReadyAndLeaseUpdated()
 	}
-
-	By("Validate the clusters on database")
 	Eventually(func() (err error) {
-		managedClusters, err = getManagedCluster(httpClient)
+		allManagedClusters, err := getManagedCluster(httpClient)
 		if err != nil {
 			return err
+		}
+		for _, mc := range allManagedClusters {
+			// hub1 and hub2 write in db in local_agent_test.go
+			if mc.Name == "hub1" || mc.Name == "hub2" {
+				continue
+			}
+			managedClusters = append(managedClusters, mc)
 		}
 		if len(managedClusters) != (ExpectedMH * ExpectedMC) {
 			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(managedClusters))

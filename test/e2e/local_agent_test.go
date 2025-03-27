@@ -60,6 +60,7 @@ var _ = Describe("Local Agent", Label("e2e-test-local-agent"), Ordered, func() {
 	})
 
 	It("disable local agent in globalhub", func() {
+		// Wait for the leafhub heartbeat and leafhub info to update
 		Eventually(func() error {
 			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			err := globalHubClient.Get(ctx, types.NamespacedName{
@@ -73,6 +74,7 @@ var _ = Describe("Local Agent", Label("e2e-test-local-agent"), Ordered, func() {
 			return globalHubClient.Update(ctx, mgh)
 		}, 3*time.Minute, 1*time.Second).Should(Succeed())
 	})
+
 	It("local agent deploy should remove in globalhub", func() {
 		// Check agent lease updated
 		Eventually(func() error {
