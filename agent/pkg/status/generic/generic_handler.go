@@ -6,7 +6,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
 	genericpayload "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 type genericHandler struct {
 	eventData *genericpayload.GenericObjectBundle
@@ -36,8 +39,12 @@ func (h *genericHandler) Get() interface{} {
 }
 
 func (h *genericHandler) Update(obj client.Object) bool {
+	log.Debugf("update obj: %v", obj)
+	log.Debugf("obj name: %v", obj.GetName())
+	log.Debugf("obj labels: %v", obj.GetLabels())
 	if h.shouldUpdate != nil {
 		if updated := h.shouldUpdate(obj); !updated {
+			log.Debug("shouldUpdate false")
 			return false
 		}
 	}
@@ -45,16 +52,19 @@ func (h *genericHandler) Update(obj client.Object) bool {
 	index := getObjectIndexByUID(obj.GetUID(), (*h.eventData))
 	if index == -1 { // object not found, need to add it to the bundle
 		(*h.eventData) = append((*h.eventData), obj)
+		log.Debug("shouldUpdate true")
 		return true
 	}
 
 	old := (*h.eventData)[index]
 	if h.isSpec && old.GetGeneration() == obj.GetGeneration() {
+		log.Debug("shouldUpdate false")
 		return false
 	}
 
 	// if we reached here, object already exists in the bundle. check if we need to update the object
 	if obj.GetResourceVersion() == (*h.eventData)[index].GetResourceVersion() {
+		log.Debug("shouldUpdate false")
 		return false // update in bundle only if object changed. check for changes using resourceVersion field
 	}
 
@@ -64,6 +74,7 @@ func (h *genericHandler) Update(obj client.Object) bool {
 	if h.tweakFunc != nil {
 		h.tweakFunc(obj)
 	}
+	log.Debug("shouldUpdate true")
 	return true
 }
 

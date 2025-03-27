@@ -90,6 +90,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 			}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 
 			By("Delete the cluster event from the leafhub")
+
 			Expect(hubClient.Delete(ctx, clusterEvent)).To(Succeed())
 		})
 	})
