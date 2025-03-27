@@ -21,7 +21,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -170,22 +170,22 @@ var _ = Describe("migration", Ordered, func() {
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
-	It("should get the from hub event created", func() {
+	It("should get event from the source hub - ResourceInitialized", func() {
 		Eventually(func() error {
 			payload := sourceHubEvent.Data()
 			if payload == nil {
-				return fmt.Errorf("wait for the event sent to from hub")
+				return fmt.Errorf("wait for the event sent to source hub")
 			}
 
 			Expect(sourceHubEvent.Type()).To(Equal(constants.CloudEventTypeMigrationFrom))
 
 			// handle migration.from cloud event
-			managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
+			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}
 			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 				return err
 			}
 
-			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.PhaseInitializing))
+			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.MigrationResourceInitialized))
 			Expect(managedClusterMigrationEvent.ToHub).To(Equal("hub2"))
 			Expect(managedClusterMigrationEvent.ManagedClusters[0]).To(Equal("cluster1"))
 
@@ -241,7 +241,7 @@ var _ = Describe("migration", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
-	It("should switch the migration phase from migrating into deploying", func() {
+	It("should switch the migration status from ClusterRegistered into ResourceDeployed", func() {
 		// create the migrating cluster in status table
 		By("create the migrating cluster in database")
 		clusterPayload, err := json.Marshal(&clusterv1.ManagedCluster{
@@ -276,13 +276,13 @@ var _ = Describe("migration", Ordered, func() {
 				return fmt.Errorf("source hub should receive event %s, but got %s", constants.CloudEventTypeMigrationFrom,
 					sourceHubEvent.Type())
 			}
-			managedClusterMigrationEvent := &bundleevent.ManagedClusterMigrationFromEvent{}
+			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}
 			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 				return err
 			}
-			if managedClusterMigrationEvent.Stage != migrationv1alpha1.PhaseMigrating {
-				return fmt.Errorf("source hub should receive %s event, but got %s", migrationv1alpha1.PhaseMigrating,
-					managedClusterMigrationEvent.Stage)
+			if managedClusterMigrationEvent.Stage != migrationv1alpha1.MigrationClusterRegistered {
+				return fmt.Errorf("source hub should receive %s event, but got %s",
+					migrationv1alpha1.MigrationClusterRegistered, managedClusterMigrationEvent.Stage)
 			}
 			if managedClusterMigrationEvent.BootstrapSecret == nil {
 				return fmt.Errorf("source hub should receive Migrating event with bootstrapSecret")
