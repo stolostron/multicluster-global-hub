@@ -5,13 +5,15 @@ const EventTypePrefix = "io.open-cluster-management.operator.multiclusterglobalh
 type EventType string
 
 const (
-	HubClusterInfoType        EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info"
-	HubClusterHeartbeatType   EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat"
-	KlusterletAddonConfigType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster.klusterletaddonconfig"
-	ManagedClusterType        EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
-	ManagedClusterInfoType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedclusterinfo"
-	SubscriptionReportType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.report"
-	SubscriptionStatusType    EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.status"
+	HubClusterInfoType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.info"
+	//nolint: go:S103
+	HubClusterHeartbeatType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedhub.heartbeat"
+	//nolint: go:S103
+	MangedClusterMigrationType EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedclustermigration"
+	ManagedClusterType         EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+	ManagedClusterInfoType     EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.managedclusterinfo"
+	SubscriptionReportType     EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.report"
+	SubscriptionStatusType     EventType = "io.open-cluster-management.operator.multiclusterglobalhubs.subscription.status"
 
 	// used by the local resources
 	//nolint: go:S103

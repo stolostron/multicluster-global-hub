@@ -1,19 +1,15 @@
-package event
+package migration
 
 import (
-	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 type ManagedClusterMigrationFromEvent struct {
-	// Allowed values: "initializing", "registering"
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
-	// Deprecated
-	KlusterletConfig *klusterletv1alpha1.KlusterletConfig `json:"klusterletConfig,omitempty"`
 }
 
 type ManagedClusterMigrationToEvent struct {
@@ -21,4 +17,11 @@ type ManagedClusterMigrationToEvent struct {
 	ManagedServiceAccountName             string                         `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string                         `json:"managedServiceAccountInstallNamespace"`
 	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig"`
+}
+
+// Confiramtion from the ManagedHub: Initialized, Cleanup, Deployed
+type ManagedClusterMigrationBundle struct {
+	Stage                 string                         `json:"stage"`
+	KlusterletAddonConfig *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig,omitempty"`
+	ManagedClusters       []string                       `json:"managedClusters,omitempty"`
 }

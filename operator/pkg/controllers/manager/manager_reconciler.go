@@ -64,8 +64,8 @@ import (
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersetbindings,verbs=create;get;list;patch;update;delete
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups="authentication.open-cluster-management.io",resources=managedserviceaccounts,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups="global-hub.open-cluster-management.io",resources=managedclustermigrations,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups="global-hub.open-cluster-management.io",resources=managedclustermigrations/status,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups="global-hub.open-cluster-management.io",resources=managedclustermigrations,verbs=get;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups="global-hub.open-cluster-management.io",resources=managedclustermigrations/status,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=placementbindings,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update
 
