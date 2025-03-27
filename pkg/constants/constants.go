@@ -137,6 +137,7 @@ const (
 	MultiClusterHubKind         = "MultiClusterHub"
 	ManagedClusterKind          = "ManagedCluster"
 	ManagedClusterMigrationKind = "ManagedClusterMigration"
+	ClusterGroupUpgradeKind     = "ClusterGroupUpgrade"
 
 	// VersionClusterClaimName is a claim to record the ACM version
 	VersionClusterClaimName = "version.open-cluster-management.io"

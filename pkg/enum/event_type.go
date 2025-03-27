@@ -28,7 +28,8 @@ const (
 	LocalReplicatedPolicyEventType EventType = EventTypePrefix + "event.localreplicatedpolicy"
 	LocalRootPolicyEventType       EventType = EventTypePrefix + "event.localrootpolicy"
 
-	ManagedClusterEventType EventType = EventTypePrefix + "event.managedcluster"
+	ManagedClusterEventType       EventType = EventTypePrefix + "event.managedcluster"
+	ClusterGroupUpgradesEventType EventType = EventTypePrefix + "event.clustergroupupgrade"
 
 	PlacementDecisionType      EventType = EventTypePrefix + "placementdecision"
 	LocalPlacementRuleSpecType EventType = EventTypePrefix + "placementrule.localspec"
