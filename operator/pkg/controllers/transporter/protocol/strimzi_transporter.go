@@ -50,18 +50,18 @@ const (
 	DefaultCatalogSourceNamespace = "openshift-marketplace"
 
 	// subscription - production
-	DefaultAMQChannel        = "amq-streams-2.8.x"
+	DefaultAMQChannel        = "amq-streams-2.9.x"
 	DefaultAMQPackageName    = "amq-streams"
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
-	CommunityChannel           = "strimzi-0.43.x"
+	CommunityChannel           = "strimzi-0.45.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
 )
 
 var (
-	DefaultAMQKafkaVersion         = "3.8.0"
+	DefaultAMQKafkaVersion         = "3.9.0"
 	KafkaStorageIdentifier   int32 = 0
 	KafkaStorageDeleteClaim        = false
 	DefaultPartition         int32 = 1
