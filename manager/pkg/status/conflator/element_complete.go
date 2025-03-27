@@ -22,7 +22,7 @@ type completeElement struct {
 	dependency           *dependency.Dependency
 	isInProcess          bool
 	lastProcessedVersion *version.Version
-
+	latestVersion        *version.Version
 	// payload
 	event    *cloudevents.Event
 	metadata ConflationMetadata
@@ -60,6 +60,7 @@ func (e *completeElement) Predicate(eventVersion *version.Version) bool {
 	// 2. reset the bundleInfo version to 0 (add the resetBundleVersion() function to bundleInfo interface)
 	if eventVersion.InitGen() {
 		e.lastProcessedVersion = version.NewVersion()
+		e.latestVersion = version.NewVersion()
 		if e.metadata != nil {
 			e.metadata.Version().Reset()
 		}
@@ -67,10 +68,14 @@ func (e *completeElement) Predicate(eventVersion *version.Version) bool {
 	}
 	e.log.V(2).Info("inserting event", "version", eventVersion)
 
-	// version validation 1: the event.Version Vs lastProcessedVersion
-	if !eventVersion.NewerThan(e.lastProcessedVersion) {
+	// version validation
+	// 1: the event.Version Vs lastProcessedVersion
+	// 2. the event.Version VS latestVersion, the latestVersion is the latest version get from transport
+	if !eventVersion.NewerThan(e.lastProcessedVersion) || !eventVersion.NewerThan(e.latestVersion) {
 		return false // we got old event, a newer (or equal) event was already processed.
 	}
+
+	e.latestVersion = eventVersion
 
 	// version validation 2: the insertBundle with the hold conflation bundle(memory)
 	if e.metadata != nil && !eventVersion.NewerThan(e.metadata.Version()) {

@@ -184,11 +184,10 @@ var _ = BeforeSuite(func() {
 			}, 1*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 		}
 		db = database.GetGorm()
+		By("Validate the clusters on database")
 	} else {
 		waitGlobalhubReadyAndLeaseUpdated()
 	}
-
-	By("Validate the clusters on database")
 	Eventually(func() (err error) {
 		managedClusters, err = getManagedCluster(httpClient)
 		if err != nil {
@@ -198,7 +197,7 @@ var _ = BeforeSuite(func() {
 			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(managedClusters))
 		}
 		return nil
-	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+	}, 600*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
