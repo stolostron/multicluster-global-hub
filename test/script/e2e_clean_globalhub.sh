@@ -63,4 +63,3 @@ wait_cmd "kubectl delete crd kafkas.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkanodepools.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkatopics.kafka.strimzi.io --ignore-not-found=true"
 wait_cmd "kubectl delete crd kafkausers.kafka.strimzi.io --ignore-not-found=true"
-
