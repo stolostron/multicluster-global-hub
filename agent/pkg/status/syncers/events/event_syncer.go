@@ -30,7 +30,8 @@ func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 		}
 		// only sync the policy event || extend other InvolvedObject kind
 		return event.InvolvedObject.Kind == policiesv1.Kind ||
-			event.InvolvedObject.Kind == constants.ManagedClusterKind
+			event.InvolvedObject.Kind == constants.ManagedClusterKind ||
+			event.InvolvedObject.Kind == constants.ClusterGroupUpgradeKind
 	})
 
 	return generic.LaunchMultiEventSyncer(
@@ -47,6 +48,10 @@ func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 			{
 				Handler: handlers.NewManagedClusterEventHandler(ctx, mgr.GetClient()),
 				Emitter: handlers.NewManagedClusterEventEmitter(),
+			},
+			{
+				Handler: handlers.NewClusterGroupUpgradeEventHandler(ctx, mgr.GetClient()),
+				Emitter: handlers.NewClusterGroupUpgradeEventEmitter(),
 			},
 		})
 }

@@ -68,3 +68,21 @@ type ManagedClusterEvent struct {
 func (ManagedClusterEvent) TableName() string {
 	return "event.managed_clusters"
 }
+
+type ClusterGroupUpgradeEvent struct {
+	EventNamespace      string         `gorm:"column:event_namespace;type:varchar(63);not null" json:"eventNamespace"`
+	EventName           string         `gorm:"column:event_name;type:varchar(63);not null" json:"eventName"`
+	EventAnns           datatypes.JSON `gorm:"column:event_annotations;type:jsonb" json:"eventAnnotations,omitempty"`
+	CGUName             string         `gorm:"column:cgu_name;type:varchar(63);not null" json:"cguName"`
+	LeafHubName         string         `gorm:"column:leaf_hub_name;type:varchar(256);not null" json:"leafHubName"`
+	Message             string         `gorm:"column:message;type:text" json:"message"`
+	Reason              string         `gorm:"column:reason;type:text" json:"reason"`
+	ReportingController string         `gorm:"column:reporting_controller;type:text" json:"reportingController"`
+	ReportingInstance   string         `gorm:"column:reporting_instance;type:text" json:"reportingInstance"`
+	EventType           string         `gorm:"column:event_type;type:varchar(63);not null" json:"type"`
+	CreatedAt           time.Time      `gorm:"column:created_at;default:now();not null" json:"createdAt"`
+}
+
+func (ClusterGroupUpgradeEvent) TableName() string {
+	return "event.clustergroup_upgrades"
+}
