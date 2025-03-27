@@ -18,7 +18,8 @@ import (
 func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	if !meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
+	if mcm.Status.Phase != migrationv1alpha1.MigrationCompleted ||
+		!meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
 		return false, nil
 	}
 
