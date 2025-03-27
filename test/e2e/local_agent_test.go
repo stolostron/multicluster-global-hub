@@ -60,6 +60,8 @@ var _ = Describe("Local Agent", Label("e2e-test-local-agent"), Ordered, func() {
 	})
 
 	It("disable local agent in globalhub", func() {
+		// Wait for the leafhub heartbeat and leafhub info to update
+		time.Sleep(2 * time.Minute)
 		Eventually(func() error {
 			mgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 			err := globalHubClient.Get(ctx, types.NamespacedName{
@@ -73,6 +75,7 @@ var _ = Describe("Local Agent", Label("e2e-test-local-agent"), Ordered, func() {
 			return globalHubClient.Update(ctx, mgh)
 		}, 3*time.Minute, 1*time.Second).Should(Succeed())
 	})
+
 	It("local agent deploy should remove in globalhub", func() {
 		// Check agent lease updated
 		Eventually(func() error {
@@ -82,5 +85,18 @@ var _ = Describe("Local Agent", Label("e2e-test-local-agent"), Ordered, func() {
 			}
 			return fmt.Errorf("agent should be removed, but still exist. err: %v", err)
 		}, 5*time.Minute, 1*time.Second).Should(Succeed())
+	})
+
+	It("validate the clusters on database", func() {
+		Eventually(func() (err error) {
+			curManagedCluster, err := getManagedCluster(httpClient)
+			if err != nil {
+				return err
+			}
+			if len(curManagedCluster) != (ExpectedMH * ExpectedMC) {
+				return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(curManagedCluster))
+			}
+			return nil
+		}, 10*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 	})
 })

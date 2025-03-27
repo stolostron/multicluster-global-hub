@@ -16,6 +16,7 @@ POSTGRES_KUBECONFIG="${CONFIG_DIR}/hub1"
 export ISBYO="true"
 
 target_namespace=${TARGET_NAMESPACE:-"mgh"}
+export NAMESPACE="$target_namespace"
 
 ######################################### Generate Storage Secret ###################################################
 storage_secret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}

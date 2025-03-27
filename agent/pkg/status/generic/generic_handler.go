@@ -40,10 +40,6 @@ func (h *genericHandler) Get() interface{} {
 
 func (h *genericHandler) Update(obj client.Object) bool {
 	log.Debugf("update obj: %v", obj)
-	log.Debugf("update obj: %v", obj.GetName())
-	log.Debugf("update obj: %v", obj.GetNamespace())
-	log.Debugf("update obj: %v", obj.GetLabels())
-
 	if h.shouldUpdate != nil {
 		if updated := h.shouldUpdate(obj); !updated {
 			log.Debug("shouldUpdate false")
