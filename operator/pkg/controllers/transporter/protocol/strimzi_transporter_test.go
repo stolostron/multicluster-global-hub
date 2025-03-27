@@ -125,7 +125,7 @@ func TestNewKafkaCluster(t *testing.T) {
                     "memory": "128Mi"
                 }
             },
-            "version": "3.8.0"
+            "version": "3.9.0"
         }
     }
 }`,
@@ -196,7 +196,7 @@ func TestNewKafkaCluster(t *testing.T) {
                     "memory": "128Mi"
                 }
             },
-            "version": "3.8.0"
+            "version": "3.9.0"
         }
     }
 }`,
@@ -281,7 +281,7 @@ func TestNewKafkaCluster(t *testing.T) {
                     "memory": "128Mi"
                 }
             },
-            "version": "3.8.0"
+            "version": "3.9.0"
         }
     }
 }`,
