@@ -77,7 +77,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			if err != nil {
 				return err
 			}
-			err = SendMigrationConfirmation(ctx, s.transportClient, configs.GetLeafHubName(), toHub,
+			err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), toHub,
 				&migration.ManagedClusterMigrationBundle{
 					Stage:                 migrationv1alpha1.MigrationResourceInitialized,
 					KlusterletAddonConfig: addonConfig,
@@ -106,7 +106,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			return err
 		}
 		// send the cleanup confirmation
-		return SendMigrationConfirmation(ctx, s.transportClient, configs.GetLeafHubName(), migrationSourceHubEvent.ToHub,
+		return SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), migrationSourceHubEvent.ToHub,
 			&migration.ManagedClusterMigrationBundle{
 				Stage:           migrationv1alpha1.MigrationCompleted,
 				ManagedClusters: migrationSourceHubEvent.ManagedClusters,
@@ -307,7 +307,7 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 	return config, nil
 }
 
-func SendMigrationConfirmation(
+func SendMigrationEvent(
 	ctx context.Context,
 	transportClient transport.TransportClient,
 	source string,

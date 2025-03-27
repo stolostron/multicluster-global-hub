@@ -100,7 +100,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 
 		// If it's directly sent to the global hub, mark it as completed.
 		s.log.Infof("sending addonConfigs applied confirmation %s", klusterletAddonConfig.Name)
-		err = SendMigrationConfirmation(ctx, s.transportClient, configs.GetLeafHubName(), constants.CloudEventGlobalHubClusterName,
+		err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), constants.CloudEventGlobalHubClusterName,
 			&migration.ManagedClusterMigrationBundle{
 				Stage:           migrationv1alpha1.MigrationResourceDeployed,
 				ManagedClusters: []string{klusterletAddonConfig.Name},
