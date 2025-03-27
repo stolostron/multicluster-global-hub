@@ -25,9 +25,8 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		return false, nil
 	}
 
-	// skip if the phase isn't Migrating and the MigrationResourceDeployed condition is True
-	if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating &&
-		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
+	// skip if the MigrationResourceDeployed condition is True
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
 		return false, nil
 	}
 

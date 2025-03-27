@@ -39,8 +39,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating &&
-		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationClusterRegistered) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationClusterRegistered) {
 		return false, nil
 	}
 

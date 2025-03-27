@@ -59,9 +59,8 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}
 
-	// skip if the phase isn't Initializing and the MigrationResourceInitialized condition is True
-	if mcm.Status.Phase != migrationv1alpha1.PhaseInitializing &&
-		meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceInitialized) {
+	// skip if the MigrationResourceInitialized condition is True
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceInitialized) {
 		return false, nil
 	}
 	log.Info("migration initializing")
@@ -127,6 +126,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 				clusterResourcesSynced = false
 			}
 		}
+		// confirmation in status
 		if !clusterResourcesSynced {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm.Spec.To,
 				migrationv1alpha1.MigrationResourceInitialized, clusters, nil)
