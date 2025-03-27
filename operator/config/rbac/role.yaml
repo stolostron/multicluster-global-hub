@@ -333,18 +333,9 @@ rules:
   - global-hub.open-cluster-management.io
   resources:
   - managedclustermigrations
-  verbs:
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - global-hub.open-cluster-management.io
-  resources:
   - managedclustermigrations/status
   verbs:
+  - delete
   - get
   - list
   - patch
