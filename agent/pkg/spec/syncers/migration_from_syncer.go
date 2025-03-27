@@ -92,7 +92,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 
 	// expected registered
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationClusterRegistered {
-		s.log.Infof("registering managed cluster migration event")
+		s.log.Infof("registering managed cluster migration")
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 
 	// expected completed that means need to clean up resources from the source hub, and send the confirmation
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationCompleted {
-		s.log.Infof("completed managed cluster migration event")
+		s.log.Infof("completed managed cluster migration")
 		if err := s.cleanup(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
@@ -370,7 +370,11 @@ func (s *managedClusterMigrationFromSyncer) detachManagedClusters(ctx context.Co
 		}
 		if !mc.Spec.HubAcceptsClient {
 			if err := s.client.Delete(ctx, mc); err != nil {
-				return err
+				if apierrors.IsNotFound(err) {
+					continue
+				} else {
+					return err
+				}
 			}
 		}
 	}

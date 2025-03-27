@@ -18,10 +18,12 @@ import (
 func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	if mcm.Status.Phase != migrationv1alpha1.MigrationCompleted ||
+	if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted ||
 		!meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
 		return false, nil
 	}
+
+	log.Infof("completed the migration: %s", mcm.Name)
 
 	// clean up the source hub resource -> confirmationEvent: database items change into MigrationCompleted
 	// BootstrapSecret, klusterletConfig, detaching clusters
@@ -39,6 +41,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	}
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range cleaningClusters {
+		log.Infof("cleaning up the source hub resources: %s", sourceHub)
 		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.MigrationCompleted,
 			clusters, bootstrapSecret)
 		if err != nil {
