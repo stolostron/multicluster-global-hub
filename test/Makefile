@@ -15,13 +15,13 @@ e2e-cleanup:
 	./test/script/e2e_cleanup.sh
 
 e2e-test-all: tidy vendor
-	sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana,e2e-test-agent" -v $(VERBOSE)
+	sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana,e2e-test-agent,e2e-test-local-agent" -v $(VERBOSE)
 	sh ./test/script/e2e_run_qe.sh
 	sh ./test/script/e2e_run.sh -f "e2e-test-prune" -v $(VERBOSE)
 	sh ./test/script/e2e_clean_globalhub.sh
 	sh ./test/script/e2e_run_byo.sh -v $(VERBOSE)
 
-e2e-test-cluster e2e-test-placement e2e-test-app e2e-test-policy e2e-test-localpolicy e2e-test-grafana e2e-test-agent: tidy vendor
+e2e-test-cluster e2e-test-local-agent e2e-test-placement e2e-test-app e2e-test-policy e2e-test-localpolicy e2e-test-grafana e2e-test-agent: tidy vendor
 	./test/script/e2e_run.sh -f $@ -v $(VERBOSE)
 
 e2e-prow-tests: 
@@ -39,6 +39,7 @@ e2e-log/grafana:
 e2e-log/agent:
 	@export CLUSTER_NAME=hub1 COMPONENT=multicluster-global-hub-agent NAMESPACE=multicluster-global-hub-agent && ./test/script/e2e_log.sh
 	@export CLUSTER_NAME=hub2 COMPONENT=multicluster-global-hub-agent NAMESPACE=multicluster-global-hub-agent && ./test/script/e2e_log.sh
+	@export COMPONENT=multicluster-global-hub-agent NAMESPACE=multicluster-global-hub && ./test/script/e2e_log.sh
 
 integration-test: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./test/integration/...`

@@ -516,3 +516,24 @@ func PruneMetricsResources(ctx context.Context, c client.Client, metricsLabel ma
 
 	return nil
 }
+
+func DeleteResourcesWithLabels(ctx context.Context,
+	c client.Client,
+	namespace string,
+	resourceLabels map[string]string, objs []client.Object,
+) error {
+	for _, obj := range objs {
+		err := c.DeleteAllOf(ctx, obj,
+			&client.DeleteAllOfOptions{
+				ListOptions: client.ListOptions{
+					Namespace:     namespace,
+					LabelSelector: labels.SelectorFromValidatedSet(map[string]string(resourceLabels)),
+				},
+				DeleteOptions: client.DeleteOptions{},
+			})
+		if err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}

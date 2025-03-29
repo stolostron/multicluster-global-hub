@@ -28,7 +28,7 @@ type versionClusterClaimController struct {
 
 // consider to unify the hub and version claim in one controller
 func (c *versionClusterClaimController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
-	log.Info("NamespacedName: ", request.NamespacedName)
+	log.Debug("NamespacedName: ", request.NamespacedName)
 
 	mch, err := updateHubClusterClaim(ctx, c.client, request.NamespacedName)
 	if err != nil {

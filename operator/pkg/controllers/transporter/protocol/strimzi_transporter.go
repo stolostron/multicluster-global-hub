@@ -374,6 +374,9 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
 	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
+	if clusterName == constants.LocalClusterName {
+		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
+	}
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		ConsumeGroupReadACL(),
 		ReadTopicACL(clusterTopic.SpecTopic, false),
@@ -514,15 +517,19 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
 	credential.IsNewKafkaCluster = k.isNewKafkaCluster
-	// don't need to load the client cert/key from the kafka user, since it use the external kafkaUser
-	// userName := config.GetKafkaUserName(clusterName)
-	// if !k.enableTLS {
-	// 	k.log.Info("the kafka cluster hasn't enable tls for user", "username", userName)
-	// 	return credential, nil
-	// }
-	// if err := k.loadUserCredentail(userName, credential); err != nil {
-	// 	return nil, err
-	// }
+	if clusterName != constants.LocalClusterName {
+		return credential, nil
+	}
+
+	// for local-cluster, need to load the client cert/key from the kafka user
+	userName := config.GetKafkaUserName(clusterName)
+	if !k.enableTLS {
+		log.Infof("the kafka cluster hasn't enable tls for user", "username", userName)
+		return credential, nil
+	}
+	if err := k.loadUserCredentail(userName, credential); err != nil {
+		return nil, err
+	}
 	return credential, nil
 }
 

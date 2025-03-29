@@ -660,6 +660,19 @@ spec:
   value: $(uuidgen)
 EOF
   fi
+
+  if ! kubectl --context "$cluster" get clusterversion version >/dev/null 2>&1; then
+    # Add clusterversion
+    cat <<EOF | kubectl --context "$cluster" apply -f -
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  name: version
+spec:
+  channel: stable-4.18
+  clusterID: $(uuidgen)
+EOF
+  fi
 }
 
 wait_ocm() {
