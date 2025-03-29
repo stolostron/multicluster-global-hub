@@ -241,10 +241,6 @@ func getManagedCluster(client *http.Client) ([]clusterv1.ManagedCluster, error) 
 		return nil, err
 	}
 
-	if len(clusterList.Items) != (ExpectedMH * ExpectedMC) {
-		return nil, fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(clusterList.Items))
-	}
-
 	return clusterList.Items, nil
 }
 

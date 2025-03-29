@@ -1,4 +1,4 @@
-package agent
+package addon
 
 import (
 	"context"
@@ -260,22 +260,11 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	if mgh.Spec.InstallAgentOnLocal {
-		// if installed agent on hub cluster, global hub is installed in a brownfield cluster
-		if cluster.Labels[constants.LocalClusterName] == "true" ||
-			deployMode == operatorconstants.GHAgentDeployModeDefault ||
-			deployMode == operatorconstants.GHAgentDeployModeHosted {
-			return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
-		}
-	} else {
-		// if not installed agent on hub cluster, global hub is installed in a greenfield cluster
-		if cluster.Labels[constants.LocalClusterName] == "true" {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+	// if not installed agent on hub cluster, global hub is installed in a greenfield cluster
+	if cluster.Labels[constants.LocalClusterName] == "true" {
+		return ctrl.Result{}, nil
 	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 }
 
 func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
@@ -338,10 +327,10 @@ func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
 	}
 
 	// reconcile transport resources
-	return ensureTransportResource(cluster.Name)
+	return EnsureTransportResource(cluster.Name)
 }
 
-func ensureTransportResource(clusterName string) error {
+func EnsureTransportResource(clusterName string) error {
 	// create kafka resource: user and topic
 	trans := config.GetTransporter()
 	if trans == nil {

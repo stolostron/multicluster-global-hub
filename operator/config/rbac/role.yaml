@@ -8,16 +8,14 @@ rules:
   - ""
   resources:
   - configmaps
-  - jobs
-  - namespaces
-  - persistentvolumeclaims
-  - pods
+  - events
   - secrets
   - serviceaccounts
   - services
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -34,11 +32,13 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - events
+  - jobs
+  - namespaces
+  - persistentvolumeclaims
+  - pods
   verbs:
   - create
   - delete
-  - deletecollection
   - get
   - list
   - patch
@@ -131,6 +131,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -492,6 +493,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - update

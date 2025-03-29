@@ -1,4 +1,4 @@
-package agent_test
+package addon
 
 import (
 	"context"
@@ -19,7 +19,6 @@ import (
 	operatorv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
-	hubofhubsaddon "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -285,7 +284,7 @@ func TestAddonInstaller(t *testing.T) {
 			}, fakeClient)
 			config.SetTransporter(transporter)
 
-			r := &hubofhubsaddon.DefaultAgentController{
+			r := &DefaultAgentController{
 				Client: fakeClient,
 			}
 
