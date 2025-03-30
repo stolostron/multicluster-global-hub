@@ -29,7 +29,7 @@ require (
 	github.com/onsi/gomega v1.36.2
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
 	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
-	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
+	github.com/openshift/library-go v0.0.0-20250325143551-78a24021cf40
 	github.com/operator-framework/api v0.27.0
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
