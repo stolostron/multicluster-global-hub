@@ -95,12 +95,11 @@ check_clusteradm() {
 }
 
 check_kind() {
-  if ! command -v kind >/dev/null 2>&1; then
-    echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
-    curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
-    chmod +x ./kind-amd64
-    sudo mv ./kind-amd64 $INSTALL_DIR/kind
-  fi
+  echo "This script will install kind (https://kind.sigs.k8s.io/) on your machine."
+  curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
+  chmod +x ./kind-amd64
+  sudo mv ./kind-amd64 $INSTALL_DIR/kind
+  cp $INSTALL_DIR/kind /usr/bin/kind
   echo "kind version: $(kind version)"
 }
 
@@ -129,8 +128,7 @@ ensure_cluster() {
   if kind get clusters 2>/dev/null | grep -xq "$cluster_name"; then
     kind delete cluster --name="$cluster_name"
   fi
-
-  kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
+  kind create cluster --name "$cluster_name" --image=kindest/node:v1.28.0 --wait 5m
 
   # modify the context = KinD cluster name = kubeconfig name
   kubectl config delete-context "$cluster_name" 2>/dev/null || true
