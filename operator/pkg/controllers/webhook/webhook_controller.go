@@ -88,6 +88,9 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
+	// set importClusterInHosted from mgh annotation
+	config.SetImportClusterInHosted(mgh)
+
 	if mgh.DeletionTimestamp != nil || !config.GetImportClusterInHosted() {
 		err = r.pruneWebhookResources(ctx)
 		if err != nil {
