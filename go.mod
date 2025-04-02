@@ -1,6 +1,7 @@
 module github.com/stolostron/multicluster-global-hub
 
 go 1.23.6
+toolchain go1.24.1
 
 require (
 	github.com/IBM/sarama v1.45.1
@@ -59,7 +60,7 @@ require (
 	open-cluster-management.io/governance-policy-propagator v0.15.0
 	open-cluster-management.io/managed-serviceaccount v0.7.0
 	open-cluster-management.io/multicloud-operators-channel v0.15.0
-	open-cluster-management.io/multicloud-operators-subscription v0.15.0
+	open-cluster-management.io/multicloud-operators-subscription v0.16.0
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.19.1
 	sigs.k8s.io/kustomize/api v0.18.0
