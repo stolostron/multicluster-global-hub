@@ -104,6 +104,6 @@ func (p *tmpProducer) SendEvent(ctx context.Context, evt cloudevents.Event) erro
 	return nil
 }
 
-func (p *tmpProducer) Reconnect(config *transport.TransportInternalConfig) error {
+func (p *tmpProducer) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	return nil
 }

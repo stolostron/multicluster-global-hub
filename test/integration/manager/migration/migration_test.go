@@ -38,7 +38,10 @@ var _ = Describe("migration", Ordered, func() {
 	BeforeAll(func() {
 		testCtx, testCtxCancel = context.WithCancel(ctx)
 		var err error
-		genericConsumer, err = genericconsumer.NewGenericConsumer(transportConfig)
+		genericConsumer, err = genericconsumer.NewGenericConsumer(
+			transportConfig,
+			[]string{transportConfig.KafkaCredential.SpecTopic},
+		)
 		Expect(err).NotTo(HaveOccurred())
 
 		// start the consumer

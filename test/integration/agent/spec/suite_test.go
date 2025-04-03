@@ -48,11 +48,9 @@ var _ = BeforeSuite(func() {
 	agentConfig = &configs.AgentConfig{
 		TransportConfig: &transport.TransportInternalConfig{
 			TransportType:   string(transport.Chan),
-			IsManager:       false,
 			ConsumerGroupId: "agent",
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:   "spec",
-				StatusTopic: "spec",
+				StatusTopic: "status",
 			},
 		},
 		SpecWorkPoolSize:     2,
@@ -82,8 +80,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	runtimeClient = mgr.GetClient()
 
-	agentConfig.TransportConfig.IsManager = false
-	genericConsumer, err = genericconsumer.NewGenericConsumer(agentConfig.TransportConfig)
+	genericConsumer, err = genericconsumer.NewGenericConsumer(
+		agentConfig.TransportConfig,
+		[]string{agentConfig.TransportConfig.KafkaCredential.StatusTopic},
+	)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -93,8 +93,10 @@ var _ = BeforeSuite(func() {
 	}()
 	Expect(err).NotTo(HaveOccurred())
 
-	agentConfig.TransportConfig.IsManager = true
-	genericProducer, err = genericproducer.NewGenericProducer(agentConfig.TransportConfig)
+	genericProducer, err = genericproducer.NewGenericProducer(
+		agentConfig.TransportConfig,
+		agentConfig.TransportConfig.KafkaCredential.StatusTopic,
+	)
 	Expect(err).NotTo(HaveOccurred())
 
 	transportClient := controller.TransportClient{}

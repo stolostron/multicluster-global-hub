@@ -29,7 +29,7 @@ func (m *ProducerMock) SendEvent(ctx context.Context, evt event.Event) error {
 	return m.SendEventFunc(ctx, evt)
 }
 
-func (m *ProducerMock) Reconnect(config *TransportInternalConfig) error {
+func (m *ProducerMock) Reconnect(config *TransportInternalConfig, topic string) error {
 	if m == nil {
 		panic("nil mock")
 	}

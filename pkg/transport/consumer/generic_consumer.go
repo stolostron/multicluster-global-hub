@@ -50,7 +50,7 @@ func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 	}
 }
 
-func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
+func NewGenericConsumer(tranConfig *transport.TransportInternalConfig, topics []string,
 	opts ...GenericConsumeOption,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
@@ -59,7 +59,7 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: tranConfig.EnableDatabaseOffset,
 	}
-	if err := c.initClient(tranConfig); err != nil {
+	if err := c.initClient(tranConfig, topics); err != nil {
 		return nil, err
 	}
 	if err := c.applyOptions(opts...); err != nil {
@@ -69,15 +69,11 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
 }
 
 // initClient will init the consumer identity, clientProtocol, client
-func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig) error {
+func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
 	var err error
 	var clientProtocol interface{}
 
 	c.clusterID = tranConfig.KafkaCredential.ClusterID
-	topics := []string{tranConfig.KafkaCredential.StatusTopic}
-	if !tranConfig.IsManager {
-		topics[0] = tranConfig.KafkaCredential.SpecTopic
-	}
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
@@ -117,11 +113,13 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 	return nil
 }
 
-func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.TransportInternalConfig) error {
+func (c *GenericConsumer) Reconnect(ctx context.Context,
+	tranConfig *transport.TransportInternalConfig, topics []string,
+) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	err := c.initClient(tranConfig)
+	err := c.initClient(tranConfig, topics)
 	if err != nil {
 		return err
 	}

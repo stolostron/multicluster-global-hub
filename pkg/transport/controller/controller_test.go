@@ -39,7 +39,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			ConsumerGroupId: "test",
 			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
-				StatusTopic: "status",
+				StatusTopic: "event",
 			},
 			FailureThreshold: 100,
 		},
@@ -52,6 +52,8 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
+		producerTopic:   "event",
+		consumerTopics:  []string{"spec"},
 	}
 
 	ctx := context.TODO()

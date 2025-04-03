@@ -298,6 +298,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				GlobalHubKafkaUser     string
 				SpecTopic              string
 				StatusTopic            string
+				MigrationTopic         string
 				StatusTopicParttern    string
 				StatusPlaceholderTopic string
 				TopicPartition         int32
@@ -312,6 +313,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster:           KafkaClusterName,
 				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
 				SpecTopic:              config.GetSpecTopic(),
+				MigrationTopic:         config.GetMigrationTopic(),
 				StatusTopic:            statusTopic,
 				StatusTopicParttern:    string(topicParttern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
@@ -415,7 +417,7 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
-	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
+	topicNames := []string{clusterTopic.MigrationTopic, clusterTopic.SpecTopic, clusterTopic.StatusTopic}
 
 	for _, topicName := range topicNames {
 		kafkaTopic := &kafkav1beta2.KafkaTopic{}
@@ -495,8 +497,9 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:   config.GetSpecTopic(),
-		StatusTopic: config.GetStatusTopic(clusterName),
+		SpecTopic:      config.GetSpecTopic(),
+		StatusTopic:    config.GetStatusTopic(clusterName),
+		MigrationTopic: config.GetMigrationTopic(),
 	}
 	return topic
 }

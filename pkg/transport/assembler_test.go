@@ -23,13 +23,12 @@ func TestAssembler(t *testing.T) {
 		},
 	}
 
-	transportConfig.IsManager = true
-	genericProducer, err := producer.NewGenericProducer(transportConfig)
+	genericProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.SpecTopic)
 	assert.Nil(t, err)
 	genericProducer.SetDataLimit(5)
 
-	transportConfig.IsManager = false
-	genericConsumer, err := consumer.NewGenericConsumer(transportConfig)
+	genericConsumer, err := consumer.NewGenericConsumer(transportConfig,
+		[]string{transportConfig.KafkaCredential.SpecTopic})
 	assert.Nil(t, err)
 	go func() {
 		err = genericConsumer.Start(context.TODO())

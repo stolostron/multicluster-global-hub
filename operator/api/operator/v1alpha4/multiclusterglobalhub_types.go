@@ -151,7 +151,7 @@ type CommonSpec struct {
 // DataLayerSpec is a discriminated union of data layer specific configuration.
 type DataLayerSpec struct {
 	// Kafka specifies the desired state of kafka
-	// +kubebuilder:default={"topics": {"specTopic": "gh-spec", "statusTopic": "gh-status.*"}}
+	// +kubebuilder:default={"topics": {"migrationTopic": "gh-migration", "specTopic": "gh-spec", "statusTopic": "gh-status.*"}}
 	Kafka KafkaSpec `json:"kafka,omitempty"`
 	// Postgres specifies the desired state of postgres
 	// +kubebuilder:default={retention: "18m"}
@@ -179,7 +179,7 @@ type PostgresSpec struct {
 // KafkaSpec defines the desired state of kafka
 type KafkaSpec struct {
 	// KafkaTopics specify the desired topics
-	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-status.*"}
+	// +kubebuilder:default={"migrationTopic": "gh-migration", "specTopic": "gh-spec", "statusTopic": "gh-status.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 
 	// StorageSize specifies the size for storage
@@ -192,6 +192,10 @@ type KafkaTopics struct {
 	// SpecTopic is the topic to distribute workloads from global hub to managed hubs. The default value is "gh-spec"
 	// +kubebuilder:default="gh-spec"
 	SpecTopic string `json:"specTopic,omitempty"`
+
+	// MigrationTopic is the topic for the managed cluster migration purpose. The default value is "gh-migration"
+	// +kubebuilder:default="gh-migration"
+	MigrationTopic string `json:"migrationTopic,omitempty"`
 
 	// StatusTopic specifies the topic where an agent reports events and status updates to a manager.
 	// Specifically, the topic can end up with an asterisk (*), indicating topics for individual managed hubs.

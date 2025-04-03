@@ -18,11 +18,12 @@ func TestGenericProducer(t *testing.T) {
 	tranConfig := &transport.TransportInternalConfig{
 		TransportType: string(transport.Rest),
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:   "gh-spec",
-			StatusTopic: "gh-status",
+			SpecTopic:      "gh-spec",
+			StatusTopic:    "gh-status",
+			MigrationTopic: "gh-migration",
 		},
 	}
-	err := p.initClient(tranConfig)
+	err := p.initClient(tranConfig, tranConfig.KafkaCredential.StatusTopic)
 	require.Equal(t, "transport-type - rest is not a valid option", err.Error())
 }
 

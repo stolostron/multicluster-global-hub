@@ -34,9 +34,6 @@ const (
 type TransportInternalConfig struct {
 	TransportType     string
 	CommitterInterval time.Duration
-	// IsManager specifies the send/receive topics from specTopic and statusTopic
-	// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
-	IsManager bool
 	// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 	EnableDatabaseOffset bool
 	ConsumerGroupId      string
@@ -71,8 +68,9 @@ type KafkaConsumerConfig struct {
 
 // topics
 type ClusterTopic struct {
-	SpecTopic   string
-	StatusTopic string
+	SpecTopic      string
+	StatusTopic    string
+	MigrationTopic string
 }
 
 type EventPosition struct {

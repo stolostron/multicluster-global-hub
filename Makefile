@@ -52,7 +52,7 @@ push-agent-image:
 unit-tests: unit-tests-pkg unit-tests-operator unit-tests-manager unit-tests-agent
 
 setup_envtest:
-	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	GOBIN=${TMP_BIN} go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.20
 
 unit-tests-operator: setup_envtest
 	KUBEBUILDER_ASSETS="$(shell ${TMP_BIN}/setup-envtest use --use-env -p path)" ${GO_TEST} `go list ./operator/... | grep -v test`
