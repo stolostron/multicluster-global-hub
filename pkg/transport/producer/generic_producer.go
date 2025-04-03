@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
-	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cectx "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/cloudevents/sdk-go/v2/protocol"
@@ -34,12 +33,12 @@ type GenericProducer struct {
 	messageSizeLimit int
 }
 
-func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*GenericProducer, error) {
+func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topic string) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
 		log:              logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
 		messageSizeLimit: DefaultMessageKBSize * 1000,
 	}
-	err := genericProducer.initClient(transportConfig)
+	err := genericProducer.initClient(transportConfig, topic)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +80,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 }
 
 // Reconnect close the previous producer state and init a new producer
-func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig) error {
+func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	// cloudevent kafka/gochan client
 	closer, ok := p.ceProtocol.(protocol.Closer)
 	if ok {
@@ -89,20 +88,11 @@ func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig) e
 			return fmt.Errorf("failed to close the previous producer: %w", err)
 		}
 	}
-	return p.initClient(config)
+	return p.initClient(config, topic)
 }
 
 // initClient will init/update the client, clientProtocol and messageLimitSize based on the transportConfig
-func (p *GenericProducer) initClient(transportConfig *transport.TransportInternalConfig) error {
-	topic := ""
-	if transportConfig.TransportType == string(transport.Kafka) ||
-		transportConfig.TransportType == string(transport.Chan) {
-		topic = transportConfig.KafkaCredential.SpecTopic
-		if !transportConfig.IsManager {
-			topic = transportConfig.KafkaCredential.StatusTopic
-		}
-	}
-
+func (p *GenericProducer) initClient(transportConfig *transport.TransportInternalConfig, topic string) error {
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
 		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
@@ -154,22 +144,6 @@ func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 
 func (p *GenericProducer) SetDataLimit(size int) {
 	p.messageSizeLimit = size
-}
-
-func getSaramaSenderProtocol(kafkaConfig *transport.KafkaInternalConfig, defaultTopic string) (interface{}, error) {
-	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
-	if err != nil {
-		return nil, err
-	}
-	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
-	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
-	saramaConfig.Producer.Return.Successes = true
-	sender, err := kafka_sarama.NewSender([]string{kafkaConfig.BootstrapServer},
-		saramaConfig, defaultTopic)
-	if err != nil {
-		return nil, err
-	}
-	return sender, nil
 }
 
 func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,

@@ -231,6 +231,6 @@ func (m *ProducerMock) SendEvent(ctx context.Context, evt cloudevents.Event) err
 	return nil
 }
 
-func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig) error {
+func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	return nil
 }

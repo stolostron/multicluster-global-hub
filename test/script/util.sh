@@ -526,7 +526,7 @@ wait_cmd() {
     fi
 
     if [ $elapsed -eq 0 ]; then
-      echo -e "\r placeholder will be overwrite by wating message"
+      echo -e "\r placeholder will be overwrite by waitng message"
     fi
     local index=$((elapsed / interval % ${#signs[@]}))
     echo -ne "\r ${signs[$index]} Waiting $elapsed seconds: $1"

@@ -25,14 +25,14 @@ type Requester interface {
 
 type Producer interface {
 	SendEvent(ctx context.Context, evt cloudevents.Event) error
-	Reconnect(config *TransportInternalConfig) error
+	Reconnect(config *TransportInternalConfig, topic string) error
 }
 
 type Consumer interface {
 	// start the transport to consume message
 	Start(ctx context.Context) error
 	EventChan() chan *cloudevents.Event
-	Reconnect(ctx context.Context, config *TransportInternalConfig) error
+	Reconnect(ctx context.Context, config *TransportInternalConfig, topics []string) error
 }
 
 // Transporter used to innitialize the infras, it has different implementation/protocol:

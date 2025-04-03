@@ -182,6 +182,7 @@ spec:
                   kafka:
                     default:
                       topics:
+                        migrationTopic: gh-migration
                         specTopic: gh-spec
                         statusTopic: gh-status.*
                     description: Kafka specifies the desired state of kafka
@@ -191,10 +192,16 @@ spec:
                         type: string
                       topics:
                         default:
+                          migrationTopic: gh-migration
                           specTopic: gh-spec
                           statusTopic: gh-status.*
                         description: KafkaTopics specify the desired topics
                         properties:
+                          migrationTopic:
+                            default: gh-migration
+                            description: MigrationTopic is the topic for the managed
+                              cluster migration purpose. The default value is "gh-migration"
+                            type: string
                           specTopic:
                             default: gh-spec
                             description: SpecTopic is the topic to distribute workloads

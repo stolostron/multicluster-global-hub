@@ -112,9 +112,6 @@ func parseFlags() *configs.AgentConfig {
 	agentConfig := &configs.AgentConfig{
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		TransportConfig: &transport.TransportInternalConfig{
-			// IsManager specifies the send/receive topics from specTopic and statusTopic
-			// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
-			IsManager: false,
 			// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 			EnableDatabaseOffset: false,
 		},

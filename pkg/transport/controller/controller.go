@@ -43,7 +43,11 @@ type TransportCtrl struct {
 	transportCallback TransportCallback
 	transportClient   *TransportClient
 
-	mutex sync.Mutex
+	// producerTopic is current topic which is used to create a producer
+	producerTopic string
+	// consumerTopics is current topics which are used to create a consumer
+	consumerTopics []string
+	mutex          sync.Mutex
 }
 
 type TransportClient struct {
@@ -160,14 +164,21 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // ReconcileProducer, transport config is changed, then create/update the producer
 func (c *TransportCtrl) ReconcileProducer() error {
+	// set producerTopic based on secret namespace
+	if c.secretNamespace == constants.GHAgentNamespace {
+		c.producerTopic = c.transportConfig.KafkaCredential.StatusTopic
+	} else {
+		c.producerTopic = c.transportConfig.KafkaCredential.SpecTopic
+	}
+
 	if c.transportClient.producer == nil {
-		sender, err := producer.NewGenericProducer(c.transportConfig)
+		sender, err := producer.NewGenericProducer(c.transportConfig, c.producerTopic)
 		if err != nil {
 			return fmt.Errorf("failed to create/update the producer: %w", err)
 		}
 		c.transportClient.producer = sender
 	} else {
-		if err := c.transportClient.producer.Reconnect(c.transportConfig); err != nil {
+		if err := c.transportClient.producer.Reconnect(c.transportConfig, c.producerTopic); err != nil {
 			return fmt.Errorf("failed to reconnect the producer: %w", err)
 		}
 	}
@@ -180,10 +191,16 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	if c.transportConfig.ConsumerGroupId == "" {
 		return nil
 	}
+	// set consumerTopics based on secret namespace
+	if c.secretNamespace == constants.GHAgentNamespace {
+		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
+	} else {
+		c.consumerTopics = []string{c.transportConfig.KafkaCredential.StatusTopic}
+	}
 
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
+		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}

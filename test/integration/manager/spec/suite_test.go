@@ -114,8 +114,9 @@ var _ = BeforeSuite(func() {
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:   "spec",
-				StatusTopic: "event",
+				SpecTopic:      "spec",
+				StatusTopic:    "event",
+				MigrationTopic: "migration",
 			},
 		},
 		StatisticsConfig:    &statistics.StatisticsConfig{},
@@ -124,11 +125,11 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Create consumer/producer")
-	managerConfig.TransportConfig.IsManager = true
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig,
+		managerConfig.TransportConfig.KafkaCredential.SpecTopic)
 	Expect(err).NotTo(HaveOccurred())
-	managerConfig.TransportConfig.IsManager = false
-	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)
+	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
+		[]string{managerConfig.TransportConfig.KafkaCredential.SpecTopic})
 	Expect(err).NotTo(HaveOccurred())
 	// use the dispatcher to consume events from transport
 	agentDispatcher, err = agentspec.AddGenericDispatcher(mgr, consumer,

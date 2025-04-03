@@ -81,10 +81,10 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportInternalConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
-			IsManager:         false,
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:   "spec",
-				StatusTopic: "event",
+				SpecTopic:      "spec",
+				StatusTopic:    "event",
+				MigrationTopic: "migration",
 			},
 		},
 		EnableGlobalResource: true,
@@ -228,10 +228,9 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 	for _, topic := range topics {
 
 		// mock the consumer in manager
-		transConfig.IsManager = true
 		transConfig.EnableDatabaseOffset = false
 		transConfig.KafkaCredential.StatusTopic = topic
-		consumer, err := genericconsumer.NewGenericConsumer(transConfig)
+		consumer, err := genericconsumer.NewGenericConsumer(transConfig, []string{topic})
 		if err != nil {
 			return trans, err
 		}
@@ -243,8 +242,7 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 		Expect(err).NotTo(HaveOccurred())
 
 		// mock the producer in agent
-		transConfig.IsManager = false
-		producer, err := genericproducer.NewGenericProducer(transConfig)
+		producer, err := genericproducer.NewGenericProducer(transConfig, topic)
 		if err != nil {
 			return trans, err
 		}
