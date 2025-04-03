@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	configv1 "github.com/openshift/api/config/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	uberzap "go.uber.org/zap"
 	uberzapcore "go.uber.org/zap/zapcore"
@@ -138,4 +139,20 @@ func IsBackupEnabled(ctx context.Context, client client.Client) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func GetClusterIdFromClusterVersion(c client.Client, ctx context.Context) (error, string) {
+	clusterVersion := &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{Name: "version"},
+	}
+	err := c.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+	if err != nil {
+		return fmt.Errorf("failed to get the ClusterVersion(version): %w", err), ""
+	}
+
+	clusterID := string(clusterVersion.Spec.ClusterID)
+	if clusterID == "" {
+		return fmt.Errorf("the clusterId from ClusterVersion must not be empty"), ""
+	}
+	return nil, clusterID
 }

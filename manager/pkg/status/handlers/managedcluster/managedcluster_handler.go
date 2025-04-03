@@ -66,7 +66,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	batchManagedClusters := []models.ManagedCluster{}
 	for _, object := range data {
 		cluster := object
-
+		h.log.Debugf("cluster: %v", cluster)
 		// Initially, if the clusterID is not exist we will skip it until we get it from ClusterClaim
 		clusterId := ""
 		for _, claim := range cluster.Status.ClusterClaims {

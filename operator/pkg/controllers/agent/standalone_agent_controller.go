@@ -12,6 +12,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -23,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -34,7 +36,7 @@ import (
 
 var (
 	standaloneAgentStarted = false
-	//go:embed manifests/standalone-agent
+	//go:embed manifests
 	fs embed.FS
 )
 
@@ -120,18 +122,54 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 	if config.IsAgentPaused(mgha) || mgha.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
+
+	infra := &configv1.Infrastructure{}
+	namespacedName := types.NamespacedName{Name: "cluster"}
+	err = s.GetClient().Get(ctx, namespacedName, infra)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	clusterName := string(infra.GetUID())
+
+	return renderAgentManifests(
+		ctx,
+		mgha.Namespace,
+		mgha.Spec.ImagePullPolicy,
+		s.Manager,
+		mgha.Spec.Resources,
+		mgha.Spec.ImagePullSecret,
+		mgha.Spec.NodeSelector,
+		mgha.Spec.Tolerations,
+		mgha,
+		clusterName,
+	)
+}
+
+func renderAgentManifests(
+	ctx context.Context,
+	namespace string,
+	agentImagePullPolicy corev1.PullPolicy,
+	mgr ctrl.Manager,
+	resources *shared.ResourceRequirements,
+	imagePullSecret string,
+	nodeSelector map[string]string,
+	tolerations []corev1.Toleration,
+	owner metav1.Object,
+	clusterName string,
+) (ctrl.Result, error) {
 	// create new HoHRenderer and HoHDeployer
-	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(s.GetClient())
+	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(mgr.GetClient())
 
 	// create discovery client
-	dc, err := discovery.NewDiscoveryClientForConfig(s.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	imagePullPolicy := corev1.PullAlways
-	if mgha.Spec.ImagePullPolicy != "" {
-		imagePullPolicy = mgha.Spec.ImagePullPolicy
+	if agentImagePullPolicy != "" {
+		imagePullPolicy = agentImagePullPolicy
 	}
 	agentQPS, agentBurst := config.GetAgentRestConfig()
 
@@ -141,7 +179,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		corev1.ResourceName(corev1.ResourceMemory): resource.MustParse(operatorconstants.AgentMemoryRequest),
 		corev1.ResourceName(corev1.ResourceCPU):    resource.MustParse(operatorconstants.AgentCPURequest),
 	}
-	utils.SetResourcesFromCR(mgha.Spec.Resources, requests)
+	utils.SetResourcesFromCR(resources, requests)
 	resourceReq.Requests = requests
 
 	electionConfig, err := config.GetElectionConfig()
@@ -150,17 +188,10 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	infra := &configv1.Infrastructure{}
-	namespacedName := types.NamespacedName{Name: "cluster"}
-	err = s.Manager.GetClient().Get(ctx, namespacedName, infra)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
-	agentObjects, err := hohRenderer.Render("manifests/standalone-agent", "", func(profile string) (interface{}, error) {
+	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image           string
 			ImagePullSecret string
@@ -178,24 +209,24 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 			Resources       *corev1.ResourceRequirements
 		}{
 			Image:           config.GetImage(config.GlobalHubAgentImageKey),
-			ImagePullSecret: mgha.Spec.ImagePullSecret,
+			ImagePullSecret: imagePullSecret,
 			ImagePullPolicy: string(imagePullPolicy),
-			Namespace:       mgha.Namespace,
-			NodeSelector:    mgha.Spec.NodeSelector,
-			Tolerations:     mgha.Spec.Tolerations,
+			Namespace:       namespace,
+			NodeSelector:    nodeSelector,
+			Tolerations:     tolerations,
 			LeaseDuration:   strconv.Itoa(electionConfig.LeaseDuration),
 			RenewDeadline:   strconv.Itoa(electionConfig.RenewDeadline),
 			RetryPeriod:     strconv.Itoa(electionConfig.RetryPeriod),
 			AgentQPS:        agentQPS,
 			AgentBurst:      agentBurst,
-			ClusterId:       string(infra.GetUID()),
+			ClusterId:       clusterName,
 			Resources:       &resourceReq,
 		}, nil
 	})
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to render standalone agent objects: %v", err)
 	}
-	if err = utils.ManipulateGlobalHubObjects(agentObjects, mgha, hohDeployer, mapper, s.GetScheme()); err != nil {
+	if err = utils.ManipulateGlobalHubObjects(agentObjects, owner, hohDeployer, mapper, mgr.GetScheme()); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create/update standalone agent objects: %v", err)
 	}
 	return ctrl.Result{}, nil

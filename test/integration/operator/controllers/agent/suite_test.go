@@ -41,6 +41,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -129,9 +130,11 @@ var _ = BeforeSuite(func() {
 	})
 
 	By("start the addon manager and add addon controller to manager")
-	_, err = agent.StartAddonManagerController(controllerOption)
+	_, err = addon.StartAddonManagerController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
-	_, err = agent.StartDefaultAgentController(controllerOption)
+	_, err = addon.StartDefaultAgentController(controllerOption)
+	Expect(err).ToNot(HaveOccurred())
+	_, err = agent.StartLocalAgentController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
@@ -180,8 +183,9 @@ var mgh = &globalhubv1alpha4.MulticlusterGlobalHub{
 		Name: MGHName,
 	},
 	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
-		ImagePullSecret: "test-pull-secret",
-		DataLayerSpec:   globalhubv1alpha4.DataLayerSpec{},
+		ImagePullSecret:     "test-pull-secret",
+		DataLayerSpec:       globalhubv1alpha4.DataLayerSpec{},
+		InstallAgentOnLocal: true,
 	},
 	Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
 		Conditions: []metav1.Condition{
@@ -226,7 +230,7 @@ func prepareBeforeTest() {
 
 	// set fake packagemenifestwork configuration
 	By("By setting a fake packagemanifest configuration")
-	agent.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
+	addon.SetPackageManifestConfig("release-2.6", "advanced-cluster-management.v2.6.0",
 		"stable-2.0", "multicluster-engine.v2.0.1",
 		map[string]string{"multiclusterhub-operator": "example.com/registration-operator:test"},
 		map[string]string{"registration-operator": "example.com/registration-operator:test"})

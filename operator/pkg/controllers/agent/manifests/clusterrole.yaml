@@ -2,6 +2,8 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: multicluster-global-hub:multicluster-global-hub-agent
+  labels:
+    component: multicluster-global-hub-agent
 rules:
 - apiGroups:
   - "policy.open-cluster-management.io"

@@ -6,7 +6,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
 	genericpayload "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 type genericHandler struct {
 	eventData *genericpayload.GenericObjectBundle
@@ -36,6 +39,7 @@ func (h *genericHandler) Get() interface{} {
 }
 
 func (h *genericHandler) Update(obj client.Object) bool {
+	log.Debugf("update obj: %v", obj)
 	if h.shouldUpdate != nil {
 		if updated := h.shouldUpdate(obj); !updated {
 			return false
