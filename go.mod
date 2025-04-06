@@ -117,7 +117,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gonvenience/bunt v1.4.0 // indirect
 	github.com/gonvenience/neat v1.3.15 // indirect
 	github.com/gonvenience/term v1.0.3 // indirect
