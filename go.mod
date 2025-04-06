@@ -24,15 +24,15 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.5.5
 	github.com/lib/pq v1.10.9
-	github.com/onsi/ginkgo/v2 v2.21.0
-	github.com/onsi/gomega v1.35.1
+	github.com/onsi/ginkgo/v2 v2.22.0
+	github.com/onsi/gomega v1.36.1
 	github.com/openshift/api v0.0.0-20250213010142-f5b09d13c01f
 	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
 	github.com/openshift/library-go v0.0.0-20250203131244-80620876b7c2
 	github.com/operator-framework/api v0.27.0
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
-	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.74.0
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.81.0
 	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
@@ -46,13 +46,13 @@ require (
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 	helm.sh/helm/v3 v3.17.0
-	k8s.io/api v0.32.1
-	k8s.io/apiextensions-apiserver v0.32.1
-	k8s.io/apimachinery v0.32.1
-	k8s.io/client-go v0.32.1
+	k8s.io/api v0.32.2
+	k8s.io/apiextensions-apiserver v0.32.2
+	k8s.io/apimachinery v0.32.2
+	k8s.io/client-go v0.32.2
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.32.1
-	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
+	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	open-cluster-management.io/addon-framework v0.11.0
 	open-cluster-management.io/api v0.15.0
 	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
@@ -60,13 +60,16 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.15.0
 	open-cluster-management.io/multicloud-operators-subscription v0.15.0
 	sigs.k8s.io/application v0.8.3
-	sigs.k8s.io/controller-runtime v0.19.1
+	sigs.k8s.io/controller-runtime v0.20.3
 	sigs.k8s.io/kustomize/api v0.18.0
 	sigs.k8s.io/kustomize/kyaml v0.18.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
-require go.uber.org/atomic v1.11.0 // indirect
+require (
+	github.com/google/btree v1.1.3 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
+)
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.35.2-20240920164238-5a7b106cbb87.1 // indirect
@@ -93,7 +96,7 @@ require (
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
-	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
@@ -218,14 +221,14 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
-	k8s.io/apiserver v0.32.1 // indirect
-	k8s.io/component-base v0.32.1 // indirect
+	k8s.io/apiserver v0.32.2 // indirect
+	k8s.io/component-base v0.32.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	open-cluster-management.io/sdk-go v0.15.0 // indirect
-	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 )
 
 replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
