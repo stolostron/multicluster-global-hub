@@ -3,7 +3,7 @@ package interval
 import (
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
+	"github.com/cenkalti/backoff/v5"
 )
 
 const (
