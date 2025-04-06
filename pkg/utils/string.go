@@ -1,6 +1,6 @@
 package utils
 
-import set "github.com/deckarep/golang-set"
+import set "github.com/deckarep/golang-set/v2"
 
 // ContainsString returns true if the string exists in the array and false otherwise.
 func ContainsString(slice []string, s string) bool {

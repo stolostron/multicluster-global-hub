@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	set "github.com/deckarep/golang-set"
+	set "github.com/deckarep/golang-set/v2"
 	"go.uber.org/zap"
 	"gorm.io/gorm/clause"
 
