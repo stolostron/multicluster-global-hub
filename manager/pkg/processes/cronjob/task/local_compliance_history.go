@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
