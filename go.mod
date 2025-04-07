@@ -37,7 +37,7 @@ require (
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
-	github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f
+	github.com/stolostron/multiclusterhub-operator v1.0.0
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 	gopkg.in/ini.v1 v1.67.0
