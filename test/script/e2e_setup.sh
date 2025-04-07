@@ -25,9 +25,6 @@ done
 
 echo -e "${YELLOW} creating clusters:${NC} $(($(date +%s) - start_time)) seconds"
 
-# service-ca
-enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
-
 # Init hubs
 start_time=$(date +%s)
 pids=()
@@ -45,6 +42,10 @@ done
 for pid in "${pids[@]}"; do
   wait "$pid" || true
 done
+
+# service-ca
+# it reports `CSV "packageserver" failed to reach phase succeeded` if create service ca before enable olm
+enable_service_ca "$GH_NAME" "$TEST_DIR/manifest" 2>&1 || true
 
 # install the mch on the global hub
 install_mch "$GH_NAME"
