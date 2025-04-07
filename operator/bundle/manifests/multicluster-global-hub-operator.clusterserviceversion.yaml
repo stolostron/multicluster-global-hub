@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-03-02T00:30:49Z"
+    createdAt: "2025-04-07T02:22:43Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -71,7 +71,7 @@ metadata:
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: multicluster-global-hub-operator.v1.4.0-dev
+  name: multicluster-global-hub-operator.v1.4.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1019,4 +1019,5 @@ spec:
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.4.0-dev
+  replaces: multicluster-global-hub-operator.v1.4.0
+  version: 1.4.1
