@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
