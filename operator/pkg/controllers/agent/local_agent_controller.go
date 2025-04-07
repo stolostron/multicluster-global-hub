@@ -105,7 +105,10 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
-	if (mgh.DeletionTimestamp != nil || !mgh.Spec.InstallAgentOnLocal) && !isResourceRemoved {
+	if mgh.DeletionTimestamp != nil || !mgh.Spec.InstallAgentOnLocal {
+		if isResourceRemoved {
+			return ctrl.Result{}, nil
+		}
 		err := pruneAgentResources(ctx, s.GetClient(), mgh.Namespace)
 		if err != nil {
 			return ctrl.Result{}, err
