@@ -4,7 +4,7 @@ go 1.23.6
 
 require (
 	github.com/RedHatInsights/strimzi-client-go v0.34.2
-	github.com/Shopify/sarama v1.38.1
+	github.com/Shopify/sarama v1.45.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-682f3a9684e4
 	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250214143010-93e1a8d64cd6
