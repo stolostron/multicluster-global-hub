@@ -3,7 +3,7 @@ module github.com/stolostron/multicluster-global-hub
 go 1.23.6
 
 require (
-	github.com/RedHatInsights/strimzi-client-go v0.34.2
+	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/Shopify/sarama v1.38.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20240911135016-682f3a9684e4
