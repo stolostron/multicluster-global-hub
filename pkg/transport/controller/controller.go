@@ -48,6 +48,9 @@ type TransportCtrl struct {
 	// consumerTopics is current topics which are used to create a consumer
 	consumerTopics []string
 	mutex          sync.Mutex
+	// inManager is used to check if the controller is in the manager.
+	// if it's true, then the controller is in the manager, otherwise it's in the agent.
+	inManager bool
 }
 
 type TransportClient struct {
@@ -81,7 +84,7 @@ func (c *TransportClient) SetRequester(requester transport.Requester) {
 }
 
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
-	transportConfig *transport.TransportInternalConfig,
+	transportConfig *transport.TransportInternalConfig, inManager bool,
 ) *TransportCtrl {
 	return &TransportCtrl{
 		secretNamespace:   namespace,
@@ -90,6 +93,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		transportClient:   &TransportClient{},
 		transportConfig:   transportConfig,
 		extraSecretNames:  make([]string, 2),
+		inManager:         inManager,
 	}
 }
 
@@ -164,11 +168,11 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // ReconcileProducer, transport config is changed, then create/update the producer
 func (c *TransportCtrl) ReconcileProducer() error {
-	// set producerTopic based on secret namespace
-	if c.secretNamespace == constants.GHAgentNamespace {
-		c.producerTopic = c.transportConfig.KafkaCredential.StatusTopic
-	} else {
+	// set producerTopic to spec or status topic based on running in manager or not
+	if c.inManager {
 		c.producerTopic = c.transportConfig.KafkaCredential.SpecTopic
+	} else {
+		c.producerTopic = c.transportConfig.KafkaCredential.StatusTopic
 	}
 
 	if c.transportClient.producer == nil {
@@ -191,11 +195,11 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	if c.transportConfig.ConsumerGroupId == "" {
 		return nil
 	}
-	// set consumerTopics based on secret namespace
-	if c.secretNamespace == constants.GHAgentNamespace {
-		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
-	} else {
+	// set consumerTopics to status or spec topic based on running in manager or not
+	if c.inManager {
 		c.consumerTopics = []string{c.transportConfig.KafkaCredential.StatusTopic}
+	} else {
+		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
 	}
 
 	// create/update the consumer with the kafka transport

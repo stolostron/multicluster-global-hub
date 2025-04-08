@@ -97,6 +97,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		transportSecretName,
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
+		false,
 	).SetupWithManager(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)

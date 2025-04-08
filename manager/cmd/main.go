@@ -208,7 +208,7 @@ func createManager(ctx context.Context,
 
 	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
 		transportCallback(mgr, managerConfig),
-		managerConfig.TransportConfig,
+		managerConfig.TransportConfig, true,
 	).SetupWithManager(mgr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add the transport controller")
