@@ -192,6 +192,7 @@ func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) 
 	}
 	// topics
 	conn.SpecTopic = config.GetSpecTopic()
+	conn.MigrationTopic = config.GetMigrationTopic()
 	conn.StatusTopic = config.ManagerStatusTopic()
 	// clientCert and clientCA
 	if err := trans.loadUserCredentail(kafkaUserSecret, conn); err != nil {

@@ -97,6 +97,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		transportSecretName,
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
+		false,
 	).SetupWithManager(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)
@@ -112,9 +113,6 @@ func parseFlags() *configs.AgentConfig {
 	agentConfig := &configs.AgentConfig{
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		TransportConfig: &transport.TransportInternalConfig{
-			// IsManager specifies the send/receive topics from specTopic and statusTopic
-			// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
-			IsManager: false,
 			// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 			EnableDatabaseOffset: false,
 		},
