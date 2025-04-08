@@ -380,12 +380,12 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
 	}
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		ConsumeGroupReadACL(),
-		ReadTopicACL(clusterTopic.SpecTopic, false),
-		WriteTopicACL(clusterTopic.StatusTopic),
+		utils.ConsumeGroupReadACL(),
+		utils.ReadTopicACL(clusterTopic.SpecTopic, false),
+		utils.WriteTopicACL(clusterTopic.StatusTopic),
 	}
 
-	desiredKafkaUser := k.newKafkaUser(userName, authnType, simpleACLs)
+	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
 
 	kafkaUser := &kafkav1beta2.KafkaUser{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
@@ -404,6 +404,9 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// combine the acls of kafkaUser and the acls of desiredKafkaUser
+	updatedKafkaUser.Spec.Authorization.Acls = combineACLs(kafkaUser.Spec.Authorization.Acls,
+		desiredKafkaUser.Spec.Authorization.Acls)
 
 	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
 		log.Infof("update the kafkaUser: %s", userName)
@@ -412,6 +415,29 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		}
 	}
 	return userName, nil
+}
+
+// combineACLs combines the existing acls and the desired acls
+func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	desiredKafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	// Deduplicate ACLs based on resource.name + operations
+	aclMap := make(map[string]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem)
+
+	for _, acl := range kafkaUserAcls {
+		key := utils.GenerateACLKey(acl)
+		aclMap[key] = acl
+	}
+	for _, acl := range desiredKafkaUserAcls {
+		key := utils.GenerateACLKey(acl)
+		aclMap[key] = acl
+	}
+
+	mergedAcls := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
+	for _, acl := range aclMap {
+		mergedAcls = append(mergedAcls, acl)
+	}
+	return mergedAcls
 }
 
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
@@ -519,6 +545,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
+	credential.MigrationTopic = config.GetMigrationTopic()
 	credential.IsNewKafkaCluster = k.isNewKafkaCluster
 	if clusterName != constants.LocalClusterName {
 		return credential, nil
@@ -608,18 +635,18 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 	}
 }
 
-func (k *strimziTransporter) newKafkaUser(
-	userName string,
+func newKafkaUser(
+	namespace, clusterName, userName string,
 	authnType kafkav1beta2.KafkaUserSpecAuthenticationType,
 	simpleACLs []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
 ) *kafkav1beta2.KafkaUser {
 	return &kafkav1beta2.KafkaUser{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      userName,
-			Namespace: k.kafkaClusterNamespace,
+			Namespace: namespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the user will not be ready
-				"strimzi.io/cluster":             k.kafkaClusterName,
+				"strimzi.io/cluster":             clusterName,
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
 		},
@@ -1068,60 +1095,4 @@ func (k *strimziTransporter) newSubscription(mgh *operatorv1alpha4.MulticlusterG
 		},
 	}
 	return sub
-}
-
-func WriteTopicACL(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
-	host := "*"
-	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		Host: &host,
-		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
-			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
-			Name:        &topicName,
-			PatternType: &patternType,
-		},
-		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
-		},
-	}
-	return writeAcl
-}
-
-func ReadTopicACL(topicName string, prefixParttern bool) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
-	host := "*"
-	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	if prefixParttern {
-		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
-	}
-
-	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		Host: &host,
-		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
-			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
-			Name:        &topicName,
-			PatternType: &patternType,
-		},
-		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		},
-	}
-}
-
-func ConsumeGroupReadACL() kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
-	host := "*"
-	consumerGroup := "*"
-	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		Host: &host,
-		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
-			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
-			Name:        &consumerGroup,
-			PatternType: &consumerPatternType,
-		},
-		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		},
-	}
-	return consumerAcl
 }

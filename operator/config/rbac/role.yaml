@@ -9,8 +9,9 @@ rules:
   resources:
   - configmaps
   - events
+  - namespaces
+  - pods
   - secrets
-  - serviceaccounts
   - services
   verbs:
   - create
@@ -32,14 +33,33 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - groups
+  - users
+  verbs:
+  - impersonate
+- apiGroups:
+  - ""
+  resources:
   - jobs
-  - namespaces
   - persistentvolumeclaims
-  - pods
   verbs:
   - create
   - delete
   - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - impersonate
   - list
   - patch
   - update
@@ -105,6 +125,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - agent.open-cluster-management.io
+  resources:
+  - klusterletaddonconfigs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
@@ -120,10 +149,13 @@ rules:
   resources:
   - applications
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
   - update
+  - watch
 - apiGroups:
   - apps
   resources:
@@ -152,18 +184,13 @@ rules:
   - apps.open-cluster-management.io
   resources:
   - channels
-  - subscriptions
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-- apiGroups:
-  - apps.open-cluster-management.io
-  resources:
   - placementrules
   - subscriptionreports
+  - subscriptions
+  - subscriptionstatuses
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
@@ -266,6 +293,7 @@ rules:
   - clusterclaims
   - managedclusters
   - managedclustersetbindings
+  - managedclustersets
   - placements
   verbs:
   - create
@@ -279,7 +307,6 @@ rules:
   - cluster.open-cluster-management.io
   resources:
   - managedclusters/finalizers
-  - managedclustersets
   - placementdecisions
   - placementdecisions/finalizers
   - placements/finalizers
@@ -295,6 +322,14 @@ rules:
   - global
   resources:
   - managedclustersets/bind
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - managedclustersets/bind
+  - managedclustersets/join
   verbs:
   - create
   - delete
@@ -325,6 +360,7 @@ rules:
   - leases
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
@@ -465,6 +501,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - platform.stackrox.io
+  resources:
+  - centrals
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - policy.open-cluster-management.io
   resources:
   - placementbindings
@@ -472,6 +516,8 @@ rules:
   - policyautomations
   - policysets
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
@@ -491,27 +537,23 @@ rules:
   resources:
   - clusterrolebindings
   - clusterroles
+  - rolebindings
+  - roles
   verbs:
   - create
   - delete
   - deletecollection
   - get
   - list
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - rolebindings
-  - roles
-  verbs:
-  - create
-  - delete
-  - get
-  - list
   - patch
   - update
   - watch
+- apiGroups:
+  - register.open-cluster-management.io
+  resources:
+  - managedclusters/accept
+  verbs:
+  - update
 - apiGroups:
   - route.openshift.io
   resources:

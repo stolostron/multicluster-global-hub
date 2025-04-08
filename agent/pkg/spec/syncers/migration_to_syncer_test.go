@@ -553,7 +553,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client, nil)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client, nil, nil)
 
 			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
 			assert.Nil(t, err)
@@ -724,7 +724,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			transportClient := &controller.TransportClient{}
 			transportClient.SetProducer(&producer)
 
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(fakeClient, transportClient)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(fakeClient, transportClient, nil)
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)

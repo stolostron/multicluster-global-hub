@@ -68,6 +68,7 @@ import (
 // +kubebuilder:rbac:groups="global-hub.open-cluster-management.io",resources=managedclustermigrations/status,verbs=get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=placementbindings,verbs=get;list;patch;update
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=kafka.strimzi.io,resources=kafkausers,verbs=get;watch;update
 
 //go:embed manifests
 var fs embed.FS

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	configv1 "github.com/openshift/api/config/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	uberzap "go.uber.org/zap"
@@ -155,4 +157,71 @@ func GetClusterIdFromClusterVersion(c client.Client, ctx context.Context) (error
 		return fmt.Errorf("the clusterId from ClusterVersion must not be empty"), ""
 	}
 	return nil, clusterID
+}
+
+func WriteTopicACL(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		},
+	}
+	return writeAcl
+}
+
+func ReadTopicACL(topicName string, prefixParttern bool) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	if prefixParttern {
+		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
+	}
+
+	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	}
+}
+
+func ConsumeGroupReadACL() kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	consumerGroup := "*"
+	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
+			Name:        &consumerGroup,
+			PatternType: &consumerPatternType,
+		},
+		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+		},
+	}
+	return consumerAcl
+}
+
+// GenerateACLKey generates an ACL key based on the provided ACL element.
+func GenerateACLKey(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) string {
+	// Sort operations so "Read,Write" and "Write,Read" are treated the same
+	ops := make([]string, len(acl.Operations))
+	for i, v := range acl.Operations {
+		ops[i] = string(v)
+	}
+	sort.Strings(ops)
+	return fmt.Sprintf("%s|%s", *acl.Resource.Name, strings.Join(ops, ","))
 }

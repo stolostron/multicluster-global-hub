@@ -46,9 +46,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	}
 
 	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationFrom,
-		syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), transportClient))
+		syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
 	dispatcher.RegisterSyncer(constants.CloudEventTypeMigrationTo,
-		syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient(), transportClient))
+		syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncer())
 
 	log.Info("added the spec controllers to manager")

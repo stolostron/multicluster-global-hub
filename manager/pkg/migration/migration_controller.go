@@ -42,15 +42,17 @@ type ClusterMigrationController struct {
 	transport.Producer
 	BootstrapSecret       *corev1.Secret
 	importClusterInHosted bool
+	migrationTopic        string
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
-	importClusterInHosted bool,
+	importClusterInHosted bool, migrationTopic string,
 ) *ClusterMigrationController {
 	return &ClusterMigrationController{
 		Client:                client,
 		Producer:              producer,
 		importClusterInHosted: importClusterInHosted,
+		migrationTopic:        migrationTopic,
 	}
 }
 
@@ -111,6 +113,9 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Infof("reconcile managed cluster migration %v", req)
+	// TODO: we only allow to have one migration processing at a time.
+	// if there are multiple migrations, we need to wait for the first one to finish.
+	// we need to put the migrations into a queue and provide the message in that CR to tell the user
 	mcm := &migrationv1alpha1.ManagedClusterMigration{}
 	// the migration name is the same as managedserviceaccount and the secret
 	err := m.Get(ctx, types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: req.Name}, mcm)
