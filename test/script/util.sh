@@ -411,6 +411,9 @@ install_crds() {
 
 install_mch() {
   local ctx=$1
+  # create open-cluster-management namespace
+  kubectl create ns open-cluster-management --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
+
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
@@ -418,7 +421,7 @@ install_mch() {
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/mch/multiclusterhub.yaml
 
   # patch it to ready
-  kubectl --context "$ctx" patch multiclusterhub multiclusterhub -n open-cluster-management --type='merge' -p='{"status": {"phase": "Running"}}' --subresource=status
+  kubectl --context "$ctx" patch multiclusterhub multiclusterhub -n open-cluster-management --type='merge' -p='{"status": {"phase": "Running", "currentVersion": "2.13.1", "desiredVersion": "2.13.1"}}' --subresource=status
 }
 
 enable_service_ca() {

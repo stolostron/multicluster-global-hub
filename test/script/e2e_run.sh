@@ -82,7 +82,6 @@ for i in $(seq 1 "${MH_NUM}"); do
 EOF
 
   docker pull "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF"
-  kind load docker-image "$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" --name "hub$i"
   for j in $(seq 1 "${MC_NUM}"); do
     # imported managedcluster
     mc_kubeconfig="${CONFIG_DIR}/hub$i-cluster$j"
