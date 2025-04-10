@@ -274,6 +274,11 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 				return err
 			}
 			for _, p := range localPolicies {
+				// since we have local agent enabled, so that localPolicies has local-cluster.
+				// but hubToPolicyMap does not have local-cluster
+				if _, found := hubToPolicyMap[p.LeafHubName]; !found {
+					continue
+				}
 				if string(hubToPolicyMap[p.LeafHubName].UID) == p.PolicyID {
 					return fmt.Errorf("the policy(%s) is not deleted from local_spec.policies", p.PolicyName)
 				}

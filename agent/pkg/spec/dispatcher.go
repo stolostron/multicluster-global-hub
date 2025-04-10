@@ -91,7 +91,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				continue
 			}
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				d.log.Debug("sync data: %v", evt.Data())
+				d.log.Debugf("sync data: %+v", evt.Data())
 				if err := syncer.Sync(ctx, evt.Data()); err != nil {
 					return err
 				}

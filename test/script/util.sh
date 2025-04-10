@@ -2,13 +2,13 @@
 
 # Version
 export INSTALL_DIR=/usr/local/bin
-export PATH=$PATH:$INSTALL_DIR
+export PATH=$INSTALL_DIR:$PATH
 export GRC_VERSION=v0.15.0
 export KUBECTL_VERSION=v1.28.1
-export CLUSTERADM_VERSION=0.8.2
+export CLUSTERADM_VERSION=0.10.1
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
-export GO_VERSION=go1.23.2
+export GO_VERSION=go1.23.6
 export GINKGO_VERSION=v2.17.2
 
 # Environment Variables
@@ -101,6 +101,12 @@ check_kind() {
     chmod +x ./kind-amd64
     sudo mv ./kind-amd64 $INSTALL_DIR/kind
   fi
+  if [[ $(kind version) < "kind v0.19.0" ]]; then
+    echo "KinD version is less than 0.19, update to $KIND_VERSION"
+    curl -Lo ./kind-amd64 "https://kind.sigs.k8s.io/dl/$KIND_VERSION/kind-$(uname)-amd64"
+    chmod +x ./kind-amd64
+    sudo mv ./kind-amd64 $INSTALL_DIR/kind
+  fi
   echo "kind version: $(kind version)"
 }
 
@@ -130,7 +136,7 @@ ensure_cluster() {
     kind delete cluster --name="$cluster_name"
   fi
 
-  kind create cluster --name "$cluster_name" --image=kindest/node:v1.23.0 --wait 5m
+  kind create cluster --name "$cluster_name" --wait 5m
 
   # modify the context = KinD cluster name = kubeconfig name
   kubectl config delete-context "$cluster_name" 2>/dev/null || true
@@ -405,6 +411,9 @@ install_crds() {
 
 install_mch() {
   local ctx=$1
+  # create open-cluster-management namespace
+  kubectl create ns open-cluster-management --dry-run=client -o yaml | kubectl --context "$ctx" apply -f -
+
   # mch
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/crd/0000_01_operator.open-cluster-management.io_multiclusterhubs.crd.yaml
 
@@ -412,7 +421,7 @@ install_mch() {
   kubectl --context "$ctx" apply -f ${CURRENT_DIR}/../manifest/mch/multiclusterhub.yaml
 
   # patch it to ready
-  kubectl --context "$ctx" patch multiclusterhub multiclusterhub -n open-cluster-management --type='merge' -p='{"status": {"phase": "Running"}}' --subresource=status
+  kubectl --context "$ctx" patch multiclusterhub multiclusterhub -n open-cluster-management --type='merge' -p='{"status": {"phase": "Running", "currentVersion": "2.13.1", "desiredVersion": "2.13.1"}}' --subresource=status
 }
 
 enable_service_ca() {
@@ -430,7 +439,7 @@ enable_olm() {
   kubectl config use-context "$1"
   curl -L https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh -o install.sh
   chmod +x install.sh
-  ./install.sh v0.30.0
+  ./install.sh v0.28.0
 }
 
 wait_secret_ready() {
