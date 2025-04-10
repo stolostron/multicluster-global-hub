@@ -70,6 +70,7 @@ func (g *genericEmitter) ToCloudEvent(payload interface{}) (*cloudevents.Event, 
 	e.SetSource(configs.GetLeafHubName())
 	e.SetType(string(g.eventType))
 	e.SetExtension(eventversion.ExtVersion, g.currentVersion.String())
+	e.SetExtension(eventversion.ExtMchVersion, configs.GetMCHVersion())
 	if g.dependencyVersion != nil {
 		e.SetExtension(eventversion.ExtDependencyVersion, g.dependencyVersion.String())
 	}
