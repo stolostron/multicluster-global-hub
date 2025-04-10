@@ -11,6 +11,8 @@ import (
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -19,12 +21,12 @@ import (
 )
 
 // go test ./test/integration/manager/status -v -ginkgo.focus "KlusterletAddonConfig"
-var _ = Describe("KlusterletAddonConfig", Ordered, func() {
-	It("should be able to sync klusterletaddonconfig decision event", func() {
+var _ = Describe("ManagedClusterMigration", Ordered, func() {
+	It("should be able to sync managedclustermigration event", func() {
 		By("Create event")
 
 		evt := cloudevents.NewEvent()
-		evt.SetType(string(enum.KlusterletAddonConfigType))
+		evt.SetType(string(enum.MangedClusterMigrationType))
 		evt.SetSource("hub1")
 		evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 		evt.SetExtension(eventversion.ExtVersion, "0.1")
@@ -35,7 +37,11 @@ var _ = Describe("KlusterletAddonConfig", Ordered, func() {
 				Namespace: "cluster1",
 			},
 		}
-		payloadBytes, err := json.Marshal(addonConfig)
+		bundle := &migrationbundle.ManagedClusterMigrationBundle{
+			Stage:                 migrationv1alpha1.MigrationResourceInitialized,
+			KlusterletAddonConfig: addonConfig,
+		}
+		payloadBytes, err := json.Marshal(bundle)
 		Expect(err).To(Succeed())
 		_ = evt.SetData(cloudevents.ApplicationJSON, payloadBytes)
 

@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	clustermigration "github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/clustermigartion"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/generic"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
@@ -26,7 +27,9 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 	// managed cluster
 	managedcluster.RegisterManagedClusterHandler(cmr)
 	managedcluster.RegisterManagedClusterEventHandler(cmr)
-	managedcluster.RegisterKlusterletAddonConfigHandler(mgr, cmr)
+
+	// managed cluster migration
+	clustermigration.RegisterManagedClusterMigrationHandler(mgr, cmr)
 
 	// local policy
 	policy.RegisterLocalPolicySpecHandler(cmr)

@@ -705,6 +705,7 @@ spec:
           - managedclustermigrations
           - managedclustermigrations/status
           verbs:
+          - delete
           - get
           - list
           - patch

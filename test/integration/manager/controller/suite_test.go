@@ -20,23 +20,20 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (
-	testenv             *envtest.Environment
-	transportConfig     *transport.TransportInternalConfig
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	testPostgres        *testpostgres.TestPostgres
-	db                  *gorm.DB
-	mgr                 manager.Manager
-	migrationReconciler *controllers.MigrationController
+	testenv         *envtest.Environment
+	transportConfig *transport.TransportInternalConfig
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	testPostgres    *testpostgres.TestPostgres
+	db              *gorm.DB
+	mgr             manager.Manager
 )
 
 func TestController(t *testing.T) {
