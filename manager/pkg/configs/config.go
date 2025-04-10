@@ -24,6 +24,7 @@ type ManagerConfig struct {
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
 	ImportClusterInHosted bool
+	EnableInventoryAPI    bool
 	WithACM               bool
 	LaunchJobNames        string
 	EnablePprof           bool

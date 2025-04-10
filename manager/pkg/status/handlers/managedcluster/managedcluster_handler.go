@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/stolostron/multicloud-operators-foundation/pkg/klusterlet/clusterclaim"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -18,25 +23,31 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const BatchSize = 50
 
 type managedClusterHandler struct {
-	log           *zap.SugaredLogger
-	eventType     string
-	eventSyncMode enum.EventSyncMode
-	eventPriority conflator.ConflationPriority
+	log                *zap.SugaredLogger
+	eventType          string
+	eventSyncMode      enum.EventSyncMode
+	eventPriority      conflator.ConflationPriority
+	requester          transport.Requester
+	enableInventoryAPI bool
 }
 
 func RegisterManagedClusterHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.ManagedClusterType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &managedClusterHandler{
-		log:           logger.ZapLogger(logName),
-		eventType:     eventType,
-		eventSyncMode: enum.CompleteStateMode,
-		eventPriority: conflator.ManagedClustersPriority,
+		log:                logger.ZapLogger(logName),
+		eventType:          eventType,
+		eventSyncMode:      enum.CompleteStateMode,
+		eventPriority:      conflator.ManagedClustersPriority,
+		requester:          conflationManager.Requster,
+		enableInventoryAPI: conflationManager.EnableInventoryAPI,
 	}
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
@@ -48,8 +59,11 @@ func RegisterManagedClusterHandler(conflationManager *conflator.ConflationManage
 
 func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
+	extMchVersion := evt.Extensions()[eventversion.ExtMchVersion]
+	mchVersion := extMchVersion.(string)
+
 	leafHubName := evt.Source()
-	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version, "mchVersion", mchVersion)
 
 	var data []clusterv1.ManagedCluster
 	if err := evt.DataAs(&data); err != nil {
@@ -62,8 +76,178 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		return fmt.Errorf("failed fetching leaf hub managed clusters from db - %w", err)
 	}
 
-	// batch update/insert managed clusters
+	createClusters, updateClusters, deleteClusters := h.generateCreateUpdateDeleteClusters(
+		data,
+		leafHubName,
+		clusterIdToVersionMapFromDB,
+	)
+	if len(createClusters) == 0 && len(updateClusters) == 0 && len(deleteClusters) == 0 {
+		h.log.Debugw("no changes to managed clusters", "LH", leafHubName)
+		return nil
+	}
+
+	if h.enableInventoryAPI {
+		requester := h.requester
+		if requester == nil {
+			return fmt.Errorf("requester is nil")
+		}
+		createClustersToInventory, updateClustersToInventory, deleteClustersFromInventory := h.postToInventoryApi(
+			ctx,
+			requester,
+			createClusters,
+			updateClusters,
+			deleteClusters,
+			leafHubName,
+			mchVersion,
+		)
+		h.log.Debugw("post to inventory api", "LH", leafHubName, "create", createClustersToInventory, "update", updateClustersToInventory, "delete", deleteClustersFromInventory)
+
+		// update the clusters to be posted to the database
+		createClusters = createClustersToInventory
+		updateClusters = updateClustersToInventory
+		deleteClusters = deleteClustersFromInventory
+	}
+
+	err = h.postToDatabase(
+		ctx,
+		db,
+		leafHubName,
+		createClusters,
+		updateClusters,
+		deleteClusters,
+	)
+	if err != nil {
+		return fmt.Errorf("failed posting managed clusters to database - %w", err)
+	}
+	h.log.Debugw("post to database", "LH", leafHubName, "create", createClusters, "update", updateClusters, "delete", deleteClusters)
+
+	return nil
+}
+
+func (h *managedClusterHandler) postToDatabase(
+	ctx context.Context,
+	db *gorm.DB,
+	leafHubName string,
+	createClusters []clusterv1.ManagedCluster,
+	updateClusters []clusterv1.ManagedCluster,
+	deleteClusters []models.ManagedCluster,
+) error {
 	batchManagedClusters := []models.ManagedCluster{}
+
+	updateClusters = append(updateClusters, createClusters...)
+	for _, object := range updateClusters {
+		cluster := object
+		h.log.Debugf("cluster: %v", cluster)
+		payload, err := json.Marshal(cluster)
+		if err != nil {
+			return err
+		}
+		batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
+			ClusterID:   cluster.Name,
+			LeafHubName: leafHubName,
+			Payload:     payload,
+			Error:       database.ErrorNone,
+		})
+	}
+	err := db.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).CreateInBatches(batchManagedClusters, BatchSize).Error
+	if err != nil {
+		return err
+	}
+
+	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
+	// https://gorm.io/docs/delete.html#Soft-Delete
+	err = db.Transaction(func(tx *gorm.DB) error {
+		for _, cluster := range deleteClusters {
+			e := tx.Where(&cluster).Delete(&models.ManagedCluster{}).Error
+			if e != nil {
+				return e
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed deleting managed clusters - %w", err)
+	}
+	return nil
+}
+
+func (h *managedClusterHandler) postToInventoryApi(
+	ctx context.Context,
+	requester transport.Requester,
+	createClusters,
+	updateClusters []clusterv1.ManagedCluster,
+	deleteClusters []models.ManagedCluster,
+	leafHubName string,
+	mchVersion string,
+) (
+	[]clusterv1.ManagedCluster,
+	[]clusterv1.ManagedCluster,
+	[]models.ManagedCluster,
+) {
+	var createClustersToInventory []clusterv1.ManagedCluster
+	var updateClustersToInventory []clusterv1.ManagedCluster
+	var deleteClustersFromInventory []models.ManagedCluster
+
+	if len(createClusters) > 0 {
+		for _, cluster := range createClusters {
+			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, nil, mchVersion)
+			if resp, err := requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
+				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+				h.log.Errorf("failed to create k8sCluster %v: %w", resp, err)
+			} else {
+				createClustersToInventory = append(createClustersToInventory, cluster)
+			}
+		}
+	}
+
+	if len(updateClusters) > 0 {
+		for _, cluster := range updateClusters {
+			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, nil, mchVersion)
+			if resp, err := requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
+				&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
+				h.log.Errorf("failed to update k8sCluster %v: %w", resp, err)
+			} else {
+				updateClustersToInventory = append(updateClustersToInventory, cluster)
+			}
+		}
+	}
+
+	if len(deleteClusters) > 0 {
+		for _, cluster := range deleteClusters {
+			if resp, err := requester.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
+				&kessel.DeleteK8SClusterRequest{ReporterData: &kessel.ReporterData{
+					ReporterType:       kessel.ReporterData_ACM,
+					ReporterInstanceId: leafHubName,
+					ReporterVersion:    mchVersion,
+					LocalResourceId:    cluster.ClusterID,
+				}}); err != nil {
+				h.log.Errorf("failed to delete k8sCluster %v: %w", resp, err)
+			} else {
+				deleteClustersFromInventory = append(deleteClustersFromInventory, cluster)
+			}
+		}
+	}
+	return createClustersToInventory, updateClustersToInventory, deleteClustersFromInventory
+}
+
+// generateCreateUpdateDeleteClusters generates the create, update and delete clusters
+// from the managed clusters in the database and the managed clusters in the bundle.
+func (h *managedClusterHandler) generateCreateUpdateDeleteClusters(
+	data []clusterv1.ManagedCluster,
+	leafHubName string,
+	// clusterIdToVersionMapFromDB is a map of clusterID to resourceVersion
+	// for all managed clusters in the database
+	clusterIdToVersionMapFromDB map[string]string) (
+	[]clusterv1.ManagedCluster,
+	[]clusterv1.ManagedCluster,
+	[]models.ManagedCluster,
+) {
+	var createClusters []clusterv1.ManagedCluster
+	var updateClusters []clusterv1.ManagedCluster
+	var deleteClusters []models.ManagedCluster
+
 	for _, object := range data {
 		cluster := object
 		h.log.Debugf("cluster: %v", cluster)
@@ -78,20 +262,10 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		if clusterId == "" {
 			continue
 		}
-
-		payload, err := json.Marshal(cluster)
-		if err != nil {
-			return err
-		}
-
+		// create clusters
 		clusterVersionFromDB, exist := clusterIdToVersionMapFromDB[clusterId]
 		if !exist {
-			batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
-				ClusterID:   clusterId,
-				LeafHubName: leafHubName,
-				Payload:     payload,
-				Error:       database.ErrorNone,
-			})
+			createClusters = append(createClusters, cluster)
 			continue
 		}
 
@@ -102,40 +276,145 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 			continue // update cluster in db only if what we got is a different (newer) version of the resource
 		}
 
-		batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
-			ClusterID:   clusterId,
+		// update clusters
+		updateClusters = append(updateClusters, cluster)
+	}
+	for clusterId := range clusterIdToVersionMapFromDB {
+		deleteClusters = append(deleteClusters, models.ManagedCluster{
 			LeafHubName: leafHubName,
-			Payload:     payload,
-			Error:       database.ErrorNone,
+			ClusterID:   clusterId,
 		})
 	}
-	err = db.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).CreateInBatches(batchManagedClusters, BatchSize).Error
-	if err != nil {
-		return err
-	}
+	return createClusters, updateClusters, deleteClusters
+}
 
-	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	// https://gorm.io/docs/delete.html#Soft-Delete
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for clusterId := range clusterIdToVersionMapFromDB {
-			e := tx.Where(&models.ManagedCluster{
-				LeafHubName: leafHubName,
-				ClusterID:   clusterId,
-			}).Delete(&models.ManagedCluster{}).Error
-			if e != nil {
-				return e
-			}
+func GetK8SCluster(ctx context.Context,
+	cluster *clusterv1.ManagedCluster, leafHubName string,
+	r client.Client,
+	mchVersion string,
+) *kessel.K8SCluster {
+	clusterId := string(cluster.GetUID())
+	var vendorVersion, cloudVendor, kubeVersion, kubeVendor string
+	for _, claim := range cluster.Status.ClusterClaims {
+		if claim.Name == "id.k8s.io" {
+			clusterId = claim.Value
 		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed deleting managed clusters - %w", err)
+		if claim.Name == "platform.open-cluster-management.io" {
+			cloudVendor = claim.Value
+		}
+		if claim.Name == "kubeversion.open-cluster-management.io" {
+			kubeVersion = claim.Value
+		}
+		if claim.Name == "version.openshift.io" {
+			vendorVersion = claim.Value
+		}
+		if claim.Name == "product.open-cluster-management.io" {
+			kubeVendor = claim.Value
+		}
 	}
 
-	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
-	return nil
+	// TODO: remove this after the vendorVersion is optional
+	if vendorVersion == "" {
+		vendorVersion = kubeVersion
+	}
+
+	kesselLabels := []*kessel.ResourceLabel{}
+	for key, value := range cluster.Labels {
+		kesselLabels = append(kesselLabels, &kessel.ResourceLabel{
+			Key:   key,
+			Value: value,
+		})
+	}
+	k8sCluster := &kessel.K8SCluster{
+		Metadata: &kessel.Metadata{
+			ResourceType: "k8s_cluster",
+			Labels:       kesselLabels,
+		},
+		ReporterData: &kessel.ReporterData{
+			ReporterType:       kessel.ReporterData_ACM,
+			ReporterInstanceId: leafHubName,
+			ReporterVersion:    mchVersion,
+			LocalResourceId:    cluster.Name,
+		},
+		ResourceData: &kessel.K8SClusterDetail{
+			ExternalClusterId: clusterId,
+			KubeVersion:       kubeVersion,
+			Nodes:             []*kessel.K8SClusterDetailNodesInner{},
+		},
+	}
+
+	// TODO: should get console link from managedhub cluster
+	if r != nil {
+		// managedhub console href and api href
+		consoleClaim, err := utils.GetClusterClaim(ctx, r, "consoleurl.cluster.open-cluster-management.io")
+		if err == nil && consoleClaim != nil {
+			k8sCluster.ReporterData.ConsoleHref = consoleClaim.Spec.Value
+		}
+		apiClaim, err := utils.GetClusterClaim(ctx, r, "apiserverurl.openshift.io")
+		if err == nil || apiClaim != nil {
+			k8sCluster.ReporterData.ConsoleHref = apiClaim.Spec.Value
+		}
+	}
+
+	// platform
+	switch cloudVendor {
+	case clusterclaim.PlatformAWS:
+		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_AWS_UPI
+	case clusterclaim.PlatformGCP:
+		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_GCP_UPI
+	case clusterclaim.PlatformBareMetal:
+		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_BAREMETAL_UPI
+	case clusterclaim.PlatformIBM:
+		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_IBMCLOUD_UPI
+	case clusterclaim.PlatformAzure:
+		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_AWS_UPI
+	default:
+		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_CLOUD_PLATFORM_OTHER
+	}
+
+	// kubevendor, ony have the openshift version
+	switch kubeVendor {
+	case clusterclaim.ProductOpenShift:
+		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_OPENSHIFT
+	case clusterclaim.ProductEKS:
+		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_EKS
+	case clusterclaim.ProductGKE:
+		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_GKE
+	default:
+		k8sCluster.ResourceData.KubeVendor = kessel.K8SClusterDetail_KUBE_VENDOR_OTHER
+	}
+	k8sCluster.ResourceData.VendorVersion = vendorVersion
+
+	// cluster status
+	for _, cond := range cluster.Status.Conditions {
+		if cond.Type == clusterv1.ManagedClusterConditionAvailable {
+			if cond.Status == metav1.ConditionTrue {
+				k8sCluster.ResourceData.ClusterStatus = kessel.K8SClusterDetail_READY
+			} else {
+				k8sCluster.ResourceData.ClusterStatus = kessel.K8SClusterDetail_FAILED
+			}
+		} else {
+			k8sCluster.ResourceData.ClusterStatus = kessel.K8SClusterDetail_OFFLINE
+		}
+	}
+
+	// nodes
+	// TODO: should get nodelist from clusterInfo.Status.NodeList
+	kesselNode := &kessel.K8SClusterDetailNodesInner{
+		Name: cluster.Name,
+	}
+	cpu, ok := cluster.Status.Capacity[clusterv1.ResourceCPU]
+	if ok {
+		kesselNode.Cpu = cpu.String()
+	}
+	memory, ok := cluster.Status.Capacity[clusterv1.ResourceMemory]
+	if ok {
+		kesselNode.Memory = memory.String()
+	}
+	k8sCluster.ResourceData.Nodes = []*kessel.K8SClusterDetailNodesInner{
+		kesselNode,
+	}
+	return k8sCluster
 }
 
 func getClusterIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]string, error) {

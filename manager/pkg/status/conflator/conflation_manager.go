@@ -9,6 +9,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/metadata"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 )
 
@@ -17,14 +18,16 @@ type ConflationManager struct {
 	log             *zap.SugaredLogger
 	conflationUnits map[string]*ConflationUnit // map from leaf hub to conflation unit
 	// requireInitialDependencyChecks bool
-	registrations map[string]*ConflationRegistration
-	readyQueue    *ConflationReadyQueue
-	lock          sync.Mutex
-	statistics    *statistics.Statistics
+	registrations      map[string]*ConflationRegistration
+	readyQueue         *ConflationReadyQueue
+	lock               sync.Mutex
+	statistics         *statistics.Statistics
+	Requster           transport.Requester
+	EnableInventoryAPI bool
 }
 
 // NewConflationManager creates a new instance of ConflationManager.
-func NewConflationManager(statistics *statistics.Statistics) *ConflationManager {
+func NewConflationManager(statistics *statistics.Statistics, requster transport.Requester, enableInventory bool) *ConflationManager {
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationUnitsReadyQueue := NewConflationReadyQueue(statistics)
 
@@ -32,10 +35,12 @@ func NewConflationManager(statistics *statistics.Statistics) *ConflationManager 
 		log:             logger.ZapLogger("conflation-manager"),
 		conflationUnits: make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
 		// requireInitialDependencyChecks: requireInitialDependencyChecks,
-		registrations: make(map[string]*ConflationRegistration),
-		readyQueue:    conflationUnitsReadyQueue,
-		lock:          sync.Mutex{}, // lock to be used to find/create conflation units
-		statistics:    statistics,
+		registrations:      make(map[string]*ConflationRegistration),
+		readyQueue:         conflationUnitsReadyQueue,
+		lock:               sync.Mutex{}, // lock to be used to find/create conflation units
+		statistics:         statistics,
+		Requster:           requster,
+		EnableInventoryAPI: enableInventory,
 	}
 }
 

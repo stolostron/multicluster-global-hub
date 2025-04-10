@@ -17,7 +17,7 @@ var statusCtrlStarted = false
 
 // AddStatusSyncers performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler to conflation manager
-func AddStatusSyncers(mgr ctrl.Manager, consumer transport.Consumer, managerConfig *configs.ManagerConfig) error {
+func AddStatusSyncers(mgr ctrl.Manager, consumer transport.Consumer, requester transport.Requester, managerConfig *configs.ManagerConfig) error {
 	if statusCtrlStarted {
 		return nil
 	}
@@ -28,7 +28,7 @@ func AddStatusSyncers(mgr ctrl.Manager, consumer transport.Consumer, managerConf
 	}
 
 	// manage all Conflation Units and handlers
-	conflationManager := conflator.NewConflationManager(stats)
+	conflationManager := conflator.NewConflationManager(stats, requester, managerConfig.EnableInventoryAPI)
 	handlers.RegisterHandlers(mgr, conflationManager, managerConfig.EnableGlobalResource)
 
 	// start consume message from transport to conflation manager
