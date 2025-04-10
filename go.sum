@@ -1283,8 +1283,8 @@ open-cluster-management.io/managed-serviceaccount v0.7.0 h1:OShodBB3i+rMXjR9xEF6
 open-cluster-management.io/managed-serviceaccount v0.7.0/go.mod h1:NNKqC+cePQ9HH0r7mb9CYSk/hXGsNYu9+K4YfcZTwAk=
 open-cluster-management.io/multicloud-operators-channel v0.15.0 h1:5DjxcZrhQhS/+A+zYx0/tUqKqE8m4mped3Gb9aRt6CE=
 open-cluster-management.io/multicloud-operators-channel v0.15.0/go.mod h1:GDMO5IyXlLAuVW7EOrYPsRe1u3JPaNGWTWsGTPPlTXc=
-open-cluster-management.io/multicloud-operators-subscription v0.15.0 h1:/FPaCfTn8PaDQCYMAhDw7xdH4TsaQlV6Ufi9zyWwyYw=
-open-cluster-management.io/multicloud-operators-subscription v0.15.0/go.mod h1:lDMnGyFWoyWFjrAJRrnnWz5Gz2IUsqRsvPV44ll7zXc=
+open-cluster-management.io/multicloud-operators-subscription v0.16.0 h1:rsup8obE4AYZmhJHjZznQqFX3FUII9o200uRinmgbqg=
+open-cluster-management.io/multicloud-operators-subscription v0.16.0/go.mod h1:STpELsVS/jEHuc/GlnILVV0Wii4/i7twUpsiS8HFoTE=
 open-cluster-management.io/sdk-go v0.16.0 h1:Ui1jerkeLaNaJPu47xjOJ3lh+rJQgeJHD25ViQMzAMs=
 open-cluster-management.io/sdk-go v0.16.0/go.mod h1:TyOjZC5YxyM5BRNgwTmLuTbHXX6xXqzYBXllrfoVp9w=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
