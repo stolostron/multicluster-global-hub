@@ -59,7 +59,7 @@ func StartLocalAgentController(initOption config.ControllerOption) (config.Contr
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred)).
 		Watches(&corev1.ConfigMap{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(configMapPredicate)).
 		Watches(&corev1.ServiceAccount{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(config.GeneralPredicate)).
 		Watches(&rbacv1.ClusterRole{},
