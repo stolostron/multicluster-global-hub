@@ -10,11 +10,10 @@ import (
 	kesselrelationships "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	kesselresources "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory/managedclusterinfo"
 )
 
 // https://github.com/project-kessel/docs/blob/main/src/content/docs/inventory/kafka-event.md
@@ -31,7 +30,7 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 		clusterInfo := mockManagedClusterInfo(localClusterId, clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
 			clusterinfov1beta1.CloudVendorAWS)
 		cluster := createMockCluster(localClusterId, "OpenShift", "4.10.0", "AWS", "1.23.0")
-		k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", runtimeClient)
+		k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", runtimeClient, "2.13.0")
 
 		localPolicyId = fmt.Sprintf("test-policy-%d", rand.Intn(100000))
 		k8sPolicy = generateK8SPolicy(localPolicyId, "guest")

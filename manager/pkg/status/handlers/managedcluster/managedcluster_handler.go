@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/stolostron/multicloud-operators-foundation/pkg/klusterlet/clusterclaim"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
+	"github.com/stolostron/multicloud-operators-foundation/pkg/klusterlet/clusterclaim"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
