@@ -15,7 +15,7 @@ require (
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-co-op/gocron v1.23.0
+	github.com/go-co-op/gocron v1.37.0
 	github.com/go-kratos/kratos/v2 v2.8.0
 	github.com/go-logr/logr v1.4.2
 	github.com/gonvenience/ytbx v1.4.4
@@ -92,6 +92,7 @@ require (
 	github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300 // indirect
 	github.com/zmap/zlint/v3 v3.5.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 )
