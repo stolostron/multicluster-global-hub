@@ -27,7 +27,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	subv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
