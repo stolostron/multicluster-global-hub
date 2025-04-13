@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
 

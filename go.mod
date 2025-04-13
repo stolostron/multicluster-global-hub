@@ -15,7 +15,7 @@ require (
 	github.com/evanphx/json-patch v5.7.0+incompatible
 	github.com/fergusstrange/embedded-postgres v1.17.0
 	github.com/gin-gonic/gin v1.9.1
-	github.com/go-co-op/gocron v1.23.0
+	github.com/go-co-op/gocron/v2 v2.16.1
 	github.com/go-kratos/kratos/v2 v2.8.0
 	github.com/go-logr/logr v1.4.2
 	github.com/gonvenience/ytbx v1.4.4
@@ -84,6 +84,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.22.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
+	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.23 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
