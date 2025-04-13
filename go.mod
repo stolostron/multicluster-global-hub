@@ -133,7 +133,7 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gonvenience/bunt v1.3.4 // indirect
 	github.com/gonvenience/neat v1.3.11 // indirect
 	github.com/gonvenience/term v1.0.2 // indirect
