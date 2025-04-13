@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	set "github.com/deckarep/golang-set"
+	set "github.com/deckarep/golang-set/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	corev1 "k8s.io/api/core/v1"
