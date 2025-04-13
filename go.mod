@@ -238,6 +238,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
-replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
+replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v1.7.2
 
 replace github.com/RedHatInsights/strimzi-client-go => github.com/clyang82/strimzi-client-go v0.0.0-20240829073515-1fafe574af8b
