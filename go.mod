@@ -87,10 +87,10 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.23 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/weppos/publicsuffix-go v0.30.0 // indirect
+	github.com/weppos/publicsuffix-go v0.40.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	github.com/zmap/zcrypto v0.0.0-20230310154051-c8b263fd8300 // indirect
-	github.com/zmap/zlint/v3 v3.5.0 // indirect
+	github.com/zmap/zcrypto v0.0.0-20240803002437-3a861682ac77 // indirect
+	github.com/zmap/zlint/v3 v3.6.5 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
