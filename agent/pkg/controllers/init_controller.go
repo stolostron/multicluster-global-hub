@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory"
 	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security"
@@ -65,12 +64,7 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 		configs.SetMCHVersion(mch.Status.CurrentVersion)
 	}
 
-	switch c.agentConfig.TransportConfig.TransportType {
-	case string(transport.Kafka):
-		err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
-	case string(transport.Rest):
-		err = inventory.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
-	}
+	err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
 	}

@@ -27,7 +27,9 @@ type ConflationManager struct {
 }
 
 // NewConflationManager creates a new instance of ConflationManager.
-func NewConflationManager(statistics *statistics.Statistics, requster transport.Requester, enableInventory bool) *ConflationManager {
+func NewConflationManager(statistics *statistics.Statistics,
+	requster transport.Requester, enableInventory bool,
+) *ConflationManager {
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationUnitsReadyQueue := NewConflationReadyQueue(statistics)
 
