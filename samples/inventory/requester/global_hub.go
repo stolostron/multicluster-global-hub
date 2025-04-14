@@ -12,6 +12,7 @@ import (
 
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
@@ -128,7 +129,7 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 		Status: clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: uuid.New().String(),
 				},
 				{
@@ -147,6 +148,17 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 					Name:  "product.open-cluster-management.io",
 					Value: kubeVendor,
 				},
+			},
+			Conditions: []metav1.Condition{
+				{
+					Type:   clusterv1.ManagedClusterConditionAvailable,
+					Status: metav1.ConditionTrue,
+					Reason: "ManagedClusterAvailable",
+				},
+			},
+			Capacity: map[clusterv1.ResourceName]resource.Quantity{
+				clusterv1.ResourceCPU:    resource.MustParse("16"),
+				clusterv1.ResourceMemory: resource.MustParse("64453796Ki"),
 			},
 		},
 	}

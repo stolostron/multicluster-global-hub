@@ -10,10 +10,12 @@ import (
 	kesselrelationships "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	kesselresources "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // https://github.com/project-kessel/docs/blob/main/src/content/docs/inventory/kafka-event.md
@@ -27,8 +29,7 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 	BeforeAll(func() {
 		// also is the name of managedclusterinfo
 		localClusterId = fmt.Sprintf("test-cluster-%d", rand.Intn(100000))
-		clusterInfo := mockManagedClusterInfo(localClusterId, clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
-			clusterinfov1beta1.CloudVendorAWS)
+
 		cluster := createMockCluster(localClusterId, "OpenShift", "4.10.0", "AWS", "1.23.0")
 		k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", runtimeClient, "2.13.0")
 
@@ -368,7 +369,7 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 		Status: clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: uuid.New().String(),
 				},
 				{
@@ -387,6 +388,17 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 					Name:  "product.open-cluster-management.io",
 					Value: kubeVendor,
 				},
+			},
+			Conditions: []metav1.Condition{
+				{
+					Type:   clusterv1.ManagedClusterConditionAvailable,
+					Status: metav1.ConditionTrue,
+					Reason: "ManagedClusterAvailable",
+				},
+			},
+			Capacity: map[clusterv1.ResourceName]resource.Quantity{
+				clusterv1.ResourceCPU:    resource.MustParse("16"),
+				clusterv1.ResourceMemory: resource.MustParse("64453796Ki"),
 			},
 		},
 	}

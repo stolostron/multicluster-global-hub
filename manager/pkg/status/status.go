@@ -17,7 +17,12 @@ var statusCtrlStarted = false
 
 // AddStatusSyncers performs the initial setup required before starting the runtime manager.
 // adds controllers and/or runnables to the manager, registers handler to conflation manager
-func AddStatusSyncers(mgr ctrl.Manager, consumer transport.Consumer, requester transport.Requester, managerConfig *configs.ManagerConfig) error {
+func AddStatusSyncers(
+	mgr ctrl.Manager,
+	consumer transport.Consumer,
+	requester transport.Requester,
+	managerConfig *configs.ManagerConfig,
+) error {
 	if statusCtrlStarted {
 		return nil
 	}

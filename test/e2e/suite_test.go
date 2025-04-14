@@ -37,6 +37,7 @@ import (
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
@@ -251,7 +252,7 @@ func completeOptions() utils.Options {
 
 func GetClusterID(cluster clusterv1.ManagedCluster) string {
 	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == "id.k8s.io" {
+		if claim.Name == commonconstants.ClusterIdClaimName {
 			return claim.Value
 		}
 	}

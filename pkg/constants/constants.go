@@ -143,7 +143,8 @@ const (
 	VersionClusterClaimName = "version.open-cluster-management.io"
 	// HubClusterClaimName is a claim to record the ACM Hub
 	HubClusterClaimName = "hub.open-cluster-management.io"
-
+	// ClusterIdClaimName is a claim to record the cluster id
+	ClusterIdClaimName = "id.k8s.io"
 	// the value of the HubClusterClaimName ClusterClaim
 	HubNotInstalled         = "NotInstalled"
 	HubInstalledByUser      = "InstalledByUser"
