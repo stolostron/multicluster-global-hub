@@ -95,11 +95,6 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	genericProducer, err := genericproducer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.SpecTopic)
-	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = controllers.NewMigrationController(mgr.GetClient(), genericProducer, false)
-	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
-
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
 	}()
