@@ -25,6 +25,7 @@ const (
 	PhaseInitializing = "Initializing"
 	PhaseValidating   = "Validating"
 	PhaseMigrating    = "Migrating"
+	PhaseCleaning     = "Cleaning"
 	PhaseCompleted    = "Completed"
 	PhaseFailed       = "Failed"
 )
@@ -34,7 +35,7 @@ const (
 	MigrationResourceInitialized = "ResourceInitialized"
 	MigrationClusterRegistered   = "ClusterRegistered" // -> Phase: Migrating
 	MigrationResourceDeployed    = "ResourceDeployed"  // -> Phase: Migrating
-	MigrationCompleted           = "MigrationCompleted"
+	MigrationResourceCleaned     = "ResourceCleaned"
 )
 
 // +kubebuilder:object:root=true

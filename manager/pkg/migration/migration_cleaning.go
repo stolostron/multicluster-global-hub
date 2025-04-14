@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -16,21 +16,49 @@ var deleteInterval = 5 * time.Minute
 
 // Completed:
 // 1. Once the resource deployed in the destination hub, Clean up the resources in the source hub
-// 2. 5 minutes after completion: delete the migration CR, delete the completed items in db
 func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted ||
-		!meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
+	if !mcm.DeletionTimestamp.IsZero() {
 		return false, nil
 	}
 
-	log.Infof("completed the migration: %s", mcm.Name)
+	if meta.IsStatusConditionFalse(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceCleaned) {
+		return false, nil
+	}
+
+	log.Infof("cleaning the migration: %s", mcm.Name)
+
+	condType := migrationv1alpha1.MigrationResourceCleaned
+	condStatus := metav1.ConditionTrue
+	condReason := conditionReasonResourceCleaned
+	condMsg := "Resources have been cleaned from the hub clusters"
+	var err error
+
+	defer func() {
+		if err != nil {
+			condMsg = err.Error()
+			condStatus = metav1.ConditionFalse
+			condReason = conditionReasonResourceNotCleaned
+		}
+		log.Infof("cleaning condition %s(%s): %s", condType, condReason, condMsg)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg)
+		if err != nil {
+			log.Errorf("failed to update the condition %v", err)
+		}
+	}()
+
+	// Deleting the ManagedServiceAccount will revoke the bootstrap kubeconfig secret of the migrated cluster.
+	// Be cautious — this action may carry potential risks.
+	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
+		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
+		return false, err
+	}
 
 	// clean up the source hub resource -> confirmationEvent: database items change into MigrationCompleted
 	// BootstrapSecret, klusterletConfig, detaching clusters
 	var deployed []models.ManagedClusterMigration
-	err := database.GetGorm().Where(&models.ManagedClusterMigration{
+	err = database.GetGorm().Where(&models.ManagedClusterMigration{
 		Stage: migrationv1alpha1.MigrationResourceDeployed,
 	}).Find(&deployed).Error
 	if err != nil {
@@ -44,7 +72,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range cleaningClusters {
 		log.Infof("cleaning up the source hub resources: %s", sourceHub)
-		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.MigrationCompleted,
+		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.MigrationResourceCleaned,
 			clusters, bootstrapSecret)
 		if err != nil {
 			log.Errorf("failed to send clean up event into source hub(%s)", sourceHub)
@@ -56,22 +84,14 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return true, nil
 	}
 
-	// wait the completed up to 5 minutes, delete the CR, completed items in db
-	cond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed)
-	interval := time.Since(cond.LastTransitionTime.Time)
-	if interval < deleteInterval {
-		log.Infof("migration completed, waiting to clean up: %f - %f", interval, deleteInterval.Seconds())
-		return true, nil
+	// clean up resource from destination hub
+	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.MigrationResourceCleaned, nil); err != nil {
+		return false, err
 	}
 
-	log.Info("migration completed, cleaning up")
-	err = m.Client.Delete(ctx, mcm)
-	if err != nil && !errors.IsNotFound(err) {
-		return true, err
-	}
-
+	// Deprecated: remove database
 	err = database.GetGorm().Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationCompleted,
+		Stage: migrationv1alpha1.MigrationResourceCleaned,
 		ToHub: mcm.Spec.To,
 	}).Delete(&models.ManagedClusterMigration{}).Error
 	if err != nil {

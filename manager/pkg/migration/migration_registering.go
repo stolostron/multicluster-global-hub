@@ -25,6 +25,8 @@ const (
 	conditionReasonClusterRegistered      = "ClusterRegistered"
 	conditionReasonAddonConfigNotDeployed = "AddonConfigNotDeployed"
 	conditionReasonAddonConfigDeployed    = "AddonConfigDeployed"
+	conditionReasonResourceNotCleaned     = "ResourceNotCleaned"
+	conditionReasonResourceCleaned        = "ResourceCleaned"
 )
 
 // Migrating - registering:

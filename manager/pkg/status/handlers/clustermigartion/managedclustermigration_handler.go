@@ -106,13 +106,13 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 	}
 
 	// from source hub -> migration completed
-	if bundle.Stage == migrationv1alpha1.MigrationCompleted {
+	if bundle.Stage == migrationv1alpha1.MigrationResourceCleaned {
 		for _, cluster := range bundle.ManagedClusters {
 			log.Infof("cleaned up the source hub resources: %s", evt.Source())
 			err = db.Model(&models.ManagedClusterMigration{}).
 				Where("to_hub = ?", eventClusterName).
 				Where("cluster_name = ?", cluster).
-				Update("stage", migrationv1alpha1.MigrationCompleted).Error
+				Update("stage", migrationv1alpha1.MigrationResourceCleaned).Error
 			if err != nil {
 				log.Errorf("failed to mark the MigrationCompleted for %s - $s in db: %v", evt.Source(), cluster, err)
 				return err

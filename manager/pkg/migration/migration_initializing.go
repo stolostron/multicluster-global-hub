@@ -43,12 +43,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
 	if !mcm.DeletionTimestamp.IsZero() {
-		// Deleting the ManagedServiceAccount will revoke the bootstrap kubeconfig secret of the migrated cluster.
-		// Be cautious — this action may carry potential risks.
-		if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
-			log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
-			return false, err
-		}
 		return false, nil
 	}
 
@@ -93,7 +87,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// set destination hub to autoApprove for the sa
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
-	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
+	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized, nil); err != nil {
 		return false, err
 	}
 
@@ -251,6 +245,11 @@ func (m *ClusterMigrationController) UpdateCondition(
 				update = true
 			}
 		case migrationv1alpha1.MigrationResourceDeployed:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
+				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
+				update = true
+			}
+		case migrationv1alpha1.MigrationResourceCleaned:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
 				update = true

@@ -100,7 +100,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// expected completed that means need to clean up resources from the source hub, and send the confirmation
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationCompleted {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationResourceCleaned {
 		s.log.Infof("completed managed cluster migration")
 		if err := s.cleanup(ctx, migrationSourceHubEvent); err != nil {
 			return err
@@ -108,7 +108,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		// send the cleanup confirmation
 		return SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), migrationSourceHubEvent.ToHub,
 			&migration.ManagedClusterMigrationBundle{
-				Stage:           migrationv1alpha1.MigrationCompleted,
+				Stage:           migrationv1alpha1.MigrationResourceCleaned,
 				ManagedClusters: migrationSourceHubEvent.ManagedClusters,
 			},
 			s.bundleVersion)

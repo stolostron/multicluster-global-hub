@@ -375,16 +375,16 @@ var _ = Describe("migration", Ordered, func() {
 			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 				return err
 			}
-			if managedClusterMigrationEvent.Stage != migrationv1alpha1.MigrationCompleted {
+			if managedClusterMigrationEvent.Stage != migrationv1alpha1.MigrationResourceCleaned {
 				return fmt.Errorf("source hub should receive %s event, but got %s",
-					migrationv1alpha1.MigrationCompleted, managedClusterMigrationEvent.Stage)
+					migrationv1alpha1.MigrationResourceCleaned, managedClusterMigrationEvent.Stage)
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		// mock the clean up confirmation from source hub
 		err := db.Model(&models.ManagedClusterMigration{}).Where("cluster_name = ?", "cluster1").Update(
-			"stage", migrationv1alpha1.MigrationCompleted).Error
+			"stage", migrationv1alpha1.MigrationResourceCleaned).Error
 		Expect(err).To(Succeed())
 
 		// check the migration status is deleted, managedServiceAccount is deleted

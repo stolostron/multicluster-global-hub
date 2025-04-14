@@ -58,6 +58,42 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 
+	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.MigrationResourceCleaned {
+		// delete the subjectaccessreviews creation role and roleBinding
+		migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+		clusterRole := &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: migrationClusterRoleName},
+		}
+		if err := s.client.Get(ctx,
+			client.ObjectKeyFromObject(clusterRole), clusterRole); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		} else {
+			if err = s.client.Delete(ctx, clusterRole); err != nil {
+				return err
+			}
+		}
+
+		sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
+		clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: sarMigrationClusterRoleBindingName,
+			},
+		}
+		if err := s.client.Get(ctx,
+			client.ObjectKeyFromObject(clusterRoleBinding), clusterRoleBinding); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		} else {
+			if err = s.client.Delete(ctx, clusterRoleBinding); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	if err := s.ensureClusterManager(ctx, msaName, msaNamespace); err != nil {
 		return err
 	}
