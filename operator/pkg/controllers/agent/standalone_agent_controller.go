@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -31,6 +32,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -56,6 +59,21 @@ var deplomentPred = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
 			e.Object.GetName() == config.COMPONENTS_AGENT_NAME
+	},
+}
+
+var configMapPredicate = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			e.Object.GetName() == constants.GHConfigCMName
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return e.ObjectNew.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			(e.ObjectNew.GetName() == constants.GHConfigCMName || e.ObjectNew.GetName() == constants.GHAgentConfigCMName)
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return e.Object.GetNamespace() == commonutils.GetDefaultNamespace() &&
+			(e.Object.GetName() == constants.GHConfigCMName || e.Object.GetName() == constants.GHAgentConfigCMName)
 	},
 }
 
@@ -191,6 +209,12 @@ func renderAgentManifests(
 	// create restmapper for deployer to find GVR
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
+	logLevel, err := getLogLevel(mgr.GetClient())
+	if err != nil {
+		log.Errorw("failed to get log level", "error", err)
+		return ctrl.Result{}, err
+	}
+	// create the agent objects
 	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
 			Image           string
@@ -219,6 +243,7 @@ func renderAgentManifests(
 			RetryPeriod:     strconv.Itoa(electionConfig.RetryPeriod),
 			AgentQPS:        agentQPS,
 			AgentBurst:      agentBurst,
+			LogLevel:        logLevel,
 			ClusterId:       clusterName,
 			Resources:       &resourceReq,
 		}, nil
@@ -230,4 +255,25 @@ func renderAgentManifests(
 		return ctrl.Result{}, fmt.Errorf("failed to create/update standalone agent objects: %v", err)
 	}
 	return ctrl.Result{}, nil
+}
+
+func getLogLevel(c client.Client) (string, error) {
+	// Get the log level from the config map
+	configMap := &corev1.ConfigMap{}
+	err := c.Get(context.TODO(), types.NamespacedName{
+		Name:      constants.GHConfigCMName,
+		Namespace: commonutils.GetDefaultNamespace(),
+	}, configMap)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return string(logger.Info), nil
+		}
+		return "", err
+	}
+
+	logLevel := configMap.Data[logger.LogLevelKey]
+	if logLevel != "" {
+		logger.SetLogLevel(logger.LogLevel(logLevel))
+	}
+	return logLevel, nil
 }
