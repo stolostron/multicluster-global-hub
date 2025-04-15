@@ -59,7 +59,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 
 	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.MigrationResourceCleaned {
 		// delete the subjectaccessreviews creation role and roleBinding
-		migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+		migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 		clusterRole := &rbacv1.ClusterRole{
 			ObjectMeta: metav1.ObjectMeta{Name: migrationClusterRoleName},
 		}
@@ -232,7 +232,7 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 
 func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
-	migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	migrationClusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: migrationClusterRoleName,
@@ -336,7 +336,7 @@ func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(c
 func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
 	sarMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -391,4 +391,8 @@ func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx contex
 	}
 
 	return nil
+}
+
+func getMigrationClusterRoleName(managedServiceAccountName string) string {
+	return fmt.Sprintf("multicluster-global-hub-migration:%s", managedServiceAccountName)
 }
