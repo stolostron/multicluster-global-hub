@@ -268,7 +268,7 @@ func (m *ClusterMigrationController) UpdateCondition(
 // Stage is the expected state for migration, it algin with the condition states
 // 1. ResourceInitialized: request sync the klusterletconfig from source hub
 // 2. ClusterRegistered: forward bootstrap kubeconfig secret into source hub, to register into the destination hub
-// 3. ResourceDeployed: delete the resource from the source hub
+// 3. ResourceDeployed: delete the resourcesailed to mark the stage ResourceDeploye from the source hub
 // 4. MigrationCompleted: delete the items from the database
 func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string, toHub string,
 	stage string, managedClusters []string, bootstrapSecret *corev1.Secret,

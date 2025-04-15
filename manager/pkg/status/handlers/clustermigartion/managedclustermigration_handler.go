@@ -34,7 +34,7 @@ type managedClusterMigrationHandler struct {
 
 func RegisterManagedClusterMigrationHandler(mgr ctrl.Manager, conflationManager *conflator.ConflationManager) {
 	k := &managedClusterMigrationHandler{
-		eventType:     string(enum.MangedClusterMigrationType),
+		eventType:     string(enum.ManagedClusterMigrationType),
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.ManagedClusterMigrationPriority,
 		client:        mgr.GetClient(),
@@ -99,7 +99,7 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 				Where("cluster_name = ?", cluster).
 				Update("stage", migrationv1alpha1.MigrationResourceDeployed).Error
 			if err != nil {
-				log.Errorf("failed to mark the stage ResourceDeployed for %s - $s in db: %v", evt.Source(), cluster, err)
+				log.Errorf("failed to mark the stage ResourceDeployed for %s - %s in db: %v", evt.Source(), cluster, err)
 				return err
 			}
 		}

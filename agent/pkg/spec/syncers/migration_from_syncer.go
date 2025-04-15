@@ -321,7 +321,7 @@ func SendMigrationEvent(
 	}
 
 	version.Incr()
-	eventType := string(enum.MangedClusterMigrationType)
+	eventType := string(enum.ManagedClusterMigrationType)
 	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {

@@ -26,7 +26,7 @@ var _ = Describe("ManagedClusterMigration", Ordered, func() {
 		By("Create event")
 
 		evt := cloudevents.NewEvent()
-		evt.SetType(string(enum.MangedClusterMigrationType))
+		evt.SetType(string(enum.ManagedClusterMigrationType))
 		evt.SetSource("hub1")
 		evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 		evt.SetExtension(eventversion.ExtVersion, "0.1")
