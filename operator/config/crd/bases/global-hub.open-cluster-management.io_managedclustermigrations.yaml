@@ -122,6 +122,7 @@ spec:
                 - Initializing
                 - Validating
                 - Migrating
+                - Cleaning
                 - Completed
                 - Failed
                 type: string

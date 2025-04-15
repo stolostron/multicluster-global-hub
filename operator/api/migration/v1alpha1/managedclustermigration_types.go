@@ -70,7 +70,7 @@ type ManagedClusterMigrationSpec struct {
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
 	// Phase represents the current phase of the migration
-	// +kubebuilder:validation:Enum=Initializing;Validating;Migrating;Completed;Failed
+	// +kubebuilder:validation:Enum=Initializing;Validating;Migrating;Cleaning;Completed;Failed
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Phase string `json:"phase,omitempty"`
 

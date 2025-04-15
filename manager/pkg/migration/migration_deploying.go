@@ -25,7 +25,6 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		return false, nil
 	}
 
-	// skip if the MigrationResourceDeployed condition is True
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
 		return false, nil
 	}

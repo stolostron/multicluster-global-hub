@@ -328,9 +328,7 @@ var _ = Describe("migration", Ordered, func() {
 			if registeredCond == nil {
 				return fmt.Errorf("the ResourceDeployed condition should appears in the migration CR")
 			}
-
 			utils.PrettyPrint(migrationInstance.Status)
-
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -396,14 +394,13 @@ var _ = Describe("migration", Ordered, func() {
 		}
 		Eventually(func() error {
 			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
-			if apierrors.IsNotFound(err) {
-				return nil
-			}
-
 			if err != nil {
 				return err
 			}
-			return fmt.Errorf("migration resource should be deleted 5 minutes after completion")
+			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				return fmt.Errorf("migration status should be completed")
+			}
+			return nil
 		}, 20*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		Eventually(func() bool {
