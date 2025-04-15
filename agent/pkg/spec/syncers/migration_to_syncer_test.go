@@ -10,10 +10,6 @@ import (
 
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -26,6 +22,11 @@ import (
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 )
 
 func TestMigrationToSyncer(t *testing.T) {
