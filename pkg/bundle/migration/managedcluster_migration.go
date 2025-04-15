@@ -15,8 +15,8 @@ type ManagedClusterMigrationFromEvent struct {
 type ManagedClusterMigrationToEvent struct {
 	Stage                                 string                         `json:"stage"`
 	ManagedServiceAccountName             string                         `json:"managedServiceAccountName"`
-	ManagedServiceAccountInstallNamespace string                         `json:"managedServiceAccountInstallNamespace"`
-	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig"`
+	ManagedServiceAccountInstallNamespace string                         `json:"managedServiceAccountInstallNamespace,omitempty"`
+	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig,omitempty"`
 }
 
 // Confiramtion from the ManagedHub: Initialized, Cleanup, Deployed

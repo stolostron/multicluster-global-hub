@@ -48,13 +48,12 @@ func NewManagedClusterMigrationToSyncer(client client.Client,
 
 func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.to cloud event
-	s.log.Info("received cloudevent from the global hub")
+	s.log.Info("received migration event from global hub")
 	managedClusterMigrationToEvent := &migration.ManagedClusterMigrationToEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationToEvent); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal payload %v", err)
 	}
-	s.log.Debugf("received cloudevent %v", string(payload))
-
+	s.log.Debugf("received cloudevent %s", string(payload))
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 

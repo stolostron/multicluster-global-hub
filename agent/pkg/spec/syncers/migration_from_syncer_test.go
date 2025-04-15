@@ -147,7 +147,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 		},
 		{
-			name: "Completed: migrate cluster1 from hub1 to hub2",
+			name: "Cleaned up: migrate cluster1 from hub1 to hub2",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -161,7 +161,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.MigrationResourceDeployed,
+				Stage: migrationv1alpha1.MigrationResourceCleaned,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
@@ -173,8 +173,21 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 				ManagedClusters: []string{"cluster1"},
 			},
-			expectedProduceEvent: nil,
-			expectedObjects:      nil,
+			expectedProduceEvent: func() *cloudevents.Event {
+				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
+
+				evt := cloudevents.NewEvent()
+				evt.SetType(string(enum.ManagedClusterMigrationType))
+				evt.SetSource("hub1")
+				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
+				evt.SetExtension(eventversion.ExtVersion, "0.1")
+				evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
+					Stage:           migrationv1alpha1.MigrationResourceCleaned,
+					ManagedClusters: []string{"cluster1"},
+				})
+				return &evt
+			}(),
+			expectedObjects: nil,
 		},
 	}
 
