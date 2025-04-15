@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,7 +49,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	testPayload := []byte(`
 {
 	"managedServiceAccountName": "test",
-	"managedServiceAccountInstallNamespace": "test"
+	"installNamespace": "test"
 }`)
 	cases := []struct {
 		name                          string
@@ -557,48 +556,37 @@ func TestMigrationToSyncer(t *testing.T) {
 			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client, nil)
 
 			err := managedClusterMigrationSyncer.Sync(ctx, testPayload)
-			if err != nil {
-				t.Errorf("Failed to sync managed cluster migration: %v", err)
-			}
+			assert.Nil(t, err)
 
 			if c.expectedClusterManager != nil {
 				foundClusterManager := &operatorv1.ClusterManager{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterManager.Name}, foundClusterManager); err != nil {
-					t.Errorf("Failed to get cluster manager: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedClusterManager, foundClusterManager) {
-					t.Errorf("Expected cluster manager %#v, but got %#v", c.expectedClusterManager, foundClusterManager)
-				}
+				err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterManager.Name}, foundClusterManager)
+				assert.Nil(t, err)
+				assert.Equal(t, c.expectedClusterManager.Spec, foundClusterManager.Spec)
 			}
 
 			if c.expectedClusterRole != nil {
 				foundClusterRole := &rbacv1.ClusterRole{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterRole.Name}, foundClusterRole); err != nil {
-					t.Errorf("Failed to get cluster role: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedClusterRole, foundClusterRole) {
-					t.Errorf("Expected cluster role %v, but got %v", c.expectedClusterRole, foundClusterRole)
-				}
+				err = client.Get(ctx, types.NamespacedName{Name: c.expectedClusterRole.Name}, foundClusterRole)
+				assert.Nil(t, err)
+				foundClusterRole.ResourceVersion = ""
+				assert.Equal(t, c.expectedClusterRole, foundClusterRole)
 			}
 
 			if c.expectedClusterRoleBinding != nil {
 				foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterRoleBinding.Name}, foundClusterRoleBinding); err != nil {
-					t.Errorf("Failed to get cluster role binding: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedClusterRoleBinding, foundClusterRoleBinding) {
-					t.Errorf("Expected cluster role binding %v, but got %v", c.expectedClusterRoleBinding, foundClusterRoleBinding)
-				}
+				err = client.Get(ctx, types.NamespacedName{Name: c.expectedClusterRoleBinding.Name}, foundClusterRoleBinding)
+				assert.Nil(t, err)
+				foundClusterRoleBinding.ResourceVersion = ""
+				assert.Equal(t, c.expectedClusterRoleBinding, foundClusterRoleBinding)
 			}
 
 			if c.expectedSARClusterRoleBinding != nil {
 				foundSARClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-				if err := client.Get(ctx, types.NamespacedName{Name: c.expectedSARClusterRoleBinding.Name}, foundSARClusterRoleBinding); err != nil {
-					t.Errorf("Failed to get cluster role binding: %v", err)
-				}
-				if !apiequality.Semantic.DeepDerivative(c.expectedSARClusterRoleBinding, foundSARClusterRoleBinding) {
-					t.Errorf("Expected cluster role binding %v, but got %v", c.expectedSARClusterRoleBinding, foundSARClusterRoleBinding)
-				}
+				err = client.Get(ctx, types.NamespacedName{Name: c.expectedSARClusterRoleBinding.Name}, foundSARClusterRoleBinding)
+				assert.Nil(t, err)
+				foundSARClusterRoleBinding.ResourceVersion = ""
+				assert.Equal(t, c.expectedSARClusterRoleBinding, foundSARClusterRoleBinding)
 			}
 		})
 	}
