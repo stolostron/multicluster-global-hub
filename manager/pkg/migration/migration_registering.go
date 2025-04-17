@@ -41,13 +41,13 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationClusterRegistered) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
 		return false, nil
 	}
 
 	log.Info("migration registering")
 
-	condType := migrationv1alpha1.MigrationClusterRegistered
+	condType := migrationv1alpha1.ConditionTypeRegistered
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonClusterRegistered
 	condMsg := "All migrated clusters registered"
@@ -70,7 +70,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	var initialized []models.ManagedClusterMigration
 	db := database.GetGorm()
 	err = db.Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationResourceInitialized,
+		Stage: migrationv1alpha1.ConditionTypeInitialized,
 	}).Find(&initialized).Error
 	if err != nil {
 		return false, err
@@ -97,11 +97,11 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 				err := db.Model(&models.ManagedClusterMigration{}).Where(&models.ManagedClusterMigration{
 					ClusterName: m.ClusterName,
 					ToHub:       m.ToHub, FromHub: m.FromHub,
-				}).Update("stage", migrationv1alpha1.MigrationClusterRegistered).Error
+				}).Update("stage", migrationv1alpha1.ConditionTypeRegistered).Error
 				if err != nil {
 					return false, err
 				}
-				m.Stage = migrationv1alpha1.MigrationClusterRegistered
+				m.Stage = migrationv1alpha1.ConditionTypeRegistered
 				registeredClusters = append(registeredClusters, m)
 			} else {
 				log.Infof("cluster(%s) is not switched into hub(%s)", m.ClusterName, m.ToHub)
@@ -132,7 +132,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
 			notRegisterClusters = append(notRegisterClusters, clusters...)
-			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.MigrationClusterRegistered,
+			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.ConditionTypeRegistered,
 				clusters, bootstrapSecret)
 			if err != nil {
 				return false, err
