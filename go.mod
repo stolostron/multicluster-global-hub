@@ -61,7 +61,7 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.15.0
 	open-cluster-management.io/multicloud-operators-subscription v0.16.0
 	sigs.k8s.io/application v0.8.3
-	sigs.k8s.io/controller-runtime v0.20.4
+	sigs.k8s.io/controller-runtime v0.19.1
 	sigs.k8s.io/kustomize/api v0.18.0
 	sigs.k8s.io/kustomize/kyaml v0.18.1
 	sigs.k8s.io/yaml v1.4.0
@@ -69,7 +69,6 @@ require (
 
 require (
 	github.com/Microsoft/hcsshim v0.12.0-rc.1 // indirect
-	github.com/google/btree v1.1.3 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.44.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v0.44.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
