@@ -23,13 +23,13 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceCleaned) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) {
 		return false, nil
 	}
 
 	log.Infof("cleaning the migration: %s", mcm.Name)
 
-	condType := migrationv1alpha1.MigrationResourceCleaned
+	condType := migrationv1alpha1.ConditionTypeCleaned
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonResourceCleaned
 	condMsg := "Resources have been cleaned from the hub clusters"
@@ -59,7 +59,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	// BootstrapSecret, klusterletConfig, detaching clusters
 	var deployed []models.ManagedClusterMigration
 	err = database.GetGorm().Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationResourceDeployed,
+		Stage: migrationv1alpha1.ConditionTypeDeployed,
 	}).Find(&deployed).Error
 	if err != nil {
 		return false, err
@@ -72,7 +72,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range cleaningClusters {
 		log.Infof("cleaning up the source hub resources: %s", sourceHub)
-		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.MigrationResourceCleaned,
+		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.ConditionTypeCleaned,
 			clusters, bootstrapSecret)
 		if err != nil {
 			log.Errorf("failed to send clean up event into source hub(%s)", sourceHub)
@@ -85,13 +85,13 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	}
 
 	// clean up resource from destination hub
-	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.MigrationResourceCleaned, nil); err != nil {
+	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeCleaned, nil); err != nil {
 		return false, err
 	}
 
 	// Deprecated: remove database
 	err = database.GetGorm().Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationResourceCleaned,
+		Stage: migrationv1alpha1.ConditionTypeCleaned,
 		ToHub: mcm.Spec.To,
 	}).Delete(&models.ManagedClusterMigration{}).Error
 	if err != nil {

@@ -87,7 +87,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// expected initialized
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationResourceInitialized {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
 		s.log.Infof("initializing managed cluster migration event")
 		managedClusters := migrationSourceHubEvent.ManagedClusters
 		toHub := migrationSourceHubEvent.ToHub
@@ -101,7 +101,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 			}
 			err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), toHub,
 				&migration.ManagedClusterMigrationBundle{
-					Stage:                 migrationv1alpha1.MigrationResourceInitialized,
+					Stage:                 migrationv1alpha1.ConditionTypeInitialized,
 					KlusterletAddonConfig: addonConfig,
 				},
 				s.bundleVersion)
@@ -113,7 +113,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// expected registered
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationClusterRegistered {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeRegistered {
 		s.log.Infof("registering managed cluster migration")
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
 			return err
@@ -122,7 +122,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// expected completed that means need to clean up resources from the source hub, and send the confirmation
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationResourceCleaned {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeCleaned {
 		s.log.Infof("completed managed cluster migration")
 		if err := s.cleanup(ctx, migrationSourceHubEvent); err != nil {
 			return err
@@ -130,7 +130,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		// send the cleanup confirmation
 		return SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), migrationSourceHubEvent.ToHub,
 			&migration.ManagedClusterMigrationBundle{
-				Stage:           migrationv1alpha1.MigrationResourceCleaned,
+				Stage:           migrationv1alpha1.ConditionTypeCleaned,
 				ManagedClusters: migrationSourceHubEvent.ManagedClusters,
 			},
 			s.bundleVersion)

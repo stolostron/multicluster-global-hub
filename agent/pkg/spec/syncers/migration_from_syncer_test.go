@@ -84,7 +84,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub:           "hub2",
-				Stage:           migrationv1alpha1.MigrationResourceInitialized,
+				Stage:           migrationv1alpha1.ConditionTypeInitialized,
 				ManagedClusters: []string{"cluster1"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
@@ -113,7 +113,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.MigrationClusterRegistered,
+				Stage: migrationv1alpha1.ConditionTypeRegistered,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
@@ -161,7 +161,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.MigrationResourceCleaned,
+				Stage: migrationv1alpha1.ConditionTypeCleaned,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
@@ -182,7 +182,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
-					Stage:           migrationv1alpha1.MigrationResourceCleaned,
+					Stage:           migrationv1alpha1.ConditionTypeCleaned,
 					ManagedClusters: []string{"cluster1"},
 				})
 				return &evt

@@ -246,7 +246,7 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
-			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.MigrationResourceInitialized))
+			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.ConditionTypeInitialized))
 			Expect(managedClusterMigrationEvent.ToHub).To(Equal("hub2"))
 			Expect(managedClusterMigrationEvent.ManagedClusters[0]).To(Equal("cluster1"))
 
@@ -294,7 +294,7 @@ var _ = Describe("migration", Ordered, func() {
 			ToHub:       "hub2",
 			ClusterName: "cluster1",
 			Payload:     addonConfigPayload,
-			Stage:       migrationv1alpha1.MigrationResourceInitialized,
+			Stage:       migrationv1alpha1.ConditionTypeInitialized,
 		}
 		Expect(db.Save(mcm).Error).To(Succeed())
 
@@ -316,7 +316,7 @@ var _ = Describe("migration", Ordered, func() {
 			}
 
 			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
-				migrationv1alpha1.MigrationClusterRegistered)
+				migrationv1alpha1.ConditionTypeRegistered)
 			if registeredCond == nil {
 				return fmt.Errorf("the registering condition should appears in the migration CR")
 			}
@@ -366,9 +366,9 @@ var _ = Describe("migration", Ordered, func() {
 			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 				return err
 			}
-			if managedClusterMigrationEvent.Stage != migrationv1alpha1.MigrationClusterRegistered {
+			if managedClusterMigrationEvent.Stage != migrationv1alpha1.ConditionTypeRegistered {
 				return fmt.Errorf("source hub should receive %s event, but got %s",
-					migrationv1alpha1.MigrationClusterRegistered, managedClusterMigrationEvent.Stage)
+					migrationv1alpha1.ConditionTypeRegistered, managedClusterMigrationEvent.Stage)
 			}
 			if managedClusterMigrationEvent.BootstrapSecret == nil {
 				return fmt.Errorf("source hub should receive Migrating event with bootstrapSecret")
@@ -397,13 +397,13 @@ var _ = Describe("migration", Ordered, func() {
 
 			// db should changed into deploying
 			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
-				migrationv1alpha1.MigrationClusterRegistered)
+				migrationv1alpha1.ConditionTypeRegistered)
 			if registeredCond.Status == metav1.ConditionFalse {
 				return fmt.Errorf("the registering condition should be set into true")
 			}
 
 			registeredCond = meta.FindStatusCondition(migrationInstance.Status.Conditions,
-				migrationv1alpha1.MigrationResourceDeployed)
+				migrationv1alpha1.ConditionTypeDeployed)
 			if registeredCond == nil {
 				return fmt.Errorf("the ResourceDeployed condition should appears in the migration CR")
 			}
@@ -428,7 +428,7 @@ var _ = Describe("migration", Ordered, func() {
 
 			// db should changed into deploying
 			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
-				migrationv1alpha1.MigrationResourceDeployed)
+				migrationv1alpha1.ConditionTypeDeployed)
 			if registeredCond.Status == metav1.ConditionFalse {
 				return fmt.Errorf("the deploying condition should be set into true")
 			}
@@ -452,16 +452,16 @@ var _ = Describe("migration", Ordered, func() {
 			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
 				return err
 			}
-			if managedClusterMigrationEvent.Stage != migrationv1alpha1.MigrationResourceCleaned {
+			if managedClusterMigrationEvent.Stage != migrationv1alpha1.ConditionTypeCleaned {
 				return fmt.Errorf("source hub should receive %s event, but got %s",
-					migrationv1alpha1.MigrationResourceCleaned, managedClusterMigrationEvent.Stage)
+					migrationv1alpha1.ConditionTypeCleaned, managedClusterMigrationEvent.Stage)
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		// mock the clean up confirmation from source hub
 		err := db.Model(&models.ManagedClusterMigration{}).Where("cluster_name = ?", "cluster1").Update(
-			"stage", migrationv1alpha1.MigrationResourceCleaned).Error
+			"stage", migrationv1alpha1.ConditionTypeCleaned).Error
 		Expect(err).To(Succeed())
 
 		// check the migration status is deleted, managedServiceAccount is deleted
