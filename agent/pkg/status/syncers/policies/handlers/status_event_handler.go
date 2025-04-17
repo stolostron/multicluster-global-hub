@@ -85,7 +85,7 @@ func (h *policyStatusEventHandler) Update(obj client.Object) bool {
 			for _, evt := range detail.History {
 				// if the event time is older thant the filter cached sent event time, then skip it
 				if !filter.Newer(h.name, evt.LastTimestamp.Time) {
-					log.Infof("skip the expired event: %s", evt.EventName)
+					log.Debugf("skip the expired event: %s", evt.EventName)
 					continue
 				}
 
