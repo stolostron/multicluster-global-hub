@@ -5,13 +5,13 @@ const EventTypePrefix = "io.open-cluster-management.operator.multiclusterglobalh
 type EventType string
 
 const (
-	HubClusterInfoType        EventType = EventTypePrefix + "managedhub.info"
-	HubClusterHeartbeatType   EventType = EventTypePrefix + "managedhub.heartbeat"
-	KlusterletAddonConfigType EventType = EventTypePrefix + "managedcluster.klusterletaddonconfig"
-	ManagedClusterType        EventType = EventTypePrefix + "managedcluster"
-	ManagedClusterInfoType    EventType = EventTypePrefix + "managedclusterinfo"
-	SubscriptionReportType    EventType = EventTypePrefix + "subscription.report"
-	SubscriptionStatusType    EventType = EventTypePrefix + "subscription.status"
+	HubClusterInfoType          EventType = EventTypePrefix + "managedhub.info"
+	HubClusterHeartbeatType     EventType = EventTypePrefix + "managedhub.heartbeat"
+	ManagedClusterMigrationType EventType = EventTypePrefix + "managedclustermigration"
+	ManagedClusterType          EventType = EventTypePrefix + "managedcluster"
+	ManagedClusterInfoType      EventType = EventTypePrefix + "managedclusterinfo"
+	SubscriptionReportType      EventType = EventTypePrefix + "subscription.report"
+	SubscriptionStatusType      EventType = EventTypePrefix + "subscription.status"
 
 	// used by the local resources
 	LocalComplianceType         EventType = EventTypePrefix + "policy.localcompliance"

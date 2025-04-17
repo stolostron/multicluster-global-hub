@@ -20,10 +20,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -48,15 +48,50 @@ func NewManagedClusterMigrationToSyncer(client client.Client,
 
 func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.to cloud event
-	s.log.Info("received cloudevent from the global hub")
-	managedClusterMigrationToEvent := &bundleevent.ManagedClusterMigrationToEvent{}
+	s.log.Info("received migration event from global hub")
+	managedClusterMigrationToEvent := &migration.ManagedClusterMigrationToEvent{}
 	if err := json.Unmarshal(payload, managedClusterMigrationToEvent); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal payload %v", err)
 	}
-	s.log.Debugf("received cloudevent %v", string(payload))
-
+	s.log.Debugf("received cloudevent %s", string(payload))
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
+
+	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.MigrationResourceCleaned {
+		// delete the subjectaccessreviews creation role and roleBinding
+		migrationClusterRoleName := getMigrationClusterRoleName(msaName)
+		clusterRole := &rbacv1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{Name: migrationClusterRoleName},
+		}
+		if err := s.client.Get(ctx,
+			client.ObjectKeyFromObject(clusterRole), clusterRole); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		} else {
+			if err = s.client.Delete(ctx, clusterRole); err != nil {
+				return err
+			}
+		}
+
+		sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
+		clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: sarMigrationClusterRoleBindingName,
+			},
+		}
+		if err := s.client.Get(ctx,
+			client.ObjectKeyFromObject(clusterRoleBinding), clusterRoleBinding); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		} else {
+			if err = s.client.Delete(ctx, clusterRoleBinding); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	if err := s.ensureClusterManager(ctx, msaName, msaNamespace); err != nil {
 		return err
@@ -100,32 +135,18 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 
 		// If it's directly sent to the global hub, mark it as completed.
 		s.log.Infof("sending addonConfigs applied confirmation %s", klusterletAddonConfig.Name)
-		err = s.sendAddonConfigConfirmation(ctx, klusterletAddonConfig.Name, constants.CloudEventGlobalHubClusterName)
+		err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), constants.CloudEventGlobalHubClusterName,
+			&migration.ManagedClusterMigrationBundle{
+				Stage:           migrationv1alpha1.MigrationResourceDeployed,
+				ManagedClusters: []string{klusterletAddonConfig.Name},
+			},
+			s.bundleVersion)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
-}
-
-func (s *managedClusterMigrationToSyncer) sendAddonConfigConfirmation(ctx context.Context,
-	managedCluster string, toHub string,
-) error {
-	config := &addonv1.KlusterletAddonConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      managedCluster,
-			Namespace: managedCluster,
-		},
-	}
-
-	payloadBytes, err := json.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal klusterletAddonConfig (%v) - %w", config, err)
-	}
-
-	return SendEvent(ctx, s.transportClient, string(enum.KlusterletAddonConfigType), configs.GetLeafHubName(),
-		toHub, payloadBytes, s.bundleVersion)
 }
 
 func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Context,
@@ -211,7 +232,7 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 
 func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
-	migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	migrationClusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: migrationClusterRoleName,
@@ -315,7 +336,7 @@ func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(c
 func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	migrationClusterRoleName := fmt.Sprintf("multicluster-global-hub-migration:%s", msaName)
+	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
 	sarMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -370,4 +391,8 @@ func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx contex
 	}
 
 	return nil
+}
+
+func getMigrationClusterRoleName(managedServiceAccountName string) string {
+	return fmt.Sprintf("multicluster-global-hub-migration:%s", managedServiceAccountName)
 }

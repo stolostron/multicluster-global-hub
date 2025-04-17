@@ -23,7 +23,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	bundleevent "github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -58,7 +58,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 	cases := []struct {
 		name                         string
-		receivedMigrationEventBundle bundleevent.ManagedClusterMigrationFromEvent
+		receivedMigrationEventBundle migration.ManagedClusterMigrationFromEvent
 		initObjects                  []client.Object
 		expectedProduceEvent         *cloudevents.Event
 		expectedObjects              []client.Object
@@ -82,16 +82,16 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub:           "hub2",
-				Stage:           migrationv1alpha1.PhaseInitializing,
+				Stage:           migrationv1alpha1.MigrationResourceInitialized,
 				ManagedClusters: []string{"cluster1"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
 
 				evt := cloudevents.NewEvent()
-				evt.SetType(string(enum.KlusterletAddonConfigType))
+				evt.SetType(string(enum.ManagedClusterMigrationType))
 				evt.SetSource("hub1")
 				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
@@ -111,9 +111,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.PhaseMigrating,
+				Stage: migrationv1alpha1.MigrationClusterRegistered,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
@@ -147,7 +147,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 		},
 		{
-			name: "Completed: migrate cluster1 from hub1 to hub2",
+			name: "Cleaned up: migrate cluster1 from hub1 to hub2",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -159,9 +159,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: bundleevent.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
-				Stage: migrationv1alpha1.PhaseCompleted,
+				Stage: migrationv1alpha1.MigrationResourceCleaned,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
@@ -173,8 +173,21 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 				ManagedClusters: []string{"cluster1"},
 			},
-			expectedProduceEvent: nil,
-			expectedObjects:      nil,
+			expectedProduceEvent: func() *cloudevents.Event {
+				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
+
+				evt := cloudevents.NewEvent()
+				evt.SetType(string(enum.ManagedClusterMigrationType))
+				evt.SetSource("hub1")
+				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
+				evt.SetExtension(eventversion.ExtVersion, "0.1")
+				evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
+					Stage:           migrationv1alpha1.MigrationResourceCleaned,
+					ManagedClusters: []string{"cluster1"},
+				})
+				return &evt
+			}(),
+			expectedObjects: nil,
 		},
 	}
 
