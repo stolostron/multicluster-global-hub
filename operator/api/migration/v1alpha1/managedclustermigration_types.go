@@ -22,20 +22,21 @@ import (
 
 // Migration Phases
 const (
-	PhaseInitializing = "Initializing"
 	PhaseValidating   = "Validating"
+	PhaseInitializing = "Initializing"
 	PhaseMigrating    = "Migrating"
 	PhaseCleaning     = "Cleaning"
 	PhaseCompleted    = "Completed"
 	PhaseFailed       = "Failed"
 )
 
-// Condition Types
+// Migration Condition Types
 const (
-	MigrationResourceInitialized = "ResourceInitialized"
-	MigrationClusterRegistered   = "ClusterRegistered" // -> Phase: Migrating
-	MigrationResourceDeployed    = "ResourceDeployed"  // -> Phase: Migrating
-	MigrationResourceCleaned     = "ResourceCleaned"
+	ConditionTypeValidated   = "ResourceValidated"
+	ConditionTypeInitialized = "ResourceInitialized"
+	ConditionTypeRegistered  = "ClusterRegistered" // -> Phase: Migrating
+	ConditionTypeDeployed    = "ResourceDeployed"  // -> Phase: Migrating
+	ConditionTypeCleaned     = "ResourceCleaned"
 )
 
 // +kubebuilder:object:root=true

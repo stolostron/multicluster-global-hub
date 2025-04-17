@@ -58,7 +58,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	// skip if the MigrationResourceInitialized condition is True
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceInitialized) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized) {
 		return false, nil
 	}
 	log.Info("migration initializing")
@@ -79,7 +79,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	} else if apierrors.IsNotFound(err) {
-		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
+		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
 			metav1.ConditionFalse, ConditionReasonTokenSecretMissing,
 			fmt.Sprintf("token secret(%s/%s) is not found!", tokenSecret.Namespace, tokenSecret.Name))
 		if err != nil {
@@ -91,7 +91,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// set destination hub to autoApprove for the sa
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
-	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized, nil); err != nil {
+	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
 		return false, err
 	}
 
@@ -133,7 +133,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		// confirmation in status
 		if !clusterResourcesSynced {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm.Spec.To,
-				migrationv1alpha1.MigrationResourceInitialized, clusters, nil)
+				migrationv1alpha1.ConditionTypeInitialized, clusters, nil)
 			if err != nil {
 				return false, err
 			}
@@ -141,7 +141,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	if len(initializingClusters) > 0 {
-		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
+		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
 			metav1.ConditionFalse, ConditionReasonClusterNotSynced,
 			fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters))
 		if err != nil {
@@ -150,7 +150,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return true, nil
 	}
 
-	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.MigrationResourceInitialized,
+	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
 		metav1.ConditionTrue, ConditionReasonResourcePrepared, ConditionMessageResourcePrepared)
 	if err != nil {
 		return false, err
@@ -314,17 +314,17 @@ func (m *ClusterMigrationController) UpdateCondition(
 		}
 	} else {
 		switch conditionType {
-		case migrationv1alpha1.MigrationResourceInitialized, migrationv1alpha1.MigrationClusterRegistered:
+		case migrationv1alpha1.ConditionTypeInitialized, migrationv1alpha1.ConditionTypeRegistered:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
 				mcm.Status.Phase = migrationv1alpha1.PhaseMigrating
 				update = true
 			}
-		case migrationv1alpha1.MigrationResourceDeployed:
+		case migrationv1alpha1.ConditionTypeDeployed:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
 				update = true
 			}
-		case migrationv1alpha1.MigrationResourceCleaned:
+		case migrationv1alpha1.ConditionTypeCleaned:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
 				update = true
