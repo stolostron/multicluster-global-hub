@@ -25,7 +25,8 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed) ||
+		mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
 		return false, nil
 	}
 

@@ -23,7 +23,8 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) ||
+		mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
 		return false, nil
 	}
 

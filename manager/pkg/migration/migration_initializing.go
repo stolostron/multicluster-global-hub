@@ -28,8 +28,6 @@ import (
 )
 
 const (
-	ConditionMessageResourcePrepared = "All required resources initialized"
-
 	ConditionReasonTokenSecretMissing = "TokenSecretMissing"
 	ConditionReasonClusterNotSynced   = "ClusterNotSynced"
 	ConditionReasonResourcePrepared   = "ResourcePrepared"
@@ -50,18 +48,30 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, nil
 	}
 
-	if mcm.Status.Phase == "" {
-		mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
-		if err := m.Client.Status().Update(ctx, mcm); err != nil {
-			return false, err
-		}
-	}
-
 	// skip if the MigrationResourceInitialized condition is True
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized) ||
+		mcm.Status.Phase != migrationv1alpha1.PhaseInitializing {
 		return false, nil
 	}
 	log.Info("migration initializing")
+
+	condType := migrationv1alpha1.ConditionTypeInitialized
+	condStatus := metav1.ConditionTrue
+	condReason := ConditionReasonResourcePrepared
+	condMessage := "All required resources initialized"
+	var err error
+
+	defer func() {
+		if err != nil {
+			condMessage = err.Error()
+			condStatus = metav1.ConditionFalse
+		}
+		log.Infof("initializing condition %s(%s): %s", condType, condReason, condMessage)
+		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
+		if e != nil {
+			log.Errorf("failed to update the %s condition: %v", condType, e)
+		}
+	}()
 
 	// To Hub
 	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
@@ -75,16 +85,14 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			Namespace: mcm.Spec.To, // hub
 		},
 	}
-	err := m.Client.Get(ctx, client.ObjectKeyFromObject(tokenSecret), tokenSecret)
+	err = m.Client.Get(ctx, client.ObjectKeyFromObject(tokenSecret), tokenSecret)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return false, err
 	} else if apierrors.IsNotFound(err) {
-		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
-			metav1.ConditionFalse, ConditionReasonTokenSecretMissing,
-			fmt.Sprintf("token secret(%s/%s) is not found!", tokenSecret.Namespace, tokenSecret.Name))
-		if err != nil {
-			return false, err
-		}
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonTokenSecretMissing
+		condMessage = fmt.Sprintf("token secret(%s/%s) is not found!", tokenSecret.Namespace, tokenSecret.Name)
+		err = nil // An unready token should not be considered an error
 		return true, nil
 	}
 
@@ -141,19 +149,10 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	if len(initializingClusters) > 0 {
-		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
-			metav1.ConditionFalse, ConditionReasonClusterNotSynced,
-			fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters))
-		if err != nil {
-			return false, err
-		}
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonClusterNotSynced
+		condMessage = fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters)
 		return true, nil
-	}
-
-	err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
-		metav1.ConditionTrue, ConditionReasonResourcePrepared, ConditionMessageResourcePrepared)
-	if err != nil {
-		return false, err
 	}
 
 	log.Info("migration klusterletconfigs have been synced into the database")
@@ -314,22 +313,24 @@ func (m *ClusterMigrationController) UpdateCondition(
 		}
 	} else {
 		switch conditionType {
+		case migrationv1alpha1.ConditionTypeValidated:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
+			}
 		case migrationv1alpha1.ConditionTypeInitialized, migrationv1alpha1.ConditionTypeRegistered:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
 				mcm.Status.Phase = migrationv1alpha1.PhaseMigrating
-				update = true
 			}
 		case migrationv1alpha1.ConditionTypeDeployed:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
-				update = true
 			}
 		case migrationv1alpha1.ConditionTypeCleaned:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
-				update = true
 			}
 		}
+		update = true
 	}
 
 	// Update the resource in Kubernetes only if there was a change
