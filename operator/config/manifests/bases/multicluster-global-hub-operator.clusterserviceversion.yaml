@@ -18,7 +18,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    olm.skipRange: '>=1.3.0 <1.4.0'
+    olm.skipRange: '>=1.4.0 <1.5.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
       "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
       "spec": {}}'
@@ -233,7 +233,7 @@ spec:
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
-  maturity: release-1.4
+  maturity: release-1.5
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
