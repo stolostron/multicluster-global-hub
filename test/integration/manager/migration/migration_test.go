@@ -3,6 +3,7 @@ package migration_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -204,6 +205,73 @@ var _ = Describe("migration", Ordered, func() {
 		testCtxCancel()
 	})
 
+	It("should pass the validation for the migrating", func() {
+		migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "migration",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+		}
+
+		// validating: not found cluster
+		By("validating: not found cluster")
+		Eventually(func() error {
+			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+
+			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+			if cond == nil {
+				return fmt.Errorf("should find the condition: %s", migrationv1alpha1.ConditionTypeValidated)
+			}
+			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonClusterNotFound {
+				return nil
+			}
+			// utils.PrettyPrint(migrationInstance.Status)
+			return errors.New("should get the cluster not found condition")
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+
+		By("create the migrating cluster in database")
+		clusterPayload, err := json.Marshal(&clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster1",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		})
+		Expect(err).To(Succeed())
+		err = db.Model(models.ManagedCluster{}).Create(&models.ManagedCluster{
+			ClusterID:   "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
+			LeafHubName: "hub1",
+			Payload:     clusterPayload,
+			Error:       database.ErrorNone,
+		}).Error
+		Expect(err).To(Succeed())
+
+		// validating: validated -> true
+		Eventually(func() error {
+			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+
+			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+			if cond.Status == metav1.ConditionTrue && cond.Reason == migration.ConditionReasonResourceValidated &&
+				migrationInstance.Status.Phase == migrationv1alpha1.PhaseInitializing {
+				return nil
+			}
+			utils.PrettyPrint(migrationInstance.Status)
+			return fmt.Errorf("should get the initializing resource, but got %s", migrationInstance.Status.Phase)
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
 	It("should have managedserviceaccount created", func() {
 		Eventually(func() error {
 			return mgr.GetClient().Get(testCtx, types.NamespacedName{
@@ -322,36 +390,11 @@ var _ = Describe("migration", Ordered, func() {
 			}
 
 			utils.PrettyPrint(migrationInstance.Status)
-
 			return nil
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("should register the migration cluster", func() {
-		// create the migrating cluster in status table
-		By("create the migrating cluster in database")
-		clusterPayload, err := json.Marshal(&clusterv1.ManagedCluster{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "cluster1",
-			},
-			Spec: clusterv1.ManagedClusterSpec{
-				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
-					{
-						URL:      "https://example.com",
-						CABundle: []byte("test"),
-					},
-				},
-			},
-		})
-		Expect(err).To(Succeed())
-		err = db.Model(models.ManagedCluster{}).Create(&models.ManagedCluster{
-			ClusterID:   "23e5ae9e-c6b2-4793-be6b-2e52f870df10",
-			LeafHubName: "hub1",
-			Payload:     clusterPayload,
-			Error:       database.ErrorNone,
-		}).Error
-		Expect(err).To(Succeed())
-
 		// get the register event in the source hub
 		Eventually(func() error {
 			payload := sourceHubEvent.Data()
@@ -378,7 +421,7 @@ var _ = Describe("migration", Ordered, func() {
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		// mock the cluster is registered
-		err = db.Model(&models.ManagedCluster{}).Where("cluster_id = ?",
+		err := db.Model(&models.ManagedCluster{}).Where("cluster_id = ?",
 			"23e5ae9e-c6b2-4793-be6b-2e52f870df10").Update("leaf_hub_name", "hub2").Error
 		Expect(err).To(Succeed())
 
