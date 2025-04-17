@@ -143,7 +143,7 @@ func policyEventPredicate(ctx context.Context, name string, obj client.Object, c
 	// get policy
 	policy, err := getInvolvePolicy(ctx, c, evt)
 	if err != nil {
-		log.Errorf("failed to get involved policy event: %s/%s, error: %v", evt.Namespace, evt.Name, err)
+		log.Debugf("failed to get involved policy event: %s/%s, error: %v", evt.Namespace, evt.Name, err)
 		return nil, false
 	}
 	return policy, true
