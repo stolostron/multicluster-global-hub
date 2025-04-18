@@ -34,7 +34,11 @@ const (
 	ConditionReasonTimeout            = "Timeout"
 )
 
-var migrationStageTimeout = 5 * time.Minute
+var (
+	migrationStageTimeout    = 5 * time.Minute
+	sendInitToSourceHub      = false
+	sendInitToDestinationHub = false
+)
 
 // Initializing:
 //  1. Grant the proper permission to the source clusters and the target cluster for the migration topic.
@@ -99,8 +103,11 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// set destination hub to autoApprove for the sa
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
-	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
-		return false, err
+	if !sendInitToDestinationHub {
+		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
+			return false, err
+		}
+		sendInitToDestinationHub = true
 	}
 
 	log.Info("migration bootstrap kubeconfig secret token is ready")
@@ -139,12 +146,13 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			}
 		}
 		// confirmation in status
-		if !clusterResourcesSynced {
+		if !clusterResourcesSynced && !sendInitToSourceHub {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm.Spec.To,
 				migrationv1alpha1.ConditionTypeInitialized, clusters, nil)
 			if err != nil {
 				return false, err
 			}
+			sendInitToSourceHub = true
 		}
 	}
 
@@ -154,6 +162,10 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		condMessage = fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters)
 		return true, nil
 	}
+
+	// finished initializing
+	sendInitToDestinationHub = false
+	sendInitToSourceHub = false
 
 	log.Info("migration klusterletconfigs have been synced into the database")
 	return false, nil
