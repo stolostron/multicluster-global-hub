@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -28,6 +29,8 @@ const (
 	conditionReasonResourceNotCleaned     = "ResourceNotCleaned"
 	conditionReasonResourceCleaned        = "ResourceCleaned"
 )
+
+var sendRegisteringClusters = map[string][]string{}
 
 // Migrating - registering:
 //  1. Source Hub: set the bootstrap secret for the migrating clusters, change hubAccpetClient to trigger registering
@@ -128,7 +131,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		}
 	}
 
-	if len(registeringClusters) > 0 {
+	if len(registeringClusters) > 0 && !reflect.DeepEqual(sendRegisteringClusters, registeringClusters) {
 		// sending to from hub cluster with migrating notifications
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
@@ -150,9 +153,11 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		condReason = conditionReasonClusterNotRegistered
 		condStatus = metav1.ConditionFalse
 
+		sendRegisteringClusters = registeringClusters
 		log.Info("waiting clusters to be registered to new hub")
 		return true, nil
 	}
+	sendRegisteringClusters = nil
 	return false, nil
 }
 
