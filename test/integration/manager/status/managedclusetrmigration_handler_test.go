@@ -38,7 +38,7 @@ var _ = Describe("ManagedClusterMigration", Ordered, func() {
 			},
 		}
 		bundle := &migrationbundle.ManagedClusterMigrationBundle{
-			Stage:                 migrationv1alpha1.MigrationResourceInitialized,
+			Stage:                 migrationv1alpha1.ConditionTypeInitialized,
 			KlusterletAddonConfig: addonConfig,
 		}
 		payloadBytes, err := json.Marshal(bundle)
