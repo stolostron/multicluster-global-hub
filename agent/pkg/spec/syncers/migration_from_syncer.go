@@ -30,6 +30,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -42,21 +43,30 @@ const (
 var sleepForApplying = 20 * time.Second
 
 type managedClusterMigrationFromSyncer struct {
-	log             *zap.SugaredLogger
-	client          client.Client
-	transportClient transport.TransportClient
-	bundleVersion   *eventversion.Version
+	log               *zap.SugaredLogger
+	client            client.Client
+	transportClient   transport.TransportClient
+	transportConfig   *transport.TransportInternalConfig
+	migrationProducer *producer.GenericProducer
+	bundleVersion     *eventversion.Version
+	sendResources     bool
 }
 
 func NewManagedClusterMigrationFromSyncer(client client.Client,
-	transportClient transport.TransportClient,
+	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
 ) *managedClusterMigrationFromSyncer {
 	return &managedClusterMigrationFromSyncer{
 		log:             logger.DefaultZapLogger(),
 		client:          client,
 		transportClient: transportClient,
+		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
+		sendResources:   false,
 	}
+}
+
+func (s *managedClusterMigrationFromSyncer) SetMigrationProducer(producer *producer.GenericProducer) {
+	s.migrationProducer = producer
 }
 
 func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []byte) error {
@@ -66,12 +76,24 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		return err
 	}
 	s.log.Debugf("received managed cluster migration event %s", string(payload))
+	// initialize the gh-migration producer
+	if s.migrationProducer == nil && s.transportConfig != nil {
+		var err error
+		s.migrationProducer, err = producer.NewGenericProducer(s.transportConfig,
+			s.transportConfig.KafkaCredential.MigrationTopic)
+		if err != nil {
+			return err
+		}
+	}
 
 	// expected initialized
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.MigrationResourceInitialized {
 		s.log.Infof("initializing managed cluster migration event")
 		managedClusters := migrationSourceHubEvent.ManagedClusters
 		toHub := migrationSourceHubEvent.ToHub
+		if err := s.SendSourceClusterMigrationResources(ctx, managedClusters, configs.GetLeafHubName(), toHub); err != nil {
+			return err
+		}
 		for _, managedCluster := range managedClusters {
 			addonConfig, err := s.getKlusterletAddonConfig(ctx, managedCluster)
 			if err != nil {
@@ -163,6 +185,9 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		m.log.Errorf("failed to detach managed clusters: %v", err)
 		return err
 	}
+	// TODO: need to check how to stop the producer gracefully
+	m.migrationProducer = nil
+	m.sendResources = false
 	return nil
 }
 
@@ -305,6 +330,81 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 	config.Status = addonv1.KlusterletAddonConfigStatus{}
 
 	return config, nil
+}
+
+// SendSourceClusterMigrationResources sends required and customized resources to migration topic
+func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(ctx context.Context,
+	managedClusters []string, fromHub, toHub string,
+) error {
+	// aovid duplicate sending
+	if s.sendResources {
+		return nil
+	}
+	// send the managed cluster and klusterletAddonConfig to the target cluster
+	migrationResources := &migration.SourceClusterMigrationResources{
+		ManagedClusters:       []clusterv1.ManagedCluster{},
+		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
+	}
+	// list the managed clusters
+	managedClusterList := &clusterv1.ManagedClusterList{}
+	if err := s.client.List(ctx, managedClusterList, &client.ListOptions{}); err != nil {
+		return err
+	}
+	// list the klusterletAddonConfigs
+	klusterletAddonConfigList := &addonv1.KlusterletAddonConfigList{}
+	if err := s.client.List(ctx, klusterletAddonConfigList, &client.ListOptions{}); err != nil {
+		return err
+	}
+
+	for _, managedCluster := range managedClusters {
+		for _, mc := range managedClusterList.Items {
+			if mc.Name == managedCluster {
+				// do cleanup
+				mc.SetManagedFields(nil)
+				mc.SetFinalizers(nil)
+				mc.SetOwnerReferences(nil)
+				mc.SetSelfLink("")
+				mc.SetResourceVersion("")
+				mc.SetGeneration(0)
+				mc.Spec.ManagedClusterClientConfigs = nil
+				mc.Status = clusterv1.ManagedClusterStatus{}
+				migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, mc)
+				continue
+			}
+		}
+		for _, config := range klusterletAddonConfigList.Items {
+			if config.Name == managedCluster && config.Namespace == managedCluster {
+				// do cleanup
+				config.SetManagedFields(nil)
+				config.SetFinalizers(nil)
+				config.SetOwnerReferences(nil)
+				config.SetSelfLink("")
+				config.SetResourceVersion("")
+				config.SetGeneration(0)
+				config.Status = addonv1.KlusterletAddonConfigStatus{}
+				migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, config)
+				continue
+			}
+		}
+	}
+
+	payloadBytes, err := json.Marshal(migrationResources)
+	if err != nil {
+		return fmt.Errorf("failed to marshal SourceClusterMigrationResources (%v) - %w", migrationResources, err)
+	}
+
+	s.bundleVersion.Incr()
+	e := utils.ToCloudEvent(string(enum.MigrationResourcesType), fromHub, toHub, payloadBytes)
+	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
+	s.log.Info("send the migration resources to the migration topic from the source cluster")
+	if err := s.migrationProducer.SendEvent(ctx, e); err != nil {
+		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
+			string(enum.MigrationResourcesType), fromHub, toHub, err)
+	}
+	s.bundleVersion.Next()
+	// set the sendResources to true to avoid duplicate sending
+	s.sendResources = true
+	return nil
 }
 
 func SendMigrationEvent(

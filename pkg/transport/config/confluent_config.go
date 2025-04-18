@@ -223,3 +223,8 @@ func ParseCredentailConn(namespace string, c client.Client, conn transport.Trans
 	}
 	return nil
 }
+
+// GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate
+func GetKafkaUserName(clusterName string) string {
+	return fmt.Sprintf("%s-kafka-user", clusterName)
+}

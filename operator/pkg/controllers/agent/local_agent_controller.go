@@ -79,21 +79,30 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 	return isResourceRemoved
 }
 
-// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubagents,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubagents/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubagents/finalizers,verbs=update
-// +kubebuilder:rbac:groups="policy.open-cluster-management.io",resources=policyautomations;policysets;placementbindings;policies,verbs=get;list;watch;patch;update
-// +kubebuilder:rbac:groups="cluster.open-cluster-management.io",resources=placements;managedclustersets;managedclustersetbindings,verbs=get;list;watch;patch;update
-// +kubebuilder:rbac:groups="cluster.open-cluster-management.io",resources=managedclusters;managedclusters/finalizers;placementdecisions;placementdecisions/finalizers;placements;placements/finalizers,verbs=get;list;watch;patch;update
-// +kubebuilder:rbac:groups="cluster.open-cluster-management.io",resources=clusterclaims,verbs=create;get;list;watch;patch;update;delete
-// +kubebuilder:rbac:groups="",resources=namespaces;pods;events,verbs=create;get;list;watch;patch;update;delete
-// +kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=list;watch
-// +kubebuilder:rbac:groups="route.openshift.io",resources=routes,verbs=get;list;watch
-// +kubebuilder:rbac:groups="internal.open-cluster-management.io",resources=managedclusterinfos,verbs=get;list;watch;update
-// +kubebuilder:rbac:groups="apps.open-cluster-management.io",resources=placementrules;subscriptionreports,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=create;get;list;watch;patch;update
-// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=clusterrolebindings;clusterroles,verbs=get;list;watch;create;update;delete;deletecollection
-// +kubebuilder:rbac:groups="",resources=services;secrets;configmaps;serviceaccounts,verbs=get;list;watch;create;update;delete;deletecollection
+// +kubebuilder:rbac:groups=app.k8s.io,resources=applications,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=channels;placementrules;subscriptionreports;subscriptions;subscriptionstatuses,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=placementbindings;policies;policyautomations;policysets,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=placements;managedclustersets;managedclustersetbindings,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclustersets/join;managedclustersets/bind,verbs=create;delete
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters;managedclusters/finalizers;placementdecisions;placementdecisions/finalizers;placements;placements/finalizers,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups="",resources=namespaces;pods;configmaps;events;secrets;services;serviceaccounts,verbs=create;delete;get;list;patch;update;watch;deletecollection
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;create;update;delete
+// +kubebuilder:rbac:groups="",resources=users;groups;serviceaccounts,verbs=impersonate
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings;clusterroles;rolebindings;roles,verbs=create;delete;get;list;patch;update;watch;deletecollection
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterhubs;clustermanagers,verbs=get;list;watch;patch;update
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=clusterclaims,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=list;watch;get
+// +kubebuilder:rbac:groups=platform.stackrox.io,resources=centrals,verbs=get;list;watch
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=internal.open-cluster-management.io,resources=managedclusterinfos,verbs=get;list;watch;update
+// +kubebuilder:rbac:groups=config.open-cluster-management.io,resources=klusterletconfigs,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+// +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;create;update;delete;watch;list
+// +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;create;watch;list
+// +kubebuilder:rbac:groups=register.open-cluster-management.io,resources=managedclusters/accept,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete;deletecollection
 
 func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

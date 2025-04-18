@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
@@ -27,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -94,6 +97,34 @@ var _ = Describe("migration", Ordered, func() {
 		hub2Namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "hub2"}}
 		Expect(mgr.GetClient().Create(testCtx, hub2Namespace)).Should(Succeed())
 
+		// create kafka user
+		kafkaUser1 := &kafkav1beta2.KafkaUser{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hub1-kafka-user",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+			Spec: &kafkav1beta2.KafkaUserSpec{
+				Authorization: &kafkav1beta2.KafkaUserSpecAuthorization{
+					Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
+					Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
+				},
+			},
+		}
+		kafkaUser2 := &kafkav1beta2.KafkaUser{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "hub2-kafka-user",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+			Spec: &kafkav1beta2.KafkaUserSpec{
+				Authorization: &kafkav1beta2.KafkaUserSpecAuthorization{
+					Type: kafkav1beta2.KafkaUserSpecAuthorizationTypeSimple,
+					Acls: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{},
+				},
+			},
+		}
+		Expect(mgr.GetClient().Create(testCtx, kafkaUser1)).To(Succeed())
+		Expect(mgr.GetClient().Create(testCtx, kafkaUser2)).To(Succeed())
+
 		// create managedclustermigration CR
 		By("create managedclustermigration CR")
 		migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
@@ -109,8 +140,8 @@ var _ = Describe("migration", Ordered, func() {
 		}
 		Expect(mgr.GetClient().Create(testCtx, migrationInstance)).To(Succeed())
 
-		// create a managedcluster
-		By("create a managedcluster")
+		// create a managed hub cluster
+		By("create a managed hub cluster")
 		mc := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "hub2",
@@ -125,6 +156,26 @@ var _ = Describe("migration", Ordered, func() {
 			},
 		}
 		Expect(mgr.GetClient().Create(testCtx, mc)).To(Succeed())
+
+		// create a managed hub cluster
+		By("create a managed cluster")
+		cluster1 := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster1",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		}
+		Expect(mgr.GetClient().Create(testCtx, cluster1)).To(Succeed())
 
 		// mimic msa generated secret
 		By("mimic msa generated secret")
@@ -179,6 +230,9 @@ var _ = Describe("migration", Ordered, func() {
 
 	It("should send the initialized event into source hub", func() {
 		Eventually(func() error {
+			if sourceHubEvent == nil {
+				return fmt.Errorf("wait for the event sent to from hub")
+			}
 			payload := sourceHubEvent.Data()
 			if payload == nil {
 				return fmt.Errorf("wait for the event sent to source hub")
@@ -195,6 +249,31 @@ var _ = Describe("migration", Ordered, func() {
 			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.MigrationResourceInitialized))
 			Expect(managedClusterMigrationEvent.ToHub).To(Equal("hub2"))
 			Expect(managedClusterMigrationEvent.ManagedClusters[0]).To(Equal("cluster1"))
+
+			return nil
+		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("should grant the proper permission to kafka user", func() {
+		Eventually(func() error {
+			user1 := &kafkav1beta2.KafkaUser{}
+			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
+				Name:      "hub1-kafka-user",
+				Namespace: utils.GetDefaultNamespace(),
+			}, user1)).To(Succeed())
+
+			Expect(user1.Spec.Authorization.Acls[0].Operations[0]).To(Equal(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
+
+			user2 := &kafkav1beta2.KafkaUser{}
+			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
+				Name:      "hub2-kafka-user",
+				Namespace: utils.GetDefaultNamespace(),
+			}, user2)).To(Succeed())
+
+			Expect(user2.Spec.Authorization.Acls[0].Operations).Should(ContainElements(
+				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+			))
 
 			return nil
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -411,5 +490,33 @@ var _ = Describe("migration", Ordered, func() {
 			}, msa)
 			return apierrors.IsNotFound(err)
 		}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+	})
+
+	It("should receive the migration resources from gh-migration topic", func() {
+		By("the cluster1 namespace should not exist")
+		Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{Name: "cluster1"}, &corev1.Namespace{})).To(HaveOccurred())
+
+		By("send migration resources to the topic")
+		fromSyncer := syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), nil, transportConfig)
+		migrationProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.MigrationTopic)
+		Expect(err).NotTo(HaveOccurred())
+		fromSyncer.SetMigrationProducer(migrationProducer)
+		Expect(fromSyncer.SendSourceClusterMigrationResources(testCtx, []string{"cluster1"}, "hub1", "hub2")).NotTo(HaveOccurred())
+
+		By("receive migration resources from the topic")
+		toSyncer := syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient(), nil, transportConfig)
+		go func() {
+			Expect(toSyncer.StartMigrationConsumer(testCtx)).NotTo(HaveOccurred())
+		}()
+
+		By("check the namespace is created by syncMigrationResources method")
+		Eventually(func() error {
+			ns := &corev1.Namespace{}
+			err := mgr.GetClient().Get(testCtx, types.NamespacedName{Name: "cluster1"}, ns)
+			if err != nil {
+				return err
+			}
+			return nil
+		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 })

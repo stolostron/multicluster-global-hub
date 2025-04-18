@@ -4,6 +4,7 @@
 package configs
 
 import (
+	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
@@ -45,5 +46,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(klusterletv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(addonv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(addonv1.SchemeBuilder.AddToScheme(scheme))
+	// add Kafka scheme
+	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))
 	return scheme
 }

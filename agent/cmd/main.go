@@ -171,16 +171,12 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
-	// if deploy the agent as a event exporter, then disable the consumer features
-	if agentConfig.Standalone {
-		agentConfig.TransportConfig.ConsumerGroupId = ""
-		agentConfig.SpecWorkPoolSize = 0
-	} else {
-		agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
-		if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
-			return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
-		}
+	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
+
+	if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
+		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
+
 	configs.SetAgentConfig(agentConfig)
 	return nil
 }

@@ -249,6 +249,8 @@ rules:
   - create
   - update
   - delete
+  - watch
+  - list
 - apiGroups:
   - agent.open-cluster-management.io
   resources:

@@ -67,6 +67,11 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
 	}
 
+	// add spec controllers
+	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("failed to add spec syncer: %w", err)
+	}
+
 	// only enable the status controller in the standalone mode
 	if c.agentConfig.Standalone {
 		return ctrl.Result{}, nil
@@ -80,11 +85,6 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 	// Need this controller to update the value of clusterclaim version.open-cluster-management.io
 	if err := AddVersionClusterClaimController(c.mgr); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
-	}
-
-	// add spec controllers
-	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	// all the controller started, then add the lease controller

@@ -259,7 +259,9 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 
 		// start managedclustermigration controller
 		if err := migration.NewMigrationController(mgr.GetClient(), producer,
-			managerConfig.ImportClusterInHosted).SetupWithManager(mgr); err != nil {
+			managerConfig.ImportClusterInHosted,
+			managerConfig.TransportConfig.KafkaCredential.MigrationTopic,
+		).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
 

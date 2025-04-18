@@ -11,6 +11,8 @@ spec:
     kind: ManagedClusterMigration
     listKind: ManagedClusterMigrationList
     plural: managedclustermigrations
+    shortNames:
+    - mcm
     singular: managedclustermigration
   scope: Namespaced
   versions:
