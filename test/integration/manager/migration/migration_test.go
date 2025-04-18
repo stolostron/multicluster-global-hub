@@ -225,7 +225,7 @@ var _ = Describe("migration", Ordered, func() {
 			if cond == nil {
 				return fmt.Errorf("should find the condition: %s", migrationv1alpha1.ConditionTypeValidated)
 			}
-			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonClusterNotFound {
+			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonManagedClusterNotFound {
 				return nil
 			}
 			// utils.PrettyPrint(migrationInstance.Status)
