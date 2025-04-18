@@ -289,9 +289,6 @@ func EnableInventory() bool {
 
 // GetTransportConfigClientName gives the client name based on the cluster name, it could be kafkauser or inventory name
 func GetTransportConfigClientName(clusterName string) string {
-	if EnableInventory() {
-		return clusterName
-	}
 	if TransporterProtocol() == transport.StrimziTransporter {
 		return GetKafkaUserName(clusterName)
 	}

@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -115,5 +116,79 @@ func TestRemoveExpiredCA(t *testing.T) {
 		caSecret)
 	if len(caSecret.Data["tls.crt"]) != oldCertLength/2 {
 		t.Fatal("Expired certificate not removed correctly")
+	}
+}
+
+func TestGetInventoryCredential(t *testing.T) {
+	// Create test certificates and secrets
+	caBytes := []byte("test-ca-cert")
+	keyBytes := []byte("test-key")
+	certBytes := []byte("test-cert")
+
+	serverCASecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      InventoryServerCASecretName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"ca.crt": caBytes,
+		},
+	}
+
+	guestCertSecret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "inventory-api-guest-certs",
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"tls.key": keyBytes,
+			"tls.crt": certBytes,
+		},
+	}
+
+	route := &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "inventory-api",
+			Namespace: namespace,
+		},
+		Spec: routev1.RouteSpec{
+			Host: "test.apps.example.com",
+		},
+	}
+
+	s := scheme.Scheme
+	routev1.AddToScheme(s)
+	config.SetMGHNamespacedName(types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	})
+	// Create fake client with test objects
+	c := fake.NewClientBuilder().WithRuntimeObjects(serverCASecret, guestCertSecret, route).Build()
+
+	// Test GetInventoryCredential
+	cred, err := GetInventoryCredential(c)
+	if err != nil {
+		t.Fatalf("GetInventoryCredential failed: %v", err)
+	}
+
+	// Verify the returned credentials
+	if cred.CASecretName != InventoryServerCASecretName {
+		t.Errorf("Expected CASecretName %s, got %s", InventoryServerCASecretName, cred.CASecretName)
+	}
+
+	if cred.ClientSecretName != "inventory-api-guest-certs" {
+		t.Errorf("Expected ClientSecretName %s, got %s", "inventory-api-guest-certs", cred.ClientSecretName)
+	}
+
+	expectedHost := "https://test.apps.example.com:443"
+	if cred.Host != expectedHost {
+		t.Errorf("Expected Host %s, got %s", expectedHost, cred.Host)
+	}
+
+	// Test error case - missing secret
+	c = fake.NewClientBuilder().WithRuntimeObjects(route).Build()
+	_, err = GetInventoryCredential(c)
+	if err == nil {
+		t.Error("Expected error when secrets are missing, got nil")
 	}
 }

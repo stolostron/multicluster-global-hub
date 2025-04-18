@@ -25,7 +25,7 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 	managedhub.RegsiterHubClusterInfoHandler(cmr)
 
 	// managed cluster
-	managedcluster.RegisterManagedClusterHandler(cmr)
+	managedcluster.RegisterManagedClusterHandler(mgr.GetClient(), cmr)
 	managedcluster.RegisterManagedClusterEventHandler(cmr)
 
 	// managed cluster migration

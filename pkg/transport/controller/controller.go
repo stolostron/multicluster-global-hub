@@ -112,20 +112,13 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	_, isKafka := secret.Data["kafka.yaml"]
-	if isKafka {
-		c.transportConfig.TransportType = string(transport.Kafka)
-	}
-
-	_, isRestful := secret.Data["rest.yaml"]
-	if isRestful {
-		c.transportConfig.TransportType = string(transport.Rest)
-	}
-
+	// currently, transport type is always kafka
+	c.transportConfig.TransportType = string(transport.Kafka)
 	var updated bool
 	var err error
-	switch c.transportConfig.TransportType {
-	case string(transport.Kafka):
+
+	_, enableKafka := secret.Data["kafka.yaml"]
+	if enableKafka {
 		updated, err = c.ReconcileKafkaCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -139,7 +132,11 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-	case string(transport.Rest):
+	}
+
+	// if the rest.yaml exist, then build the rest client
+	_, enableRestful := secret.Data["rest.yaml"]
+	if enableRestful {
 		updated, err = c.ReconcileRestfulCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -149,8 +146,6 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-	default:
-		return ctrl.Result{}, fmt.Errorf("unsupported transport type: %s", c.transportConfig.TransportType)
 	}
 
 	if !updated {

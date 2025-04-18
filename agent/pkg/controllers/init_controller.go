@@ -16,12 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory"
 	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -54,15 +54,17 @@ func (c *initController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 func (c *initController) addACMController(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	log.Info("NamespacedName: ", request.NamespacedName)
-
 	// status syncers or inventory
 	var err error
-	switch c.agentConfig.TransportConfig.TransportType {
-	case string(transport.Kafka):
-		err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
-	case string(transport.Rest):
-		err = inventory.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
+	mch, err := utils.ListMCH(ctx, c.mgr.GetClient())
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+	if mch != nil {
+		configs.SetMCHVersion(mch.Status.CurrentVersion)
+	}
+
+	err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
 	}

@@ -11,7 +11,8 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory/managedclusterinfo"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
@@ -42,9 +43,8 @@ func globalHub(ctx context.Context) error {
 		return err
 	}
 
-	clusterInfo := createMockClusterInfo("local-cluster")
 	cluster := createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster := managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", c)
+	k8sCluster := managedcluster.GetK8SCluster(ctx, cluster, "guest", c, "2.13.0")
 	createResp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -52,9 +52,8 @@ func globalHub(ctx context.Context) error {
 	}
 	fmt.Println("creating response", createResp)
 
-	clusterInfo = createMockClusterInfo("local-cluster")
 	cluster = createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", c)
+	k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", c, "2.13.0")
 	updatingResponse, err := requesterClient.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -62,9 +61,8 @@ func globalHub(ctx context.Context) error {
 	}
 	fmt.Println("updating response", updatingResponse)
 
-	clusterInfo = createMockClusterInfo("local-cluster")
 	cluster = createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", c)
+	k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", c, "2.13.0")
 	deletingResponse, err := requesterClient.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 		&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData})
 	if err != nil {
@@ -131,7 +129,7 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 		Status: clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: uuid.New().String(),
 				},
 				{
@@ -150,6 +148,17 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 					Name:  "product.open-cluster-management.io",
 					Value: kubeVendor,
 				},
+			},
+			Conditions: []metav1.Condition{
+				{
+					Type:   clusterv1.ManagedClusterConditionAvailable,
+					Status: metav1.ConditionTrue,
+					Reason: "ManagedClusterAvailable",
+				},
+			},
+			Capacity: map[clusterv1.ResourceName]resource.Quantity{
+				clusterv1.ResourceCPU:    resource.MustParse("16"),
+				clusterv1.ResourceMemory: resource.MustParse("64453796Ki"),
 			},
 		},
 	}

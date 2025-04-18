@@ -4,6 +4,7 @@ import "time"
 
 type ResourceVersion struct {
 	Key             string `gorm:"column:key"`
+	Name            string `gorm:"column:name"`
 	ResourceVersion string `gorm:"column:resource_version"`
 }
 

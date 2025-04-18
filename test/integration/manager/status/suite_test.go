@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Add controllers to manager")
-	err = status.AddStatusSyncers(mgr, consumer, managerConfig)
+	err = status.AddStatusSyncers(mgr, consumer, nil, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

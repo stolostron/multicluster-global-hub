@@ -81,7 +81,7 @@ func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName 
 	}
 	clusterId := string(cluster.GetUID())
 	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == "id.k8s.io" {
+		if claim.Name == constants.ClusterIdClaimName {
 			clusterId = claim.Value
 			break
 		}

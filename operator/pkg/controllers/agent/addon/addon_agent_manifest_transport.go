@@ -19,21 +19,6 @@ import (
 func setTransportConfigs(manifestsConfig *config.ManifestsConfig,
 	cluster *clusterv1.ManagedCluster, c client.Client,
 ) error {
-	if config.EnableInventory() {
-		inventoryConn, err := getInventoryCredential(c)
-		if err != nil {
-			return err
-		}
-		inventoryConfigYaml, err := inventoryConn.YamlMarshal(false)
-		if err != nil {
-			return fmt.Errorf("failed to marshalling the inventory config yaml: %w", err)
-		}
-		manifestsConfig.InventoryConfigYaml = base64.StdEncoding.EncodeToString(inventoryConfigYaml)
-		manifestsConfig.InventoryServerCASecret = inventoryConn.CASecretName
-		manifestsConfig.InventoryServerCACert = inventoryConn.CACert
-		return nil
-	}
-
 	// kafka setup
 	transporter := config.GetTransporter()
 

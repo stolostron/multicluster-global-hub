@@ -145,9 +145,6 @@ func newRegistrationOption() *addonframeworkagent.RegistrationOption {
 		},
 		CSRSign: func(csr *certificatesv1.CertificateSigningRequest) []byte {
 			key, cert := config.GetKafkaClientCA()
-			if config.EnableInventory() {
-				key, cert = config.GetInventoryClientCA()
-			}
 			return agentcert.Sign(csr, key, cert)
 		},
 	}

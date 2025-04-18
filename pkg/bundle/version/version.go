@@ -9,6 +9,7 @@ import (
 const (
 	ExtVersion           = "extversion"
 	ExtDependencyVersion = "extdependencyversion"
+	ExtMchVersion        = "extmchversion"
 )
 
 // NewVersion returns a new instance of BundleVersion.
