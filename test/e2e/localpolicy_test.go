@@ -83,7 +83,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 
 				count := 0
 				for _, c := range localCompliances {
-					if string(hubToPolicyMap[c.LeafHubName].UID) == c.PolicyID {
+					if string(hubToPolicyMap[c.LeafHubName].UID) == c.PolicyID &&
+						c.PolicyNamespacedName == fmt.Sprintf("%s/%s", LOCAL_POLICY_NAMESPACE, LOCAL_POLICY_NAME) {
 						count++
 					}
 				}

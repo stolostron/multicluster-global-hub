@@ -68,6 +68,7 @@ func handleCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Eve
 	for _, eventCompliance := range data { // every object is clusters list per policy with full state
 
 		policyID := eventCompliance.PolicyID
+		policyNamespacedName := eventCompliance.NamespacedName
 		complianceClustersFromDB, policyExistsInDB := allComplianceClustersFromDB[policyID]
 		if !policyExistsInDB {
 			complianceClustersFromDB = NewPolicyClusterSets()
@@ -76,19 +77,19 @@ func handleCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Eve
 		allClustersOnDB := complianceClustersFromDB.GetAllClusters()
 
 		// handle compliant clusters of the policy
-		compliantCompliances := newLocalCompliances(leafHub, policyID, database.Compliant,
+		compliantCompliances := newLocalCompliances(leafHub, policyID, policyNamespacedName, database.Compliant,
 			eventCompliance.CompliantClusters, allClustersOnDB)
 
 		// handle non compliant clusters of the policy
-		nonCompliantCompliances := newLocalCompliances(leafHub, policyID, database.NonCompliant,
+		nonCompliantCompliances := newLocalCompliances(leafHub, policyID, policyNamespacedName, database.NonCompliant,
 			eventCompliance.NonCompliantClusters, allClustersOnDB)
 
 		// handle unknown compliance clusters of the policy
-		unknownCompliances := newLocalCompliances(leafHub, policyID, database.Unknown,
+		unknownCompliances := newLocalCompliances(leafHub, policyID, policyNamespacedName, database.Unknown,
 			eventCompliance.UnknownComplianceClusters, allClustersOnDB)
 
 		// handle pending compliance clusters of the policy
-		pendingCompliances := newLocalCompliances(leafHub, policyID, database.Pending,
+		pendingCompliances := newLocalCompliances(leafHub, policyID, policyNamespacedName, database.Pending,
 			eventCompliance.PendingComplianceClusters, allClustersOnDB)
 
 		batchLocalCompliances := []models.LocalStatusCompliance{}
@@ -150,17 +151,19 @@ func handleCompliance(log logr.Logger, ctx context.Context, evt *cloudevents.Eve
 	return nil
 }
 
-func newLocalCompliances(leafHub, policyID string, compliance database.ComplianceStatus,
+func newLocalCompliances(leafHub, policyID string, namespacedName string,
+	compliance database.ComplianceStatus,
 	eventComplianceClusters []string, allClustersOnDB set.Set,
 ) []models.LocalStatusCompliance {
 	compliances := make([]models.LocalStatusCompliance, 0)
 	for _, cluster := range eventComplianceClusters {
 		compliances = append(compliances, models.LocalStatusCompliance{
-			LeafHubName: leafHub,
-			PolicyID:    policyID,
-			ClusterName: cluster,
-			Error:       database.ErrorNone,
-			Compliance:  compliance,
+			LeafHubName:          leafHub,
+			PolicyID:             policyID,
+			PolicyNamespacedName: namespacedName,
+			ClusterName:          cluster,
+			Error:                database.ErrorNone,
+			Compliance:           compliance,
 		})
 		allClustersOnDB.Remove(cluster)
 	}
