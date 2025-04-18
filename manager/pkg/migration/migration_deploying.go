@@ -25,11 +25,11 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationResourceDeployed) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeDeployed) {
 		return false, nil
 	}
 
-	condType := migrationv1alpha1.MigrationResourceDeployed
+	condType := migrationv1alpha1.ConditionTypeDeployed
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonAddonConfigDeployed
 	condMsg := "AddonConfigs have been deployed to all migrated clusters"
@@ -54,7 +54,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	var registeredClusters []models.ManagedClusterMigration
 	db := database.GetGorm()
 	err = db.Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationClusterRegistered,
+		Stage: migrationv1alpha1.ConditionTypeRegistered,
 	}).Find(&registeredClusters).Error
 	if err != nil {
 		return false, err
@@ -74,7 +74,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 			err = db.Model(&models.ManagedClusterMigration{}).
 				Where("to_hub = ?", registered.ToHub).
 				Where("cluster_name = ?", registered.ClusterName).
-				Update("stage", migrationv1alpha1.MigrationResourceDeployed).Error
+				Update("stage", migrationv1alpha1.ConditionTypeDeployed).Error
 			if err != nil {
 				return false, err
 			}
