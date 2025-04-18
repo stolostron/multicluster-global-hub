@@ -75,7 +75,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 
-	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.MigrationResourceCleaned {
+	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeCleaned {
 		// delete the subjectaccessreviews creation role and roleBinding
 		migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 		clusterRole := &rbacv1.ClusterRole{
@@ -155,7 +155,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		s.log.Infof("sending addonConfigs applied confirmation %s", klusterletAddonConfig.Name)
 		err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), constants.CloudEventGlobalHubClusterName,
 			&migration.ManagedClusterMigrationBundle{
-				Stage:           migrationv1alpha1.MigrationResourceDeployed,
+				Stage:           migrationv1alpha1.ConditionTypeDeployed,
 				ManagedClusters: []string{klusterletAddonConfig.Name},
 			},
 			s.bundleVersion)

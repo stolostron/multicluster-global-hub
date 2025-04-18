@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -29,6 +30,8 @@ const (
 	conditionReasonResourceCleaned        = "ResourceCleaned"
 )
 
+var sendRegisteringClusters = map[string][]string{}
+
 // Migrating - registering:
 //  1. Source Hub: set the bootstrap secret for the migrating clusters, change hubAccpetClient to trigger registering
 //     Related Issue: https://issues.redhat.com/browse/ACM-15758
@@ -41,13 +44,14 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.MigrationClusterRegistered) {
+	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) ||
+		mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
 		return false, nil
 	}
 
 	log.Info("migration registering")
 
-	condType := migrationv1alpha1.MigrationClusterRegistered
+	condType := migrationv1alpha1.ConditionTypeRegistered
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonClusterRegistered
 	condMsg := "All migrated clusters registered"
@@ -70,7 +74,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	var initialized []models.ManagedClusterMigration
 	db := database.GetGorm()
 	err = db.Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.MigrationResourceInitialized,
+		Stage: migrationv1alpha1.ConditionTypeInitialized,
 	}).Find(&initialized).Error
 	if err != nil {
 		return false, err
@@ -97,11 +101,11 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 				err := db.Model(&models.ManagedClusterMigration{}).Where(&models.ManagedClusterMigration{
 					ClusterName: m.ClusterName,
 					ToHub:       m.ToHub, FromHub: m.FromHub,
-				}).Update("stage", migrationv1alpha1.MigrationClusterRegistered).Error
+				}).Update("stage", migrationv1alpha1.ConditionTypeRegistered).Error
 				if err != nil {
 					return false, err
 				}
-				m.Stage = migrationv1alpha1.MigrationClusterRegistered
+				m.Stage = migrationv1alpha1.ConditionTypeRegistered
 				registeredClusters = append(registeredClusters, m)
 			} else {
 				log.Infof("cluster(%s) is not switched into hub(%s)", m.ClusterName, m.ToHub)
@@ -127,12 +131,12 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		}
 	}
 
-	if len(registeringClusters) > 0 {
+	if len(registeringClusters) > 0 && !reflect.DeepEqual(sendRegisteringClusters, registeringClusters) {
 		// sending to from hub cluster with migrating notifications
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
 			notRegisterClusters = append(notRegisterClusters, clusters...)
-			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.MigrationClusterRegistered,
+			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.ConditionTypeRegistered,
 				clusters, bootstrapSecret)
 			if err != nil {
 				return false, err
@@ -149,9 +153,11 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		condReason = conditionReasonClusterNotRegistered
 		condStatus = metav1.ConditionFalse
 
+		sendRegisteringClusters = registeringClusters
 		log.Info("waiting clusters to be registered to new hub")
 		return true, nil
 	}
+	sendRegisteringClusters = nil
 	return false, nil
 }
 
