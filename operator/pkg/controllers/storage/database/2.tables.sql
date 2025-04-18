@@ -16,6 +16,7 @@ CREATE INDEX IF NOT EXISTS local_policies_leafhub_idx ON local_spec.policies (le
 
 CREATE TABLE IF NOT EXISTS local_status.compliance (
     policy_id uuid NOT NULL,
+    policy_namespaced_name text,
     cluster_name character varying(254) NOT NULL,
     leaf_hub_name character varying(254) NOT NULL,
     error status.error_type NOT NULL,

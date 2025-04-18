@@ -57,6 +57,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		data := grc.ComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
+			NamespacedName:            "default/policy1",
 			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster2"},
 			PendingComplianceClusters: []string{"cluster4"},
@@ -84,7 +85,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 				if c.PolicyID == expiredPolicyID && c.ClusterName == "cluster1" {
 					expiredCount++
 				}
-				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster4" {
+				if c.PolicyID == createdPolicyId && c.PolicyNamespacedName == "default/policy1" && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster4" {
 					addedCount++
 				}
 
@@ -130,6 +131,7 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 		data := grc.ComplianceBundle{}
 		data = append(data, grc.Compliance{
 			PolicyID:                  createdPolicyId,
+			NamespacedName:            "default/policy1",
 			CompliantClusters:         []string{"cluster1"},
 			NonCompliantClusters:      []string{"cluster2"},
 			PendingComplianceClusters: []string{"cluster5"},
@@ -158,7 +160,8 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 			addedCount := 0
 			for _, c := range localCompliances {
 				fmt.Printf("LocalCompliance Resync: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
-				if c.PolicyID == createdPolicyId && c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster5" {
+				if c.PolicyID == createdPolicyId && c.PolicyNamespacedName == "default/policy1" &&
+					c.ClusterName == "cluster1" || c.ClusterName == "cluster2" || c.ClusterName == "cluster5" {
 					addedCount++
 				}
 				if c.ClusterName == "cluster3" {

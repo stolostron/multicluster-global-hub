@@ -74,7 +74,7 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 	for _, eventCompliance := range data { // every object in bundle is policy compliance status
 
 		policyID := eventCompliance.PolicyID
-
+		policyNamespacedName := eventCompliance.NamespacedName
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
 		nonComplianceClusterSetsFromDB, policyExistsInDB := allCompleteRowsFromDB[policyID]
 		if !policyExistsInDB {
@@ -88,11 +88,12 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 		for _, eventCluster := range eventCompliance.NonCompliantClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.NonCompliant).Contains(eventCluster) {
 				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
-					PolicyID:    policyID,
-					LeafHubName: leafHub,
-					ClusterName: eventCluster,
-					Compliance:  database.NonCompliant,
-					Error:       database.ErrorNone,
+					PolicyID:             policyID,
+					PolicyNamespacedName: policyNamespacedName,
+					LeafHubName:          leafHub,
+					ClusterName:          eventCluster,
+					Compliance:           database.NonCompliant,
+					Error:                database.ErrorNone,
 				})
 			}
 			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
@@ -102,11 +103,12 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 		for _, eventCluster := range eventCompliance.PendingComplianceClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.Pending).Contains(eventCluster) {
 				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
-					PolicyID:    policyID,
-					LeafHubName: leafHub,
-					ClusterName: eventCluster,
-					Compliance:  database.Pending,
-					Error:       database.ErrorNone,
+					PolicyID:             policyID,
+					PolicyNamespacedName: policyNamespacedName,
+					LeafHubName:          leafHub,
+					ClusterName:          eventCluster,
+					Compliance:           database.Pending,
+					Error:                database.ErrorNone,
 				})
 			}
 			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
@@ -116,11 +118,12 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 		for _, eventCluster := range eventCompliance.UnknownComplianceClusters {
 			if !nonComplianceClusterSetsFromDB.GetClusters(database.Unknown).Contains(eventCluster) {
 				batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
-					PolicyID:    policyID,
-					LeafHubName: leafHub,
-					ClusterName: eventCluster,
-					Compliance:  database.Unknown,
-					Error:       database.ErrorNone,
+					PolicyID:             policyID,
+					PolicyNamespacedName: policyNamespacedName,
+					LeafHubName:          leafHub,
+					ClusterName:          eventCluster,
+					Compliance:           database.Unknown,
+					Error:                database.ErrorNone,
 				})
 			}
 			allNonComplianceCluster.Remove(eventCluster) // mark cluster as handled
@@ -133,11 +136,12 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 				continue
 			}
 			batchLocalCompliance = append(batchLocalCompliance, models.LocalStatusCompliance{
-				PolicyID:    policyID,
-				LeafHubName: leafHub,
-				ClusterName: clusterName,
-				Compliance:  database.Compliant,
-				Error:       database.ErrorNone,
+				PolicyID:             policyID,
+				PolicyNamespacedName: policyNamespacedName,
+				LeafHubName:          leafHub,
+				ClusterName:          clusterName,
+				Compliance:           database.Compliant,
+				Error:                database.ErrorNone,
 			})
 		}
 
