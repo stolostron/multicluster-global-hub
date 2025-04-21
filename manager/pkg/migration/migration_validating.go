@@ -13,14 +13,15 @@ import (
 
 const (
 	ConditionReasonClusterNotFound   = "ClusterNotFound"
+	ConditionReasonClusterConflict   = "ClusterConflict"
 	ConditionReasonResourceValidated = "ResourceValidated"
 )
 
 // Validation:
 // 1. Verify if the migrating clusters exist in the current hubs
 //   - If the clusters do not exist in both the from and to hubs, report a validating error and mark status as failed
-//   - If the clusters exist in the destination hub, mark the status as completed.
 //   - If the clusters exist in the source hub, mark the status as validated and change the phase to initializing.
+//   - If the clusters exist in the destination hub, mark the status as failed, raise the 'ClusterConflict' message.
 func (m *ClusterMigrationController) validating(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
@@ -35,6 +36,8 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		}
 	}
 
+	// Skip validation if the ResourceValidated is true,
+	// or if the phase status is not 'validating' (indicating it's currently in a different stage)
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseValidating {
 		return false, nil
@@ -63,20 +66,23 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	clusterWithHub, err := getClusterWithHub(mcm)
 
 	notFoundClusters := []string{}
-	movedClusters := []string{}
+	clustersInDestinationHub := []string{}
 	for _, cluster := range mcm.Spec.IncludedManagedClusters {
 		hub := clusterWithHub[cluster]
 		if hub == mcm.Spec.To {
-			movedClusters = append(movedClusters, cluster)
+			clustersInDestinationHub = append(clustersInDestinationHub, cluster)
 		} else if mcm.Spec.From != "" && hub != mcm.Spec.From {
 			notFoundClusters = append(notFoundClusters, cluster)
 		}
 	}
 
-	// cluster has been migrated
-	if len(movedClusters) == len(mcm.Spec.IncludedManagedClusters) {
-		mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
-		condMessage = fmt.Sprintf("The clusters has been migrated into the hub %s", mcm.Spec.To)
+	// clusters have been in the destination hub
+	if len(clustersInDestinationHub) > 0 {
+		mcm.Status.Phase = migrationv1alpha1.PhaseFailed
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonClusterConflict
+		condMessage = fmt.Sprintf("The clusters %v have been in the hub cluster %s",
+			messageClusters(clustersInDestinationHub), mcm.Spec.To)
 		return false, nil
 	}
 
@@ -85,16 +91,22 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		mcm.Status.Phase = migrationv1alpha1.PhaseFailed
 		condStatus = metav1.ConditionFalse
 		condReason = ConditionReasonClusterNotFound
-		clusters := notFoundClusters
-		if len(notFoundClusters) > 3 {
-			clusters = append(clusters[:3], "...")
-		}
-		condMessage = fmt.Sprintf("The validated clusters %v are not found in the source hub %s", clusters,
-			mcm.Spec.From)
+		condMessage = fmt.Sprintf("The validated clusters %v are not found in the source hub %s",
+			messageClusters(notFoundClusters), mcm.Spec.From)
 		return true, nil
 	}
 
 	return false, nil
+}
+
+// messageClusters is used to prevent too many messages from appearing in the status.
+// It truncates the list to show only the first three clusters.
+func messageClusters(clusters []string) []string {
+	messages := clusters
+	if len(clusters) > 3 {
+		messages = append(clusters[:3], "...")
+	}
+	return messages
 }
 
 func getClusterWithHub(mcm *migrationv1alpha1.ManagedClusterMigration) (map[string]string, error) {
