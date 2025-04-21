@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	ConditionReasonClusterNotFound   = "ClusterNotFound"
-	ConditionReasonClusterConflict   = "ClusterConflict"
-	ConditionReasonResourceValidated = "ResourceValidated"
+	ConditionReasonHubClusterNotFound = "HubClusterNotFound"
+	ConditionReasonClusterNotFound    = "ClusterNotFound"
+	ConditionReasonClusterConflict    = "ClusterConflict"
+	ConditionReasonResourceValidated  = "ResourceValidated"
 )
 
 // Validation:
