@@ -213,8 +213,8 @@ var _ = Describe("migration", Ordered, func() {
 			},
 		}
 
-		// validating: not found cluster
-		By("validating: not found cluster")
+		// validating: hub
+		By("validating: not found hub")
 		Eventually(func() error {
 			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
 			if err != nil {
@@ -225,11 +225,50 @@ var _ = Describe("migration", Ordered, func() {
 			if cond == nil {
 				return fmt.Errorf("should find the condition: %s", migrationv1alpha1.ConditionTypeValidated)
 			}
-			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonManagedClusterNotFound {
+			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonHubClusterNotFound {
 				return nil
 			}
-			// utils.PrettyPrint(migrationInstance.Status)
-			return errors.New("should get the cluster not found condition")
+			return errors.New("should not found hub cluster")
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+		By("create the hub cluster in database")
+		err := db.Model(models.LeafHub{}).Create(&models.LeafHub{
+			LeafHubName: "hub1",
+			ClusterID:   "00000000-0000-0000-0000-000000000001",
+			Payload:     []byte(`{}`),
+		}).Error
+		Expect(err).To(Succeed())
+		err = db.Model(models.LeafHub{}).Create(&models.LeafHub{
+			LeafHubName: "hub2",
+			ClusterID:   "00000000-0000-0000-0000-000000000002",
+			Payload:     []byte(`{}`),
+		}).Error
+		Expect(err).To(Succeed())
+
+		err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+		Expect(err).To(Succeed())
+
+		// add a label to trigger the reconcile
+		migrationInstance.Labels = map[string]string{"test": "foo"}
+		err = mgr.GetClient().Update(ctx, migrationInstance)
+		Expect(err).To(Succeed())
+
+		// validating: not found cluster
+		By("validating: not found cluster")
+		Eventually(func() error {
+			err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+
+			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+			if cond == nil {
+				return fmt.Errorf("should find the condition: %s", migrationv1alpha1.ConditionTypeValidated)
+			}
+			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonClusterNotFound {
+				return nil
+			}
+			utils.PrettyPrint(migrationInstance.Status)
+			return errors.New("should not found cluster")
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("create the migrating cluster in database")
