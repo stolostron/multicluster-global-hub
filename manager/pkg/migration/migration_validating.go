@@ -67,14 +67,13 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	}()
 
 	// Verify if both source and destination hubs exist
-	hub := &models.LeafHub{}
 	db := database.GetGorm()
 
 	var fromHubErr, toHubErr error
 	if mcm.Spec.From != "" {
-		fromHubErr = db.Model(&models.LeafHub{LeafHubName: mcm.Spec.From}).First(hub).Error
+		fromHubErr = db.Model(&models.LeafHub{LeafHubName: mcm.Spec.From}).First(&models.LeafHub{}).Error
 	}
-	toHubErr = db.Model(&models.LeafHub{LeafHubName: mcm.Spec.To}).First(hub).Error
+	toHubErr = db.Model(&models.LeafHub{LeafHubName: mcm.Spec.To}).First(&models.LeafHub{}).Error
 
 	if errors.Is(fromHubErr, gorm.ErrRecordNotFound) || errors.Is(toHubErr, gorm.ErrRecordNotFound) {
 		mcm.Status.Phase = migrationv1alpha1.PhaseFailed
