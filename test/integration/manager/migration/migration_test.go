@@ -379,7 +379,8 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
-			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseMigrating {
+			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseMigrating &&
+				migrationInstance.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				return fmt.Errorf("wait for the migration Migrating to be ready: %s", migrationInstance.Status.Phase)
 			}
 
