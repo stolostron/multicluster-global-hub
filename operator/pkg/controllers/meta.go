@@ -127,7 +127,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	if mgh.DeletionTimestamp != nil {
 		log.Debug("mgh instance is deleting")
-
 		err = config.UpdateCondition(ctx, r.client, types.NamespacedName{
 			Namespace: mgh.Namespace,
 			Name:      mgh.Name,
@@ -141,23 +140,12 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return ctrl.Result{}, err
 		}
 
-		// Remove the migration if exists
-		mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
-		err := r.client.List(ctx, mcms, client.InNamespace(mgh.Namespace))
-		if len(mcms.Items) > 0 {
-			for _, mcm := range mcms.Items {
-				err = r.client.Delete(ctx, &mcm, &client.DeleteOptions{})
-				if err != nil {
-					return ctrl.Result{}, err
-				}
-			}
-			log.Info("removing the migration resources")
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-
-		_, err = r.pruneGlobalHubResources(ctx)
+		requeue, err := r.pruneGlobalHubResources(ctx, mgh)
 		if err != nil {
 			return ctrl.Result{}, err
+		}
+		if requeue {
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		for name, c := range r.startedControllerMap {
 			removed := c.IsResourceRemoved()
@@ -215,7 +203,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if reconcileErr != nil {
 		return ctrl.Result{}, err
 	}
-
 	if config.IsACMResourceReady() && config.GetAddonManager() != nil {
 		if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
 			return ctrl.Result{}, reconcileErr
@@ -375,11 +362,25 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 	return desiredComponents
 }
 
-func (r *MetaController) pruneGlobalHubResources(ctx context.Context,
-) (ctrl.Result, error) {
+func (r *MetaController) pruneGlobalHubResources(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+) (bool, error) {
+	// Remove the migration if exists
+	mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
+	err := r.client.List(ctx, mcms, client.InNamespace(mgh.Namespace))
+	if len(mcms.Items) > 0 {
+		for _, mcm := range mcms.Items {
+			err = r.client.Delete(ctx, &mcm, &client.DeleteOptions{})
+			if err != nil {
+				return false, err
+			}
+		}
+		log.Info("removing the migration resources")
+		return true, nil
+	}
+
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
-		return ctrl.Result{}, err
+		return false, err
 	}
 
 	if config.IsACMResourceReady() {
@@ -387,12 +388,12 @@ func (r *MetaController) pruneGlobalHubResources(ctx context.Context,
 		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
 		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
 		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
-			return ctrl.Result{}, err
+			return false, err
 		}
 		log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	}
 
-	return ctrl.Result{}, nil
+	return false, nil
 }
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
