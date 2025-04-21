@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	conditionReasonClusterRegistering     = "ClusterRegistering"
 	conditionReasonClusterNotRegistered   = "ClusterNotRegistered"
 	conditionReasonClusterRegistered      = "ClusterRegistered"
 	conditionReasonAddonConfigNotDeployed = "AddonConfigNotDeployed"
@@ -92,12 +93,12 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		} else if errors.Is(err, gorm.ErrRecordNotFound) { // not found -> migrating
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonClusterNotRegistered
-			condMsg = fmt.Sprintf("cluster(%s) is not found in the table", m.ClusterName)
+			condMsg = fmt.Sprintf("cluster(%s) is not found", m.ClusterName)
 			log.Warn(condMsg)
 			registeringClusters[m.FromHub] = append(registeringClusters[m.FromHub], m.ClusterName)
 		} else { // found
 			if cluster.LeafHubName == m.ToHub { // synced into target hub
-				log.Infof("cluster(%s) is switched to hub(%s) in the table", m.ClusterName, m.ToHub)
+				log.Infof("cluster(%s) is switched to hub(%s)", m.ClusterName, m.ToHub)
 				err := db.Model(&models.ManagedClusterMigration{}).Where(&models.ManagedClusterMigration{
 					ClusterName: m.ClusterName,
 					ToHub:       m.ToHub, FromHub: m.FromHub,
@@ -148,9 +149,9 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		if len(notRegisterClusters) > 3 {
 			clusters = append(notRegisterClusters[:3], "...")
 		}
-		condMsg = fmt.Sprintf("The clusters %v are not registered into hub(%s)", clusters,
+		condMsg = fmt.Sprintf("The clusters %v are registering into hub(%s)", clusters,
 			mcm.Spec.To)
-		condReason = conditionReasonClusterNotRegistered
+		condReason = conditionReasonClusterRegistering
 		condStatus = metav1.ConditionFalse
 
 		sendRegisteringClusters = registeringClusters
