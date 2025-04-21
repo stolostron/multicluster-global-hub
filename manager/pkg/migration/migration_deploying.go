@@ -83,7 +83,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 			continue
 		}
 
-		// send to destination hub to deploy the addonConfig, the status mark it as Completed
+		// Deprecated: send to destination hub to deploy the addonConfig, the status mark it as Completed
 		deploying = append(deploying, registered)
 		if err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseMigrating,
 			klusterletAddonConfig); err != nil {

@@ -72,6 +72,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	}
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range cleaningClusters {
+		// Deprecated
 		log.Infof("cleaning up the source hub resources: %s", sourceHub)
 		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.ConditionTypeCleaned,
 			clusters, bootstrapSecret)
@@ -85,7 +86,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return true, nil
 	}
 
-	// clean up resource from destination hub
+	// Deprecated: clean up resource from destination hub
 	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeCleaned, nil); err != nil {
 		return false, err
 	}
