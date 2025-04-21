@@ -14,11 +14,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 )
 
 func TestPruneAgentResources(t *testing.T) {
 	// Define test namespace and transport secret name
 	namespace := "test-namespace"
+	config.SetTransporter(&protocol.BYOTransporter{})
 
 	// Create a fake client with initial objects
 	scheme := runtime.NewScheme()

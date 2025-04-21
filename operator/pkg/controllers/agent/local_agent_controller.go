@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -173,26 +172,14 @@ func pruneAgentResources(ctx context.Context, c client.Client, namespace string)
 		return err
 	}
 
-	err = c.Delete(ctx, &kafkav1beta2.KafkaUser{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.GetKafkaUserName(constants.LocalClusterName),
-			Namespace: namespace,
-		},
-	})
-	if err != nil && !errors.IsNotFound(err) {
+	trans := config.GetTransporter()
+	if trans == nil {
+		return fmt.Errorf("failed to get the transporter")
+	}
+	err = trans.Prune(constants.LocalClusterName)
+	if err != nil {
 		return err
 	}
-
-	err = c.Delete(ctx, &kafkav1beta2.KafkaTopic{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.GetStatusTopic(constants.LocalClusterName),
-			Namespace: namespace,
-		},
-	})
-	if err != nil && !errors.IsNotFound(err) {
-		return err
-	}
-
 	return nil
 }
 

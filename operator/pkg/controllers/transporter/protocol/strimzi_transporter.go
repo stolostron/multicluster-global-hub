@@ -498,6 +498,8 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 	}
 
 	// only delete the topic when removing the CR, otherwise the manager throws error like "Unknown topic or partition"
+	// If a topic is deleted, its offset should also be removed from database.
+	// Otherwise, if the topic is recreated, old offsets in db may block message consumption
 	// if k.sharedTopics || !strings.Contains(config.GetRawStatusTopic(), "*") {
 	// 	return nil
 	// }
