@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -187,6 +188,20 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
+		// Remove the migrations if exists
+		mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
+		err := r.GetClient().List(ctx, mcms, client.InNamespace(mgh.Namespace))
+		if len(mcms.Items) > 0 {
+			for _, mcm := range mcms.Items {
+				err = r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{})
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			log.Info("removing the migration resources")
+			return ctrl.Result{}, nil
+		}
+
 		err = r.pruneServiceMonitorResources(ctx)
 		if err != nil {
 			return ctrl.Result{}, err

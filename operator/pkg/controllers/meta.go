@@ -35,7 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -364,20 +363,6 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 
 func (r *MetaController) pruneGlobalHubResources(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
 ) (bool, error) {
-	// Remove the migration if exists
-	mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
-	err := r.client.List(ctx, mcms, client.InNamespace(mgh.Namespace))
-	if len(mcms.Items) > 0 {
-		for _, mcm := range mcms.Items {
-			err = r.client.Delete(ctx, &mcm, &client.DeleteOptions{})
-			if err != nil {
-				return false, err
-			}
-		}
-		log.Info("removing the migration resources")
-		return true, nil
-	}
-
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
 		return false, err
