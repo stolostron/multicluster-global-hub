@@ -137,7 +137,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	if config.IsAgentPaused(mgha) || mgha.DeletionTimestamp != nil {
+	if mgha == nil || config.IsAgentPaused(mgha) || mgha.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
 
