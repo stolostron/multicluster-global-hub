@@ -103,7 +103,8 @@ var _ = BeforeSuite(func() {
 		transportConfig.KafkaCredential.SpecTopic,
 	)
 	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, false, "gh-migration")
+	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer,
+		false, "gh-migration", nil)
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -39,6 +40,7 @@ import (
 	commonobjects "github.com/stolostron/multicluster-global-hub/pkg/objects"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -257,10 +259,21 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 			return fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 		}
 
+		// create kafka admin client which is used to check the permission is ready or not
+		configMap, err := config.GetConfluentConfigMapByKafkaCredential(
+			managerConfig.TransportConfig.KafkaCredential, "")
+		if err != nil {
+			return fmt.Errorf("failed to get confluent config map: %v", err)
+		}
+		var adminClient *kafka.AdminClient
+		if adminClient, err = kafka.NewAdminClient(configMap); err != nil {
+			return fmt.Errorf("failed to create adminClient due to %w", &err)
+		}
 		// start managedclustermigration controller
 		if err := migration.NewMigrationController(mgr.GetClient(), producer,
 			managerConfig.ImportClusterInHosted,
 			managerConfig.TransportConfig.KafkaCredential.MigrationTopic,
+			adminClient,
 		).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
