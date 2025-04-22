@@ -243,11 +243,29 @@ var _ = Describe("migration", Ordered, func() {
 			Payload:     []byte(`{}`),
 		}).Error
 		Expect(err).To(Succeed())
-
-		err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+		hub1 := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hub1",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		}
+		err = mgr.GetClient().Create(ctx, hub1)
+		Expect(err).To(Succeed())
+		hub2 := hub1.DeepCopy()
+		hub2.Name = "hub2"
+		err = mgr.GetClient().Create(ctx, hub2)
 		Expect(err).To(Succeed())
 
 		// add a label to trigger the reconcile
+		err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+		Expect(err).To(Succeed())
 		migrationInstance.Labels = map[string]string{"test": "foo"}
 		err = mgr.GetClient().Update(ctx, migrationInstance)
 		Expect(err).To(Succeed())

@@ -2,16 +2,16 @@ package migration
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 const (
@@ -67,22 +67,20 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	}()
 
 	// Verify if both source and destination hubs exist
-	db := database.GetGorm()
-
 	var fromHubErr, toHubErr error
 	if mcm.Spec.From != "" {
-		fromHubErr = db.Model(&models.LeafHub{LeafHubName: mcm.Spec.From}).First(&models.LeafHub{}).Error
+		fromHubErr = m.Client.Get(ctx, types.NamespacedName{Name: mcm.Spec.From}, &clusterv1.ManagedCluster{})
 	}
-	toHubErr = db.Model(&models.LeafHub{LeafHubName: mcm.Spec.To}).First(&models.LeafHub{}).Error
+	toHubErr = m.Client.Get(ctx, types.NamespacedName{Name: mcm.Spec.To}, &clusterv1.ManagedCluster{})
 
-	if errors.Is(fromHubErr, gorm.ErrRecordNotFound) || errors.Is(toHubErr, gorm.ErrRecordNotFound) {
+	if errors.IsNotFound(fromHubErr) || errors.IsNotFound(toHubErr) {
 		mcm.Status.Phase = migrationv1alpha1.PhaseFailed
 		condStatus = metav1.ConditionFalse
 		condReason = ConditionReasonHubClusterNotFound
 		switch {
-		case errors.Is(fromHubErr, gorm.ErrRecordNotFound):
+		case errors.IsNotFound(fromHubErr):
 			condMessage = fmt.Sprintf("Not found the source hub: %s", mcm.Spec.From)
-		case errors.Is(toHubErr, gorm.ErrRecordNotFound):
+		case errors.IsNotFound(toHubErr):
 			condMessage = fmt.Sprintf("Not found the destination hub: %s", mcm.Spec.To)
 		}
 		return false, nil
