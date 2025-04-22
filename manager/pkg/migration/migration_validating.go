@@ -4,17 +4,21 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 )
 
 const (
-	ConditionReasonClusterNotFound   = "ClusterNotFound"
-	ConditionReasonClusterConflict   = "ClusterConflict"
-	ConditionReasonResourceValidated = "ResourceValidated"
+	ConditionReasonHubClusterNotFound = "HubClusterNotFound"
+	ConditionReasonClusterNotFound    = "ClusterNotFound"
+	ConditionReasonClusterConflict    = "ClusterConflict"
+	ConditionReasonResourceValidated  = "ResourceValidated"
 )
 
 // Validation:
@@ -62,7 +66,36 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		}
 	}()
 
-	// cluster: hub in database
+	// verify if both source and destination hubs exist
+	var fromHubErr, toHubErr error
+	if mcm.Spec.From != "" {
+		fromHubErr = m.Client.Get(ctx, types.NamespacedName{Name: mcm.Spec.From}, &clusterv1.ManagedCluster{})
+	}
+	toHubErr = m.Client.Get(ctx, types.NamespacedName{Name: mcm.Spec.To}, &clusterv1.ManagedCluster{})
+
+	if errors.IsNotFound(fromHubErr) || errors.IsNotFound(toHubErr) {
+		mcm.Status.Phase = migrationv1alpha1.PhaseFailed
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonHubClusterNotFound
+		switch {
+		case errors.IsNotFound(fromHubErr):
+			condMessage = fmt.Sprintf("Not found the source hub: %s", mcm.Spec.From)
+		case errors.IsNotFound(toHubErr):
+			condMessage = fmt.Sprintf("Not found the destination hub: %s", mcm.Spec.To)
+		}
+		return false, nil
+	}
+	if fromHubErr != nil {
+		err = fromHubErr
+	} else {
+		err = toHubErr
+	}
+	if err != nil {
+		condReason = ConditionReasonHubClusterNotFound
+		return false, err
+	}
+
+	// verify the clusters in database
 	clusterWithHub, err := getClusterWithHub(mcm)
 
 	notFoundClusters := []string{}

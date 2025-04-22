@@ -3,7 +3,6 @@ package migration_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -213,10 +213,80 @@ var _ = Describe("migration", Ordered, func() {
 			},
 		}
 
+		// validating: hub
+		By("validating: not found hub")
+		Eventually(func() error {
+			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+
+			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+			if cond == nil {
+				return fmt.Errorf("should find the condition: %s", migrationv1alpha1.ConditionTypeValidated)
+			}
+			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonHubClusterNotFound {
+				return nil
+			}
+			return fmt.Errorf("should throw hub not found error")
+		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+		By("create the hub cluster in database")
+		err := db.Model(models.LeafHub{}).Create(&models.LeafHub{
+			LeafHubName: "hub1",
+			ClusterID:   "00000000-0000-0000-0000-000000000001",
+			Payload:     []byte(`{}`),
+		}).Error
+		Expect(err).To(Succeed())
+		err = db.Model(models.LeafHub{}).Create(&models.LeafHub{
+			LeafHubName: "hub2",
+			ClusterID:   "00000000-0000-0000-0000-000000000002",
+			Payload:     []byte(`{}`),
+		}).Error
+		Expect(err).To(Succeed())
+		hub1 := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hub1",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		}
+		err = mgr.GetClient().Create(ctx, hub1)
+		Expect(err).To(Succeed())
+		hub2 := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hub2",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		}
+		err = mgr.GetClient().Create(ctx, hub2)
+		if !errors.IsAlreadyExists(err) {
+			Expect(err).To(Succeed())
+		}
+
+		// add a label to trigger the reconcile
+		err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+		Expect(err).To(Succeed())
+		migrationInstance.Labels = map[string]string{"test": "foo"}
+		err = mgr.GetClient().Update(ctx, migrationInstance)
+		Expect(err).To(Succeed())
+
 		// validating: not found cluster
 		By("validating: not found cluster")
 		Eventually(func() error {
-			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
 			if err != nil {
 				return err
 			}
@@ -228,8 +298,8 @@ var _ = Describe("migration", Ordered, func() {
 			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonClusterNotFound {
 				return nil
 			}
-			// utils.PrettyPrint(migrationInstance.Status)
-			return errors.New("should get the cluster not found condition")
+			utils.PrettyPrint(migrationInstance.Status)
+			return fmt.Errorf("should throw error cluster not found")
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("create the migrating cluster in database")
