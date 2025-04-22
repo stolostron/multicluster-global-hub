@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
@@ -114,9 +115,22 @@ var _ = Describe("manager", Ordered, func() {
 	})
 
 	It("should delete the ServiceMonitor when mgh deleted", func() {
-		mgh.Finalizers = []string{"fz"}
+		// create managed cluster migration
+		mcm := &migrationv1alpha1.ManagedClusterMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test", Namespace: mgh.Namespace,
+			},
+			Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+				From:                    "hub1",
+				To:                      "hub2",
+				IncludedManagedClusters: []string{"cluster1"},
+			},
+		}
+		err := runtimeClient.Create(ctx, mcm)
+		Expect(err).To(Succeed())
 
-		err := runtimeClient.Update(ctx, mgh)
+		mgh.Finalizers = []string{"fz"}
+		err = runtimeClient.Update(ctx, mgh)
 		Expect(err).To(Succeed())
 
 		err = runtimeClient.Delete(ctx, mgh)

@@ -28,6 +28,7 @@ import (
 	appsubV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	applicationv1beta1 "sigs.k8s.io/application/api/v1beta1"
 
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	globalhubv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
@@ -59,6 +60,7 @@ func GetRuntimeScheme() *runtime.Scheme {
 	utilruntime.Must(postgresv1beta1.AddToScheme(scheme))
 	utilruntime.Must(imagev1.AddToScheme(scheme))
 	utilruntime.Must(spicedbv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(migrationv1alpha1.AddToScheme(scheme))
 
 	// add Kafka scheme
 	utilruntime.Must(kafkav1beta2.AddToScheme(scheme))
