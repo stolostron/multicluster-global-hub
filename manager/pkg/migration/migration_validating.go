@@ -66,7 +66,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		}
 	}()
 
-	// Verify if both source and destination hubs exist
+	// verify if both source and destination hubs exist
 	var fromHubErr, toHubErr error
 	if mcm.Spec.From != "" {
 		fromHubErr = m.Client.Get(ctx, types.NamespacedName{Name: mcm.Spec.From}, &clusterv1.ManagedCluster{})
@@ -95,7 +95,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return false, err
 	}
 
-	// verify the clusters: hub in database
+	// verify the clusters in database
 	clusterWithHub, err := getClusterWithHub(mcm)
 
 	notFoundClusters := []string{}
