@@ -20,15 +20,6 @@ spec:
     - host: '*'
       operations:
       - Write
-      - Describe
-      - Read
-      resource:
-        name: {{.MigrationTopic}}
-        patternType: literal
-        type: topic
-    - host: '*'
-      operations:
-      - Write
       resource:
         name: {{.SpecTopic}}
         patternType: literal

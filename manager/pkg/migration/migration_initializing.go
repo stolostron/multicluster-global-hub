@@ -8,7 +8,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -101,18 +100,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return true, nil
 	}
 
-	// set destination hub to autoApprove for the sa
-	// Important: Registration must occur only after autoApprove is successfully set.
-	// Thinking - Ensure that autoApprove is properly configured before proceeding.
-	if !sendInitToDestinationHub {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
-			return false, err
-		}
-		sendInitToDestinationHub = true
-	}
-
-	log.Info("migration bootstrap kubeconfig secret token is ready")
-
 	// check the migration clusters in the databases, if not, send it again
 	sourceHubToClusters, err := getSourceClusters(mcm)
 	if err != nil {
@@ -124,22 +111,17 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		log.Errorf("failed to grant permission to the kafkauser due to %v", err)
 		return false, err
 	}
-	// ensure the permission is ready
-	if err := m.isPermissionReady(ctx, sourceHubToClusters, mcm.Spec.To); err != nil {
-		err = m.UpdateConditionWithRetry(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized,
-			metav1.ConditionFalse, ConditionReasonTokenSecretMissing,
-			fmt.Sprintf("The topic permissions for the kafkaUser are not ready for use"))
-		return false, err
-	}
 	log.Info("migration topic permission is set")
 
 	// set destination hub to autoApprove for the sa
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
-	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
-		return false, err
+	if !sendInitToDestinationHub {
+		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
+			return false, err
+		}
+		sendInitToDestinationHub = true
 	}
-
 	log.Info("migration bootstrap kubeconfig secret token is ready")
 
 	// From Hub
@@ -187,66 +169,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	log.Info("migration klusterletconfigs have been synced into the database")
 	return false, nil
-}
-
-func (m *ClusterMigrationController) isPermissionReady(ctx context.Context,
-	sourceHubToClusters map[string][]string, toHub string,
-) error {
-	for fromHubName := range sourceHubToClusters {
-		// Generate expected ACL binding
-		expectedACLBinding := kafka.ACLBinding{
-			Type:                kafka.ResourceTopic,
-			Name:                m.migrationTopic,
-			ResourcePatternType: kafka.ResourcePatternTypeLiteral,
-			Principal:           fmt.Sprintf("User:CN=%s", config.GetKafkaUserName(fromHubName)),
-			Host:                "*",
-			Operation:           kafka.ACLOperationWrite,
-			PermissionType:      kafka.ACLPermissionType(kafka.ACLOperationWrite),
-		}
-		result, err := m.adminClient.DescribeACLs(ctx, expectedACLBinding)
-		log.Debugf("the DescribeACLsResult is %v", result)
-		if err != nil {
-			log.Errorf("faile to describe ACLs - %w", err)
-			return err
-		}
-		if result.Error.Code() == kafka.ErrNoError {
-			for _, a := range result.ACLBindings {
-				if a.Name == m.migrationTopic && a.Type == kafka.ResourceTopic &&
-					a.Operation.String() == kafka.ACLOperationWrite.String() &&
-					a.Principal == fmt.Sprintf("User:CN=%s", config.GetKafkaUserName(fromHubName)) {
-					continue
-				}
-			}
-		}
-		return fmt.Errorf("the permission is not ready for kafkaUser: %s", config.GetKafkaUserName(fromHubName))
-
-	}
-
-	expectedACLBinding := kafka.ACLBinding{
-		Type:                kafka.ResourceTopic,
-		Name:                m.migrationTopic,
-		ResourcePatternType: kafka.ResourcePatternTypeLiteral,
-		Principal:           fmt.Sprintf("User:CN=%s", config.GetKafkaUserName(toHub)),
-		Host:                "*",
-		Operation:           kafka.ACLOperationRead,
-		PermissionType:      kafka.ACLPermissionType(kafka.ACLOperationRead),
-	}
-	result, err := m.adminClient.DescribeACLs(ctx, expectedACLBinding)
-	log.Debugf("the DescribeACLsResult is %v", result)
-	if err != nil {
-		log.Errorf("faile to describe ACLs - %w", err)
-		return err
-	}
-	if result.Error.Code() == kafka.ErrNoError {
-		for _, a := range result.ACLBindings {
-			if a.Name == m.migrationTopic && a.Type == kafka.ResourceTopic &&
-				a.Operation.String() == kafka.ACLOperationWrite.String() &&
-				a.Principal == fmt.Sprintf("User:CN=%s", config.GetKafkaUserName(toHub)) {
-				return nil
-			}
-		}
-	}
-	return fmt.Errorf("the permission is not ready for kafkaUser: %s", config.GetKafkaUserName(toHub))
 }
 
 func (m *ClusterMigrationController) ensurePermission(ctx context.Context,

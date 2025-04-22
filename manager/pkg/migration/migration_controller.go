@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,18 +43,16 @@ type ClusterMigrationController struct {
 	BootstrapSecret       *corev1.Secret
 	importClusterInHosted bool
 	migrationTopic        string
-	adminClient           *kafka.AdminClient
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
-	importClusterInHosted bool, migrationTopic string, adminClient *kafka.AdminClient,
+	importClusterInHosted bool, migrationTopic string,
 ) *ClusterMigrationController {
 	return &ClusterMigrationController{
 		Client:                client,
 		Producer:              producer,
 		importClusterInHosted: importClusterInHosted,
 		migrationTopic:        migrationTopic,
-		adminClient:           adminClient,
 	}
 }
 
