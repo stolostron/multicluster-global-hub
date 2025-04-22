@@ -3,7 +3,6 @@ package migration_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -228,7 +228,7 @@ var _ = Describe("migration", Ordered, func() {
 			if cond.Status == metav1.ConditionFalse && cond.Reason == migration.ConditionReasonHubClusterNotFound {
 				return nil
 			}
-			return errors.New("should not found hub cluster")
+			return fmt.Errorf("should throw hub not found error")
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 		By("create the hub cluster in database")
 		err := db.Model(models.LeafHub{}).Create(&models.LeafHub{
@@ -258,10 +258,23 @@ var _ = Describe("migration", Ordered, func() {
 		}
 		err = mgr.GetClient().Create(ctx, hub1)
 		Expect(err).To(Succeed())
-		hub2 := hub1.DeepCopy()
-		hub2.Name = "hub2"
+		hub2 := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "hub2",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				ManagedClusterClientConfigs: []clusterv1.ClientConfig{
+					{
+						URL:      "https://example.com",
+						CABundle: []byte("test"),
+					},
+				},
+			},
+		}
 		err = mgr.GetClient().Create(ctx, hub2)
-		Expect(err).To(Succeed())
+		if !errors.IsAlreadyExists(err) {
+			Expect(err).To(Succeed())
+		}
 
 		// add a label to trigger the reconcile
 		err = mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
@@ -286,7 +299,7 @@ var _ = Describe("migration", Ordered, func() {
 				return nil
 			}
 			utils.PrettyPrint(migrationInstance.Status)
-			return errors.New("should not found cluster")
+			return fmt.Errorf("should throw error cluster not found")
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("create the migrating cluster in database")
