@@ -139,12 +139,9 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return ctrl.Result{}, err
 		}
 
-		requeue, err := r.pruneGlobalHubResources(ctx, mgh)
+		err := r.pruneGlobalHubResources(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
-		}
-		if requeue {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		for name, c := range r.startedControllerMap {
 			removed := c.IsResourceRemoved()
@@ -361,11 +358,10 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 	return desiredComponents
 }
 
-func (r *MetaController) pruneGlobalHubResources(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
-) (bool, error) {
+func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
-		return false, err
+		return err
 	}
 
 	if config.IsACMResourceReady() {
@@ -373,12 +369,12 @@ func (r *MetaController) pruneGlobalHubResources(ctx context.Context, mgh *v1alp
 		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
 		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
 		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
-			return false, err
+			return err
 		}
 		log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	}
 
-	return false, nil
+	return nil
 }
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
