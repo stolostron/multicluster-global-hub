@@ -81,8 +81,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	if s.migrationProducer == nil && s.transportConfig != nil {
 		var err error
 		s.migrationProducer, err = producer.NewGenericProducer(s.transportConfig,
-			s.transportConfig.KafkaCredential.MigrationTopic)
-		s.migrationProducer.WithEventErrorHandler(s.resendMigrationResources)
+			s.transportConfig.KafkaCredential.MigrationTopic, s.resendMigrationResources)
 		if err != nil {
 			return err
 		}
@@ -189,9 +188,11 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		m.log.Errorf("failed to detach managed clusters: %v", err)
 		return err
 	}
-	m.migrationProducer.Protocol().Close(ctx)
-	m.migrationProducer = nil
-	m.sendResources = false
+	if m.migrationProducer != nil && m.migrationProducer.Protocol() != nil {
+		m.migrationProducer.Protocol().Close(ctx)
+		m.migrationProducer = nil
+		m.sendResources = false
+	}
 	return nil
 }
 
@@ -337,6 +338,7 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 }
 
 func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
+	s.log.Debug("resend the migration resources dueo to topicPartition error")
 	err := s.migrationProducer.KafkaProducer().Produce(event, nil)
 	if err != nil {
 		s.log.Errorf("failed to resend the migration resources due to %w", err)

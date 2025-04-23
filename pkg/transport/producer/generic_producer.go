@@ -35,10 +35,12 @@ type GenericProducer struct {
 	eventErrorHandler func(event *kafka.Message)
 }
 
-func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topic string) (*GenericProducer, error) {
+func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topic string,
+	eventErrorHandler func(event *kafka.Message)) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
-		log:              logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		messageSizeLimit: DefaultMessageKBSize * 1000,
+		log:               logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		messageSizeLimit:  DefaultMessageKBSize * 1000,
+		eventErrorHandler: eventErrorHandler,
 	}
 	err := genericProducer.initClient(transportConfig, topic)
 	if err != nil {
@@ -46,10 +48,6 @@ func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topi
 	}
 
 	return genericProducer, nil
-}
-
-func (p *GenericProducer) WithEventErrorHandler(eventErrorHandler func(event *kafka.Message)) {
-	p.eventErrorHandler = eventErrorHandler
 }
 
 func (p *GenericProducer) KafkaProducer() *kafka.Producer {

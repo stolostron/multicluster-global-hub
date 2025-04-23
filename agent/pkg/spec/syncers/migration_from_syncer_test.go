@@ -200,7 +200,15 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			transportClient := &controller.TransportClient{}
 			transportClient.SetProducer(&producer)
 
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(fakeClient, transportClient, nil)
+			transportConfig := &transport.TransportInternalConfig{
+				TransportType: string(transport.Kafka),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:      "spec",
+					MigrationTopic: "migration",
+				},
+			}
+
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(fakeClient, transportClient, transportConfig)
 			managedClusterMigrationSyncer.sendResources = true
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)

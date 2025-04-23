@@ -242,7 +242,7 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 		Expect(err).NotTo(HaveOccurred())
 
 		// mock the producer in agent
-		producer, err := genericproducer.NewGenericProducer(transConfig, topic)
+		producer, err := genericproducer.NewGenericProducer(transConfig, topic, nil)
 		if err != nil {
 			return trans, err
 		}
