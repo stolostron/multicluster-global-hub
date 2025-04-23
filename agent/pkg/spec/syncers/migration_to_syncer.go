@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -204,11 +206,23 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 				}
 			}
 		}()
-
-		err = s.migrationConsumer.Start(migrationCtx)
-		if err != nil {
-			s.migrationConsumer = nil
+		// delay_n = Duration × Factor^(n - 1)
+		// The 15th retry delay is approximately 3.19 minutes.
+		if err := wait.ExponentialBackoff(wait.Backoff{
+			Steps:    15,
+			Duration: 100 * time.Millisecond,
+			Factor:   1.5,
+			Jitter:   0.1,
+		}, func() (bool, error) {
+			err = s.migrationConsumer.Start(migrationCtx)
+			if err != nil {
+				s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
+				return false, err
+			}
+			return true, nil
+		}); err != nil {
 			s.log.Errorf("failed to start kafka consumer for migration topic due to %v", err)
+			s.migrationConsumer = nil
 			return err
 		}
 	}

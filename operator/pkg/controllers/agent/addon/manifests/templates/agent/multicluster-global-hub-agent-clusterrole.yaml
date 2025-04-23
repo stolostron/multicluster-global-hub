@@ -260,4 +260,10 @@ rules:
   - create
   - watch
   - list
+- apiGroups:
+  - register.open-cluster-management.io
+  resources:
+  - managedclusters/accept
+  verbs:
+  - update
 {{- end -}}

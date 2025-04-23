@@ -100,18 +100,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return true, nil
 	}
 
-	// set destination hub to autoApprove for the sa
-	// Important: Registration must occur only after autoApprove is successfully set.
-	// Thinking - Ensure that autoApprove is properly configured before proceeding.
-	if !sendInitToDestinationHub {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
-			return false, err
-		}
-		sendInitToDestinationHub = true
-	}
-
-	log.Info("migration bootstrap kubeconfig secret token is ready")
-
 	// check the migration clusters in the databases, if not, send it again
 	sourceHubToClusters, err := getSourceClusters(mcm)
 	if err != nil {
@@ -123,6 +111,18 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		log.Errorf("failed to grant permission to the kafkauser due to %v", err)
 		return false, err
 	}
+	log.Info("migration topic permission is set")
+
+	// set destination hub to autoApprove for the sa
+	// Important: Registration must occur only after autoApprove is successfully set.
+	// Thinking - Ensure that autoApprove is properly configured before proceeding.
+	if !sendInitToDestinationHub {
+		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
+			return false, err
+		}
+		sendInitToDestinationHub = true
+	}
+	log.Info("migration bootstrap kubeconfig secret token is ready")
 
 	// From Hub
 	// send the migration event to migration.from managed hub(s)
