@@ -19,6 +19,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -338,10 +339,21 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 }
 
 func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
-	s.log.Debug("resend the migration resources dueo to topicPartition error")
-	err := s.migrationProducer.KafkaProducer().Produce(event, nil)
-	if err != nil {
-		s.log.Errorf("failed to resend the migration resources due to %w", err)
+	s.log.Debug("resend the migration resources due to topicPartition error")
+	if err := wait.ExponentialBackoff(wait.Backoff{
+		Steps:    15,
+		Duration: 100 * time.Millisecond,
+		Factor:   1.5,
+		Jitter:   0.1,
+	}, func() (bool, error) {
+		err := s.migrationProducer.KafkaProducer().Produce(event, nil)
+		if err != nil {
+			s.log.Debugf("failed to resend the migration resources due to %v", err)
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		s.log.Errorf("failed to resend the migration resources due to %v", err)
 	}
 }
 
