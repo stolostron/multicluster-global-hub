@@ -222,7 +222,7 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 			err = s.migrationConsumer.Start(migrationCtx)
 			if err != nil {
 				s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
-				return false, err
+				return false, nil
 			}
 			return true, nil
 		}); err != nil {

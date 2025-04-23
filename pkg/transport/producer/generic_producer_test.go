@@ -43,7 +43,7 @@ func Test_handleProducerEvents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := logger.DefaultZapLogger()
 			eventChan := make(chan kafka.Event)
-			go handleProducerEvents(log, eventChan, tt.transportFailureThreshold)
+			go handleProducerEvents(log, eventChan, tt.transportFailureThreshold, nil)
 			eventChan <- tt.event
 		})
 	}

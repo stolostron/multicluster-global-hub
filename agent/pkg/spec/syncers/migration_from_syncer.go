@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
@@ -81,6 +82,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		var err error
 		s.migrationProducer, err = producer.NewGenericProducer(s.transportConfig,
 			s.transportConfig.KafkaCredential.MigrationTopic)
+		s.migrationProducer.WithEventErrorHandler(s.resendMigrationResources)
 		if err != nil {
 			return err
 		}
@@ -187,7 +189,7 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		m.log.Errorf("failed to detach managed clusters: %v", err)
 		return err
 	}
-	// TODO: need to check how to stop the producer gracefully
+	m.migrationProducer.Protocol().Close(ctx)
 	m.migrationProducer = nil
 	m.sendResources = false
 	return nil
@@ -332,6 +334,13 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 	config.Status = addonv1.KlusterletAddonConfigStatus{}
 
 	return config, nil
+}
+
+func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
+	err := s.migrationProducer.KafkaProducer().Produce(event, nil)
+	if err != nil {
+		s.log.Errorf("failed to resend the migration resources due to %w", err)
+	}
 }
 
 // SendSourceClusterMigrationResources sends required and customized resources to migration topic
