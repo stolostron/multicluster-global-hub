@@ -62,10 +62,15 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.15.0
 	open-cluster-management.io/multicloud-operators-subscription v0.16.0
 	sigs.k8s.io/application v0.8.3
-	sigs.k8s.io/controller-runtime v0.19.3
+	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/kustomize/api v0.19.0
 	sigs.k8s.io/kustomize/kyaml v0.19.0
 	sigs.k8s.io/yaml v1.4.0
+)
+
+require (
+	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/google/btree v1.1.3 // indirect
 )
 
 require (
