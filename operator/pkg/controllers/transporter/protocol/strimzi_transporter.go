@@ -443,41 +443,55 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
-	topicNames := []string{clusterTopic.MigrationTopic, clusterTopic.SpecTopic, clusterTopic.StatusTopic}
+	// messages kept for 10 minute in migration topic, algin with migration timeout
+	err := k.ensureTopic(clusterTopic.MigrationTopic, &apiextensions.JSON{Raw: []byte(`{
+		"cleanup.policy": "compact,delete",
+		"retention.ms": 600000
+	}`)})
+	if err != nil {
+		return nil, err
+	}
 
+	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
 	for _, topicName := range topicNames {
-		kafkaTopic := &kafkav1beta2.KafkaTopic{}
-		err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
-			Name:      topicName,
-			Namespace: k.kafkaClusterNamespace,
-		}, kafkaTopic)
-		if errors.IsNotFound(err) {
-			if e := k.manager.GetClient().Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
-				return nil, e
-			}
-			continue // reconcile the next topic
-		} else if err != nil {
+		if err = k.ensureTopic(topicName, nil); err != nil {
 			return nil, err
-		}
-
-		// update the topic
-		desiredTopic := k.newKafkaTopic(topicName)
-
-		updatedTopic := &kafkav1beta2.KafkaTopic{}
-		err = operatorutils.MergeObjects(kafkaTopic, desiredTopic, updatedTopic)
-		if err != nil {
-			return nil, err
-		}
-		// Kafka do not support change exitsting kafaka topic replica directly.
-		updatedTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
-
-		if !equality.Semantic.DeepDerivative(updatedTopic.Spec, kafkaTopic.Spec) {
-			if err = k.manager.GetClient().Update(k.ctx, updatedTopic); err != nil {
-				return nil, err
-			}
 		}
 	}
 	return clusterTopic, nil
+}
+
+func (k *strimziTransporter) ensureTopic(topicName string, config *apiextensions.JSON) error {
+	desiredTopic := k.newKafkaTopic(topicName, config)
+	kafkaTopic := &kafkav1beta2.KafkaTopic{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      topicName,
+		Namespace: k.kafkaClusterNamespace,
+	}, kafkaTopic)
+	if errors.IsNotFound(err) {
+		if e := k.manager.GetClient().Create(k.ctx, desiredTopic); e != nil {
+			return e
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	// update the topic
+	updatedTopic := &kafkav1beta2.KafkaTopic{}
+	err = operatorutils.MergeObjects(kafkaTopic, desiredTopic, updatedTopic)
+	if err != nil {
+		return err
+	}
+	// Kafka do not support change exitsting kafaka topic replica directly.
+	updatedTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
+
+	if !equality.Semantic.DeepDerivative(updatedTopic.Spec, kafkaTopic.Spec) {
+		if err = k.manager.GetClient().Update(k.ctx, updatedTopic); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (k *strimziTransporter) Prune(clusterName string) error {
@@ -616,8 +630,8 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConfi
 	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", k.kafkaClusterNamespace, k.kafkaClusterName)
 }
 
-func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
-	return &kafkav1beta2.KafkaTopic{
+func (k *strimziTransporter) newKafkaTopic(topicName string, topicConfig *apiextensions.JSON) *kafkav1beta2.KafkaTopic {
+	topic := &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      topicName,
 			Namespace: k.kafkaClusterNamespace,
@@ -635,6 +649,10 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 			}`)},
 		},
 	}
+	if topicConfig != nil {
+		topic.Spec.Config = topicConfig
+	}
+	return topic
 }
 
 func newKafkaUser(
