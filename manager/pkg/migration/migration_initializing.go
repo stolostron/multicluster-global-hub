@@ -22,23 +22,54 @@ import (
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
-	ConditionReasonTokenSecretMissing = "TokenSecretMissing"
-	ConditionReasonClusterNotSynced   = "ClusterNotSynced"
-	ConditionReasonResourcePrepared   = "ResourcePrepared"
-	ConditionReasonTimeout            = "Timeout"
+	ConditionReasonTokenSecretMissing  = "TokenSecretMissing"
+	ConditionReasonResourceInitialized = "ResourceInitialized"
+	ConditionReasonTimeout             = "Timeout"
 )
 
 var (
 	migrationStageTimeout    = 5 * time.Minute
 	sendInitToSourceHub      = false
 	sendInitToDestinationHub = false
+	// change the values in the status path
+	initializedSourceHubs  = map[string]struct{}{}
+	initializedTargetHub   = false
+	initializedErrorMessge = "" // the error message reported by the managed hub
+	migrationInstance      *migrationv1alpha1.ManagedClusterMigration
 )
+
+func resetInitializing() {
+	sendInitToSourceHub = false
+	sendInitToDestinationHub = false
+	initializedSourceHubs = map[string]struct{}{}
+	initializedTargetHub = false
+	initializedErrorMessge = ""
+	migrationInstance = nil
+}
+
+func ReportInitializingStatus(eventSource string, bundle *migrationbundle.ManagedClusterMigrationBundle) {
+	if migrationInstance == nil || string(migrationInstance.GetUID()) != bundle.MigrationId {
+		log.Debugf("migration instance is nil or the migration id is not match, skip the initialized status")
+		return
+	}
+	if bundle.ErrMessage != "" {
+		initializedErrorMessge = bundle.ErrMessage
+		return
+	}
+
+	// success confirmation -> update hub status
+	initializedErrorMessge = ""
+	if eventSource == migrationInstance.Spec.To {
+		initializedTargetHub = true
+	} else {
+		initializedSourceHubs[eventSource] = struct{}{}
+	}
+}
 
 // Initializing:
 //  1. Grant the proper permission to the source clusters and the target cluster for the migration topic.
@@ -49,20 +80,23 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
 	if !mcm.DeletionTimestamp.IsZero() {
+		resetInitializing()
 		return false, nil
 	}
 
 	// skip if the MigrationResourceInitialized condition is True
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseInitializing {
+		resetInitializing()
 		return false, nil
 	}
-	log.Info("migration initializing")
+	log.Info("migration initializing started")
+	migrationInstance = mcm
 
 	condType := migrationv1alpha1.ConditionTypeInitialized
 	condStatus := metav1.ConditionTrue
-	condReason := ConditionReasonResourcePrepared
-	condMessage := "All required resources initialized"
+	condReason := ConditionReasonResourceInitialized
+	condMessage := "All source and target hubs have been successfully initialized"
 	var err error
 
 	defer func() {
@@ -70,19 +104,29 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			condMessage = err.Error()
 			condStatus = metav1.ConditionFalse
 		}
-		log.Infof("initializing condition %s(%s): %s", condType, condReason, condMessage)
+		log.Debugf("initializing condition %s(%s): %s", condType, condReason, condMessage)
 		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
 		if e != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, e)
 		}
 	}()
 
-	// To Hub
-	// check if the secret is created by managedserviceaccount, if not, ensure the managedserviceaccount
+	// 1. KafkaUser permission: Ensure grant the proper permission to the KafkaUser for the gh-migration topic
+	// place it before the other check to ensure time for the permissions to take effect
+	sourceHubToClusters, err := getSourceClusters(mcm)
+	if err != nil {
+		return false, err
+	}
+	if err := m.ensureKafkaUserPermission(ctx, sourceHubToClusters, mcm.Spec.To); err != nil {
+		log.Errorf("failed to grant permission to the kafkauser due to %v", err)
+		return false, err
+	}
+	log.Info("migration topic permission is set")
+
+	// 2. Create the managedserviceaccount -> generate bootstrap secret
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
 		return false, err
 	}
-
 	tokenSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcm.Name,
@@ -99,78 +143,62 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		err = nil // An unready token should not be considered an error
 		return true, nil
 	}
-
-	// check the migration clusters in the databases, if not, send it again
-	sourceHubToClusters, err := getSourceClusters(mcm)
+	// bootstrap secret for source hub
+	bootstrapSecret, err := m.generateBootstrapSecret(ctx, mcm)
 	if err != nil {
 		return false, err
 	}
 
-	// ensure grant the proper permission to the KafkaUser for the gh-migration topic
-	if err := m.ensurePermission(ctx, sourceHubToClusters, mcm.Spec.To); err != nil {
-		log.Errorf("failed to grant permission to the kafkauser due to %v", err)
-		return false, err
-	}
-	log.Info("migration topic permission is set")
-
-	// set destination hub to autoApprove for the sa
+	// 3. Send event to destination hub, TODO: ensure the produce event 'exactly-once'
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !sendInitToDestinationHub {
 		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeInitialized, nil); err != nil {
 			return false, err
 		}
+		log.Info("sent intialized event to target hub")
 		sendInitToDestinationHub = true
 	}
-	log.Info("migration bootstrap kubeconfig secret token is ready")
 
-	// From Hub
-	// send the migration event to migration.from managed hub(s)
-	initializingClusters := []string{}
-	db := database.GetGorm()
-	for fromHubName, clusters := range sourceHubToClusters {
-		clusterResourcesSynced := true
-		var initialized []models.ManagedClusterMigration
-		if err = db.Where("from_hub = ? AND to_hub = ?", fromHubName, mcm.Spec.To).Find(&initialized).Error; err != nil {
-			return false, err
-		}
-		initializedClusters := make([]string, len(initialized))
-		for i, cluster := range initialized {
-			initializedClusters[i] = cluster.ClusterName
-		}
-		// assert whether synced, if synced, change the cluster status into migrating
-		for _, cluster := range clusters {
-			if !utils.ContainsString(initializedClusters, cluster) {
-				initializingClusters = append(initializingClusters, cluster)
-				clusterResourcesSynced = false
-			}
-		}
-		// confirmation in status
-		if !clusterResourcesSynced && !sendInitToSourceHub {
-			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.ConditionTypeInitialized, clusters, nil)
+	// 4. Send event to Source Hub
+	if !sendInitToSourceHub {
+		for fromHubName, clusters := range sourceHubToClusters {
+			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.ConditionTypeInitialized, clusters,
+				bootstrapSecret)
 			if err != nil {
 				return false, err
 			}
-			sendInitToSourceHub = true
 		}
+		log.Info("sent intialized events to source hubs: %v", sourceHubToClusters)
+		sendInitToSourceHub = true
 	}
 
-	if len(initializingClusters) > 0 {
+	// 5. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
+	if initializedErrorMessge != "" {
+		condMessage = initializedErrorMessge
 		condStatus = metav1.ConditionFalse
-		condReason = ConditionReasonClusterNotSynced
-		condMessage = fmt.Sprintf("cluster addonConfigs %v are not synced to the database", initializingClusters)
 		return true, nil
 	}
 
-	// finished initializing
-	sendInitToDestinationHub = false
-	sendInitToSourceHub = false
+	if !initializedTargetHub {
+		condMessage = fmt.Sprintf("The target hub %s is initializing", mcm.Spec.To)
+		condStatus = metav1.ConditionFalse
+		return true, nil
+	}
 
-	log.Info("migration klusterletconfigs have been synced into the database")
+	for fromHubName := range sourceHubToClusters {
+		if _, ok := initializedSourceHubs[fromHubName]; !ok {
+			condMessage = fmt.Sprintf("The source hub %s is initializing", fromHubName)
+			condStatus = metav1.ConditionFalse
+			return true, nil
+		}
+	}
+
+	log.Info("migration initializing finished")
 	return false, nil
 }
 
-func (m *ClusterMigrationController) ensurePermission(ctx context.Context,
+func (m *ClusterMigrationController) ensureKafkaUserPermission(ctx context.Context,
 	sourceHubToClusters map[string][]string, toHub string,
 ) error {
 	for fromHubName := range sourceHubToClusters {

@@ -164,16 +164,7 @@ func GetConfluentConfigMapFromManagedHub(producer bool) (*kafka.ConfigMap, error
 }
 
 func GetConfluentConfigMapFromGlobalHub(kafkaUser string, producer bool) (*kafka.ConfigMap, error) {
-	kubeconfig, err := DefaultKubeConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get kubeconfig")
-	}
-	c, err := client.New(kubeconfig, client.Options{Scheme: operatorconfig.GetRuntimeScheme()})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get runtime client")
-	}
-
-	kafkaConfigMap, err := GetConfluentConfigMapByUser(c, KAFKA_NAMESPACE, KAFKA_CLUSTER, kafkaUser)
+	kafkaConfigMap, err := GetConfluentConfigMapByUser(KAFKA_NAMESPACE, KAFKA_CLUSTER, kafkaUser)
 	if err != nil {
 		return nil, err
 	}
@@ -191,9 +182,18 @@ func GetConfluentConfigMapFromGlobalHub(kafkaUser string, producer bool) (*kafka
 }
 
 // GetConfluentConfigMapByUser create a kafka.configmap by the kafkauser
-func GetConfluentConfigMapByUser(c client.Client, namespace, clusterName, userName string) (*kafka.ConfigMap, error) {
+func GetConfluentConfigMapByUser(namespace, clusterName, userName string) (*kafka.ConfigMap, error) {
+	kubeconfig, err := DefaultKubeConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubeconfig")
+	}
+	c, err := client.New(kubeconfig, client.Options{Scheme: operatorconfig.GetRuntimeScheme()})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get runtime client")
+	}
+
 	kafkaCluster := &kafkav1beta2.Kafka{}
-	err := c.Get(context.TODO(), types.NamespacedName{
+	err = c.Get(context.TODO(), types.NamespacedName{
 		Name:      clusterName,
 		Namespace: namespace,
 	}, kafkaCluster)

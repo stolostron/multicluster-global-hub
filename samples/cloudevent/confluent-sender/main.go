@@ -25,11 +25,26 @@ func main() {
 	topic := os.Args[1]
 
 	ctx, cancel := context.WithCancel(context.Background())
-	configmap, err := config.GetConfluentConfigMapByTransportConfig("multicluster-global-hub-agent", "")
+	// configmap, err := config.GetConfluentConfigMapByTransportConfig("multicluster-global-hub-agent", "")
+	// if err != nil {
+	// 	log.Fatalf("failed to create protocol: %s", err.Error())
+	// }
+	kafkaNamespace := "kafka"
+	kafkaCluster := "kafka"
+	kafkaUser := "my-user"
+	configMap, err := config.GetConfluentConfigMapByUser(kafkaNamespace, kafkaCluster, kafkaUser)
 	if err != nil {
-		log.Fatalf("failed to create protocol: %s", err.Error())
+		log.Fatalf("failed to create configmpa: %s", err.Error())
 	}
-	sender, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configmap),
+	// exactly once - producer
+	configMap.SetKey("enable.idempotence", "true")
+	configMap.SetKey("acks", "all")
+	configMap.SetKey("retries", "3")
+	configMap.SetKey("max.in.flight.requests.per.connection", "5")
+	// Sends messages immediately, without waiting to batch them. This reduces latency but can reduce throughput.
+	configMap.SetKey("linger.ms", "0")
+
+	sender, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
 		kafka_confluent.WithSenderTopic(topic))
 	if err != nil {
 		log.Fatalf("failed to create protocol, %v", err)
@@ -55,7 +70,7 @@ func main() {
 		})
 
 		if result := c.Send(
-			kafka_confluent.WithMessageKey(context.Background(), e.ID()),
+			kafka_confluent.WithMessageKey(context.Background(), "test1"),
 			e,
 		); cloudevents.IsUndelivered(result) {
 			log.Printf("failed to send: %v", result)
