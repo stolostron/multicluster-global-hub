@@ -170,8 +170,8 @@ func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 	if err != nil {
 		return nil, nil, err
 	}
-	protocol, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
-		kafka_confluent.WithSenderTopic(defaultTopic), kafka_confluent.WithSender(producer))
+	protocol, err := kafka_confluent.New(kafka_confluent.WithSenderTopic(defaultTopic),
+		kafka_confluent.WithSender(producer))
 	if err != nil {
 		return nil, nil, err
 	}

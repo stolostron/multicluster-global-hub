@@ -219,10 +219,19 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 			Factor:   1.5,
 			Jitter:   0.1,
 		}, func() (bool, error) {
-			err = s.migrationConsumer.Start(migrationCtx)
-			if err != nil {
-				s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
-				return false, nil
+			if s.migrationConsumer.KafkaConsumer().IsClosed() {
+				err = s.migrationConsumer.Start(migrationCtx)
+				if err != nil {
+					s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
+					return false, nil
+				}
+			} else {
+				err = s.migrationConsumer.Reconnect(migrationCtx, s.transportConfig,
+					[]string{s.transportConfig.KafkaCredential.MigrationTopic})
+				if err != nil {
+					s.log.Debugf("failed to reconnect kafka consumer for migration topic due to %v", err)
+					return false, nil
+				}
 			}
 			return true, nil
 		}); err != nil {
