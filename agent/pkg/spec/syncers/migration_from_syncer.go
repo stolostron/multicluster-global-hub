@@ -342,8 +342,8 @@ func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafk
 	s.log.Debug("resend the migration resources due to topicPartition error")
 	if err := wait.ExponentialBackoff(wait.Backoff{
 		Steps:    15,
-		Duration: 100 * time.Millisecond,
-		Factor:   1.5,
+		Duration: 1 * time.Second,
+		Factor:   1,
 		Jitter:   0.1,
 	}, func() (bool, error) {
 		err := s.migrationProducer.KafkaProducer().Produce(event, nil)
