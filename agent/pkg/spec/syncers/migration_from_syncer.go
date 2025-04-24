@@ -340,19 +340,15 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 
 func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
 	s.log.Debug("resend the migration resources due to topicPartition error")
-	if err := wait.ExponentialBackoff(wait.Backoff{
-		Steps:    15,
-		Duration: 1 * time.Second,
-		Factor:   1,
-		Jitter:   0.1,
-	}, func() (bool, error) {
-		err := s.migrationProducer.KafkaProducer().Produce(event, nil)
-		if err != nil {
-			s.log.Debugf("failed to resend the migration resources due to %v", err)
-			return false, nil
-		}
-		return true, nil
-	}); err != nil {
+	if err := wait.PollUntilContextCancel(context.TODO(), 5*time.Second, false,
+		func(context.Context) (bool, error) {
+			err := s.migrationProducer.KafkaProducer().Produce(event, nil)
+			if err != nil {
+				s.log.Debugf("failed to resend the migration resources due to %v", err)
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
 		s.log.Errorf("failed to resend the migration resources due to %v", err)
 	}
 }

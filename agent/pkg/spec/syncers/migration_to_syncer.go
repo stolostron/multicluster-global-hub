@@ -211,36 +211,31 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 				}
 			}
 		}()
-		// delay_n = Duration × Factor^(n - 1)
-		// The 15th retry delay is approximately 3.19 minutes.
-		if err := wait.ExponentialBackoffWithContext(migrationCtx, wait.Backoff{
-			Steps:    15,
-			Duration: 5 * time.Second,
-			Factor:   1,
-			Jitter:   0.1,
-		}, func(context.Context) (bool, error) {
-			if s.migrationConsumer != nil && s.migrationConsumer.KafkaConsumer() != nil {
-				if !s.migrationConsumer.KafkaConsumer().IsClosed() {
-					s.log.Debugf("starting kafka consumer")
-					// if start consumer is successful, it is an async operation. so we don't need to return an error
-					// wait for the migration resources to be completed, then close the consumer
-					err = s.migrationConsumer.Start(migrationCtx)
-					if err != nil {
-						s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
-						return false, nil
-					}
-				} else {
-					s.log.Debugf("reconnecting kafka consumer")
-					err = s.migrationConsumer.Reconnect(migrationCtx, s.transportConfig,
-						[]string{s.transportConfig.KafkaCredential.MigrationTopic})
-					if err != nil {
-						s.log.Debugf("failed to reconnect kafka consumer for migration topic due to %v", err)
-						return false, nil
+		// wait for 10s to start consumer
+		if err := wait.PollUntilContextCancel(migrationCtx, 5*time.Second, false,
+			func(context.Context) (bool, error) {
+				if s.migrationConsumer != nil && s.migrationConsumer.KafkaConsumer() != nil {
+					if !s.migrationConsumer.KafkaConsumer().IsClosed() {
+						s.log.Debugf("starting kafka consumer")
+						// if start consumer is successful, it is an async operation. so we don't need to return an error
+						// wait for the migration resources to be completed, then close the consumer
+						err = s.migrationConsumer.Start(migrationCtx)
+						if err != nil {
+							s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
+							return false, nil
+						}
+					} else {
+						s.log.Debugf("reconnecting kafka consumer")
+						err = s.migrationConsumer.Reconnect(migrationCtx, s.transportConfig,
+							[]string{s.transportConfig.KafkaCredential.MigrationTopic})
+						if err != nil {
+							s.log.Debugf("failed to reconnect kafka consumer for migration topic due to %v", err)
+							return false, nil
+						}
 					}
 				}
-			}
-			return true, nil
-		}); err != nil {
+				return true, nil
+			}); err != nil {
 			s.log.Errorf("failed to start kafka consumer for migration topic due to %v", err)
 			s.migrationConsumer = nil
 			return err
