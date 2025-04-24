@@ -191,7 +191,7 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 					return
 				case evt := <-s.migrationConsumer.EventChan():
 					// only the handle the current migration event, ignore the previous ones
-					if evt.ID() != migrationId {
+					if migrationId != "" && evt.ID() != migrationId {
 						s.log.Debugf("ignore the migration event %s", evt.ID())
 						continue
 					}
