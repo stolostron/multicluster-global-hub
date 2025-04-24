@@ -147,8 +147,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 		// confirmation in status
 		if !clusterResourcesSynced && !sendInitToSourceHub {
-			err := m.sendEventToSourceHub(ctx, fromHubName, mcm.Spec.To,
-				migrationv1alpha1.ConditionTypeInitialized, clusters, nil)
+			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.ConditionTypeInitialized, clusters, nil)
 			if err != nil {
 				return false, err
 			}
@@ -277,6 +276,7 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 		msaNamespace = val
 	}
 	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+		MigrationId:                           string(migration.GetUID()),
 		Stage:                                 stage,
 		ManagedServiceAccountName:             migration.Name,
 		ManagedServiceAccountInstallNamespace: msaNamespace,
@@ -358,12 +358,14 @@ func (m *ClusterMigrationController) UpdateCondition(
 // 2. ClusterRegistered: forward bootstrap kubeconfig secret into source hub, to register into the destination hub
 // 3. ResourceDeployed: delete the resourcesailed to mark the stage ResourceDeploye from the source hub
 // 4. MigrationCompleted: delete the items from the database
-func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string, toHub string,
+func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string,
+	migration *migrationv1alpha1.ManagedClusterMigration,
 	stage string, managedClusters []string, bootstrapSecret *corev1.Secret,
 ) error {
 	managedClusterMigrationFromEvent := &migrationbundle.ManagedClusterMigrationFromEvent{
+		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
-		ToHub:           toHub,
+		ToHub:           migration.Spec.To,
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
 	}

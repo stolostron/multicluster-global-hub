@@ -8,6 +8,7 @@ import (
 
 // ManagedClusterMigrationFromEvent defines the resources from migration controller to the source cluster
 type ManagedClusterMigrationFromEvent struct {
+	MigrationId     string         `json:"migrationId"`
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
@@ -16,6 +17,7 @@ type ManagedClusterMigrationFromEvent struct {
 
 // ManagedClusterMigrationToEvent defines the resources from migration controllers to the target cluster
 type ManagedClusterMigrationToEvent struct {
+	MigrationId                           string                         `json:"migrationId"`
 	Stage                                 string                         `json:"stage"`
 	ManagedServiceAccountName             string                         `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string                         `json:"installNamespace,omitempty"`

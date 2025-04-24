@@ -74,7 +74,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	for sourceHub, clusters := range cleaningClusters {
 		// Deprecated
 		log.Infof("cleaning up the source hub resources: %s", sourceHub)
-		err = m.sendEventToSourceHub(ctx, sourceHub, mcm.Spec.To, migrationv1alpha1.ConditionTypeCleaned,
+		err = m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.ConditionTypeCleaned,
 			clusters, bootstrapSecret)
 		if err != nil {
 			log.Errorf("failed to send clean up event into source hub(%s)", sourceHub)

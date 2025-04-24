@@ -69,7 +69,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	s.log.Debugf("received cloudevent %s", string(payload))
 
 	go func() {
-		if err := s.StartMigrationConsumer(ctx); err != nil {
+		if err := s.StartMigrationConsumer(ctx, managedClusterMigrationToEvent.MigrationId); err != nil {
 			s.log.Errorf("failed to start migration consumer: %v", err)
 		}
 	}()
@@ -169,7 +169,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Context) error {
+func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Context, migrationId string) error {
 	// initialize the gh-migration consumer
 	if s.migrationConsumer == nil && s.transportConfig != nil {
 		var migrationCtx context.Context
@@ -190,6 +190,11 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 				case <-ctx.Done():
 					return
 				case evt := <-s.migrationConsumer.EventChan():
+					// only the handle the current migration event, ignore the previous ones
+					if evt.ID() != migrationId {
+						s.log.Debugf("ignore the migration event %s", evt.ID())
+						continue
+					}
 					s.log.Debugf("get migration event: %v", evt.Type())
 					if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 						if err := s.syncMigrationResources(migrationCtx, evt.Data()); err != nil {
