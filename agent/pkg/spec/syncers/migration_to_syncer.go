@@ -91,7 +91,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			configs.GetLeafHubName(),
 			constants.CloudEventGlobalHubClusterName,
 			&migration.ManagedClusterMigrationBundle{
-				Stage:           migrationv1alpha1.ConditionTypeInitialized,
+				Stage: migrationv1alpha1.ConditionTypeInitialized,
 				// ManagedClusters: migrationSourceHubEvent.ManagedClusters,
 			},
 			s.bundleVersion)
