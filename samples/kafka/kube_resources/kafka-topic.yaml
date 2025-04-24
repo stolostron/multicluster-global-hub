@@ -1,0 +1,14 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  finalizers:
+  - strimzi.io/topic-operator
+  labels:
+    strimzi.io/cluster: kafka
+  name: my-topic
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    cleanup.policy: compact,delete
+    retention.ms: 600000  # messages kept for 10 minute, algin with migration timeout

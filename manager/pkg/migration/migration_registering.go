@@ -137,7 +137,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		notRegisterClusters := []string{}
 		for fromHub, clusters := range registeringClusters {
 			notRegisterClusters = append(notRegisterClusters, clusters...)
-			err = m.sendEventToSourceHub(ctx, fromHub, mcm.Spec.To, migrationv1alpha1.ConditionTypeRegistered,
+			err = m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.ConditionTypeRegistered,
 				clusters, bootstrapSecret)
 			if err != nil {
 				return false, err

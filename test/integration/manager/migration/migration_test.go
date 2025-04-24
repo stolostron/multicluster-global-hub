@@ -616,12 +616,13 @@ var _ = Describe("migration", Ordered, func() {
 		migrationProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.MigrationTopic)
 		Expect(err).NotTo(HaveOccurred())
 		fromSyncer.SetMigrationProducer(migrationProducer)
-		Expect(fromSyncer.SendSourceClusterMigrationResources(testCtx, []string{"cluster1"}, "hub1", "hub2")).NotTo(HaveOccurred())
+		Expect(fromSyncer.SendSourceClusterMigrationResources(testCtx, string(migrationInstance.GetUID()),
+			[]string{"cluster1"}, "hub1", "hub2")).NotTo(HaveOccurred())
 
 		By("receive migration resources from the topic")
 		toSyncer := syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient(), nil, transportConfig)
 		go func() {
-			Expect(toSyncer.StartMigrationConsumer(testCtx)).NotTo(HaveOccurred())
+			Expect(toSyncer.StartMigrationConsumer(testCtx, string(migrationInstance.GetUID()))).NotTo(HaveOccurred())
 		}()
 
 		By("check the namespace is created by syncMigrationResources method")

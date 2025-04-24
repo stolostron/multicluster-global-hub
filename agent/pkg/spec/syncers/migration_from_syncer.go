@@ -91,7 +91,9 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 		s.log.Infof("initializing managed cluster migration event")
 		managedClusters := migrationSourceHubEvent.ManagedClusters
 		toHub := migrationSourceHubEvent.ToHub
-		if err := s.SendSourceClusterMigrationResources(ctx, managedClusters, configs.GetLeafHubName(), toHub); err != nil {
+		id := migrationSourceHubEvent.MigrationId
+		err := s.SendSourceClusterMigrationResources(ctx, id, managedClusters, configs.GetLeafHubName(), toHub)
+		if err != nil {
 			return err
 		}
 		for _, managedCluster := range managedClusters {
@@ -334,7 +336,7 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 
 // SendSourceClusterMigrationResources sends required and customized resources to migration topic
 func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(ctx context.Context,
-	managedClusters []string, fromHub, toHub string,
+	migrationId string, managedClusters []string, fromHub, toHub string,
 ) error {
 	// aovid duplicate sending
 	if s.sendResources {
@@ -395,6 +397,7 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 
 	s.bundleVersion.Incr()
 	e := utils.ToCloudEvent(string(enum.MigrationResourcesType), fromHub, toHub, payloadBytes)
+	e.SetID(migrationId)
 	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
 	s.log.Info("send the migration resources to the migration topic from the source cluster")
 	if err := s.migrationProducer.SendEvent(ctx, e); err != nil {
