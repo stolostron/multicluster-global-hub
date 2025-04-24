@@ -6,6 +6,15 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
+// Since Kafka persists messages in a topic, multiple migration processes running in the system might all use the
+// same topic to send messages. This can lead to an issue where a downstream service (or "hub") receives events
+// from a previous migration process.
+// To address this, we’ve introduced the following mechanisms:
+// 1. Message expiration: Ensure that migration messages on the topic expire after 10 minutes, which aligns with the
+// typical timeout of a migration process.
+// 2. Migration ID tagging: Include a unique migration ID with each event. This allows receivers to process only the
+// events relevant to their migration and ignore others.
+
 // ManagedClusterMigrationFromEvent defines the resources from migration controller to the source cluster
 type ManagedClusterMigrationFromEvent struct {
 	MigrationId     string         `json:"migrationId"`
