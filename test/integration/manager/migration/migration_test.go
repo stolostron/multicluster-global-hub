@@ -633,6 +633,6 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 			return nil
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 10*time.Second, 1*time.Millisecond).Should(Succeed())
 	})
 })

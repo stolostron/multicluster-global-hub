@@ -36,7 +36,8 @@ type GenericProducer struct {
 }
 
 func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topic string,
-	eventErrorHandler func(event *kafka.Message)) (*GenericProducer, error) {
+	eventErrorHandler func(event *kafka.Message),
+) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
 		log:               logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
 		messageSizeLimit:  DefaultMessageKBSize * 1000,
@@ -179,7 +180,8 @@ func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 }
 
 func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, transportFailureThreshold int,
-	eventErrorHandler func(event *kafka.Message)) {
+	eventErrorHandler func(event *kafka.Message),
+) {
 	// Listen to all the events on the default events channel
 	// It's important to read these events otherwise the events channel will eventually fill up
 	go func() {

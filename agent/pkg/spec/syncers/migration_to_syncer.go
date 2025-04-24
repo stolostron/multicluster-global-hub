@@ -171,78 +171,90 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 
 func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Context, migrationId string) error {
 	// initialize the gh-migration consumer
-	if s.migrationConsumer == nil && s.transportConfig != nil {
-		var migrationCtx context.Context
-		migrationCtx, s.migrationConsumerCtxCancel = context.WithCancel(ctx)
+	if s.migrationConsumer != nil || s.transportConfig == nil {
+		return nil
+	}
 
-		var err error
-		s.log.Infof("start the kafka consumer to consume the migration topic")
-		s.migrationConsumer, err = consumer.NewGenericConsumer(s.transportConfig,
-			[]string{s.transportConfig.KafkaCredential.MigrationTopic})
-		if err != nil {
-			s.log.Errorf("failed to create kafka consumer for migration topic due to %v", err)
-			return err
-		}
+	var migrationCtx context.Context
+	migrationCtx, s.migrationConsumerCtxCancel = context.WithCancel(ctx)
 
-		go func() {
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case evt := <-s.migrationConsumer.EventChan():
-					// only the handle the current migration event, ignore the previous ones
-					if migrationId != "" && evt.ID() != migrationId {
-						s.log.Debugf("ignore the migration event %s", evt.ID())
-						continue
+	var err error
+	s.log.Infof("start the kafka consumer to consume the migration topic")
+	s.migrationConsumer, err = consumer.NewGenericConsumer(s.transportConfig,
+		[]string{s.transportConfig.KafkaCredential.MigrationTopic})
+	if err != nil {
+		s.log.Errorf("failed to create kafka consumer for migration topic due to %v", err)
+		return err
+	}
+
+	go s.receiveMigrationResource(ctx, migrationCtx, migrationId)
+	// wait for 5s to start consumer
+	if err := wait.PollUntilContextCancel(migrationCtx, 5*time.Second, false,
+		func(context.Context) (bool, error) {
+			// this is for integration test
+			if s.transportConfig.TransportType == string(transport.Chan) {
+				err = s.migrationConsumer.Start(migrationCtx)
+				if err != nil {
+					s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
+					return false, nil
+				}
+				return true, nil
+			}
+			if s.migrationConsumer != nil && s.migrationConsumer.KafkaConsumer() != nil {
+				if !s.migrationConsumer.KafkaConsumer().IsClosed() {
+					s.log.Debugf("starting kafka consumer")
+					// if start consumer is successful, it is an async operation. so we don't need to return an error
+					// wait for the migration resources to be completed, then close the consumer
+					err = s.migrationConsumer.Start(migrationCtx)
+					if err != nil {
+						s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
+						return false, nil
 					}
-					s.log.Debugf("get migration event: %v", evt.Type())
-					if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-						if err := s.syncMigrationResources(migrationCtx, evt.Data()); err != nil {
-							return err
-						}
-						return nil
-					}); err != nil {
-						s.log.Errorw("sync failed", "type", evt.Type(), "error", err)
-					}
-					if err == nil {
-						// just return because the migration is done
-						return
+				} else {
+					s.log.Debugf("reconnecting kafka consumer")
+					err = s.migrationConsumer.Reconnect(migrationCtx, s.transportConfig,
+						[]string{s.transportConfig.KafkaCredential.MigrationTopic})
+					if err != nil {
+						s.log.Debugf("failed to reconnect kafka consumer for migration topic due to %v", err)
+						return false, nil
 					}
 				}
 			}
-		}()
-		// wait for 10s to start consumer
-		if err := wait.PollUntilContextCancel(migrationCtx, 5*time.Second, false,
-			func(context.Context) (bool, error) {
-				if s.migrationConsumer != nil && s.migrationConsumer.KafkaConsumer() != nil {
-					if !s.migrationConsumer.KafkaConsumer().IsClosed() {
-						s.log.Debugf("starting kafka consumer")
-						// if start consumer is successful, it is an async operation. so we don't need to return an error
-						// wait for the migration resources to be completed, then close the consumer
-						err = s.migrationConsumer.Start(migrationCtx)
-						if err != nil {
-							s.log.Debugf("failed to start kafka consumer for migration topic due to %v", err)
-							return false, nil
-						}
-					} else {
-						s.log.Debugf("reconnecting kafka consumer")
-						err = s.migrationConsumer.Reconnect(migrationCtx, s.transportConfig,
-							[]string{s.transportConfig.KafkaCredential.MigrationTopic})
-						if err != nil {
-							s.log.Debugf("failed to reconnect kafka consumer for migration topic due to %v", err)
-							return false, nil
-						}
-					}
+			return true, nil
+		}); err != nil {
+		s.log.Errorf("failed to start kafka consumer for migration topic due to %v", err)
+		s.migrationConsumer = nil
+		return err
+	}
+	return nil
+}
+
+func (s *managedClusterMigrationToSyncer) receiveMigrationResource(ctx context.Context,
+	migrationCtx context.Context, migrationId string,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt := <-s.migrationConsumer.EventChan():
+			// only the handle the current migration event, ignore the previous ones
+			if migrationId != "" && evt.ID() != migrationId {
+				s.log.Debugf("ignore the migration event %s", evt.ID())
+				continue
+			}
+			s.log.Debugf("get migration event: %v", evt.Type())
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := s.syncMigrationResources(migrationCtx, evt.Data()); err != nil {
+					return err
 				}
-				return true, nil
+				return nil
 			}); err != nil {
-			s.log.Errorf("failed to start kafka consumer for migration topic due to %v", err)
-			s.migrationConsumer = nil
-			return err
+				s.log.Errorw("sync failed", "type", evt.Type(), "error", err)
+			}
+			// just return because the migration is done
+			return
 		}
 	}
-
-	return nil
 }
 
 func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Context, payload []byte) error {

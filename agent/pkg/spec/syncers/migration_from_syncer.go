@@ -190,7 +190,9 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		return err
 	}
 	if m.migrationProducer != nil && m.migrationProducer.Protocol() != nil {
-		m.migrationProducer.Protocol().Close(ctx)
+		if err := m.migrationProducer.Protocol().Close(ctx); err != nil {
+			m.log.Errorf("failed to close producer: %v", err)
+		}
 		m.migrationProducer = nil
 		m.sendResources = false
 	}
