@@ -96,6 +96,7 @@ var _ = BeforeSuite(func() {
 	genericProducer, err = genericproducer.NewGenericProducer(
 		agentConfig.TransportConfig,
 		agentConfig.TransportConfig.KafkaCredential.StatusTopic,
+		nil,
 	)
 	Expect(err).NotTo(HaveOccurred())
 

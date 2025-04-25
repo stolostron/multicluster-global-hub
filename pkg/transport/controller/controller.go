@@ -176,7 +176,7 @@ func (c *TransportCtrl) ReconcileProducer() error {
 	}
 
 	if c.transportClient.producer == nil {
-		sender, err := producer.NewGenericProducer(c.transportConfig, c.producerTopic)
+		sender, err := producer.NewGenericProducer(c.transportConfig, c.producerTopic, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create/update the producer: %w", err)
 		}

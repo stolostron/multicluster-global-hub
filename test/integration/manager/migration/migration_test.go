@@ -613,7 +613,7 @@ var _ = Describe("migration", Ordered, func() {
 
 		By("send migration resources to the topic")
 		fromSyncer := syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), nil, transportConfig)
-		migrationProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.MigrationTopic)
+		migrationProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.MigrationTopic, nil)
 		Expect(err).NotTo(HaveOccurred())
 		fromSyncer.SetMigrationProducer(migrationProducer)
 		Expect(fromSyncer.SendSourceClusterMigrationResources(testCtx, string(migrationInstance.GetUID()),
@@ -633,6 +633,6 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 			return nil
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 10*time.Second, 1*time.Millisecond).Should(Succeed())
 	})
 })

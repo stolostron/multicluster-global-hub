@@ -37,6 +37,7 @@ type GenericConsumer struct {
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
 	client         cloudevents.Client
+	kafkaConsumer  *kafka.Consumer
 
 	mutex sync.Mutex
 }
@@ -68,6 +69,10 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig, topics []
 	return c, nil
 }
 
+func (c *GenericConsumer) KafkaConsumer() *kafka.Consumer {
+	return c.kafkaConsumer
+}
+
 // initClient will init the consumer identity, clientProtocol, client
 func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
 	var err error
@@ -78,7 +83,7 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		c.log.Info("transport consumer with cloudevents-kafka receiver")
-		clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
+		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
 		if err != nil {
 			return err
 		}
@@ -220,16 +225,25 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 // }
 
 func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (
-	interface{}, error,
+	*kafka.Consumer, interface{}, error,
 ) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
 		transportConfig.ConsumerGroupId)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
+	consumer, err := kafka.NewConsumer(configMap)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	protocol, err := kafka_confluent.New(kafka_confluent.WithReceiver(consumer),
 		kafka_confluent.WithReceiverTopics(topics))
+	if err != nil {
+		return nil, nil, err
+	}
+	return consumer, protocol, nil
 }
 
 func TransportID() string {

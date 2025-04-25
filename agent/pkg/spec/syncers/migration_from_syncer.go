@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/go-kratos/kratos/v2/log"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
@@ -18,6 +19,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,7 +82,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	if s.migrationProducer == nil && s.transportConfig != nil {
 		var err error
 		s.migrationProducer, err = producer.NewGenericProducer(s.transportConfig,
-			s.transportConfig.KafkaCredential.MigrationTopic)
+			s.transportConfig.KafkaCredential.MigrationTopic, s.resendMigrationResources)
 		if err != nil {
 			return err
 		}
@@ -187,9 +189,13 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		m.log.Errorf("failed to detach managed clusters: %v", err)
 		return err
 	}
-	// TODO: need to check how to stop the producer gracefully
-	m.migrationProducer = nil
-	m.sendResources = false
+	if m.migrationProducer != nil && m.migrationProducer.Protocol() != nil {
+		if err := m.migrationProducer.Protocol().Close(ctx); err != nil {
+			m.log.Errorf("failed to close producer: %v", err)
+		}
+		m.migrationProducer = nil
+		m.sendResources = false
+	}
 	return nil
 }
 
@@ -332,6 +338,21 @@ func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context
 	config.Status = addonv1.KlusterletAddonConfigStatus{}
 
 	return config, nil
+}
+
+func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
+	s.log.Debug("resend the migration resources due to topicPartition error")
+	if err := wait.PollUntilContextCancel(context.TODO(), 5*time.Second, false,
+		func(context.Context) (bool, error) {
+			err := s.migrationProducer.KafkaProducer().Produce(event, nil)
+			if err != nil {
+				s.log.Debugf("failed to resend the migration resources due to %v", err)
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
+		s.log.Errorf("failed to resend the migration resources due to %v", err)
+	}
 }
 
 // SendSourceClusterMigrationResources sends required and customized resources to migration topic

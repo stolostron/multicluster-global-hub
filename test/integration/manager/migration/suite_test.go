@@ -101,6 +101,7 @@ var _ = BeforeSuite(func() {
 	genericProducer, err := genericproducer.NewGenericProducer(
 		transportConfig,
 		transportConfig.KafkaCredential.SpecTopic,
+		nil,
 	)
 	Expect(err).NotTo(HaveOccurred())
 	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, false, "gh-migration")
