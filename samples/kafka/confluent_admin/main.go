@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -23,16 +21,8 @@ func main() {
 	topic := os.Args[1]
 	fmt.Println("topic", topic)
 
-	kubeconfig, err := config.DefaultKubeConfig()
-	if err != nil {
-		panic(fmt.Sprintf("failed to get kubeoconfig: %v", err))
-	}
-	c, err := client.New(kubeconfig, client.Options{Scheme: operatorconfig.GetRuntimeScheme()})
-	if err != nil {
-		panic(fmt.Sprintf("failed to get client: %v", err))
-	}
-
-	kafkaConfigMap, err := config.GetConfluentConfigMapByUser(c, "multicluster-global-hub", "kafka", "admin-kafka-user")
+	kafkaConfigMap, err := config.GetConfluentConfigMapByCurrentUser(
+		"multicluster-global-hub", "kafka", "admin-kafka-user")
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}

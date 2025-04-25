@@ -39,6 +39,7 @@ import (
 const (
 	klusterletConfigNamePrefix = "migration-"
 	bootstrapSecretNamePrefix  = "bootstrap-"
+	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 )
 
 // This is a temporary solution to wait for applying the klusterletconfig
@@ -90,30 +91,27 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 
 	// expected initialized
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
-		s.log.Infof("initializing managed cluster migration event")
-		managedClusters := migrationSourceHubEvent.ManagedClusters
-		toHub := migrationSourceHubEvent.ToHub
-		id := migrationSourceHubEvent.MigrationId
-		err := s.SendSourceClusterMigrationResources(ctx, id, managedClusters, configs.GetLeafHubName(), toHub)
-		if err != nil {
+		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
-		for _, managedCluster := range managedClusters {
-			addonConfig, err := s.getKlusterletAddonConfig(ctx, managedCluster)
-			if err != nil {
-				return err
-			}
-			err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), toHub,
-				&migration.ManagedClusterMigrationBundle{
-					Stage:                 migrationv1alpha1.ConditionTypeInitialized,
-					KlusterletAddonConfig: addonConfig,
-				},
-				s.bundleVersion)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
+
+		// send the initialized confirmation
+		return SendMigrationEvent(ctx, s.transportClient,
+			configs.GetLeafHubName(),
+			constants.CloudEventGlobalHubClusterName,
+			&migration.ManagedClusterMigrationBundle{
+				Stage: migrationv1alpha1.ConditionTypeInitialized,
+			},
+			s.bundleVersion)
+	}
+
+	s.log.Infof("initializing managed cluster migration event")
+	managedClusters := migrationSourceHubEvent.ManagedClusters
+	toHub := migrationSourceHubEvent.ToHub
+	id := migrationSourceHubEvent.MigrationId
+	err := s.SendSourceClusterMigrationResources(ctx, id, managedClusters, configs.GetLeafHubName(), toHub)
+	if err != nil {
+		return err
 	}
 
 	// expected registered
@@ -195,6 +193,108 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		}
 		m.migrationProducer = nil
 		m.sendResources = false
+	}
+	return nil
+}
+
+// initializing attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
+func (m *managedClusterMigrationFromSyncer) initializing(
+	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+) error {
+	if migratingEvt.BootstrapSecret == nil {
+		return fmt.Errorf("bootstrap secret is nil when initializing")
+	}
+
+	bootstrapSecret := migratingEvt.BootstrapSecret
+	// ensure bootstrap kubeconfig secret
+	foundBootstrapSecret := &corev1.Secret{}
+	if err := m.client.Get(ctx,
+		types.NamespacedName{
+			Name:      bootstrapSecret.Name,
+			Namespace: bootstrapSecret.Namespace,
+		}, foundBootstrapSecret); err != nil {
+		if apierrors.IsNotFound(err) {
+			m.log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
+			if err := m.client.Create(ctx, bootstrapSecret); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		// update the bootstrap secret if it already exists
+		m.log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
+		if err := m.client.Update(ctx, bootstrapSecret); err != nil {
+			return err
+		}
+	}
+
+	// ensure klusterletconfig
+	klusterletConfig := &klusterletv1alpha1.KlusterletConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: klusterletConfigNamePrefix + migratingEvt.ToHub,
+		},
+		Spec: klusterletv1alpha1.KlusterletConfigSpec{
+			BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
+				Type: operatorv1.LocalSecrets,
+				LocalSecrets: operatorv1.LocalSecretsConfig{
+					KubeConfigSecrets: []operatorv1.KubeConfigSecret{
+						{
+							Name: bootstrapSecret.Name,
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
+		if apierrors.IsNotFound(err) {
+			if err := m.client.Create(ctx, klusterletConfig); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	containBootstrapSecret := false
+	kubeConfigSecrets := klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets
+	for _, kubeConfigSecret := range kubeConfigSecrets {
+		if kubeConfigSecret.Name == bootstrapSecret.Name {
+			containBootstrapSecret = true
+		}
+	}
+	if !containBootstrapSecret {
+		klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets = append(kubeConfigSecrets,
+			operatorv1.KubeConfigSecret{Name: bootstrapSecret.Name})
+		if err := m.client.Update(ctx, klusterletConfig); err != nil {
+			return err
+		}
+	}
+
+	// update managed cluster annotations to point to the new klusterletconfig
+	managedClusters := migratingEvt.ManagedClusters
+	for _, managedCluster := range managedClusters {
+		mc := &clusterv1.ManagedCluster{}
+		if err := m.client.Get(ctx, types.NamespacedName{
+			Name: managedCluster,
+		}, mc); err != nil {
+			return err
+		}
+		annotations := mc.Annotations
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+
+		_, migrating := annotations[constants.ManagedClusterMigrating]
+		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.Name {
+			continue
+		}
+		annotations[KlusterletConfigAnnotation] = klusterletConfig.Name
+		annotations[constants.ManagedClusterMigrating] = ""
+		mc.SetAnnotations(annotations)
+		if err := m.client.Update(ctx, mc); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -283,10 +383,10 @@ func (m *managedClusterMigrationFromSyncer) registering(
 		}
 
 		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations["agent.open-cluster-management.io/klusterlet-config"] == klusterletConfig.Name {
+		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.Name {
 			continue
 		}
-		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
+		annotations[KlusterletConfigAnnotation] = klusterletConfig.Name
 		annotations[constants.ManagedClusterMigrating] = ""
 		mc.SetAnnotations(annotations)
 		if err := m.client.Update(ctx, mc); err != nil {

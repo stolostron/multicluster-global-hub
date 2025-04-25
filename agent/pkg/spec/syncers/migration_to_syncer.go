@@ -68,14 +68,30 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	}
 	s.log.Debugf("received cloudevent %s", string(payload))
 
+	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
+		if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
+			s.log.Errorf("failed to initialize the migration resources %v", err)
+			return err
+		}
+
+		// send the initialized confirmation
+		return SendMigrationEvent(ctx, s.transportClient,
+			configs.GetLeafHubName(),
+			constants.CloudEventGlobalHubClusterName,
+			&migration.ManagedClusterMigrationBundle{
+				Stage: migrationv1alpha1.ConditionTypeInitialized,
+				// ManagedClusters: migrationSourceHubEvent.ManagedClusters,
+			},
+			s.bundleVersion)
+	}
+
+	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
+
 	go func() {
 		if err := s.StartMigrationConsumer(ctx, managedClusterMigrationToEvent.MigrationId); err != nil {
 			s.log.Errorf("failed to start migration consumer: %v", err)
 		}
 	}()
-
-	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
-	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
 
 	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeCleaned {
 		// delete the subjectaccessreviews creation role and roleBinding
@@ -113,22 +129,6 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		return nil
 	}
 
-	if err := s.ensureClusterManager(ctx, msaName, msaNamespace); err != nil {
-		return err
-	}
-
-	if err := s.ensureMigrationClusterRole(ctx, msaName); err != nil {
-		return err
-	}
-
-	if err := s.ensureRegistrationClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
-		return err
-	}
-
-	if err := s.ensureSARClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
-		return err
-	}
-
 	klusterletAddonConfig := managedClusterMigrationToEvent.KlusterletAddonConfig
 	existingAddonConfig := &addonv1.KlusterletAddonConfig{}
 	if klusterletAddonConfig != nil {
@@ -164,6 +164,30 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// initializing create the permission for the migration service account, and enable auto-approval for registration
+func (s *managedClusterMigrationToSyncer) initializing(ctx context.Context,
+	evt *migration.ManagedClusterMigrationToEvent,
+) error {
+	msaName := evt.ManagedServiceAccountName
+	msaNamespace := evt.ManagedServiceAccountInstallNamespace
+
+	if err := s.ensureClusterManagerAutoApproval(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+	if err := s.ensureSubjectAccessReviewRole(ctx, msaName); err != nil {
+		return err
+	}
+	if err := s.ensureSubjectAccessReviewRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+	// bind migration sa with "open-cluster-management:managedcluster:bootstrap:agent-registration"
+	if err := s.ensureRegistrationClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		return err
 	}
 
 	return nil
@@ -295,8 +319,8 @@ func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Con
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Context,
-	msaName, msaNamespace string,
+func (s *managedClusterMigrationToSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
+	saName, saNamespace string,
 ) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
 	if err := s.client.Get(ctx,
@@ -307,7 +331,7 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 	clusterManager := foundClusterManager.DeepCopy()
 	// check if the ManagedClusterAutoApproval feature is enabled and
 	// the service account is added to the auto-approve list
-	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", msaNamespace, msaName)
+	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", saNamespace, saName)
 	autoApproveFeatureEnabled := false
 	autoApproveUserAdded := false
 	clusterManagerChanged := false
@@ -376,7 +400,7 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManager(ctx context.Conte
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureMigrationClusterRole(ctx context.Context, msaName string) error {
+func (s *managedClusterMigrationToSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	migrationClusterRole := &rbacv1.ClusterRole{
@@ -479,7 +503,7 @@ func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(c
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureSARClusterRoleBinding(ctx context.Context,
+func (s *managedClusterMigrationToSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)

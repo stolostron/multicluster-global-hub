@@ -33,11 +33,12 @@ type ManagedClusterMigrationToEvent struct {
 	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig,omitempty"`
 }
 
-// Confiramtion from the ManagedHub: Initialized, Cleanup, Deployed
+// The bundle sent from the managed hubs to the global hub
 type ManagedClusterMigrationBundle struct {
-	Stage                 string                         `json:"stage"`
-	KlusterletAddonConfig *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig,omitempty"`
-	ManagedClusters       []string                       `json:"managedClusters,omitempty"`
+	MigrationId     string   `json:"migrationId"`
+	Stage           string   `json:"stage"`
+	ErrMessage      string   `json:"errMessage,omitempty"`
+	ManagedClusters []string `json:"managedClusters,omitempty"`
 }
 
 type SourceClusterMigrationResources struct {
