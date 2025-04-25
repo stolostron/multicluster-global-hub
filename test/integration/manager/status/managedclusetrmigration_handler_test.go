@@ -2,8 +2,6 @@ package status
 
 import (
 	"encoding/json"
-	"fmt"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
@@ -13,8 +11,6 @@ import (
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
@@ -50,21 +46,22 @@ var _ = Describe("ManagedClusterMigration", Ordered, func() {
 		err = producer.SendEvent(ctx, evt)
 		Expect(err).Should(Succeed())
 
-		By("Check the table")
-		Eventually(func() error {
-			db := database.GetGorm()
-			var initialized []models.ManagedClusterMigration
-			if err = db.Where("from_hub = ? AND to_hub = ?", "hub1", "hub2").Find(&initialized).Error; err != nil {
-				return err
-			}
+		// not sync the resource into tables now
+		// By("Check the table")
+		// Eventually(func() error {
+		// 	db := database.GetGorm()
+		// 	var initialized []models.ManagedClusterMigration
+		// 	if err = db.Where("from_hub = ? AND to_hub = ?", "hub1", "hub2").Find(&initialized).Error; err != nil {
+		// 		return err
+		// 	}
 
-			for _, migration := range initialized {
-				if migration.ClusterName == "cluster1" {
-					return nil
-				}
-			}
+		// 	for _, migration := range initialized {
+		// 		if migration.ClusterName == "cluster1" {
+		// 			return nil
+		// 		}
+		// 	}
 
-			return fmt.Errorf("not found expected migration resource on the table")
-		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		// 	return fmt.Errorf("not found expected migration resource on the table")
+		// }, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })
