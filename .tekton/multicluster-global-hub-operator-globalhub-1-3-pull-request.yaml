@@ -432,7 +432,8 @@ spec:
       optional: true
     - name: netrc
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-multicluster-global-hub-operator-globalhub-1-3
   workspaces:
   - name: workspace
     volumeClaimTemplate:
