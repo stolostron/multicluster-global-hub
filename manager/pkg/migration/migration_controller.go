@@ -44,17 +44,18 @@ type ClusterMigrationController struct {
 	importClusterInHosted bool
 	migrationTopic        string
 	// string is MCM ID
-	migrationEventProgress map[string]*MigrationEventProgress
+	migrationEventProgressMap map[string]*MigrationEventProgress
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
 	importClusterInHosted bool, migrationTopic string,
 ) *ClusterMigrationController {
 	return &ClusterMigrationController{
-		Client:                client,
-		Producer:              producer,
-		importClusterInHosted: importClusterInHosted,
-		migrationTopic:        migrationTopic,
+		Client:                    client,
+		Producer:                  producer,
+		importClusterInHosted:     importClusterInHosted,
+		migrationTopic:            migrationTopic,
+		migrationEventProgressMap: make(map[string]*MigrationEventProgress),
 	}
 }
 
@@ -131,6 +132,9 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		log.Errorf("failed to get managedclustermigration %v", err)
 		return ctrl.Result{}, err
 	}
+
+	// initializing the migration event progress
+	m.migrationEventProgressMap[string(mcm.GetUID())] = &MigrationEventProgress{}
 
 	// add finalizer if resources is not being deleted
 	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
