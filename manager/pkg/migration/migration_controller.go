@@ -40,10 +40,11 @@ var log = logger.DefaultZapLogger()
 type ClusterMigrationController struct {
 	client.Client
 	transport.Producer
-	BootstrapSecret        *corev1.Secret
-	importClusterInHosted  bool
-	migrationTopic         string
-	migrationEventProgress []MigrationEventProgress
+	BootstrapSecret       *corev1.Secret
+	importClusterInHosted bool
+	migrationTopic        string
+	// string is MCM ID
+	migrationEventProgress map[string]*MigrationEventProgress
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
