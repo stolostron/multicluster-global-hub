@@ -8,7 +8,9 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "true"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch == "main" && (".tekton/multicluster-global-hub-agent-[!b]*.yaml".pathChanged() || "go.{mod,sum}".pathChanged() || "{pkg,agent}/***".pathChanged())
+    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
+      == "main" && (".tekton/multicluster-global-hub-agent-[!b]*.yaml".pathChanged()
+      || "go.{mod,sum}".pathChanged() || "{pkg,agent}/***".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: release-globalhub-1-5
@@ -598,7 +600,8 @@ spec:
       optional: true
     - name: netrc
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-multicluster-global-hub-agent-globalhub-1-5
   workspaces:
   - name: git-auth
     secret:
