@@ -39,6 +39,17 @@ const (
 	ConditionTypeCleaned     = "ResourceCleaned"
 )
 
+// Migration stages used internally
+type StageStatus string
+
+const (
+	StageValidating   StageStatus = "Validating"
+	StageInitializing StageStatus = "Initializing"
+	StageDeploying    StageStatus = "Deploying"
+	StageRegistering  StageStatus = "Registering"
+	StageCleaning     StageStatus = "Cleaning"
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName={mcm}
