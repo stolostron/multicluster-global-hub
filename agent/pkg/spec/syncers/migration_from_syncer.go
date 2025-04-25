@@ -89,11 +89,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 
 	// expected initialized
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
-		if migrationSourceHubEvent.BootstrapSecret == nil {
-			return fmt.Errorf("bootstrap secret is nil when initializing")
-		}
-		// attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
-		if err := s.attachBootstrapKubeConfigToClusters(ctx, migrationSourceHubEvent); err != nil {
+		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
 
@@ -195,9 +191,14 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 	return nil
 }
 
-func (m *managedClusterMigrationFromSyncer) attachBootstrapKubeConfigToClusters(
+// initializing attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
+func (m *managedClusterMigrationFromSyncer) initializing(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
+	if migratingEvt.BootstrapSecret == nil {
+		return fmt.Errorf("bootstrap secret is nil when initializing")
+	}
+
 	bootstrapSecret := migratingEvt.BootstrapSecret
 	// ensure bootstrap kubeconfig secret
 	foundBootstrapSecret := &corev1.Secret{}

@@ -68,21 +68,9 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	}
 	s.log.Debugf("received cloudevent %s", string(payload))
 
-	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
-	msaNamespace := managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace
-
 	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
-		if err := s.ensureClusterManagerAutoApproval(ctx, msaName, msaNamespace); err != nil {
-			return err
-		}
-		if err := s.ensureSubjectAccessReviewRole(ctx, msaName); err != nil {
-			return err
-		}
-		if err := s.ensureSubjectAccessReviewRoleBinding(ctx, msaName, msaNamespace); err != nil {
-			return err
-		}
-		// bind migration sa with "open-cluster-management:managedcluster:bootstrap:agent-registration"
-		if err := s.ensureRegistrationClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
+			s.log.Errorf("failed to initialize the migration resources %v", err)
 			return err
 		}
 
@@ -96,6 +84,8 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			},
 			s.bundleVersion)
 	}
+
+	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 
 	go func() {
 		if err := s.StartMigrationConsumer(ctx, managedClusterMigrationToEvent.MigrationId); err != nil {
@@ -174,6 +164,30 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// initializing create the permission for the migration service account, and enable auto-approval for registration
+func (s *managedClusterMigrationToSyncer) initializing(ctx context.Context,
+	evt *migration.ManagedClusterMigrationToEvent,
+) error {
+	msaName := evt.ManagedServiceAccountName
+	msaNamespace := evt.ManagedServiceAccountInstallNamespace
+
+	if err := s.ensureClusterManagerAutoApproval(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+	if err := s.ensureSubjectAccessReviewRole(ctx, msaName); err != nil {
+		return err
+	}
+	if err := s.ensureSubjectAccessReviewRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		return err
+	}
+	// bind migration sa with "open-cluster-management:managedcluster:bootstrap:agent-registration"
+	if err := s.ensureRegistrationClusterRoleBinding(ctx, msaName, msaNamespace); err != nil {
+		return err
 	}
 
 	return nil
