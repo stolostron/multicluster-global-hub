@@ -8,8 +8,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
@@ -31,15 +29,15 @@ var _ = Describe("ManagedClusterMigration", Ordered, func() {
 		evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 		evt.SetExtension(eventversion.ExtVersion, "0.1")
 
-		addonConfig := &addonv1.KlusterletAddonConfig{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cluster1",
-				Namespace: "cluster1",
-			},
-		}
+		// addonConfig := &addonv1.KlusterletAddonConfig{
+		// 	ObjectMeta: metav1.ObjectMeta{
+		// 		Name:      "cluster1",
+		// 		Namespace: "cluster1",
+		// 	},
+		// }
 		bundle := &migrationbundle.ManagedClusterMigrationBundle{
-			Stage:                 migrationv1alpha1.ConditionTypeInitialized,
-			KlusterletAddonConfig: addonConfig,
+			Stage: migrationv1alpha1.ConditionTypeInitialized,
+			// KlusterletAddonConfig: addonConfig,
 		}
 		payloadBytes, err := json.Marshal(bundle)
 		Expect(err).To(Succeed())

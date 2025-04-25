@@ -34,7 +34,7 @@ func main() {
 	kafkaNamespace := "kafka"
 	kafkaCluster := "kafka"
 	kafkaUser := "my-user"
-	configMap, err := config.GetConfluentConfigMapByUser(kafkaNamespace, kafkaCluster, kafkaUser)
+	configMap, err := config.GetConfluentConfigMapByCurrentUser(kafkaNamespace, kafkaCluster, kafkaUser)
 	if err != nil {
 		log.Fatalf("failed to create configmap: %s", err.Error())
 	}

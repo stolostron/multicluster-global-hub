@@ -21,7 +21,8 @@ func main() {
 	topic := os.Args[1]
 	fmt.Println("topic", topic)
 
-	kafkaConfigMap, err := config.GetConfluentConfigMapByUser("multicluster-global-hub", "kafka", "admin-kafka-user")
+	kafkaConfigMap, err := config.GetConfluentConfigMapByCurrentUser(
+		"multicluster-global-hub", "kafka", "admin-kafka-user")
 	if err != nil {
 		log.Fatalf("failed to get kafka config map: %v", err)
 	}
