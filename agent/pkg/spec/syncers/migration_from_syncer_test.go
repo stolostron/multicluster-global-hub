@@ -83,8 +83,11 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				ToHub:           "hub2",
-				Stage:           migrationv1alpha1.ConditionTypeInitialized,
+				ToHub: "hub2",
+				Stage: migrationv1alpha1.ConditionTypeInitialized,
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
+				},
 				ManagedClusters: []string{"cluster1"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {

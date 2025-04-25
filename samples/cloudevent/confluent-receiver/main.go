@@ -36,7 +36,7 @@ func main() {
 	kafkaUser := "my-user"
 	configMap, err := config.GetConfluentConfigMapByUser(kafkaNamespace, kafkaCluster, kafkaUser)
 	if err != nil {
-		log.Fatalf("failed to create configmpa: %s", err.Error())
+		log.Fatalf("failed to create configmap: %s", err.Error())
 	}
 	_ = configMap.SetKey("group.id", "consumergroup-test-2")
 	_ = configMap.SetKey("auto.offset.reset", "earliest")

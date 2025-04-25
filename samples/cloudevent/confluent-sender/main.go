@@ -34,7 +34,7 @@ func main() {
 	kafkaUser := "my-user"
 	configMap, err := config.GetConfluentConfigMapByUser(kafkaNamespace, kafkaCluster, kafkaUser)
 	if err != nil {
-		log.Fatalf("failed to create configmpa: %s", err.Error())
+		log.Fatalf("failed to create configmap: %s", err.Error())
 	}
 	// exactly once - producer
 	configMap.SetKey("enable.idempotence", "true")
