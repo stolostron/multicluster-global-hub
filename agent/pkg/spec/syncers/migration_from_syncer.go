@@ -37,6 +37,7 @@ import (
 const (
 	klusterletConfigNamePrefix = "migration-"
 	bootstrapSecretNamePrefix  = "bootstrap-"
+	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 )
 
 // This is a temporary solution to wait for applying the klusterletconfig
@@ -278,10 +279,10 @@ func (m *managedClusterMigrationFromSyncer) attachBootstrapKubeConfigToClusters(
 		}
 
 		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations["agent.open-cluster-management.io/klusterlet-config"] == klusterletConfig.Name {
+		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.Name {
 			continue
 		}
-		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
+		annotations[KlusterletConfigAnnotation] = klusterletConfig.Name
 		annotations[constants.ManagedClusterMigrating] = ""
 		mc.SetAnnotations(annotations)
 		if err := m.client.Update(ctx, mc); err != nil {
@@ -375,10 +376,10 @@ func (m *managedClusterMigrationFromSyncer) registering(
 		}
 
 		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations["agent.open-cluster-management.io/klusterlet-config"] == klusterletConfig.Name {
+		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.Name {
 			continue
 		}
-		annotations["agent.open-cluster-management.io/klusterlet-config"] = klusterletConfig.Name
+		annotations[KlusterletConfigAnnotation] = klusterletConfig.Name
 		annotations[constants.ManagedClusterMigrating] = ""
 		mc.SetAnnotations(annotations)
 		if err := m.client.Update(ctx, mc); err != nil {

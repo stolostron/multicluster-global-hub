@@ -73,9 +73,8 @@ func ReportInitializingStatus(eventSource string, bundle *migrationbundle.Manage
 
 // Initializing:
 //  1. Grant the proper permission to the source clusters and the target cluster for the migration topic.
-//  2. Send the event to the source clusters and the target cluster to create producer and consumer
-//     for the migration topic.
-//  3. Destination Hub: create managedserviceaccount, Set autoApprove for the SA
+//  2. Destination Hub: create managedserviceaccount, Set autoApprove for the SA
+//  3. Source Hub: attach the klusterletconfig with bootstrapsecret for the migrating clusters
 func (m *ClusterMigrationController) initializing(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
