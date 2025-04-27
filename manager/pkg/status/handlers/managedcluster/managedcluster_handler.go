@@ -16,6 +16,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -29,26 +30,24 @@ import (
 const BatchSize = 50
 
 type managedClusterHandler struct {
-	log                *zap.SugaredLogger
-	eventType          string
-	eventSyncMode      enum.EventSyncMode
-	eventPriority      conflator.ConflationPriority
-	requester          transport.Requester
-	enableInventoryAPI bool
-	c                  client.Client
+	log           *zap.SugaredLogger
+	eventType     string
+	eventSyncMode enum.EventSyncMode
+	eventPriority conflator.ConflationPriority
+	requester     transport.Requester
+	c             client.Client
 }
 
 func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.ManagedClusterType)
 	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &managedClusterHandler{
-		log:                logger.ZapLogger(logName),
-		eventType:          eventType,
-		eventSyncMode:      enum.CompleteStateMode,
-		eventPriority:      conflator.ManagedClustersPriority,
-		requester:          conflationManager.Requster,
-		enableInventoryAPI: conflationManager.EnableInventoryAPI,
-		c:                  c,
+		log:           logger.ZapLogger(logName),
+		eventType:     eventType,
+		eventSyncMode: enum.CompleteStateMode,
+		eventPriority: conflator.ManagedClustersPriority,
+		requester:     conflationManager.Requster,
+		c:             c,
 	}
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
@@ -60,14 +59,9 @@ func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator
 
 func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	extMchVersion := evt.Extensions()[eventversion.ExtMchVersion]
-	var mchVersion string
-	if extMchVersion != nil {
-		mchVersion = extMchVersion.(string)
-	}
 
 	leafHubName := evt.Source()
-	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version, "mchVersion", mchVersion)
+	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	var data []clusterv1.ManagedCluster
 	if err := evt.DataAs(&data); err != nil {
@@ -94,7 +88,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	// so we will post to inventory if there is some changes based on the data in database
 	// Note: we do not handle the case: when run globalhub sometimes, and the data has post
 	// database then enable inventory api
-	if h.enableInventoryAPI {
+	if configs.IsInventoryAPIEnabled() {
 		requester := h.requester
 		if requester == nil {
 			return fmt.Errorf("requester is nil")
@@ -106,7 +100,6 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 			updateClusters,
 			deleteClusters,
 			leafHubName,
-			mchVersion,
 		)
 		h.log.Debugw("post to inventory api", "LH",
 			leafHubName, "create",
@@ -209,7 +202,6 @@ func (h *managedClusterHandler) postToInventoryApi(
 	updateClusters []clusterv1.ManagedCluster,
 	deleteClusters []models.ResourceVersion,
 	leafHubName string,
-	mchVersion string,
 ) (
 	[]clusterv1.ManagedCluster,
 	[]clusterv1.ManagedCluster,
@@ -221,7 +213,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 
 	if len(createClusters) > 0 {
 		for _, cluster := range createClusters {
-			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, h.c, mchVersion)
+			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, h.c)
 			if resp, err := requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				h.log.Errorf("failed to create k8sCluster %v: %w", resp, err)
@@ -233,7 +225,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 
 	if len(updateClusters) > 0 {
 		for _, cluster := range updateClusters {
-			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, h.c, mchVersion)
+			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, h.c)
 			if resp, err := requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 				&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				h.log.Errorf("failed to update k8sCluster %v: %w", resp, err)
@@ -249,7 +241,6 @@ func (h *managedClusterHandler) postToInventoryApi(
 				&kessel.DeleteK8SClusterRequest{ReporterData: &kessel.ReporterData{
 					ReporterType:       kessel.ReporterData_ACM,
 					ReporterInstanceId: leafHubName,
-					ReporterVersion:    mchVersion,
 					LocalResourceId:    cluster.Name,
 				}}); err != nil {
 				h.log.Errorf("failed to delete k8sCluster %v: %w", resp, err)
@@ -317,7 +308,6 @@ func (h *managedClusterHandler) generateCreateUpdateDeleteClusters(
 func GetK8SCluster(ctx context.Context,
 	cluster *clusterv1.ManagedCluster, leafHubName string,
 	r client.Client,
-	mchVersion string,
 ) *kessel.K8SCluster {
 	clusterId := string(cluster.GetUID())
 	var vendorVersion, cloudVendor, kubeVersion, kubeVendor string
@@ -359,7 +349,6 @@ func GetK8SCluster(ctx context.Context,
 		ReporterData: &kessel.ReporterData{
 			ReporterType:       kessel.ReporterData_ACM,
 			ReporterInstanceId: leafHubName,
-			ReporterVersion:    mchVersion,
 			LocalResourceId:    cluster.Name,
 		},
 		ResourceData: &kessel.K8SClusterDetail{
@@ -380,6 +369,9 @@ func GetK8SCluster(ctx context.Context,
 				}
 				if claim.Name == "apiserverurl.openshift.io" {
 					k8sCluster.ReporterData.ApiHref = claim.Value
+				}
+				if claim.Name == "version.open-cluster-management.io" {
+					k8sCluster.ReporterData.ReporterVersion = claim.Value
 				}
 			}
 		}

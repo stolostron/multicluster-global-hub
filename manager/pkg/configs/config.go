@@ -43,3 +43,13 @@ type DatabaseConfig struct {
 	MaxOpenConns               int
 	DataRetention              int
 }
+
+var enableInventoryAPI bool
+
+func IsInventoryAPIEnabled() bool {
+	return enableInventoryAPI
+}
+
+func SetEnableInventoryAPI(enable bool) {
+	enableInventoryAPI = enable
+}

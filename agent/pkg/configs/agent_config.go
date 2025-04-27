@@ -39,13 +39,3 @@ func GetAgentConfig() *AgentConfig {
 func GetLeafHubName() string {
 	return agentConfigData.LeafHubName
 }
-
-var mchVersion string
-
-func GetMCHVersion() string {
-	return mchVersion
-}
-
-func SetMCHVersion(version string) {
-	mchVersion = version
-}

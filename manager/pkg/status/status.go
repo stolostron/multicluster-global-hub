@@ -33,7 +33,7 @@ func AddStatusSyncers(
 	}
 
 	// manage all Conflation Units and handlers
-	conflationManager := conflator.NewConflationManager(stats, requester, managerConfig.EnableInventoryAPI)
+	conflationManager := conflator.NewConflationManager(stats, requester)
 	handlers.RegisterHandlers(mgr, conflationManager, managerConfig.EnableGlobalResource)
 
 	// start consume message from transport to conflation manager

@@ -26,7 +26,6 @@ func TestGetK8SCluster(t *testing.T) {
 		cluster     *clusterv1.ManagedCluster
 		leafHubName string
 		initObjects []runtime.Object
-		mchVersion  string
 	}
 
 	tests := []struct {
@@ -56,7 +55,6 @@ func TestGetK8SCluster(t *testing.T) {
 					},
 				},
 				leafHubName: "hub1",
-				mchVersion:  "2.8.0",
 			},
 			want: &kessel.K8SCluster{
 				Metadata: &kessel.Metadata{
@@ -66,7 +64,6 @@ func TestGetK8SCluster(t *testing.T) {
 				ReporterData: &kessel.ReporterData{
 					ReporterType:       kessel.ReporterData_ACM,
 					ReporterInstanceId: "hub1",
-					ReporterVersion:    "2.8.0",
 				},
 				ResourceData: &kessel.K8SClusterDetail{
 					ExternalClusterId: "test-id",
@@ -92,6 +89,7 @@ func TestGetK8SCluster(t *testing.T) {
 						ClusterClaims: []clusterv1.ManagedClusterClaim{
 							{Name: constants.ClusterIdClaimName, Value: "test-id-2"},
 							{Name: "kubeversion.open-cluster-management.io", Value: "1.25"},
+							{Name: "version.open-cluster-management.io", Value: "2.8.0"},
 						},
 						Conditions: []metav1.Condition{
 							{
@@ -111,11 +109,11 @@ func TestGetK8SCluster(t *testing.T) {
 							ClusterClaims: []clusterv1.ManagedClusterClaim{
 								{Name: "consoleurl.cluster.open-cluster-management.io", Value: "https://consoleurl"},
 								{Name: "apiserverurl.openshift.io", Value: "http://apiserverurl"},
+								{Name: "version.open-cluster-management.io", Value: "2.8.0"},
 							},
 						},
 					},
 				},
-				mchVersion: "2.8.0",
 			},
 			want: &kessel.K8SCluster{
 				Metadata: &kessel.Metadata{
@@ -151,7 +149,7 @@ func TestGetK8SCluster(t *testing.T) {
 			clusterv1.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.args.initObjects...).Build()
 
-			got := GetK8SCluster(tt.args.ctx, tt.args.cluster, tt.args.leafHubName, fakeClient, tt.args.mchVersion)
+			got := GetK8SCluster(tt.args.ctx, tt.args.cluster, tt.args.leafHubName, fakeClient)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetK8SCluster() = %v, want %v", got, tt.want)
 			}
@@ -258,7 +256,6 @@ func TestManagedClusterHandler_postToInventoryApi(t *testing.T) {
 				tt.args.updateClusters,
 				tt.args.deleteClusters,
 				tt.args.leafHubName,
-				tt.args.mchVersion,
 			)
 
 			if len(gotCreate) != tt.wantCreate {

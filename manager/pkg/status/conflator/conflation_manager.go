@@ -18,17 +18,16 @@ type ConflationManager struct {
 	log             *zap.SugaredLogger
 	conflationUnits map[string]*ConflationUnit // map from leaf hub to conflation unit
 	// requireInitialDependencyChecks bool
-	registrations      map[string]*ConflationRegistration
-	readyQueue         *ConflationReadyQueue
-	lock               sync.Mutex
-	statistics         *statistics.Statistics
-	Requster           transport.Requester
-	EnableInventoryAPI bool
+	registrations map[string]*ConflationRegistration
+	readyQueue    *ConflationReadyQueue
+	lock          sync.Mutex
+	statistics    *statistics.Statistics
+	Requster      transport.Requester
 }
 
 // NewConflationManager creates a new instance of ConflationManager.
 func NewConflationManager(statistics *statistics.Statistics,
-	requster transport.Requester, enableInventory bool,
+	requster transport.Requester,
 ) *ConflationManager {
 	// conflationReadyQueue is shared between conflation manager and dispatcher
 	conflationUnitsReadyQueue := NewConflationReadyQueue(statistics)
@@ -37,12 +36,11 @@ func NewConflationManager(statistics *statistics.Statistics,
 		log:             logger.ZapLogger("conflation-manager"),
 		conflationUnits: make(map[string]*ConflationUnit), // map from leaf hub to conflation unit
 		// requireInitialDependencyChecks: requireInitialDependencyChecks,
-		registrations:      make(map[string]*ConflationRegistration),
-		readyQueue:         conflationUnitsReadyQueue,
-		lock:               sync.Mutex{}, // lock to be used to find/create conflation units
-		statistics:         statistics,
-		Requster:           requster,
-		EnableInventoryAPI: enableInventory,
+		registrations: make(map[string]*ConflationRegistration),
+		readyQueue:    conflationUnitsReadyQueue,
+		lock:          sync.Mutex{}, // lock to be used to find/create conflation units
+		statistics:    statistics,
+		Requster:      requster,
 	}
 }
 

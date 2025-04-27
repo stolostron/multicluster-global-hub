@@ -47,7 +47,7 @@ func managedHub(ctx context.Context, leafHubName string) error {
 	}
 
 	k8sCluster := managedcluster.GetK8SCluster(ctx, cluster,
-		leafHubName, c, "2.13.0")
+		leafHubName, c)
 
 	resp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster},
