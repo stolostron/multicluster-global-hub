@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -38,6 +39,25 @@ func GetClusterClaim(ctx context.Context,
 		return nil, err
 	}
 	return clusterClaim, nil
+}
+
+func GetClusterClaimValueFromCluster(ctx context.Context,
+	k8sClient client.Client,
+	clusterName string,
+	claimName string,
+) (string, error) {
+	mc := &clusterv1.ManagedCluster{}
+	err := k8sClient.Get(ctx, client.ObjectKey{Name: clusterName}, mc)
+	if err != nil {
+		return "", err
+	}
+
+	for _, claim := range mc.Status.ClusterClaims {
+		if claim.Name == claimName {
+			return claim.Value, nil
+		}
+	}
+	return "", fmt.Errorf("claim %s not found in cluster %s", claimName, clusterName)
 }
 
 func PrintRuntimeInfo() {

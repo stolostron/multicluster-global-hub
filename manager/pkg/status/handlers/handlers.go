@@ -32,7 +32,7 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 	clustermigration.RegisterManagedClusterMigrationHandler(mgr, cmr)
 
 	// local policy
-	policy.RegisterLocalPolicySpecHandler(cmr)
+	policy.RegisterLocalPolicySpecHandler(mgr.GetClient(), cmr)
 	policy.RegisterLocalPolicyComplianceHandler(cmr)
 	policy.RegisterLocalPolicyCompleteHandler(cmr)
 	policy.RegisterLocalRootPolicyEventHandler(cmr)
