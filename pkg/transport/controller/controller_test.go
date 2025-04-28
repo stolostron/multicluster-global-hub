@@ -94,7 +94,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	assert.False(t, result.Requeue)
 	assert.NotNil(t, secretController.transportClient.producer)
 	// cannot assert consumer, because the consumer can be closed since we do not have a real kafka
-	//assert.NotNil(t, secretController.transportClient.consumer)
+	// assert.NotNil(t, secretController.transportClient.consumer)
 	assert.True(t, callbackInvoked)
 
 	// Test when transport config changes
