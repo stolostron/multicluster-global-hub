@@ -65,12 +65,23 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			log.Infof("migration registering: %s", fromHub)
 			// notify the source hub to start registering
 			err = m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRegistering,
-				nil, nil)
+				sourceHubToClusters[fromHub], nil)
 			if err != nil {
 				return false, err
 			}
 			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
 		}
 	}
+
+	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
+		log.Infof("migration registering: %s", mcm.Spec.To)
+		// notify the target hub to start registering
+		err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, nil)
+		if err != nil {
+			return false, err
+		}
+		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
+	}
+
 	return true, nil
 }

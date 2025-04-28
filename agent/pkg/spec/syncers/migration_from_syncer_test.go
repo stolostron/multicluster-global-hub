@@ -13,6 +13,7 @@ import (
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -100,7 +101,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}(),
 		},
 		{
-			name: "Migrating: migrate cluster1 from hub1 to hub2",
+			name: "Registering: register cluster1 to hub2",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -113,36 +114,19 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				ToHub: "hub2",
-				Stage: migrationv1alpha1.ConditionTypeRegistered,
-				BootstrapSecret: &corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      bootstrapSecretNamePrefix + "hub2",
-						Namespace: "multicluster-engine",
-					},
-					Data: map[string][]byte{
-						"test1": []byte(`payload`),
-					},
-				},
+				ToHub:           "hub2",
+				Stage:           migrationv1alpha1.PhaseRegistering,
 				ManagedClusters: []string{"cluster1"},
 			},
 			expectedProduceEvent: nil,
 			expectedObjects: []client.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      bootstrapSecretNamePrefix + "hub2",
-						Namespace: "multicluster-engine",
-					},
-				},
-				&klusterletv1alpha1.KlusterletConfig{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: klusterletConfigNamePrefix + "hub2",
-					},
-				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "cluster1",
-						// Namespace: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     false,
+						LeaseDurationSeconds: 60,
 					},
 				},
 			},
@@ -236,9 +220,10 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 			if c.expectedObjects != nil {
 				for _, obj := range c.expectedObjects {
-					err = fakeClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+					runtimeObj := obj.DeepCopyObject().(client.Object)
+					err = fakeClient.Get(ctx, client.ObjectKeyFromObject(obj), runtimeObj)
 					assert.Nil(t, err)
-					// utils.PrettyPrint(obj)
+					assert.True(t, apiequality.Semantic.DeepDerivative(obj, runtimeObj))
 				}
 			}
 		})
