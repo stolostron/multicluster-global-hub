@@ -58,7 +58,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				Stage:                                 migrationv1alpha1.ConditionTypeInitialized,
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
