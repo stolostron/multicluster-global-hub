@@ -95,7 +95,8 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		// the delta is 0 seconds, the next 3 seconds(3 - 0) events will be filtered
 		filter.DeltaDuration = 0 // set the buffer into 0
 		filter.CacheSyncInterval = 1
-		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(3*time.Second))
+		cacheTime := 5 * time.Second
+		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(cacheTime))
 
 		By("Create a expired event")
 		expiredEvent := &corev1.Event{
@@ -115,7 +116,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			},
 		}
 		Expect(runtimeClient.Create(ctx, expiredEvent)).NotTo(HaveOccurred())
-		time.Sleep(5 * time.Second)
+		time.Sleep(cacheTime)
 
 		By("Create a new event")
 		newEvent := &corev1.Event{
