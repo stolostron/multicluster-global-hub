@@ -36,8 +36,9 @@ var migrationStageTimeout = 5 * time.Minute
 
 // Initializing:
 //  1. Grant the proper permission to the source clusters and the target cluster for the migration topic.
-//  2. Destination Hub: create managedserviceaccount, Set autoApprove for the SA
-//  3. Source Hub: attach the klusterletconfig with bootstrapsecret for the migrating clusters
+//  2. Destination Hub: create managedserviceaccount, Set autoApprove for the SA by initializing event
+//  3. Source Hub: attach the klusterletconfig with bootstrapsecret for the migrating clusters by initializing event
+//  4. Confirmation: report initialized event by the agent, processed by the manager handler
 func (m *ClusterMigrationController) initializing(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
