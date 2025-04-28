@@ -68,7 +68,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	}
 	s.log.Debugf("received cloudevent %s", string(payload))
 
-	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
+	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseInitializing {
 		if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
 			s.log.Errorf("failed to initialize the migration resources %v", err)
 			return err

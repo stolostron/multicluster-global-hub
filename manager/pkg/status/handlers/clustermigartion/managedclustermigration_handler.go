@@ -61,13 +61,13 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		log.Error("failed to parse migrationBundle clusterName", "error", err)
 		return err
 	}
-	eventSource := evt.Source()
-	if eventSource == "" {
+	hubClusterName := evt.Source()
+	if hubClusterName == "" {
 		return fmt.Errorf("failed to parse migrationBundle event source")
 	}
 
 	if bundle.Stage == migrationv1alpha1.ConditionTypeInitialized {
-		migration.ReportInitializingStatus(eventSource, bundle)
+		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseInitializing)
 	}
 
 	db := database.GetGorm()

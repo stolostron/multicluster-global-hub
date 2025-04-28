@@ -90,7 +90,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// expected initialized
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeInitialized {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
