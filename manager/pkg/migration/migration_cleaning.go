@@ -4,8 +4,11 @@ import (
 	"context"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -110,4 +113,20 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 
 func SetDeleteDuration(interval time.Duration) {
 	deleteInterval = interval
+}
+
+func (m *ClusterMigrationController) deleteManagedServiceAccount(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration,
+) error {
+	msa := &v1beta1.ManagedServiceAccount{}
+	if err := m.Get(ctx, types.NamespacedName{
+		Name:      migration.Name,
+		Namespace: migration.Spec.To,
+	}, msa); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	return m.Delete(ctx, msa)
 }

@@ -5,6 +5,8 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -197,18 +200,42 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-func (m *ClusterMigrationController) deleteManagedServiceAccount(ctx context.Context,
-	migration *migrationv1alpha1.ManagedClusterMigration,
+// sendEventToDestinationHub:
+// 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
+// 2. if KlusterletAddonConfig is not nil -> deploying
+func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 ) error {
-	msa := &v1beta1.ManagedServiceAccount{}
-	if err := m.Get(ctx, types.NamespacedName{
-		Name:      migration.Name,
-		Namespace: migration.Spec.To,
-	}, msa); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
+	// default managedserviceaccount addon namespace
+	msaNamespace := "open-cluster-management-agent-addon"
+	if m.importClusterInHosted {
+		// hosted mode, the  managedserviceaccount addon namespace
+		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}
-	return m.Delete(ctx, msa)
+	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
+	// if user specifies the managedserviceaccount addon namespace, then use it
+	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
+		msaNamespace = val
+	}
+	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+		MigrationId:                           string(migration.GetUID()),
+		Stage:                                 stage,
+		ManagedServiceAccountName:             migration.Name,
+		ManagedServiceAccountInstallNamespace: msaNamespace,
+		ManagedClusters:                       managedClusters,
+	}
+
+	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
+	if err != nil {
+		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",
+			managedClusterMigrationToEvent, err)
+	}
+
+	eventType := constants.CloudEventTypeMigrationTo
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
+	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
+			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
+	}
+	return nil
 }

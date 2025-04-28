@@ -75,8 +75,12 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
 		log.Infof("migration registering: %s", mcm.Spec.To)
+		allClusters := []string{}
+		for _, clusters := range sourceHubToClusters {
+			allClusters = append(allClusters, clusters...)
+		}
 		// notify the target hub to start registering
-		err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, nil)
+		err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, allClusters)
 		if err != nil {
 			return false, err
 		}

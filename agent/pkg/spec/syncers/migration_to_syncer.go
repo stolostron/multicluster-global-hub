@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -16,10 +17,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -73,17 +76,44 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			return err
 		}
 		s.log.Info("finished the initializing")
-
-		if err := s.deploying(ctx, managedClusterMigrationToEvent); err != nil {
-			s.log.Errorf("failed to start migration consumer: %v", err)
-			return nil
-		}
-		s.log.Info("finished the deploying")
 	}
 
-	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
+	if err := s.deploying(ctx, managedClusterMigrationToEvent); err != nil {
+		s.log.Errorf("failed to start migration consumer: %v", err)
+		return err
+	}
+	s.log.Info("finished the deploying")
+
+	// expected registered
+	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
+		go func() {
+			s.log.Infof("registering managed cluster migration")
+			notAvailableManagedClusters := []string{}
+			if err := wait.PollUntilContextTimeout(ctx, 1*time.Minute, 10*time.Minute, false, func(context.Context) (done bool, err error) {
+				if err := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); err != nil {
+					return false, err
+				}
+				return true, nil
+			}); err != nil {
+				if err := ReportMigrationStatus(ctx, s.transportClient,
+					&migration.ManagedClusterMigrationBundle{
+						Stage:      migrationv1alpha1.ConditionTypeRegistered,
+						ErrMessage: fmt.Sprintf("failed to register the managed clusters [%s]", strings.Join(notAvailableManagedClusters, ", ")),
+					}, s.bundleVersion); err != nil {
+					s.log.Errorf("failed to send migration event due to %v", err)
+				}
+			}
+			if err := ReportMigrationStatus(ctx, s.transportClient,
+				&migration.ManagedClusterMigrationBundle{
+					Stage: migrationv1alpha1.ConditionTypeRegistered,
+				}, s.bundleVersion); err != nil {
+				s.log.Errorf("failed to send migration event due to %v", err)
+			}
+		}()
+	}
 
 	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeCleaned {
+		msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
 		// delete the subjectaccessreviews creation role and roleBinding
 		migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 		clusterRole := &rbacv1.ClusterRole{
@@ -157,6 +187,36 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		}
 	}
 
+	return nil
+}
+
+// registering watches the migrated managed clusters
+func (s *managedClusterMigrationToSyncer) registering(ctx context.Context,
+	evt *migration.ManagedClusterMigrationToEvent, notAvailableManagedClusters []string,
+) error {
+	// clean notAvailableManagedClusters
+	notAvailableManagedClusters = notAvailableManagedClusters[:0]
+	// list the managed clusters
+	managedClusterList := &clusterv1.ManagedClusterList{}
+	if err := s.client.List(ctx, managedClusterList, &client.ListOptions{}); err != nil {
+		return err
+	}
+	// check if the managed cluster is in the managed cluster list
+	for _, cluster := range evt.ManagedClusters {
+		for _, mc := range managedClusterList.Items {
+			if mc.Name == cluster {
+				if meta.IsStatusConditionTrue(mc.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
+					s.log.Debugf("managed cluster %s is ready", cluster)
+				} else {
+					notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
+				}
+				continue
+			}
+		}
+	}
+	if len(notAvailableManagedClusters) > 0 {
+		return fmt.Errorf("not all the managed clusters are registered, wait...")
+	}
 	return nil
 }
 
