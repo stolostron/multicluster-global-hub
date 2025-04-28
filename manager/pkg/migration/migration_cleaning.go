@@ -12,6 +12,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
+const (
+	conditionReasonResourceNotCleaned = "ResourceNotCleaned"
+	conditionReasonResourceCleaned    = "ResourceCleaned"
+)
+
 var deleteInterval = 5 * time.Minute
 
 // Completed:

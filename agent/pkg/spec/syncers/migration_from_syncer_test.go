@@ -33,8 +33,6 @@ import (
 
 // go test -run ^TestMigrationSourceHubSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
 func TestMigrationSourceHubSyncer(t *testing.T) {
-	sleepForApplying = 1
-
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	if err := corev1.AddToScheme(scheme); err != nil {

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/go-kratos/kratos/v2/log"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
@@ -41,9 +40,6 @@ const (
 	bootstrapSecretNamePrefix  = "bootstrap-"
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 )
-
-// This is a temporary solution to wait for applying the klusterletconfig
-var sleepForApplying = 20 * time.Second
 
 type managedClusterMigrationFromSyncer struct {
 	log               *zap.SugaredLogger
@@ -115,12 +111,11 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	}
 
 	// expected registered
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeRegistered {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
 		s.log.Infof("registering managed cluster migration")
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
-		return nil
 	}
 
 	// expected completed that means need to clean up resources from the source hub, and send the confirmation
@@ -302,101 +297,7 @@ func (m *managedClusterMigrationFromSyncer) initializing(
 func (m *managedClusterMigrationFromSyncer) registering(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
-	bootstrapSecret := migratingEvt.BootstrapSecret
-	// ensure bootstrap kubeconfig secret
-	foundBootstrapSecret := &corev1.Secret{}
-	if err := m.client.Get(ctx,
-		types.NamespacedName{
-			Name:      bootstrapSecret.Name,
-			Namespace: bootstrapSecret.Namespace,
-		}, foundBootstrapSecret); err != nil {
-		if apierrors.IsNotFound(err) {
-			m.log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
-			if err := m.client.Create(ctx, bootstrapSecret); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		// update the bootstrap secret if it already exists
-		m.log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
-		if err := m.client.Update(ctx, bootstrapSecret); err != nil {
-			return err
-		}
-	}
-
-	// ensure klusterletconfig
-	klusterletConfig := &klusterletv1alpha1.KlusterletConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: klusterletConfigNamePrefix + migratingEvt.ToHub,
-		},
-		Spec: klusterletv1alpha1.KlusterletConfigSpec{
-			BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-				Type: operatorv1.LocalSecrets,
-				LocalSecrets: operatorv1.LocalSecretsConfig{
-					KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-						{
-							Name: bootstrapSecret.Name,
-						},
-					},
-				},
-			},
-		},
-	}
-	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
-		if apierrors.IsNotFound(err) {
-			if err := m.client.Create(ctx, klusterletConfig); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	}
-	containBootstrapSecret := false
-	kubeConfigSecrets := klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets
-	for _, kubeConfigSecret := range kubeConfigSecrets {
-		if kubeConfigSecret.Name == bootstrapSecret.Name {
-			containBootstrapSecret = true
-		}
-	}
-	if !containBootstrapSecret {
-		klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets = append(kubeConfigSecrets,
-			operatorv1.KubeConfigSecret{Name: bootstrapSecret.Name})
-		if err := m.client.Update(ctx, klusterletConfig); err != nil {
-			return err
-		}
-	}
-
-	// update managed cluster annotations to point to the new klusterletconfig
 	managedClusters := migratingEvt.ManagedClusters
-	for _, managedCluster := range managedClusters {
-		mc := &clusterv1.ManagedCluster{}
-		if err := m.client.Get(ctx, types.NamespacedName{
-			Name: managedCluster,
-		}, mc); err != nil {
-			return err
-		}
-		annotations := mc.Annotations
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-
-		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.Name {
-			continue
-		}
-		annotations[KlusterletConfigAnnotation] = klusterletConfig.Name
-		annotations[constants.ManagedClusterMigrating] = ""
-		mc.SetAnnotations(annotations)
-		if err := m.client.Update(ctx, mc); err != nil {
-			return err
-		}
-	}
-
-	// ensure the bootstrap secret is propagated into the managed cluster
-	time.Sleep(sleepForApplying)
-
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}
@@ -413,31 +314,6 @@ func (m *managedClusterMigrationFromSyncer) registering(
 	}
 
 	return nil
-}
-
-func (s *managedClusterMigrationFromSyncer) getKlusterletAddonConfig(ctx context.Context,
-	managedCluster string,
-) (*addonv1.KlusterletAddonConfig, error) {
-	config := &addonv1.KlusterletAddonConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: managedCluster, Namespace: managedCluster},
-	}
-	// send klusterletAddonConfig to global hub so that it can be transferred to the target cluster
-	if err := s.client.Get(ctx, client.ObjectKeyFromObject(config), config); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return nil, err
-		}
-		log.Infof("klusterletAddonConfig %s doesn't exist", managedCluster)
-	}
-	// do cleanup
-	config.SetManagedFields(nil)
-	config.SetFinalizers(nil)
-	config.SetOwnerReferences(nil)
-	config.SetSelfLink("")
-	config.SetResourceVersion("")
-	config.SetGeneration(0)
-	config.Status = addonv1.KlusterletAddonConfigStatus{}
-
-	return config, nil
 }
 
 func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
