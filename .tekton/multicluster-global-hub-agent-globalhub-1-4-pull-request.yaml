@@ -598,7 +598,8 @@ spec:
       optional: true
     - name: netrc
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-multicluster-global-hub-agent-globalhub-1-4
   workspaces:
   - name: git-auth
     secret:
