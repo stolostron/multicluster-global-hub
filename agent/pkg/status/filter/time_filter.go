@@ -19,12 +19,15 @@ const (
 )
 
 var (
-	topicName              = ""
-	eventTimeCache         = make(map[string]time.Time)
-	lastEventTimeCache     = make(map[string]time.Time)
-	eventTimeCacheInterval = 5 * time.Second
-	DeltaDuration          = 3 * time.Second
-	log                    = logger.DefaultZapLogger()
+	topicName = ""
+	// cache time in the runtime
+	eventTimeCache = make(map[string]time.Time)
+	// the cache to be persist into configMap to duplicate messages
+	lastEventTimeCache = make(map[string]time.Time)
+	// the interval to update the the runtime cache in the the configMap(by lastEventTimeCache)
+	CacheSyncInterval = 5 * time.Second
+	DeltaDuration     = 3 * time.Second
+	log               = logger.DefaultZapLogger()
 )
 
 // CacheTime cache the latest time
@@ -74,7 +77,7 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 	}
 
 	go func() {
-		ticker := time.NewTicker(eventTimeCacheInterval)
+		ticker := time.NewTicker(CacheSyncInterval)
 		defer ticker.Stop()
 
 		for {
