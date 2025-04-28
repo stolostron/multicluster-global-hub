@@ -22,7 +22,7 @@ var (
 	topicName = ""
 	// cache time in the runtime
 	eventTimeCache = make(map[string]time.Time)
-	// the cache to be persist into configMap to duplicate messages
+	// the cache to be persist into configMap to deduplicate messages
 	lastEventTimeCache = make(map[string]time.Time)
 	// the interval to update the the runtime cache in the the configMap(by lastEventTimeCache)
 	CacheSyncInterval = 5 * time.Second
