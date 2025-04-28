@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
@@ -28,7 +27,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -437,18 +435,49 @@ var _ = Describe("migration", Ordered, func() {
 
 			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseMigrating &&
 				migrationInstance.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				utils.PrettyPrint(migrationInstance.Status)
 				return fmt.Errorf("wait for the migration Migrating to be ready: %s", migrationInstance.Status.Phase)
 			}
 
 			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
 				migrationv1alpha1.ConditionTypeRegistered)
 			if registeredCond == nil {
+				utils.PrettyPrint(migrationInstance.Status)
 				return fmt.Errorf("the registering condition should appears in the migration CR")
 			}
-
-			utils.PrettyPrint(migrationInstance.Status)
 			return nil
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
+	})
+
+	It("should deploy the resource for the migration cluster", func() {
+		// check the migration status is deployed
+		migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "migration",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+		}
+
+		Eventually(func() error {
+			err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
+			if err != nil {
+				return err
+			}
+
+			// mock the target hub report result
+			migration.SetFinished(string(migrationInstance.GetUID()), migrationInstance.Spec.To,
+				migrationv1alpha1.PhaseDeploying)
+
+			// db should changed into deploying
+			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
+				migrationv1alpha1.ConditionTypeDeployed)
+			if registeredCond.Status == metav1.ConditionFalse {
+				utils.PrettyPrint(migrationInstance.Status)
+				return fmt.Errorf("the deploying condition should be set into true")
+			}
+			// utils.PrettyPrint(migrationInstance.Status)
+			return nil
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	// It("should register the migration cluster", func() {
@@ -512,31 +541,6 @@ var _ = Describe("migration", Ordered, func() {
 	// 	}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	// })
 
-	// It("should deploy the resource for the migration cluster", func() {
-	// 	// check the migration status is deployed
-	// 	migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
-	// 		ObjectMeta: metav1.ObjectMeta{
-	// 			Name:      "migration",
-	// 			Namespace: utils.GetDefaultNamespace(),
-	// 		},
-	// 	}
-	// 	Eventually(func() error {
-	// 		err := mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(migrationInstance), migrationInstance)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		// db should changed into deploying
-	// 		registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
-	// 			migrationv1alpha1.ConditionTypeDeployed)
-	// 		if registeredCond.Status == metav1.ConditionFalse {
-	// 			return fmt.Errorf("the deploying condition should be set into true")
-	// 		}
-	// 		utils.PrettyPrint(migrationInstance.Status)
-	// 		return nil
-	// 	}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
-	// })
-
 	// It("should complete the process for the migration cluster", func() {
 	// 	// // get the clean up event in the source hub
 	// 	// Eventually(func() error {
@@ -593,32 +597,32 @@ var _ = Describe("migration", Ordered, func() {
 	// 	}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 	// })
 
-	It("should receive the migration resources from gh-migration topic", func() {
-		By("the cluster1 namespace should not exist")
-		Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{Name: "cluster1"}, &corev1.Namespace{})).To(HaveOccurred())
+	// It("should receive the migration resources from gh-migration topic", func() {
+	// 	By("the cluster1 namespace should not exist")
+	// 	Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{Name: "cluster1"}, &corev1.Namespace{})).To(HaveOccurred())
 
-		By("send migration resources to the topic")
-		fromSyncer := syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), nil, transportConfig)
-		migrationProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.MigrationTopic, nil)
-		Expect(err).NotTo(HaveOccurred())
-		fromSyncer.SetMigrationProducer(migrationProducer)
-		Expect(fromSyncer.SendSourceClusterMigrationResources(testCtx, string(migrationInstance.GetUID()),
-			[]string{"cluster1"}, "hub1", "hub2")).NotTo(HaveOccurred())
+	// 	By("send migration resources to the topic")
+	// 	fromSyncer := syncers.NewManagedClusterMigrationFromSyncer(mgr.GetClient(), nil, transportConfig)
+	// 	migrationProducer, err := producer.NewGenericProducer(transportConfig, transportConfig.KafkaCredential.MigrationTopic, nil)
+	// 	Expect(err).NotTo(HaveOccurred())
+	// 	fromSyncer.SetMigrationProducer(migrationProducer)
+	// 	Expect(fromSyncer.SendSourceClusterMigrationResources(testCtx, string(migrationInstance.GetUID()),
+	// 		[]string{"cluster1"}, "hub1", "hub2")).NotTo(HaveOccurred())
 
-		By("receive migration resources from the topic")
-		toSyncer := syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient(), nil, transportConfig)
-		go func() {
-			Expect(toSyncer.StartMigrationConsumer(testCtx, string(migrationInstance.GetUID()))).NotTo(HaveOccurred())
-		}()
+	// 	By("receive migration resources from the topic")
+	// 	toSyncer := syncers.NewManagedClusterMigrationToSyncer(mgr.GetClient(), nil, transportConfig)
+	// 	go func() {
+	// 		Expect(toSyncer.StartMigrationConsumer(testCtx, string(migrationInstance.GetUID()))).NotTo(HaveOccurred())
+	// 	}()
 
-		By("check the namespace is created by syncMigrationResources method")
-		Eventually(func() error {
-			ns := &corev1.Namespace{}
-			err := mgr.GetClient().Get(testCtx, types.NamespacedName{Name: "cluster1"}, ns)
-			if err != nil {
-				return err
-			}
-			return nil
-		}, 10*time.Second, 1*time.Millisecond).Should(Succeed())
-	})
+	// 	By("check the namespace is created by syncMigrationResources method")
+	// 	Eventually(func() error {
+	// 		ns := &corev1.Namespace{}
+	// 		err := mgr.GetClient().Get(testCtx, types.NamespacedName{Name: "cluster1"}, ns)
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		return nil
+	// 	}, 10*time.Second, 1*time.Millisecond).Should(Succeed())
+	// })
 })

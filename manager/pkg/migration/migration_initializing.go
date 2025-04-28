@@ -27,9 +27,10 @@ import (
 )
 
 const (
-	ConditionReasonTokenSecretMissing  = "TokenSecretMissing"
-	ConditionReasonResourceInitialized = "ResourceInitialized"
-	ConditionReasonTimeout             = "Timeout"
+	ConditionReasonTokenSecretMissing     = "TokenSecretMissing"
+	ConditionReasonResourceInitialized    = "ResourceInitialized"
+	ConditionReasonResourceNotInitialized = "ResourceNotInitialized"
+	ConditionReasonTimeout                = "Timeout"
 )
 
 var migrationStageTimeout = 5 * time.Minute
@@ -63,6 +64,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		if err != nil {
 			condMessage = err.Error()
 			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonResourceNotInitialized
 		}
 		log.Debugf("initializing condition %s(%s): %s", condType, condReason, condMessage)
 		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)

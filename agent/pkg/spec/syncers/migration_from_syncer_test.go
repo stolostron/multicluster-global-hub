@@ -211,7 +211,8 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			}
 
-			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(fakeClient, transportClient, transportConfig)
+			managedClusterMigrationSyncer := NewManagedClusterMigrationFromSyncer(fakeClient, transportClient,
+				transportConfig)
 			managedClusterMigrationSyncer.sendResources = true
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)

@@ -17,8 +17,6 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -56,7 +54,7 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return err
 	}
 
-	eventClusterName, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
+	clusterName, err := types.ToString(evt.Extensions()[constants.CloudEventExtensionKeyClusterName])
 	if err != nil {
 		log.Error("failed to parse migrationBundle clusterName", "error", err)
 		return err
@@ -70,35 +68,8 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseInitializing)
 	}
 
-	db := database.GetGorm()
-
-	// from destination hub -> resource deployed
 	if bundle.Stage == migrationv1alpha1.ConditionTypeDeployed {
-		for _, cluster := range bundle.ManagedClusters {
-			err = db.Model(&models.ManagedClusterMigration{}).
-				Where("to_hub = ?", evt.Source()).
-				Where("cluster_name = ?", cluster).
-				Update("stage", migrationv1alpha1.ConditionTypeDeployed).Error
-			if err != nil {
-				log.Errorf("failed to mark the stage ResourceDeployed for %s - %s in db: %v", evt.Source(), cluster, err)
-				return err
-			}
-		}
-	}
-
-	// from source hub -> migration completed
-	if bundle.Stage == migrationv1alpha1.ConditionTypeCleaned {
-		for _, cluster := range bundle.ManagedClusters {
-			log.Infof("cleaned up the source hub resources: %s", evt.Source())
-			err = db.Model(&models.ManagedClusterMigration{}).
-				Where("to_hub = ?", eventClusterName).
-				Where("cluster_name = ?", cluster).
-				Update("stage", migrationv1alpha1.ConditionTypeCleaned).Error
-			if err != nil {
-				log.Errorf("failed to mark the MigrationCompleted for %s - $s in db: %v", evt.Source(), cluster, err)
-				return err
-			}
-		}
+		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseDeploying)
 	}
 	return nil
 }
