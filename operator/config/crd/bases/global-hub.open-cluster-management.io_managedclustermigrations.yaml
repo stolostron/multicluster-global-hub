@@ -136,6 +136,7 @@ spec:
                 - Cleaning
                 - Completed
                 - Failed
+                - Migrating
                 type: string
             type: object
         type: object
