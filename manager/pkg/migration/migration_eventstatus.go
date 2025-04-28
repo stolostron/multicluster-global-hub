@@ -10,17 +10,59 @@ type MigrationPhaseStatus struct {
 	error    string
 }
 
-type MigrationPhase struct {
+type MigrationPhases struct {
 	Validating, Initializing, Deploying, Registering, Cleaning MigrationPhaseStatus
 }
 
-type MigrationEventProgress struct {
-	sourceStatuses map[string]*MigrationPhase
-	targetStatuses map[string]*MigrationPhase
+type MigrationEventProgress map[string]*MigrationPhases
+
+// Initialize the global variable
+var MigrationEventProgressMap = make(map[string]*MigrationEventProgress)
+
+// updatePhaseStatus updates the status (started/finished) in the source or target cluster
+func updatePhaseStatus(migrationId, hubCluster, phase string,
+	updateFunc func(*MigrationPhaseStatus),
+) {
+	mep := MigrationEventProgressMap[migrationId]
+	mp := (*mep)[hubCluster]
+	if mp == nil {
+		mp = &MigrationPhases{}
+		(*mep)[hubCluster] = mp
+	}
+
+	v := reflect.ValueOf(mp).Elem()
+	field := v.FieldByName(phase)
+	if field.IsValid() && field.CanSet() {
+		status, ok := field.Interface().(MigrationPhaseStatus)
+		if ok {
+			updateFunc(&status)
+			field.Set(reflect.ValueOf(status))
+		}
+	}
+}
+
+// SetStarted sets the status of the given stage to started for the hub cluster
+func SetStarted(migrationId, hubCluster, phase string) {
+	updatePhaseStatus(migrationId, hubCluster, phase, func(status *MigrationPhaseStatus) {
+		status.started = true
+	})
+}
+
+// SetFinished sets the status of the given stage to finished for the hub cluster
+func SetFinished(migrationId, cluster, phase string) {
+	updatePhaseStatus(migrationId, cluster, phase, func(status *MigrationPhaseStatus) {
+		status.finished = true
+	})
+}
+
+func SetErrorMessage(migrationId, hubCluster, phase, errMessage string) {
+	updatePhaseStatus(migrationId, hubCluster, phase, func(status *MigrationPhaseStatus) {
+		status.error = errMessage
+	})
 }
 
 // getPhaseStatus extracts the MigrationPhaseStatus for a given phase
-func getPhaseStatus(mp *MigrationPhase, phase string) (MigrationPhaseStatus, bool) {
+func getPhaseStatus(mp *MigrationPhases, phase string) (MigrationPhaseStatus, bool) {
 	if mp == nil {
 		return MigrationPhaseStatus{}, false
 	}
@@ -39,9 +81,10 @@ func getPhaseStatus(mp *MigrationPhase, phase string) (MigrationPhaseStatus, boo
 	return status, true
 }
 
-// IsSourceStarted returns true if the status of the given stage is started in the source cluster
-func IsSourceStarted(mep *MigrationEventProgress, phase, cluster string) bool {
-	mp := mep.sourceStatuses[cluster]
+// GetStarted returns true if the status of the given stage is started for the hub cluster
+func GetStarted(migrationId, hubCluster, phase string) bool {
+	mep := MigrationEventProgressMap[migrationId]
+	mp := (*mep)[hubCluster]
 	status, ok := getPhaseStatus(mp, phase)
 	if !ok {
 		return false
@@ -49,9 +92,10 @@ func IsSourceStarted(mep *MigrationEventProgress, phase, cluster string) bool {
 	return status.started
 }
 
-// IsSourceFinished returns true if the status of the given stage is finished in the source cluster
-func IsSourceFinished(mep *MigrationEventProgress, phase, cluster string) bool {
-	mp := mep.sourceStatuses[cluster]
+// GetFinished returns true if the status of the given stage is finished for the hub cluster
+func GetFinished(migrationId, hubCluster, phase string) bool {
+	mep := MigrationEventProgressMap[migrationId]
+	mp := (*mep)[hubCluster]
 	status, ok := getPhaseStatus(mp, phase)
 	if !ok {
 		return false
@@ -59,71 +103,12 @@ func IsSourceFinished(mep *MigrationEventProgress, phase, cluster string) bool {
 	return status.finished
 }
 
-// IsTargetStarted returns true if the status of the given stage is started in the target cluster
-func IsTargetStarted(mep *MigrationEventProgress, phase, cluster string) bool {
-	mp := mep.targetStatuses[cluster]
+func GetErrorMessage(migrationId, hubCluster, phase string) string {
+	mep := MigrationEventProgressMap[migrationId]
+	mp := (*mep)[hubCluster]
 	status, ok := getPhaseStatus(mp, phase)
 	if !ok {
-		return false
+		return ""
 	}
-	return status.started
-}
-
-// IsTargetFinished returns true if the status of the given stage is finished in the target cluster
-func IsTargetFinished(mep *MigrationEventProgress, phase, cluster string) bool {
-	mp := mep.targetStatuses[cluster]
-	status, ok := getPhaseStatus(mp, phase)
-	if !ok {
-		return false
-	}
-	return status.finished
-}
-
-// updatePhaseStatus updates the status (started/finished) in the source or target cluster
-func updatePhaseStatus(phases map[string]*MigrationPhase, cluster, phase string,
-	updateFunc func(*MigrationPhaseStatus),
-) {
-	mp := phases[cluster]
-	if mp == nil {
-		mp = &MigrationPhase{}
-		phases[cluster] = mp
-	}
-
-	v := reflect.ValueOf(mp).Elem()
-	field := v.FieldByName(phase)
-	if field.IsValid() && field.CanSet() {
-		status, ok := field.Interface().(MigrationPhaseStatus)
-		if ok {
-			updateFunc(&status)
-			field.Set(reflect.ValueOf(status))
-		}
-	}
-}
-
-// SetSourceStarted sets the status of the given stage to started in the source cluster
-func SetSourceStarted(mep *MigrationEventProgress, phase, cluster string) {
-	updatePhaseStatus(mep.sourceStatuses, cluster, phase, func(status *MigrationPhaseStatus) {
-		status.started = true
-	})
-}
-
-// SetSourceFinished sets the status of the given stage to finished in the source cluster
-func SetSourceFinished(mep *MigrationEventProgress, phase, cluster string) {
-	updatePhaseStatus(mep.sourceStatuses, cluster, phase, func(status *MigrationPhaseStatus) {
-		status.finished = true
-	})
-}
-
-// SetTargetStarted sets the status of the given stage to started in the target cluster
-func SetTargetStarted(mep *MigrationEventProgress, phase, cluster string) {
-	updatePhaseStatus(mep.targetStatuses, cluster, phase, func(status *MigrationPhaseStatus) {
-		status.started = true
-	})
-}
-
-// SetTargetFinished sets the status of the given stage to finished in the target cluster
-func SetTargetFinished(mep *MigrationEventProgress, phase, cluster string) {
-	updatePhaseStatus(mep.targetStatuses, cluster, phase, func(status *MigrationPhaseStatus) {
-		status.finished = true
-	})
+	return status.error
 }
