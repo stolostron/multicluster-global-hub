@@ -1,21 +1,33 @@
 package managedhub
 
 import (
+	"context"
+
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+	mch, err := utils.ListMCH(context.Background(), mgr.GetClient())
+	if err != nil {
+		return err
+	}
+	if mch != nil && mch.Status.CurrentVersion != "" {
+		configs.SetMCHVersion(mch.Status.CurrentVersion)
+	}
+
 	eventData := &cluster.HubClusterInfo{}
 	return generic.LaunchMultiObjectSyncer(
 		"status.hub_cluster_info",
@@ -113,6 +125,10 @@ func (p *infoRouteHandler) Update(obj client.Object) bool {
 		p.evtData.GrafanaURL = newURL
 		updated = true
 	}
+	if configs.GetMCHVersion() != p.evtData.MchVersion {
+		p.evtData.MchVersion = configs.GetMCHVersion()
+		updated = true
+	}
 	return updated
 }
 
@@ -124,6 +140,10 @@ func (p *infoRouteHandler) Delete(obj client.Object) bool {
 	}
 	if obj.GetName() == constants.ObservabilityGrafanaRouteName && p.evtData.GrafanaURL != "" {
 		p.evtData.GrafanaURL = ""
+		updated = true
+	}
+	if configs.GetMCHVersion() != "" {
+		p.evtData.MchVersion = ""
 		updated = true
 	}
 	return updated

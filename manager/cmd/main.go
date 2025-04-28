@@ -48,7 +48,6 @@ const (
 	metricsPort          int32 = 8384
 	webhookPort                = 9443
 	webhookCertDir             = "/webhook-certs"
-	kafkaTransportType         = "kafka"
 	leaderElectionLockID       = "multicluster-global-hub-manager-lock"
 	launchJobNamesEnv          = "LAUNCH_JOB_NAMES"
 	namespacePath              = "metadata.namespace"
@@ -117,6 +116,8 @@ func parseFlags() *configs.ManagerConfig {
 		"run on Red Hat Advanced Cluster Management")
 	pflag.BoolVar(&managerConfig.ImportClusterInHosted, "import-cluster-in-hosted", false,
 		"import cluster in hosted mode")
+	pflag.BoolVar(&managerConfig.EnableInventoryAPI, "enable-inventory-api", false,
+		"enable the inventory api")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")
 	pflag.IntVar(&managerConfig.TransportConfig.FailureThreshold, "transport-failure-threshold", 10,
 		"Restart the pod if the transport error count exceeds the transport-failure-threshold within 5 minutes.")
@@ -205,7 +206,7 @@ func createManager(ctx context.Context,
 	if err = logger.AddLogConfigController(ctx, mgr); err != nil {
 		return nil, fmt.Errorf("failed to add configmap controller to manager: %w", err)
 	}
-
+	configs.SetEnableInventoryAPI(managerConfig.EnableInventoryAPI)
 	err = controller.NewTransportCtrl(managerConfig.ManagerNamespace, constants.GHTransportConfigSecret,
 		transportCallback(mgr, managerConfig),
 		managerConfig.TransportConfig, true,
@@ -242,13 +243,14 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 		}
 		producer := transportClient.GetProducer()
 		consumer := transportClient.GetConsumer()
+		requester := transportClient.GetRequester()
 		if managerConfig.EnableGlobalResource {
 			if err := specsyncer.AddToManager(mgr, managerConfig, producer); err != nil {
 				return fmt.Errorf("failed to add global resource spec syncers: %w", err)
 			}
 		}
 
-		if err := status.AddStatusSyncers(mgr, consumer, managerConfig); err != nil {
+		if err := status.AddStatusSyncers(mgr, consumer, requester, managerConfig); err != nil {
 			return fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 		}
 

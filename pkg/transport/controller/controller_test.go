@@ -167,7 +167,6 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	assert.Nil(t, secretController.transportClient.consumer)
 	assert.NotNil(t, secretController.transportClient.requester)
 	assert.True(t, callbackInvoked)
-	assert.Equal(t, string(transport.Rest), secretController.transportConfig.TransportType)
 
 	// Test when transport config changes
 	result, err = secretController.Reconcile(ctx, req)

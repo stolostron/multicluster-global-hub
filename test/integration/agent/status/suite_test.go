@@ -131,7 +131,14 @@ var _ = BeforeSuite(func() {
 		EventTopic,
 	})
 	Expect(err).To(Succeed())
+	By("Start the manager")
+	go func() {
+		defer GinkgoRecover()
+		Expect(mgr.Start(ctx)).ToNot(HaveOccurred(), "failed to run manager")
+	}()
 
+	By("Waiting for the manager to be ready")
+	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 	By("Add syncers")
 	// policy
 	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, chanTransport.Producer(PolicyTopic))
@@ -180,15 +187,6 @@ var _ = BeforeSuite(func() {
 			}
 		}
 	}()
-
-	By("Start the manager")
-	go func() {
-		defer GinkgoRecover()
-		Expect(mgr.Start(ctx)).ToNot(HaveOccurred(), "failed to run manager")
-	}()
-
-	By("Waiting for the manager to be ready")
-	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 })
 
 var _ = AfterSuite(func() {

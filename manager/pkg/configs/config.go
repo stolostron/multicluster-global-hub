@@ -24,6 +24,7 @@ type ManagerConfig struct {
 	ElectionConfig        *commonobjects.LeaderElectionConfig
 	EnableGlobalResource  bool
 	ImportClusterInHosted bool
+	EnableInventoryAPI    bool
 	WithACM               bool
 	LaunchJobNames        string
 	EnablePprof           bool
@@ -41,4 +42,14 @@ type DatabaseConfig struct {
 	CACertPath                 string
 	MaxOpenConns               int
 	DataRetention              int
+}
+
+var enableInventoryAPI bool
+
+func IsInventoryAPIEnabled() bool {
+	return enableInventoryAPI
+}
+
+func SetEnableInventoryAPI(enable bool) {
+	enableInventoryAPI = enable
 }

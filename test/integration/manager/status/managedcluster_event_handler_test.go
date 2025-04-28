@@ -13,6 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -84,7 +85,7 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 			Status: clusterv1.ManagedClusterStatus{
 				ClusterClaims: []clusterv1.ManagedClusterClaim{
 					{
-						Name:  "id.k8s.io",
+						Name:  constants.ClusterIdClaimName,
 						Value: clusterClaimID,
 					},
 				},

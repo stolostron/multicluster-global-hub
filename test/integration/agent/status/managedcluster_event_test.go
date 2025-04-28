@@ -41,7 +41,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		cluster.Status = clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: "4f406177-34b2-4852-88dd-ff2809680444",
 				},
 			},
