@@ -8,6 +8,11 @@ type ResourceVersion struct {
 	ResourceVersion string `gorm:"column:resource_version"`
 }
 
+type ClusterInfo struct {
+	ConsoleURL string `gorm:"column:consoleURL"`
+	MchVersion string `gorm:"column:mchVersion"`
+}
+
 type Table struct {
 	Schema string `gorm:"column:schema_name"`
 	Table  string `gorm:"column:table_name"`

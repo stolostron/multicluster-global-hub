@@ -8,6 +8,7 @@ import (
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
@@ -46,8 +47,10 @@ func managedHub(ctx context.Context, leafHubName string) error {
 		return err
 	}
 
+	hubinfo := models.ClusterInfo{}
+
 	k8sCluster := managedcluster.GetK8SCluster(ctx, cluster,
-		leafHubName, c)
+		leafHubName, hubinfo)
 
 	resp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster},

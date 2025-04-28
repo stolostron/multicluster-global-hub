@@ -16,6 +16,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // https://github.com/project-kessel/docs/blob/main/src/content/docs/inventory/kafka-event.md
@@ -29,9 +30,10 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 	BeforeAll(func() {
 		// also is the name of managedclusterinfo
 		localClusterId = fmt.Sprintf("test-cluster-%d", rand.Intn(100000))
+		hubinfo := models.ClusterInfo{}
 
 		cluster := createMockCluster(localClusterId, "OpenShift", "4.10.0", "AWS", "1.23.0")
-		k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", runtimeClient)
+		k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", hubinfo)
 
 		localPolicyId = fmt.Sprintf("test-policy-%d", rand.Intn(100000))
 		k8sPolicy = generateK8SPolicy(localPolicyId, "guest")

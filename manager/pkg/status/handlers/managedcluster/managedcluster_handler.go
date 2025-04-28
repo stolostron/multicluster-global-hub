@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	"github.com/stolostron/multicloud-operators-foundation/pkg/klusterlet/clusterclaim"
 	"go.uber.org/zap"
@@ -35,7 +36,6 @@ type managedClusterHandler struct {
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
 	requester     transport.Requester
-	c             client.Client
 }
 
 func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator.ConflationManager) {
@@ -47,7 +47,6 @@ func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.ManagedClustersPriority,
 		requester:     conflationManager.Requster,
-		c:             c,
 	}
 	conflationManager.Register(conflator.NewConflationRegistration(
 		h.eventPriority,
@@ -211,9 +210,15 @@ func (h *managedClusterHandler) postToInventoryApi(
 	var updateClustersToInventory []clusterv1.ManagedCluster
 	var deleteClustersFromInventory []models.ResourceVersion
 
+	clusterInfo, err := getClusterInfo(database.GetGorm(), leafHubName)
+	log.Debugf("clusterInfo: %v", clusterInfo)
+	if err != nil {
+		h.log.Errorf("failed to get cluster info from db - %w", err)
+	}
+
 	if len(createClusters) > 0 {
 		for _, cluster := range createClusters {
-			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, h.c)
+			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, clusterInfo)
 			if resp, err := requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				h.log.Errorf("failed to create k8sCluster %v: %w", resp, err)
@@ -225,7 +230,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 
 	if len(updateClusters) > 0 {
 		for _, cluster := range updateClusters {
-			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, h.c)
+			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, clusterInfo)
 			if resp, err := requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 				&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				h.log.Errorf("failed to update k8sCluster %v: %w", resp, err)
@@ -307,7 +312,7 @@ func (h *managedClusterHandler) generateCreateUpdateDeleteClusters(
 
 func GetK8SCluster(ctx context.Context,
 	cluster *clusterv1.ManagedCluster, leafHubName string,
-	r client.Client,
+	clusterInfo models.ClusterInfo,
 ) *kessel.K8SCluster {
 	clusterId := string(cluster.GetUID())
 	var vendorVersion, cloudVendor, kubeVersion, kubeVendor string
@@ -358,25 +363,6 @@ func GetK8SCluster(ctx context.Context,
 		},
 	}
 
-	if r != nil {
-		// managedhub console href and api href
-		leafHub := &clusterv1.ManagedCluster{}
-		err := r.Get(ctx, client.ObjectKey{Name: leafHubName}, leafHub)
-		if err == nil {
-			for _, claim := range leafHub.Status.ClusterClaims {
-				if claim.Name == "consoleurl.cluster.open-cluster-management.io" {
-					k8sCluster.ReporterData.ConsoleHref = claim.Value
-				}
-				if claim.Name == "apiserverurl.openshift.io" {
-					k8sCluster.ReporterData.ApiHref = claim.Value
-				}
-				if claim.Name == "version.open-cluster-management.io" {
-					k8sCluster.ReporterData.ReporterVersion = claim.Value
-				}
-			}
-		}
-	}
-
 	// platform
 	switch cloudVendor {
 	case clusterclaim.PlatformAWS:
@@ -391,6 +377,12 @@ func GetK8SCluster(ctx context.Context,
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_AWS_UPI
 	default:
 		k8sCluster.ResourceData.CloudPlatform = kessel.K8SClusterDetail_CLOUD_PLATFORM_OTHER
+	}
+	if clusterInfo.ConsoleURL != "" {
+		k8sCluster.ReporterData.ConsoleHref = clusterInfo.ConsoleURL
+	}
+	if clusterInfo.MchVersion != "" {
+		k8sCluster.ReporterData.ReporterVersion = clusterInfo.MchVersion
 	}
 
 	// kubevendor, ony have the openshift version
@@ -452,4 +444,22 @@ func getClusterIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]model
 		nameToVersionMap[resource.Key] = resource
 	}
 	return nameToVersionMap, nil
+}
+
+func getClusterInfo(db *gorm.DB, clusterName string) (models.ClusterInfo, error) {
+	var clusterInfo []models.ClusterInfo
+	if db == nil {
+		return models.ClusterInfo{}, fmt.Errorf("db is nil")
+	}
+	err := db.Select("payload->>'consoleURL' AS consoleURL, payload->>'mchVersion' AS mchVersion").
+		Where(&models.LeafHub{
+			LeafHubName: clusterName,
+		}).Find(&models.ManagedCluster{}).Scan(&clusterInfo).Error
+	if err != nil {
+		return models.ClusterInfo{}, err
+	}
+	if len(clusterInfo) == 0 {
+		return models.ClusterInfo{}, fmt.Errorf("no cluster info found for %s", clusterName)
+	}
+	return clusterInfo[0], nil
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
@@ -42,8 +43,9 @@ func globalHub(ctx context.Context) error {
 		return err
 	}
 
+	hubinfo := models.ClusterInfo{}
 	cluster := createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster := managedcluster.GetK8SCluster(ctx, cluster, "guest", c)
+	k8sCluster := managedcluster.GetK8SCluster(ctx, cluster, "guest", hubinfo)
 	createResp, err := requesterClient.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 		&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -52,7 +54,7 @@ func globalHub(ctx context.Context) error {
 	fmt.Println("creating response", createResp)
 
 	cluster = createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", c)
+	k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", hubinfo)
 	updatingResponse, err := requesterClient.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 		&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster})
 	if err != nil {
@@ -61,7 +63,7 @@ func globalHub(ctx context.Context) error {
 	fmt.Println("updating response", updatingResponse)
 
 	cluster = createMockCluster("local-cluster", "OpenShift", "4.15.24", "Amazon", "1.23.0")
-	k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", c)
+	k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", hubinfo)
 	deletingResponse, err := requesterClient.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 		&kessel.DeleteK8SClusterRequest{ReporterData: k8sCluster.ReporterData})
 	if err != nil {

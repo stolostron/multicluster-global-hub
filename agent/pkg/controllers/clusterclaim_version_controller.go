@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -40,6 +41,7 @@ func (c *versionClusterClaimController) Reconcile(ctx context.Context, request c
 			constants.VersionClusterClaimName, mch.Status.CurrentVersion)
 	}
 
+	configs.SetMCHVersion(mch.Status.CurrentVersion)
 	// requeue to wait the acm version is available
 	return ctrl.Result{Requeue: true, RequeueAfter: time.Second * 5}, nil
 }

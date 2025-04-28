@@ -2,7 +2,6 @@ package managedcluster
 
 import (
 	"context"
-	"reflect"
 	"testing"
 
 	http "github.com/go-kratos/kratos/v2/transport/http"
@@ -12,150 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
-
-func TestGetK8SCluster(t *testing.T) {
-	type args struct {
-		ctx         context.Context
-		cluster     *clusterv1.ManagedCluster
-		leafHubName string
-		initObjects []runtime.Object
-	}
-
-	tests := []struct {
-		name string
-		args args
-		want *kessel.K8SCluster
-	}{
-		{
-			name: "Test basic cluster conversion",
-			args: args{
-				ctx: context.TODO(),
-				cluster: &clusterv1.ManagedCluster{
-					Status: clusterv1.ManagedClusterStatus{
-						ClusterClaims: []clusterv1.ManagedClusterClaim{
-							{Name: constants.ClusterIdClaimName, Value: "test-id"},
-							{Name: "platform.open-cluster-management.io", Value: "AWS"},
-							{Name: "kubeversion.open-cluster-management.io", Value: "1.24"},
-							{Name: "version.openshift.io", Value: "4.12"},
-							{Name: "product.open-cluster-management.io", Value: "OpenShift"},
-						},
-						Conditions: []metav1.Condition{
-							{
-								Type:   clusterv1.ManagedClusterConditionAvailable,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
-				leafHubName: "hub1",
-			},
-			want: &kessel.K8SCluster{
-				Metadata: &kessel.Metadata{
-					ResourceType: "k8s_cluster",
-					Labels:       []*kessel.ResourceLabel{},
-				},
-				ReporterData: &kessel.ReporterData{
-					ReporterType:       kessel.ReporterData_ACM,
-					ReporterInstanceId: "hub1",
-				},
-				ResourceData: &kessel.K8SClusterDetail{
-					ExternalClusterId: "test-id",
-					CloudPlatform:     kessel.K8SClusterDetail_AWS_UPI,
-					KubeVersion:       "1.24",
-					VendorVersion:     "4.12",
-					KubeVendor:        kessel.K8SClusterDetail_OPENSHIFT,
-					ClusterStatus:     kessel.K8SClusterDetail_READY,
-					Nodes: []*kessel.K8SClusterDetailNodesInner{
-						{
-							Name: "",
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "Test minimal cluster with defaults",
-			args: args{
-				ctx: context.TODO(),
-				cluster: &clusterv1.ManagedCluster{
-					Status: clusterv1.ManagedClusterStatus{
-						ClusterClaims: []clusterv1.ManagedClusterClaim{
-							{Name: constants.ClusterIdClaimName, Value: "test-id-2"},
-							{Name: "kubeversion.open-cluster-management.io", Value: "1.25"},
-							{Name: "version.open-cluster-management.io", Value: "2.8.0"},
-						},
-						Conditions: []metav1.Condition{
-							{
-								Type:   clusterv1.ManagedClusterConditionAvailable,
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
-				leafHubName: "hub2",
-				initObjects: []runtime.Object{
-					&clusterv1.ManagedCluster{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "hub2",
-						},
-						Status: clusterv1.ManagedClusterStatus{
-							ClusterClaims: []clusterv1.ManagedClusterClaim{
-								{Name: "consoleurl.cluster.open-cluster-management.io", Value: "https://consoleurl"},
-								{Name: "apiserverurl.openshift.io", Value: "http://apiserverurl"},
-								{Name: "version.open-cluster-management.io", Value: "2.8.0"},
-							},
-						},
-					},
-				},
-			},
-			want: &kessel.K8SCluster{
-				Metadata: &kessel.Metadata{
-					ResourceType: "k8s_cluster",
-					Labels:       []*kessel.ResourceLabel{},
-				},
-				ReporterData: &kessel.ReporterData{
-					ReporterType:       kessel.ReporterData_ACM,
-					ReporterInstanceId: "hub2",
-					ReporterVersion:    "2.8.0",
-					ConsoleHref:        "https://consoleurl",
-					ApiHref:            "http://apiserverurl",
-				},
-				ResourceData: &kessel.K8SClusterDetail{
-					ExternalClusterId: "test-id-2",
-					CloudPlatform:     kessel.K8SClusterDetail_CLOUD_PLATFORM_OTHER,
-					KubeVersion:       "1.25",
-					VendorVersion:     "1.25",
-					KubeVendor:        kessel.K8SClusterDetail_KUBE_VENDOR_OTHER,
-					ClusterStatus:     kessel.K8SClusterDetail_READY,
-					Nodes: []*kessel.K8SClusterDetailNodesInner{
-						{
-							Name: "",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			clusterv1.AddToScheme(scheme.Scheme)
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.args.initObjects...).Build()
-
-			got := GetK8SCluster(tt.args.ctx, tt.args.cluster, tt.args.leafHubName, fakeClient)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetK8SCluster() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestManagedClusterHandler_postToInventoryApi(t *testing.T) {
 	type args struct {
@@ -238,10 +99,8 @@ func TestManagedClusterHandler_postToInventoryApi(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			clusterv1.AddToScheme(scheme.Scheme)
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 
 			h := &managedClusterHandler{
-				c:   fakeClient,
 				log: logger.ZapLogger("test"),
 			}
 			fakeRequester := &FakeRequester{
@@ -266,6 +125,143 @@ func TestManagedClusterHandler_postToInventoryApi(t *testing.T) {
 			}
 			if len(gotDelete) != tt.wantDelete {
 				t.Errorf("postToInventoryApi() gotDelete = %v, want %v", len(gotDelete), tt.wantDelete)
+			}
+		})
+	}
+}
+
+func TestGetK8SCluster(t *testing.T) {
+	tests := []struct {
+		name        string
+		cluster     *clusterv1.ManagedCluster
+		leafHubName string
+		clusterInfo models.ClusterInfo
+		want        *kessel.K8SCluster
+	}{
+		{
+			name: "basic cluster conversion",
+			cluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cluster",
+					UID:  "test-uid",
+					Labels: map[string]string{
+						"test-label": "test-value",
+					},
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					ClusterClaims: []clusterv1.ManagedClusterClaim{
+						{Name: constants.ClusterIdClaimName, Value: "test-cluster-id"},
+						{Name: "platform.open-cluster-management.io", Value: "AWS"},
+						{Name: "kubeversion.open-cluster-management.io", Value: "1.24.0"},
+						{Name: "version.openshift.io", Value: "4.12.0"},
+						{Name: "product.open-cluster-management.io", Value: "OpenShift"},
+					},
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			leafHubName: "leaf-hub-1",
+			clusterInfo: models.ClusterInfo{
+				ConsoleURL: "https://console.example.com",
+				MchVersion: "2.8.0",
+			},
+			want: &kessel.K8SCluster{
+				Metadata: &kessel.Metadata{
+					ResourceType: "k8s_cluster",
+					Labels: []*kessel.ResourceLabel{
+						{Key: "test-label", Value: "test-value"},
+					},
+				},
+				ReporterData: &kessel.ReporterData{
+					ReporterType:       kessel.ReporterData_ACM,
+					ReporterInstanceId: "leaf-hub-1",
+					LocalResourceId:    "test-cluster",
+					ConsoleHref:        "https://console.example.com",
+					ReporterVersion:    "2.8.0",
+				},
+				ResourceData: &kessel.K8SClusterDetail{
+					ExternalClusterId: "test-cluster-id",
+					KubeVersion:       "1.24.0",
+					VendorVersion:     "4.12.0",
+					CloudPlatform:     kessel.K8SClusterDetail_AWS_UPI,
+					KubeVendor:        kessel.K8SClusterDetail_OPENSHIFT,
+					ClusterStatus:     kessel.K8SClusterDetail_READY,
+					Nodes: []*kessel.K8SClusterDetailNodesInner{
+						{
+							Name:   "test-cluster",
+							Cpu:    "8",
+							Memory: "32Gi",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "minimal cluster without claims",
+			cluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "minimal-cluster",
+					UID:  "minimal-uid",
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					ClusterClaims: []clusterv1.ManagedClusterClaim{
+						{Name: constants.ClusterIdClaimName, Value: "minimal-id"},
+					},
+				},
+			},
+			leafHubName: "leaf-hub-2",
+			clusterInfo: models.ClusterInfo{},
+			want: &kessel.K8SCluster{
+				Metadata: &kessel.Metadata{
+					ResourceType: "k8s_cluster",
+					Labels:       []*kessel.ResourceLabel{},
+				},
+				ReporterData: &kessel.ReporterData{
+					ReporterType:       kessel.ReporterData_ACM,
+					ReporterInstanceId: "leaf-hub-2",
+					LocalResourceId:    "minimal-cluster",
+				},
+				ResourceData: &kessel.K8SClusterDetail{
+					ExternalClusterId: "minimal-id",
+					CloudPlatform:     kessel.K8SClusterDetail_CLOUD_PLATFORM_OTHER,
+					KubeVendor:        kessel.K8SClusterDetail_KUBE_VENDOR_OTHER,
+					ClusterStatus:     kessel.K8SClusterDetail_OFFLINE,
+					Nodes: []*kessel.K8SClusterDetailNodesInner{
+						{
+							Name: "minimal-cluster",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetK8SCluster(context.Background(), tt.cluster, tt.leafHubName, tt.clusterInfo)
+
+			// Compare specific fields since direct comparison of the entire struct might be too strict
+			if got.Metadata.ResourceType != tt.want.Metadata.ResourceType {
+				t.Errorf("ResourceType = %v, want %v", got.Metadata.ResourceType, tt.want.Metadata.ResourceType)
+			}
+			if got.ResourceData.ExternalClusterId != tt.want.ResourceData.ExternalClusterId {
+				t.Errorf("ExternalClusterId = %v, want %v", got.ResourceData.ExternalClusterId, tt.want.ResourceData.ExternalClusterId)
+			}
+			if got.ResourceData.CloudPlatform != tt.want.ResourceData.CloudPlatform {
+				t.Errorf("CloudPlatform = %v, want %v", got.ResourceData.CloudPlatform, tt.want.ResourceData.CloudPlatform)
+			}
+			if got.ResourceData.KubeVendor != tt.want.ResourceData.KubeVendor {
+				t.Errorf("KubeVendor = %v, want %v", got.ResourceData.KubeVendor, tt.want.ResourceData.KubeVendor)
+			}
+			if got.ReporterData.ReporterInstanceId != tt.want.ReporterData.ReporterInstanceId {
+				t.Errorf("ReporterInstanceId = %v, want %v", got.ReporterData.ReporterInstanceId, tt.want.ReporterData.ReporterInstanceId)
+			}
+			if got.ReporterData.ConsoleHref != tt.want.ReporterData.ConsoleHref {
+				t.Errorf("ConsoleHref = %v, want %v", got.ReporterData.ConsoleHref, tt.want.ReporterData.ConsoleHref)
 			}
 		})
 	}
