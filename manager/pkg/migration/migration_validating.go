@@ -38,6 +38,8 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		if err := m.Client.Status().Update(ctx, mcm); err != nil {
 			return false, err
 		}
+		// initializing the migration event progress
+		MigrationEventProgressMap[string(mcm.GetUID())] = &MigrationEventProgress{}
 	}
 
 	// Skip validation if the ResourceValidated is true,

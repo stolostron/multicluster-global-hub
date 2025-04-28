@@ -129,12 +129,14 @@ spec:
               phase:
                 description: Phase represents the current phase of the migration
                 enum:
-                - Initializing
                 - Validating
-                - Migrating
+                - Initializing
+                - Deploying
+                - Registering
                 - Cleaning
                 - Completed
                 - Failed
+                - Migrating
                 type: string
             type: object
         type: object
