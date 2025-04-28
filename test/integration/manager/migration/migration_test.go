@@ -417,18 +417,10 @@ var _ = Describe("migration", Ordered, func() {
 
 	It("should initialize the migration cluster", func() {
 		// hub1 confirmation
-		migration.ReportInitializingStatus("hub1", &migrationbundle.ManagedClusterMigrationBundle{
-			MigrationId: string(migrationInstance.GetUID()),
-			Stage:       migrationv1alpha1.ConditionTypeInitialized,
-			ErrMessage:  "",
-		})
+		migration.SetFinished(string(migrationInstance.GetUID()), "hub1", migrationv1alpha1.PhaseInitializing)
 
 		// hub2 confirmation
-		migration.ReportInitializingStatus("hub2", &migrationbundle.ManagedClusterMigrationBundle{
-			MigrationId: string(migrationInstance.GetUID()),
-			Stage:       migrationv1alpha1.ConditionTypeInitialized,
-			ErrMessage:  "",
-		})
+		migration.SetFinished(string(migrationInstance.GetUID()), "hub2", migrationv1alpha1.PhaseInitializing)
 
 		migrationInstance = &migrationv1alpha1.ManagedClusterMigration{
 			ObjectMeta: metav1.ObjectMeta{
