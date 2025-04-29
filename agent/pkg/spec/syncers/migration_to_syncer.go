@@ -88,7 +88,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 		go func() {
 			s.log.Infof("registering managed cluster migration")
 			notAvailableManagedClusters := []string{}
-			if err := wait.PollUntilContextTimeout(ctx, 1*time.Minute, 10*time.Minute, false, func(context.Context) (done bool, err error) {
+			if err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, false, func(context.Context) (done bool, err error) {
 				if err := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); err != nil {
 					return false, err
 				}
