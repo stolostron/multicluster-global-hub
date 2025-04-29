@@ -26,8 +26,10 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// go test -run ^TestMigrationToSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
 func TestMigrationToSyncer(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
@@ -138,417 +140,442 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 			},
 		},
-		// {
-		// 	name: "migration with cluster manager having empty registration configuration",
-		// 	initObjects: []client.Object{
-		// 		&operatorv1.ClusterManager{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "cluster-manager",
-		// 			},
-		// 			Spec: operatorv1.ClusterManagerSpec{
-		// 				RegistrationImagePullSpec: "test",
-		// 				WorkImagePullSpec:         "test",
-		// 				RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 					FeatureGates:     []operatorv1.FeatureGate{},
-		// 					AutoApproveUsers: []string{},
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterManager: &operatorv1.ClusterManager{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "cluster-manager",
-		// 		},
-		// 		Spec: operatorv1.ClusterManagerSpec{
-		// 			RegistrationImagePullSpec: "test",
-		// 			WorkImagePullSpec:         "test",
-		// 			RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 				FeatureGates: []operatorv1.FeatureGate{
-		// 					{
-		// 						Feature: "ManagedClusterAutoApproval",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 				},
-		// 				AutoApproveUsers: []string{"system:serviceaccount:test:test"},
-		// 			},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
-		// 	initObjects: []client.Object{
-		// 		&operatorv1.ClusterManager{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "cluster-manager",
-		// 			},
-		// 			Spec: operatorv1.ClusterManagerSpec{
-		// 				RegistrationImagePullSpec: "test",
-		// 				WorkImagePullSpec:         "test",
-		// 				RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 					FeatureGates: []operatorv1.FeatureGate{
-		// 						{
-		// 							Feature: "test",
-		// 							Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 						},
-		// 					},
-		// 					AutoApproveUsers: []string{"test"},
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterManager: &operatorv1.ClusterManager{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "cluster-manager",
-		// 		},
-		// 		Spec: operatorv1.ClusterManagerSpec{
-		// 			RegistrationImagePullSpec: "test",
-		// 			WorkImagePullSpec:         "test",
-		// 			RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 				FeatureGates: []operatorv1.FeatureGate{
-		// 					{
-		// 						Feature: "test",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 					{
-		// 						Feature: "ManagedClusterAutoApproval",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 				},
-		// 				AutoApproveUsers: []string{"test", "system:serviceaccount:test:test"},
-		// 			},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "migration with cluster manager having registration configuration with feature gate disabled",
-		// 	initObjects: []client.Object{
-		// 		&operatorv1.ClusterManager{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "cluster-manager",
-		// 			},
-		// 			Spec: operatorv1.ClusterManagerSpec{
-		// 				RegistrationImagePullSpec: "test",
-		// 				WorkImagePullSpec:         "test",
-		// 				RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 					FeatureGates: []operatorv1.FeatureGate{
-		// 						{
-		// 							Feature: "ManagedClusterAutoApproval",
-		// 							Mode:    operatorv1.FeatureGateModeTypeDisable,
-		// 						},
-		// 					},
-		// 					AutoApproveUsers: []string{"test"},
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterManager: &operatorv1.ClusterManager{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "cluster-manager",
-		// 		},
-		// 		Spec: operatorv1.ClusterManagerSpec{
-		// 			RegistrationImagePullSpec: "test",
-		// 			WorkImagePullSpec:         "test",
-		// 			RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 				FeatureGates: []operatorv1.FeatureGate{
-		// 					{
-		// 						Feature: "ManagedClusterAutoApproval",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 				},
-		// 				AutoApproveUsers: []string{"test", "system:serviceaccount:test:test"},
-		// 			},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "migration with cluster manager having registration configuration with feature gate auto approve user",
-		// 	initObjects: []client.Object{
-		// 		&operatorv1.ClusterManager{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "cluster-manager",
-		// 			},
-		// 			Spec: operatorv1.ClusterManagerSpec{
-		// 				RegistrationImagePullSpec: "test",
-		// 				WorkImagePullSpec:         "test",
-		// 				RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 					FeatureGates: []operatorv1.FeatureGate{
-		// 						{
-		// 							Feature: "ManagedClusterAutoApproval",
-		// 							Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 						},
-		// 					},
-		// 					AutoApproveUsers: []string{"system:serviceaccount:test:test"},
-		// 				},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterManager: &operatorv1.ClusterManager{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "cluster-manager",
-		// 		},
-		// 		Spec: operatorv1.ClusterManagerSpec{
-		// 			RegistrationImagePullSpec: "test",
-		// 			WorkImagePullSpec:         "test",
-		// 			RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 				FeatureGates: []operatorv1.FeatureGate{
-		// 					{
-		// 						Feature: "ManagedClusterAutoApproval",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 				},
-		// 				AutoApproveUsers: []string{"system:serviceaccount:test:test"},
-		// 			},
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "migration with existing clusterrole and clusterrolebinding",
-		// 	initObjects: []client.Object{
-		// 		&operatorv1.ClusterManager{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "cluster-manager",
-		// 			},
-		// 			Spec: operatorv1.ClusterManagerSpec{
-		// 				RegistrationImagePullSpec: "test",
-		// 				WorkImagePullSpec:         "test",
-		// 			},
-		// 		},
-		// 		&rbacv1.ClusterRole{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "multicluster-global-hub-migration:test",
-		// 			},
-		// 			Rules: []rbacv1.PolicyRule{
-		// 				{
-		// 					APIGroups: []string{"authorization.k8s.io"},
-		// 					Resources: []string{"subjectaccessreviews"},
-		// 					Verbs:     []string{"create"},
-		// 				},
-		// 			},
-		// 		},
-		// 		&rbacv1.ClusterRoleBinding{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "agent-registration-clusterrolebinding:test",
-		// 			},
-		// 			Subjects: []rbacv1.Subject{
-		// 				{
-		// 					Kind:      "ServiceAccount",
-		// 					Name:      "test",
-		// 					Namespace: "test",
-		// 				},
-		// 			},
-		// 			RoleRef: rbacv1.RoleRef{
-		// 				Kind:     "ClusterRole",
-		// 				Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
-		// 				APIGroup: "rbac.authorization.k8s.io",
-		// 			},
-		// 		},
-		// 		&rbacv1.ClusterRoleBinding{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "test-subjectaccessreviews-clusterrolebinding",
-		// 			},
-		// 			Subjects: []rbacv1.Subject{
-		// 				{
-		// 					Kind:      "ServiceAccount",
-		// 					Name:      "test",
-		// 					Namespace: "test",
-		// 				},
-		// 			},
-		// 			RoleRef: rbacv1.RoleRef{
-		// 				Kind:     "ClusterRole",
-		// 				Name:     "multicluster-global-hub-migration:test",
-		// 				APIGroup: "rbac.authorization.k8s.io",
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterManager: &operatorv1.ClusterManager{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "cluster-manager",
-		// 		},
-		// 		Spec: operatorv1.ClusterManagerSpec{
-		// 			RegistrationImagePullSpec: "test",
-		// 			WorkImagePullSpec:         "test",
-		// 			RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 				FeatureGates: []operatorv1.FeatureGate{
-		// 					{
-		// 						Feature: "ManagedClusterAutoApproval",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 				},
-		// 				AutoApproveUsers: []string{"system:serviceaccount:test:test"},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterRole: &rbacv1.ClusterRole{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "multicluster-global-hub-migration:test",
-		// 		},
-		// 		Rules: []rbacv1.PolicyRule{
-		// 			{
-		// 				APIGroups: []string{"authorization.k8s.io"},
-		// 				Resources: []string{"subjectaccessreviews"},
-		// 				Verbs:     []string{"create"},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "agent-registration-clusterrolebinding:test",
-		// 		},
-		// 		Subjects: []rbacv1.Subject{
-		// 			{
-		// 				Kind:      "ServiceAccount",
-		// 				Name:      "test",
-		// 				Namespace: "test",
-		// 			},
-		// 		},
-		// 		RoleRef: rbacv1.RoleRef{
-		// 			Kind:     "ClusterRole",
-		// 			Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
-		// 			APIGroup: "rbac.authorization.k8s.io",
-		// 		},
-		// 	},
-		// 	expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "test-subjectaccessreviews-clusterrolebinding",
-		// 		},
-		// 		Subjects: []rbacv1.Subject{
-		// 			{
-		// 				Kind:      "ServiceAccount",
-		// 				Name:      "test",
-		// 				Namespace: "test",
-		// 			},
-		// 		},
-		// 		RoleRef: rbacv1.RoleRef{
-		// 			Kind:     "ClusterRole",
-		// 			Name:     "multicluster-global-hub-migration:test",
-		// 			APIGroup: "rbac.authorization.k8s.io",
-		// 		},
-		// 	},
-		// },
-		// {
-		// 	name: "migration with changed clusterrole and clusterrolebinding",
-		// 	initObjects: []client.Object{
-		// 		&operatorv1.ClusterManager{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "cluster-manager",
-		// 			},
-		// 			Spec: operatorv1.ClusterManagerSpec{
-		// 				RegistrationImagePullSpec: "test",
-		// 				WorkImagePullSpec:         "test",
-		// 			},
-		// 		},
-		// 		&rbacv1.ClusterRole{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "multicluster-global-hub-migration:test",
-		// 			},
-		// 			Rules: []rbacv1.PolicyRule{
-		// 				{
-		// 					APIGroups: []string{"authorization.k8s.io"},
-		// 					Resources: []string{"selfsubjectaccessreviews"},
-		// 					Verbs:     []string{"create"},
-		// 				},
-		// 			},
-		// 		},
-		// 		&rbacv1.ClusterRoleBinding{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "agent-registration-clusterrolebinding:test",
-		// 			},
-		// 			Subjects: []rbacv1.Subject{
-		// 				{
-		// 					Kind:      "ServiceAccount",
-		// 					Name:      "foo",
-		// 					Namespace: "test",
-		// 				},
-		// 			},
-		// 			RoleRef: rbacv1.RoleRef{
-		// 				Kind:     "ClusterRole",
-		// 				Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
-		// 				APIGroup: "rbac.authorization.k8s.io",
-		// 			},
-		// 		},
-		// 		&rbacv1.ClusterRoleBinding{
-		// 			ObjectMeta: metav1.ObjectMeta{
-		// 				Name: "test-subjectaccessreviews-clusterrolebinding",
-		// 			},
-		// 			Subjects: []rbacv1.Subject{
-		// 				{
-		// 					Kind:      "ServiceAccount",
-		// 					Name:      "foo",
-		// 					Namespace: "test",
-		// 				},
-		// 			},
-		// 			RoleRef: rbacv1.RoleRef{
-		// 				Kind:     "ClusterRole",
-		// 				Name:     "multicluster-global-hub-migration:test",
-		// 				APIGroup: "rbac.authorization.k8s.io",
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterManager: &operatorv1.ClusterManager{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "cluster-manager",
-		// 		},
-		// 		Spec: operatorv1.ClusterManagerSpec{
-		// 			RegistrationImagePullSpec: "test",
-		// 			WorkImagePullSpec:         "test",
-		// 			RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
-		// 				FeatureGates: []operatorv1.FeatureGate{
-		// 					{
-		// 						Feature: "ManagedClusterAutoApproval",
-		// 						Mode:    operatorv1.FeatureGateModeTypeEnable,
-		// 					},
-		// 				},
-		// 				AutoApproveUsers: []string{"system:serviceaccount:test:test"},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterRole: &rbacv1.ClusterRole{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "multicluster-global-hub-migration:test",
-		// 		},
-		// 		Rules: []rbacv1.PolicyRule{
-		// 			{
-		// 				APIGroups: []string{"authorization.k8s.io"},
-		// 				Resources: []string{"subjectaccessreviews"},
-		// 				Verbs:     []string{"create"},
-		// 			},
-		// 		},
-		// 	},
-		// 	expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "agent-registration-clusterrolebinding:test",
-		// 		},
-		// 		Subjects: []rbacv1.Subject{
-		// 			{
-		// 				Kind:      "ServiceAccount",
-		// 				Name:      "test",
-		// 				Namespace: "test",
-		// 			},
-		// 		},
-		// 		RoleRef: rbacv1.RoleRef{
-		// 			Kind:     "ClusterRole",
-		// 			Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
-		// 			APIGroup: "rbac.authorization.k8s.io",
-		// 		},
-		// 	},
-		// 	expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name: "test-subjectaccessreviews-clusterrolebinding",
-		// 		},
-		// 		Subjects: []rbacv1.Subject{
-		// 			{
-		// 				Kind:      "ServiceAccount",
-		// 				Name:      "test",
-		// 				Namespace: "test",
-		// 			},
-		// 		},
-		// 		RoleRef: rbacv1.RoleRef{
-		// 			Kind:     "ClusterRole",
-		// 			Name:     "multicluster-global-hub-migration:test",
-		// 			APIGroup: "rbac.authorization.k8s.io",
-		// 		},
-		// },
-		// },
+		{
+			name: "migration with cluster manager having empty registration configuration",
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test", // the migration cr name
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates:     []operatorv1.FeatureGate{},
+							AutoApproveUsers: []string{},
+						},
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+					},
+				},
+			},
+		},
+		{
+			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test", // the migration cr name
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "test",
+									Mode:    operatorv1.FeatureGateModeTypeEnable,
+								},
+							},
+							AutoApproveUsers: []string{"test"},
+						},
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "test",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"test", "system:serviceaccount:test:test"},
+					},
+				},
+			},
+		},
+		{
+			name: "migration with cluster manager having registration configuration with feature gate disabled",
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test", // the migration cr name
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "ManagedClusterAutoApproval",
+									Mode:    operatorv1.FeatureGateModeTypeDisable,
+								},
+							},
+							AutoApproveUsers: []string{"test"},
+						},
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"test", "system:serviceaccount:test:test"},
+					},
+				},
+			},
+		},
+		{
+			name: "migration with cluster manager having registration configuration with feature gate auto approve user",
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "ManagedClusterAutoApproval",
+									Mode:    operatorv1.FeatureGateModeTypeEnable,
+								},
+							},
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+					},
+				},
+			},
+		},
+		{
+			name: "migration with existing clusterrole and clusterrolebinding",
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test", // the migration cr name
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multicluster-global-hub-migration:test",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"subjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "agent-registration-clusterrolebinding:test",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-subjectaccessreviews-clusterrolebinding",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "multicluster-global-hub-migration:test",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+					},
+				},
+			},
+			expectedClusterRole: &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "multicluster-global-hub-migration:test",
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{"authorization.k8s.io"},
+						Resources: []string{"subjectaccessreviews"},
+						Verbs:     []string{"create"},
+					},
+				},
+			},
+			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "agent-registration-clusterrolebinding:test",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-subjectaccessreviews-clusterrolebinding",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "multicluster-global-hub-migration:test",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+		},
+		{
+			name: "migration with changed clusterrole and clusterrolebinding",
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test", // the migration cr name
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multicluster-global-hub-migration:test",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"selfsubjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "agent-registration-clusterrolebinding:test",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "foo",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-subjectaccessreviews-clusterrolebinding",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "foo",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "multicluster-global-hub-migration:test",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+					},
+				},
+			},
+			expectedClusterRole: &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "multicluster-global-hub-migration:test",
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{"authorization.k8s.io"},
+						Resources: []string{"subjectaccessreviews"},
+						Verbs:     []string{"create"},
+					},
+				},
+			},
+			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "agent-registration-clusterrolebinding:test",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-subjectaccessreviews-clusterrolebinding",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      "test",
+						Namespace: "test",
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "multicluster-global-hub-migration:test",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -571,6 +598,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				foundClusterManager := &operatorv1.ClusterManager{}
 				err := client.Get(ctx, types.NamespacedName{Name: c.expectedClusterManager.Name}, foundClusterManager)
 				assert.Nil(t, err)
+				utils.PrettyPrint(foundClusterManager.Spec)
 				assert.Equal(t, c.expectedClusterManager.Spec, foundClusterManager.Spec)
 			}
 

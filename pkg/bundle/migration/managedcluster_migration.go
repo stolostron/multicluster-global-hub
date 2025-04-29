@@ -35,10 +35,10 @@ type ManagedClusterMigrationToEvent struct {
 
 // The bundle sent from the managed hubs to the global hub
 type ManagedClusterMigrationBundle struct {
-	MigrationId     string   `json:"migrationId"`
-	Stage           string   `json:"stage"`
-	ErrMessage      string   `json:"errMessage,omitempty"`
-	ManagedClusters []string `json:"managedClusters,omitempty"`
+	MigrationId string `json:"migrationId"`
+	Stage       string `json:"stage"`
+	ErrMessage  string `json:"errMessage,omitempty"`
+	// ManagedClusters []string `json:"managedClusters,omitempty"`
 }
 
 type SourceClusterMigrationResources struct {

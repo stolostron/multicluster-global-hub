@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -23,11 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
@@ -73,25 +72,16 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			s.log.Errorf("failed to initialize the migration resources %v", err)
 			return err
 		}
+		s.log.Info("finished the initializing")
 
-		// send the initialized confirmation
-		return SendMigrationEvent(ctx, s.transportClient,
-			configs.GetLeafHubName(),
-			constants.CloudEventGlobalHubClusterName,
-			&migration.ManagedClusterMigrationBundle{
-				Stage: migrationv1alpha1.ConditionTypeInitialized,
-				// ManagedClusters: migrationSourceHubEvent.ManagedClusters,
-			},
-			s.bundleVersion)
+		if err := s.deploying(ctx, managedClusterMigrationToEvent); err != nil {
+			s.log.Errorf("failed to start migration consumer: %v", err)
+			return nil
+		}
+		s.log.Info("finished the deploying")
 	}
 
 	msaName := managedClusterMigrationToEvent.ManagedServiceAccountName
-
-	go func() {
-		if err := s.StartMigrationConsumer(ctx, managedClusterMigrationToEvent.MigrationId); err != nil {
-			s.log.Errorf("failed to start migration consumer: %v", err)
-		}
-	}()
 
 	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.ConditionTypeCleaned {
 		// delete the subjectaccessreviews creation role and roleBinding
@@ -155,10 +145,11 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 
 		// If it's directly sent to the global hub, mark it as completed.
 		s.log.Infof("sending addonConfigs applied confirmation %s", klusterletAddonConfig.Name)
-		err = SendMigrationEvent(ctx, s.transportClient, configs.GetLeafHubName(), constants.CloudEventGlobalHubClusterName,
+		err = ReportMigrationStatus(ctx, s.transportClient,
 			&migration.ManagedClusterMigrationBundle{
-				Stage:           migrationv1alpha1.ConditionTypeDeployed,
-				ManagedClusters: []string{klusterletAddonConfig.Name},
+				MigrationId: managedClusterMigrationToEvent.MigrationId,
+				Stage:       migrationv1alpha1.ConditionTypeDeployed,
+				// ManagedClusters: []string{klusterletAddonConfig.Name},
 			},
 			s.bundleVersion)
 		if err != nil {
@@ -190,6 +181,24 @@ func (s *managedClusterMigrationToSyncer) initializing(ctx context.Context,
 		return err
 	}
 
+	return ReportMigrationStatus(
+		ctx,
+		s.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: evt.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeInitialized,
+		},
+		s.bundleVersion)
+}
+
+func (s *managedClusterMigrationToSyncer) deploying(ctx context.Context,
+	evt *migration.ManagedClusterMigrationToEvent,
+) error {
+	go func() {
+		if err := s.StartMigrationConsumer(ctx, evt.MigrationId); err != nil {
+			s.log.Errorf("failed to start migration consumer: %v", err)
+		}
+	}()
 	return nil
 }
 
@@ -268,7 +277,7 @@ func (s *managedClusterMigrationToSyncer) receiveMigrationResource(ctx context.C
 			}
 			s.log.Debugf("get migration event: %v", evt.Type())
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := s.syncMigrationResources(migrationCtx, evt.Data()); err != nil {
+				if err := s.syncMigrationResources(migrationCtx, evt); err != nil {
 					return err
 				}
 				return nil
@@ -281,8 +290,11 @@ func (s *managedClusterMigrationToSyncer) receiveMigrationResource(ctx context.C
 	}
 }
 
-func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Context, payload []byte) error {
+func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Context, evt *cloudevents.Event) error {
 	s.log.Info("received cloudevent from the source clusters")
+	migrationId := evt.ID()
+	payload := evt.Data()
+
 	migrationResources := &migration.SourceClusterMigrationResources{}
 	if err := json.Unmarshal(payload, migrationResources); err != nil {
 		s.log.Errorf("failed to unmarshal cluster migration resources %v", err)
@@ -312,6 +324,17 @@ func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Con
 			return err
 		}
 	}
+
+	// report the deployed confirmation
+	err := ReportMigrationStatus(ctx, s.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: migrationId,
+			Stage:       migrationv1alpha1.ConditionTypeDeployed,
+		}, s.bundleVersion)
+	if err != nil {
+		return err
+	}
+
 	s.log.Info("finish sync migration resources")
 	// stop the migration consumer
 	s.migrationConsumerCtxCancel()
