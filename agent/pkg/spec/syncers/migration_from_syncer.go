@@ -356,7 +356,7 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 	for _, managedCluster := range managedClusters {
 		// add cluster
 		cluster := &clusterv1.ManagedCluster{}
-		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster, Namespace: managedCluster}, cluster)
+		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, cluster)
 		if err != nil {
 			return err
 		}
