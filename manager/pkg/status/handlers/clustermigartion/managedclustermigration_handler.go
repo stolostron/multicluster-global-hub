@@ -77,5 +77,15 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 	if bundle.Stage == migrationv1alpha1.ConditionTypeDeployed {
 		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseDeploying)
 	}
+
+	if bundle.Stage == migrationv1alpha1.ConditionTypeRegistered {
+		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseRegistering)
+		migration.SetErrorMessage(bundle.MigrationId, hubClusterName,
+			migrationv1alpha1.PhaseRegistering, bundle.ErrMessage)
+	}
+
+	if bundle.Stage == migrationv1alpha1.ConditionTypeCleaned {
+		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseCleaning)
+	}
 	return nil
 }

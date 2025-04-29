@@ -24,7 +24,6 @@ import (
 const (
 	PhaseValidating   = "Validating"
 	PhaseInitializing = "Initializing"
-	PhaseMigrating    = "Migrating" // deprecated
 	PhaseDeploying    = "Deploying"
 	PhaseRegistering  = "Registering"
 	PhaseCleaning     = "Cleaning"
@@ -36,8 +35,8 @@ const (
 const (
 	ConditionTypeValidated   = "ResourceValidated"
 	ConditionTypeInitialized = "ResourceInitialized"
-	ConditionTypeRegistered  = "ClusterRegistered" // -> Phase: Migrating
-	ConditionTypeDeployed    = "ResourceDeployed"  // -> Phase: Migrating
+	ConditionTypeRegistered  = "ClusterRegistered"
+	ConditionTypeDeployed    = "ResourceDeployed"
 	ConditionTypeCleaned     = "ResourceCleaned"
 )
 
@@ -76,7 +75,7 @@ type ManagedClusterMigrationSpec struct {
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
 	// Phase represents the current phase of the migration
-	// +kubebuilder:validation:Enum=Validating;Initializing;Deploying;Registering;Cleaning;Completed;Failed;Migrating
+	// +kubebuilder:validation:Enum=Validating;Initializing;Deploying;Registering;Cleaning;Completed;Failed
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Phase string `json:"phase,omitempty"`
 

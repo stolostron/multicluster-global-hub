@@ -31,6 +31,7 @@ type ManagedClusterMigrationToEvent struct {
 	ManagedServiceAccountName             string                         `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string                         `json:"installNamespace,omitempty"`
 	KlusterletAddonConfig                 *addonv1.KlusterletAddonConfig `json:"klusterletAddonConfig,omitempty"`
+	ManagedClusters                       []string                       `json:"managedClusters,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub

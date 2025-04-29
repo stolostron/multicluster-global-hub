@@ -8,7 +8,6 @@ import (
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -128,7 +127,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// 4. Send event to Source Hub
 	for fromHubName, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
-			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.ConditionTypeInitialized, clusters,
+			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
 				bootstrapSecret)
 			if err != nil {
 				return false, err
@@ -258,48 +257,6 @@ func (m *ClusterMigrationController) UpdateConditionWithRetry(ctx context.Contex
 	})
 }
 
-// sendEventToDestinationHub:
-// 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
-// 2. if KlusterletAddonConfig is not nil -> deploying
-func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
-	migration *migrationv1alpha1.ManagedClusterMigration, stage string, addonConfig *addonv1.KlusterletAddonConfig,
-) error {
-	// default managedserviceaccount addon namespace
-	msaNamespace := "open-cluster-management-agent-addon"
-	if m.importClusterInHosted {
-		// hosted mode, the  managedserviceaccount addon namespace
-		msaNamespace = "open-cluster-management-global-hub-agent-addon"
-	}
-	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
-	// if user specifies the managedserviceaccount addon namespace, then use it
-	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
-		msaNamespace = val
-	}
-	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
-		MigrationId:                           string(migration.GetUID()),
-		Stage:                                 stage,
-		ManagedServiceAccountName:             migration.Name,
-		ManagedServiceAccountInstallNamespace: msaNamespace,
-	}
-	if addonConfig != nil {
-		managedClusterMigrationToEvent.KlusterletAddonConfig = addonConfig
-	}
-
-	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
-	if err != nil {
-		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",
-			managedClusterMigrationToEvent, err)
-	}
-
-	eventType := constants.CloudEventTypeMigrationTo
-	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
-	if err := m.Producer.SendEvent(ctx, evt); err != nil {
-		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
-			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
-	}
-	return nil
-}
-
 func (m *ClusterMigrationController) UpdateCondition(
 	ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
@@ -329,12 +286,16 @@ func (m *ClusterMigrationController) UpdateCondition(
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
 			}
-		case migrationv1alpha1.ConditionTypeInitialized, migrationv1alpha1.ConditionTypeRegistered:
-			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
-				mcm.Status.Phase = migrationv1alpha1.PhaseMigrating
+		case migrationv1alpha1.ConditionTypeInitialized:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				mcm.Status.Phase = migrationv1alpha1.PhaseDeploying
 			}
 		case migrationv1alpha1.ConditionTypeDeployed:
-			if mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				mcm.Status.Phase = migrationv1alpha1.PhaseRegistering
+			}
+		case migrationv1alpha1.ConditionTypeRegistered:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
 			}
 		case migrationv1alpha1.ConditionTypeCleaned:

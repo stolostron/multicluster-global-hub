@@ -779,3 +779,105 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		})
 	}
 }
+
+func TestRegistering(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
+	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name                 string
+		initObjects          []client.Object
+		migrationEvent       *migration.ManagedClusterMigrationToEvent
+		expectedError        string
+		expectedErrorMessage string
+	}{
+		{
+			name: "All managed clusters are registered and available",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   clusterv1.ManagedClusterConditionAvailable,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   clusterv1.ManagedClusterConditionAvailable,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				ManagedClusters: []string{"cluster1", "cluster2"},
+			},
+			expectedError: "",
+		},
+		{
+			name: "Some managed clusters are not available",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   clusterv1.ManagedClusterConditionAvailable,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   clusterv1.ManagedClusterConditionAvailable,
+								Status: metav1.ConditionFalse,
+							},
+						},
+					},
+				},
+			},
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				ManagedClusters: []string{"cluster1", "cluster2"},
+			},
+			expectedError: "not all the managed clusters are registered, wait...",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(fakeClient, nil, nil)
+
+			notAvailableManagedClusters := []string{}
+			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, notAvailableManagedClusters)
+			if c.expectedError == "" {
+				assert.Nil(t, err)
+			} else {
+				assert.NotNil(t, err)
+				assert.Contains(t, err.Error(), c.expectedError)
+			}
+		})
+	}
+}

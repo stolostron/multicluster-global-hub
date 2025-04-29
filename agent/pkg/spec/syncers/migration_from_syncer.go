@@ -49,7 +49,6 @@ type managedClusterMigrationFromSyncer struct {
 	transportConfig   *transport.TransportInternalConfig
 	migrationProducer *producer.GenericProducer
 	bundleVersion     *eventversion.Version
-	sendResources     bool
 }
 
 func NewManagedClusterMigrationFromSyncer(client client.Client,
@@ -61,7 +60,6 @@ func NewManagedClusterMigrationFromSyncer(client client.Client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
-		sendResources:   false,
 	}
 }
 
@@ -138,7 +136,7 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 		}
 	}
 
-	// dleete klusterletconfig
+	// delete klusterletconfig
 	klusterletConfig := &klusterletv1alpha1.KlusterletConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: klusterletConfigNamePrefix + migratingEvt.ToHub,
@@ -167,7 +165,6 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 			m.log.Errorf("failed to close producer: %v", err)
 		}
 		m.migrationProducer = nil
-		m.sendResources = false
 	}
 	return nil
 }
@@ -350,10 +347,6 @@ func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafk
 func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(ctx context.Context,
 	migrationId string, managedClusters []string, fromHub, toHub string,
 ) error {
-	// aovid duplicate sending
-	if s.sendResources {
-		return nil
-	}
 	// send the managed cluster and klusterletAddonConfig to the target cluster
 	migrationResources := &migration.SourceClusterMigrationResources{
 		ManagedClusters:       []clusterv1.ManagedCluster{},
@@ -363,7 +356,7 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 	for _, managedCluster := range managedClusters {
 		// add cluster
 		cluster := &clusterv1.ManagedCluster{}
-		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster, Namespace: managedCluster}, cluster)
+		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, cluster)
 		if err != nil {
 			return err
 		}
@@ -408,8 +401,6 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 			string(enum.MigrationResourcesType), fromHub, toHub, err)
 	}
 	s.bundleVersion.Next()
-	// set the sendResources to true to avoid duplicate sending
-	s.sendResources = true
 	return nil
 }
 
