@@ -9,8 +9,8 @@ type ResourceVersion struct {
 }
 
 type ClusterInfo struct {
-	ConsoleURL string `gorm:"column:consoleURL"`
-	MchVersion string `gorm:"column:mchVersion"`
+	ConsoleURL string `gorm:"column:console_url"`
+	MchVersion string `gorm:"column:mch_version"`
 }
 
 type Table struct {

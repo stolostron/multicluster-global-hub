@@ -19,6 +19,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -144,7 +145,6 @@ func (h *managedClusterHandler) postToDatabase(
 	updateClusters = append(updateClusters, createClusters...)
 	for _, object := range updateClusters {
 		cluster := object
-		h.log.Debugf("cluster: %v", cluster)
 		payload, err := json.Marshal(cluster)
 		if err != nil {
 			return err
@@ -210,7 +210,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 	var updateClustersToInventory []clusterv1.ManagedCluster
 	var deleteClustersFromInventory []models.ResourceVersion
 
-	clusterInfo, err := getClusterInfo(database.GetGorm(), leafHubName)
+	clusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
 	log.Debugf("clusterInfo: %v", clusterInfo)
 	if err != nil {
 		h.log.Errorf("failed to get cluster info from db - %w", err)
@@ -432,7 +432,7 @@ func GetK8SCluster(ctx context.Context,
 func getClusterIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]models.ResourceVersion, error) {
 	var resourceVersions []models.ResourceVersion
 	err := db.Select(
-		"cluster_id AS key,cluster_name AS name, payload->'metadata'->>'resourceVersion' AS resource_version").
+		"cluster_id AS key, cluster_name AS name, payload->'metadata'->>'resourceVersion' AS resource_version").
 		Where(&models.ManagedCluster{
 			LeafHubName: leafHubName,
 		}).Find(&models.ManagedCluster{}).Scan(&resourceVersions).Error
@@ -444,22 +444,4 @@ func getClusterIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]model
 		nameToVersionMap[resource.Key] = resource
 	}
 	return nameToVersionMap, nil
-}
-
-func getClusterInfo(db *gorm.DB, clusterName string) (models.ClusterInfo, error) {
-	var clusterInfo []models.ClusterInfo
-	if db == nil {
-		return models.ClusterInfo{}, fmt.Errorf("db is nil")
-	}
-	err := db.Select("payload->>'consoleURL' AS consoleURL, payload->>'mchVersion' AS mchVersion").
-		Where(&models.LeafHub{
-			LeafHubName: clusterName,
-		}).Find(&models.ManagedCluster{}).Scan(&clusterInfo).Error
-	if err != nil {
-		return models.ClusterInfo{}, err
-	}
-	if len(clusterInfo) == 0 {
-		return models.ClusterInfo{}, fmt.Errorf("no cluster info found for %s", clusterName)
-	}
-	return clusterInfo[0], nil
 }
