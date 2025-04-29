@@ -664,12 +664,6 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
-				KlusterletAddonConfig: &addonv1.KlusterletAddonConfig{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1",
-						Namespace: "cluster1",
-					},
-				},
 			},
 			expectedError: nil,
 			initObjects: []client.Object{
