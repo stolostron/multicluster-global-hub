@@ -93,15 +93,17 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			}); err != nil {
 				if err := ReportMigrationStatus(ctx, s.transportClient,
 					&migration.ManagedClusterMigrationBundle{
-						Stage:      migrationv1alpha1.ConditionTypeRegistered,
-						ErrMessage: fmt.Sprintf("failed to register the managed clusters [%s]", strings.Join(notAvailableManagedClusters, ", ")),
+						MigrationId: managedClusterMigrationToEvent.MigrationId,
+						Stage:       migrationv1alpha1.ConditionTypeRegistered,
+						ErrMessage:  fmt.Sprintf("failed to register the managed clusters [%s]", strings.Join(notAvailableManagedClusters, ", ")),
 					}, s.bundleVersion); err != nil {
 					log.Errorf("failed to send migration event due to %v", err)
 				}
 			}
 			if err := ReportMigrationStatus(ctx, s.transportClient,
 				&migration.ManagedClusterMigrationBundle{
-					Stage: migrationv1alpha1.ConditionTypeRegistered,
+					MigrationId: managedClusterMigrationToEvent.MigrationId,
+					Stage:       migrationv1alpha1.ConditionTypeRegistered,
 				}, s.bundleVersion); err != nil {
 				log.Errorf("failed to send migration event due to %v", err)
 			}
