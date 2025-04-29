@@ -313,7 +313,7 @@ func (s *managedClusterMigrationToSyncer) receiveMigrationResource(ctx context.C
 		case evt := <-s.migrationConsumer.EventChan():
 			// only the handle the current migration event, ignore the previous ones
 			if migrationId != "" && evt.ID() != migrationId {
-				log.Debugf("ignore the migration event %s", evt.ID())
+				log.Debugf("ignore the expected migrationId %s, but got  %s", migrationId, evt.ID())
 				continue
 			}
 			log.Debugf("get migration event: %v", evt.Type())

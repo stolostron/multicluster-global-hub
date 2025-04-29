@@ -149,7 +149,7 @@ func getClusterWithHub(mcm *migrationv1alpha1.ManagedClusterMigration) (map[stri
 	managedClusterMap := make(map[string]string)
 
 	rows, err := db.Raw(`SELECT leaf_hub_name, cluster_name FROM status.managed_clusters
-			WHERE cluster_name IN (?)`,
+			WHERE cluster_name IN (?) AND deleted_at is NULL`,
 		mcm.Spec.IncludedManagedClusters).Rows()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get migrating clusters - %w", err)

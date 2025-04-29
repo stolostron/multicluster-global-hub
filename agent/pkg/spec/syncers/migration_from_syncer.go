@@ -364,6 +364,12 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 		cluster.SetGeneration(0)
 		cluster.Spec.ManagedClusterClientConfigs = nil
 		cluster.Status = clusterv1.ManagedClusterStatus{}
+		// remove migrating annotation from managedcluster
+		annotations := cluster.GetAnnotations()
+		if annotations != nil {
+			delete(annotations, constants.ManagedClusterMigrating)
+			cluster.SetAnnotations(annotations)
+		}
 		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
 
 		// add addon config
@@ -451,6 +457,7 @@ func SendEvent(
 
 func (s *managedClusterMigrationFromSyncer) detachManagedClusters(ctx context.Context, managedClusters []string) error {
 	for _, managedCluster := range managedClusters {
+		log.Debugf("detaching managed cluster %s", managedCluster)
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{
 			Name: managedCluster,

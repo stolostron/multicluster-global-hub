@@ -79,7 +79,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 
 	// cleanup the target hub
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseCleaning, nil); err != nil {
+		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseCleaning, mcm.Spec.IncludedManagedClusters); err != nil {
 			return false, err
 		}
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
