@@ -76,13 +76,13 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			return err
 		}
 		s.log.Info("finished the initializing")
-	}
 
-	if err := s.deploying(ctx, managedClusterMigrationToEvent); err != nil {
-		s.log.Errorf("failed to start migration consumer: %v", err)
-		return err
+		if err := s.deploying(ctx, managedClusterMigrationToEvent); err != nil {
+			s.log.Errorf("failed to start migration consumer: %v", err)
+			return err
+		}
+		s.log.Info("finished the deploying")
 	}
-	s.log.Info("finished the deploying")
 
 	// expected registered
 	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
