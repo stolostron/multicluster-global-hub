@@ -681,7 +681,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
-				Stage:                                 migrationv1alpha1.ConditionTypeCleaned,
+				Stage:                                 migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
