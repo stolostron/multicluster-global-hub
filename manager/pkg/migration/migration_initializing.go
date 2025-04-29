@@ -286,12 +286,16 @@ func (m *ClusterMigrationController) UpdateCondition(
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
 			}
-		case migrationv1alpha1.ConditionTypeInitialized, migrationv1alpha1.ConditionTypeRegistered:
-			if mcm.Status.Phase != migrationv1alpha1.PhaseMigrating {
-				mcm.Status.Phase = migrationv1alpha1.PhaseMigrating
+		case migrationv1alpha1.ConditionTypeInitialized:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				mcm.Status.Phase = migrationv1alpha1.PhaseDeploying
 			}
 		case migrationv1alpha1.ConditionTypeDeployed:
-			if mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				mcm.Status.Phase = migrationv1alpha1.PhaseRegistering
+			}
+		case migrationv1alpha1.ConditionTypeRegistered:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
 			}
 		case migrationv1alpha1.ConditionTypeCleaned:

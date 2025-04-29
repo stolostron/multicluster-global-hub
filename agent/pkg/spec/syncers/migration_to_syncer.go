@@ -81,7 +81,6 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 			s.log.Errorf("failed to start migration consumer: %v", err)
 			return err
 		}
-		s.log.Info("finished the deploying")
 	}
 
 	// expected registered
@@ -395,7 +394,8 @@ func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Con
 		return err
 	}
 
-	s.log.Info("finish sync migration resources")
+	s.log.Info("finished sync migration resources")
+	s.log.Info("finished the deploying")
 	// stop the migration consumer
 	s.migrationConsumerCtxCancel()
 	s.migrationConsumer = nil
