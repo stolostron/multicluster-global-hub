@@ -59,6 +59,12 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		log.Error("failed to parse migrationBundle clusterName", "error", err)
 		return err
 	}
+
+	if clusterName != constants.CloudEventGlobalHubClusterName {
+		return fmt.Errorf("expected to get the the clusterName %s, but got %s",
+			constants.CloudEventGlobalHubClusterName, clusterName)
+	}
+
 	hubClusterName := evt.Source()
 	if hubClusterName == "" {
 		return fmt.Errorf("failed to parse migrationBundle event source")
