@@ -433,17 +433,17 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
-			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseMigrating &&
+			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseInitializing &&
 				migrationInstance.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				utils.PrettyPrint(migrationInstance.Status)
 				return fmt.Errorf("wait for the migration Migrating to be ready: %s", migrationInstance.Status.Phase)
 			}
 
-			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
-				migrationv1alpha1.ConditionTypeRegistered)
-			if registeredCond == nil {
+			initCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
+				migrationv1alpha1.ConditionTypeInitialized)
+			if initCond == nil {
 				utils.PrettyPrint(migrationInstance.Status)
-				return fmt.Errorf("the registering condition should appears in the migration CR")
+				return fmt.Errorf("the initializing condition should appears in the migration CR")
 			}
 			return nil
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
