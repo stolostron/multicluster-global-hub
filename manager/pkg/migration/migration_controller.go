@@ -222,7 +222,6 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 		Stage:                                 stage,
 		ManagedServiceAccountName:             migration.Name,
 		ManagedServiceAccountInstallNamespace: msaNamespace,
-		ManagedClusters:                       managedClusters,
 	}
 
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)

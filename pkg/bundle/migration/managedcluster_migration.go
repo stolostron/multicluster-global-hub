@@ -26,10 +26,11 @@ type ManagedClusterMigrationFromEvent struct {
 
 // ManagedClusterMigrationToEvent defines the resources from migration controllers to the target cluster
 type ManagedClusterMigrationToEvent struct {
-	MigrationId                           string `json:"migrationId"`
-	Stage                                 string `json:"stage"`
-	ManagedServiceAccountName             string `json:"managedServiceAccountName"`
-	ManagedServiceAccountInstallNamespace string `json:"installNamespace,omitempty"`
+	MigrationId                           string   `json:"migrationId"`
+	Stage                                 string   `json:"stage"`
+	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
+	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
+	ManagedClusters                       []string `json:"managedClusters,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub

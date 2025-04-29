@@ -185,7 +185,7 @@ func (s *managedClusterMigrationToSyncer) registering(ctx context.Context,
 		for _, mc := range managedClusterList.Items {
 			if mc.Name == cluster {
 				if meta.IsStatusConditionTrue(mc.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
-					s.log.Debugf("managed cluster %s is ready", cluster)
+					log.Debugf("managed cluster %s is ready", cluster)
 				} else {
 					notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
 				}

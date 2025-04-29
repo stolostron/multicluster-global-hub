@@ -117,7 +117,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing); err != nil {
+		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
 			return false, err
 		}
 		log.Info("sent initializing event to target hub")
