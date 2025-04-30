@@ -80,8 +80,9 @@ func TestCompleteConfig(t *testing.T) {
 		{
 			name: "Valid configuration under standalone mode",
 			agentConfig: &configs.AgentConfig{
-				LeafHubName: "",
-				Standalone:  true,
+				LeafHubName:      "",
+				Standalone:       true,
+				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "test-hub",
 					TransportType:   string(transport.Kafka),
@@ -94,10 +95,10 @@ func TestCompleteConfig(t *testing.T) {
 			expectConfig: &configs.AgentConfig{
 				LeafHubName:      "123",
 				Standalone:       true,
-				SpecWorkPoolSize: 0,
+				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "",
+					ConsumerGroupId: "123",
 					TransportType:   string(transport.Kafka),
 				},
 			},

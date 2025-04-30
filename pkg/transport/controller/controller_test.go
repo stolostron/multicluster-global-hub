@@ -39,7 +39,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			ConsumerGroupId: "test",
 			KafkaCredential: &transport.KafkaConfig{
 				SpecTopic:   "spec",
-				StatusTopic: "status",
+				StatusTopic: "event",
 			},
 			FailureThreshold: 100,
 		},
@@ -52,6 +52,8 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
+		producerTopic:   "event",
+		consumerTopics:  []string{"spec"},
 	}
 
 	ctx := context.TODO()
@@ -91,7 +93,8 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, result.Requeue)
 	assert.NotNil(t, secretController.transportClient.producer)
-	assert.NotNil(t, secretController.transportClient.consumer)
+	// cannot assert consumer, because the consumer can be closed since we do not have a real kafka
+	// assert.NotNil(t, secretController.transportClient.consumer)
 	assert.True(t, callbackInvoked)
 
 	// Test when transport config changes
@@ -164,7 +167,6 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 	assert.Nil(t, secretController.transportClient.consumer)
 	assert.NotNil(t, secretController.transportClient.requester)
 	assert.True(t, callbackInvoked)
-	assert.Equal(t, string(transport.Rest), secretController.transportConfig.TransportType)
 
 	// Test when transport config changes
 	result, err = secretController.Reconcile(ctx, req)

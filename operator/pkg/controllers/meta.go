@@ -40,6 +40,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/acm"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
+	addonagent "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/backup"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/grafana"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
@@ -60,9 +61,10 @@ type Func func(initOption config.ControllerOption) (config.ControllerInterface, 
 var controllerStartFuncMap = map[string]Func{
 	"globalhubManager": globalhubmanager.StartController,
 	"grafana":          grafana.StartController,
-	"defaultAgent":     agent.StartDefaultAgentController,
-	"hostedAgent":      agent.StartHostedAgentController,
-	"addonManager":     agent.StartAddonManagerController,
+	"defaultAgent":     addonagent.StartDefaultAgentController,
+	"hostedAgent":      addonagent.StartHostedAgentController,
+	"addonManager":     addonagent.StartAddonManagerController,
+	"localAgent":       agent.StartLocalAgentController,
 	"webhook":          webhook.StartController,
 	"storage":          storage.StartController,
 	"transporter":      transporter.StartController,
@@ -124,7 +126,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 	if mgh.DeletionTimestamp != nil {
 		log.Debug("mgh instance is deleting")
-
 		err = config.UpdateCondition(ctx, r.client, types.NamespacedName{
 			Namespace: mgh.Namespace,
 			Name:      mgh.Name,
@@ -138,7 +139,7 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			return ctrl.Result{}, err
 		}
 
-		_, err = r.pruneGlobalHubResources(ctx)
+		err := r.pruneGlobalHubResources(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -198,7 +199,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	if reconcileErr != nil {
 		return ctrl.Result{}, err
 	}
-
 	if config.IsACMResourceReady() && config.GetAddonManager() != nil {
 		if reconcileErr = utils.TriggerManagedHubAddons(ctx, r.client, config.GetAddonManager()); reconcileErr != nil {
 			return ctrl.Result{}, reconcileErr
@@ -358,11 +358,10 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 	return desiredComponents
 }
 
-func (r *MetaController) pruneGlobalHubResources(ctx context.Context,
-) (ctrl.Result, error) {
+func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if config.IsACMResourceReady() {
@@ -370,12 +369,12 @@ func (r *MetaController) pruneGlobalHubResources(ctx context.Context,
 		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
 		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
 		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 		log.Info("removed finalizer from mgh, app, policy, placement and etc")
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator

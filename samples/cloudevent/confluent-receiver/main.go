@@ -27,10 +27,21 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "test-consumer-Id")
+	// configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "test-consumer-Id")
+	// if err != nil {
+	// 	log.Fatalf("failed to create protocol: %s", err.Error())
+	// }
+	kafkaNamespace := "kafka"
+	kafkaCluster := "kafka"
+	kafkaUser := "my-user"
+	configMap, err := config.GetConfluentConfigMapByCurrentUser(kafkaNamespace, kafkaCluster, kafkaUser)
 	if err != nil {
-		log.Fatalf("failed to create protocol: %s", err.Error())
+		log.Fatalf("failed to create configmap: %s", err.Error())
 	}
+	_ = configMap.SetKey("group.id", "consumergroup-test-2")
+	_ = configMap.SetKey("auto.offset.reset", "earliest")
+	_ = configMap.SetKey("enable.auto.commit", "true")
+
 	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
 		kafka_confluent.WithReceiverTopics([]string{topic}))
 	if err != nil {

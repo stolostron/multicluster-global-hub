@@ -50,18 +50,18 @@ const (
 	DefaultCatalogSourceNamespace = "openshift-marketplace"
 
 	// subscription - production
-	DefaultAMQChannel        = "amq-streams-2.8.x"
+	DefaultAMQChannel        = "amq-streams-2.9.x"
 	DefaultAMQPackageName    = "amq-streams"
 	DefaultCatalogSourceName = "redhat-operators"
 
 	// subscription - community
-	CommunityChannel           = "strimzi-0.43.x"
+	CommunityChannel           = "strimzi-0.45.x"
 	CommunityPackageName       = "strimzi-kafka-operator"
 	CommunityCatalogSourceName = "community-operators"
 )
 
 var (
-	DefaultAMQKafkaVersion         = "3.8.0"
+	DefaultAMQKafkaVersion         = "3.9.0"
 	KafkaStorageIdentifier   int32 = 0
 	KafkaStorageDeleteClaim        = false
 	DefaultPartition         int32 = 1
@@ -298,6 +298,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				GlobalHubKafkaUser     string
 				SpecTopic              string
 				StatusTopic            string
+				MigrationTopic         string
 				StatusTopicParttern    string
 				StatusPlaceholderTopic string
 				TopicPartition         int32
@@ -312,6 +313,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster:           KafkaClusterName,
 				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
 				SpecTopic:              config.GetSpecTopic(),
+				MigrationTopic:         config.GetMigrationTopic(),
 				StatusTopic:            statusTopic,
 				StatusTopicParttern:    string(topicParttern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
@@ -374,13 +376,16 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
 	authnType := kafkav1beta2.KafkaUserSpecAuthenticationTypeTlsExternal
+	if clusterName == constants.LocalClusterName {
+		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
+	}
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		ConsumeGroupReadACL(),
-		ReadTopicACL(clusterTopic.SpecTopic, false),
-		WriteTopicACL(clusterTopic.StatusTopic),
+		utils.ConsumeGroupReadACL(),
+		utils.ReadTopicACL(clusterTopic.SpecTopic, false),
+		utils.WriteTopicACL(clusterTopic.StatusTopic),
 	}
 
-	desiredKafkaUser := k.newKafkaUser(userName, authnType, simpleACLs)
+	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
 
 	kafkaUser := &kafkav1beta2.KafkaUser{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
@@ -399,6 +404,9 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// combine the acls of kafkaUser and the acls of desiredKafkaUser
+	updatedKafkaUser.Spec.Authorization.Acls = combineACLs(kafkaUser.Spec.Authorization.Acls,
+		desiredKafkaUser.Spec.Authorization.Acls)
 
 	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
 		log.Infof("update the kafkaUser: %s", userName)
@@ -409,44 +417,81 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	return userName, nil
 }
 
+// combineACLs combines the existing acls and the desired acls
+func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+	desiredKafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
+) []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	// Deduplicate ACLs based on resource.name + operations
+	aclMap := make(map[string]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem)
+
+	for _, acl := range kafkaUserAcls {
+		key := utils.GenerateACLKey(acl)
+		aclMap[key] = acl
+	}
+	for _, acl := range desiredKafkaUserAcls {
+		key := utils.GenerateACLKey(acl)
+		aclMap[key] = acl
+	}
+
+	mergedAcls := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{}
+	for _, acl := range aclMap {
+		mergedAcls = append(mergedAcls, acl)
+	}
+	return mergedAcls
+}
+
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
+	// messages kept for 10 minute in migration topic, algin with migration timeout
+	err := k.ensureTopic(clusterTopic.MigrationTopic, &apiextensions.JSON{Raw: []byte(`{
+		"cleanup.policy": "compact,delete",
+		"retention.ms": 600000
+	}`)})
+	if err != nil {
+		return nil, err
+	}
+
 	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
-
 	for _, topicName := range topicNames {
-		kafkaTopic := &kafkav1beta2.KafkaTopic{}
-		err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
-			Name:      topicName,
-			Namespace: k.kafkaClusterNamespace,
-		}, kafkaTopic)
-		if errors.IsNotFound(err) {
-			if e := k.manager.GetClient().Create(k.ctx, k.newKafkaTopic(topicName)); e != nil {
-				return nil, e
-			}
-			continue // reconcile the next topic
-		} else if err != nil {
+		if err = k.ensureTopic(topicName, nil); err != nil {
 			return nil, err
-		}
-
-		// update the topic
-		desiredTopic := k.newKafkaTopic(topicName)
-
-		updatedTopic := &kafkav1beta2.KafkaTopic{}
-		err = operatorutils.MergeObjects(kafkaTopic, desiredTopic, updatedTopic)
-		if err != nil {
-			return nil, err
-		}
-		// Kafka do not support change exitsting kafaka topic replica directly.
-		updatedTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
-
-		if !equality.Semantic.DeepDerivative(updatedTopic.Spec, kafkaTopic.Spec) {
-			if err = k.manager.GetClient().Update(k.ctx, updatedTopic); err != nil {
-				return nil, err
-			}
 		}
 	}
 	return clusterTopic, nil
+}
+
+func (k *strimziTransporter) ensureTopic(topicName string, config *apiextensions.JSON) error {
+	desiredTopic := k.newKafkaTopic(topicName, config)
+	kafkaTopic := &kafkav1beta2.KafkaTopic{}
+	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+		Name:      topicName,
+		Namespace: k.kafkaClusterNamespace,
+	}, kafkaTopic)
+	if errors.IsNotFound(err) {
+		if e := k.manager.GetClient().Create(k.ctx, desiredTopic); e != nil {
+			return e
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	// update the topic
+	updatedTopic := &kafkav1beta2.KafkaTopic{}
+	err = operatorutils.MergeObjects(kafkaTopic, desiredTopic, updatedTopic)
+	if err != nil {
+		return err
+	}
+	// Kafka do not support change exitsting kafaka topic replica directly.
+	updatedTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
+
+	if !equality.Semantic.DeepDerivative(updatedTopic.Spec, kafkaTopic.Spec) {
+		if err = k.manager.GetClient().Update(k.ctx, updatedTopic); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (k *strimziTransporter) Prune(clusterName string) error {
@@ -467,6 +512,8 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 	}
 
 	// only delete the topic when removing the CR, otherwise the manager throws error like "Unknown topic or partition"
+	// If a topic is deleted, its offset should also be removed from database.
+	// Otherwise, if the topic is recreated, old offsets in db may block message consumption
 	// if k.sharedTopics || !strings.Contains(config.GetRawStatusTopic(), "*") {
 	// 	return nil
 	// }
@@ -492,8 +539,9 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:   config.GetSpecTopic(),
-		StatusTopic: config.GetStatusTopic(clusterName),
+		SpecTopic:      config.GetSpecTopic(),
+		StatusTopic:    config.GetStatusTopic(clusterName),
+		MigrationTopic: config.GetMigrationTopic(),
 	}
 	return topic
 }
@@ -513,16 +561,21 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
+	credential.MigrationTopic = config.GetMigrationTopic()
 	credential.IsNewKafkaCluster = k.isNewKafkaCluster
-	// don't need to load the client cert/key from the kafka user, since it use the external kafkaUser
-	// userName := config.GetKafkaUserName(clusterName)
-	// if !k.enableTLS {
-	// 	k.log.Info("the kafka cluster hasn't enable tls for user", "username", userName)
-	// 	return credential, nil
-	// }
-	// if err := k.loadUserCredentail(userName, credential); err != nil {
-	// 	return nil, err
-	// }
+	if clusterName != constants.LocalClusterName {
+		return credential, nil
+	}
+
+	// for local-cluster, need to load the client cert/key from the kafka user
+	userName := config.GetKafkaUserName(clusterName)
+	if !k.enableTLS {
+		log.Infof("the kafka cluster hasn't enable tls for user", "username", userName)
+		return credential, nil
+	}
+	if err := k.loadUserCredentail(userName, credential); err != nil {
+		return nil, err
+	}
 	return credential, nil
 }
 
@@ -577,8 +630,8 @@ func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConfi
 	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", k.kafkaClusterNamespace, k.kafkaClusterName)
 }
 
-func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.KafkaTopic {
-	return &kafkav1beta2.KafkaTopic{
+func (k *strimziTransporter) newKafkaTopic(topicName string, topicConfig *apiextensions.JSON) *kafkav1beta2.KafkaTopic {
+	topic := &kafkav1beta2.KafkaTopic{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      topicName,
 			Namespace: k.kafkaClusterNamespace,
@@ -596,20 +649,24 @@ func (k *strimziTransporter) newKafkaTopic(topicName string) *kafkav1beta2.Kafka
 			}`)},
 		},
 	}
+	if topicConfig != nil {
+		topic.Spec.Config = topicConfig
+	}
+	return topic
 }
 
-func (k *strimziTransporter) newKafkaUser(
-	userName string,
+func newKafkaUser(
+	namespace, clusterName, userName string,
 	authnType kafkav1beta2.KafkaUserSpecAuthenticationType,
 	simpleACLs []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
 ) *kafkav1beta2.KafkaUser {
 	return &kafkav1beta2.KafkaUser{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      userName,
-			Namespace: k.kafkaClusterNamespace,
+			Namespace: namespace,
 			Labels: map[string]string{
 				// It is important to set the cluster label otherwise the user will not be ready
-				"strimzi.io/cluster":             k.kafkaClusterName,
+				"strimzi.io/cluster":             clusterName,
 				constants.GlobalHubOwnerLabelKey: constants.GlobalHubOwnerLabelVal,
 			},
 		},
@@ -1058,60 +1115,4 @@ func (k *strimziTransporter) newSubscription(mgh *operatorv1alpha4.MulticlusterG
 		},
 	}
 	return sub
-}
-
-func WriteTopicACL(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
-	host := "*"
-	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		Host: &host,
-		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
-			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
-			Name:        &topicName,
-			PatternType: &patternType,
-		},
-		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
-		},
-	}
-	return writeAcl
-}
-
-func ReadTopicACL(topicName string, prefixParttern bool) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
-	host := "*"
-	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	if prefixParttern {
-		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
-	}
-
-	return kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		Host: &host,
-		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
-			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
-			Name:        &topicName,
-			PatternType: &patternType,
-		},
-		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		},
-	}
-}
-
-func ConsumeGroupReadACL() kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
-	host := "*"
-	consumerGroup := "*"
-	consumerPatternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	consumerAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-		Host: &host,
-		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
-			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeGroup,
-			Name:        &consumerGroup,
-			PatternType: &consumerPatternType,
-		},
-		Operations: []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
-			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-		},
-	}
-	return consumerAcl
 }

@@ -43,7 +43,14 @@ type TransportCtrl struct {
 	transportCallback TransportCallback
 	transportClient   *TransportClient
 
-	mutex sync.Mutex
+	// producerTopic is current topic which is used to create a producer
+	producerTopic string
+	// consumerTopics is current topics which are used to create a consumer
+	consumerTopics []string
+	mutex          sync.Mutex
+	// inManager is used to check if the controller is in the manager.
+	// if it's true, then the controller is in the manager, otherwise it's in the agent.
+	inManager bool
 }
 
 type TransportClient struct {
@@ -77,7 +84,7 @@ func (c *TransportClient) SetRequester(requester transport.Requester) {
 }
 
 func NewTransportCtrl(namespace, name string, callback TransportCallback,
-	transportConfig *transport.TransportInternalConfig,
+	transportConfig *transport.TransportInternalConfig, inManager bool,
 ) *TransportCtrl {
 	return &TransportCtrl{
 		secretNamespace:   namespace,
@@ -86,6 +93,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		transportClient:   &TransportClient{},
 		transportConfig:   transportConfig,
 		extraSecretNames:  make([]string, 2),
+		inManager:         inManager,
 	}
 }
 
@@ -104,20 +112,13 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	_, isKafka := secret.Data["kafka.yaml"]
-	if isKafka {
-		c.transportConfig.TransportType = string(transport.Kafka)
-	}
-
-	_, isRestful := secret.Data["rest.yaml"]
-	if isRestful {
-		c.transportConfig.TransportType = string(transport.Rest)
-	}
-
+	// currently, transport type is always kafka
+	c.transportConfig.TransportType = string(transport.Kafka)
 	var updated bool
 	var err error
-	switch c.transportConfig.TransportType {
-	case string(transport.Kafka):
+
+	_, enableKafka := secret.Data["kafka.yaml"]
+	if enableKafka {
 		updated, err = c.ReconcileKafkaCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -131,7 +132,11 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-	case string(transport.Rest):
+	}
+
+	// if the rest.yaml exist, then build the rest client
+	_, enableRestful := secret.Data["rest.yaml"]
+	if enableRestful {
 		updated, err = c.ReconcileRestfulCredential(ctx, secret)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -141,8 +146,6 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 				return ctrl.Result{}, err
 			}
 		}
-	default:
-		return ctrl.Result{}, fmt.Errorf("unsupported transport type: %s", c.transportConfig.TransportType)
 	}
 
 	if !updated {
@@ -160,14 +163,21 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 
 // ReconcileProducer, transport config is changed, then create/update the producer
 func (c *TransportCtrl) ReconcileProducer() error {
+	// set producerTopic to spec or status topic based on running in manager or not
+	if c.inManager {
+		c.producerTopic = c.transportConfig.KafkaCredential.SpecTopic
+	} else {
+		c.producerTopic = c.transportConfig.KafkaCredential.StatusTopic
+	}
+
 	if c.transportClient.producer == nil {
-		sender, err := producer.NewGenericProducer(c.transportConfig)
+		sender, err := producer.NewGenericProducer(c.transportConfig, c.producerTopic, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create/update the producer: %w", err)
 		}
 		c.transportClient.producer = sender
 	} else {
-		if err := c.transportClient.producer.Reconnect(c.transportConfig); err != nil {
+		if err := c.transportClient.producer.Reconnect(c.transportConfig, c.producerTopic); err != nil {
 			return fmt.Errorf("failed to reconnect the producer: %w", err)
 		}
 	}
@@ -180,10 +190,16 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	if c.transportConfig.ConsumerGroupId == "" {
 		return nil
 	}
+	// set consumerTopics to status or spec topic based on running in manager or not
+	if c.inManager {
+		c.consumerTopics = []string{c.transportConfig.KafkaCredential.StatusTopic}
+	} else {
+		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
+	}
 
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig)
+		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}

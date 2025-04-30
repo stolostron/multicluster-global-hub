@@ -91,11 +91,6 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(cachedRootPolicyEvent), cachedRootPolicyEvent)
 		Expect(err).Should(Succeed())
 
-		name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
-		// the delta is 1 seconds, the next 5 seconds(6 - 1) events will be filtered
-		filter.DeltaDuration = 1
-		filter.CacheTime(name, cachedRootPolicyEvent.CreationTimestamp.Time.Add(6*time.Second))
-
 		By("Create a expired event")
 		expiredEvent := &corev1.Event{
 			ObjectMeta: metav1.ObjectMeta{
@@ -113,8 +108,17 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 				Component: "policy-propagator",
 			},
 		}
+
+		// update the cache with the expired event
+		name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
+		filter.DeltaDuration = 0 // set the delta buffer into 0
+		filter.CacheSyncInterval = 1
+		now := time.Now().Add(2 * time.Second) // the next 2 seconds events will be considered as expired
+		filter.CacheTime(name, now)
+
 		Expect(runtimeClient.Create(ctx, expiredEvent)).NotTo(HaveOccurred())
-		time.Sleep(6 * time.Second)
+
+		time.Sleep(3 * time.Second)
 
 		By("Create a new event")
 		newEvent := &corev1.Event{
@@ -153,6 +157,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 			gotEvent := false
 			for _, outEvent := range outEvents {
 				if outEvent.EventName == expiredEvent.Name {
+					fmt.Printf("now %s, expired time %s", now, expiredEvent.CreationTimestamp)
 					Fail("should not get the expired event: policy1.expired.123r543243333")
 				}
 				if outEvent.EventName == newEvent.Name {
@@ -190,7 +195,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		cluster.Status = clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: "3f406177-34b2-4852-88dd-ff2809680336",
 				},
 			},

@@ -52,10 +52,10 @@ var _ = BeforeSuite(func() {
 
 	transportConfig = &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
-		IsManager:     true,
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:   "spec",
-			StatusTopic: "spec",
+			SpecTopic:      "spec",
+			MigrationTopic: "migration",
+			StatusTopic:    "status",
 		},
 	}
 
@@ -100,9 +100,13 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	genericProducer, err := genericproducer.NewGenericProducer(transportConfig)
+	genericProducer, err := genericproducer.NewGenericProducer(
+		transportConfig,
+		transportConfig.KafkaCredential.SpecTopic,
+		nil,
+	)
 	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, false)
+	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, false, "gh-migration")
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {

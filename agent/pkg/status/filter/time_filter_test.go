@@ -74,7 +74,7 @@ func TestTimeFilter(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	eventType := "event.managedcluster"
 
-	eventTimeCacheInterval = 1 * time.Second
+	CacheSyncInterval = 1 * time.Second
 	err := LaunchTimeFilter(ctx, runtimeClient, "default", "topic1")
 	assert.Nil(t, err)
 

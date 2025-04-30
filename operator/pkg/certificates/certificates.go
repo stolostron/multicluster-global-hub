@@ -11,6 +11,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -29,8 +30,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 const (
@@ -385,14 +388,32 @@ func GetKeyAndCert(c client.Client, namespace string, name string) ([]byte, []by
 	}
 	key, containKey := certSecret.Data[tlsKeyName]
 	if !containKey {
-		return nil, nil, fmt.Errorf("the cert secret %s must have %s", name, tlsKeyName)
+		return nil, nil, fmt.Errorf("the cert secret %s must have key %s", name, tlsKeyName)
 	}
 	cert, containCert := certSecret.Data[tlsCertName]
 	if !containCert {
-		return nil, nil, fmt.Errorf("the cert secret %s must have %s", name, tlsCertName)
+		return nil, nil, fmt.Errorf("the cert secret %s must have cert %s", name, tlsCertName)
 	}
 
 	return key, cert, nil
+}
+
+func GetCACert(c client.Client, namespace string, name string) ([]byte, error) {
+	certSecret := &corev1.Secret{}
+	err := c.Get(
+		context.TODO(),
+		types.NamespacedName{Namespace: namespace, Name: name},
+		certSecret,
+	)
+	if err != nil {
+		return nil, err
+	}
+	caCert, containKey := certSecret.Data[caCertName]
+	if !containKey {
+		return nil, fmt.Errorf("the cert secret %s must have %s", name, caCertName)
+	}
+
+	return caCert, nil
 }
 
 func removeExpiredCA(c client.Client, name, namespace string) {
@@ -481,4 +502,43 @@ func getIps(mgh *v1alpha4.MulticlusterGlobalHub) []net.IP {
 	}
 
 	return nil
+}
+
+func GetInventoryCredential(c client.Client) (*transport.RestfulConfig, error) {
+	inventoryCredential := &transport.RestfulConfig{}
+
+	// add ca
+	serverCASecretName := InventoryServerCASecretName
+	inventoryNamespace := config.GetMGHNamespacedName().Namespace
+	cACert, err := GetCACert(c, inventoryNamespace, serverCASecretName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the inventory server ca: %w", err)
+	}
+	inventoryCredential.CASecretName = serverCASecretName
+	inventoryCredential.CACert = base64.StdEncoding.EncodeToString(cACert)
+
+	// add client
+	clientSecretName := "inventory-api-guest-certs"
+	inventoryCredential.ClientSecretName = clientSecretName
+
+	key, cert, err := GetKeyAndCert(c, inventoryNamespace, clientSecretName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the inventory client cert and key: %w", err)
+	}
+	inventoryCredential.ClientKey = base64.StdEncoding.EncodeToString(key)
+	inventoryCredential.ClientCert = base64.StdEncoding.EncodeToString(cert)
+
+	inventoryRoute := &routev1.Route{}
+	err = c.Get(context.Background(), types.NamespacedName{
+		Name:      constants.InventoryRouteName,
+		Namespace: inventoryNamespace,
+	}, inventoryRoute)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get inventory route: %s/%s", inventoryNamespace, constants.InventoryRouteName)
+	}
+
+	// host
+	inventoryCredential.Host = fmt.Sprintf("https://%s:443", inventoryRoute.Spec.Host)
+
+	return inventoryCredential, nil
 }

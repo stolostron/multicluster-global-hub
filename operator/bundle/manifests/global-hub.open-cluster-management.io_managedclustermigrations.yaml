@@ -11,10 +11,20 @@ spec:
     kind: ManagedClusterMigration
     listKind: ManagedClusterMigrationList
     plural: managedclustermigrations
+    shortNames:
+    - mcm
     singular: managedclustermigration
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - description: The overall status of the Migration
+      jsonPath: .status.phase
+      name: Status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ManagedClusterMigration is a global hub resource that allows
@@ -126,9 +136,11 @@ spec:
               phase:
                 description: Phase represents the current phase of the migration
                 enum:
-                - Initializing
                 - Validating
-                - Migrating
+                - Initializing
+                - Deploying
+                - Registering
+                - Cleaning
                 - Completed
                 - Failed
                 type: string

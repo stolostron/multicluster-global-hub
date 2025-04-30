@@ -7,14 +7,12 @@ import (
 	"os"
 	"time"
 
-	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/spf13/pflag"
 	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -89,12 +87,17 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
+	transportSecretName := constants.GHTransportConfigSecret
+	if agentConfig.LeafHubName == constants.LocalClusterName {
+		transportSecretName = constants.GHTransportConfigSecret + "-" + constants.LocalClusterName
+	}
 	// add transport ctrl to manager
 	err = controller.NewTransportCtrl(
 		agentConfig.PodNamespace,
-		constants.GHTransportConfigSecret,
+		transportSecretName,
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
+		false,
 	).SetupWithManager(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)
@@ -110,9 +113,6 @@ func parseFlags() *configs.AgentConfig {
 	agentConfig := &configs.AgentConfig{
 		ElectionConfig: &commonobjects.LeaderElectionConfig{},
 		TransportConfig: &transport.TransportInternalConfig{
-			// IsManager specifies the send/receive topics from specTopic and statusTopic
-			// For example, SpecTopic sends and statusTopic receives on the manager; the agent is the opposite
-			IsManager: false,
 			// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 			EnableDatabaseOffset: false,
 		},
@@ -161,17 +161,9 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 		return fmt.Errorf("the leaf-hub-name must not be empty")
 	}
 	if agentConfig.LeafHubName == "" {
-		clusterVersion := &configv1.ClusterVersion{
-			ObjectMeta: metav1.ObjectMeta{Name: "version"},
-		}
-		err := c.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
+		err, clusterID := utils.GetClusterIdFromClusterVersion(c, ctx)
 		if err != nil {
-			return fmt.Errorf("failed to get the ClusterVersion(version): %w", err)
-		}
-
-		clusterID := string(clusterVersion.Spec.ClusterID)
-		if clusterID == "" {
-			return fmt.Errorf("the clusterId from ClusterVersion must not be empty")
+			return err
 		}
 		agentConfig.LeafHubName = clusterID
 	}
@@ -179,16 +171,12 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
-	// if deploy the agent as a event exporter, then disable the consumer features
-	if agentConfig.Standalone {
-		agentConfig.TransportConfig.ConsumerGroupId = ""
-		agentConfig.SpecWorkPoolSize = 0
-	} else {
-		agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
-		if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
-			return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
-		}
+	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
+
+	if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
+		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
 	}
+
 	configs.SetAgentConfig(agentConfig)
 	return nil
 }

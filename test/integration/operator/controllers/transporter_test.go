@@ -84,6 +84,7 @@ var _ = Describe("transporter", Ordered, func() {
 		// verify the type
 		Expect(config.TransporterProtocol()).To(Equal(transport.SecretTransporter))
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
+		Expect(config.GetMigrationTopic()).To(Equal("gh-migration"))
 		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
 
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
@@ -393,6 +394,7 @@ var _ = Describe("transporter", Ordered, func() {
 		clusterTopic, err := trans.EnsureTopic(clusterName)
 		Expect(err).To(Succeed())
 		Expect("gh-spec").To(Equal(clusterTopic.SpecTopic))
+		Expect("gh-migration").To(Equal(clusterTopic.MigrationTopic))
 		Expect(config.GetStatusTopic(clusterName)).To(Equal(clusterTopic.StatusTopic))
 
 		// topic: update
@@ -416,7 +418,7 @@ var _ = Describe("transporter", Ordered, func() {
 })
 
 func UpdateKafkaClusterReady(c client.Client, ns string) error {
-	kafkaVersion := "3.8.0"
+	kafkaVersion := "3.9.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
 	clientCa := "kafka-clients-ca-cert"

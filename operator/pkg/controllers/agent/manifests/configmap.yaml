@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multicluster-global-hub-agent-config
+  namespace: {{.Namespace}}
+  labels:
+    component: multicluster-global-hub-agent
+data:
+  managedClusters: "5s"
+  policies: "5s"
+  hubClusterInfo: "60s"
+  hubClusterHeartbeat: "60s"
+  aggregationLevel: full
+  enableLocalPolicies: "true"
+  logLevel: {{.LogLevel}}

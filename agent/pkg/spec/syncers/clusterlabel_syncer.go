@@ -51,6 +51,7 @@ func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, payloa
 	if err := json.Unmarshal(payload, bundle); err != nil {
 		return err
 	}
+	syncer.log.Debugf("bundle: %v", bundle)
 	syncer.setLatestBundle(bundle) // uses latestBundle
 	syncer.handleBundle()
 
@@ -69,6 +70,8 @@ func (syncer *managedClusterLabelsBundleSyncer) handleBundle() {
 	defer syncer.latestBundleLock.Unlock()
 
 	for _, managedClusterLabelsSpec := range syncer.latestBundle.Objects {
+		syncer.log.Debugf("managedClusterLabelsSpec: %v", managedClusterLabelsSpec)
+
 		lastProcessedTimestampPtr := syncer.getManagedClusterLastProcessedTimestamp(managedClusterLabelsSpec.ClusterName)
 		if managedClusterLabelsSpec.UpdateTimestamp.After(*lastProcessedTimestampPtr) { // handle (success) once
 			syncer.bundleProcessingWaitingGroup.Add(1)

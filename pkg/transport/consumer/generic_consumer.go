@@ -37,6 +37,7 @@ type GenericConsumer struct {
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
 	client         cloudevents.Client
+	kafkaConsumer  *kafka.Consumer
 
 	mutex sync.Mutex
 }
@@ -50,7 +51,7 @@ func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 	}
 }
 
-func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
+func NewGenericConsumer(tranConfig *transport.TransportInternalConfig, topics []string,
 	opts ...GenericConsumeOption,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
@@ -59,7 +60,7 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: tranConfig.EnableDatabaseOffset,
 	}
-	if err := c.initClient(tranConfig); err != nil {
+	if err := c.initClient(tranConfig, topics); err != nil {
 		return nil, err
 	}
 	if err := c.applyOptions(opts...); err != nil {
@@ -68,21 +69,21 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig,
 	return c, nil
 }
 
+func (c *GenericConsumer) KafkaConsumer() *kafka.Consumer {
+	return c.kafkaConsumer
+}
+
 // initClient will init the consumer identity, clientProtocol, client
-func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig) error {
+func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
 	var err error
 	var clientProtocol interface{}
 
 	c.clusterID = tranConfig.KafkaCredential.ClusterID
-	topics := []string{tranConfig.KafkaCredential.StatusTopic}
-	if !tranConfig.IsManager {
-		topics[0] = tranConfig.KafkaCredential.SpecTopic
-	}
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		c.log.Info("transport consumer with cloudevents-kafka receiver")
-		clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
+		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
 		if err != nil {
 			return err
 		}
@@ -117,11 +118,13 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 	return nil
 }
 
-func (c *GenericConsumer) Reconnect(ctx context.Context, tranConfig *transport.TransportInternalConfig) error {
+func (c *GenericConsumer) Reconnect(ctx context.Context,
+	tranConfig *transport.TransportInternalConfig, topics []string,
+) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	err := c.initClient(tranConfig)
+	err := c.initClient(tranConfig, topics)
 	if err != nil {
 		return err
 	}
@@ -222,16 +225,25 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 // }
 
 func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (
-	interface{}, error,
+	*kafka.Consumer, interface{}, error,
 ) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
 		transportConfig.ConsumerGroupId)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
+	consumer, err := kafka.NewConsumer(configMap)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	protocol, err := kafka_confluent.New(kafka_confluent.WithReceiver(consumer),
 		kafka_confluent.WithReceiverTopics(topics))
+	if err != nil {
+		return nil, nil, err
+	}
+	return consumer, protocol, nil
 }
 
 func TransportID() string {

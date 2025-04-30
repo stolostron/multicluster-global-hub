@@ -20,23 +20,20 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/controllers"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
 var (
-	testenv             *envtest.Environment
-	transportConfig     *transport.TransportInternalConfig
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	testPostgres        *testpostgres.TestPostgres
-	db                  *gorm.DB
-	mgr                 manager.Manager
-	migrationReconciler *controllers.MigrationController
+	testenv         *envtest.Environment
+	transportConfig *transport.TransportInternalConfig
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	testPostgres    *testpostgres.TestPostgres
+	db              *gorm.DB
+	mgr             manager.Manager
 )
 
 func TestController(t *testing.T) {
@@ -52,10 +49,8 @@ var _ = BeforeSuite(func() {
 
 	transportConfig = &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
-		IsManager:     true,
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:   "spec",
-			StatusTopic: "spec",
+			SpecTopic: "spec",
 		},
 	}
 
@@ -99,11 +94,6 @@ var _ = BeforeSuite(func() {
 		Scheme: configs.GetRuntimeScheme(),
 	})
 	Expect(err).NotTo(HaveOccurred())
-
-	genericProducer, err := genericproducer.NewGenericProducer(transportConfig)
-	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = controllers.NewMigrationController(mgr.GetClient(), genericProducer, false)
-	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())

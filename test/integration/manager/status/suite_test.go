@@ -89,8 +89,9 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportInternalConfig{
 			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:   "spec",
-				StatusTopic: "event",
+				SpecTopic:      "spec",
+				StatusTopic:    "event",
+				MigrationTopic: "migration",
 			},
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{
@@ -100,17 +101,17 @@ var _ = BeforeSuite(func() {
 	}
 
 	By("Start cloudevents producer and consumer")
-	managerConfig.TransportConfig.IsManager = false
-	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig)
+	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig,
+		managerConfig.TransportConfig.KafkaCredential.StatusTopic, nil)
 	Expect(err).NotTo(HaveOccurred())
 
-	managerConfig.TransportConfig.IsManager = true
-	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig)
+	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
+		[]string{managerConfig.TransportConfig.KafkaCredential.StatusTopic})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Add controllers to manager")
-	err = status.AddStatusSyncers(mgr, consumer, managerConfig)
+	err = status.AddStatusSyncers(mgr, consumer, nil, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")

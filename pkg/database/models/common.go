@@ -4,7 +4,13 @@ import "time"
 
 type ResourceVersion struct {
 	Key             string `gorm:"column:key"`
+	Name            string `gorm:"column:name"`
 	ResourceVersion string `gorm:"column:resource_version"`
+}
+
+type ClusterInfo struct {
+	ConsoleURL string `gorm:"column:consoleURL"`
+	MchVersion string `gorm:"column:mchVersion"`
 }
 
 type Table struct {

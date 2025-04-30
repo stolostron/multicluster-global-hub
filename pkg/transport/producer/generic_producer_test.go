@@ -18,11 +18,12 @@ func TestGenericProducer(t *testing.T) {
 	tranConfig := &transport.TransportInternalConfig{
 		TransportType: string(transport.Rest),
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:   "gh-spec",
-			StatusTopic: "gh-status",
+			SpecTopic:      "gh-spec",
+			StatusTopic:    "gh-status",
+			MigrationTopic: "gh-migration",
 		},
 	}
-	err := p.initClient(tranConfig)
+	err := p.initClient(tranConfig, tranConfig.KafkaCredential.StatusTopic)
 	require.Equal(t, "transport-type - rest is not a valid option", err.Error())
 }
 
@@ -42,7 +43,7 @@ func Test_handleProducerEvents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			log := logger.DefaultZapLogger()
 			eventChan := make(chan kafka.Event)
-			go handleProducerEvents(log, eventChan, tt.transportFailureThreshold)
+			go handleProducerEvents(log, eventChan, tt.transportFailureThreshold, nil)
 			eventChan <- tt.event
 		})
 	}

@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-03-31T07:43:10Z"
+    createdAt: "2025-04-29T05:49:53Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -53,7 +53,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    olm.skipRange: '>=1.3.0 <1.4.0'
+    olm.skipRange: '>=1.4.0 <1.5.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
       "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
       "spec": {}}'
@@ -71,7 +71,7 @@ metadata:
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
     operatorframework.io/os.linux: supported
-  name: multicluster-global-hub-operator.v1.4.0-dev
+  name: multicluster-global-hub-operator.v1.5.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -381,16 +381,15 @@ spec:
           - ""
           resources:
           - configmaps
-          - jobs
+          - events
           - namespaces
-          - persistentvolumeclaims
           - pods
           - secrets
-          - serviceaccounts
           - services
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -407,12 +406,33 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - events
+          - groups
+          - users
+          verbs:
+          - impersonate
+        - apiGroups:
+          - ""
+          resources:
+          - jobs
+          - persistentvolumeclaims
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
           verbs:
           - create
           - delete
           - deletecollection
           - get
+          - impersonate
           - list
           - patch
           - update
@@ -478,6 +498,15 @@ spec:
           - update
           - watch
         - apiGroups:
+          - agent.open-cluster-management.io
+          resources:
+          - klusterletaddonconfigs
+          verbs:
+          - create
+          - get
+          - list
+          - watch
+        - apiGroups:
           - apiextensions.k8s.io
           resources:
           - customresourcedefinitions
@@ -493,10 +522,13 @@ spec:
           resources:
           - applications
           verbs:
+          - create
+          - delete
           - get
           - list
           - patch
           - update
+          - watch
         - apiGroups:
           - apps
           resources:
@@ -504,6 +536,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -524,18 +557,13 @@ spec:
           - apps.open-cluster-management.io
           resources:
           - channels
-          - subscriptions
-          verbs:
-          - get
-          - list
-          - patch
-          - update
-        - apiGroups:
-          - apps.open-cluster-management.io
-          resources:
           - placementrules
           - subscriptionreports
+          - subscriptions
+          - subscriptionstatuses
           verbs:
+          - create
+          - delete
           - get
           - list
           - patch
@@ -638,6 +666,7 @@ spec:
           - clusterclaims
           - managedclusters
           - managedclustersetbindings
+          - managedclustersets
           - placements
           verbs:
           - create
@@ -651,7 +680,6 @@ spec:
           - cluster.open-cluster-management.io
           resources:
           - managedclusters/finalizers
-          - managedclustersets
           - placementdecisions
           - placementdecisions/finalizers
           - placements/finalizers
@@ -667,6 +695,14 @@ spec:
           - global
           resources:
           - managedclustersets/bind
+          verbs:
+          - create
+          - delete
+        - apiGroups:
+          - cluster.open-cluster-management.io
+          resources:
+          - managedclustersets/bind
+          - managedclustersets/join
           verbs:
           - create
           - delete
@@ -697,6 +733,7 @@ spec:
           - leases
           verbs:
           - create
+          - delete
           - get
           - list
           - patch
@@ -708,6 +745,7 @@ spec:
           - managedclustermigrations
           - managedclustermigrations/status
           verbs:
+          - delete
           - get
           - list
           - patch
@@ -836,6 +874,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - platform.stackrox.io
+          resources:
+          - centrals
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - policy.open-cluster-management.io
           resources:
           - placementbindings
@@ -843,6 +889,8 @@ spec:
           - policyautomations
           - policysets
           verbs:
+          - create
+          - delete
           - get
           - list
           - patch
@@ -862,26 +910,23 @@ spec:
           resources:
           - clusterrolebindings
           - clusterroles
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
           - rolebindings
           - roles
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
           - update
           - watch
+        - apiGroups:
+          - register.open-cluster-management.io
+          resources:
+          - managedclusters/accept
+          verbs:
+          - update
         - apiGroups:
           - route.openshift.io
           resources:
@@ -943,7 +988,7 @@ spec:
                 - name: RELATED_IMAGE_POSTGRESQL
                   value: quay.io/stolostron/postgresql-16:9.5-1732622748
                 - name: RELATED_IMAGE_INVENTORY_API
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-inventory/inventory-api:latest
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-inventory/inventory-api@sha256:c443e7494d7b1dd4bb24234cf265a3f0fb5e9c3c0e2edeb2f00285a2286ff24f
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
                 - name: RELATED_IMAGE_SPICEDB_OPERATOR
@@ -951,7 +996,7 @@ spec:
                 - name: RELATED_IMAGE_SPICEDB_INSTANCE
                   value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
                 - name: RELATED_IMAGE_RELATIONS_API
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/relations-api:latest
+                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/relations-api@sha256:fff1d072580a65ee78a82a845eb256a669f67a0b0c1b810811c2a66e6c73b10d
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1100,8 +1145,8 @@ spec:
   maintainers:
   - email: acm-contact@redhat.com
     name: acm-contact
-  maturity: release-1.4
+  maturity: release-1.5
   provider:
     name: Red Hat, Inc
     url: https://github.com/stolostron/multicluster-global-hub
-  version: 1.4.0-dev
+  version: 1.5.0-dev

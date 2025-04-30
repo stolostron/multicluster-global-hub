@@ -18,7 +18,7 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	testutils "github.com/stolostron/multicluster-global-hub/test/integration/utils"
 )
@@ -92,12 +92,12 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 
 // go test ./test/integration/operator/controllers/agent -ginkgo.focus "other addons in hosted mode test" -v
 var _ = Describe("other addons in hosted mode test", Ordered, func() {
-	var hostedAddonReconciler *agent.HostedAgentController
+	var hostedAddonReconciler *addon.HostedAgentController
 	BeforeAll(func() {
 		config.SetImportClusterInHosted(&hostedMGH)
 		var err error
 
-		hostedAddonReconciler = agent.NewHostedAgentController(mgr)
+		hostedAddonReconciler = addon.NewHostedAgentController(mgr)
 		Expect(mgr.GetClient().Create(ctx, &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: mghNameSpace,
@@ -109,7 +109,7 @@ var _ = Describe("other addons in hosted mode test", Ordered, func() {
 			MulticlusterGlobalHub: &hostedMGH,
 			Manager:               mgr,
 		}
-		_, err = agent.StartHostedAgentController(initOption)
+		_, err = addon.StartHostedAgentController(initOption)
 		Expect(err).Should(Succeed())
 
 		config.SetACMResourceReady(true)

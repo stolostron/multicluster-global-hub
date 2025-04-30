@@ -14,7 +14,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory/managedclusterinfo"
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedcluster"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 // https://github.com/project-kessel/docs/blob/main/src/content/docs/inventory/kafka-event.md
@@ -28,10 +30,10 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 	BeforeAll(func() {
 		// also is the name of managedclusterinfo
 		localClusterId = fmt.Sprintf("test-cluster-%d", rand.Intn(100000))
-		clusterInfo := mockManagedClusterInfo(localClusterId, clusterinfov1beta1.KubeVendorOpenShift, "4.10.0",
-			clusterinfov1beta1.CloudVendorAWS)
+		hubinfo := models.ClusterInfo{}
+
 		cluster := createMockCluster(localClusterId, "OpenShift", "4.10.0", "AWS", "1.23.0")
-		k8sCluster = managedclusterinfo.GetK8SCluster(ctx, clusterInfo, cluster, "guest", runtimeClient)
+		k8sCluster = managedcluster.GetK8SCluster(ctx, cluster, "guest", hubinfo)
 
 		localPolicyId = fmt.Sprintf("test-policy-%d", rand.Intn(100000))
 		k8sPolicy = generateK8SPolicy(localPolicyId, "guest")
@@ -369,7 +371,7 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 		Status: clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: uuid.New().String(),
 				},
 				{
@@ -388,6 +390,17 @@ func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion st
 					Name:  "product.open-cluster-management.io",
 					Value: kubeVendor,
 				},
+			},
+			Conditions: []metav1.Condition{
+				{
+					Type:   clusterv1.ManagedClusterConditionAvailable,
+					Status: metav1.ConditionTrue,
+					Reason: "ManagedClusterAvailable",
+				},
+			},
+			Capacity: map[clusterv1.ResourceName]resource.Quantity{
+				clusterv1.ResourceCPU:    resource.MustParse("16"),
+				clusterv1.ResourceMemory: resource.MustParse("64453796Ki"),
 			},
 		},
 	}

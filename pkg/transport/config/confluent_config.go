@@ -33,17 +33,14 @@ func GetBasicConfigMap() *kafkav2.ConfigMap {
 }
 
 func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
-	_ = kafkaConfigMap.SetKey("go.produce.channel.size", 1000)
 	_ = kafkaConfigMap.SetKey("acks", "1")
 	_ = kafkaConfigMap.SetKey("retries", "1")
-	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
 }
 
 func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
 	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	_ = kafkaConfigMap.SetKey("group.id", groupId)
-	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
 }
 
 func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {
@@ -222,4 +219,9 @@ func ParseCredentailConn(namespace string, c client.Client, conn transport.Trans
 		}
 	}
 	return nil
+}
+
+// GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate
+func GetKafkaUserName(clusterName string) string {
+	return fmt.Sprintf("%s-kafka-user", clusterName)
 }

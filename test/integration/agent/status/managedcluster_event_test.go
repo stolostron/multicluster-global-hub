@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -40,12 +41,18 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		cluster.Status = clusterv1.ManagedClusterStatus{
 			ClusterClaims: []clusterv1.ManagedClusterClaim{
 				{
-					Name:  "id.k8s.io",
+					Name:  constants.ClusterIdClaimName,
 					Value: "4f406177-34b2-4852-88dd-ff2809680444",
 				},
 			},
 		}
 		Expect(runtimeClient.Status().Update(ctx, cluster)).Should(Succeed())
+
+		By("Wait for the managed cluster")
+		Eventually(func() error {
+			// wait for managed cluster
+			return runtimeClient.Get(ctx, types.NamespacedName{Name: "cluster2"}, &clusterv1.ManagedCluster{})
+		}, 3*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 
 		By("Create the cluster event after the clusterId is ready")
 		evt := &corev1.Event{
@@ -69,6 +76,7 @@ var _ = Describe("ManagedClusterEventEmitter", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, evt)).NotTo(HaveOccurred())
 
 		Eventually(func() error {
+			// wait for managed cluster
 			key := string(enum.ManagedClusterEventType)
 			receivedEvent, ok := receivedEvents[key]
 			if !ok {

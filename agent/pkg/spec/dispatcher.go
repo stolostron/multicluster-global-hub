@@ -64,6 +64,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case evt := <-d.consumer.EventChan():
+			d.log.Debugf("get event: %v", evt.Type())
 			// if destination is explicitly specified and does not match, drop bundle
 			clusterNameVal, err := evt.Context.GetExtension(constants.CloudEventExtensionKeyClusterName)
 			if err != nil {

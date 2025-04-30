@@ -91,15 +91,15 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sManager).ToNot(BeNil())
 
-	By("start the standalone agent controller to manager")
-	Expect(agent.StartStandaloneAgentController(ctx, k8sManager)).ToNot(HaveOccurred())
-
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
 	Expect(k8sManager.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	By("start the standalone agent controller to manager")
+	Expect(agent.StartStandaloneAgentController(ctx, k8sManager)).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {

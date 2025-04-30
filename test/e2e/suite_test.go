@@ -37,6 +37,7 @@ import (
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
+	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
@@ -184,17 +185,27 @@ var _ = BeforeSuite(func() {
 			}, 1*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 		}
 		db = database.GetGorm()
+		By("Validate the clusters on database")
 	} else {
 		waitGlobalhubReadyAndLeaseUpdated()
 	}
-
-	By("Validate the clusters on database")
 	Eventually(func() (err error) {
-		managedClusters, err = getManagedCluster(httpClient)
-		klog.Errorf("get managedcluster error:%v", err)
-		return err
+		allManagedClusters, err := getManagedCluster(httpClient)
+		if err != nil {
+			return err
+		}
+		for _, mc := range allManagedClusters {
+			// hub1 and hub2 write in db in local_agent_test.go
+			if mc.Name == "hub1" || mc.Name == "hub2" {
+				continue
+			}
+			managedClusters = append(managedClusters, mc)
+		}
+		if len(managedClusters) != (ExpectedMH * ExpectedMC) {
+			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(managedClusters))
+		}
+		return nil
 	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
-	Expect(len(managedClusters)).Should(Equal(ExpectedMC * ExpectedMH))
 })
 
 var _ = AfterSuite(func() {
@@ -241,7 +252,7 @@ func completeOptions() utils.Options {
 
 func GetClusterID(cluster clusterv1.ManagedCluster) string {
 	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == "id.k8s.io" {
+		if claim.Name == commonconstants.ClusterIdClaimName {
 			return claim.Value
 		}
 	}
@@ -375,7 +386,7 @@ func waitGlobalhubReadyAndLeaseUpdated() {
 			return err
 		}
 		if !updated {
-			return fmt.Errorf("lease not updated")
+			return fmt.Errorf("manager lease not updated")
 		}
 		return nil
 	}, 5*time.Minute, 1*time.Second).Should(Succeed())

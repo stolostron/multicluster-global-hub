@@ -1,21 +1,33 @@
 package managedhub
 
 import (
+	"context"
+
+	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	clustersv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+	mch, err := utils.ListMCH(context.Background(), mgr.GetClient())
+	if err != nil {
+		return err
+	}
+	if mch != nil && mch.Status.CurrentVersion != "" {
+		configs.SetMCHVersion(mch.Status.CurrentVersion)
+	}
+
 	eventData := &cluster.HubClusterInfo{}
 	return generic.LaunchMultiObjectSyncer(
 		"status.hub_cluster_info",
@@ -23,11 +35,11 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 		[]generic.ControllerHandler{
 			{
 				Controller: generic.NewGenericController(
-					func() client.Object { return &clustersv1alpha1.ClusterClaim{} },
+					func() client.Object { return &configv1.ClusterVersion{} },
 					predicate.NewPredicateFuncs(func(object client.Object) bool {
-						return object.GetName() == "id.k8s.io"
+						return object.GetName() == "version"
 					})),
-				Handler: &infoClusterClaimHandler{eventData},
+				Handler: &infoClusterVersionHandler{eventData},
 			},
 			{
 				Controller: generic.NewGenericController(
@@ -52,25 +64,25 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 	)
 }
 
-// 1. Use ClusterClaim to update the HubClusterInfo
-type infoClusterClaimHandler struct {
+// 1. Use ClusterVersion to update the HubClusterInfo
+type infoClusterVersionHandler struct {
 	evtData cluster.HubClusterInfoBundle
 }
 
-func (p *infoClusterClaimHandler) Get() interface{} {
+func (p *infoClusterVersionHandler) Get() interface{} {
 	return p.evtData
 }
 
-func (p *infoClusterClaimHandler) Update(obj client.Object) bool {
-	clusterClaim, ok := obj.(*clustersv1alpha1.ClusterClaim)
+func (p *infoClusterVersionHandler) Update(obj client.Object) bool {
+	clusterVersion, ok := obj.(*configv1.ClusterVersion)
 	if !ok {
 		return false
 	}
 
 	oldClusterID := p.evtData.ClusterId
 
-	if clusterClaim.Name == "id.k8s.io" {
-		p.evtData.ClusterId = clusterClaim.Spec.Value
+	if clusterVersion.Name == "version" {
+		p.evtData.ClusterId = string(clusterVersion.Spec.ClusterID)
 	}
 	// If no ClusterId, do not send the bundle
 	if p.evtData.ClusterId == "" {
@@ -80,7 +92,7 @@ func (p *infoClusterClaimHandler) Update(obj client.Object) bool {
 	return oldClusterID != p.evtData.ClusterId
 }
 
-func (p *infoClusterClaimHandler) Delete(obj client.Object) bool {
+func (p *infoClusterVersionHandler) Delete(obj client.Object) bool {
 	// do nothing
 	return false
 }
@@ -113,6 +125,10 @@ func (p *infoRouteHandler) Update(obj client.Object) bool {
 		p.evtData.GrafanaURL = newURL
 		updated = true
 	}
+	if configs.GetMCHVersion() != p.evtData.MchVersion {
+		p.evtData.MchVersion = configs.GetMCHVersion()
+		updated = true
+	}
 	return updated
 }
 
@@ -124,6 +140,10 @@ func (p *infoRouteHandler) Delete(obj client.Object) bool {
 	}
 	if obj.GetName() == constants.ObservabilityGrafanaRouteName && p.evtData.GrafanaURL != "" {
 		p.evtData.GrafanaURL = ""
+		updated = true
+	}
+	if configs.GetMCHVersion() != "" {
+		p.evtData.MchVersion = ""
 		updated = true
 	}
 	return updated

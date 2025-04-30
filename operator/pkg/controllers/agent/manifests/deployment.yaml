@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: multicluster-global-hub-agent
+  namespace:  {{.Namespace}}
+  labels:
+    component: multicluster-global-hub-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: multicluster-global-hub-agent
+  template:
+    metadata:
+      labels:
+        name: multicluster-global-hub-agent
+    spec:
+      serviceAccountName: multicluster-global-hub-agent
+      containers:
+        - name: multicluster-global-hub-agent
+          image: {{ .Image }}
+          {{- if .Resources.Requests }}
+          resources:
+            requests:
+              {{- range $key, $value := .Resources.Requests }}
+              {{$key}}: {{.ToUnstructured}}
+              {{- end }}
+          {{- end }}
+          imagePullPolicy: {{ .ImagePullPolicy }}
+          args:
+            - --pod-namespace=$(POD_NAMESPACE)
+            - --leaf-hub-name={{ .ClusterId }}
+            - --lease-duration={{.LeaseDuration}}
+            - --renew-deadline={{.RenewDeadline}}
+            - --retry-period={{.RetryPeriod}}
+            - --qps={{.AgentQPS}}
+            - --burst={{.AgentBurst}}
+            - --standalone=true
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+      {{- if .ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ .ImagePullSecret }}
+      {{- end }}
+      {{- if .NodeSelector }}
+      nodeSelector:
+        {{- range $key, $value := .NodeSelector}}
+        "{{$key}}": "{{$value}}"
+        {{- end}}
+      {{- end }}
+      {{- if .Tolerations }}
+      tolerations:
+        {{- range .Tolerations}}
+        - key: "{{.Key}}"
+          operator: "{{.Operator}}"
+          value: "{{.Value}}"
+          effect: "{{.Effect}}"
+          {{- if .TolerationSeconds}}
+          tolerationSeconds: {{.TolerationSeconds}}
+          {{- end}}
+        {{- end}}
+      {{- end }}

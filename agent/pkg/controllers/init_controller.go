@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers/inventory"
 	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security"
@@ -54,17 +53,16 @@ func (c *initController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 func (c *initController) addACMController(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	log.Info("NamespacedName: ", request.NamespacedName)
-
 	// status syncers or inventory
 	var err error
-	switch c.agentConfig.TransportConfig.TransportType {
-	case string(transport.Kafka):
-		err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
-	case string(transport.Rest):
-		err = inventory.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
-	}
+	err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
+	}
+
+	// add spec controllers
+	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	// only enable the status controller in the standalone mode
@@ -80,11 +78,6 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 	// Need this controller to update the value of clusterclaim version.open-cluster-management.io
 	if err := AddVersionClusterClaimController(c.mgr); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add controllers: %w", err)
-	}
-
-	// add spec controllers
-	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
 	// all the controller started, then add the lease controller

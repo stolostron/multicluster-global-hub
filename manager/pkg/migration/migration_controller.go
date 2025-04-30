@@ -5,6 +5,8 @@ package migration
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -23,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -42,15 +45,17 @@ type ClusterMigrationController struct {
 	transport.Producer
 	BootstrapSecret       *corev1.Secret
 	importClusterInHosted bool
+	migrationTopic        string
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
-	importClusterInHosted bool,
+	importClusterInHosted bool, migrationTopic string,
 ) *ClusterMigrationController {
 	return &ClusterMigrationController{
 		Client:                client,
 		Producer:              producer,
 		importClusterInHosted: importClusterInHosted,
+		migrationTopic:        migrationTopic,
 	}
 }
 
@@ -111,6 +116,9 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Infof("reconcile managed cluster migration %v", req)
+	// TODO: we only allow to have one migration processing at a time.
+	// if there are multiple migrations, we need to wait for the first one to finish.
+	// we need to put the migrations into a queue and provide the message in that CR to tell the user
 	mcm := &migrationv1alpha1.ManagedClusterMigration{}
 	// the migration name is the same as managedserviceaccount and the secret
 	err := m.Get(ctx, types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: req.Name}, mcm)
@@ -125,21 +133,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if !mcm.DeletionTimestamp.IsZero() {
-		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-			if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
-			if err := m.Update(ctx, mcm); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		return ctrl.Result{}, nil
-	}
-
-	// add finalizer
+	// add finalizer if resources is not being deleted
 	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
 	}
@@ -147,8 +141,8 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	// initializing
-	requeue, err := m.initializing(ctx, mcm)
+	// validating
+	requeue, err := m.validating(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -156,6 +150,16 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	// initializing
+	requeue, err = m.initializing(ctx, mcm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if requeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// registering
 	requeue, err = m.registering(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -164,6 +168,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	// deploying
 	requeue, err = m.deploying(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -171,21 +176,65 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	if requeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
+
+	// completed
+	requeue, err = m.completed(ctx, mcm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if requeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// Remove finalizer when all stages have been successfully pruned
+	if !mcm.DeletionTimestamp.IsZero() {
+		if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+			controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+			if err := m.Update(ctx, mcm); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+		return ctrl.Result{}, nil
+	}
+
 	return ctrl.Result{}, nil
 }
 
-func (m *ClusterMigrationController) deleteManagedServiceAccount(ctx context.Context,
-	migration *migrationv1alpha1.ManagedClusterMigration,
+// sendEventToDestinationHub:
+// 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
+// 2. if KlusterletAddonConfig is not nil -> deploying
+func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 ) error {
-	msa := &v1beta1.ManagedServiceAccount{}
-	if err := m.Get(ctx, types.NamespacedName{
-		Name:      migration.Name,
-		Namespace: migration.Spec.To,
-	}, msa); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
+	// default managedserviceaccount addon namespace
+	msaNamespace := "open-cluster-management-agent-addon"
+	if m.importClusterInHosted {
+		// hosted mode, the  managedserviceaccount addon namespace
+		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}
-	return m.Delete(ctx, msa)
+	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
+	// if user specifies the managedserviceaccount addon namespace, then use it
+	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
+		msaNamespace = val
+	}
+	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+		MigrationId:                           string(migration.GetUID()),
+		Stage:                                 stage,
+		ManagedServiceAccountName:             migration.Name,
+		ManagedServiceAccountInstallNamespace: msaNamespace,
+	}
+
+	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
+	if err != nil {
+		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",
+			managedClusterMigrationToEvent, err)
+	}
+
+	eventType := constants.CloudEventTypeMigrationTo
+	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
+	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
+			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
+	}
+	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
-	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cectx "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/cloudevents/sdk-go/v2/protocol"
@@ -28,23 +27,36 @@ const (
 )
 
 type GenericProducer struct {
-	log              *zap.SugaredLogger
-	ceProtocol       interface{}
-	ceClient         cloudevents.Client
-	messageSizeLimit int
+	log               *zap.SugaredLogger
+	ceProtocol        interface{}
+	ceClient          cloudevents.Client
+	kafkaProducer     *kafka.Producer
+	messageSizeLimit  int
+	eventErrorHandler func(event *kafka.Message)
 }
 
-func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*GenericProducer, error) {
+func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topic string,
+	eventErrorHandler func(event *kafka.Message),
+) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
-		log:              logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		messageSizeLimit: DefaultMessageKBSize * 1000,
+		log:               logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
+		messageSizeLimit:  DefaultMessageKBSize * 1000,
+		eventErrorHandler: eventErrorHandler,
 	}
-	err := genericProducer.initClient(transportConfig)
+	err := genericProducer.initClient(transportConfig, topic)
 	if err != nil {
 		return nil, err
 	}
 
 	return genericProducer, nil
+}
+
+func (p *GenericProducer) KafkaProducer() *kafka.Producer {
+	return p.kafkaProducer
+}
+
+func (p *GenericProducer) Protocol() *kafka_confluent.Protocol {
+	return p.ceProtocol.(*kafka_confluent.Protocol)
 }
 
 func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) error {
@@ -81,7 +93,7 @@ func (p *GenericProducer) SendEvent(ctx context.Context, evt cloudevents.Event) 
 }
 
 // Reconnect close the previous producer state and init a new producer
-func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig) error {
+func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	// cloudevent kafka/gochan client
 	closer, ok := p.ceProtocol.(protocol.Closer)
 	if ok {
@@ -89,23 +101,14 @@ func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig) e
 			return fmt.Errorf("failed to close the previous producer: %w", err)
 		}
 	}
-	return p.initClient(config)
+	return p.initClient(config, topic)
 }
 
 // initClient will init/update the client, clientProtocol and messageLimitSize based on the transportConfig
-func (p *GenericProducer) initClient(transportConfig *transport.TransportInternalConfig) error {
-	topic := ""
-	if transportConfig.TransportType == string(transport.Kafka) ||
-		transportConfig.TransportType == string(transport.Chan) {
-		topic = transportConfig.KafkaCredential.SpecTopic
-		if !transportConfig.IsManager {
-			topic = transportConfig.KafkaCredential.StatusTopic
-		}
-	}
-
+func (p *GenericProducer) initClient(transportConfig *transport.TransportInternalConfig, topic string) error {
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
-		kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
+		producer, kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
 		if err != nil {
 			return err
 		}
@@ -114,8 +117,9 @@ func (p *GenericProducer) initClient(transportConfig *transport.TransportInterna
 		if err != nil {
 			return err
 		}
-		handleProducerEvents(p.log, eventChan, transportConfig.FailureThreshold)
+		handleProducerEvents(p.log, eventChan, transportConfig.FailureThreshold, p.eventErrorHandler)
 		p.ceProtocol = kafkaProtocol
+		p.kafkaProducer = producer
 	case string(transport.Chan):
 		if transportConfig.Extends == nil {
 			transportConfig.Extends = make(map[string]interface{})
@@ -156,33 +160,28 @@ func (p *GenericProducer) SetDataLimit(size int) {
 	p.messageSizeLimit = size
 }
 
-func getSaramaSenderProtocol(kafkaConfig *transport.KafkaInternalConfig, defaultTopic string) (interface{}, error) {
-	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
-	if err != nil {
-		return nil, err
-	}
-	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
-	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
-	saramaConfig.Producer.Return.Successes = true
-	sender, err := kafka_sarama.NewSender([]string{kafkaConfig.BootstrapServer},
-		saramaConfig, defaultTopic)
-	if err != nil {
-		return nil, err
-	}
-	return sender, nil
-}
-
 func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 	defaultTopic string,
-) (*kafka_confluent.Protocol, error) {
+) (*kafka.Producer, *kafka_confluent.Protocol, error) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return kafka_confluent.New(kafka_confluent.WithConfigMap(configMap), kafka_confluent.WithSenderTopic(defaultTopic))
+	producer, err := kafka.NewProducer(configMap)
+	if err != nil {
+		return nil, nil, err
+	}
+	protocol, err := kafka_confluent.New(kafka_confluent.WithSenderTopic(defaultTopic),
+		kafka_confluent.WithSender(producer))
+	if err != nil {
+		return nil, nil, err
+	}
+	return producer, protocol, nil
 }
 
-func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, transportFailureThreshold int) {
+func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, transportFailureThreshold int,
+	eventErrorHandler func(event *kafka.Message),
+) {
 	// Listen to all the events on the default events channel
 	// It's important to read these events otherwise the events channel will eventually fill up
 	go func() {
@@ -197,6 +196,9 @@ func handleProducerEvents(log *zap.SugaredLogger, eventChan chan kafka.Event, tr
 				// is already configured to do that.
 				m := ev
 				if m.TopicPartition.Error != nil {
+					if eventErrorHandler != nil {
+						eventErrorHandler(m)
+					}
 					log.Warnw("delivery failed", "error", m.TopicPartition.Error)
 				}
 			case kafka.Error:

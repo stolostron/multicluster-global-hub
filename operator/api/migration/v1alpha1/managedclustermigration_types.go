@@ -22,23 +22,29 @@ import (
 
 // Migration Phases
 const (
-	PhaseInitializing = "Initializing"
 	PhaseValidating   = "Validating"
-	PhaseMigrating    = "Migrating"
+	PhaseInitializing = "Initializing"
+	PhaseDeploying    = "Deploying"
+	PhaseRegistering  = "Registering"
+	PhaseCleaning     = "Cleaning"
 	PhaseCompleted    = "Completed"
 	PhaseFailed       = "Failed"
 )
 
-// Condition Types
+// Migration Condition Types
 const (
-	MigrationResourceInitialized = "ResourceInitialized"
-	MigrationClusterRegistered   = "ClusterRegistered" // -> Phase: Migrating
-	MigrationResourceDeployed    = "ResourceDeployed"  // -> Phase: Migrating
-	MigrationCompleted           = "MigrationCompleted"
+	ConditionTypeValidated   = "ResourceValidated"
+	ConditionTypeInitialized = "ResourceInitialized"
+	ConditionTypeRegistered  = "ClusterRegistered"
+	ConditionTypeDeployed    = "ResourceDeployed"
+	ConditionTypeCleaned     = "ResourceCleaned"
 )
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName={mcm}
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="The overall status of the Migration"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,multicluster-global-hub-manager}}
 // ManagedClusterMigration is a global hub resource that allows you to migrate managed clusters from one hub to another
 type ManagedClusterMigration struct {
@@ -74,7 +80,7 @@ type ManagedClusterMigrationSpec struct {
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
 	// Phase represents the current phase of the migration
-	// +kubebuilder:validation:Enum=Initializing;Validating;Migrating;Completed;Failed
+	// +kubebuilder:validation:Enum=Validating;Initializing;Deploying;Registering;Cleaning;Completed;Failed
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Phase string `json:"phase,omitempty"`
 
