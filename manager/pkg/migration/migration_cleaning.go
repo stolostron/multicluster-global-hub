@@ -2,7 +2,7 @@ package migration
 
 import (
 	"context"
-	"time"
+	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -11,16 +11,12 @@ import (
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
 
 const (
 	conditionReasonResourceNotCleaned = "ResourceNotCleaned"
 	conditionReasonResourceCleaned    = "ResourceCleaned"
 )
-
-var deleteInterval = 5 * time.Minute
 
 // Completed:
 // 1. Once the resource deployed in the destination hub, Clean up the resources in the source hub
@@ -36,7 +32,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, nil
 	}
 
-	log.Infof("cleaning the migration: %s", mcm.Name)
+	log.Infof("migration start cleaning: %s", mcm.Name)
 
 	condType := migrationv1alpha1.ConditionTypeCleaned
 	condStatus := metav1.ConditionTrue
@@ -64,55 +60,62 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, err
 	}
 
-	// clean up the source hub resource -> confirmationEvent: database items change into MigrationCompleted
-	// BootstrapSecret, klusterletConfig, detaching clusters
-	var deployed []models.ManagedClusterMigration
-	err = database.GetGorm().Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.ConditionTypeDeployed,
-	}).Find(&deployed).Error
+	sourceHubClusters, err := getSourceClusters(mcm)
 	if err != nil {
 		return false, err
 	}
 
-	cleaningClusters := map[string][]string{}
-	for _, d := range deployed {
-		cleaningClusters[d.FromHub] = append(cleaningClusters[d.FromHub], d.ClusterName)
-	}
+	// cleanup the source hub
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
-	for sourceHub, clusters := range cleaningClusters {
-		// Deprecated
-		log.Infof("cleaning up the source hub resources: %s", sourceHub)
-		err = m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.ConditionTypeCleaned,
-			clusters, bootstrapSecret)
-		if err != nil {
-			log.Errorf("failed to send clean up event into source hub(%s)", sourceHub)
-			return false, err
+	for sourceHub, clusters := range sourceHubClusters {
+		if !GetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning) {
+			err = m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters, bootstrapSecret)
+			if err != nil {
+				return false, err
+			}
+			SetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning)
 		}
 	}
-	if len(cleaningClusters) > 0 {
-		log.Info("waiting resource to be cleaned up")
+
+	// cleanup the target hub
+	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
+		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseCleaning, mcm.Spec.IncludedManagedClusters); err != nil {
+			return false, err
+		}
+		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
+	}
+
+	// check error message
+	errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
+	if errMsg != "" {
+		err = fmt.Errorf("cleaning target hub %s with err :%s", mcm.Spec.To, errMsg) // the err will be updated into cr
+		return true, nil
+	}
+	for fromHubName := range sourceHubClusters {
+		errMsg := GetErrorMessage(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseCleaning)
+		if errMsg != "" {
+			err = fmt.Errorf("cleaning source hub %s with err :%s", fromHubName, errMsg)
+			return true, nil
+		}
+	}
+
+	// confirmation from hubs
+	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
+		condMsg = fmt.Sprintf("The target hub %s is cleaning", mcm.Spec.To)
+		condStatus = metav1.ConditionFalse
 		return true, nil
 	}
 
-	// Deprecated: clean up resource from destination hub
-	if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.ConditionTypeCleaned, nil); err != nil {
-		return false, err
+	for fromHubName := range sourceHubClusters {
+		if !GetFinished(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseCleaning) {
+			condMsg = fmt.Sprintf("The source hub %s is cleaning", fromHubName)
+			condStatus = metav1.ConditionFalse
+			return true, nil
+		}
 	}
 
-	// Deprecated: remove database
-	err = database.GetGorm().Where(&models.ManagedClusterMigration{
-		Stage: migrationv1alpha1.ConditionTypeCleaned,
-		ToHub: mcm.Spec.To,
-	}).Delete(&models.ManagedClusterMigration{}).Error
-	if err != nil {
-		return false, err
-	}
-
+	log.Info("migration cleaning finished")
 	return false, nil
-}
-
-func SetDeleteDuration(interval time.Duration) {
-	deleteInterval = interval
 }
 
 func (m *ClusterMigrationController) deleteManagedServiceAccount(ctx context.Context,

@@ -4,49 +4,64 @@
   "addLabels": ["ok-to-test"],
   "schedule": ["every weekend"],
   "timezone": "America/New_York",
-  "packageRules": [
-    {
-      "matchManagers": [
-        "gomod"
-      ],
-      "matchUpdateTypes": [
-        "pin",
-        "pinDigest",
-        "digest",
-        "lockFileMaintenance",
-        "rollback",
-        "bump",
-        "replacement"
-      ],
-      "enabled": false
-    },
-    {
-      "matchManagers": [
-        "gomod"
-      ],
-      "matchSourceUrls": [
-        "github.com/openshift{/,}**"
-      ],
-      "groupName": "All openshift packages"
-    },
-    {
-      "matchManagers": [
-        "gomod"
-      ],
-      "matchSourceUrls": [
-        "github.com/project-kessel{/,}**"
-      ],
-      "groupName": "All kessel packages"
-    },
-    {
-      "matchManagers": [
-        "gomod"
-      ],
-      "matchSourceUrls": [
-        "github.com/stolostron{/,}**",
-        "open-cluster-management.io{/,}**"
-      ],
-      "groupName": "All open-cluster-management/stolostron packages"
-    }
-  ]
+  "gomod":{
+    "packageRules": [
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "matchDepTypes": [
+          "require",
+          "indirect"
+        ],
+        "matchUpdateTypes": [
+          "pin",
+          "pinDigest",
+          "digest",
+          "lockFileMaintenance",
+          "rollback",
+          "bump",
+          "replacement"
+        ],
+        "enabled": false
+      },
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "groupName": "All k8s sigs packages",
+        "matchPackageNames": [
+          "sigs.k8s.io{/,}**"
+        ]
+      },
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "matchPackageNames": [
+          "github.com/openshift{/,}**"
+        ],
+        "groupName": "All openshift packages"
+      },
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "matchPackageNames": [
+          "github.com/project-kessel{/,}**"
+        ],
+        "groupName": "All kessel packages"
+      },
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "matchPackageNames": [
+          "github.com/stolostron{/,}**",
+          "open-cluster-management.io{/,}**"
+        ],
+        "groupName": "All open-cluster-management/stolostron packages"
+      }
+    ]
+  }
 }

@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-04-29T05:49:53Z"
+    createdAt: "2025-04-30T02:56:38Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -91,6 +91,12 @@ spec:
           want to migrate
         displayName: Included Managed Clusters
         path: includedManagedClusters
+      - description: 'IncludedResources is a list of resources that you want to migrate.
+          the format is (g.v.r)|(kind)/namespace/name. i.e.: - configmap/multicluster-engine/cm1
+          - hive.v1.clusterclaim/namespace1/name1 - hive.v1.clusterclaim/namespace1/*
+          - clusterrole/admin'
+        displayName: Included Resources
+        path: includedResources
       - description: To defines which hub cluster the managed clusters migrate to
         displayName: To
         path: to

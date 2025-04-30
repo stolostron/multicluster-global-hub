@@ -664,12 +664,6 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
-				KlusterletAddonConfig: &addonv1.KlusterletAddonConfig{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "cluster1",
-						Namespace: "cluster1",
-					},
-				},
 			},
 			expectedError: nil,
 			initObjects: []client.Object{
@@ -687,7 +681,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
-				Stage:                                 migrationv1alpha1.ConditionTypeCleaned,
+				Stage:                                 migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
