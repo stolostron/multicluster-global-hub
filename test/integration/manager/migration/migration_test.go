@@ -54,9 +54,6 @@ var _ = Describe("migration", Ordered, func() {
 		}()
 		Expect(err).NotTo(HaveOccurred())
 
-		// deletion interval
-		migration.SetDeleteDuration(5 * time.Second)
-
 		// dispatch event
 		By("dispatch event from consumer")
 		go func(ctx context.Context) {

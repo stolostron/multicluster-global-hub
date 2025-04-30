@@ -79,6 +79,9 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 	}
 
 	if bundle.Stage == migrationv1alpha1.ConditionTypeRegistered {
+		if bundle.MigrationId == "" {
+			return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
+		}
 		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseRegistering)
 		migration.SetErrorMessage(bundle.MigrationId, hubClusterName,
 			migrationv1alpha1.PhaseRegistering, bundle.ErrMessage)

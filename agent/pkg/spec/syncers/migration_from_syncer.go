@@ -14,7 +14,6 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
-	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +29,6 @@ import (
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -43,7 +41,6 @@ const (
 )
 
 type managedClusterMigrationFromSyncer struct {
-	log               *zap.SugaredLogger
 	client            client.Client
 	transportClient   transport.TransportClient
 	transportConfig   *transport.TransportInternalConfig
@@ -55,7 +52,6 @@ func NewManagedClusterMigrationFromSyncer(client client.Client,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
 ) *managedClusterMigrationFromSyncer {
 	return &managedClusterMigrationFromSyncer{
-		log:             logger.DefaultZapLogger(),
 		client:          client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
@@ -73,47 +69,35 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	if err := json.Unmarshal(payload, migrationSourceHubEvent); err != nil {
 		return err
 	}
-	s.log.Debugf("received managed cluster migration event %s", string(payload))
+	log.Debugf("received managed cluster migration event %s", string(payload))
 
-	// expected initialized
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
 
-		// go the deploying stage directly
 		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
 	}
 
-	// expected registered
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
-		s.log.Infof("registering managed cluster migration")
+		log.Infof("registering managed cluster migration")
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
 	}
 
-	// expected completed that means need to clean up resources from the source hub, and send the confirmation
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.ConditionTypeCleaned {
-		s.log.Infof("completed managed cluster migration")
-		if err := s.cleanup(ctx, migrationSourceHubEvent); err != nil {
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning {
+		log.Infof("cleaning managed cluster migration")
+		if err := s.cleaning(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
-		// send the cleanup confirmation
-		return ReportMigrationStatus(ctx, s.transportClient,
-			&migration.ManagedClusterMigrationBundle{
-				MigrationId: migrationSourceHubEvent.MigrationId,
-				Stage:       migrationv1alpha1.ConditionTypeCleaned,
-				// ManagedClusters: migrationSourceHubEvent.ManagedClusters,
-			},
-			s.bundleVersion)
 	}
 	return nil
 }
 
-func (m *managedClusterMigrationFromSyncer) cleanup(
+func (m *managedClusterMigrationFromSyncer) cleaning(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	bootstrapSecret := migratingEvt.BootstrapSecret
@@ -125,12 +109,12 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 			Namespace: bootstrapSecret.Namespace,
 		}, foundBootstrapSecret); err != nil {
 		if apierrors.IsNotFound(err) {
-			m.log.Infof("bootstrap secret %s is removed", bootstrapSecret.GetName())
+			log.Infof("bootstrap secret %s is removed", bootstrapSecret.GetName())
 		} else {
 			return err
 		}
 	} else {
-		m.log.Infof("delete bootstrap secret %s", bootstrapSecret.GetName())
+		log.Infof("delete bootstrap secret %s", bootstrapSecret.GetName())
 		if err := m.client.Delete(ctx, bootstrapSecret); err != nil {
 			return err
 		}
@@ -144,28 +128,40 @@ func (m *managedClusterMigrationFromSyncer) cleanup(
 	}
 	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
-			m.log.Infof("klusterletConfig %s is removed", klusterletConfig.GetName())
+			log.Infof("klusterletConfig %s is removed", klusterletConfig.GetName())
 		} else {
 			return err
 		}
 	} else {
-		m.log.Infof("delete klusterletconfig secret %s", klusterletConfig.GetName())
+		log.Infof("delete klusterletconfig secret %s", klusterletConfig.GetName())
 		if err := m.client.Delete(ctx, klusterletConfig); err != nil {
 			return err
 		}
 	}
 
-	m.log.Infof("detach clusters %v", migratingEvt.ManagedClusters)
+	log.Infof("detach clusters %v", migratingEvt.ManagedClusters)
 	if err := m.detachManagedClusters(ctx, migratingEvt.ManagedClusters); err != nil {
-		m.log.Errorf("failed to detach managed clusters: %v", err)
+		log.Errorf("failed to detach managed clusters: %v", err)
 		return err
 	}
 	if m.migrationProducer != nil && m.migrationProducer.Protocol() != nil {
 		if err := m.migrationProducer.Protocol().Close(ctx); err != nil {
-			m.log.Errorf("failed to close producer: %v", err)
+			log.Errorf("failed to close producer: %v", err)
 		}
 		m.migrationProducer = nil
 	}
+
+	// send the cleanup confirmation
+	err := ReportMigrationStatus(ctx, m.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: migratingEvt.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeCleaned,
+		},
+		m.bundleVersion)
+	if err != nil {
+		return err
+	}
+	log.Info("migration cleaning up is finished")
 	return nil
 }
 
@@ -209,7 +205,7 @@ func (m *managedClusterMigrationFromSyncer) initializing(
 			Namespace: bootstrapSecret.Namespace,
 		}, foundBootstrapSecret); err != nil {
 		if apierrors.IsNotFound(err) {
-			m.log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
+			log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
 			if err := m.client.Create(ctx, bootstrapSecret); err != nil {
 				return err
 			}
@@ -218,7 +214,7 @@ func (m *managedClusterMigrationFromSyncer) initializing(
 		}
 	} else {
 		// update the bootstrap secret if it already exists
-		m.log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
+		log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
 		if err := m.client.Update(ctx, bootstrapSecret); err != nil {
 			return err
 		}
@@ -319,7 +315,7 @@ func (m *managedClusterMigrationFromSyncer) registering(
 			return err
 		}
 		mc.Spec.HubAcceptsClient = false
-		m.log.Infof("updating managedcluster %s to set HubAcceptsClient as false", mc.Name)
+		log.Infof("updating managedcluster %s to set HubAcceptsClient as false", mc.Name)
 		if err := m.client.Update(ctx, mc); err != nil {
 			return err
 		}
@@ -329,17 +325,17 @@ func (m *managedClusterMigrationFromSyncer) registering(
 }
 
 func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
-	s.log.Debug("resend the migration resources due to topicPartition error")
+	log.Debug("resend the migration resources due to topicPartition error")
 	if err := wait.PollUntilContextCancel(context.TODO(), 5*time.Second, false,
 		func(context.Context) (bool, error) {
 			err := s.migrationProducer.KafkaProducer().Produce(event, nil)
 			if err != nil {
-				s.log.Debugf("failed to resend the migration resources due to %v", err)
+				log.Debugf("failed to resend the migration resources due to %v", err)
 				return false, nil
 			}
 			return true, nil
 		}); err != nil {
-		s.log.Errorf("failed to resend the migration resources due to %v", err)
+		log.Errorf("failed to resend the migration resources due to %v", err)
 	}
 }
 
@@ -368,6 +364,12 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 		cluster.SetGeneration(0)
 		cluster.Spec.ManagedClusterClientConfigs = nil
 		cluster.Status = clusterv1.ManagedClusterStatus{}
+		// remove migrating annotation from managedcluster
+		annotations := cluster.GetAnnotations()
+		if annotations != nil {
+			delete(annotations, constants.ManagedClusterMigrating)
+			cluster.SetAnnotations(annotations)
+		}
 		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
 
 		// add addon config
@@ -395,7 +397,9 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 	e := utils.ToCloudEvent(string(enum.MigrationResourcesType), fromHub, toHub, payloadBytes)
 	e.SetID(migrationId)
 	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
-	s.log.Info("send the migration resources to the migration topic from the source cluster")
+	log.Info("send the migration resources to the migration topic from the source cluster")
+	// TODO: sleep 5 seconds to ensure topic authorization finished
+	time.Sleep(5 * time.Second)
 	if err := s.migrationProducer.SendEvent(ctx, e); err != nil {
 		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
 			string(enum.MigrationResourcesType), fromHub, toHub, err)
@@ -455,6 +459,7 @@ func SendEvent(
 
 func (s *managedClusterMigrationFromSyncer) detachManagedClusters(ctx context.Context, managedClusters []string) error {
 	for _, managedCluster := range managedClusters {
+		log.Debugf("detaching managed cluster %s", managedCluster)
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{
 			Name: managedCluster,

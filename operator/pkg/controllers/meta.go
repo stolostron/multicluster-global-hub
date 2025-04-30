@@ -138,17 +138,17 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		err := r.pruneGlobalHubResources(ctx)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 		for name, c := range r.startedControllerMap {
 			removed := c.IsResourceRemoved()
 			log.Debugf("removed resources in controller: %v, removed:%v", name, removed)
 			if !removed {
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
+		}
+		// NOTE: Remove the clusterrole after all the component cleaned up their resources
+		err := r.pruneGlobalHubResources(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
 		if err := utils.UpdateObject(ctx, r.client, mgh); err != nil {
@@ -358,6 +358,7 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 	return desiredComponents
 }
 
+// pruneGlobalResources deletes the cluster scoped resources, clusterrole... And finalizers of policy, application,..
 func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {

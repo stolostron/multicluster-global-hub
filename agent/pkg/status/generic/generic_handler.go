@@ -45,6 +45,7 @@ func (h *genericHandler) Update(obj client.Object) bool {
 			return false
 		}
 	}
+	log.Debug("updating obj")
 
 	index := getObjectIndexByUID(obj.GetUID(), (*h.eventData))
 	if index == -1 { // object not found, need to add it to the bundle
