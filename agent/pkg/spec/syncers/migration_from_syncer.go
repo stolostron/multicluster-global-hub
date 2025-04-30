@@ -398,6 +398,8 @@ func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(
 	e.SetID(migrationId)
 	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
 	log.Info("send the migration resources to the migration topic from the source cluster")
+	// TODO: sleep 5 seconds to ensure topic authorization finished
+	time.Sleep(5 * time.Second)
 	if err := s.migrationProducer.SendEvent(ctx, e); err != nil {
 		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
 			string(enum.MigrationResourcesType), fromHub, toHub, err)
