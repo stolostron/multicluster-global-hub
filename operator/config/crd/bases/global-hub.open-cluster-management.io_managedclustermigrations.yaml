@@ -63,7 +63,11 @@ spec:
               includedResources:
                 description: |-
                   IncludedResources is a list of resources that you want to migrate.
-                  the format is kind.namespace/name. i.e.: configmap.multicluster-engine/cm1
+                  the format is (g.v.r)|(kind)/namespace/name. i.e.:
+                  - configmap/multicluster-engine/cm1
+                  - hive.v1.clusterclaim/namespace1/name1
+                  - hive.v1.clusterclaim/namespace1/*
+                  - clusterrole/admin
                 items:
                   type: string
                 type: array

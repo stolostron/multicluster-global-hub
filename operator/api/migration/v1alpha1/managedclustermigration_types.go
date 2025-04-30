@@ -64,7 +64,11 @@ type ManagedClusterMigrationSpec struct {
 	IncludedManagedClusters []string `json:"includedManagedClusters,omitempty"`
 
 	// IncludedResources is a list of resources that you want to migrate.
-	// the format is kind.namespace/name. i.e.: configmap.multicluster-engine/cm1
+	// the format is (g.v.r)|(kind)/namespace/name. i.e.:
+	// - configmap/multicluster-engine/cm1
+	// - hive.v1.clusterclaim/namespace1/name1
+	// - hive.v1.clusterclaim/namespace1/*
+	// - clusterrole/admin
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	IncludedResources []string `json:"includedResources,omitempty"`
 
