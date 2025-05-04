@@ -120,7 +120,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gonvenience/bunt v1.4.0 // indirect
 	github.com/gonvenience/neat v1.3.15 // indirect
-	github.com/gonvenience/term v1.0.3 // indirect
+	github.com/gonvenience/term v1.0.4 // indirect
 	github.com/gonvenience/text v1.0.8 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
