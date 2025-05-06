@@ -3,10 +3,12 @@ package managedhub
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
@@ -109,4 +111,22 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 
 	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
+}
+
+func GetClusterInfo(db *gorm.DB, clusterName string) (models.ClusterInfo, error) {
+	var clusterInfo []models.ClusterInfo
+	if db == nil {
+		return models.ClusterInfo{}, fmt.Errorf("db is nil")
+	}
+	err := db.Select("payload->>'consoleURL' AS console_url, payload->>'mchVersion' AS mch_version").
+		Where(&models.LeafHub{
+			LeafHubName: clusterName,
+		}).Find(&models.LeafHub{}).Scan(&clusterInfo).Error
+	if err != nil {
+		return models.ClusterInfo{}, err
+	}
+	if len(clusterInfo) == 0 {
+		return models.ClusterInfo{}, fmt.Errorf("no cluster info found for %s", clusterName)
+	}
+	return clusterInfo[0], nil
 }
