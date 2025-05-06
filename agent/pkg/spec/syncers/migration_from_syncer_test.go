@@ -30,6 +30,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // go test -run ^TestMigrationSourceHubSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
@@ -187,8 +188,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			transportConfig := &transport.TransportInternalConfig{
 				TransportType: string(transport.Chan),
 				KafkaCredential: &transport.KafkaConfig{
-					SpecTopic:      "spec",
-					MigrationTopic: "migration",
+					SpecTopic: "spec",
 				},
 			}
 
@@ -202,7 +202,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}
 
 			// sync managed cluster migration
-			err = managedClusterMigrationSyncer.Sync(ctx, payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+				"hub2", payload)
+			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)
 			}

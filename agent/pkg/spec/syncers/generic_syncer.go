@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +35,8 @@ func NewGenericSyncer(workerPool *workers.WorkerPool, config *configs.AgentConfi
 	}
 }
 
-func (syncer *genericBundleSyncer) Sync(ctx context.Context, payload []byte) error {
+func (syncer *genericBundleSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	payload := evt.Data()
 	genericBundle := &spec.GenericSpecBundle{}
 	if err := json.Unmarshal(payload, genericBundle); err != nil {
 		return err

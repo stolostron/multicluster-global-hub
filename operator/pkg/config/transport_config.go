@@ -163,10 +163,6 @@ func GetSpecTopic() string {
 	return specTopic
 }
 
-func GetMigrationTopic() string {
-	return migrationTopic
-}
-
 // GetStatusTopic return the status topic with clusterName, like 'gh-status.<clusterName>'
 func GetStatusTopic(clusterName string) string {
 	return strings.Replace(statusTopic, "*", clusterName, -1)

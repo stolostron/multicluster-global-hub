@@ -75,12 +75,11 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}()
 
-	// 1. KafkaUser permission: Ensure grant the proper permission to the KafkaUser for the gh-migration topic
-	// place it before the other check to ensure time for the permissions to take effect
 	sourceHubToClusters, err := getSourceClusters(mcm)
 	if err != nil {
 		return false, err
 	}
+	// Deprecated: 1. grant the write permission of the spec topic for the current user
 	if err := m.ensureKafkaUserPermission(ctx, sourceHubToClusters, mcm.Spec.To); err != nil {
 		log.Errorf("failed to grant permission to the kafkauser due to %v", err)
 		return false, err
@@ -183,24 +182,11 @@ func (m *ClusterMigrationController) ensureKafkaUserPermission(ctx context.Conte
 			return err
 		}
 
-		migrationACL := utils.WriteTopicACL(m.migrationTopic)
+		topic := m.managerConfigs.TransportConfig.KafkaCredential.SpecTopic
+		migrationACL := utils.WriteTopicACL(topic)
 		if err := m.updateKafkaUser(ctx, kafkaUser, migrationACL); err != nil {
 			return err
 		}
-	}
-
-	// Get the KafkaUser
-	kafkaUser := &kafkav1beta2.KafkaUser{}
-	err := m.Client.Get(ctx, types.NamespacedName{
-		Name:      config.GetKafkaUserName(toHub),
-		Namespace: utils.GetDefaultNamespace(),
-	}, kafkaUser)
-	if err != nil {
-		return err
-	}
-	migrationACL := utils.ReadTopicACL(m.migrationTopic, false)
-	if err := m.updateKafkaUser(ctx, kafkaUser, migrationACL); err != nil {
-		return err
 	}
 	return nil
 }
@@ -340,7 +326,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 			managedClusterMigrationFromEvent, err)
 	}
 
-	eventType := constants.CloudEventTypeMigrationFrom
+	eventType := constants.MigrationSourceMsgKey
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub, payloadBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",

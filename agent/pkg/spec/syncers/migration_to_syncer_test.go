@@ -25,6 +25,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -591,7 +592,9 @@ func TestMigrationToSyncer(t *testing.T) {
 			toEvent := c.migrationEvent
 			payload, err := json.Marshal(toEvent)
 			assert.Nil(t, err)
-			err = managedClusterMigrationSyncer.Sync(ctx, payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+				"hub2", payload)
+			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			assert.Nil(t, err)
 
 			if c.expectedClusterManager != nil {
@@ -764,7 +767,9 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			}
 
 			// sync managed cluster migration
-			err = managedClusterMigrationSyncer.Sync(ctx, payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+				"hub2", payload)
+			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
 				assert.Nil(t, err)
 			} else {

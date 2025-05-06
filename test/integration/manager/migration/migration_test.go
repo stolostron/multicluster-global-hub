@@ -375,7 +375,7 @@ var _ = Describe("migration", Ordered, func() {
 				return fmt.Errorf("wait for the event sent to source hub")
 			}
 
-			Expect(sourceHubEvent.Type()).To(Equal(constants.CloudEventTypeMigrationFrom))
+			Expect(sourceHubEvent.Type()).To(Equal(constants.MigrationSourceMsgKey))
 
 			// handle migration.from cloud event
 			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}
@@ -490,8 +490,8 @@ var _ = Describe("migration", Ordered, func() {
 			if payload == nil {
 				return fmt.Errorf("wait for the event sent to from hub")
 			}
-			if sourceHubEvent.Type() != constants.CloudEventTypeMigrationFrom {
-				return fmt.Errorf("source hub should receive event %s, but got %s", constants.CloudEventTypeMigrationFrom,
+			if sourceHubEvent.Type() != constants.MigrationSourceMsgKey {
+				return fmt.Errorf("source hub should receive event %s, but got %s", constants.MigrationSourceMsgKey,
 					sourceHubEvent.Type())
 			}
 			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}

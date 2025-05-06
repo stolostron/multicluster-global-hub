@@ -91,7 +91,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				continue
 			}
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := syncer.Sync(ctx, evt.Data()); err != nil {
+				if err := syncer.Sync(ctx, evt); err != nil {
 					return err
 				}
 				return nil

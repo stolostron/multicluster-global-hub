@@ -42,6 +42,7 @@ type ManagedClusterMigrationBundle struct {
 }
 
 type SourceClusterMigrationResources struct {
+	MigrationId           string                          `json:"migrationId"`
 	ManagedClusters       []clusterv1.ManagedCluster      `json:"managedClusters,omitempty"`
 	KlusterletAddonConfig []addonv1.KlusterletAddonConfig `json:"klusterletAddonConfigs"`
 	// TODO: other resources

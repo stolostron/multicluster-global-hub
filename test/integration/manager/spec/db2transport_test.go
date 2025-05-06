@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,7 +44,8 @@ func newGenericAgentSyncer(eventType string) *agentSyncer {
 	return &agentSyncer{eventType: eventType}
 }
 
-func (s *agentSyncer) Sync(ctx context.Context, payload []byte) error {
+func (s *agentSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	payload := evt.Data()
 	expectedResourceId := ExpectedMessageIDs[s.eventType]
 	if strings.Contains(string(payload), expectedResourceId) {
 		fmt.Println("agent spec sync the resource from manager: ", s.eventType)

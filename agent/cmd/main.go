@@ -91,7 +91,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	if agentConfig.LeafHubName == constants.LocalClusterName {
 		transportSecretName = constants.GHTransportConfigSecret + "-" + constants.LocalClusterName
 	}
-	// add transport ctrl to manager
+	// add transport ctrl to manager, also load the transportConfig(from secret) into the agentConfig
 	err = controller.NewTransportCtrl(
 		agentConfig.PodNamespace,
 		transportSecretName,

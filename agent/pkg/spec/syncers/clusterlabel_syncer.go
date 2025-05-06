@@ -14,6 +14,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/workers"
 	specbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/spec"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -46,7 +47,8 @@ func NewManagedClusterLabelSyncer(workers *workers.WorkerPool) *managedClusterLa
 	}
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, payload []byte) error {
+func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	payload := evt.Data()
 	bundle := &specbundle.ManagedClusterLabelsSpecBundle{}
 	if err := json.Unmarshal(payload, bundle); err != nil {
 		return err

@@ -114,9 +114,8 @@ var _ = BeforeSuite(func() {
 			TransportType:     string(transport.Chan),
 			CommitterInterval: 10 * time.Second,
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:      "spec",
-				StatusTopic:    "event",
-				MigrationTopic: "migration",
+				SpecTopic:   "spec",
+				StatusTopic: "event",
 			},
 		},
 		StatisticsConfig:    &statistics.StatisticsConfig{},

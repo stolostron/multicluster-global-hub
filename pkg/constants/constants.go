@@ -151,12 +151,18 @@ const (
 	HubInstalledByGlobalHub = "InstalledByGlobalHub"
 )
 
-// message types
+// Spec message types: global hub to managed hub, managed hub to managed hub(migration)
 const (
+
+	// ResyncMsgKey - request resync from the managed hub
 	ResyncMsgKey = "Resync"
 
 	// ManagedClustersLabelsMsgKey - managed clusters labels message key.
 	ManagedClustersLabelsMsgKey = "ManagedClustersLabels"
+
+	// migration source and target hub clusters, which is used as the type of the cloudevents
+	MigrationSourceMsgKey = "MigrationSourceHubCluster"
+	MigrationTargetMsgKey = "MigrationTargetHubCluster"
 
 	// GenericSpecMsgKey is the generic spec message key for the bundle
 	GenericSpecMsgKey = "Generic"
@@ -194,10 +200,6 @@ const (
 	CloudEventGlobalHubClusterName = "global-hub"
 	// cloudevent extension keys
 	CloudEventExtensionKeyClusterName = "clustername"
-	// CloudEventTypeManagedClusterMigrationFrom is the cloud event type for managed cluster migration from
-	CloudEventTypeMigrationFrom = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.from"
-	// CloudEventTypeManagedClusterMigrationTo is the cloud event type for managed cluster migration to
-	CloudEventTypeMigrationTo = "io.open-cluster-management.operator.multiclusterglobalhubs.spec.migration.to"
 	// LabelKeyIsManagedServiceAccount is from     managed-serviceaccount/pkg/common/constants.go
 	LabelKeyIsManagedServiceAccount = "authentication.open-cluster-management.io/is-managed-serviceaccount"
 )

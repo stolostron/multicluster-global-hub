@@ -39,7 +39,7 @@ type TransportCtrl struct {
 	workqueue        workqueue.TypedRateLimitingInterface[ctrl.Request]
 	transportConfig  *transport.TransportInternalConfig
 
-	// the use the producer and consumer to activate the call back funciton, once it executed successful, then clear it.
+	// the use the producer and consumer to activate the callback, once it executed successful, then clear it.
 	transportCallback TransportCallback
 	transportClient   *TransportClient
 

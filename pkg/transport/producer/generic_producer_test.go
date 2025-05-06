@@ -18,9 +18,8 @@ func TestGenericProducer(t *testing.T) {
 	tranConfig := &transport.TransportInternalConfig{
 		TransportType: string(transport.Rest),
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:      "gh-spec",
-			StatusTopic:    "gh-status",
-			MigrationTopic: "gh-migration",
+			SpecTopic:   "gh-spec",
+			StatusTopic: "gh-status",
 		},
 	}
 	err := p.initClient(tranConfig, tranConfig.KafkaCredential.StatusTopic)
