@@ -313,7 +313,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
 				SpecTopic:              config.GetSpecTopic(),
 				StatusTopic:            statusTopic,
-				StatusTopicPattern:     string(topicParttern),
+				StatusTopicPattern:     string(topicPattern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
 				TopicPartition:         DefaultPartition,
 				TopicReplicas:          topicReplicas,
