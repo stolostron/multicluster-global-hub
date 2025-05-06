@@ -30,7 +30,7 @@ spec:
       - Read
       resource:
         name: {{.StatusTopic}}
-        patternType: {{.StatusTopicParttern}}
+        patternType: {{.StatusTopicPattern}}
         type: topic
 {{ if .EnableInventoryAPI }}
     - host: '*'

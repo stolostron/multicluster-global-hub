@@ -585,7 +585,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			transportClient.SetProducer(&producer)
 
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(client, transportClient, nil)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, nil)
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 			toEvent := c.migrationEvent
@@ -755,7 +755,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			transportClient := &controller.TransportClient{}
 			transportClient.SetProducer(&producer)
 
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(fakeClient, transportClient, nil)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, nil)
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
@@ -862,7 +862,7 @@ func TestRegistering(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
-			managedClusterMigrationSyncer := NewManagedClusterMigrationToSyncer(fakeClient, nil, nil)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
 
 			notAvailableManagedClusters := []string{}
 			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, notAvailableManagedClusters)

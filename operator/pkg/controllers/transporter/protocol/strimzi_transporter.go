@@ -279,11 +279,11 @@ func (k *strimziTransporter) RemoveOldKafkaCluster(ns string) error {
 func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.MulticlusterGlobalHub) error {
 	statusTopic := config.GetRawStatusTopic()
 	statusPlaceholderTopic := config.GetRawStatusTopic()
-	topicParttern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	topicPattern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
 	if strings.Contains(config.GetRawStatusTopic(), "*") {
 		statusTopic = strings.Replace(config.GetRawStatusTopic(), "*", "", -1)
 		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
-		topicParttern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
+		topicPattern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	topicReplicas := k.topicPartitionReplicas
 
@@ -299,7 +299,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				SpecTopic              string
 				StatusTopic            string
 				MigrationTopic         string
-				StatusTopicParttern    string
+				StatusTopicPattern     string
 				StatusPlaceholderTopic string
 				TopicPartition         int32
 				TopicReplicas          int32
@@ -315,7 +315,7 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				SpecTopic:              config.GetSpecTopic(),
 				MigrationTopic:         config.GetMigrationTopic(),
 				StatusTopic:            statusTopic,
-				StatusTopicParttern:    string(topicParttern),
+				StatusTopicPattern:     string(topicPattern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
 				TopicPartition:         DefaultPartition,
 				TopicReplicas:          topicReplicas,
@@ -549,7 +549,7 @@ func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.Clus
 // the username is the kafkauser, it's the same as the secret name
 func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
 	// bootstrapServer, clusterId, clusterCA
-	credential, err := k.getConnCredentailByCluster()
+	credential, err := k.getConnCredentialByCluster()
 	if err != nil {
 		return nil, err
 	}
@@ -573,7 +573,7 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 		log.Infof("the kafka cluster hasn't enable tls for user", "username", userName)
 		return credential, nil
 	}
-	if err := k.loadUserCredentail(userName, credential); err != nil {
+	if err := k.loadUserCredential(userName, credential); err != nil {
 		return nil, err
 	}
 	return credential, nil
@@ -583,8 +583,8 @@ func GetClusterCASecret(clusterName string) string {
 	return fmt.Sprintf("%s-cluster-ca-cert", clusterName)
 }
 
-// loadUserCredentail add credential with client cert, and key
-func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential *transport.KafkaConfig) error {
+// loadUserCredential add credential with client cert, and key
+func (k *strimziTransporter) loadUserCredential(kafkaUserName string, credential *transport.KafkaConfig) error {
 	kafkaUserSecret := &corev1.Secret{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      kafkaUserName,
@@ -598,8 +598,8 @@ func (k *strimziTransporter) loadUserCredentail(kafkaUserName string, credential
 	return nil
 }
 
-// getConnCredentailByCluster gets credential with clusterId, bootstrapServer, and serverCA
-func (k *strimziTransporter) getConnCredentailByCluster() (*transport.KafkaConfig, error) {
+// getConnCredentialByCluster gets credential with clusterId, bootstrapServer, and serverCA
+func (k *strimziTransporter) getConnCredentialByCluster() (*transport.KafkaConfig, error) {
 	kafkaCluster := &kafkav1beta2.Kafka{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
 		Name:      k.kafkaClusterName,

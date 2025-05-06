@@ -185,7 +185,7 @@ func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) 
 	var err error
 
 	// boostrapServer, clusterId, clusterCA
-	conn, err = trans.getConnCredentailByCluster()
+	conn, err = trans.getConnCredentialByCluster()
 	if err != nil {
 		log.Infow("waiting the kafka cluster credential to be ready...", "message", err.Error())
 		return conn, true, err
@@ -195,7 +195,7 @@ func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) 
 	conn.MigrationTopic = config.GetMigrationTopic()
 	conn.StatusTopic = config.ManagerStatusTopic()
 	// clientCert and clientCA
-	if err := trans.loadUserCredentail(kafkaUserSecret, conn); err != nil {
+	if err := trans.loadUserCredential(kafkaUserSecret, conn); err != nil {
 		log.Infow("waiting the kafka user credential to be ready...", "message", err.Error())
 		return conn, true, err
 	}

@@ -106,7 +106,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaInternalConfig, producer 
 func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Client, consumerGroupID string) (
 	*kafkav2.ConfigMap, error,
 ) {
-	conn, err := GetKafkaCredentailBySecret(transportConfig, c)
+	conn, err := GetKafkaCredentialBySecret(transportConfig, c)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig, consume
 	return kafkaConfigMap, nil
 }
 
-func GetKafkaCredentailBySecret(transportSecret *corev1.Secret, c client.Client) (
+func GetKafkaCredentialBySecret(transportSecret *corev1.Secret, c client.Client) (
 	*transport.KafkaConfig, error,
 ) {
 	kafkaConfig, ok := transportSecret.Data["kafka.yaml"]
@@ -157,14 +157,14 @@ func GetKafkaCredentailBySecret(transportSecret *corev1.Secret, c client.Client)
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
 
-	err := ParseCredentailConn(transportSecret.Namespace, c, conn)
+	err := ParseCredentialConn(transportSecret.Namespace, c, conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the cert credentail: %w", err)
 	}
 	return conn, nil
 }
 
-func ParseCredentailConn(namespace string, c client.Client, conn transport.TransportCerticiate) error {
+func ParseCredentialConn(namespace string, c client.Client, conn transport.TransportCerticiate) error {
 	// decode the ca cert, client key and cert
 	if conn.GetCACert() != "" {
 		bytes, err := base64.StdEncoding.DecodeString(conn.GetCACert())

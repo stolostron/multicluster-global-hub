@@ -20,7 +20,7 @@ func GetRestfulConnBySecret(transportSecret *corev1.Secret, c client.Client) (*t
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
 
-	err := ParseCredentailConn(transportSecret.Namespace, c, conn)
+	err := ParseCredentialConn(transportSecret.Namespace, c, conn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the cert credentail: %w", err)
 	}

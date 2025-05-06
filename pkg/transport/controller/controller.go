@@ -241,7 +241,7 @@ func (c *TransportCtrl) ReconcileRequester(ctx context.Context) error {
 // credentail is updated, It also create/update the consumer if not in the standalone mode
 func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *corev1.Secret) (bool, error) {
 	// load the kafka connection credentail based on the transport type. kafka, multiple
-	kafkaConn, err := config.GetKafkaCredentailBySecret(secret, c.runtimeClient)
+	kafkaConn, err := config.GetKafkaCredentialBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return false, err
 	}
