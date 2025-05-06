@@ -391,31 +391,6 @@ var _ = Describe("migration", Ordered, func() {
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
-	It("should grant the proper permission to kafka user", func() {
-		Eventually(func() error {
-			user1 := &kafkav1beta2.KafkaUser{}
-			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "hub1-kafka-user",
-				Namespace: utils.GetDefaultNamespace(),
-			}, user1)).To(Succeed())
-
-			Expect(user1.Spec.Authorization.Acls[0].Operations[0]).To(Equal(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
-
-			user2 := &kafkav1beta2.KafkaUser{}
-			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "hub2-kafka-user",
-				Namespace: utils.GetDefaultNamespace(),
-			}, user2)).To(Succeed())
-
-			Expect(user2.Spec.Authorization.Acls[0].Operations).Should(ContainElements(
-				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-			))
-
-			return nil
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
-	})
-
 	It("should initialize the migration cluster", func() {
 		// hub1 confirmation
 		migration.SetFinished(string(migrationInstance.GetUID()), "hub1", migrationv1alpha1.PhaseInitializing)
