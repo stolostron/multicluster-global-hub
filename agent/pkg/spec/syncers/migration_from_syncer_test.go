@@ -94,7 +94,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
 
 				evt := cloudevents.NewEvent()
-				evt.SetType(string(enum.ManagedClusterMigrationType))
+				evt.SetType(constants.MigrationTargetMsgKey) // spec message: initialize -> deploy
 				evt.SetSource("hub1")
 				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")

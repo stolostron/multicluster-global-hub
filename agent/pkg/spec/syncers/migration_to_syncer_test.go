@@ -26,6 +26,7 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -61,6 +62,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -144,6 +146,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having empty registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -185,6 +188,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -235,6 +239,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having registration configuration with feature gate disabled",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -322,6 +327,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with existing clusterrole and clusterrolebinding",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -451,6 +457,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with changed clusterrole and clusterrolebinding",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -586,7 +593,15 @@ func TestMigrationToSyncer(t *testing.T) {
 			transportClient.SetProducer(&producer)
 
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, nil)
+
+			transportConfig := &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec",
+					StatusTopic: "status",
+				},
+			}
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, transportConfig)
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 			toEvent := c.migrationEvent
@@ -757,8 +772,15 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			producer := ProducerMock{}
 			transportClient := &controller.TransportClient{}
 			transportClient.SetProducer(&producer)
+			transportConfig := &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec",
+					StatusTopic: "status",
+				},
+			}
 
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, nil)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
