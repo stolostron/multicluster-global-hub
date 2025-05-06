@@ -87,7 +87,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				if err != nil {
 					reportErrMessage = fmt.Sprintf("failed to register the managed clusters [%s]", strings.Join(notAvailableManagedClusters, ", "))
 				}
-				
+
 				if err := ReportMigrationStatus(
 					cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 					s.transportClient,

@@ -369,7 +369,7 @@ func (k *strimziTransporter) isCSVInstalled() (bool, error) {
 }
 
 // EnsureUser to reconcile the kafkaUser's setting(authn and authz)
-// set the user can write to status 
+// set the user can write to status
 func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	userName := config.GetKafkaUserName(clusterName)
 	clusterTopic := k.getClusterTopic(clusterName)
