@@ -55,10 +55,10 @@ require (
 	k8s.io/kube-aggregator v0.32.3
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	open-cluster-management.io/addon-framework v0.12.1-0.20250422083707-fb6b4ebb66b5
-	open-cluster-management.io/api v0.16.0
-	open-cluster-management.io/governance-policy-propagator v0.15.0
+	open-cluster-management.io/api v0.16.1
+	open-cluster-management.io/governance-policy-propagator v0.16.0
 	open-cluster-management.io/managed-serviceaccount v0.8.0
-	open-cluster-management.io/multicloud-operators-channel v0.15.0
+	open-cluster-management.io/multicloud-operators-channel v0.16.0
 	open-cluster-management.io/multicloud-operators-subscription v0.16.0
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.20.4
