@@ -42,6 +42,17 @@ jobs:
       - name: bundle
         run: cd operator && make bundle
 
+      - name: compare bundle with stolostron/multicluster-global-hub-operator-bundle
+        run: |
+          # This comparation ensures the bundle keeps consistent.
+          # ignore createdAt updated in csv by `make bundle`
+          git checkout . -f
+          # clone multicluster-global-hub-operator-bundle repo
+          git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git -b release-1.5
+
+          # compare the bundle dir
+          diff -ruN operator/bundle multicluster-global-hub-operator-bundle/bundle
+
   scorecard-test:
     name: bundle scorecard test
     runs-on: ubuntu-latest

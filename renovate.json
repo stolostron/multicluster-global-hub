@@ -21,7 +21,8 @@
           "lockFileMaintenance",
           "rollback",
           "bump",
-          "replacement"
+          "replacement",
+          "patch"
         ],
         "enabled": false
       },
