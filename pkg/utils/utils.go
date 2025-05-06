@@ -176,10 +176,10 @@ func WriteTopicACL(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAcls
 	return writeAcl
 }
 
-func ReadTopicACL(topicName string, prefixParttern bool) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+func ReadTopicACL(topicName string, prefixPattern bool) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
-	if prefixParttern {
+	if prefixPattern {
 		patternType = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 

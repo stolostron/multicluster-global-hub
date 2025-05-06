@@ -40,7 +40,7 @@ const (
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 )
 
-type managedClusterMigrationFromSyncer struct {
+type migrationSourceSyncer struct {
 	client            client.Client
 	transportClient   transport.TransportClient
 	transportConfig   *transport.TransportInternalConfig
@@ -48,10 +48,10 @@ type managedClusterMigrationFromSyncer struct {
 	bundleVersion     *eventversion.Version
 }
 
-func NewManagedClusterMigrationFromSyncer(client client.Client,
+func NewMigrationSourceSyncer(client client.Client,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
-) *managedClusterMigrationFromSyncer {
-	return &managedClusterMigrationFromSyncer{
+) *migrationSourceSyncer {
+	return &migrationSourceSyncer{
 		client:          client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
@@ -59,11 +59,11 @@ func NewManagedClusterMigrationFromSyncer(client client.Client,
 	}
 }
 
-func (s *managedClusterMigrationFromSyncer) SetMigrationProducer(producer *producer.GenericProducer) {
+func (s *migrationSourceSyncer) SetMigrationProducer(producer *producer.GenericProducer) {
 	s.migrationProducer = producer
 }
 
-func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []byte) error {
+func (s *migrationSourceSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.from cloud event
 	migrationSourceHubEvent := &migration.ManagedClusterMigrationFromEvent{}
 	if err := json.Unmarshal(payload, migrationSourceHubEvent); err != nil {
@@ -97,7 +97,7 @@ func (s *managedClusterMigrationFromSyncer) Sync(ctx context.Context, payload []
 	return nil
 }
 
-func (m *managedClusterMigrationFromSyncer) cleaning(
+func (m *migrationSourceSyncer) cleaning(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	bootstrapSecret := migratingEvt.BootstrapSecret
@@ -166,7 +166,7 @@ func (m *managedClusterMigrationFromSyncer) cleaning(
 }
 
 // deploying: send clusters and addon config into target hub
-func (s *managedClusterMigrationFromSyncer) deploying(
+func (s *migrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	if s.migrationProducer == nil && s.transportConfig != nil {
@@ -189,7 +189,7 @@ func (s *managedClusterMigrationFromSyncer) deploying(
 }
 
 // initializing: attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
-func (m *managedClusterMigrationFromSyncer) initializing(
+func (m *migrationSourceSyncer) initializing(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	if migratingEvt.BootstrapSecret == nil {
@@ -302,7 +302,7 @@ func (m *managedClusterMigrationFromSyncer) initializing(
 	return nil
 }
 
-func (m *managedClusterMigrationFromSyncer) registering(
+func (m *migrationSourceSyncer) registering(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
@@ -324,7 +324,7 @@ func (m *managedClusterMigrationFromSyncer) registering(
 	return nil
 }
 
-func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafka.Message) {
+func (s *migrationSourceSyncer) resendMigrationResources(event *kafka.Message) {
 	log.Debug("resend the migration resources due to topicPartition error")
 	if err := wait.PollUntilContextCancel(context.TODO(), 5*time.Second, false,
 		func(context.Context) (bool, error) {
@@ -340,7 +340,7 @@ func (s *managedClusterMigrationFromSyncer) resendMigrationResources(event *kafk
 }
 
 // SendSourceClusterMigrationResources sends required and customized resources to migration topic
-func (s *managedClusterMigrationFromSyncer) SendSourceClusterMigrationResources(ctx context.Context,
+func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.Context,
 	migrationId string, managedClusters []string, fromHub, toHub string,
 ) error {
 	// send the managed cluster and klusterletAddonConfig to the target cluster
@@ -457,7 +457,7 @@ func SendEvent(
 	return errors.New("transport client must not be nil")
 }
 
-func (s *managedClusterMigrationFromSyncer) detachManagedClusters(ctx context.Context, managedClusters []string) error {
+func (s *migrationSourceSyncer) detachManagedClusters(ctx context.Context, managedClusters []string) error {
 	for _, managedCluster := range managedClusters {
 		log.Debugf("detaching managed cluster %s", managedCluster)
 		mc := &clusterv1.ManagedCluster{}

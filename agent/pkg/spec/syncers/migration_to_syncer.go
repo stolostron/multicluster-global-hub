@@ -35,7 +35,7 @@ import (
 
 var log = logger.DefaultZapLogger()
 
-type managedClusterMigrationToSyncer struct {
+type migrationTargetSyncer struct {
 	client                     client.Client
 	transportClient            transport.TransportClient
 	transportConfig            *transport.TransportInternalConfig
@@ -44,10 +44,10 @@ type managedClusterMigrationToSyncer struct {
 	bundleVersion              *eventversion.Version
 }
 
-func NewManagedClusterMigrationToSyncer(client client.Client,
+func NewMigrationTargetSyncer(client client.Client,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
-) *managedClusterMigrationToSyncer {
-	return &managedClusterMigrationToSyncer{
+) *migrationTargetSyncer {
+	return &migrationTargetSyncer{
 		client:          client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
@@ -55,11 +55,11 @@ func NewManagedClusterMigrationToSyncer(client client.Client,
 	}
 }
 
-func (s *managedClusterMigrationToSyncer) SetMigrationConsumer(consumer *consumer.GenericConsumer) {
+func (s *migrationTargetSyncer) SetMigrationConsumer(consumer *consumer.GenericConsumer) {
 	s.migrationConsumer = consumer
 }
 
-func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []byte) error {
+func (s *migrationTargetSyncer) Sync(ctx context.Context, payload []byte) error {
 	// handle migration.to cloud event
 	log.Info("received migration event from global hub")
 	managedClusterMigrationToEvent := &migration.ManagedClusterMigrationToEvent{}
@@ -121,7 +121,7 @@ func (s *managedClusterMigrationToSyncer) Sync(ctx context.Context, payload []by
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) cleaning(ctx context.Context,
+func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	msaName := evt.ManagedServiceAccountName
@@ -172,7 +172,7 @@ func (s *managedClusterMigrationToSyncer) cleaning(ctx context.Context,
 }
 
 // registering watches the migrated managed clusters
-func (s *managedClusterMigrationToSyncer) registering(ctx context.Context,
+func (s *migrationTargetSyncer) registering(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent, notAvailableManagedClusters []string,
 ) error {
 	// clean notAvailableManagedClusters
@@ -202,7 +202,7 @@ func (s *managedClusterMigrationToSyncer) registering(ctx context.Context,
 }
 
 // initializing create the permission for the migration service account, and enable auto-approval for registration
-func (s *managedClusterMigrationToSyncer) initializing(ctx context.Context,
+func (s *migrationTargetSyncer) initializing(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	msaName := evt.ManagedServiceAccountName
@@ -232,7 +232,7 @@ func (s *managedClusterMigrationToSyncer) initializing(ctx context.Context,
 		s.bundleVersion)
 }
 
-func (s *managedClusterMigrationToSyncer) deploying(ctx context.Context,
+func (s *migrationTargetSyncer) deploying(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	go func() {
@@ -243,7 +243,7 @@ func (s *managedClusterMigrationToSyncer) deploying(ctx context.Context,
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Context, migrationId string) error {
+func (s *migrationTargetSyncer) StartMigrationConsumer(ctx context.Context, migrationId string) error {
 	// initialize the gh-migration consumer
 	if s.migrationConsumer != nil || s.transportConfig == nil {
 		return nil
@@ -303,7 +303,7 @@ func (s *managedClusterMigrationToSyncer) StartMigrationConsumer(ctx context.Con
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) receiveMigrationResource(ctx context.Context,
+func (s *migrationTargetSyncer) receiveMigrationResource(ctx context.Context,
 	migrationCtx context.Context, migrationId string,
 ) {
 	for {
@@ -331,7 +331,7 @@ func (s *managedClusterMigrationToSyncer) receiveMigrationResource(ctx context.C
 	}
 }
 
-func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Context, evt *cloudevents.Event) error {
+func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context, evt *cloudevents.Event) error {
 	log.Info("received cloudevent from the source clusters")
 	migrationId := evt.ID()
 	payload := evt.Data()
@@ -384,7 +384,7 @@ func (s *managedClusterMigrationToSyncer) syncMigrationResources(ctx context.Con
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
+func (s *migrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
 	saName, saNamespace string,
 ) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
@@ -465,7 +465,7 @@ func (s *managedClusterMigrationToSyncer) ensureClusterManagerAutoApproval(ctx c
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
+func (s *migrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	migrationClusterRole := &rbacv1.ClusterRole{
@@ -513,7 +513,7 @@ func (s *managedClusterMigrationToSyncer) ensureSubjectAccessReviewRole(ctx cont
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
+func (s *migrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
 	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
@@ -568,7 +568,7 @@ func (s *managedClusterMigrationToSyncer) ensureRegistrationClusterRoleBinding(c
 	return nil
 }
 
-func (s *managedClusterMigrationToSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
+func (s *migrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
