@@ -213,7 +213,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 	clusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
 	log.Debugf("clusterInfo: %v", clusterInfo)
 	if err != nil {
-		h.log.Errorf("failed to get cluster info from db - %w", err)
+		h.log.Warnf("failed to get cluster info from db - %v", err)
 	}
 
 	if len(createClusters) > 0 {
