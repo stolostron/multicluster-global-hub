@@ -99,6 +99,8 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 						ErrMessage:  reportErrMessage,
 					}, s.bundleVersion); err != nil {
 					log.Errorf("failed to send migration event due to %v", err)
+				} else {
+					log.Info("finished registring clusters")
 				}
 			}()
 		}
