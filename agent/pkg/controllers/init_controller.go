@@ -54,8 +54,7 @@ func (c *initController) Reconcile(ctx context.Context, request ctrl.Request) (c
 func (c *initController) addACMController(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	log.Info("NamespacedName: ", request.NamespacedName)
 	// status syncers or inventory
-	var err error
-	err = status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
+	err := status.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
 	}

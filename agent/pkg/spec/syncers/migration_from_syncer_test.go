@@ -167,7 +167,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt.SetSource("hub1")
 				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
-				evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
+				_ = evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
 					Stage: migrationv1alpha1.ConditionTypeCleaned,
 				})
 				return &evt
