@@ -7,6 +7,8 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	set "github.com/deckarep/golang-set"
+	"github.com/go-kratos/kratos/v2/errors"
+	"github.com/go-kratos/kratos/v2/log"
 	kesselv1betarelations "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -57,7 +59,7 @@ func (h *localPolicyComplianceHandler) handleEventWrapper(ctx context.Context, e
 func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	h.log.Info("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Info("handler start ", "type ", evt.Type(), "LH ", evt.Source(), "version ", version)
 
 	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
@@ -72,8 +74,17 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 	}
 
 	for _, eventCompliance := range data { // every object is clusters list per policy with full state
-
 		policyID := eventCompliance.PolicyID
+
+		if configs.IsInventoryAPIEnabled() {
+			// If inventory enabled, we need to make sure the policy spec info is handled firstly.
+			policyNamespacedName, err := getPolicyNamespacedName(db, policyID)
+			if err != nil || policyNamespacedName == "" {
+				return fmt.Errorf("failed to get policy namespaced name -%v: %w", policyID, err)
+			}
+		}
+
+		log.Debug("handle clusters per policy bundle", "policyID", policyID)
 		complianceClustersFromDB, policyExistsInDB := allComplianceClustersFromDB[policyID]
 		if !policyExistsInDB {
 			complianceClustersFromDB = NewPolicyClusterSets()
@@ -134,13 +145,8 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 		}
 
 		if configs.IsInventoryAPIEnabled() {
-			err = syncInventory(ctx,
-				db,
-				h.log,
-				h.requester,
-				leafHub,
-				policyID,
-				batchLocalCompliances,
+			log.Debugf("sync to inventory api - %s", policyID)
+			err = syncInventory(ctx, db, h.log, h.requester, leafHub, policyID, batchLocalCompliances,
 				complianceClustersFromDB.complianceToSetMap,
 				allClustersOnDB,
 			)
@@ -208,7 +214,7 @@ func syncInventory(
 	if err != nil || clusterInfo.MchVersion == "" {
 		log.Warnf("failed to get cluster info from db - %v", err)
 	}
-	postCompliancesToInventoryApi(
+	return postCompliancesToInventoryApi(
 		ctx,
 		db,
 		log,
@@ -219,7 +225,6 @@ func syncInventory(
 		deleteCompliances,
 		clusterInfo.MchVersion,
 	)
-	return nil
 }
 
 func postCompliancesToInventoryApi(
@@ -232,15 +237,7 @@ func postCompliancesToInventoryApi(
 	updateCompliances []models.LocalStatusCompliance,
 	deleteCompliances []models.LocalStatusCompliance,
 	mchVersion string,
-) (
-	[]models.LocalStatusCompliance,
-	[]models.LocalStatusCompliance,
-	[]models.LocalStatusCompliance,
-) {
-	var createCompliancesToInventory []models.LocalStatusCompliance
-	var updateCompliancesToInventory []models.LocalStatusCompliance
-	var deleteCompliancesInInventory []models.LocalStatusCompliance
-
+) error {
 	if len(createCompliances) > 0 {
 		for _, createCompliance := range createCompliances {
 			policyNamespacedName, err := getPolicyNamespacedName(db, createCompliance.PolicyID)
@@ -253,8 +250,6 @@ func postCompliancesToInventoryApi(
 					policyNamespacedName, createCompliance.ClusterName, string(createCompliance.Compliance),
 					leafHub, mchVersion)); err != nil {
 				log.Errorf("failed to create k8s policy is propagated to k8s cluster -%v: %w", resp, err)
-			} else {
-				createCompliancesToInventory = append(createCompliancesToInventory, createCompliance)
 			}
 		}
 	}
@@ -270,8 +265,6 @@ func postCompliancesToInventoryApi(
 					policyNamespacedName, updateCompliance.ClusterName, string(updateCompliance.Compliance),
 					leafHub, mchVersion)); err != nil {
 				log.Errorf("failed to update k8s policy is propagated to k8s cluster -%v: %w", resp, err)
-			} else {
-				updateCompliancesToInventory = append(updateCompliancesToInventory, updateCompliance)
 			}
 		}
 	}
@@ -285,15 +278,13 @@ func postCompliancesToInventoryApi(
 			}
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 				DeleteK8SPolicyIsPropagatedToK8SCluster(ctx, deleteK8SPolicyIsPropagatedToK8SCluster(
-					policyNamespacedName, deleteCompliance.ClusterName, leafHub, mchVersion)); err != nil {
+					policyNamespacedName, deleteCompliance.ClusterName, leafHub, mchVersion)); err != nil && !errors.IsNotFound(err) {
 				log.Errorf("failed to delete k8s policy is propagated to k8s cluster -%v: %w", resp, err)
-			} else {
-				deleteCompliancesInInventory = append(deleteCompliancesInInventory, deleteCompliance)
 			}
 		}
 	}
 
-	return createCompliancesToInventory, updateCompliancesToInventory, deleteCompliancesInInventory
+	return nil
 }
 
 func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, reporterInstanceId string, mchVersion string) *kesselv1betarelations.
@@ -446,7 +437,9 @@ func getLocalComplianceClusterSets(db *gorm.DB, query interface{}, args ...inter
 func getPolicyNamespacedName(db *gorm.DB, policyID string) (string, error) {
 	var policyFromDB []models.LocalSpecPolicy
 	var resourceVersions []models.ResourceVersion
-
+	if db == nil {
+		return "", fmt.Errorf("db is nil")
+	}
 	err := db.Select(
 		"policy_id AS key, concat(payload->'metadata'->>'namespace', '/', payload->'metadata'->>'name') AS name").
 		Where(&models.LocalSpecPolicy{
@@ -455,9 +448,6 @@ func getPolicyNamespacedName(db *gorm.DB, policyID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("#############resourceVersions", resourceVersions)
-	fmt.Println("#############resourceVersions", resourceVersions[0])
-
 	if len(resourceVersions) == 0 {
 		return "", fmt.Errorf("policy %s not found", policyID)
 	}

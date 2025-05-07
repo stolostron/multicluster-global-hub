@@ -66,6 +66,16 @@ var _ = Describe("manager", Ordered, func() {
 			CACert:                  []byte("test-crt"),
 		})
 		config.SetDatabaseReady(true)
+		mgh.SetAnnotations(map[string]string{
+			operatorconstants.AnnotationMGHWithInventory: "true",
+		})
+		mgh.Status.Components = map[string]v1alpha4.StatusCondition{
+			config.COMPONENTS_INVENTORY_API_NAME: v1alpha4.StatusCondition{
+				Name:   config.COMPONENTS_INVENTORY_API_NAME,
+				Type:   config.COMPONENTS_AVAILABLE,
+				Status: config.CONDITION_STATUS_TRUE,
+			},
+		}
 		initOption = config.ControllerOption{
 			Manager:               runtimeManager,
 			MulticlusterGlobalHub: mgh,
