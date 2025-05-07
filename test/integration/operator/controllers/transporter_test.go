@@ -387,7 +387,8 @@ var _ = Describe("transporter", Ordered, func() {
 
 		err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(kafkaUser), kafkaUser)
 		Expect(err).To(Succeed())
-		Expect(3).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
+		// utils.PrettyPrint(kafkaUser.Spec.Authorization)
+		Expect(4).To(Equal(len(kafkaUser.Spec.Authorization.Acls)))
 
 		// topic: create
 		clusterTopic, err := trans.EnsureTopic(clusterName)
