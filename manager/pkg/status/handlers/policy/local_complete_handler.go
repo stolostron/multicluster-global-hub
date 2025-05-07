@@ -158,13 +158,7 @@ func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLo
 			return fmt.Errorf("failed to update compliances by complete event - %w", err)
 		}
 		if configs.IsInventoryAPIEnabled() {
-			err = syncInventory(ctx,
-				db,
-				h.log,
-				h.requester,
-				leafHub,
-				policyID,
-				batchLocalCompliance,
+			err = syncInventory(ctx, db, h.log, h.requester, leafHub, policyID, batchLocalCompliance,
 				nonComplianceClusterSetsFromDB.complianceToSetMap,
 				nil,
 			)
