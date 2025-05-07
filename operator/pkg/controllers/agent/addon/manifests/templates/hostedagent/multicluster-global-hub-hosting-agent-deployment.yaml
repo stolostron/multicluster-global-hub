@@ -32,7 +32,6 @@ spec:
             - --kubeconfig=/var/run/secrets/managed/kubeconfig
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .LeafHubID }}
-            - --kafka-consumer-id={{ .LeafHubID }}
             - --enforce-hoh-rbac=false
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
@@ -47,8 +46,6 @@ spec:
             - --stackrox-poll-interval={{.StackroxPollInterval}}
             {{- end}}
           env:
-            # - name: KUBECONFIG
-            #   value: /var/run/secrets/hypershift/kubeconfig
             - name: POD_NAMESPACE
               valueFrom:
                 fieldRef:
