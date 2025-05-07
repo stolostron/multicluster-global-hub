@@ -371,7 +371,7 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
 			constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
-	log.Info("send the sycing migration resources into the target hub cluster")
+	log.Info("deploying the resources into the target hub cluster")
 	return nil
 }
 

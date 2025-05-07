@@ -79,13 +79,15 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				notAvailableManagedClusters := []string{}
 				err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, false,
 					func(context.Context) (done bool, err error) {
-						if err := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); err != nil {
-							return false, err
+						if e := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); e != nil {
+							log.Infof("waiting the migrating cluster is available: %v", e)
+							return false, nil
 						}
 						return true, nil
 					})
 				if err != nil {
-					reportErrMessage = fmt.Sprintf("failed to register the managed clusters [%s]", strings.Join(notAvailableManagedClusters, ", "))
+					reportErrMessage = fmt.Sprintf("failed to register the managed clusters [%s]: %v",
+						strings.Join(notAvailableManagedClusters, ", "), err)
 				}
 
 				if err := ReportMigrationStatus(
@@ -290,7 +292,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		}
 	}
 
-	log.Info("finished sync migration resources")
+	log.Info("finished syncing migration resources")
 
 	// report the deployed confirmation
 	err := ReportMigrationStatus(
