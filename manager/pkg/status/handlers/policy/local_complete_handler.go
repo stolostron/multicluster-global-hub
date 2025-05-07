@@ -56,7 +56,9 @@ func (h *localPolicyCompleteHandler) handleEventWrapper(ctx context.Context, evt
 	return h.handleCompleteCompliance(h.log, ctx, evt)
 }
 
-func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *cloudevents.Event) error {
+func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLogger,
+	ctx context.Context, evt *cloudevents.Event,
+) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
 	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)

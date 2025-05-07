@@ -80,7 +80,7 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 			// If inventory enabled, we need to make sure the policy spec info is handled firstly.
 			policyNamespacedName, err := getPolicyNamespacedName(db, policyID)
 			if err != nil || policyNamespacedName == "" {
-				return fmt.Errorf("failed to get policy namespaced name -%v: %w", policyID, err)
+				return fmt.Errorf("failed to get policy namespaced name - %v: %w", policyID, err)
 			}
 		}
 
@@ -242,7 +242,7 @@ func postCompliancesToInventoryApi(
 		for _, createCompliance := range createCompliances {
 			policyNamespacedName, err := getPolicyNamespacedName(db, createCompliance.PolicyID)
 			if err != nil || policyNamespacedName == "" {
-				log.Errorf("failed to get policy namespaced name -%v: %w", createCompliance.PolicyID, err)
+				log.Errorf("failed to get policy namespaced name - %v: %v", createCompliance.PolicyID, err)
 				continue
 			}
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
@@ -257,7 +257,7 @@ func postCompliancesToInventoryApi(
 		for _, updateCompliance := range updateCompliances {
 			policyNamespacedName, err := getPolicyNamespacedName(db, updateCompliance.PolicyID)
 			if err != nil || policyNamespacedName == "" {
-				log.Errorf("failed to get policy namespaced name -%v: %w", updateCompliance.PolicyID, err)
+				log.Errorf("failed to get policy namespaced name - %v: %w", updateCompliance.PolicyID, err)
 				continue
 			}
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
@@ -287,7 +287,8 @@ func postCompliancesToInventoryApi(
 	return nil
 }
 
-func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, reporterInstanceId string, mchVersion string) *kesselv1betarelations.
+func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId,
+	status, reporterInstanceId string, mchVersion string) *kesselv1betarelations.
 	UpdateK8SPolicyIsPropagatedToK8SClusterRequest {
 	var relationStatus kesselv1betarelations.K8SPolicyIsPropagatedToK8SClusterDetail_Status
 	switch status {
@@ -317,7 +318,8 @@ func updateK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, status, report
 	}
 }
 
-func deleteK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId, reporterInstanceId string, mchVersion string) *kesselv1betarelations.
+func deleteK8SPolicyIsPropagatedToK8SCluster(subjectId, objectId,
+	reporterInstanceId string, mchVersion string) *kesselv1betarelations.
 	DeleteK8SPolicyIsPropagatedToK8SClusterRequest {
 	return &kesselv1betarelations.DeleteK8SPolicyIsPropagatedToK8SClusterRequest{
 		ReporterData: &kesselv1betarelations.ReporterData{
