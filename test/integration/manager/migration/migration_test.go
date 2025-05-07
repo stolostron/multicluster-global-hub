@@ -284,6 +284,12 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
+			migrationInstance.Status.Phase = migrationv1alpha1.PhaseValidating
+			err = mgr.GetClient().Status().Update(ctx, migrationInstance)
+			if err != nil {
+				return err
+			}
+
 			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
 			if cond == nil {
 				return fmt.Errorf("should find the condition: %s", migrationv1alpha1.ConditionTypeValidated)
