@@ -99,6 +99,9 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 	// verify the clusters in database
 	clusterWithHub, err := getClusterWithHub(mcm)
+	if err != nil {
+		return false, err
+	}
 
 	notFoundClusters := []string{}
 	clustersInDestinationHub := []string{}
@@ -152,7 +155,7 @@ func getClusterWithHub(mcm *migrationv1alpha1.ManagedClusterMigration) (map[stri
 			WHERE cluster_name IN (?) AND deleted_at is NULL`,
 		mcm.Spec.IncludedManagedClusters).Rows()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get migrating clusters - %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
