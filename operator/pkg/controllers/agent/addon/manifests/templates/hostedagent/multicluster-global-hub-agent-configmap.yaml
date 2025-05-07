@@ -1,11 +1,11 @@
-{{- if not .InstallHostedMode -}}
+{{ if .InstallHostedMode }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: multicluster-global-hub-agent-config
   namespace: {{ .AddonInstallNamespace }}
   labels:
-    addon.open-cluster-management.io/hosted-manifest-location: managed
+    addon.open-cluster-management.io/hosted-manifest-location: hosting
 data:
   managedClusters: "5s"
   policies: "5s"
@@ -14,4 +14,4 @@ data:
   aggregationLevel: {{ .AggregationLevel }}
   enableLocalPolicies: "{{ .EnableLocalPolicies }}"
   logLevel: {{.LogLevel}}
-{{- end -}}
+{{ end }}
