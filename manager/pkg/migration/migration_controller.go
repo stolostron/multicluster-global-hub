@@ -142,16 +142,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// validating
-	requeue, err := m.validating(ctx, mcm)
+	err = m.validating(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if requeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
 
 	// initializing
-	requeue, err = m.initializing(ctx, mcm)
+	requeue, err := m.initializing(ctx, mcm)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

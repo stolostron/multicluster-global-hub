@@ -28,15 +28,15 @@ const (
 //   - If the clusters exist in the destination hub, mark the status as failed, raise the 'ClusterConflict' message.
 func (m *ClusterMigrationController) validating(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
-) (bool, error) {
+) error {
 	if !mcm.DeletionTimestamp.IsZero() {
-		return false, nil
+		return nil
 	}
 
 	if mcm.Status.Phase == "" {
 		mcm.Status.Phase = migrationv1alpha1.PhaseValidating
 		if err := m.Client.Status().Update(ctx, mcm); err != nil {
-			return false, err
+			return err
 		}
 		// initializing the migration event progress
 		MigrationEventProgressMap[string(mcm.GetUID())] = &MigrationEventProgress{}
@@ -46,7 +46,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	// or if the phase status is not 'validating' (indicating it's currently in a different stage)
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseValidating {
-		return false, nil
+		return nil
 	}
 	log.Info("migration validating")
 
@@ -85,7 +85,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		case errors.IsNotFound(toHubErr):
 			condMessage = fmt.Sprintf("Not found the destination hub: %s", mcm.Spec.To)
 		}
-		return false, nil
+		return nil
 	}
 	if fromHubErr != nil {
 		err = fromHubErr
@@ -94,13 +94,13 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	}
 	if err != nil {
 		condReason = ConditionReasonHubClusterNotFound
-		return false, err
+		return err
 	}
 
 	// verify the clusters in database
 	clusterWithHub, err := getClusterWithHub(mcm)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	notFoundClusters := []string{}
@@ -121,7 +121,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		condReason = ConditionReasonClusterConflict
 		condMessage = fmt.Sprintf("The clusters %v have been in the hub cluster %s",
 			messageClusters(clustersInDestinationHub), mcm.Spec.To)
-		return false, nil
+		return nil
 	}
 
 	// not found validated clusters
@@ -131,10 +131,10 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		condReason = ConditionReasonClusterNotFound
 		condMessage = fmt.Sprintf("The validated clusters %v are not found in the source hub %s",
 			messageClusters(notFoundClusters), mcm.Spec.From)
-		return true, nil
+		return nil
 	}
 
-	return false, nil
+	return nil
 }
 
 // messageClusters is used to prevent too many messages from appearing in the status.
