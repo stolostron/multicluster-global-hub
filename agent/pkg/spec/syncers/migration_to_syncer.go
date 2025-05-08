@@ -16,13 +16,13 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -33,6 +33,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
+
+const KlusterletManifestWorkSuffix = "-klusterlet"
 
 var log = logger.DefaultZapLogger()
 
@@ -86,7 +88,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 						return true, nil
 					})
 				if err != nil {
-					reportErrMessage = fmt.Sprintf("failed to register the managed clusters [%s]: %v",
+					reportErrMessage = fmt.Sprintf("failed to register these clusters [%s]: %v",
 						strings.Join(notAvailableManagedClusters, ", "), err)
 				}
 
@@ -187,19 +189,34 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 	}
 	// check if the managed cluster is in the managed cluster list
 	for _, cluster := range evt.ManagedClusters {
-		for _, mc := range managedClusterList.Items {
-			if mc.Name == cluster {
-				if meta.IsStatusConditionTrue(mc.Status.Conditions, clusterv1.ManagedClusterConditionAvailable) {
-					log.Debugf("managed cluster %s is ready", cluster)
-				} else {
-					notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
-				}
-				continue
+		work := &workv1.ManifestWork{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cluster,
+				Name:      fmt.Sprintf("%s%s", cluster, KlusterletManifestWorkSuffix),
+			},
+		}
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
+			return err
+		}
+
+		klusterletWorkApplied := false
+		for _, workCond := range work.Status.Conditions {
+			if workCond.Type == workv1.WorkApplied && workCond.Status == metav1.ConditionTrue {
+				klusterletWorkApplied = true
+				log.Infof("klusterlet %s is applied", work.Name)
+				break
 			}
 		}
+
+		if !klusterletWorkApplied {
+			log.Infof("klusterlet %s is not applied", work.Name)
+			notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
+			continue
+		}
 	}
+
 	if len(notAvailableManagedClusters) > 0 {
-		return fmt.Errorf("not all the managed clusters are registered, wait...")
+		return fmt.Errorf("wating the klusterlets of these clusters to be applied: %v", notAvailableManagedClusters)
 	}
 	return nil
 }

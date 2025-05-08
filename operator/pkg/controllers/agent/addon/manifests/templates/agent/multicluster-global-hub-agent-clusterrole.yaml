@@ -266,4 +266,10 @@ rules:
   - managedclusters/accept
   verbs:
   - update
+- apiGroups:
+  - work.open-cluster-management.io
+  resources:
+  - manifestworks
+  verbs:
+  - get
 {{- end -}}
