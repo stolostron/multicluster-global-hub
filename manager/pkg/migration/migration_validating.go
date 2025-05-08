@@ -168,5 +168,9 @@ func getClusterWithHub(mcm *migrationv1alpha1.ManagedClusterMigration) (map[stri
 		}
 		managedClusterMap[managedClusterName] = leafHubName
 	}
+
+	if len(managedClusterMap) == 0 {
+		return nil, fmt.Errorf("invalid managed clusters: %v", mcm.Spec.IncludedManagedClusters)
+	}
 	return managedClusterMap, nil
 }
