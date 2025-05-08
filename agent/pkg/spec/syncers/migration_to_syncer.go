@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,7 +78,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				log.Infof("registering managed cluster migration")
 				reportErrMessage := ""
 				notAvailableManagedClusters := []string{}
-				err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, false,
+				err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true,
 					func(context.Context) (done bool, err error) {
 						if e := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); e != nil {
 							log.Infof("waiting the migrating cluster is available: %v", e)
@@ -180,14 +179,11 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 func (s *migrationTargetSyncer) registering(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent, notAvailableManagedClusters []string,
 ) error {
+	if len(evt.ManagedClusters) == 0 {
+		return fmt.Errorf("no managed clusters to register for migration %s", evt.MigrationId)
+	}
 	// clean notAvailableManagedClusters
 	notAvailableManagedClusters = notAvailableManagedClusters[:0]
-	// list the managed clusters
-	managedClusterList := &clusterv1.ManagedClusterList{}
-	if err := s.client.List(ctx, managedClusterList, &client.ListOptions{}); err != nil {
-		return err
-	}
-	// check if the managed cluster is in the managed cluster list
 	for _, cluster := range evt.ManagedClusters {
 		work := &workv1.ManifestWork{
 			ObjectMeta: metav1.ObjectMeta{
