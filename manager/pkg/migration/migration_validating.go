@@ -101,6 +101,12 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	if err != nil {
 		return err
 	}
+	if len(clusterWithHub) == 0 {
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonClusterNotFound
+		condMessage = fmt.Sprintf("invalid managed clusters: %v", mcm.Spec.IncludedManagedClusters)
+		return nil
+	}
 
 	notFoundClusters := []string{}
 	clustersInDestinationHub := []string{}
@@ -161,9 +167,6 @@ func getClusterWithHub(mcm *migrationv1alpha1.ManagedClusterMigration) (map[stri
 			return nil, fmt.Errorf("failed to scan hub and managed cluster name - %w", err)
 		}
 		managedClusterMap[managedClusterName] = leafHubName
-	}
-	if len(managedClusterMap) == 0 {
-		return nil, fmt.Errorf("invalid managed clusters: %v", mcm.Spec.IncludedManagedClusters)
 	}
 	return managedClusterMap, nil
 }
