@@ -272,3 +272,11 @@ rules:
   - create
   - watch
   - list
+- apiGroups:
+  - work.open-cluster-management.io
+  resources:
+  - manifestworks
+  verbs:
+  - get
+  - watch
+  - list
