@@ -80,9 +80,9 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		condReason = ConditionReasonHubClusterNotFound
 		switch {
 		case errors.IsNotFound(fromHubErr):
-			condMessage = fmt.Sprintf("Not found the source hub: %s", mcm.Spec.From)
+			condMessage = fmt.Sprintf("not found the source hub: %s", mcm.Spec.From)
 		case errors.IsNotFound(toHubErr):
-			condMessage = fmt.Sprintf("Not found the destination hub: %s", mcm.Spec.To)
+			condMessage = fmt.Sprintf("not found the destination hub: %s", mcm.Spec.To)
 		}
 		return nil
 	}
