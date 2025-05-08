@@ -16,6 +16,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -175,6 +176,7 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 	return nil
 }
 
+// TODO: Don't need to check the whole clusters every time. only check the not available clusters
 // registering watches the migrated managed clusters
 func (s *migrationTargetSyncer) registering(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent, notAvailableManagedClusters []string,
@@ -195,24 +197,16 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 			return err
 		}
 
-		klusterletWorkApplied := false
-		for _, workCond := range work.Status.Conditions {
-			if workCond.Type == workv1.WorkApplied && workCond.Status == metav1.ConditionTrue {
-				klusterletWorkApplied = true
-				log.Infof("klusterlet %s is applied", work.Name)
-				break
-			}
-		}
-
-		if !klusterletWorkApplied {
-			log.Infof("klusterlet %s is not applied", work.Name)
+		if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
+			log.Infof("work %s is not applied", work.Name)
 			notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
 			continue
 		}
+		log.Infof("work %s is applied", work.Name)
 	}
 
 	if len(notAvailableManagedClusters) > 0 {
-		return fmt.Errorf("klusterlets aren't applied: %v", notAvailableManagedClusters)
+		return fmt.Errorf("works aren't applied: %v", notAvailableManagedClusters)
 	}
 	return nil
 }

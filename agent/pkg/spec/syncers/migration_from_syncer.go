@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
@@ -158,10 +157,6 @@ func (m *migrationSourceSyncer) cleaning(
 func (s *migrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
-	if s.transportClient.GetProducer() == nil {
-		return fmt.Errorf("must set the producer for the migration syncer")
-	}
-
 	managedClusters := migratingEvt.ManagedClusters
 	toHub := migratingEvt.ToHub
 	id := migratingEvt.MigrationId
@@ -364,8 +359,6 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 	}
 
 	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
-	// TODO: sleep 5 seconds to ensure topic authorization finished
-	time.Sleep(5 * time.Second)
 	if err := s.transportClient.GetProducer().SendEvent(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
 		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
