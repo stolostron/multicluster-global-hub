@@ -24,6 +24,10 @@ func updatePhaseStatus(migrationId, hubCluster, phase string,
 	updateFunc func(*MigrationPhaseStatus),
 ) {
 	mep := MigrationEventProgressMap[migrationId]
+	if mep == nil {
+		log.Warnf("MigrationEventProgress is nil for migrationId: %s", migrationId)
+		return
+	}
 	mp := (*mep)[hubCluster]
 	if mp == nil {
 		mp = &MigrationPhases{}
