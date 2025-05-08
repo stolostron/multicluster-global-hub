@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -23,7 +24,8 @@ func NewResyncer() *resyncer {
 	}
 }
 
-func (s *resyncer) Sync(ctx context.Context, payload []byte) error {
+func (s *resyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	payload := evt.Data()
 	if registeredResyncTypes == nil {
 		s.log.Warn("not register any resource for resync")
 		return nil

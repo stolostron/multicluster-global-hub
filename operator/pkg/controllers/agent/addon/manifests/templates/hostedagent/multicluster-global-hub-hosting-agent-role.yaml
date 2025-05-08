@@ -33,4 +33,12 @@ rules:
   - update
   - patch
   - delete
+- apiGroups:
+  - work.open-cluster-management.io
+  resources:
+  - manifestworks
+  verbs:
+  - get
+  - watch
+  - list
 {{- end -}}

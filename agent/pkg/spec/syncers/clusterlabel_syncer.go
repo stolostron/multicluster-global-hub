@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +47,8 @@ func NewManagedClusterLabelSyncer(workers *workers.WorkerPool) *managedClusterLa
 	}
 }
 
-func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, payload []byte) error {
+func (syncer *managedClusterLabelsBundleSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	payload := evt.Data()
 	bundle := &specbundle.ManagedClusterLabelsSpecBundle{}
 	if err := json.Unmarshal(payload, bundle); err != nil {
 		return err

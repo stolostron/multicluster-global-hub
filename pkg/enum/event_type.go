@@ -12,7 +12,6 @@ const (
 	ManagedClusterInfoType      EventType = EventTypePrefix + "managedclusterinfo"
 	SubscriptionReportType      EventType = EventTypePrefix + "subscription.report"
 	SubscriptionStatusType      EventType = EventTypePrefix + "subscription.status"
-	KlusterletAddonConfigType   EventType = EventTypePrefix + "managedcluster.klusterletaddonconfig"
 	MigrationResourcesType      EventType = EventTypePrefix + "migration.resources"
 
 	// used by the local resources

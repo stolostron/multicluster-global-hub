@@ -89,9 +89,8 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportInternalConfig{
 			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:      "spec",
-				StatusTopic:    "event",
-				MigrationTopic: "migration",
+				SpecTopic:   "spec",
+				StatusTopic: "event",
 			},
 		},
 		StatisticsConfig: &statistics.StatisticsConfig{

@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -43,19 +44,17 @@ var log = logger.DefaultZapLogger()
 type ClusterMigrationController struct {
 	client.Client
 	transport.Producer
-	BootstrapSecret       *corev1.Secret
-	importClusterInHosted bool
-	migrationTopic        string
+	BootstrapSecret *corev1.Secret
+	managerConfigs  *configs.ManagerConfig
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
-	importClusterInHosted bool, migrationTopic string,
+	managerConfig *configs.ManagerConfig,
 ) *ClusterMigrationController {
 	return &ClusterMigrationController{
-		Client:                client,
-		Producer:              producer,
-		importClusterInHosted: importClusterInHosted,
-		migrationTopic:        migrationTopic,
+		Client:         client,
+		Producer:       producer,
+		managerConfigs: managerConfig,
 	}
 }
 
@@ -205,7 +204,7 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 ) error {
 	// default managedserviceaccount addon namespace
 	msaNamespace := "open-cluster-management-agent-addon"
-	if m.importClusterInHosted {
+	if m.managerConfigs.ImportClusterInHosted {
 		// hosted mode, the  managedserviceaccount addon namespace
 		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}
@@ -219,6 +218,7 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 		Stage:                                 stage,
 		ManagedServiceAccountName:             migration.Name,
 		ManagedServiceAccountInstallNamespace: msaNamespace,
+		ManagedClusters:                       managedClusters,
 	}
 
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
@@ -227,7 +227,7 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 			managedClusterMigrationToEvent, err)
 	}
 
-	eventType := constants.CloudEventTypeMigrationTo
+	eventType := constants.MigrationTargetMsgKey
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -24,7 +23,6 @@ import (
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -38,10 +36,9 @@ const (
 var migrationStageTimeout = 5 * time.Minute
 
 // Initializing:
-//  1. Grant the proper permission to the source clusters and the target cluster for the migration topic.
-//  2. Destination Hub: create managedserviceaccount, Set autoApprove for the SA by initializing event
-//  3. Source Hub: attach the klusterletconfig with bootstrapsecret for the migrating clusters by initializing event
-//  4. Confirmation: report initialized event by the agent, processed by the manager handler
+//  1. Destination Hub: create managedserviceaccount, Set autoApprove for the SA by initializing event
+//  2. Source Hub: attach the klusterletconfig with bootstrapsecret for the migrating clusters by initializing event
+//  3. Confirmation: report initialized event by the agent, processed by the manager handler
 func (m *ClusterMigrationController) initializing(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
@@ -75,19 +72,12 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}()
 
-	// 1. KafkaUser permission: Ensure grant the proper permission to the KafkaUser for the gh-migration topic
-	// place it before the other check to ensure time for the permissions to take effect
 	sourceHubToClusters, err := getSourceClusters(mcm)
 	if err != nil {
 		return false, err
 	}
-	if err := m.ensureKafkaUserPermission(ctx, sourceHubToClusters, mcm.Spec.To); err != nil {
-		log.Errorf("failed to grant permission to the kafkauser due to %v", err)
-		return false, err
-	}
-	log.Info("migration topic permission is set")
 
-	// 2. Create the managedserviceaccount -> generate bootstrap secret
+	// 1. Create the managedserviceaccount -> generate bootstrap secret
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
 		return false, err
 	}
@@ -113,7 +103,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, err
 	}
 
-	// 3. Send event to destination hub, TODO: ensure the produce event 'exactly-once'
+	// 2. Send event to destination hub, TODO: ensure the produce event 'exactly-once'
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
@@ -124,7 +114,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing)
 	}
 
-	// 4. Send event to Source Hub
+	// 3. Send event to Source Hub
 	for fromHubName, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
@@ -137,7 +127,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		}
 	}
 
-	// 5. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
+	// 4. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
 	errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing)
 	if errMsg != "" {
 		err = fmt.Errorf("initializing target hub %s with err :%s", mcm.Spec.To, errMsg) // the err will be updated into cr
@@ -167,71 +157,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	log.Info("migration initializing finished")
 	return false, nil
-}
-
-func (m *ClusterMigrationController) ensureKafkaUserPermission(ctx context.Context,
-	sourceHubToClusters map[string][]string, toHub string,
-) error {
-	for fromHubName := range sourceHubToClusters {
-		// Get the KafkaUser
-		kafkaUser := &kafkav1beta2.KafkaUser{}
-		err := m.Client.Get(ctx, types.NamespacedName{
-			Name:      config.GetKafkaUserName(fromHubName),
-			Namespace: utils.GetDefaultNamespace(),
-		}, kafkaUser)
-		if err != nil {
-			return err
-		}
-
-		migrationACL := utils.WriteTopicACL(m.migrationTopic)
-		if err := m.updateKafkaUser(ctx, kafkaUser, migrationACL); err != nil {
-			return err
-		}
-	}
-
-	// Get the KafkaUser
-	kafkaUser := &kafkav1beta2.KafkaUser{}
-	err := m.Client.Get(ctx, types.NamespacedName{
-		Name:      config.GetKafkaUserName(toHub),
-		Namespace: utils.GetDefaultNamespace(),
-	}, kafkaUser)
-	if err != nil {
-		return err
-	}
-	migrationACL := utils.ReadTopicACL(m.migrationTopic, false)
-	if err := m.updateKafkaUser(ctx, kafkaUser, migrationACL); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *ClusterMigrationController) updateKafkaUser(ctx context.Context, kafkaUser *kafkav1beta2.KafkaUser,
-	migrationACL kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
-) error {
-	found := false
-	for _, existingAcl := range kafkaUser.Spec.Authorization.Acls {
-		if utils.GenerateACLKey(existingAcl) == utils.GenerateACLKey(migrationACL) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		// Patch the gh-migration Permission
-		kafkaUser.Spec.Authorization.Acls = append(kafkaUser.Spec.Authorization.Acls,
-			[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-				migrationACL,
-			}...,
-		)
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := m.Client.Update(ctx, kafkaUser); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // update with conflict error, and also add timeout validating in the conditions
@@ -340,7 +265,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 			managedClusterMigrationFromEvent, err)
 	}
 
-	eventType := constants.CloudEventTypeMigrationFrom
+	eventType := constants.MigrationSourceMsgKey
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, fromHub, payloadBytes)
 	if err := m.Producer.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",

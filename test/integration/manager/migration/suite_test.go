@@ -53,11 +53,11 @@ var _ = BeforeSuite(func() {
 	transportConfig = &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:      "spec",
-			MigrationTopic: "migration",
-			StatusTopic:    "status",
+			SpecTopic:   "spec",
+			StatusTopic: "status",
 		},
 	}
+	managerConfig := &configs.ManagerConfig{TransportConfig: transportConfig, ImportClusterInHosted: false}
 
 	By("Prepare envtest environment")
 	var err error
@@ -106,7 +106,7 @@ var _ = BeforeSuite(func() {
 		nil,
 	)
 	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, false, "gh-migration")
+	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, managerConfig)
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {

@@ -298,7 +298,6 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				GlobalHubKafkaUser     string
 				SpecTopic              string
 				StatusTopic            string
-				MigrationTopic         string
 				StatusTopicPattern     string
 				StatusPlaceholderTopic string
 				TopicPartition         int32
@@ -313,7 +312,6 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 				KafkaCluster:           KafkaClusterName,
 				GlobalHubKafkaUser:     DefaultGlobalHubKafkaUserName,
 				SpecTopic:              config.GetSpecTopic(),
-				MigrationTopic:         config.GetMigrationTopic(),
 				StatusTopic:            statusTopic,
 				StatusTopicPattern:     string(topicPattern),
 				StatusPlaceholderTopic: statusPlaceholderTopic,
@@ -371,6 +369,7 @@ func (k *strimziTransporter) isCSVInstalled() (bool, error) {
 }
 
 // EnsureUser to reconcile the kafkaUser's setting(authn and authz)
+// set the user can write to status
 func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	userName := config.GetKafkaUserName(clusterName)
 	clusterTopic := k.getClusterTopic(clusterName)
@@ -379,10 +378,14 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 	if clusterName == constants.LocalClusterName {
 		authnType = kafkav1beta2.KafkaUserSpecAuthenticationTypeTls
 	}
+
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		utils.ConsumeGroupReadACL(),
 		utils.ReadTopicACL(clusterTopic.SpecTopic, false),
+		// report status into gh: allow the current hub to write messages to the specific status topic
 		utils.WriteTopicACL(clusterTopic.StatusTopic),
+		// migration resource into mh: write access to the spec topic is required for cluster migration.
+		utils.WriteTopicACL(clusterTopic.SpecTopic),
 	}
 
 	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
@@ -443,18 +446,9 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 func (k *strimziTransporter) EnsureTopic(clusterName string) (*transport.ClusterTopic, error) {
 	clusterTopic := k.getClusterTopic(clusterName)
 
-	// messages kept for 10 minute in migration topic, algin with migration timeout
-	err := k.ensureTopic(clusterTopic.MigrationTopic, &apiextensions.JSON{Raw: []byte(`{
-		"cleanup.policy": "compact,delete",
-		"retention.ms": 600000
-	}`)})
-	if err != nil {
-		return nil, err
-	}
-
 	topicNames := []string{clusterTopic.SpecTopic, clusterTopic.StatusTopic}
 	for _, topicName := range topicNames {
-		if err = k.ensureTopic(topicName, nil); err != nil {
+		if err := k.ensureTopic(topicName, nil); err != nil {
 			return nil, err
 		}
 	}
@@ -539,9 +533,8 @@ func (k *strimziTransporter) Prune(clusterName string) error {
 
 func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.ClusterTopic {
 	topic := &transport.ClusterTopic{
-		SpecTopic:      config.GetSpecTopic(),
-		StatusTopic:    config.GetStatusTopic(clusterName),
-		MigrationTopic: config.GetMigrationTopic(),
+		SpecTopic:   config.GetSpecTopic(),
+		StatusTopic: config.GetStatusTopic(clusterName),
 	}
 	return topic
 }
@@ -561,7 +554,6 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
-	credential.MigrationTopic = config.GetMigrationTopic()
 	credential.IsNewKafkaCluster = k.isNewKafkaCluster
 	if clusterName != constants.LocalClusterName {
 		return credential, nil

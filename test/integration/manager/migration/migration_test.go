@@ -375,7 +375,7 @@ var _ = Describe("migration", Ordered, func() {
 				return fmt.Errorf("wait for the event sent to source hub")
 			}
 
-			Expect(sourceHubEvent.Type()).To(Equal(constants.CloudEventTypeMigrationFrom))
+			Expect(sourceHubEvent.Type()).To(Equal(constants.MigrationSourceMsgKey))
 
 			// handle migration.from cloud event
 			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}
@@ -386,31 +386,6 @@ var _ = Describe("migration", Ordered, func() {
 			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.PhaseInitializing))
 			Expect(managedClusterMigrationEvent.ToHub).To(Equal("hub2"))
 			Expect(managedClusterMigrationEvent.ManagedClusters[0]).To(Equal("cluster1"))
-
-			return nil
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
-	})
-
-	It("should grant the proper permission to kafka user", func() {
-		Eventually(func() error {
-			user1 := &kafkav1beta2.KafkaUser{}
-			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "hub1-kafka-user",
-				Namespace: utils.GetDefaultNamespace(),
-			}, user1)).To(Succeed())
-
-			Expect(user1.Spec.Authorization.Acls[0].Operations[0]).To(Equal(kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite))
-
-			user2 := &kafkav1beta2.KafkaUser{}
-			Expect(mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "hub2-kafka-user",
-				Namespace: utils.GetDefaultNamespace(),
-			}, user2)).To(Succeed())
-
-			Expect(user2.Spec.Authorization.Acls[0].Operations).Should(ContainElements(
-				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
-				kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
-			))
 
 			return nil
 		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -490,8 +465,8 @@ var _ = Describe("migration", Ordered, func() {
 			if payload == nil {
 				return fmt.Errorf("wait for the event sent to from hub")
 			}
-			if sourceHubEvent.Type() != constants.CloudEventTypeMigrationFrom {
-				return fmt.Errorf("source hub should receive event %s, but got %s", constants.CloudEventTypeMigrationFrom,
+			if sourceHubEvent.Type() != constants.MigrationSourceMsgKey {
+				return fmt.Errorf("source hub should receive event %s, but got %s", constants.MigrationSourceMsgKey,
 					sourceHubEvent.Type())
 			}
 			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}

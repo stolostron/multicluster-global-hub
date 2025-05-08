@@ -8,17 +8,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +28,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -41,11 +38,10 @@ const (
 )
 
 type migrationSourceSyncer struct {
-	client            client.Client
-	transportClient   transport.TransportClient
-	transportConfig   *transport.TransportInternalConfig
-	migrationProducer *producer.GenericProducer
-	bundleVersion     *eventversion.Version
+	client          client.Client
+	transportClient transport.TransportClient
+	transportConfig *transport.TransportInternalConfig
+	bundleVersion   *eventversion.Version
 }
 
 func NewMigrationSourceSyncer(client client.Client,
@@ -59,11 +55,8 @@ func NewMigrationSourceSyncer(client client.Client,
 	}
 }
 
-func (s *migrationSourceSyncer) SetMigrationProducer(producer *producer.GenericProducer) {
-	s.migrationProducer = producer
-}
-
-func (s *migrationSourceSyncer) Sync(ctx context.Context, payload []byte) error {
+func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	payload := evt.Data()
 	// handle migration.from cloud event
 	migrationSourceHubEvent := &migration.ManagedClusterMigrationFromEvent{}
 	if err := json.Unmarshal(payload, migrationSourceHubEvent); err != nil {
@@ -144,15 +137,10 @@ func (m *migrationSourceSyncer) cleaning(
 		log.Errorf("failed to detach managed clusters: %v", err)
 		return err
 	}
-	if m.migrationProducer != nil && m.migrationProducer.Protocol() != nil {
-		if err := m.migrationProducer.Protocol().Close(ctx); err != nil {
-			log.Errorf("failed to close producer: %v", err)
-		}
-		m.migrationProducer = nil
-	}
 
 	// send the cleanup confirmation
-	err := ReportMigrationStatus(ctx, m.transportClient,
+	err := ReportMigrationStatus(cecontext.WithTopic(ctx, m.transportConfig.KafkaCredential.StatusTopic),
+		m.transportClient,
 		&migration.ManagedClusterMigrationBundle{
 			MigrationId: migratingEvt.MigrationId,
 			Stage:       migrationv1alpha1.ConditionTypeCleaned,
@@ -169,15 +157,6 @@ func (m *migrationSourceSyncer) cleaning(
 func (s *migrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
-	if s.migrationProducer == nil && s.transportConfig != nil {
-		var err error
-		s.migrationProducer, err = producer.NewGenericProducer(s.transportConfig,
-			s.transportConfig.KafkaCredential.MigrationTopic, s.resendMigrationResources)
-		if err != nil {
-			return err
-		}
-	}
-
 	managedClusters := migratingEvt.ManagedClusters
 	toHub := migratingEvt.ToHub
 	id := migratingEvt.MigrationId
@@ -324,27 +303,13 @@ func (m *migrationSourceSyncer) registering(
 	return nil
 }
 
-func (s *migrationSourceSyncer) resendMigrationResources(event *kafka.Message) {
-	log.Debug("resend the migration resources due to topicPartition error")
-	if err := wait.PollUntilContextCancel(context.TODO(), 5*time.Second, false,
-		func(context.Context) (bool, error) {
-			err := s.migrationProducer.KafkaProducer().Produce(event, nil)
-			if err != nil {
-				log.Debugf("failed to resend the migration resources due to %v", err)
-				return false, nil
-			}
-			return true, nil
-		}); err != nil {
-		log.Errorf("failed to resend the migration resources due to %v", err)
-	}
-}
-
 // SendSourceClusterMigrationResources sends required and customized resources to migration topic
 func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.Context,
 	migrationId string, managedClusters []string, fromHub, toHub string,
 ) error {
 	// send the managed cluster and klusterletAddonConfig to the target cluster
 	migrationResources := &migration.SourceClusterMigrationResources{
+		MigrationId:           migrationId,
 		ManagedClusters:       []clusterv1.ManagedCluster{},
 		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
 	}
@@ -393,18 +358,13 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 		return fmt.Errorf("failed to marshal SourceClusterMigrationResources (%v) - %w", migrationResources, err)
 	}
 
-	s.bundleVersion.Incr()
-	e := utils.ToCloudEvent(string(enum.MigrationResourcesType), fromHub, toHub, payloadBytes)
-	e.SetID(migrationId)
-	e.SetExtension(eventversion.ExtVersion, s.bundleVersion.String())
-	log.Info("send the migration resources to the migration topic from the source cluster")
-	// TODO: sleep 5 seconds to ensure topic authorization finished
-	time.Sleep(5 * time.Second)
-	if err := s.migrationProducer.SendEvent(ctx, e); err != nil {
+	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
+	if err := s.transportClient.GetProducer().SendEvent(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
 		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
-			string(enum.MigrationResourcesType), fromHub, toHub, err)
+			constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
-	s.bundleVersion.Next()
+	log.Info("deploying the resources into the target hub cluster")
 	return nil
 }
 

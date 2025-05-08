@@ -8,23 +8,21 @@ import (
 	"encoding/json"
 	"testing"
 
-	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
+	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/controller"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -32,22 +30,7 @@ import (
 // go test -run ^TestMigrationToSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
 func TestMigrationToSyncer(t *testing.T) {
 	ctx := context.Background()
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add corev1 to scheme: %v", err)
-	}
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
-	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
-	}
-	if err := operatorv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add operatorv1 to scheme: %v", err)
-	}
-	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add klusterletv1alpha1 to scheme: %v", err)
-	}
+	scheme := configs.GetRuntimeScheme()
 	cases := []struct {
 		name                          string
 		migrationEvent                *migration.ManagedClusterMigrationToEvent
@@ -60,6 +43,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -143,6 +127,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having empty registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -184,6 +169,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -234,6 +220,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having registration configuration with feature gate disabled",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -321,6 +308,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with existing clusterrole and clusterrolebinding",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -450,6 +438,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with changed clusterrole and clusterrolebinding",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "migration-id",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -585,13 +574,23 @@ func TestMigrationToSyncer(t *testing.T) {
 			transportClient.SetProducer(&producer)
 
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, nil)
+
+			transportConfig := &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec",
+					StatusTopic: "status",
+				},
+			}
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, transportConfig)
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 			toEvent := c.migrationEvent
 			payload, err := json.Marshal(toEvent)
 			assert.Nil(t, err)
-			err = managedClusterMigrationSyncer.Sync(ctx, payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+				"hub2", payload)
+			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			assert.Nil(t, err)
 
 			if c.expectedClusterManager != nil {
@@ -631,27 +630,8 @@ func TestMigrationToSyncer(t *testing.T) {
 
 func TestMigrationDestinationHubSyncer(t *testing.T) {
 	ctx := context.Background()
-	scheme := runtime.NewScheme()
+	scheme := configs.GetRuntimeScheme()
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add corev1 to scheme: %v", err)
-	}
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
-	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
-	}
-	if err := operatorv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add operatorv1 to scheme: %v", err)
-	}
-	if err := klusterletv1alpha1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add klusterletv1alpha1 to scheme: %v", err)
-	}
-	if err := addonv1.SchemeBuilder.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add addonv1 to scheme: %v", err)
-	}
-
 	cases := []struct {
 		name                         string
 		receivedMigrationEventBundle migration.ManagedClusterMigrationToEvent
@@ -754,8 +734,15 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			producer := ProducerMock{}
 			transportClient := &controller.TransportClient{}
 			transportClient.SetProducer(&producer)
+			transportConfig := &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec",
+					StatusTopic: "status",
+				},
+			}
 
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, nil)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
@@ -764,7 +751,9 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			}
 
 			// sync managed cluster migration
-			err = managedClusterMigrationSyncer.Sync(ctx, payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
+				"hub2", payload)
+			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
 				assert.Nil(t, err)
 			} else {
@@ -776,16 +765,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 
 func TestRegistering(t *testing.T) {
 	ctx := context.Background()
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add corev1 to scheme: %v", err)
-	}
-	if err := clientgoscheme.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
-	}
-	if err := clusterv1.AddToScheme(scheme); err != nil {
-		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
-	}
+	scheme := configs.GetRuntimeScheme()
 
 	cases := []struct {
 		name                 string
@@ -797,6 +777,30 @@ func TestRegistering(t *testing.T) {
 		{
 			name: "All managed clusters are registered and available",
 			initObjects: []client.Object{
+				&workv1.ManifestWork{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster1", Name: "cluster1-klusterlet"},
+					Spec:       workv1.ManifestWorkSpec{},
+					Status: workv1.ManifestWorkStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   workv1.WorkApplied,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&workv1.ManifestWork{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster2", Name: "cluster2-klusterlet"},
+					Spec:       workv1.ManifestWorkSpec{},
+					Status: workv1.ManifestWorkStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   workv1.WorkApplied,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
 					Status: clusterv1.ManagedClusterStatus{
@@ -828,6 +832,30 @@ func TestRegistering(t *testing.T) {
 		{
 			name: "Some managed clusters are not available",
 			initObjects: []client.Object{
+				&workv1.ManifestWork{
+					ObjectMeta: metav1.ObjectMeta{Namespace: "cluster1", Name: "cluster1-klusterlet"},
+					Spec:       workv1.ManifestWorkSpec{},
+					Status: workv1.ManifestWorkStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   workv1.WorkApplied,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				// &workv1.ManifestWork{
+				// 	ObjectMeta: metav1.ObjectMeta{Namespace: "cluster2", Name: "cluster2-klusterlet"},
+				// 	Spec:       workv1.ManifestWorkSpec{},
+				// 	Status: workv1.ManifestWorkStatus{
+				// 		Conditions: []metav1.Condition{
+				// 			{
+				// 				Type:   workv1.WorkApplied,
+				// 				Status: metav1.ConditionTrue,
+				// 			},
+				// 		},
+				// 	},
+				// },
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
 					Status: clusterv1.ManagedClusterStatus{
@@ -854,7 +882,7 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "not all the managed clusters are registered, wait...",
+			expectedError: "manifestworks.work.open-cluster-management.io \"cluster2-klusterlet\" not found",
 		},
 	}
 

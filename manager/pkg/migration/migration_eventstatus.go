@@ -24,6 +24,10 @@ func updatePhaseStatus(migrationId, hubCluster, phase string,
 	updateFunc func(*MigrationPhaseStatus),
 ) {
 	mep := MigrationEventProgressMap[migrationId]
+	if mep == nil {
+		log.Warnf("MigrationEventProgress is nil for migrationId: %s", migrationId)
+		return
+	}
 	mp := (*mep)[hubCluster]
 	if mp == nil {
 		mp = &MigrationPhases{}
@@ -84,6 +88,10 @@ func getPhaseStatus(mp *MigrationPhases, phase string) (MigrationPhaseStatus, bo
 // GetStarted returns true if the status of the given stage is started for the hub cluster
 func GetStarted(migrationId, hubCluster, phase string) bool {
 	mep := MigrationEventProgressMap[migrationId]
+	if mep == nil {
+		log.Warnf("MigrationEventProgress is nil for migrationId: %s", migrationId)
+		return false
+	}
 	mp := (*mep)[hubCluster]
 	status, ok := getPhaseStatus(mp, phase)
 	if !ok {
