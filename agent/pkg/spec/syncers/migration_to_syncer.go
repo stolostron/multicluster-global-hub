@@ -81,7 +81,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true,
 					func(context.Context) (done bool, err error) {
 						if e := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); e != nil {
-							log.Infof("waiting the migrating cluster is available: %v", e)
+							log.Infof("waiting the migrating clusters are available: %v", e)
 							return false, nil
 						}
 						return true, nil
@@ -212,7 +212,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 	}
 
 	if len(notAvailableManagedClusters) > 0 {
-		return fmt.Errorf("wating the klusterlets of these clusters to be applied: %v", notAvailableManagedClusters)
+		return fmt.Errorf("klusterlets aren't applied: %v", notAvailableManagedClusters)
 	}
 	return nil
 }
