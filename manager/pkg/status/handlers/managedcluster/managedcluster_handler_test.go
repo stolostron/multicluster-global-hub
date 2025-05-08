@@ -98,7 +98,7 @@ func TestManagedClusterHandler_postToInventoryApi(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			clusterv1.AddToScheme(scheme.Scheme)
+			_ = clusterv1.AddToScheme(scheme.Scheme)
 
 			h := &managedClusterHandler{
 				log: logger.ZapLogger("test"),
