@@ -272,4 +272,6 @@ rules:
   - manifestworks
   verbs:
   - get
+  - watch
+  - list
 {{- end -}}
