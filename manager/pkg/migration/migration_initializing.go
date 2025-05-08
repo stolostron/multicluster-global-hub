@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -158,35 +157,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	log.Info("migration initializing finished")
 	return false, nil
-}
-
-func (m *ClusterMigrationController) updateKafkaUser(ctx context.Context, kafkaUser *kafkav1beta2.KafkaUser,
-	migrationACL kafkav1beta2.KafkaUserSpecAuthorizationAclsElem,
-) error {
-	found := false
-	for _, existingAcl := range kafkaUser.Spec.Authorization.Acls {
-		if utils.GenerateACLKey(existingAcl) == utils.GenerateACLKey(migrationACL) {
-			found = true
-			break
-		}
-	}
-	if !found {
-		// Patch the gh-migration Permission
-		kafkaUser.Spec.Authorization.Acls = append(kafkaUser.Spec.Authorization.Acls,
-			[]kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
-				migrationACL,
-			}...,
-		)
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := m.Client.Update(ctx, kafkaUser); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // update with conflict error, and also add timeout validating in the conditions
