@@ -11,7 +11,7 @@ COPY ./manager/ ./manager/
 COPY ./operator/api ./operator/api
 COPY ./pkg/ ./pkg/
 
-RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -tags strictfipsruntime -a -v -o bin/manager ./manager/cmd/main.go
+RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=vendor -tags strictfipsruntime -a -v -o bin/manager ./manager/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
