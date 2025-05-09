@@ -182,7 +182,6 @@ spec:
                   kafka:
                     default:
                       topics:
-                        migrationTopic: gh-migration
                         specTopic: gh-spec
                         statusTopic: gh-status.*
                     description: Kafka specifies the desired state of kafka

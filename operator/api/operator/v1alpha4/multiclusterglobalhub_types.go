@@ -151,7 +151,7 @@ type CommonSpec struct {
 // DataLayerSpec is a discriminated union of data layer specific configuration.
 type DataLayerSpec struct {
 	// Kafka specifies the desired state of kafka
-	// +kubebuilder:default={"topics": {"migrationTopic": "gh-migration", "specTopic": "gh-spec", "statusTopic": "gh-status.*"}}
+	// +kubebuilder:default={"topics": {"specTopic": "gh-spec", "statusTopic": "gh-status.*"}}
 	Kafka KafkaSpec `json:"kafka,omitempty"`
 	// Postgres specifies the desired state of postgres
 	// +kubebuilder:default={retention: "18m"}
