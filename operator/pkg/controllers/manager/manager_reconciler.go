@@ -105,6 +105,18 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	if config.GetStorageConnection() == nil {
 		return nil, nil
 	}
+	if config.WithInventory(initOption.MulticlusterGlobalHub) {
+		inventoryComponents, ok := initOption.MulticlusterGlobalHub.Status.Components[config.COMPONENTS_INVENTORY_API_NAME]
+		if !ok {
+			log.Infof("wait inventory ready")
+			return nil, nil
+		}
+		if inventoryComponents.Type != config.COMPONENTS_AVAILABLE ||
+			inventoryComponents.Status != config.CONDITION_STATUS_TRUE {
+			log.Infof("wait inventory ready")
+			return nil, nil
+		}
+	}
 	managerController = NewManagerReconciler(initOption.Manager,
 		initOption.KubeClient, initOption.OperatorConfig)
 

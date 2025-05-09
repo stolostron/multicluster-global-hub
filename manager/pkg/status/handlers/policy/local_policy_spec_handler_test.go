@@ -283,7 +283,7 @@ func Test_postPolicyToInventoryApi(t *testing.T) {
 				log:       logger.ZapLogger("test"),
 				requester: fakeRequester,
 			}
-			h.postPolicyToInventoryApi(tt.args.ctx, tt.args.createPolicy, tt.args.updatePolicy, tt.args.deletePolicy, tt.args.leafHubName, tt.args.mchVersion)
+			h.postPolicyToInventoryApi(tt.args.ctx, nil, tt.args.createPolicy, tt.args.updatePolicy, tt.args.deletePolicy, tt.args.leafHubName, tt.args.mchVersion)
 		})
 	}
 }
@@ -415,7 +415,7 @@ func Test_localPolicySpecHandler_syncInventory(t *testing.T) {
 				eventPriority: tt.fields.eventPriority,
 				requester:     tt.fields.requester,
 			}
-			err := h.syncInventory(tt.args.ctx, tt.args.data, tt.args.leafHubName, tt.args.policyIdToVersionMapFromDB)
+			err := h.syncInventory(tt.args.ctx, nil, tt.args.data, tt.args.leafHubName, tt.args.policyIdToVersionMapFromDB)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("localPolicySpecHandler.syncInventory() error = %v, wantErr %v", err, tt.wantErr)
 			}
