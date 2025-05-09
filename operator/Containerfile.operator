@@ -40,8 +40,5 @@ ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
 # install operator binary
 COPY --from=builder /workspace/bin/multicluster-global-hub-operator ${OPERATOR}
 
-RUN microdnf update -y && \
-  microdnf clean all
-
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/multicluster-global-hub-operator"]
