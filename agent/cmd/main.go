@@ -41,9 +41,10 @@ import (
 )
 
 const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8384
-	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
+	metricsHost                       = "0.0.0.0"
+	metricsPort                 int32 = 8384
+	leaderElectionLockID              = "multicluster-global-hub-agent-lock"
+	hostingLeaderElectionLockID       = "multicluster-global-hub-agent-hosting-lock"
 )
 
 func main() {
@@ -100,6 +101,11 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		if err != nil {
 			return fmt.Errorf("failed to create hosting manager: %w", err)
 		}
+		go func() {
+			if err := hostingMgr.Start(ctx); err != nil {
+				logger.DefaultZapLogger().Fatalf("failed to start the hosting manager: %w", err)
+			}
+		}()
 	}
 
 	// add configmap controller
@@ -115,7 +121,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	err = controller.NewTransportCtrl(
 		agentConfig.PodNamespace,
 		transportSecretName,
-		transportCallback(hostingMgr, agentConfig),
+		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
 		false,
 	).SetupWithManager(hostingMgr)
@@ -214,15 +220,31 @@ func createHostingManager(agentConfig *configs.AgentConfig) (ctrl.Manager, error
 	}
 
 	options := ctrl.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 		LeaderElection:          true,
 		Scheme:                  configs.GetRuntimeScheme(),
 		LeaderElectionConfig:    restConfig,
-		LeaderElectionID:        leaderElectionLockID,
+		LeaderElectionID:        hostingLeaderElectionLockID,
 		LeaderElectionNamespace: agentConfig.PodNamespace,
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
-		NewCache:                initCache,
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.ConfigMap{}: {
+					Namespaces: map[string]cache.Config{
+						agentConfig.PodNamespace: {},
+					},
+				},
+				&corev1.Secret{}: {
+					Namespaces: map[string]cache.Config{
+						agentConfig.PodNamespace: {},
+					},
+				},
+			},
+		},
 	}
 
 	mgr, err := ctrl.NewManager(restConfig, options)
