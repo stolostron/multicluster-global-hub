@@ -13,6 +13,7 @@ rules:
   - pods
   - events
   - secrets
+  - configmaps
   verbs:
   - create
   - delete
