@@ -7,8 +7,12 @@ import (
 	"testing"
 	"time"
 
+	http "github.com/go-kratos/kratos/v2/transport/http"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
+	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
+	"github.com/project-kessel/inventory-client-go/v1beta1"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -97,6 +101,7 @@ var _ = BeforeSuite(func() {
 			LogInterval: "10s",
 		},
 		EnableGlobalResource: true,
+		EnableInventoryAPI:   true,
 	}
 
 	By("Start cloudevents producer and consumer")
@@ -110,7 +115,15 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Add controllers to manager")
-	err = status.AddStatusSyncers(mgr, consumer, nil, managerConfig)
+	requester := &FakeRequester{
+		&v1beta1.InventoryHttpClient{
+			PolicyServiceClient: &FakeKesselK8SPolicyServiceHTTPClientImpl{},
+			K8sClusterService:   &FakeKesselK8SClusterServiceHTTPClientImpl{},
+			K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient: &FakeKesselK8SPolicyIsPropagatedToK8SClusterServiceHTTPClientImpl{},
+		},
+	}
+	configs.SetEnableInventoryAPI(true)
+	err = status.AddStatusSyncers(mgr, consumer, requester, managerConfig)
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Start the manager")
@@ -137,3 +150,62 @@ var _ = AfterSuite(func() {
 	}
 	Expect(testenv.Stop()).NotTo(HaveOccurred())
 })
+
+// FakeRequester is a mock implementation of the Requester interface.
+type FakeRequester struct {
+	HttpClient *v1beta1.InventoryHttpClient
+}
+
+// RefreshClient is a mock implementation that simulates refreshing the client.
+func (f *FakeRequester) RefreshClient(ctx context.Context, restConfig *transport.RestfulConfig) error {
+	// Simulate a successful refresh operation
+	return nil
+}
+
+// GetHttpClient returns a mock InventoryHttpClient.
+func (f *FakeRequester) GetHttpClient() *v1beta1.InventoryHttpClient {
+	// Return the fake HTTP client
+	return f.HttpClient
+}
+
+type FakeKesselK8SPolicyServiceHTTPClientImpl struct{}
+
+func (c *FakeKesselK8SPolicyServiceHTTPClientImpl) CreateK8SPolicy(ctx context.Context, in *kessel.CreateK8SPolicyRequest, opts ...http.CallOption) (*kessel.CreateK8SPolicyResponse, error) {
+	return nil, nil
+}
+
+func (c *FakeKesselK8SPolicyServiceHTTPClientImpl) DeleteK8SPolicy(ctx context.Context, in *kessel.DeleteK8SPolicyRequest, opts ...http.CallOption) (*kessel.DeleteK8SPolicyResponse, error) {
+	return nil, nil
+}
+
+func (c *FakeKesselK8SPolicyServiceHTTPClientImpl) UpdateK8SPolicy(ctx context.Context, in *kessel.UpdateK8SPolicyRequest, opts ...http.CallOption) (*kessel.UpdateK8SPolicyResponse, error) {
+	return nil, nil
+}
+
+type FakeKesselK8SClusterServiceHTTPClientImpl struct{}
+
+func (c *FakeKesselK8SClusterServiceHTTPClientImpl) CreateK8SCluster(ctx context.Context, in *kessel.CreateK8SClusterRequest, opts ...http.CallOption) (*kessel.CreateK8SClusterResponse, error) {
+	return nil, nil
+}
+
+func (c *FakeKesselK8SClusterServiceHTTPClientImpl) DeleteK8SCluster(ctx context.Context, in *kessel.DeleteK8SClusterRequest, opts ...http.CallOption) (*kessel.DeleteK8SClusterResponse, error) {
+	return nil, nil
+}
+
+func (c *FakeKesselK8SClusterServiceHTTPClientImpl) UpdateK8SCluster(ctx context.Context, in *kessel.UpdateK8SClusterRequest, opts ...http.CallOption) (*kessel.UpdateK8SClusterResponse, error) {
+	return nil, nil
+}
+
+type FakeKesselK8SPolicyIsPropagatedToK8SClusterServiceHTTPClientImpl struct{}
+
+func (c *FakeKesselK8SPolicyIsPropagatedToK8SClusterServiceHTTPClientImpl) CreateK8SPolicyIsPropagatedToK8SCluster(ctx context.Context, in *relationships.CreateK8SPolicyIsPropagatedToK8SClusterRequest, opts ...http.CallOption) (*relationships.CreateK8SPolicyIsPropagatedToK8SClusterResponse, error) {
+	return nil, nil
+}
+
+func (c *FakeKesselK8SPolicyIsPropagatedToK8SClusterServiceHTTPClientImpl) DeleteK8SPolicyIsPropagatedToK8SCluster(ctx context.Context, in *relationships.DeleteK8SPolicyIsPropagatedToK8SClusterRequest, opts ...http.CallOption) (*relationships.DeleteK8SPolicyIsPropagatedToK8SClusterResponse, error) {
+	return nil, nil
+}
+
+func (c *FakeKesselK8SPolicyIsPropagatedToK8SClusterServiceHTTPClientImpl) UpdateK8SPolicyIsPropagatedToK8SCluster(ctx context.Context, in *relationships.UpdateK8SPolicyIsPropagatedToK8SClusterRequest, opts ...http.CallOption) (*relationships.UpdateK8SPolicyIsPropagatedToK8SClusterResponse, error) {
+	return nil, nil
+}
