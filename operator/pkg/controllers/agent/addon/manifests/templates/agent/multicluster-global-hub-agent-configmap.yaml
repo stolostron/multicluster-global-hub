@@ -10,7 +10,7 @@ data:
   managedClusters: "5s"
   policies: "5s"
   hubClusterInfo: "60s"
-  hubClusterHeartbeat: {{.AgentHeartbeatInteval}}
+  hubClusterHeartbeat: "60s"
   aggregationLevel: {{ .AggregationLevel }}
   enableLocalPolicies: "{{ .EnableLocalPolicies }}"
   logLevel: {{.LogLevel}}

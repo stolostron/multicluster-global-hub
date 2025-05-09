@@ -12,7 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
@@ -29,10 +28,6 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 ) error {
 	if statusCtrlStarted {
 		return nil
-	}
-
-	if err := configmap.AddConfigMapController(mgr, agentConfig); err != nil {
-		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
 	if err := addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig); err != nil {
