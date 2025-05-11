@@ -68,7 +68,7 @@ require (
 )
 
 require (
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	helm.sh/helm/v3 v3.17.3 // indirect
 )
 
