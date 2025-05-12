@@ -238,7 +238,6 @@ func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, e
 		&policyv1.Policy{}:                          {},
 		&clusterv1.ManagedCluster{}:                 {},
 		&clusterinfov1beta1.ManagedClusterInfo{}:    {},
-		&clustersv1alpha1.ClusterClaim{}:            {},
 		&routev1.Route{}:                            {},
 		&placementrulev1.PlacementRule{}:            {},
 		&clusterv1beta1.Placement{}:                 {},
@@ -248,6 +247,9 @@ func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, e
 			Field: fields.OneTermEqualSelector("metadata.namespace", configs.GetAgentConfig().PodNamespace),
 		},
 		&corev1.Event{}: {},
+	}
+	if !configs.GetAgentConfig().Standalone {
+		cacheOpts.ByObject[&clustersv1alpha1.ClusterClaim{}] = cache.ByObject{}
 	}
 	return cache.New(restConfig, cacheOpts)
 }
