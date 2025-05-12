@@ -9,42 +9,28 @@ COPY go.sum go.mod ./
 COPY ./operator ./operator
 COPY ./pkg ./pkg
 
-RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -tags strictfipsruntime -a -v -o bin/multicluster-global-hub-operator operator/cmd/main.go
+RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=readonly -tags strictfipsruntime -a -v -o bin/multicluster-global-hub-operator operator/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-ARG VCS_REF
-ARG VCS_URL
-ARG IMAGE_NAME
-ARG IMAGE_DESCRIPTION
-ARG IMAGE_DISPLAY_NAME
-ARG IMAGE_NAME_ARCH
-ARG IMAGE_MAINTAINER
-ARG IMAGE_VENDOR
-ARG IMAGE_VERSION
-ARG IMAGE_RELEASE
-ARG IMAGE_SUMMARY
-ARG IMAGE_OPENSHIFT_TAGS
 
-LABEL org.label-schema.vendor="Red Hat" \
-  org.label-schema.name="$IMAGE_NAME_ARCH" \
-  org.label-schema.description="$IMAGE_DESCRIPTION" \
-  org.label-schema.vcs-ref=$VCS_REF \
-  org.label-schema.vcs-url=$VCS_URL \
-  org.label-schema.license="Red Hat Advanced Cluster Management for Kubernetes EULA" \
-  org.label-schema.schema-version="1.0" \
-  name="$IMAGE_NAME" \
-  maintainer="$IMAGE_MAINTAINER" \
-  vendor="$IMAGE_VENDOR" \
-  version="$IMAGE_VERSION" \
-  release="$IMAGE_RELEASE" \
-  description="$IMAGE_DESCRIPTION" \
-  summary="$IMAGE_SUMMARY" \
-  io.k8s.display-name="$IMAGE_DISPLAY_NAME" \
-  io.k8s.description="$IMAGE_DESCRIPTION" \
-  io.openshift.tags="$IMAGE_OPENSHIFT_TAGS"
+# Red Hat annotations.
+LABEL com.redhat.component="multicluster-global-hub-operator-container"
+LABEL org.label-schema.vendor="Red Hat"
+LABEL org.label-schema.license="Red Hat Advanced Cluster Management for Kubernetes EULA"
+LABEL org.label-schema.schema-version="1.0"
 
+# Bundle metadata
+LABEL name="multicluster-global-hub/multicluster-global-hub-operator"
+LABEL version="release-1.5"
+LABEL summary="multicluster global hub operator"
+LABEL io.openshift.expose-services=""
+LABEL io.openshift.tags="data,images"
+LABEL io.k8s.display-name="multicluster global hub operator"
+LABEL io.k8s.description="This is the standard release image for the multicluster global hub operator"
+LABEL maintainer="['acm-component-maintainers@redhat.com']"
+LABEL description="multicluster global hub operator"
 
 ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
   USER_UID=1001 \
@@ -53,9 +39,6 @@ ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
 
 # install operator binary
 COPY --from=builder /workspace/bin/multicluster-global-hub-operator ${OPERATOR}
-
-RUN microdnf update -y && \
-  microdnf clean all
 
 USER ${USER_UID}
 ENTRYPOINT ["/usr/local/bin/multicluster-global-hub-operator"]
