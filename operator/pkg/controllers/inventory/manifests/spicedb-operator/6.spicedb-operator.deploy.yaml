@@ -55,18 +55,14 @@ spec:
           timeoutSeconds: 15
         resources:
           limits:
-            cpu: 250m
-            memory: 160Mi
+            cpu: 500m
+            memory: 512Mi
           requests:
-            cpu: 20m
-            memory: 64Mi
+            cpu: 40m
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
         terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /opt/operator
-          name: config
-          readOnly: true
       serviceAccountName: spicedb-operator
       {{- if .ImagePullSecret }}
       imagePullSecrets:
@@ -92,8 +88,4 @@ spec:
           {{- end}}
         {{- end}}
       {{- end }}
-      volumes:
-      - configMap:
-          defaultMode: 420
-          name: update-graph
-        name: config
+
