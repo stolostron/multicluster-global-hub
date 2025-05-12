@@ -21,6 +21,7 @@ type ManagedClusterMigrationFromEvent struct {
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
+	Resources       []string       `json:"resources,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
 }
 
@@ -44,6 +45,7 @@ type ManagedClusterMigrationBundle struct {
 type SourceClusterMigrationResources struct {
 	MigrationId           string                          `json:"migrationId"`
 	ManagedClusters       []clusterv1.ManagedCluster      `json:"managedClusters,omitempty"`
-	KlusterletAddonConfig []addonv1.KlusterletAddonConfig `json:"klusterletAddonConfigs"`
-	// TODO: other resources
+	KlusterletAddonConfig []addonv1.KlusterletAddonConfig `json:"klusterletAddonConfigs,omitempty"`
+	Secrets               []corev1.Secret                 `json:"secrets,omitempty"`
+	ConfigMaps            []corev1.ConfigMap              `json:"configmaps,omitempty"`
 }

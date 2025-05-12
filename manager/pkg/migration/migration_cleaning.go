@@ -70,7 +70,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range sourceHubClusters {
 		if !GetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning) {
-			err = m.sendEventToSourceHub(ctx, sourceHub, mcm, mcm.Status.Phase, clusters, bootstrapSecret)
+			err = m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters, nil, bootstrapSecret)
 			if err != nil {
 				return false, err
 			}

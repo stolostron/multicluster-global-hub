@@ -161,9 +161,10 @@ func (s *migrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
+	resources := migratingEvt.Resources
 	toHub := migratingEvt.ToHub
 	id := migratingEvt.MigrationId
-	err := s.SendSourceClusterMigrationResources(ctx, id, managedClusters, configs.GetLeafHubName(), toHub)
+	err := s.SendMigrationResources(ctx, id, managedClusters, resources, configs.GetLeafHubName(), toHub)
 	if err != nil {
 		return err
 	}
@@ -335,17 +336,20 @@ func (m *migrationSourceSyncer) registering(
 	return nil
 }
 
-// SendSourceClusterMigrationResources sends required and customized resources to migration topic
-func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.Context,
-	migrationId string, managedClusters []string, fromHub, toHub string,
+// SendMigrationResources sends required and customized resources to migration topic
+func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
+	migrationId string, managedClusters []string, resources []string, fromHub, toHub string,
 ) error {
 	// send the managed cluster and klusterletAddonConfig to the target cluster
 	migrationResources := &migration.SourceClusterMigrationResources{
 		MigrationId:           migrationId,
 		ManagedClusters:       []clusterv1.ManagedCluster{},
 		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
+		Secrets:               []corev1.Secret{},
+		ConfigMaps:            []corev1.ConfigMap{},
 	}
 
+	// add clusters and klusterletAddonConfig
 	for _, managedCluster := range managedClusters {
 		// add cluster
 		cluster := &clusterv1.ManagedCluster{}
@@ -370,7 +374,7 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 		}
 		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
 
-		// add addon config
+		// add addonConfig
 		addonConfig := &addonv1.KlusterletAddonConfig{}
 		err = s.client.Get(ctx, types.NamespacedName{Name: managedCluster, Namespace: managedCluster}, addonConfig)
 		if err != nil {
@@ -386,6 +390,11 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
 	}
 
+	// add resources: secrets and configmaps
+	if err := s.addResources(ctx, resources, migrationResources); err != nil {
+		return err
+	}
+
 	payloadBytes, err := json.Marshal(migrationResources)
 	if err != nil {
 		return fmt.Errorf("failed to marshal SourceClusterMigrationResources (%v) - %w", migrationResources, err)
@@ -399,6 +408,74 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 	}
 	log.Info("deploying the resources into the target hub cluster")
 	return nil
+}
+
+func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []string,
+	resourceEvent *migration.SourceClusterMigrationResources,
+) error {
+	for _, resource := range resources {
+		parts := strings.Split(resource, "/")
+		if len(parts) != 3 {
+			return fmt.Errorf("invalid resource format (must be kind/namespace/name): %s", resource)
+		}
+		kind, ns, name := strings.ToLower(parts[0]), parts[1], parts[2]
+
+		switch kind {
+		case "configmap":
+			if name == "*" {
+				configmaps := &corev1.ConfigMapList{}
+				if err := s.client.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
+					return fmt.Errorf("failed to list configmaps in namespace %s: %w", ns, err)
+				}
+				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmaps.Items...)
+			} else {
+				configmap := &corev1.ConfigMap{}
+				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
+					return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
+				}
+				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, *configmap)
+			}
+		case "secret":
+			if name == "*" {
+				secrets := &corev1.SecretList{}
+				if err := s.client.List(ctx, secrets, client.InNamespace(ns)); err != nil {
+					return fmt.Errorf("failed to list secrets in namespace %s: %w", ns, err)
+				}
+				resourceEvent.Secrets = append(resourceEvent.Secrets, secrets.Items...)
+			} else {
+				secret := &corev1.Secret{}
+				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
+					return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
+				}
+				resourceEvent.Secrets = append(resourceEvent.Secrets, *secret)
+			}
+		default:
+			return fmt.Errorf("unsupported kind: %s", kind)
+		}
+	}
+
+	// sanitize
+	for _, secret := range resourceEvent.Secrets {
+		sanitizeObjectMeta(&secret)
+	}
+	for _, configmap := range resourceEvent.ConfigMaps {
+		sanitizeObjectMeta(&configmap)
+	}
+	return nil
+}
+
+func sanitizeObjectMeta(obj metav1.Object) {
+	obj.SetFinalizers(nil)
+	obj.SetOwnerReferences(nil)
+	obj.SetResourceVersion("")
+	obj.SetUID("")
+	obj.SetCreationTimestamp(metav1.Time{})
+	// ManagedFields is not available via interface, need type assertion
+	if accessor, ok := obj.(interface {
+		SetManagedFields([]metav1.ManagedFieldsEntry)
+	}); ok {
+		accessor.SetManagedFields(nil)
+	}
 }
 
 func ReportMigrationStatus(

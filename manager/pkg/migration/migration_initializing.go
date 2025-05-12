@@ -118,7 +118,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	for fromHubName, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
-				bootstrapSecret)
+				mcm.Spec.IncludedResources, bootstrapSecret)
 			if err != nil {
 				return false, err
 			}
@@ -247,8 +247,8 @@ func (m *ClusterMigrationController) UpdateCondition(
 // 3. ResourceDeployed: delete the resourcesailed to mark the stage ResourceDeploye from the source hub
 // 4. MigrationCompleted: delete the items from the database
 func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string,
-	migration *migrationv1alpha1.ManagedClusterMigration,
-	stage string, managedClusters []string, bootstrapSecret *corev1.Secret,
+	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
+	resources []string, bootstrapSecret *corev1.Secret,
 ) error {
 	managedClusterMigrationFromEvent := &migrationbundle.ManagedClusterMigrationFromEvent{
 		MigrationId:     string(migration.GetUID()),

@@ -304,6 +304,42 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		}
 	}
 
+	for _, configmap := range migrationResources.ConfigMaps {
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: configmap.Namespace,
+			},
+		}
+		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
+			log.Errorf("failed to create or update the namespace %s", ns.Name)
+			return err
+		}
+
+		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &configmap, func() error { return nil }); err != nil {
+			log.Debugf("configmap is %v", configmap)
+			log.Errorf("failed to create or update the configmap %s", configmap.Name)
+			return err
+		}
+	}
+
+	for _, secret := range migrationResources.Secrets {
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secret.Namespace,
+			},
+		}
+		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
+			log.Errorf("failed to create or update the namespace %s", ns.Name)
+			return err
+		}
+
+		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &secret, func() error { return nil }); err != nil {
+			log.Debugf("secret is %v", secret)
+			log.Errorf("failed to create or update the secret %s", secret.Name)
+			return err
+		}
+	}
+
 	log.Info("finished syncing migration resources")
 
 	// report the deployed confirmation
