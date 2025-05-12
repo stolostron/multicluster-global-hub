@@ -33,7 +33,6 @@ var (
 	isBYOKafka            = false
 	specTopic             = ""
 	statusTopic           = ""
-	migrationTopic        = ""
 	kafkaResourceReady    = false
 	acmResourceReady      = false
 	kafkaClientCAKey      []byte
@@ -108,15 +107,11 @@ func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v
 	// set the topic
 	specTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
 	statusTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
-	migrationTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.MigrationTopic
 	if !isValidKafkaTopicName(specTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
 	}
 	if !isValidKafkaTopicName(statusTopic) {
 		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
-	}
-	if !isValidKafkaTopicName(migrationTopic) {
-		return fmt.Errorf("the migrationTopic is invalid: %s", migrationTopic)
 	}
 
 	// BYO Case:

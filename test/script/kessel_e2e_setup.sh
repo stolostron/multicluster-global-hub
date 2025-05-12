@@ -61,7 +61,6 @@ spec:
   dataLayer:
     kafka:
       topics:
-        migrationTopic: gh-migration
         specTopic: gh-spec
         statusTopic: gh-event.*
       storageSize: 1Gi
