@@ -309,7 +309,7 @@ spec:
         - name: "%s"`, klusterletConfigNamePrefix+targetHub, bootstrapSecretName)
 
 	klusterletConfig := klusterletConfig214
-	if mch != nil && strings.Contains(mch.Status.CurrentVersion, "2.13") {
+	if strings.Contains(mch.Status.CurrentVersion, "2.13") {
 		klusterletConfig = klusterletConfig213
 	}
 

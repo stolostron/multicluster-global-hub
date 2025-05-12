@@ -58,6 +58,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 	if err := addonv1.SchemeBuilder.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add addonv1 to scheme: %v", err)
 	}
+	if err := mchv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
+	}
 
 	cases := []struct {
 		name                         string
@@ -82,6 +85,15 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "cluster1",
 						Namespace: "cluster1",
+					},
+				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.13.0",
 					},
 				},
 			},
@@ -116,6 +128,15 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 						LeaseDurationSeconds: 60,
 					},
 				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
+					},
+				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub:           "hub2",
@@ -145,6 +166,15 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					Spec: clusterv1.ManagedClusterSpec{
 						HubAcceptsClient:     true,
 						LeaseDurationSeconds: 60,
+					},
+				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
 					},
 				},
 			},
