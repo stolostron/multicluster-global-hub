@@ -146,7 +146,8 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 
 		if configs.IsInventoryAPIEnabled() {
 			log.Debugf("sync to inventory api - %s", policyID)
-			err = syncInventory(ctx, db, h.log, h.requester, leafHub, policyID, batchLocalCompliances,
+			err = syncInventory(ctx, db, h.log, h.requester, leafHub, policyID,
+				batchLocalCompliances,
 				complianceClustersFromDB.complianceToSetMap,
 				allClustersOnDB,
 			)
@@ -182,6 +183,10 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 
 // syncInventory generate the create/update/delete compliances
 // and post the data to database and inventory
+// We think the data in inventory should be same as the data in the database
+// so we will post to inventory if there is some changes based on the data in database
+// Note: we do not handle the case: when run globalhub sometimes, and the data has post
+// database then enable inventory api
 func syncInventory(
 	ctx context.Context,
 	db *gorm.DB,
@@ -189,14 +194,17 @@ func syncInventory(
 	requester transport.Requester,
 	leafHubName string,
 	policyID string,
+	// localCompliancesFromEvents is the data from event
 	localCompliancesFromEvents []models.LocalStatusCompliance,
+	// complianceFromDb is the data in database
 	complianceFromDb map[database.ComplianceStatus]set.Set,
-	allClustersOnDB set.Set,
+	// shouldDelete is the clusters which should delete
+	shouldDelete set.Set,
 ) error {
 	createCompliances, updateCompliances, deleteCompliances := generateCreateUpdateDeleteCompliances(
 		localCompliancesFromEvents,
 		complianceFromDb,
-		allClustersOnDB,
+		shouldDelete,
 		leafHubName,
 		policyID,
 	)
