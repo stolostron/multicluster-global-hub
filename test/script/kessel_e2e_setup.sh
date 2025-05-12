@@ -80,6 +80,9 @@ wait_cmd "kubectl get deploy/multicluster-global-hub-manager -n multicluster-glo
 kubectl wait deploy/multicluster-global-hub-manager -n multicluster-global-hub --for condition=Available=True --timeout=60s --context "$cluster_name"
 wait_cmd "kubectl get deploy/inventory-api -n multicluster-global-hub --context $cluster_name" 60
 kubectl wait deploy/inventory-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
+kubectl wait deploy/relations-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
+kubectl wait deploy/spicedb-operator -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
+kubectl wait deploy/spicedb-spicedb -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
 
 # Debug information
 kubectl get kafka -n multicluster-global-hub -oyaml --context $cluster_name || true
