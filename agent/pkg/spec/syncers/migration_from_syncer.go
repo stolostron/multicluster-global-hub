@@ -215,22 +215,6 @@ func (m *migrationSourceSyncer) initializing(
 			return err
 		}
 	}
-	// TODO: need to consider the case that the klusterletconfig is already attached
-
-	// containBootstrapSecret := false
-	// kubeConfigSecrets := klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets
-	// for _, kubeConfigSecret := range kubeConfigSecrets {
-	// 	if kubeConfigSecret.Name == bootstrapSecret.Name {
-	// 		containBootstrapSecret = true
-	// 	}
-	// }
-	// if !containBootstrapSecret {
-	// 	klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets = append(kubeConfigSecrets,
-	// 		operatorv1.KubeConfigSecret{Name: bootstrapSecret.Name})
-	// 	if err := m.client.Update(ctx, klusterletConfig); err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	// update managed cluster annotations to point to the new klusterletconfig
 	managedClusters := migratingEvt.ManagedClusters
@@ -273,7 +257,9 @@ func (m *migrationSourceSyncer) initializing(
 }
 
 // generateKlusterletConfig generate the klusterletconfig for migration
-func generateKlusterletConfig(client client.Client, targetHub, bootstrapSecretName string) (*unstructured.Unstructured, error) {
+func generateKlusterletConfig(client client.Client, targetHub, bootstrapSecretName string) (
+	*unstructured.Unstructured, error,
+) {
 	mch, err := utils.ListMCH(context.Background(), client)
 	if err != nil {
 		return nil, err
