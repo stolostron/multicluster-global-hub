@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
@@ -16,9 +17,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
@@ -200,22 +202,9 @@ func (m *migrationSourceSyncer) initializing(
 	}
 
 	// ensure klusterletconfig
-	klusterletConfig := &klusterletv1alpha1.KlusterletConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: klusterletConfigNamePrefix + migratingEvt.ToHub,
-		},
-		Spec: klusterletv1alpha1.KlusterletConfigSpec{
-			BootstrapKubeConfigs: operatorv1.BootstrapKubeConfigs{
-				Type: operatorv1.LocalSecrets,
-				LocalSecrets: operatorv1.LocalSecretsConfig{
-					KubeConfigSecrets: []operatorv1.KubeConfigSecret{
-						{
-							Name: bootstrapSecret.Name,
-						},
-					},
-				},
-			},
-		},
+	klusterletConfig, err := generateKlusterletConfig(m.client, migratingEvt.ToHub, bootstrapSecret.Name)
+	if err != nil {
+		return err
 	}
 	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -223,20 +212,6 @@ func (m *migrationSourceSyncer) initializing(
 				return err
 			}
 		} else {
-			return err
-		}
-	}
-	containBootstrapSecret := false
-	kubeConfigSecrets := klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets
-	for _, kubeConfigSecret := range kubeConfigSecrets {
-		if kubeConfigSecret.Name == bootstrapSecret.Name {
-			containBootstrapSecret = true
-		}
-	}
-	if !containBootstrapSecret {
-		klusterletConfig.Spec.BootstrapKubeConfigs.LocalSecrets.KubeConfigSecrets = append(kubeConfigSecrets,
-			operatorv1.KubeConfigSecret{Name: bootstrapSecret.Name})
-		if err := m.client.Update(ctx, klusterletConfig); err != nil {
 			return err
 		}
 	}
@@ -256,10 +231,10 @@ func (m *migrationSourceSyncer) initializing(
 		}
 
 		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.Name {
+		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.GetName() {
 			continue
 		}
-		annotations[KlusterletConfigAnnotation] = klusterletConfig.Name
+		annotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
 		annotations[constants.ManagedClusterMigrating] = ""
 		mc.SetAnnotations(annotations)
 		if err := m.client.Update(ctx, mc); err != nil {
@@ -268,7 +243,7 @@ func (m *migrationSourceSyncer) initializing(
 	}
 
 	// send the initialized confirmation
-	err := ReportMigrationStatus(
+	err = ReportMigrationStatus(
 		cecontext.WithTopic(ctx, m.transportConfig.KafkaCredential.StatusTopic), m.transportClient,
 		&migration.ManagedClusterMigrationBundle{
 			MigrationId: migratingEvt.MigrationId,
@@ -279,6 +254,60 @@ func (m *migrationSourceSyncer) initializing(
 		return err
 	}
 	return nil
+}
+
+// generateKlusterletConfig generate the klusterletconfig for migration
+func generateKlusterletConfig(client client.Client, targetHub, bootstrapSecretName string) (
+	*unstructured.Unstructured, error,
+) {
+	mch, err := utils.ListMCH(context.Background(), client)
+	if err != nil {
+		return nil, err
+	}
+	if mch == nil {
+		return nil, fmt.Errorf("no MCH found")
+	}
+
+	klusterletConfig213 := fmt.Sprintf(`
+apiVersion: config.open-cluster-management.io/v1alpha1
+kind: KlusterletConfig
+metadata:
+  name: %s
+spec:
+  bootstrapKubeConfigs:
+    type: "LocalSecrets"
+    localSecretsConfig:
+      kubeConfigSecrets:
+      - name: "%s"`, klusterletConfigNamePrefix+targetHub, bootstrapSecretName)
+
+	klusterletConfig214 := fmt.Sprintf(`
+apiVersion: config.open-cluster-management.io/v1alpha1
+kind: KlusterletConfig
+metadata:
+  name: %s
+spec:
+  multipleHubsConfig:
+    genBootstrapKubeConfigStrategy: "IncludeCurrentHub"
+    bootstrapKubeConfigs:
+      type: "LocalSecrets"
+      localSecretsConfig:
+        kubeConfigSecrets:
+        - name: "%s"`, klusterletConfigNamePrefix+targetHub, bootstrapSecretName)
+
+	klusterletConfig := klusterletConfig214
+	if strings.Contains(mch.Status.CurrentVersion, "2.13") {
+		klusterletConfig = klusterletConfig213
+	}
+
+	// Decode YAML into Unstructured object using runtime.Decoder
+	dec := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme)
+	obj := &unstructured.Unstructured{}
+	_, _, err = dec.Decode([]byte(klusterletConfig), nil, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return obj, err
 }
 
 func (m *migrationSourceSyncer) registering(

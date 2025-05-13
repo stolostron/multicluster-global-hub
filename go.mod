@@ -36,7 +36,7 @@ require (
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.0
 	github.com/spf13/pflag v1.0.6
-	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
+	github.com/stolostron/cluster-lifecycle-api v0.0.0-20250429012240-363012f4f827
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20250415191038-1e368a726d8b
@@ -55,7 +55,7 @@ require (
 	k8s.io/kube-aggregator v0.32.3
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	open-cluster-management.io/addon-framework v0.12.1-0.20250422083707-fb6b4ebb66b5
-	open-cluster-management.io/api v0.16.1
+	open-cluster-management.io/api v0.16.2-0.20250422072120-cadf714c3055
 	open-cluster-management.io/governance-policy-propagator v0.16.0
 	open-cluster-management.io/managed-serviceaccount v0.8.0
 	open-cluster-management.io/multicloud-operators-channel v0.16.0
