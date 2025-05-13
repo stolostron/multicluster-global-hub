@@ -34,7 +34,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-const KlusterletManifestWorkSuffix = "-klusterlet"
+const (
+	KlusterletManifestWorkSuffix = "-klusterlet"
+)
 
 var log = logger.DefaultZapLogger()
 
@@ -276,18 +278,24 @@ func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 	return nil
 }
 
+func (s *migrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+		},
+	}
+	if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
+		log.Errorf("failed to create or update the namespace %s", ns.Name)
+		return err
+	}
+	return nil
+}
+
 func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	migrationResources *migration.SourceClusterMigrationResources,
 ) error {
 	for _, mc := range migrationResources.ManagedClusters {
-		// create namespace for the managed cluster
-		ns := &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: mc.Name,
-			},
-		}
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
-			log.Errorf("failed to create or update the namespace %s", ns.Name)
+		if err := s.ensureNamespace(ctx, mc.Name); err != nil {
 			return err
 		}
 		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &mc, func() error { return nil }); err != nil {
@@ -305,13 +313,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	}
 
 	for _, configmap := range migrationResources.ConfigMaps {
-		ns := &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: configmap.Namespace,
-			},
-		}
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
-			log.Errorf("failed to create or update the namespace %s", ns.Name)
+		if err := s.ensureNamespace(ctx, configmap.Namespace); err != nil {
 			return err
 		}
 
@@ -323,13 +325,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	}
 
 	for _, secret := range migrationResources.Secrets {
-		ns := &corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: secret.Namespace,
-			},
-		}
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
-			log.Errorf("failed to create or update the namespace %s", ns.Name)
+		if err := s.ensureNamespace(ctx, secret.Namespace); err != nil {
 			return err
 		}
 
