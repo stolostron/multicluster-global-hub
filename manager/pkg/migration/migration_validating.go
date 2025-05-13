@@ -157,7 +157,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 	// validate resources
 	for _, resource := range mcm.Spec.IncludedResources {
-		if err := isValidResource(resource); err != nil {
+		if err := IsValidResource(resource); err != nil {
 			condStatus = metav1.ConditionFalse
 			condReason = ConditionReasonResourceInvalid
 			condMessage = fmt.Sprintf("Invalid resources: %s", err.Error())
@@ -168,8 +168,8 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	return nil
 }
 
-// isValidResource checks format kind/namespace/name
-func isValidResource(resource string) error {
+// IsValidResource checks format kind/namespace/name
+func IsValidResource(resource string) error {
 	parts := strings.Split(resource, "/")
 	if len(parts) != 3 {
 		return fmt.Errorf("invalid format (must be kind/namespace/name): %s", resource)
@@ -186,7 +186,7 @@ func isValidResource(resource string) error {
 	if name != "*" && !dns1123LabelRegex.MatchString(name) {
 		return fmt.Errorf("invalid name: %s", name)
 	}
-	if strings.Contains(name, "*") && name != "" {
+	if strings.Contains(name, "*") && name != "*" {
 		return fmt.Errorf("invalid name: %s", name)
 	}
 	return nil

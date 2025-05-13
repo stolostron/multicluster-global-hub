@@ -95,6 +95,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					Status: mchv1.MultiClusterHubStatus{
 						CurrentVersion: "2.13.0",
 					},
+				},
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-configmap",
