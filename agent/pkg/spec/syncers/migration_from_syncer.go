@@ -83,8 +83,9 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		}
 	}
 
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning {
-		log.Infof("cleaning managed cluster migration")
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning ||
+		migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseFailed {
+		log.Infof("cleaning managed cluster migration: %s", migrationSourceHubEvent.Stage)
 		if err := s.cleaning(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
@@ -134,9 +135,9 @@ func (m *migrationSourceSyncer) cleaning(
 		}
 	}
 
-	log.Infof("detach clusters %v", migratingEvt.ManagedClusters)
-	if err := m.detachManagedClusters(ctx, migratingEvt.ManagedClusters); err != nil {
-		log.Errorf("failed to detach managed clusters: %v", err)
+	log.Infof("cleaning up clusters %v", migratingEvt.ManagedClusters)
+	if err := m.cleaningClusters(ctx, migratingEvt.ManagedClusters, migratingEvt.Stage); err != nil {
+		log.Errorf("failed to clean up managed clusters: %v", err)
 		return err
 	}
 
@@ -170,6 +171,8 @@ func (s *migrationSourceSyncer) deploying(
 }
 
 // initializing: attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
+// Note: Add the "global-hub.open-cluster-management.io/migrating" to avoid the race condition of the cluster
+// reported by both target and source hub
 func (m *migrationSourceSyncer) initializing(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
@@ -358,10 +361,11 @@ func (s *migrationSourceSyncer) SendSourceClusterMigrationResources(ctx context.
 		cluster.SetGeneration(0)
 		cluster.Spec.ManagedClusterClientConfigs = nil
 		cluster.Status = clusterv1.ManagedClusterStatus{}
-		// remove migrating annotation from managedcluster
+		// remove migrating and klusterletconfig annotations from managedcluster
 		annotations := cluster.GetAnnotations()
 		if annotations != nil {
 			delete(annotations, constants.ManagedClusterMigrating)
+			delete(annotations, KlusterletConfigAnnotation)
 			cluster.SetAnnotations(annotations)
 		}
 		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
@@ -446,9 +450,12 @@ func SendEvent(
 	return errors.New("transport client must not be nil")
 }
 
-func (s *migrationSourceSyncer) detachManagedClusters(ctx context.Context, managedClusters []string) error {
+// cleaningClusters handle the following two cases
+//  1. stage = failed: remove the added klusterletconfig/migrating, set the hubAccepted with true to rollback
+//  2. stage = cleaning: detach the clusters after the migrating finshed
+func (s *migrationSourceSyncer) cleaningClusters(ctx context.Context, managedClusters []string, stage string) error {
 	for _, managedCluster := range managedClusters {
-		log.Debugf("detaching managed cluster %s", managedCluster)
+		log.Debugf("cleaning up managed cluster %s", managedCluster)
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{
 			Name: managedCluster,
@@ -459,11 +466,26 @@ func (s *migrationSourceSyncer) detachManagedClusters(ctx context.Context, manag
 				return err
 			}
 		}
-		if !mc.Spec.HubAcceptsClient {
-			if err := s.client.Delete(ctx, mc); err != nil {
-				if apierrors.IsNotFound(err) {
-					continue
-				} else {
+		if stage == migrationv1alpha1.PhaseCleaning {
+			if !mc.Spec.HubAcceptsClient {
+				if err := s.client.Delete(ctx, mc); err != nil {
+					if apierrors.IsNotFound(err) {
+						continue
+					} else {
+						return err
+					}
+				}
+			}
+		} else {
+			if !mc.Spec.HubAcceptsClient {
+				mc.Spec.HubAcceptsClient = true
+			}
+			annotations := mc.GetAnnotations()
+			if annotations != nil {
+				delete(annotations, KlusterletConfigAnnotation)
+				delete(annotations, constants.ManagedClusterMigrating)
+				mc.SetAnnotations(annotations)
+				if err := s.client.Update(ctx, mc); err != nil {
 					return err
 				}
 			}

@@ -226,7 +226,7 @@ func (m *ClusterMigrationController) UpdateCondition(
 				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
 			}
 		case migrationv1alpha1.ConditionTypeCleaned:
-			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
 			}
 		}
