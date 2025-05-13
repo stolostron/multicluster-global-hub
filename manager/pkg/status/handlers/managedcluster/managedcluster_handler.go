@@ -239,7 +239,6 @@ func (h *managedClusterHandler) postToInventoryApi(
 			}
 		}
 	}
-	return
 }
 
 // generateCreateUpdateDeleteClusters generates the create, update and delete clusters
