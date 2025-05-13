@@ -33,7 +33,7 @@ func TestPruneAgentResources(t *testing.T) {
 
 	existingSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      transportSecretName,
+			Name:      getTransportSecretName(),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"component": "multicluster-global-hub-agent",
@@ -49,6 +49,6 @@ func TestPruneAgentResources(t *testing.T) {
 
 	// Assert that the transport secret was deleted
 	secret := &corev1.Secret{}
-	err = fakeClient.Get(context.TODO(), client.ObjectKey{Namespace: namespace, Name: transportSecretName}, secret)
+	err = fakeClient.Get(context.TODO(), client.ObjectKey{Namespace: namespace, Name: getTransportSecretName()}, secret)
 	assert.True(t, errors.IsNotFound(err))
 }

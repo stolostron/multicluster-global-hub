@@ -165,5 +165,12 @@ var _ = Describe("none addon", func() {
 				Namespace: clusterName,
 			}, addon)
 		}, duration, interval).Should(HaveOccurred())
+		Eventually(func() error {
+			return runtimeClient.Delete(ctx, &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: clusterName,
+				},
+			})
+		}, duration, interval).ShouldNot(HaveOccurred())
 	})
 })
