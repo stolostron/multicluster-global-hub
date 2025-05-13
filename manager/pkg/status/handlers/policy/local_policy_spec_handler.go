@@ -342,17 +342,18 @@ func (h *localPolicySpecHandler) deleteAllComplianceDataOfPolicy(
 	if db == nil {
 		return fmt.Errorf("db is nil")
 	}
-	deleteCompliances, err := getComplianceDataOfPolicy(ctx, db, leafHubName, policy.Key)
+	deleteCompliances, err := getComplianceDataOfPolicy(db, leafHubName, policy.Key)
 	if err != nil {
 		return err
 	}
 	if len(deleteCompliances) == 0 {
 		return nil
 	}
-	return postCompliancesToInventoryApi(ctx, db, h.log, requester, leafHubName, nil, nil, deleteCompliances, mchVersion)
+	return postCompliancesToInventoryApi(h.log, policy.Name, requester, leafHubName,
+		nil, nil, deleteCompliances, mchVersion)
 }
 
-func getComplianceDataOfPolicy(ctx context.Context, db *gorm.DB, leafHubName string, policyId string,
+func getComplianceDataOfPolicy(db *gorm.DB, leafHubName string, policyId string,
 ) ([]models.LocalStatusCompliance, error) {
 	var complianceData []models.LocalStatusCompliance
 	err := db.Select("policy_id, cluster_name, leaf_hub_name").

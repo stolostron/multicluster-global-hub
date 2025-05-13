@@ -78,9 +78,15 @@ func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLo
 	}
 
 	for _, eventCompliance := range data { // every object in bundle is policy compliance status
-
 		policyID := eventCompliance.PolicyID
-
+		var policyNamespacedName string
+		if configs.IsInventoryAPIEnabled() {
+			// If inventory enabled, we need to make sure the policy spec info is handled firstly.
+			policyNamespacedName, err = getPolicyNamespacedName(db, policyID)
+			if err != nil || policyNamespacedName == "" {
+				return fmt.Errorf("failed to get policy namespaced name - %v: %w", policyID, err)
+			}
+		}
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
 		nonComplianceClusterSetsFromDB, policyExistsInDB := allCompleteRowsFromDB[policyID]
 		if !policyExistsInDB {
@@ -160,7 +166,12 @@ func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLo
 			return fmt.Errorf("failed to update compliances by complete event - %w", err)
 		}
 		if configs.IsInventoryAPIEnabled() {
-			err = syncInventory(ctx, db, h.log, h.requester, leafHub, policyID, batchLocalCompliance,
+			err = syncInventory(h.log, h.requester, leafHub,
+				models.ResourceVersion{
+					Key:  policyID,
+					Name: policyNamespacedName,
+				},
+				batchLocalCompliance,
 				nonComplianceClusterSetsFromDB.complianceToSetMap,
 				nil,
 			)
@@ -173,7 +184,7 @@ func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLo
 	}
 
 	// update policies not in the event - all is Compliant
-	err = db.Transaction(func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		for policyID := range allCompleteRowsFromDB {
 			err := tx.Model(&models.LocalStatusCompliance{}).
 				Where("policy_id = ? AND leaf_hub_name = ?", policyID, leafHub).
@@ -184,10 +195,4 @@ func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLo
 		}
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("failed deleting compliances from local complainces - %w", err)
-	}
-
-	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
-	return nil
 }

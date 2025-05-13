@@ -83,9 +83,8 @@ func TestPostCompliancesToInventoryApi(t *testing.T) {
 			}
 
 			err := postCompliancesToInventoryApi(
-				context.TODO(),
-				nil,
 				logger.ZapLogger("test"),
+				"default/policy-name",
 				mockRequester,
 				"test-hub",
 				tt.createCompliances,
@@ -428,12 +427,13 @@ func TestSyncInventory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := syncInventory(
-				context.TODO(),
-				nil,
 				tt.log,
 				tt.requester,
 				tt.leafHubName,
-				tt.policyID,
+				models.ResourceVersion{
+					Key:  tt.policyID,
+					Name: "policy-name",
+				},
 				tt.localCompliancesFromEvents,
 				tt.complianceFromDb,
 				tt.allClustersOnDB,

@@ -75,10 +75,10 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 
 	for _, eventCompliance := range data { // every object is clusters list per policy with full state
 		policyID := eventCompliance.PolicyID
-
+		var policyNamespacedName string
 		if configs.IsInventoryAPIEnabled() {
 			// If inventory enabled, we need to make sure the policy spec info is handled firstly.
-			policyNamespacedName, err := getPolicyNamespacedName(db, policyID)
+			policyNamespacedName, err = getPolicyNamespacedName(db, policyID)
 			if err != nil || policyNamespacedName == "" {
 				return fmt.Errorf("failed to get policy namespaced name - %v: %w", policyID, err)
 			}
@@ -146,7 +146,11 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 
 		if configs.IsInventoryAPIEnabled() {
 			log.Debugf("sync to inventory api - %s", policyID)
-			err = syncInventory(ctx, db, h.log, h.requester, leafHub, policyID,
+			err = syncInventory(h.log, h.requester, leafHub,
+				models.ResourceVersion{
+					Key:  policyID,
+					Name: policyNamespacedName,
+				},
 				batchLocalCompliances,
 				complianceClustersFromDB.complianceToSetMap,
 				allClustersOnDB,
@@ -188,12 +192,10 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 // Note: we do not handle the case: when run globalhub sometimes, and the data has post
 // database then enable inventory api
 func syncInventory(
-	ctx context.Context,
-	db *gorm.DB,
 	log *zap.SugaredLogger,
 	requester transport.Requester,
 	leafHubName string,
-	policyID string,
+	policy models.ResourceVersion,
 	// localCompliancesFromEvents is the data from event
 	localCompliancesFromEvents []models.LocalStatusCompliance,
 	// complianceFromDb is the data in database
@@ -206,11 +208,11 @@ func syncInventory(
 		complianceFromDb,
 		shouldDelete,
 		leafHubName,
-		policyID,
+		policy.Key,
 	)
 
 	log.Debugw("post compliances data", "LH",
-		leafHubName, "policyID", policyID, "create",
+		leafHubName, "policyID", policy.Key, "create",
 		createCompliances, "update",
 		updateCompliances, "delete",
 		deleteCompliances)
@@ -223,9 +225,8 @@ func syncInventory(
 		log.Warnf("failed to get cluster info from db - %v", err)
 	}
 	return postCompliancesToInventoryApi(
-		ctx,
-		db,
 		log,
+		policy.Name,
 		requester,
 		leafHubName,
 		createCompliances,
@@ -236,9 +237,8 @@ func syncInventory(
 }
 
 func postCompliancesToInventoryApi(
-	ctx context.Context,
-	db *gorm.DB,
 	log *zap.SugaredLogger,
+	policyNamespacedName string,
 	requester transport.Requester,
 	leafHub string,
 	createCompliances []models.LocalStatusCompliance,
@@ -248,13 +248,8 @@ func postCompliancesToInventoryApi(
 ) error {
 	if len(createCompliances) > 0 {
 		for _, createCompliance := range createCompliances {
-			policyNamespacedName, err := getPolicyNamespacedName(db, createCompliance.PolicyID)
-			if err != nil || policyNamespacedName == "" {
-				log.Errorf("failed to get policy namespaced name - %v: %v", createCompliance.PolicyID, err)
-				continue
-			}
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
-				UpdateK8SPolicyIsPropagatedToK8SCluster(ctx, updateK8SPolicyIsPropagatedToK8SCluster(
+				UpdateK8SPolicyIsPropagatedToK8SCluster(context.Background(), updateK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, createCompliance.ClusterName, string(createCompliance.Compliance),
 					leafHub, mchVersion)); err != nil {
 				log.Errorf("failed to create k8s policy is propagated to k8s cluster -%v: %w", resp, err)
@@ -263,13 +258,8 @@ func postCompliancesToInventoryApi(
 	}
 	if len(updateCompliances) > 0 {
 		for _, updateCompliance := range updateCompliances {
-			policyNamespacedName, err := getPolicyNamespacedName(db, updateCompliance.PolicyID)
-			if err != nil || policyNamespacedName == "" {
-				log.Errorf("failed to get policy namespaced name - %v: %w", updateCompliance.PolicyID, err)
-				continue
-			}
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
-				UpdateK8SPolicyIsPropagatedToK8SCluster(ctx, updateK8SPolicyIsPropagatedToK8SCluster(
+				UpdateK8SPolicyIsPropagatedToK8SCluster(context.Background(), updateK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, updateCompliance.ClusterName, string(updateCompliance.Compliance),
 					leafHub, mchVersion)); err != nil {
 				log.Errorf("failed to update k8s policy is propagated to k8s cluster -%v: %w", resp, err)
@@ -278,16 +268,10 @@ func postCompliancesToInventoryApi(
 	}
 	if len(deleteCompliances) > 0 {
 		for _, deleteCompliance := range deleteCompliances {
-			policyNamespacedName, err := getPolicyNamespacedName(db, deleteCompliance.PolicyID)
-			if err != nil || policyNamespacedName == "" {
-				// the policy may deleted from the db
-				log.Debug("failed to get policy namespaced name - %v: %w", deleteCompliance.PolicyID, err)
-				continue
-			}
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
-				DeleteK8SPolicyIsPropagatedToK8SCluster(ctx, deleteK8SPolicyIsPropagatedToK8SCluster(
+				DeleteK8SPolicyIsPropagatedToK8SCluster(context.Background(), deleteK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, deleteCompliance.ClusterName, leafHub, mchVersion)); err != nil && !errors.IsNotFound(err) {
-				log.Errorf("failed to delete k8s policy is propagated to k8s cluster -%v: %w", resp, err)
+				log.Warnf("failed to delete k8s policy is propagated to k8s cluster -%v: %w", resp, err)
 			}
 		}
 	}

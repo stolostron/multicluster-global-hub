@@ -67,7 +67,7 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 					}
 				}
 				if len(hubToPolicyMap) != len(managedHubNames) {
-					return fmt.Errorf("expect policy num %d, but got %d", len(managedHubNames), len(hubToPolicyMap))
+					return fmt.Errorf("expect policy num %d, but got %d, policys: %v", len(managedHubNames), len(hubToPolicyMap), hubToPolicyMap)
 				}
 				return nil
 			}, 3*time.Minute, 1*time.Second).Should(Succeed())
