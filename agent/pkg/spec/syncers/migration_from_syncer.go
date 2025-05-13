@@ -345,8 +345,8 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 		MigrationId:           migrationId,
 		ManagedClusters:       []clusterv1.ManagedCluster{},
 		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
-		Secrets:               []corev1.Secret{},
-		ConfigMaps:            []corev1.ConfigMap{},
+		Secrets:               []*corev1.Secret{},
+		ConfigMaps:            []*corev1.ConfigMap{},
 	}
 
 	// add clusters and klusterletAddonConfig
@@ -389,6 +389,7 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 		addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
 		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
 	}
+	log.Info("attach clusters and addonConfigs into the event")
 
 	// add resources: secrets and configmaps
 	if err := s.addResources(ctx, resources, migrationResources); err != nil {
@@ -427,13 +428,15 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 				if err := s.client.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
 					return fmt.Errorf("failed to list configmaps in namespace %s: %w", ns, err)
 				}
-				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmaps.Items...)
+				for i := range configmaps.Items {
+					resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, &configmaps.Items[i])
+				}
 			} else {
 				configmap := &corev1.ConfigMap{}
 				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
 					return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
 				}
-				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, *configmap)
+				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmap)
 			}
 		case "secret":
 			if name == "*" {
@@ -441,13 +444,15 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 				if err := s.client.List(ctx, secrets, client.InNamespace(ns)); err != nil {
 					return fmt.Errorf("failed to list secrets in namespace %s: %w", ns, err)
 				}
-				resourceEvent.Secrets = append(resourceEvent.Secrets, secrets.Items...)
+				for i := range secrets.Items {
+					resourceEvent.Secrets = append(resourceEvent.Secrets, &secrets.Items[i])
+				}
 			} else {
 				secret := &corev1.Secret{}
 				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
 					return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
 				}
-				resourceEvent.Secrets = append(resourceEvent.Secrets, *secret)
+				resourceEvent.Secrets = append(resourceEvent.Secrets, secret)
 			}
 		default:
 			return fmt.Errorf("unsupported kind: %s", kind)
@@ -455,13 +460,28 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 	}
 
 	// sanitize
-	for _, secret := range resourceEvent.Secrets {
-		sanitizeObjectMeta(&secret)
-	}
-	for _, configmap := range resourceEvent.ConfigMaps {
-		sanitizeObjectMeta(&configmap)
-	}
+	resourceEvent.Secrets = sanitizeAndDedup(resourceEvent.Secrets, func(s *corev1.Secret) string {
+		return s.Namespace + "/" + s.Name
+	})
+	resourceEvent.ConfigMaps = sanitizeAndDedup(resourceEvent.ConfigMaps, func(s *corev1.ConfigMap) string {
+		return s.Namespace + "/" + s.Name
+	})
 	return nil
+}
+
+func sanitizeAndDedup[T metav1.Object](items []T, getKey func(T) string) []T {
+	seen := make(map[string]struct{})
+	result := make([]T, 0, len(items))
+	for _, item := range items {
+		key := getKey(item)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		sanitizeObjectMeta(item)
+		seen[key] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }
 
 func sanitizeObjectMeta(obj metav1.Object) {

@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -761,6 +763,82 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			}
 		})
 	}
+}
+
+// go test -timeout 30s -run ^TestDeploying$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
+func TestDeploying(t *testing.T) {
+	migrationId := "123"
+
+	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.SourceClusterMigrationResources{
+		MigrationId: migrationId,
+		ManagedClusters: []clusterv1.ManagedCluster{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster1",
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient:     true,
+					LeaseDurationSeconds: 60,
+				},
+			},
+		},
+		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster1",
+					Namespace: "cluster1",
+				},
+			},
+		},
+		Secrets: []*corev1.Secret{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-secret",
+					Namespace: "cluster1",
+				},
+				StringData: map[string]string{"test": "secret"},
+			},
+		},
+		ConfigMaps: []*corev1.ConfigMap{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-configmap",
+					Namespace: "cluster1",
+				},
+				Data: map[string]string{"test": "configmap"},
+			},
+		},
+	})
+
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	// set agent config
+	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+	// set tranport config
+	transportConfig := &transport.TransportInternalConfig{KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"}}
+	syncer := NewMigrationTargetSyncer(fakeClient, nil, transportConfig)
+	syncer.currentMigrationId = migrationId
+	err := syncer.Sync(ctx, &evt)
+	assert.Nil(t, err)
+
+	// verify the resources
+	cluster := &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{
+		Name: "cluster1",
+	}}
+	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
+	assert.Nil(t, err)
+	assert.True(t, cluster.Spec.HubAcceptsClient)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "cluster1",
+		},
+	}
+	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
+	assert.Nil(t, err)
+	assert.Equal(t, "secret", secret.StringData["test"])
 }
 
 func TestRegistering(t *testing.T) {

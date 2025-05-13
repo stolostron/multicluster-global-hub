@@ -315,7 +315,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 			return err
 		}
 
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &configmap, func() error { return nil }); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, configmap, func() error { return nil }); err != nil {
 			log.Debugf("configmap is %v", configmap)
 			log.Errorf("failed to create or update the configmap %s", configmap.Name)
 			return err
@@ -333,7 +333,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 			return err
 		}
 
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &secret, func() error { return nil }); err != nil {
+		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, secret, func() error { return nil }); err != nil {
 			log.Debugf("secret is %v", secret)
 			log.Errorf("failed to create or update the secret %s", secret.Name)
 			return err
