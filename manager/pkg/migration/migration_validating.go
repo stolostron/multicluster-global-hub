@@ -45,7 +45,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return nil
 	}
 
-	if mcm.Status.Phase == "" {
+	if mcm.Status.Phase == "" || mcm.Status.Phase == migrationv1alpha1.PhasePending {
 		mcm.Status.Phase = migrationv1alpha1.PhaseValidating
 		if err := m.Client.Status().Update(ctx, mcm); err != nil {
 			return err

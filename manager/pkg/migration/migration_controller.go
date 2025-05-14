@@ -11,9 +11,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -116,23 +117,19 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Infof("reconcile managed cluster migration %v", req)
-	// TODO: we only allow to have one migration processing at a time.
-	// if there are multiple migrations, we need to wait for the first one to finish.
-	// we need to put the migrations into a queue and provide the message in that CR to tell the user
-	mcm := &migrationv1alpha1.ManagedClusterMigration{}
-	// the migration name is the same as managedserviceaccount and the secret
-	err := m.Get(ctx, types.NamespacedName{Namespace: utils.GetDefaultNamespace(), Name: req.Name}, mcm)
-	if apierrors.IsNotFound(err) {
-		// If the custom resource is not found then it usually means that it was deleted or not created
-		// In this way, we will stop the reconciliation
-		log.Info("managedclustermigration resource not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
+
+	// get the current migration
+	mcm, err := m.getCurrentMigration(ctx, req)
 	if err != nil {
 		log.Errorf("failed to get managedclustermigration %v", err)
 		return ctrl.Result{}, err
 	}
+	if mcm == nil {
+		log.Infof("no desired managedclustermigration found")
+		return ctrl.Result{}, nil
+	}
 
+	log.Debugf("current migration: %s", mcm.Name)
 	// add finalizer if resources is not being deleted
 	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
@@ -195,6 +192,88 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// getCurrentMigration returns the current migration object.
+// It returns nil if no migration is in progress.
+// It select the oldest migration object if there are multiple migrations.
+// For other migrations which waiting for migrating, it will update the condition and phase to pending.
+func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
+	req ctrl.Request,
+) (*migrationv1alpha1.ManagedClusterMigration, error) {
+	migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
+	err := m.List(ctx, migrationList)
+	if err != nil {
+		return nil, err
+	}
+	var desiredMigration *migrationv1alpha1.ManagedClusterMigration
+	var pendingMigrations []migrationv1alpha1.ManagedClusterMigration
+	for _, migration := range migrationList.Items {
+		// if the current migration is deleted, we need to return it
+		if !migration.GetDeletionTimestamp().IsZero() && req.Name == migration.Name {
+			return &migration, nil
+		}
+		// skip the migration which is completed or failed
+		if migration.Status.Phase == migrationv1alpha1.PhaseCompleted {
+			continue
+		}
+		// skip the migration which is failed and cleaned
+		if migration.Status.Phase == migrationv1alpha1.PhaseFailed &&
+			meta.IsStatusConditionTrue(migration.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) {
+			continue
+		}
+
+		// if the migration has the finalizer, it means that the migration is in progress
+		if controllerutil.ContainsFinalizer(&migration, constants.ManagedClusterMigrationFinalizer) {
+			desiredMigration = &migration
+			continue
+		}
+
+		if desiredMigration == nil {
+			desiredMigration = &migration
+		} else if migration.CreationTimestamp.Before(&desiredMigration.CreationTimestamp) {
+			pendingMigrations = append(pendingMigrations, *desiredMigration)
+			desiredMigration = &migration
+		} else {
+			pendingMigrations = append(pendingMigrations, migration)
+		}
+	}
+	if desiredMigration == nil {
+		return nil, nil
+	}
+	if desiredMigration.Status.Phase == migrationv1alpha1.PhasePending {
+		// if the migration is in pending, update the condition
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := m.Client.Get(ctx, client.ObjectKeyFromObject(desiredMigration), desiredMigration); err != nil {
+				return err
+			}
+
+			if err := m.UpdateCondition(ctx,
+				desiredMigration,
+				migrationv1alpha1.ConditionTypePending,
+				metav1.ConditionFalse,
+				"migrationInProgress",
+				"Migration is in progress",
+			); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+
+	for _, mcm := range pendingMigrations {
+		e := m.UpdateConditionWithRetry(ctx,
+			&mcm,
+			migrationv1alpha1.ConditionTypePending,
+			metav1.ConditionTrue,
+			"waitOtherMigrationCompleted",
+			fmt.Sprintf("wait for other migration <%s> to be completed", desiredMigration.Name),
+		)
+		if e != nil {
+			log.Errorf("failed to update the %s condition: %v", mcm.Name, e)
+		}
+	}
+	return desiredMigration, nil
 }
 
 // sendEventToDestinationHub:
