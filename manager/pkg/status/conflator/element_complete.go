@@ -11,7 +11,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 type completeElement struct {
 	log logr.Logger
@@ -64,16 +67,17 @@ func (e *completeElement) Predicate(eventVersion *version.Version) bool {
 		}
 		e.log.Info("resetting element processed version", "version", eventVersion)
 	}
-	e.log.V(2).Info("inserting event", "version", eventVersion)
 
 	// version validation
 	// 1: the event.Version Vs lastProcessedVersion
 	if !eventVersion.NewerThan(e.lastProcessedVersion) {
+		log.Infof("drop bundle: get version %s, lastProcessedVersion %s", eventVersion, e.lastProcessedVersion)
 		return false // we got old event, a newer (or equal) event was already processed.
 	}
 
 	// version validation 2: the insertBundle with the hold conflation bundle(memory)
 	if e.metadata != nil && !eventVersion.NewerThan(e.metadata.Version()) {
+		log.Infof("drop bundle: get version %s, current hold version%s", eventVersion, e.metadata.Version())
 		return false // insert event only if version we got is newer than what we have in memory, otherwise do nothing.
 	}
 
