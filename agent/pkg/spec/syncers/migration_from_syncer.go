@@ -67,6 +67,8 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	log.Debugf("received managed cluster migration event %s", string(payload))
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
+		// Reset the migration bundle version to prevent blocking subsequent bundle processing during manager conflation
+		s.bundleVersion.Reset()
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
