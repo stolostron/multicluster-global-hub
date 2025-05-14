@@ -140,6 +140,7 @@ spec:
               phase:
                 description: Phase represents the current phase of the migration
                 enum:
+                - Pending
                 - Validating
                 - Initializing
                 - Deploying
