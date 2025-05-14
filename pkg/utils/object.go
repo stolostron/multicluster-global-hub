@@ -30,8 +30,9 @@ func UpdateObject(ctx context.Context, runtimeClient client.Client, obj *unstruc
 	}
 	forceChanges := true
 	if err := runtimeClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
-		FieldManager: controllerName,
-		Force:        &forceChanges,
+		FieldManager:    controllerName,
+		Force:           &forceChanges,
+		FieldValidation: metav1.FieldValidationIgnore,
 		Raw: &metav1.PatchOptions{
 			FieldValidation: metav1.FieldValidationIgnore,
 		},

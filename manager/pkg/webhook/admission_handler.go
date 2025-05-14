@@ -46,6 +46,9 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			if placement.Annotations == nil {
 				placement.Annotations = map[string]string{}
 			}
+			if placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true" {
+				return admission.Allowed("")
+			}
 			placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] = "true"
 
 			marshaledPlacement, err := json.Marshal(placement)
@@ -63,6 +66,9 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		}
 
 		if _, found := placementrule.Labels[constants.GlobalHubGlobalResourceLabel]; found {
+			if placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName {
+				return admission.Allowed("")
+			}
 			placementrule.Spec.SchedulerName = constants.GlobalHubSchedulerName
 
 			marshaledPlacementRule, err := json.Marshal(placementrule)

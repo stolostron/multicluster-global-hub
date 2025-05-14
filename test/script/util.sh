@@ -3,9 +3,9 @@
 # Version
 export INSTALL_DIR=/usr/local/bin
 export PATH=$INSTALL_DIR:$PATH
-export GRC_VERSION=v0.15.0
+export GRC_VERSION=v0.16.0
 export KUBECTL_VERSION=v1.28.1
-export CLUSTERADM_VERSION=0.10.1
+export CLUSTERADM_VERSION=0.11.0
 export KIND_VERSION=v0.19.0
 export ROUTE_VERSION=release-4.12
 export GO_VERSION=go1.23.6
