@@ -19,7 +19,6 @@ List all annotations are used by multicluster global hub.
 | global-hub.open-cluster-management.io/managed-by=                | This annotation is used to identify which managed cluster is managed by which managed hub cluster.                                                                  |
 | global-hub.open-cluster-management.io/origin-ownerreference-uid= | This annotation is used to identify that the resource is from the global hub cluster. The global hub agent is only handled with the resource which has this annotation. |
 | mgh-image-repository=                                            | This annotation is used on the MCGH/MGH custom resource to identify a custom image repository.                                                                                      |
-|global-hub.open-cluster-management.io/import-cluster-in-hosted=true\|false | This annotation is used to identify if managedhub cluster should be imported in hosted mode |
 | global-hub.open-cluster-management.io/with-inventory                | This annotation is used to identify the common inventory is deployed.                                                                  |
 | global-hub.open-cluster-management.io/with-stackrox-integration | This annotation enables the experimental integration with [Stackrox](https://github.com/stackrox).|
 | global-hub.open-cluster-management.io/kafka-cluster-id | This annotation save the kafka cluster id in transport-config secret in agent part, it is used to identify if the kafka cluster changed.|
