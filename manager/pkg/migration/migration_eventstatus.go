@@ -43,9 +43,8 @@ func AddSourceClusters(migrationId string, clusters map[string][]string) {
 	mu.RLock()
 	defer mu.RUnlock()
 
-	status, ok := migrationStatuses[migrationId]
-	if !ok {
-		log.Warnf("MigrationStatus is nil for migrationId: %s", migrationId)
+	status := getMigrationStatus(migrationId)
+	if status == nil {
 		return
 	}
 	status.Clusters = clusters
@@ -55,9 +54,8 @@ func GetSourceClusters(migrationId string) map[string][]string {
 	mu.RLock()
 	defer mu.RUnlock()
 
-	status, ok := migrationStatuses[migrationId]
-	if !ok {
-		log.Warnf("MigrationStatus is nil for migrationId: %s", migrationId)
+	status := getMigrationStatus(migrationId)
+	if status == nil {
 		return nil
 	}
 	return status.Clusters
@@ -67,13 +65,18 @@ func hubPhaseKey(hub, phase string) string {
 	return fmt.Sprintf("%s-%s", hub, phase)
 }
 
-func ensureProgress(migrationId, hub, phase string) *MigrationProgress {
-	mu.Lock()
-	defer mu.Unlock()
-
+func getMigrationStatus(migrationId string) *MigrationStatus {
 	status, ok := migrationStatuses[migrationId]
 	if !ok {
 		log.Warnf("MigrationStatus is nil for migrationId: %s", migrationId)
+		return nil
+	}
+	return status
+}
+
+func ensureProgress(migrationId, hub, phase string) *MigrationProgress {
+	status := getMigrationStatus(migrationId)
+	if status == nil {
 		return nil
 	}
 	key := hubPhaseKey(hub, phase)
@@ -84,12 +87,8 @@ func ensureProgress(migrationId, hub, phase string) *MigrationProgress {
 }
 
 func getProgress(migrationId, hub, phase string) *MigrationProgress {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	status, ok := migrationStatuses[migrationId]
-	if !ok {
-		log.Warnf("MigrationStatus is nil for migrationId: %s", migrationId)
+	status := getMigrationStatus(migrationId)
+	if status == nil {
 		return nil
 	}
 	key := hubPhaseKey(hub, phase)
@@ -102,6 +101,8 @@ func getProgress(migrationId, hub, phase string) *MigrationProgress {
 
 // SetStarted sets the status of the given stage to started for the hub cluster
 func SetStarted(migrationId, hub, phase string) {
+	mu.RLock()
+	defer mu.RUnlock()
 	if p := ensureProgress(migrationId, hub, phase); p != nil {
 		p.started = true
 	}
@@ -109,12 +110,16 @@ func SetStarted(migrationId, hub, phase string) {
 
 // SetFinished sets the status of the given stage to finished for the hub cluster
 func SetFinished(migrationId, hub, phase string) {
+	mu.RLock()
+	defer mu.RUnlock()
 	if p := ensureProgress(migrationId, hub, phase); p != nil {
 		p.finished = true
 	}
 }
 
 func SetErrorMessage(migrationId, hub, phase, errMessage string) {
+	mu.RLock()
+	defer mu.RUnlock()
 	if p := ensureProgress(migrationId, hub, phase); p != nil {
 		p.error = errMessage
 	}
@@ -122,6 +127,8 @@ func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 
 // GetStarted returns true if the status of the given stage is started for the hub cluster
 func GetStarted(migrationId, hub, phase string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
 	if p := getProgress(migrationId, hub, phase); p != nil {
 		return p.started
 	}
@@ -130,6 +137,8 @@ func GetStarted(migrationId, hub, phase string) bool {
 
 // GetFinished returns true if the status of the given stage is finished for the hub cluster
 func GetFinished(migrationId, hub, phase string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
 	if p := getProgress(migrationId, hub, phase); p != nil {
 		return p.finished
 	}
@@ -137,6 +146,8 @@ func GetFinished(migrationId, hub, phase string) bool {
 }
 
 func GetErrorMessage(migrationId, hub, phase string) string {
+	mu.RLock()
+	defer mu.RUnlock()
 	if p := getProgress(migrationId, hub, phase); p != nil {
 		return p.error
 	}
