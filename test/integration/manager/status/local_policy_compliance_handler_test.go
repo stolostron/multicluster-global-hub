@@ -25,8 +25,46 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 	It("should handle the local compliance event", func() {
 		By("Add an expired policy to the database")
 		db := database.GetGorm()
+		createdPolicy := `
+{
+  "apiVersion": "policy.open-cluster-management.io/v1",
+  "kind": "Policy",
+  "metadata": {
+    "name": "policy1",
+    "namespace": "default",
+    "uid": "d9347b09-bb46-4e2b-91ea-513e83ab9ea8"
+  },
+  "spec": {},
+  "status": {}
+}
+`
 		expiredPolicyID := "b8b3e164-377e-4be1-a870-992265f31f7c"
-		err := db.Create(&models.LocalStatusCompliance{
+		expiredPolicy := `
+{
+  "apiVersion": "policy.open-cluster-management.io/v1",
+  "kind": "Policy",
+  "metadata": {
+    "name": "policy2",
+    "namespace": "default",
+    "uid": "b8b3e164-377e-4be1-a870-992265f31f7c"
+  },
+  "spec": {},
+  "status": {}
+}
+`
+		err := db.Create(&models.LocalSpecPolicy{
+			PolicyID: createdPolicyId,
+			Payload:  []byte(createdPolicy),
+		}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = db.Create(&models.LocalSpecPolicy{
+			PolicyID: expiredPolicyID,
+			Payload:  []byte(expiredPolicy),
+		}).Error
+		Expect(err).ToNot(HaveOccurred())
+
+		err = db.Create(&models.LocalStatusCompliance{
 			PolicyID:    expiredPolicyID,
 			ClusterName: "cluster1",
 			LeafHubName: leafHubName,
@@ -90,6 +128,8 @@ var _ = Describe("LocalPolicyComplianceHandler", Ordered, func() {
 
 				fmt.Printf("LocalCompliance: ID(%s) %s/%s %s \n", c.PolicyID, c.LeafHubName, c.ClusterName, c.Compliance)
 			}
+			fmt.Println("LocalCompliance: expiredCount", expiredCount)
+			fmt.Println("LocalCompliance: addedCount", addedCount)
 			if expiredCount == 0 && addedCount == 3 && len(localCompliances) == 3 {
 				return nil
 			}

@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/dependency"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
@@ -17,6 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 type localPolicyCompleteHandler struct {
@@ -25,6 +27,7 @@ type localPolicyCompleteHandler struct {
 	dependencyType string
 	eventSyncMode  enum.EventSyncMode
 	eventPriority  conflator.ConflationPriority
+	requester      transport.Requester
 }
 
 func RegisterLocalPolicyCompleteHandler(conflationManager *conflator.ConflationManager) {
@@ -36,6 +39,7 @@ func RegisterLocalPolicyCompleteHandler(conflationManager *conflator.ConflationM
 		dependencyType: string(enum.LocalComplianceType),
 		eventSyncMode:  enum.CompleteStateMode,
 		eventPriority:  conflator.LocalCompleteCompliancePriority,
+		requester:      conflationManager.Requster,
 	}
 
 	registration := conflator.NewConflationRegistration(
@@ -49,10 +53,12 @@ func RegisterLocalPolicyCompleteHandler(conflationManager *conflator.ConflationM
 }
 
 func (h *localPolicyCompleteHandler) handleEventWrapper(ctx context.Context, evt *cloudevents.Event) error {
-	return handleCompleteCompliance(h.log, ctx, evt)
+	return h.handleCompleteCompliance(h.log, ctx, evt)
 }
 
-func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *cloudevents.Event) error {
+func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLogger,
+	ctx context.Context, evt *cloudevents.Event,
+) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
 	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
@@ -72,9 +78,15 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 	}
 
 	for _, eventCompliance := range data { // every object in bundle is policy compliance status
-
 		policyID := eventCompliance.PolicyID
-
+		var policyNamespacedName string
+		if configs.IsInventoryAPIEnabled() {
+			// If inventory enabled, we need to make sure the policy spec info is handled firstly.
+			policyNamespacedName, err = getPolicyNamespacedName(db, policyID)
+			if err != nil || policyNamespacedName == "" {
+				return fmt.Errorf("failed to get policy namespaced name - %v: %w", policyID, err)
+			}
+		}
 		// nonCompliantClusters includes both non Compliant and Unknown clusters
 		nonComplianceClusterSetsFromDB, policyExistsInDB := allCompleteRowsFromDB[policyID]
 		if !policyExistsInDB {
@@ -153,13 +165,26 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 		if err != nil {
 			return fmt.Errorf("failed to update compliances by complete event - %w", err)
 		}
-
+		if configs.IsInventoryAPIEnabled() {
+			err = syncInventory(h.log, h.requester, leafHub,
+				models.ResourceVersion{
+					Key:  policyID,
+					Name: policyNamespacedName,
+				},
+				batchLocalCompliance,
+				nonComplianceClusterSetsFromDB.complianceToSetMap,
+				nil,
+			)
+			if err != nil {
+				return fmt.Errorf("failed syncing inventory - %w", err)
+			}
+		}
 		// for policies that are found in the db but not in the bundle - all clusters are Compliant (implicitly)
 		delete(allCompleteRowsFromDB, policyID)
 	}
 
 	// update policies not in the event - all is Compliant
-	err = db.Transaction(func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
 		for policyID := range allCompleteRowsFromDB {
 			err := tx.Model(&models.LocalStatusCompliance{}).
 				Where("policy_id = ? AND leaf_hub_name = ?", policyID, leafHub).
@@ -170,10 +195,4 @@ func handleCompleteCompliance(log *zap.SugaredLogger, ctx context.Context, evt *
 		}
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("failed deleting compliances from local complainces - %w", err)
-	}
-
-	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
-	return nil
 }
