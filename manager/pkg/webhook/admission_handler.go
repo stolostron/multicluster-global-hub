@@ -46,8 +46,11 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			if placement.Annotations == nil {
 				placement.Annotations = map[string]string{}
 			}
-			placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] = "true"
+			if placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true" {
+				return admission.Allowed("")
+			}
 
+			placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] = "true"
 			marshaledPlacement, err := json.Marshal(placement)
 			if err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
@@ -63,8 +66,11 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		}
 
 		if _, found := placementrule.Labels[constants.GlobalHubGlobalResourceLabel]; found {
-			placementrule.Spec.SchedulerName = constants.GlobalHubSchedulerName
+			if placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName {
+				return admission.Allowed("")
+			}
 
+			placementrule.Spec.SchedulerName = constants.GlobalHubSchedulerName
 			marshaledPlacementRule, err := json.Marshal(placementrule)
 			if err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
