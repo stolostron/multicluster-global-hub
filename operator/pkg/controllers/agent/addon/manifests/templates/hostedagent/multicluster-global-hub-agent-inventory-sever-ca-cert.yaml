@@ -5,7 +5,7 @@ metadata:
   name: {{.InventoryServerCASecret}}
   namespace: {{ .AddonInstallNamespace }}
   labels:
-    addon.open-cluster-management.io/hosted-manifest-location: none
+    addon.open-cluster-management.io/hosted-manifest-location: hosting
 type: Opaque
 data:
   "ca.crt": "{{.InventoryServerCACert}}"
