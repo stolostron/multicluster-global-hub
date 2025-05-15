@@ -233,5 +233,3 @@ replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726
 // the multiclusterhub-operator uses controller-runtime under v0.20.*
 // issue: https://github.com/stolostron/multiclusterhub-operator/issues/2186
 replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.19.1
-
-replace open-cluster-management.io/api => open-cluster-management.io/api v0.16.1

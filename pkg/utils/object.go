@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,21 +23,22 @@ const (
 
 // UpdateObject function updates a given k8s object.
 func UpdateObject(ctx context.Context, runtimeClient client.Client, obj *unstructured.Unstructured) error {
-	objectBytes, err := obj.MarshalJSON()
+	existingObj := obj.DeepCopy()
+	err := runtimeClient.Get(ctx, client.ObjectKey{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}, existingObj)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return runtimeClient.Create(ctx, obj)
+		}
+		return fmt.Errorf("failed to get object - %w", err)
+	}
+	obj.SetResourceVersion(existingObj.GetResourceVersion())
+	err = runtimeClient.Update(ctx, obj)
 	if err != nil {
 		return fmt.Errorf("failed to update object - %w", err)
 	}
-	forceChanges := true
-	if err := runtimeClient.Patch(ctx, obj, client.RawPatch(types.ApplyPatchType, objectBytes), &client.PatchOptions{
-		FieldManager: controllerName,
-		Force:        &forceChanges,
-		Raw: &metav1.PatchOptions{
-			FieldValidation: metav1.FieldValidationIgnore,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to update object - %w", err)
-	}
-
 	return nil
 }
 
