@@ -79,6 +79,8 @@ func (r *WebhookReconciler) IsResourceRemoved() bool {
 	return isResourceRemoved
 }
 
+// TODO: move the hosted resource creation/rendering under the controllers/agent/addon/manifests/templates/hostedagent
+// Create the MutatingWebhookConfiguration, which specified the resources need to be handled by the webhook server
 func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile webhook controller")
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
