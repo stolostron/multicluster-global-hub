@@ -56,9 +56,6 @@ const (
 	AnnotationMGHSchedulerInterval = "mgh-scheduler-interval"
 	// MGHOperandImagePrefix ...
 	MGHOperandImagePrefix = "RELATED_IMAGE_"
-	// AnnotationImportClusterInHosted will import a managedhub cluster in hosted mode,
-	// will disable application and policy related addons
-	AnnotationImportClusterInHosted = "global-hub.open-cluster-management.io/import-cluster-in-hosted"
 	// AnnotationStatisticInterval to log the interval of statistic log
 	AnnotationStatisticInterval = "mgh-statistic-interval"
 	// AnnotationMetricsScrapeInterval to set the scrape interval for metrics

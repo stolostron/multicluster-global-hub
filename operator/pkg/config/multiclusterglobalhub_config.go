@@ -294,13 +294,21 @@ func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 }
 
 func SetImportClusterInHosted(mgh *v1alpha4.MulticlusterGlobalHub) {
-	importClusterInHostedValue := getAnnotation(mgh, operatorconstants.AnnotationImportClusterInHosted)
+	importClusterInHosted = EnabledFeature(mgh, v1alpha4.FeatureGateImportClusterInHosted)
+}
 
-	if importClusterInHostedValue == "true" || importClusterInHostedValue == "True" {
-		importClusterInHosted = true
-		return
+func EnabledFeature(mgh *v1alpha4.MulticlusterGlobalHub, feature string) bool {
+	featureGates := mgh.Spec.FeatureGates
+	if featureGates == nil {
+		return false
 	}
-	importClusterInHosted = false
+	for _, featureGate := range featureGates {
+		if featureGate.Feature == feature &&
+			featureGate.Mode == v1alpha4.FeatureGateModeTypeEnable {
+			return true
+		}
+	}
+	return false
 }
 
 func GetImportClusterInHosted() bool {

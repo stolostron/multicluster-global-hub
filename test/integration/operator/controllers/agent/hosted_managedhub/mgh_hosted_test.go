@@ -67,14 +67,18 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace: mghNameSpace,
 		Name:      "mgh",
-		Annotations: map[string]string{
-			"global-hub.open-cluster-management.io/import-cluster-in-hosted": "true",
-		},
 		Finalizers: []string{
 			"fz",
 		},
 	},
-	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+		FeatureGates: []globalhubv1alpha4.FeatureGate{
+			{
+				Feature: globalhubv1alpha4.FeatureGateImportClusterInHosted,
+				Mode:    globalhubv1alpha4.FeatureGateModeTypeEnable,
+			},
+		},
+	},
 	Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
 		Conditions: []v1.Condition{
 			metav1.Condition{

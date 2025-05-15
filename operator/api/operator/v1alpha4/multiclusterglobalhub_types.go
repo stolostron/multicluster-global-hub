@@ -118,7 +118,40 @@ type MulticlusterGlobalHubSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	// +optional
 	InstallAgentOnLocal bool `json:"installAgentOnLocal,omitempty"`
+
+	// FeatureGates represents the list of feature gates
+	// If it is set empty, default feature gates will be used.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +optional
+	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
 }
+
+type FeatureGate struct {
+	// Feature is the key of feature gate. e.g. featuregate/Foo.
+	// +kubebuilder:validation:Required
+	// +required
+	Feature string `json:"feature"`
+
+	// Mode is either Enable, Disable, "" where "" is Disable by default.
+	// In Enable mode, a valid feature gate `featuregate/Foo` will be set to "--featuregate/Foo=true".
+	// In Disable mode, a valid feature gate `featuregate/Foo` will be set to "--featuregate/Foo=false".
+	// +kubebuilder:default:=Disable
+	// +kubebuilder:validation:Enum:=Enable;Disable
+	// +optional
+	Mode FeatureGateModeType `json:"mode,omitempty"`
+}
+
+// ImportClusterInHosted determines whether to import a managed hub cluster in hosted mode.
+const FeatureGateImportClusterInHosted = "ImportClusterInHosted"
+
+type FeatureGateModeType string
+
+const (
+	// FeatureGateModeTypeEnable is the feature gate type to enable a feature.
+	FeatureGateModeTypeEnable FeatureGateModeType = "Enable"
+	// FeatureGateModeTypeDisable is the feature gate type to disable a feature.
+	FeatureGateModeTypeDisable FeatureGateModeType = "Disable"
+)
 
 type AdvancedSpec struct {
 	// Grafana specifies the desired state of grafana

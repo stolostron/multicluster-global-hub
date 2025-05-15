@@ -32,9 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -128,11 +128,18 @@ var mghPred = predicate.Funcs{
 		return true
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations()) {
+		old, ok := e.ObjectOld.(*v1alpha4.MulticlusterGlobalHub)
+		if !ok {
 			return false
 		}
-		if e.ObjectNew.GetAnnotations()[operatorconstants.AnnotationImportClusterInHosted] !=
-			e.ObjectOld.GetAnnotations()[operatorconstants.AnnotationImportClusterInHosted] {
+		new, ok := e.ObjectNew.(*v1alpha4.MulticlusterGlobalHub)
+		if !ok {
+			return false
+		}
+
+		// reconcile if ImportClusterInHosted feature changed
+		if config.EnabledFeature(old, v1alpha4.FeatureGateImportClusterInHosted) !=
+			config.EnabledFeature(new, v1alpha4.FeatureGateImportClusterInHosted) {
 			return true
 		}
 		return false
@@ -154,11 +161,11 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	if mgh.DeletionTimestamp != nil || !config.GetImportClusterInHosted() {
 		if config.GetImportClusterInHosted() {
-			hasmanagedHub, err := r.hasManagedHub(ctx)
+			hasmanagedhub, err := r.hasManagedHub(ctx)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			if hasmanagedHub {
+			if hasmanagedhub {
 				log.Errorf("You need to detach all the managed hub clusters before uninstalling")
 				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 			}
