@@ -65,6 +65,7 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	}
 
 	if !conflationElement.Predicate(eventMetadata.Version()) {
+		cu.log.Infow("the conflationElement predication is false", "event", event)
 		return
 	}
 
