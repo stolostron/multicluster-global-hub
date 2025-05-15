@@ -132,6 +132,13 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	err := c.Delete(ctx, &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: localClusterName,
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
+
 	cancel()
 	Expect(testEnv.Stop()).NotTo(HaveOccurred())
 })

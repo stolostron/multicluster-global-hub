@@ -99,7 +99,16 @@ var (
 	importClusterInHosted = false
 	mu                    sync.Mutex
 	log                   = logger.DefaultZapLogger()
+	localClusterName      = ""
 )
+
+func SetLocalClusterName(name string) {
+	localClusterName = name
+}
+
+func GetLocalClusterName() string {
+	return localClusterName
+}
 
 func SetAddonManager(addonManager addonmanager.AddonManager) {
 	addonMgr = addonManager

@@ -161,6 +161,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		mgha.Spec.Tolerations,
 		mgha,
 		clusterName,
+		constants.GHTransportConfigSecret,
 	)
 }
 
@@ -175,6 +176,7 @@ func renderAgentManifests(
 	tolerations []corev1.Toleration,
 	owner metav1.Object,
 	clusterName string,
+	transportConfigSecretName string,
 ) (ctrl.Result, error) {
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(mgr.GetClient())
@@ -217,35 +219,37 @@ func renderAgentManifests(
 	// create the agent objects
 	agentObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return struct {
-			Image           string
-			ImagePullSecret string
-			ImagePullPolicy string
-			Namespace       string
-			NodeSelector    map[string]string
-			Tolerations     []corev1.Toleration
-			LeaseDuration   string
-			RenewDeadline   string
-			RetryPeriod     string
-			AgentQPS        float32
-			AgentBurst      int
-			LogLevel        string
-			ClusterId       string
-			Resources       *corev1.ResourceRequirements
+			Image                     string
+			ImagePullSecret           string
+			ImagePullPolicy           string
+			Namespace                 string
+			NodeSelector              map[string]string
+			Tolerations               []corev1.Toleration
+			LeaseDuration             string
+			RenewDeadline             string
+			RetryPeriod               string
+			AgentQPS                  float32
+			AgentBurst                int
+			LogLevel                  string
+			ClusterId                 string
+			Resources                 *corev1.ResourceRequirements
+			TransportConfigSecretName string
 		}{
-			Image:           config.GetImage(config.GlobalHubAgentImageKey),
-			ImagePullSecret: imagePullSecret,
-			ImagePullPolicy: string(imagePullPolicy),
-			Namespace:       namespace,
-			NodeSelector:    nodeSelector,
-			Tolerations:     tolerations,
-			LeaseDuration:   strconv.Itoa(electionConfig.LeaseDuration),
-			RenewDeadline:   strconv.Itoa(electionConfig.RenewDeadline),
-			RetryPeriod:     strconv.Itoa(electionConfig.RetryPeriod),
-			AgentQPS:        agentQPS,
-			AgentBurst:      agentBurst,
-			LogLevel:        logLevel,
-			ClusterId:       clusterName,
-			Resources:       &resourceReq,
+			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
+			ImagePullSecret:           imagePullSecret,
+			ImagePullPolicy:           string(imagePullPolicy),
+			Namespace:                 namespace,
+			NodeSelector:              nodeSelector,
+			Tolerations:               tolerations,
+			LeaseDuration:             strconv.Itoa(electionConfig.LeaseDuration),
+			RenewDeadline:             strconv.Itoa(electionConfig.RenewDeadline),
+			RetryPeriod:               strconv.Itoa(electionConfig.RetryPeriod),
+			AgentQPS:                  agentQPS,
+			AgentBurst:                agentBurst,
+			LogLevel:                  logLevel,
+			ClusterId:                 clusterName,
+			Resources:                 &resourceReq,
+			TransportConfigSecretName: transportConfigSecretName,
 		}, nil
 	})
 	if err != nil {

@@ -16,6 +16,7 @@ type AgentConfig struct {
 	SpecEnforceHohRbac           bool
 	StatusDeltaCountSwitchFactor int
 	TransportConfig              *transport.TransportInternalConfig
+	TransportConfigSecretName    string
 	ElectionConfig               *commonobjects.LeaderElectionConfig
 	Terminating                  bool
 	MetricsAddress               string

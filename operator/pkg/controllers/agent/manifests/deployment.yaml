@@ -30,6 +30,7 @@ spec:
           args:
             - --pod-namespace=$(POD_NAMESPACE)
             - --leaf-hub-name={{ .ClusterId }}
+            - --transport-config-secret={{ .TransportConfigSecretName }}
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}

@@ -10,10 +10,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
@@ -86,6 +89,49 @@ var _ = Describe("local agent", func() {
 		}, time.Second*10, time.Second*1).Should(BeTrue())
 	})
 
+	It("Should create local agent with new local-cluster name", func() {
+		newLocalClusterName := "local-cluster-new"
+		runtimeClient.Create(ctx, &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: newLocalClusterName,
+				Labels: map[string]string{
+					constants.LocalClusterName: "true",
+				},
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				HubAcceptsClient:     true,
+				LeaseDurationSeconds: 60,
+			},
+		})
+		By("By checking the GH agent is created")
+		agentDeployment := &appsv1.Deployment{}
+		Eventually(func() error {
+			err := runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      "multicluster-global-hub-agent",
+				Namespace: controllerOption.MulticlusterGlobalHub.Namespace,
+			}, agentDeployment)
+			if err != nil {
+				return err
+			}
+			err, name := agent.GetLocalClusterName(ctx, runtimeClient, controllerOption.MulticlusterGlobalHub.Namespace)
+			if err != nil {
+				return err
+			}
+			if name != newLocalClusterName {
+				return fmt.Errorf("local cluster name is not updated, expected: %s, actual: %s", newLocalClusterName, name)
+			}
+			return nil
+		}, time.Second*30, time.Second*1).ShouldNot(HaveOccurred())
+
+		By("By checking the transport config secret for local-cluster is created")
+		transportSecret := &corev1.Secret{}
+		Eventually(func() error {
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      constants.GHTransportConfigSecret + "-" + newLocalClusterName,
+				Namespace: controllerOption.MulticlusterGlobalHub.Namespace,
+			}, transportSecret)
+		}, time.Second*30, time.Second*1).ShouldNot(HaveOccurred())
+	})
 	It("Should delete local agent when disable local agent", func() {
 		Eventually(func() error {
 			existingMGH := &globalhubv1alpha4.MulticlusterGlobalHub{}

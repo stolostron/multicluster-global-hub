@@ -88,8 +88,8 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
 	transportSecretName := constants.GHTransportConfigSecret
-	if agentConfig.LeafHubName == constants.LocalClusterName {
-		transportSecretName = constants.GHTransportConfigSecret + "-" + constants.LocalClusterName
+	if agentConfig.TransportConfigSecretName != "" {
+		transportSecretName = agentConfig.TransportConfigSecretName
 	}
 	// add transport ctrl to manager, also load the transportConfig(from secret) into the agentConfig
 	err = controller.NewTransportCtrl(
@@ -120,6 +120,8 @@ func parseFlags() *configs.AgentConfig {
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.StringVar(&agentConfig.LeafHubName, "leaf-hub-name", "", "The name of the leaf hub.")
+	pflag.StringVar(&agentConfig.TransportConfigSecretName, "transport-config-secret",
+		"", "The name of the transport secret.")
 	pflag.StringVar(&agentConfig.PodNamespace, "pod-namespace", constants.GHAgentNamespace,
 		"The agent running namespace, also used as leader election namespace")
 	pflag.IntVar(&agentConfig.SpecWorkPoolSize, "consumer-worker-pool-size", 10,
