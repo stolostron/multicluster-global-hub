@@ -80,9 +80,9 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		condReason = ConditionReasonHubClusterNotFound
 		switch {
 		case errors.IsNotFound(fromHubErr):
-			condMessage = fmt.Sprintf("not found the source hub: %s", mcm.Spec.From)
+			condMessage = fmt.Sprintf("Not found the source hub: %s", mcm.Spec.From)
 		case errors.IsNotFound(toHubErr):
-			condMessage = fmt.Sprintf("not found the destination hub: %s", mcm.Spec.To)
+			condMessage = fmt.Sprintf("Not found the destination hub: %s", mcm.Spec.To)
 		}
 		return nil
 	}
@@ -104,14 +104,20 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	if len(clusterWithHub) == 0 {
 		condStatus = metav1.ConditionFalse
 		condReason = ConditionReasonClusterNotFound
-		condMessage = fmt.Sprintf("invalid managed clusters: %v", mcm.Spec.IncludedManagedClusters)
+		condMessage = fmt.Sprintf("Invalid managed clusters: %v", mcm.Spec.IncludedManagedClusters)
 		return nil
 	}
 
 	notFoundClusters := []string{}
 	clustersInDestinationHub := []string{}
 	for _, cluster := range mcm.Spec.IncludedManagedClusters {
-		hub := clusterWithHub[cluster]
+		hub, ok := clusterWithHub[cluster]
+		if !ok {
+			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonClusterNotFound
+			condMessage = fmt.Sprintf("Not found managed clusters: %s", cluster)
+			return nil
+		}
 		if hub == mcm.Spec.To {
 			clustersInDestinationHub = append(clustersInDestinationHub, cluster)
 		} else if mcm.Spec.From != "" && hub != mcm.Spec.From {
