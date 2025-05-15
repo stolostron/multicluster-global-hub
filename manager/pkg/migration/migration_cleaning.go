@@ -19,7 +19,8 @@ const (
 )
 
 // Completed:
-// 1. Once the resource deployed in the destination hub, Clean up the resources in the source hub
+// 1. Once the cluster registered into the destination hub, Clean up the resources in the source hub
+// 2. Clean up the resource if the migration failed, to let it rollback
 func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
@@ -28,11 +29,11 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	}
 
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) ||
-		mcm.Status.Phase != migrationv1alpha1.PhaseCleaning {
+		(mcm.Status.Phase != migrationv1alpha1.PhaseCleaning && mcm.Status.Phase != migrationv1alpha1.PhaseFailed) {
 		return false, nil
 	}
 
-	log.Infof("migration start cleaning: %s", mcm.Name)
+	log.Infof("migration start cleaning: %s - %s", mcm.Name, mcm.Status.Phase)
 
 	condType := migrationv1alpha1.ConditionTypeCleaned
 	condStatus := metav1.ConditionTrue
@@ -65,11 +66,11 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, err
 	}
 
-	// cleanup the source hub
+	// cleanup the source hub: cleaning or failed state
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range sourceHubClusters {
 		if !GetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning) {
-			err = m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters, bootstrapSecret)
+			err = m.sendEventToSourceHub(ctx, sourceHub, mcm, mcm.Status.Phase, clusters, bootstrapSecret)
 			if err != nil {
 				return false, err
 			}
@@ -77,9 +78,9 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		}
 	}
 
-	// cleanup the target hub
+	// cleanup the target hub: cleaning or failed state
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseCleaning, mcm.Spec.IncludedManagedClusters); err != nil {
+		if err := m.sendEventToDestinationHub(ctx, mcm, mcm.Status.Phase, mcm.Spec.IncludedManagedClusters); err != nil {
 			return false, err
 		}
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)

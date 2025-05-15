@@ -107,7 +107,10 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			}()
 		}
 
-		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseCleaning {
+		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseCleaning ||
+			managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseFailed {
+			log.Infof("cleaning up managed cluster migration: %s", managedClusterMigrationToEvent.Stage)
+
 			if err := s.cleaning(ctx, managedClusterMigrationToEvent); err != nil {
 				log.Errorf("failed to clean up the migration resources %v", err)
 				return nil
