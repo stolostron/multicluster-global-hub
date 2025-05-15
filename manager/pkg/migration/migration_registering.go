@@ -66,7 +66,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			log.Infof("migration registering: %s", fromHub)
 			// notify the source hub to start registering
 			err = m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRegistering,
-				sourceHubToClusters[fromHub], nil)
+				sourceHubToClusters[fromHub], nil, nil)
 			if err != nil {
 				return false, err
 			}

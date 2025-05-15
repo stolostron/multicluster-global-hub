@@ -96,6 +96,22 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 						CurrentVersion: "2.13.0",
 					},
 				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: "cluster1",
+						UID:       "020340324302432049234023040320",
+					},
+					Data: map[string]string{"hello": "world"},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-secret",
+						Namespace: "cluster1",
+						UID:       "020340324302432049234023040321",
+					},
+					StringData: map[string]string{"test": "secret"},
+				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
 				ToHub: "hub2",
@@ -104,6 +120,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
 				},
 				ManagedClusters: []string{"cluster1"},
+				Resources:       []string{"configmap/cluster1/*", "configmap/cluster1/test-configmap", "secret/cluster1/*"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
@@ -243,7 +260,6 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}
 
 			sentEvent := producer.sentEvent
-
 			expectEvent := c.expectedProduceEvent
 			if expectEvent != nil {
 				// fmt.Println(sentEvent)
@@ -269,7 +285,7 @@ func TestGenerateKlusterletConfig(t *testing.T) {
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
 	}
-	mchv1.AddToScheme(scheme)
+	_ = mchv1.AddToScheme(scheme)
 	cases := []struct {
 		name                string
 		mch                 *mchv1.MultiClusterHub

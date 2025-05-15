@@ -3,6 +3,8 @@ package migration
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -19,7 +21,17 @@ const (
 	ConditionReasonClusterNotFound    = "ClusterNotFound"
 	ConditionReasonClusterConflict    = "ClusterConflict"
 	ConditionReasonResourceValidated  = "ResourceValidated"
+	ConditionReasonResourceInvalid    = "ResourceInvalid"
 )
+
+// Only configmap and secret are allowed
+var AllowedKinds = map[string]bool{
+	"configmap": true,
+	"secret":    true,
+}
+
+// Kubernetes DNS-1123 label regex for name and namespace
+var dns1123LabelRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 // Validation:
 // 1. Verify if the migrating clusters exist in the current hubs
@@ -143,6 +155,40 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return nil
 	}
 
+	// validate resources
+	for _, resource := range mcm.Spec.IncludedResources {
+		if err := IsValidResource(resource); err != nil {
+			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonResourceInvalid
+			condMessage = fmt.Sprintf("Invalid resources: %s", err.Error())
+			return nil
+		}
+	}
+
+	return nil
+}
+
+// IsValidResource checks format kind/namespace/name
+func IsValidResource(resource string) error {
+	parts := strings.Split(resource, "/")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid format (must be kind/namespace/name): %s", resource)
+	}
+
+	kind, ns, name := strings.ToLower(parts[0]), parts[1], parts[2]
+
+	if !AllowedKinds[kind] {
+		return fmt.Errorf("unsupported kind: %s", kind)
+	}
+	if !dns1123LabelRegex.MatchString(ns) {
+		return fmt.Errorf("invalid namespace: %s", ns)
+	}
+	if name != "*" && !dns1123LabelRegex.MatchString(name) {
+		return fmt.Errorf("invalid name: %s", name)
+	}
+	if strings.Contains(name, "*") && name != "*" {
+		return fmt.Errorf("invalid name: %s", name)
+	}
 	return nil
 }
 
