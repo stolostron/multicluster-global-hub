@@ -86,19 +86,6 @@ func ensureProgress(migrationId, hub, phase string) *MigrationProgress {
 	return status.Progress[key]
 }
 
-func getProgress(migrationId, hub, phase string) *MigrationProgress {
-	status := getMigrationStatus(migrationId)
-	if status == nil {
-		return nil
-	}
-	key := hubPhaseKey(hub, phase)
-	progress, ok := status.Progress[key]
-	if !ok {
-		log.Warnf("MigrationStatus %s: %s - %s hasn't been initialized", migrationId, hub, phase)
-	}
-	return progress
-}
-
 // SetStarted sets the status of the given stage to started for the hub cluster
 func SetStarted(migrationId, hub, phase string) {
 	mu.RLock()
@@ -129,27 +116,22 @@ func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 func GetStarted(migrationId, hub, phase string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	if p := getProgress(migrationId, hub, phase); p != nil {
-		return p.started
-	}
-	return false
+	p := ensureProgress(migrationId, hub, phase)
+	return p.started
 }
 
 // GetFinished returns true if the status of the given stage is finished for the hub cluster
 func GetFinished(migrationId, hub, phase string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	if p := getProgress(migrationId, hub, phase); p != nil {
-		return p.finished
-	}
-	return false
+	p := ensureProgress(migrationId, hub, phase)
+	return p.finished
 }
 
 func GetErrorMessage(migrationId, hub, phase string) string {
 	mu.RLock()
 	defer mu.RUnlock()
-	if p := getProgress(migrationId, hub, phase); p != nil {
-		return p.error
-	}
-	return ""
+	p := ensureProgress(migrationId, hub, phase)
+
+	return p.error
 }
