@@ -56,9 +56,9 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		}
 	}()
 
-	sourceHubToClusters, err := getSourceClusters(mcm)
-	if err != nil {
-		return false, err
+	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
+	if sourceHubToClusters == nil {
+		return false, fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
 	}
 
 	for fromHub := range sourceHubToClusters {

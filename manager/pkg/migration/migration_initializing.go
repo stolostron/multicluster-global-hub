@@ -76,6 +76,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	if err != nil {
 		return false, err
 	}
+	AddSourceClusters(string(mcm.GetUID()), sourceHubToClusters)
 
 	// 1. Create the managedserviceaccount -> generate bootstrap secret
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
@@ -110,7 +111,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
 			return false, err
 		}
-		log.Info("sent initializing event to target hub")
+		log.Infof("sent initializing event to target hub %s", mcm.Spec.To)
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing)
 	}
 
@@ -122,7 +123,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			if err != nil {
 				return false, err
 			}
-			log.Info("sent initialing events to source hubs: %s", fromHubName)
+			log.Infof("sent initialing events to source hubs: %s", fromHubName)
 			SetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing)
 		}
 	}
@@ -256,6 +257,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 		ToHub:           migration.Spec.To,
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
+		Resources:       resources,
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)

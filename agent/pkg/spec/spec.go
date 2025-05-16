@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
@@ -45,10 +46,15 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 			syncers.NewManagedClusterLabelSyncer(workers))
 	}
 
+	// create a non-cached client for the migration, cause the manager client will only get the cached objects
+	c, err := client.New(mgr.GetConfig(), client.Options{Scheme: configs.GetRuntimeScheme()})
+	if err != nil {
+		return fmt.Errorf("failed to create a non-cached client: %w", err)
+	}
 	dispatcher.RegisterSyncer(constants.MigrationSourceMsgKey,
-		syncers.NewMigrationSourceSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
+		syncers.NewMigrationSourceSyncer(c, transportClient, agentConfig.TransportConfig))
 	dispatcher.RegisterSyncer(constants.MigrationTargetMsgKey,
-		syncers.NewMigrationTargetSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
+		syncers.NewMigrationTargetSyncer(c, transportClient, agentConfig.TransportConfig))
 
 	dispatcher.RegisterSyncer(constants.ResyncMsgKey, syncers.NewResyncer())
 

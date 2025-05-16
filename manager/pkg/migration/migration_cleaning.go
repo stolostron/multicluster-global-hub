@@ -25,6 +25,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
 	if !mcm.DeletionTimestamp.IsZero() {
+		RemoveMigrationStatus(string(mcm.GetUID()))
 		return false, nil
 	}
 
@@ -61,9 +62,9 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, err
 	}
 
-	sourceHubClusters, err := getSourceClusters(mcm)
-	if err != nil {
-		return false, err
+	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
+	if sourceHubClusters == nil {
+		return false, fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
 	}
 
 	// cleanup the source hub: cleaning or failed state
