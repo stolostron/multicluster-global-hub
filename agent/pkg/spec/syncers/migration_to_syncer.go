@@ -73,6 +73,8 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseInitializing {
 			s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
+			// reset the bundle version for each new migration
+			s.bundleVersion.Reset()
 			if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
 				log.Errorf("failed to initialize the migration resources %v", err)
 				return err

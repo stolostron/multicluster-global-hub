@@ -73,6 +73,8 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
 		s.currentMigrationId = migrationSourceHubEvent.MigrationId
+		// reset the bundle version for the new migration
+		s.bundleVersion.Reset()
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
