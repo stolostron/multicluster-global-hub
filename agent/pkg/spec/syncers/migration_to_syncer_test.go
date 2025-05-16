@@ -45,7 +45,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				MigrationId:                           "migration-id",
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -129,7 +129,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having empty registration configuration",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				MigrationId:                           "migration-id",
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -171,7 +171,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				MigrationId:                           "migration-id",
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -222,7 +222,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with cluster manager having registration configuration with feature gate disabled",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				MigrationId:                           "migration-id",
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -268,6 +268,12 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate auto approve user",
+			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test", // the migration cr name
+				ManagedServiceAccountInstallNamespace: "test",
+			},
 			initObjects: []client.Object{
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{
@@ -310,7 +316,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with existing clusterrole and clusterrolebinding",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				MigrationId:                           "migration-id",
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -440,7 +446,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		{
 			name: "migration with changed clusterrole and clusterrolebinding",
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
-				MigrationId:                           "migration-id",
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -643,6 +649,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		{
 			name: "Deploying resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
@@ -663,6 +670,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",

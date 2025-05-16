@@ -114,8 +114,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				ToHub: "hub2",
-				Stage: migrationv1alpha1.PhaseInitializing,
+				MigrationId: "020340324302432049234023040320",
+				ToHub:       "hub2",
+				Stage:       migrationv1alpha1.PhaseInitializing,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
 				},
@@ -156,6 +157,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+				MigrationId:     "020340324302432049234023040320",
 				ToHub:           "hub2",
 				Stage:           migrationv1alpha1.PhaseRegistering,
 				ManagedClusters: []string{"cluster1"},
@@ -196,8 +198,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				ToHub: "hub2",
-				Stage: migrationv1alpha1.PhaseCleaning,
+				MigrationId: "020340324302432049234023040320",
+				ToHub:       "hub2",
+				Stage:       migrationv1alpha1.PhaseCleaning,
 				BootstrapSecret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      bootstrapSecretNamePrefix + "hub2",
