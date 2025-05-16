@@ -270,6 +270,7 @@ func (m *migrationSourceSyncer) initializing(
 	if err != nil {
 		return err
 	}
+	log.Info("initializing migration is finished")
 	return nil
 }
 
