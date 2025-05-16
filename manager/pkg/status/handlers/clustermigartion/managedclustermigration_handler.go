@@ -33,7 +33,7 @@ type managedClusterMigrationHandler struct {
 func RegisterManagedClusterMigrationHandler(mgr ctrl.Manager, conflationManager *conflator.ConflationManager) {
 	k := &managedClusterMigrationHandler{
 		eventType:     string(enum.ManagedClusterMigrationType),
-		eventSyncMode: enum.CompleteStateMode,
+		eventSyncMode: enum.DeltaStateMode, // the migration event is not full bundle, it's an delta event handle one by one
 		eventPriority: conflator.ManagedClusterMigrationPriority,
 		client:        mgr.GetClient(),
 	}

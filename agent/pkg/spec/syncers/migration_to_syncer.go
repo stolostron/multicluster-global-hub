@@ -67,13 +67,23 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			return fmt.Errorf("failed to unmarshal payload %v", err)
 		}
 		log.Debugf("received cloudevent %v", string(evt.Data()))
+		if managedClusterMigrationToEvent.MigrationId == "" {
+			return fmt.Errorf("must set the migrationId: %v", evt)
+		}
 
 		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseInitializing {
+			s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
 			if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
 				log.Errorf("failed to initialize the migration resources %v", err)
 				return err
 			}
 			log.Info("finished the initializing")
+		}
+
+		if s.currentMigrationId != managedClusterMigrationToEvent.MigrationId {
+			log.Infof("ignore the migration event: expected migrationId %s, but got  %s",
+				s.currentMigrationId, managedClusterMigrationToEvent.MigrationId)
+			return nil
 		}
 
 		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
@@ -220,11 +230,6 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 func (s *migrationTargetSyncer) initializing(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
-	s.currentMigrationId = evt.MigrationId
-	if evt.MigrationId == "" {
-		return fmt.Errorf("must set the migrationId: %v", evt)
-	}
-
 	msaName := evt.ManagedServiceAccountName
 	msaNamespace := evt.ManagedServiceAccountInstallNamespace
 	if err := s.ensureClusterManagerAutoApproval(ctx, msaName, msaNamespace); err != nil {

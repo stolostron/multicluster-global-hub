@@ -40,10 +40,11 @@ const (
 )
 
 type migrationSourceSyncer struct {
-	client          client.Client
-	transportClient transport.TransportClient
-	transportConfig *transport.TransportInternalConfig
-	bundleVersion   *eventversion.Version
+	client             client.Client
+	transportClient    transport.TransportClient
+	transportConfig    *transport.TransportInternalConfig
+	bundleVersion      *eventversion.Version
+	currentMigrationId string
 }
 
 func NewMigrationSourceSyncer(client client.Client,
@@ -66,7 +67,12 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 	log.Debugf("received managed cluster migration event %s", string(payload))
 
+	if migrationSourceHubEvent.MigrationId == "" {
+		return fmt.Errorf("must set the migrationId: %v", evt)
+	}
+
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
+		s.currentMigrationId = migrationSourceHubEvent.MigrationId
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
@@ -74,6 +80,11 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
+	}
+
+	if s.currentMigrationId != migrationSourceHubEvent.MigrationId {
+		log.Infof("ignore the migration event %s, current migrationId is %s", migrationSourceHubEvent.MigrationId,
+			s.currentMigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
@@ -389,7 +400,7 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 		addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
 		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
 	}
-	log.Info("attach clusters and addonConfigs into the event")
+	log.Info("deploying: attach clusters and addonConfigs into the event")
 
 	// add resources: secrets and configmaps
 	if err := s.addResources(ctx, resources, migrationResources); err != nil {
@@ -430,12 +441,14 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 				}
 				for i := range configmaps.Items {
 					resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, &configmaps.Items[i])
+					log.Infof("deploying: attach configmap %s/%s", configmaps.Items[i].Namespace, configmaps.Items[i].Name)
 				}
 			} else {
 				configmap := &corev1.ConfigMap{}
 				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
 					return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
 				}
+				log.Infof("deploying: attach configmap %s/%s", configmap.Namespace, configmap.Name)
 				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmap)
 			}
 		case "secret":
@@ -445,6 +458,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 					return fmt.Errorf("failed to list secrets in namespace %s: %w", ns, err)
 				}
 				for i := range secrets.Items {
+					log.Infof("deploying: attach secret %s/%s", secrets.Items[i].Namespace, secrets.Items[i].Name)
 					resourceEvent.Secrets = append(resourceEvent.Secrets, &secrets.Items[i])
 				}
 			} else {
@@ -452,6 +466,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
 					return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
 				}
+				log.Infof("deploying: attach secret %s/%s", secret.Namespace, secret.Name)
 				resourceEvent.Secrets = append(resourceEvent.Secrets, secret)
 			}
 		default:
