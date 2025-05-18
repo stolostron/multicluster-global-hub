@@ -228,7 +228,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
 )
 
-replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
+replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v1.7.2
 
 // the multiclusterhub-operator uses controller-runtime under v0.20.*
 // issue: https://github.com/stolostron/multiclusterhub-operator/issues/2186
