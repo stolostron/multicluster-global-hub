@@ -24,7 +24,7 @@ require (
 	github.com/gonvenience/ytbx v1.4.6
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/homeport/dyff v1.9.4
+	github.com/homeport/dyff v1.10.1
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.37.0
