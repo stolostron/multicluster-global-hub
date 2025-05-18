@@ -4,16 +4,21 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -29,7 +34,7 @@ var (
 	isResourceRemoved    = true
 	localAgentReconciler *LocalAgentController
 	clusterName          = constants.LocalClusterName
-	transportSecretName  = constants.GHTransportConfigSecret + "-" + clusterName
+	agentName            = "multicluster-global-hub-agent"
 )
 
 type LocalAgentController struct {
@@ -55,6 +60,8 @@ func StartLocalAgentController(initOption config.ControllerOption) (config.Contr
 		Named("local-agent-reconciler").
 		Watches(&v1alpha4.MulticlusterGlobalHub{},
 			&handler.EnqueueRequestForObject{}).
+		Watches(&clusterv1.ManagedCluster{},
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deplomentPred)).
 		Watches(&corev1.ConfigMap{},
@@ -71,6 +78,24 @@ func StartLocalAgentController(initOption config.ControllerOption) (config.Contr
 	}
 
 	return localAgentReconciler, nil
+}
+
+var clusterPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		if e.Object.GetLabels() == nil {
+			return false
+		}
+		return e.Object.GetLabels()[constants.LocalClusterName] == "true"
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetLabels() == nil {
+			return false
+		}
+		return e.Object.GetLabels()[constants.LocalClusterName] == "true"
+	},
 }
 
 func (s *LocalAgentController) IsResourceRemoved() bool {
@@ -124,7 +149,36 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		isResourceRemoved = true
 		return ctrl.Result{}, nil
 	}
+	err, currentClusterName := getCurrentClusterName(ctx, s.GetClient(), mgh.Namespace)
+	if err != nil {
+		log.Errorf("failed to get the current cluster name: %v", err)
+		return ctrl.Result{}, err
+	}
+	log.Debugf("current cluster name: %s", currentClusterName)
+
+	err, localClusterName := GetLocalClusterName(ctx, s.GetClient(), mgh.Namespace)
+	if err != nil {
+		log.Errorf("failed to get the current cluster name: %v", err)
+		return ctrl.Result{}, err
+	}
+	log.Debugf("local cluster name: %s", localClusterName)
+
+	// If the local cluster name is different with cluster name in agent deploy,
+	// we need to recreate the agent resources
+	if localClusterName != "" && currentClusterName != "" && localClusterName != currentClusterName {
+		log.Infof("local cluster name changed from %s to %s", currentClusterName, localClusterName)
+		err := pruneAgentResources(ctx, s.GetClient(), mgh.Namespace)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		isResourceRemoved = true
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	isResourceRemoved = false
+	if localClusterName != "" {
+		clusterName = localClusterName
+	}
 	log.Debugf("generate local agent credential")
 	err = GenerateLocalAgentCredential(ctx, s.Manager.GetClient(), mgh.Namespace)
 	if err != nil {
@@ -150,7 +204,53 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		mgh.Spec.Tolerations,
 		mgh,
 		clusterName,
+		getTransportSecretName(),
 	)
+}
+
+// getCurrentClusterName returns the current cluster name from the agent deployment
+func getCurrentClusterName(ctx context.Context, c client.Client, namespace string) (error, string) {
+	deploy := &appsv1.Deployment{}
+	err := c.Get(ctx, client.ObjectKey{
+		Name:      agentName,
+		Namespace: namespace,
+	}, deploy)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, ""
+		}
+		return fmt.Errorf("failed to get the deployment: %v", err), ""
+	}
+	for _, arg := range deploy.Spec.Template.Spec.Containers[0].Args {
+		if !strings.HasPrefix(arg, "--leaf-hub-name=") {
+			continue
+		}
+		return nil, strings.ReplaceAll(arg, "--leaf-hub-name=", "")
+	}
+	return nil, ""
+}
+
+// getLocalClusterName returns the local cluster name from the managedcluster
+func GetLocalClusterName(ctx context.Context, c client.Client, namespace string) (error, string) {
+	mcList := &clusterv1.ManagedClusterList{}
+	listOptions := []client.ListOption{
+		client.MatchingLabels(map[string]string{
+			constants.LocalClusterName: "true",
+		}),
+	}
+	err := c.List(ctx, mcList, listOptions...)
+	if err != nil {
+		return fmt.Errorf("failed to list managedclusters: %v", err), ""
+	}
+	if len(mcList.Items) == 0 {
+		config.SetLocalClusterName("")
+		return nil, ""
+	}
+	if len(mcList.Items) > 1 {
+		return fmt.Errorf("found more than one local cluster: %v", mcList.Items), ""
+	}
+	config.SetLocalClusterName(mcList.Items[0].Name)
+	return nil, mcList.Items[0].Name
 }
 
 func pruneAgentResources(ctx context.Context, c client.Client, namespace string) error {
@@ -158,7 +258,7 @@ func pruneAgentResources(ctx context.Context, c client.Client, namespace string)
 	// delete deployment
 
 	err := utils.DeleteResourcesWithLabels(ctx, c, namespace, map[string]string{
-		"component": "multicluster-global-hub-agent",
+		"component": agentName,
 	},
 		[]client.Object{
 			&appsv1.Deployment{},
@@ -176,7 +276,7 @@ func pruneAgentResources(ctx context.Context, c client.Client, namespace string)
 	if trans == nil {
 		return fmt.Errorf("failed to get the transporter")
 	}
-	err = trans.Prune(constants.LocalClusterName)
+	err = trans.Prune(clusterName)
 	if err != nil {
 		return err
 	}
@@ -203,10 +303,10 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 
 	expectedSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      transportSecretName,
+			Name:      getTransportSecretName(),
 			Namespace: namespace,
 			Labels: map[string]string{
-				"component": "multicluster-global-hub-agent",
+				"component": agentName,
 			},
 		},
 		Data: map[string][]byte{
@@ -220,7 +320,7 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 		if !errors.IsNotFound(err) {
 			return err
 		}
-		log.Infof("create transport secret %v for local agent", transportSecretName)
+		log.Infof("create transport secret %v for local agent", getTransportSecretName())
 		err := c.Create(ctx, expectedSecret)
 		if err != nil {
 			return fmt.Errorf("failed to create transport secret %w", err)
@@ -231,4 +331,8 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	}
 
 	return c.Update(ctx, expectedSecret)
+}
+
+func getTransportSecretName() string {
+	return constants.GHTransportConfigSecret + "-" + clusterName
 }
