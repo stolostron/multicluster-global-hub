@@ -53,12 +53,12 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.32.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
-	open-cluster-management.io/addon-framework v0.11.0
-	open-cluster-management.io/api v0.15.0
-	open-cluster-management.io/governance-policy-propagator v0.11.1-0.20230815182526-b4ee1b24b1d0
-	open-cluster-management.io/managed-serviceaccount v0.6.0
-	open-cluster-management.io/multicloud-operators-channel v0.15.0
-	open-cluster-management.io/multicloud-operators-subscription v0.15.0
+	open-cluster-management.io/addon-framework v0.12.0
+	open-cluster-management.io/api v0.16.2
+	open-cluster-management.io/governance-policy-propagator v0.16.0
+	open-cluster-management.io/managed-serviceaccount v0.8.0
+	open-cluster-management.io/multicloud-operators-channel v0.16.0
+	open-cluster-management.io/multicloud-operators-subscription v0.16.0
 	sigs.k8s.io/application v0.8.3
 	sigs.k8s.io/controller-runtime v0.19.1
 	sigs.k8s.io/kustomize/api v0.18.0
