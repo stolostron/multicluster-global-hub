@@ -94,7 +94,7 @@ func StartGlobalHubAddonManager(ctx context.Context, kubeConfig *rest.Config, cl
 		WithAgentHostedModeEnabledOption().
 		WithScheme(addonAgentConfig.addonScheme).
 		WithAgentHealthProber(&addonframeworkagent.HealthProber{
-			Type: addonframeworkagent.HealthProberTypeWorkloadAvailability,
+			Type: addonframeworkagent.HealthProberTypeLease,
 		}).
 		WithGetValuesFuncs(addonAgentConfig.GetValues,
 			addonfactory.GetValuesFromAddonAnnotation,

@@ -193,7 +193,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
 		}
 
-		log.Info("deleted ClusterManagementAddon", "name", operatorconstants.GHClusterManagementAddonName)
+		log.Info("deleted ClusterManagementAddon", "name", constants.GHClusterManagementAddonName)
 
 		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
 		listOptions := []client.ListOption{
@@ -223,7 +223,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
-		Name: operatorconstants.GHClusterManagementAddonName,
+		Name: constants.GHClusterManagementAddonName,
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -270,7 +270,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
 	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: operatorconstants.GHClusterManagementAddonName,
+			Name: constants.GHClusterManagementAddonName,
 		},
 	}
 	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {

@@ -19,6 +19,7 @@ import (
 	agentspec "github.com/stolostron/multicluster-global-hub/agent/pkg/spec"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -80,7 +81,7 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 	}
 
 	// all the controller started, then add the lease controller
-	if err := AddLeaseController(c.mgr, c.agentConfig.PodNamespace, "multicluster-global-hub-agent"); err != nil {
+	if err := AddLeaseController(c.mgr, c.agentConfig.PodNamespace, constants.GHClusterManagementAddonName); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to add lease updater: %w", err)
 	}
 

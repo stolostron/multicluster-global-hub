@@ -49,7 +49,7 @@ func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluste
 func fakeHoHManagementAddon() *v1alpha1.ClusterManagementAddOn {
 	return &v1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: operatorconstants.GHClusterManagementAddonName,
+			Name: constants.GHClusterManagementAddonName,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},

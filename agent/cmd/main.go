@@ -96,12 +96,13 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	// If --kubeconfig is set, the agent is running in hosted mode.
 	// if run the agent in hosted mode, need to create a new manager in hosting cluster.
 	// the transport controller and configmap controller should be added to the hosting manager.
-	if f := pflag.CommandLine.Lookup(config.KubeconfigFlagName); f != nil {
+	if f := pflag.CommandLine.Lookup(config.KubeconfigFlagName); f.Value.String() != "" {
 		hostingMgr, err = createHostingManager(agentConfig)
 		if err != nil {
 			return fmt.Errorf("failed to create hosting manager: %w", err)
 		}
 		go func() {
+			logger.DefaultZapLogger().Info("starting hosting manager")
 			if err := hostingMgr.Start(ctx); err != nil {
 				logger.DefaultZapLogger().Fatalf("failed to start the hosting manager: %w", err)
 			}

@@ -95,7 +95,7 @@ var _ = Describe("manager", Ordered, func() {
 			}
 			clusterManagementAddOn := &v1alpha1.ClusterManagementAddOn{}
 			err = runtimeClient.Get(ctx, types.NamespacedName{
-				Name: operatorconstants.GHClusterManagementAddonName,
+				Name: constants.GHClusterManagementAddonName,
 			}, clusterManagementAddOn)
 			if err != nil {
 				return err
