@@ -125,8 +125,7 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	config.SetTransporterConn(&transport.KafkaConfig{
-		ClusterID:         "fake",
-		IsNewKafkaCluster: true,
+		ClusterID: "fake",
 	})
 
 	By("start the addon manager and add addon controller to manager")

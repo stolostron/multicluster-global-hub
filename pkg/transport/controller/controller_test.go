@@ -223,51 +223,12 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 		{
 			name: "default install",
 			kafkaConn: &transport.KafkaConfig{
-				IsNewKafkaCluster: false,
-				ClusterID:         "0001",
+				ClusterID: "0001",
 			},
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Name:      "transport-config",
-				},
-			},
-		},
-		{
-			name: "new kafka, has synced",
-			kafkaConn: &transport.KafkaConfig{
-				IsNewKafkaCluster: true,
-				ClusterID:         "0001",
-			},
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-					Name:      "transport-config",
-					Annotations: map[string]string{
-						constants.KafkaClusterIdAnnotation: "0001",
-					},
-				},
-			},
-		},
-		{
-			name: "new kafka, do not synced",
-			kafkaConn: &transport.KafkaConfig{
-				IsNewKafkaCluster: true,
-				ClientSecretName:  "client-secret",
-				ClusterID:         "0001",
-			},
-			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "default",
-					Name:      "transport-config",
-				},
-			},
-			initObjects: []runtime.Object{
-				&corev1.Secret{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "default",
-						Name:      "client-secret",
-					},
 				},
 			},
 		},
