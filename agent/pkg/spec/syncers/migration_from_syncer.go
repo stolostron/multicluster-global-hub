@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -41,17 +42,19 @@ const (
 
 type migrationSourceSyncer struct {
 	client             client.Client
+	restConfig         *rest.Config // for init no-cached client of the runtime manager
 	transportClient    transport.TransportClient
 	transportConfig    *transport.TransportInternalConfig
 	bundleVersion      *eventversion.Version
 	currentMigrationId string
 }
 
-func NewMigrationSourceSyncer(client client.Client,
+func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
 ) *migrationSourceSyncer {
 	return &migrationSourceSyncer{
 		client:          client,
+		restConfig:      restConfig,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
@@ -428,6 +431,16 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []string,
 	resourceEvent *migration.SourceClusterMigrationResources,
 ) error {
+	c := s.client
+	var err error
+	if s.restConfig != nil {
+		// create a non-cached client for the migration, cause the manager client will only get the cached objects
+		c, err = client.New(nil, client.Options{Scheme: configs.GetRuntimeScheme()})
+		if err != nil {
+			return fmt.Errorf("failed to create a non-cached client: %w", err)
+		}
+	}
+
 	for _, resource := range resources {
 		parts := strings.Split(resource, "/")
 		if len(parts) != 3 {
@@ -439,7 +452,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 		case "configmap":
 			if name == "*" {
 				configmaps := &corev1.ConfigMapList{}
-				if err := s.client.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
+				if err := c.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
 					return fmt.Errorf("failed to list configmaps in namespace %s: %w", ns, err)
 				}
 				for i := range configmaps.Items {
@@ -448,7 +461,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 				}
 			} else {
 				configmap := &corev1.ConfigMap{}
-				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
+				if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
 					return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
 				}
 				log.Infof("deploying: attach configmap %s/%s", configmap.Namespace, configmap.Name)
@@ -457,7 +470,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 		case "secret":
 			if name == "*" {
 				secrets := &corev1.SecretList{}
-				if err := s.client.List(ctx, secrets, client.InNamespace(ns)); err != nil {
+				if err := c.List(ctx, secrets, client.InNamespace(ns)); err != nil {
 					return fmt.Errorf("failed to list secrets in namespace %s: %w", ns, err)
 				}
 				for i := range secrets.Items {
@@ -466,7 +479,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 				}
 			} else {
 				secret := &corev1.Secret{}
-				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
+				if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
 					return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
 				}
 				log.Infof("deploying: attach secret %s/%s", secret.Namespace, secret.Name)

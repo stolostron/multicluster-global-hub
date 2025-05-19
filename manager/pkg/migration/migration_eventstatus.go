@@ -74,7 +74,7 @@ func getMigrationStatus(migrationId string) *MigrationStatus {
 	return status
 }
 
-func ensureProgress(migrationId, hub, phase string) *MigrationProgress {
+func getProgress(migrationId, hub, phase string) *MigrationProgress {
 	status := getMigrationStatus(migrationId)
 	if status == nil {
 		return nil
@@ -90,7 +90,7 @@ func ensureProgress(migrationId, hub, phase string) *MigrationProgress {
 func SetStarted(migrationId, hub, phase string) {
 	mu.RLock()
 	defer mu.RUnlock()
-	if p := ensureProgress(migrationId, hub, phase); p != nil {
+	if p := getProgress(migrationId, hub, phase); p != nil {
 		p.started = true
 	}
 }
@@ -99,7 +99,7 @@ func SetStarted(migrationId, hub, phase string) {
 func SetFinished(migrationId, hub, phase string) {
 	mu.RLock()
 	defer mu.RUnlock()
-	if p := ensureProgress(migrationId, hub, phase); p != nil {
+	if p := getProgress(migrationId, hub, phase); p != nil {
 		p.finished = true
 	}
 }
@@ -107,7 +107,7 @@ func SetFinished(migrationId, hub, phase string) {
 func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 	mu.RLock()
 	defer mu.RUnlock()
-	if p := ensureProgress(migrationId, hub, phase); p != nil {
+	if p := getProgress(migrationId, hub, phase); p != nil {
 		p.error = errMessage
 	}
 }
@@ -116,7 +116,7 @@ func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 func GetStarted(migrationId, hub, phase string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	p := ensureProgress(migrationId, hub, phase)
+	p := getProgress(migrationId, hub, phase)
 	return p.started
 }
 
@@ -124,14 +124,14 @@ func GetStarted(migrationId, hub, phase string) bool {
 func GetFinished(migrationId, hub, phase string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	p := ensureProgress(migrationId, hub, phase)
+	p := getProgress(migrationId, hub, phase)
 	return p.finished
 }
 
 func GetErrorMessage(migrationId, hub, phase string) string {
 	mu.RLock()
 	defer mu.RUnlock()
-	p := ensureProgress(migrationId, hub, phase)
+	p := getProgress(migrationId, hub, phase)
 
 	return p.error
 }
