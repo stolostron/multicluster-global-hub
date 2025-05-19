@@ -281,11 +281,10 @@ func (c *TransportCtrl) ResyncKafkaClientSecret(ctx context.Context, kafkaConn *
 		isKafkaClusterIdEqual = false
 	}
 
-	log.Debugf("isNewKafkaCluster: %v", kafkaConn.IsNewKafkaCluster)
 	log.Debugf("isKafkaClusterIdEqual : %v", isKafkaClusterIdEqual)
 
-	// if it's new cluster(upgrade from 1.3 to 1.4) or cluster is not equal (restore globalhub)
-	if kafkaConn.IsNewKafkaCluster || !isKafkaClusterIdEqual {
+	// if it's new cluster, cluster is not equal (restore globalhub)
+	if !isKafkaClusterIdEqual {
 		if kafkaConn.ClientSecretName == "" {
 			return nil
 		}
