@@ -25,10 +25,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/controllers"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -39,9 +41,10 @@ import (
 )
 
 const (
-	metricsHost                = "0.0.0.0"
-	metricsPort          int32 = 8384
-	leaderElectionLockID       = "multicluster-global-hub-agent-lock"
+	metricsHost                       = "0.0.0.0"
+	metricsPort                 int32 = 8384
+	leaderElectionLockID              = "multicluster-global-hub-agent-lock"
+	hostingLeaderElectionLockID       = "multicluster-global-hub-agent-hosting-lock"
 )
 
 func main() {
@@ -82,11 +85,35 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 	if agentConfig.EnablePprof {
 		go utils.StartDefaultPprofServer()
 	}
+
 	// init manager
 	mgr, err := createManager(restConfig, agentConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
+
+	hostingMgr := mgr
+	// If --kubeconfig is set, the agent is running in hosted mode.
+	// if run the agent in hosted mode, need to create a new manager in hosting cluster.
+	// the transport controller and configmap controller should be added to the hosting manager.
+	if f := pflag.CommandLine.Lookup(config.KubeconfigFlagName); f.Value.String() != "" {
+		hostingMgr, err = createHostingManager(agentConfig)
+		if err != nil {
+			return fmt.Errorf("failed to create hosting manager: %w", err)
+		}
+		go func() {
+			logger.DefaultZapLogger().Info("starting hosting manager")
+			if err := hostingMgr.Start(ctx); err != nil {
+				logger.DefaultZapLogger().Fatalf("failed to start the hosting manager: %w", err)
+			}
+		}()
+	}
+
+	// add configmap controller
+	if err := configmap.AddConfigMapController(hostingMgr, agentConfig); err != nil {
+		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
+	}
+
 	transportSecretName := constants.GHTransportConfigSecret
 	if agentConfig.TransportConfigSecretName != "" {
 		transportSecretName = agentConfig.TransportConfigSecretName
@@ -98,7 +125,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
 		false,
-	).SetupWithManager(mgr)
+	).SetupWithManager(hostingMgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)
 	}
@@ -181,6 +208,51 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 
 	configs.SetAgentConfig(agentConfig)
 	return nil
+}
+
+func createHostingManager(agentConfig *configs.AgentConfig) (ctrl.Manager, error) {
+	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
+	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
+	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
+
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	options := ctrl.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+		LeaderElection:          true,
+		Scheme:                  configs.GetRuntimeScheme(),
+		LeaderElectionConfig:    restConfig,
+		LeaderElectionID:        hostingLeaderElectionLockID,
+		LeaderElectionNamespace: agentConfig.PodNamespace,
+		LeaseDuration:           &leaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.ConfigMap{}: {
+					Namespaces: map[string]cache.Config{
+						agentConfig.PodNamespace: {},
+					},
+				},
+				&corev1.Secret{}: {
+					Namespaces: map[string]cache.Config{
+						agentConfig.PodNamespace: {},
+					},
+				},
+			},
+		},
+	}
+
+	mgr, err := ctrl.NewManager(restConfig, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new manager: %w", err)
+	}
+	return mgr, nil
 }
 
 func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (

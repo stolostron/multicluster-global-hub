@@ -14,6 +14,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -202,9 +203,22 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 ) error {
+	// if the target cluster is local cluster, then the msaNamespace is open-cluster-management-agent-addon
+	isLocalCluster := false
+	managedCluster := &clusterv1.ManagedCluster{}
+	if err := m.Client.Get(ctx, types.NamespacedName{
+		Name: migration.Spec.To,
+	}, managedCluster); err != nil {
+		return err
+	}
+	if managedCluster.Labels[constants.LocalClusterName] == "true" {
+		isLocalCluster = true
+	}
+	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
+
 	// default managedserviceaccount addon namespace
 	msaNamespace := "open-cluster-management-agent-addon"
-	if m.managerConfigs.ImportClusterInHosted {
+	if m.managerConfigs.ImportClusterInHosted && !isLocalCluster {
 		// hosted mode, the  managedserviceaccount addon namespace
 		msaNamespace = "open-cluster-management-global-hub-agent-addon"
 	}

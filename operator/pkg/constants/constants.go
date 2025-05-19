@@ -86,11 +86,6 @@ const (
 	MCEPackageManifestName        = "multicluster-engine"
 )
 
-// global hub agent constants
-const (
-	GHClusterManagementAddonName = "multicluster-global-hub-controller"
-)
-
 // global hub names
 const (
 	GHManagerDeploymentName = "multicluster-global-hub-manager"

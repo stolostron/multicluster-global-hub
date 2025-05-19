@@ -39,7 +39,6 @@ import (
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
@@ -258,7 +257,7 @@ func prepareBeforeTest() {
 	By("Create clustermanagementaddon instance")
 	clusterManagementAddon := &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: operatorconstants.GHClusterManagementAddonName,
+			Name: constants.GHClusterManagementAddonName,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},

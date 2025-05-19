@@ -16,7 +16,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -36,8 +35,7 @@ func AddConfigMapController(mgr ctrl.Manager, agentConfig *configs.AgentConfig) 
 	}
 
 	configMapPredicate := predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return (object.GetNamespace() == constants.GHAgentNamespace || object.GetNamespace() == utils.GetDefaultNamespace()) &&
-			object.GetName() == constants.GHAgentConfigCMName
+		return object.GetNamespace() == agentConfig.PodNamespace && object.GetName() == constants.GHAgentConfigCMName
 	})
 	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}).

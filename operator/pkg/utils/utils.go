@@ -420,7 +420,7 @@ func TriggerManagedHubAddons(ctx context.Context, c client.Client, addonManager 
 	for i := range clusters.Items {
 		cluster := clusters.Items[i]
 		if !FilterManagedCluster(&cluster) {
-			addonManager.Trigger(cluster.Name, operatorconstants.GHClusterManagementAddonName)
+			addonManager.Trigger(cluster.Name, constants.GHClusterManagementAddonName)
 		}
 	}
 	return nil

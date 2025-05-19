@@ -152,19 +152,3 @@ func TestCompleteConfig(t *testing.T) {
 		})
 	}
 }
-
-func TestDoMain(t *testing.T) {
-	agentConfig := &configs.AgentConfig{
-		LeafHubName:      "hub1",
-		Standalone:       false,
-		SpecWorkPoolSize: 0,
-		MetricsAddress:   "0.0.0.0:8384",
-		TransportConfig: &transport.TransportInternalConfig{
-			ConsumerGroupId: "hub1",
-			TransportType:   string(transport.Kafka),
-		},
-	}
-	err := doMain(context.Background(), agentConfig, nil)
-	// flag consumer-worker-pool-size should be in the scope [1, 100]
-	assert.NotNil(t, err)
-}

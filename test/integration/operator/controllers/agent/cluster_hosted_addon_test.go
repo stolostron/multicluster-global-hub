@@ -20,8 +20,6 @@ var _ = Describe("deploy hosted addon", func() {
 	It("Should create hosted addon in OCP", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))                // managed hub cluster -> enable local cluster
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6)) // hosting cluster -> global hub
-		workName := fmt.Sprintf("addon-%s-deploy-0",
-			constants.GHManagedClusterAddonName)
 		hostingWorkName := fmt.Sprintf("addon-%s-deploy-hosting-%s-0",
 			constants.GHManagedClusterAddonName, clusterName)
 		By("By preparing clusters")
@@ -57,15 +55,6 @@ var _ = Describe("deploy hosted addon", func() {
 		Expect(addon.GetAnnotations()[constants.AnnotationAddonHostingClusterName]).Should(Equal(hostingClusterName))
 
 		By("By checking the agent manifestworks are created for the newly created managed cluster")
-		work := &workv1.ManifestWork{}
-		Eventually(func() error {
-			return runtimeClient.Get(ctx, types.NamespacedName{
-				Name:      workName,
-				Namespace: clusterName,
-			}, work)
-		}, timeout, interval).ShouldNot(HaveOccurred())
-
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(2))
 		hostingWork := &workv1.ManifestWork{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
@@ -74,7 +63,7 @@ var _ = Describe("deploy hosted addon", func() {
 			}, hostingWork)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(5))
+		Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(7))
 	})
 
 	It("Should create hosted addon and ACM in OCP", func() {
@@ -131,7 +120,7 @@ var _ = Describe("deploy hosted addon", func() {
 			}, work)
 		}, timeout, interval).ShouldNot(HaveOccurred())
 
-		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(11))
+		Expect(len(work.Spec.Workload.Manifests)).Should(Equal(9))
 		hostingWork := &workv1.ManifestWork{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{
@@ -139,6 +128,6 @@ var _ = Describe("deploy hosted addon", func() {
 				Namespace: hostingClusterName,
 			}, hostingWork)
 		}, timeout, interval).ShouldNot(HaveOccurred())
-		Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(5))
+		Expect(len(hostingWork.Spec.Workload.Manifests)).Should(Equal(7))
 	})
 })

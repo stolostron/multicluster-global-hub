@@ -7,12 +7,13 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
@@ -29,10 +30,6 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 ) error {
 	if statusCtrlStarted {
 		return nil
-	}
-
-	if err := configmap.AddConfigMapController(mgr, agentConfig); err != nil {
-		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
 	if err := addKafkaSyncer(ctx, mgr, transportClient.GetProducer(), agentConfig); err != nil {
@@ -90,8 +87,18 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		return fmt.Errorf("failed to launch subscription report syncer: %w", err)
 	}
 
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return err
+	}
+	// create controller runtime client based on in cluster config
+	runtimeClient, err := client.New(config, client.Options{})
+	if err != nil {
+		return err
+	}
+
 	// lunch a time filter, it must be called after filter.RegisterTimeFilter(key)
-	if err := filter.LaunchTimeFilter(ctx, mgr.GetClient(), agentConfig.PodNamespace,
+	if err := filter.LaunchTimeFilter(ctx, runtimeClient, agentConfig.PodNamespace,
 		agentConfig.TransportConfig.KafkaCredential.StatusTopic); err != nil {
 		return fmt.Errorf("failed to launch time filter: %w", err)
 	}

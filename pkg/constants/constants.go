@@ -210,3 +210,8 @@ const (
 	// InventoryResourceFinalizer is added into managedcluster and policy for resource cleanup
 	InventoryResourceFinalizer = "global-hub.open-cluster-management.io/inventory-resource-cleanup"
 )
+
+// global hub agent constants
+const (
+	GHClusterManagementAddonName = "multicluster-global-hub-controller"
+)
