@@ -1,122 +1,137 @@
 package migration
 
 import (
-	"reflect"
+	"fmt"
+	"sync"
 )
 
-type MigrationPhaseStatus struct {
+var (
+	migrationStatuses = make(map[string]*MigrationStatus)
+	mu                sync.RWMutex // optional: for concurrent access
+)
+
+type MigrationStatus struct {
+	Progress map[string]*MigrationProgress // key: hub-phase
+	Clusters map[string][]string           // key: source hub -> clusters
+}
+
+type MigrationProgress struct {
 	started  bool
 	finished bool
 	error    string
 }
 
-type MigrationPhases struct {
-	Validating, Initializing, Deploying, Registering, Cleaning MigrationPhaseStatus
+// AddMigrationStatus init the migration status for the migrationId
+func AddMigrationStatus(migrationId string) {
+	mu.Lock()
+	defer mu.Unlock()
+	migrationStatuses[migrationId] = &MigrationStatus{
+		Progress: make(map[string]*MigrationProgress),
+	}
+	log.Infof("initialize migration status for migrationId: %s", migrationId)
 }
 
-type MigrationEventProgress map[string]*MigrationPhases
+// AddMigrationStatus clean the migration status for the migrationId
+func RemoveMigrationStatus(migrationId string) {
+	mu.Lock()
+	defer mu.Unlock()
+	delete(migrationStatuses, migrationId)
+	log.Infof("clean up migration status for migrationId: %s", migrationId)
+}
 
-// Initialize the global variable
-var MigrationEventProgressMap = make(map[string]*MigrationEventProgress)
+func AddSourceClusters(migrationId string, clusters map[string][]string) {
+	mu.RLock()
+	defer mu.RUnlock()
 
-// updatePhaseStatus updates the status (started/finished) in the source or target cluster
-func updatePhaseStatus(migrationId, hubCluster, phase string,
-	updateFunc func(*MigrationPhaseStatus),
-) {
-	mep := MigrationEventProgressMap[migrationId]
-	if mep == nil {
-		log.Warnf("MigrationEventProgress is nil for migrationId: %s", migrationId)
+	status := getMigrationStatus(migrationId)
+	if status == nil {
 		return
 	}
-	mp := (*mep)[hubCluster]
-	if mp == nil {
-		mp = &MigrationPhases{}
-		(*mep)[hubCluster] = mp
-	}
+	status.Clusters = clusters
+}
 
-	v := reflect.ValueOf(mp).Elem()
-	field := v.FieldByName(phase)
-	if field.IsValid() && field.CanSet() {
-		status, ok := field.Interface().(MigrationPhaseStatus)
-		if ok {
-			updateFunc(&status)
-			field.Set(reflect.ValueOf(status))
-		}
+func GetSourceClusters(migrationId string) map[string][]string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	status := getMigrationStatus(migrationId)
+	if status == nil {
+		return nil
 	}
+	return status.Clusters
+}
+
+func hubPhaseKey(hub, phase string) string {
+	return fmt.Sprintf("%s-%s", hub, phase)
+}
+
+func getMigrationStatus(migrationId string) *MigrationStatus {
+	status, ok := migrationStatuses[migrationId]
+	if !ok {
+		log.Warnf("MigrationStatus is nil for migrationId: %s", migrationId)
+		return nil
+	}
+	return status
+}
+
+func getProgress(migrationId, hub, phase string) *MigrationProgress {
+	status := getMigrationStatus(migrationId)
+	if status == nil {
+		return nil
+	}
+	key := hubPhaseKey(hub, phase)
+	if _, exists := status.Progress[key]; !exists {
+		status.Progress[key] = &MigrationProgress{}
+	}
+	return status.Progress[key]
 }
 
 // SetStarted sets the status of the given stage to started for the hub cluster
-func SetStarted(migrationId, hubCluster, phase string) {
-	updatePhaseStatus(migrationId, hubCluster, phase, func(status *MigrationPhaseStatus) {
-		status.started = true
-	})
+func SetStarted(migrationId, hub, phase string) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if p := getProgress(migrationId, hub, phase); p != nil {
+		p.started = true
+	}
 }
 
 // SetFinished sets the status of the given stage to finished for the hub cluster
-func SetFinished(migrationId, cluster, phase string) {
-	updatePhaseStatus(migrationId, cluster, phase, func(status *MigrationPhaseStatus) {
-		status.finished = true
-	})
+func SetFinished(migrationId, hub, phase string) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if p := getProgress(migrationId, hub, phase); p != nil {
+		p.finished = true
+	}
 }
 
-func SetErrorMessage(migrationId, hubCluster, phase, errMessage string) {
-	updatePhaseStatus(migrationId, hubCluster, phase, func(status *MigrationPhaseStatus) {
-		status.error = errMessage
-	})
-}
-
-// getPhaseStatus extracts the MigrationPhaseStatus for a given phase
-func getPhaseStatus(mp *MigrationPhases, phase string) (MigrationPhaseStatus, bool) {
-	if mp == nil {
-		return MigrationPhaseStatus{}, false
+func SetErrorMessage(migrationId, hub, phase, errMessage string) {
+	mu.RLock()
+	defer mu.RUnlock()
+	if p := getProgress(migrationId, hub, phase); p != nil {
+		p.error = errMessage
 	}
-
-	v := reflect.ValueOf(mp).Elem()
-	field := v.FieldByName(phase)
-	if !field.IsValid() {
-		return MigrationPhaseStatus{}, false
-	}
-
-	status, ok := field.Interface().(MigrationPhaseStatus)
-	if !ok {
-		return MigrationPhaseStatus{}, false
-	}
-
-	return status, true
 }
 
 // GetStarted returns true if the status of the given stage is started for the hub cluster
-func GetStarted(migrationId, hubCluster, phase string) bool {
-	mep := MigrationEventProgressMap[migrationId]
-	if mep == nil {
-		log.Warnf("MigrationEventProgress is nil for migrationId: %s", migrationId)
-		return false
-	}
-	mp := (*mep)[hubCluster]
-	status, ok := getPhaseStatus(mp, phase)
-	if !ok {
-		return false
-	}
-	return status.started
+func GetStarted(migrationId, hub, phase string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	p := getProgress(migrationId, hub, phase)
+	return p.started
 }
 
 // GetFinished returns true if the status of the given stage is finished for the hub cluster
-func GetFinished(migrationId, hubCluster, phase string) bool {
-	mep := MigrationEventProgressMap[migrationId]
-	mp := (*mep)[hubCluster]
-	status, ok := getPhaseStatus(mp, phase)
-	if !ok {
-		return false
-	}
-	return status.finished
+func GetFinished(migrationId, hub, phase string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	p := getProgress(migrationId, hub, phase)
+	return p.finished
 }
 
-func GetErrorMessage(migrationId, hubCluster, phase string) string {
-	mep := MigrationEventProgressMap[migrationId]
-	mp := (*mep)[hubCluster]
-	status, ok := getPhaseStatus(mp, phase)
-	if !ok {
-		return ""
-	}
-	return status.error
+func GetErrorMessage(migrationId, hub, phase string) string {
+	mu.RLock()
+	defer mu.RUnlock()
+	p := getProgress(migrationId, hub, phase)
+
+	return p.error
 }

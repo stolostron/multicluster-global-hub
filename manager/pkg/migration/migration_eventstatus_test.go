@@ -10,15 +10,7 @@ import (
 
 func TestMigrationEventProgress(t *testing.T) {
 	migrateId := "migration"
-	MigrationEventProgressMap[migrateId] = &MigrationEventProgress{
-		"source-cluster": &MigrationPhases{
-			Validating: MigrationPhaseStatus{
-				started:  false,
-				finished: false,
-				error:    "",
-			},
-		},
-	}
+	AddMigrationStatus(migrateId)
 
 	assert.False(t, GetStarted(migrateId, "source-cluster", migrationv1alpha1.PhaseInitializing))
 	SetStarted(migrateId, "source-cluster", migrationv1alpha1.PhaseInitializing)

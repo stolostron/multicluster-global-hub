@@ -45,8 +45,9 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 			syncers.NewManagedClusterLabelSyncer(workers))
 	}
 
+	mgr.GetConfig()
 	dispatcher.RegisterSyncer(constants.MigrationSourceMsgKey,
-		syncers.NewMigrationSourceSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
+		syncers.NewMigrationSourceSyncer(mgr.GetClient(), mgr.GetConfig(), transportClient, agentConfig.TransportConfig))
 	dispatcher.RegisterSyncer(constants.MigrationTargetMsgKey,
 		syncers.NewMigrationTargetSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
 

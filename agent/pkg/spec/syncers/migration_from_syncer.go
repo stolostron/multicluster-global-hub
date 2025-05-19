@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -40,17 +41,20 @@ const (
 )
 
 type migrationSourceSyncer struct {
-	client          client.Client
-	transportClient transport.TransportClient
-	transportConfig *transport.TransportInternalConfig
-	bundleVersion   *eventversion.Version
+	client             client.Client
+	restConfig         *rest.Config // for init no-cached client of the runtime manager
+	transportClient    transport.TransportClient
+	transportConfig    *transport.TransportInternalConfig
+	bundleVersion      *eventversion.Version
+	currentMigrationId string
 }
 
-func NewMigrationSourceSyncer(client client.Client,
+func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
 ) *migrationSourceSyncer {
 	return &migrationSourceSyncer{
 		client:          client,
+		restConfig:      restConfig,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
@@ -66,7 +70,14 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 	log.Debugf("received managed cluster migration event %s", string(payload))
 
+	if migrationSourceHubEvent.MigrationId == "" {
+		return fmt.Errorf("must set the migrationId: %v", evt)
+	}
+
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
+		s.currentMigrationId = migrationSourceHubEvent.MigrationId
+		// reset the bundle version for the new migration
+		s.bundleVersion.Reset()
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
@@ -74,6 +85,11 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
+	}
+
+	if s.currentMigrationId != migrationSourceHubEvent.MigrationId {
+		log.Infof("ignore the migration event %s, current migrationId is %s", migrationSourceHubEvent.MigrationId,
+			s.currentMigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
@@ -257,6 +273,7 @@ func (m *migrationSourceSyncer) initializing(
 	if err != nil {
 		return err
 	}
+	log.Info("initializing migration is finished")
 	return nil
 }
 
@@ -389,7 +406,7 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 		addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
 		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
 	}
-	log.Info("attach clusters and addonConfigs into the event")
+	log.Info("deploying: attach clusters and addonConfigs into the event")
 
 	// add resources: secrets and configmaps
 	if err := s.addResources(ctx, resources, migrationResources); err != nil {
@@ -414,6 +431,16 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []string,
 	resourceEvent *migration.SourceClusterMigrationResources,
 ) error {
+	c := s.client
+	var err error
+	if s.restConfig != nil {
+		// create a non-cached client for the migration, cause the manager client will only get the cached objects
+		c, err = client.New(nil, client.Options{Scheme: configs.GetRuntimeScheme()})
+		if err != nil {
+			return fmt.Errorf("failed to create a non-cached client: %w", err)
+		}
+	}
+
 	for _, resource := range resources {
 		parts := strings.Split(resource, "/")
 		if len(parts) != 3 {
@@ -425,33 +452,37 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 		case "configmap":
 			if name == "*" {
 				configmaps := &corev1.ConfigMapList{}
-				if err := s.client.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
+				if err := c.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
 					return fmt.Errorf("failed to list configmaps in namespace %s: %w", ns, err)
 				}
 				for i := range configmaps.Items {
 					resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, &configmaps.Items[i])
+					log.Infof("deploying: attach configmap %s/%s", configmaps.Items[i].Namespace, configmaps.Items[i].Name)
 				}
 			} else {
 				configmap := &corev1.ConfigMap{}
-				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
+				if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
 					return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
 				}
+				log.Infof("deploying: attach configmap %s/%s", configmap.Namespace, configmap.Name)
 				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmap)
 			}
 		case "secret":
 			if name == "*" {
 				secrets := &corev1.SecretList{}
-				if err := s.client.List(ctx, secrets, client.InNamespace(ns)); err != nil {
+				if err := c.List(ctx, secrets, client.InNamespace(ns)); err != nil {
 					return fmt.Errorf("failed to list secrets in namespace %s: %w", ns, err)
 				}
 				for i := range secrets.Items {
+					log.Infof("deploying: attach secret %s/%s", secrets.Items[i].Namespace, secrets.Items[i].Name)
 					resourceEvent.Secrets = append(resourceEvent.Secrets, &secrets.Items[i])
 				}
 			} else {
 				secret := &corev1.Secret{}
-				if err := s.client.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
+				if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
 					return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
 				}
+				log.Infof("deploying: attach secret %s/%s", secret.Namespace, secret.Name)
 				resourceEvent.Secrets = append(resourceEvent.Secrets, secret)
 			}
 		default:
