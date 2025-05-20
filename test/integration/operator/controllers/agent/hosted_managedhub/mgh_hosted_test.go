@@ -94,7 +94,7 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 // hosted: put the acm agent cluster control plane into acm hub cluster
 // global hub -> managed-hub(local-cluster)
 
-// go test ./test/integration/operator/controllers/agent -ginkgo.focus "other addons in hosted mode test" -v
+// go test ./test/integration/operator/controllers/agent/hosted_managedhub -ginkgo.focus "other addons in hosted mode test" -v
 var _ = Describe("other addons in hosted mode test", Ordered, func() {
 	var hostedAddonReconciler *addon.HostedAgentController
 	BeforeAll(func() {
@@ -205,6 +205,7 @@ var _ = Describe("other addons in hosted mode test", Ordered, func() {
 		newMgh := hostedMGH.DeepCopy()
 		newMgh.Annotations = nil
 		config.SetImportClusterInHosted(newMgh)
+		time.Sleep(1 * time.Second) // add buffer to ensure the deletion timestamp added in the mgh cr
 		_, err = hostedAddonReconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: types.NamespacedName{},
 		})
