@@ -7,6 +7,7 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23 AS bui
 WORKDIR /workspace
 
 COPY ./librdkafka ./librdkafka
+RUN dnf -y install gcc-c++
 RUN cd ./librdkafka && ./configure && make && make install
 
 COPY go.mod go.sum ./

@@ -1,0 +1,167 @@
+---
+lockfileVersion: 1
+lockfileVendor: redhat
+arches:
+- arch: aarch64
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/c/cpp-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-appstream-rpms
+    size: 10795955
+    checksum: sha256:fd6561d7ca6a5ec7a9d9c17c623d97c24eec8f6c8de91081ba95343ebd0de7c2
+    name: cpp
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/g/gcc-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-appstream-rpms
+    size: 31300907
+    checksum: sha256:0adab9938458e552e3d5433c668d7abb946be0a81b2b510a201136efbca51601
+    name: gcc
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/g/gcc-c++-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-appstream-rpms
+    size: 12999288
+    checksum: sha256:a9ff0bd2a2b3483e07dcf87f8137a6358f36f5300c934b90500f119f884e3463
+    name: gcc-c++
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libstdc++-devel-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-appstream-rpms
+    size: 2526795
+    checksum: sha256:83a2006137335a9b17a05a02a54481abcdfd295b280b924c51caaacd7bf07ad6
+    name: libstdc++-devel
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libgcc-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-baseos-rpms
+    size: 83463
+    checksum: sha256:3825a3137d6d3d8da38df5985581fd160a472eef8b929bb02f6e51a49ee6343e
+    name: libgcc
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libgomp-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-baseos-rpms
+    size: 267717
+    checksum: sha256:417eeb095770944a0c25551771d9ae2ea367b3c979eba9da8a529957f49bafa5
+    name: libgomp
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/baseos/os/Packages/l/libstdc++-11.5.0-5.el9_5.aarch64.rpm
+    repoid: ubi-9-for-aarch64-baseos-rpms
+    size: 719222
+    checksum: sha256:e37944a122f5b113e20757ab905462c9c01b18811eeec2e43ffbf71e2bd2861a
+    name: libstdc++
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  source: []
+  module_metadata: []
+- arch: ppc64le
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/c/cpp-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-appstream-rpms
+    size: 9618370
+    checksum: sha256:03758628df2352ad0e3e08431ec3f49fc5d78ace61252ab6e2b3fdd1b953d406
+    name: cpp
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/g/gcc-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-appstream-rpms
+    size: 29056841
+    checksum: sha256:0fcf323be8d8b1f9debf35a7cfd37fcf9ba9e724d7f61159ae947d9772867e2a
+    name: gcc
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/g/gcc-c++-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-appstream-rpms
+    size: 11746031
+    checksum: sha256:3647a24b0173cef50a7a07d5fb5fe624ab4e60f4d3fa9396de8361dd54fd4cab
+    name: gcc-c++
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/l/libstdc++-devel-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-appstream-rpms
+    size: 2532640
+    checksum: sha256:b1aaa76271fefa882e7ea97b4b26daabd35ef62b16e58ce794494bcb1c9ad459
+    name: libstdc++-devel
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/l/libgcc-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-baseos-rpms
+    size: 78032
+    checksum: sha256:8c96e34373c8068f489b07f0e1dec9731b9d600d6125839b2367211c491ec01a
+    name: libgcc
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/l/libgomp-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-baseos-rpms
+    size: 281190
+    checksum: sha256:5d693c13bc37de1de427976bcc61375d5bbb5880c1ecef9d9db22c300cae8ab3
+    name: libgomp
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/baseos/os/Packages/l/libstdc++-11.5.0-5.el9_5.ppc64le.rpm
+    repoid: ubi-9-for-ppc64le-baseos-rpms
+    size: 855950
+    checksum: sha256:6b60a9d9525edbe9aa461de42844e2beaa7e3a3152d904a5c62cc5eeb129e3af
+    name: libstdc++
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  source: []
+  module_metadata: []
+- arch: s390x
+  packages:
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/c/cpp-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-appstream-rpms
+    size: 8598616
+    checksum: sha256:92f3044d78cb814b129227a00049574f2329707114de205a74903442272876ad
+    name: cpp
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/g/gcc-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-appstream-rpms
+    size: 26862907
+    checksum: sha256:02d5e8f44d5cbe3c8b9aabc76b0321d6b501bfb53ff0f5ca87d76339a0a3120d
+    name: gcc
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/g/gcc-c++-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-appstream-rpms
+    size: 10700633
+    checksum: sha256:4151570b0ce73fc9d0b697e6582ec8b9cb08629025b17d680228ace3d8621b15
+    name: gcc-c++
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/l/libstdc++-devel-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-appstream-rpms
+    size: 2518321
+    checksum: sha256:f078c48270e8744e704b45e166fd080daecf8e86f5273b6f21d63f23d0b64b4f
+    name: libstdc++-devel
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/l/libgcc-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-baseos-rpms
+    size: 71563
+    checksum: sha256:b8234dacbc0032cc8e074aed0e9ad8989e9d9a05802832b3e2c004954270536e
+    name: libgcc
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/l/libgomp-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-baseos-rpms
+    size: 265956
+    checksum: sha256:1b87617f48cfe6a6280e2da37d3a6cdd30c8c3874e1a36a4b5d252acf80e113e
+    name: libgomp
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/baseos/os/Packages/l/libstdc++-11.5.0-5.el9_5.s390x.rpm
+    repoid: ubi-9-for-s390x-baseos-rpms
+    size: 794076
+    checksum: sha256:ee1c1fd0dfffafafa13fd5c012e65b207970a9b7eaf269b3df916883a15319f8
+    name: libstdc++
+    evr: 11.5.0-5.el9_5
+    sourcerpm: gcc-11.5.0-5.el9_5.src.rpm
+  source: []
+  module_metadata: []
+- arch: x86_64
+  packages: []
+  source: []
+  module_metadata: []
