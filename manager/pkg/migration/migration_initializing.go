@@ -210,6 +210,10 @@ func (m *ClusterMigrationController) UpdateCondition(
 		}
 	} else {
 		switch conditionType {
+		case migrationv1alpha1.ConditionTypePending:
+			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				mcm.Status.Phase = migrationv1alpha1.ConditionTypePending
+			}
 		case migrationv1alpha1.ConditionTypeValidated:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
