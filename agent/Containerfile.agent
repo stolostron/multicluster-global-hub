@@ -6,6 +6,9 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23 AS bui
 
 WORKDIR /workspace
 
+COPY ./librdkafka ./librdkafka
+RUN cd ./librdkafka && ./configure && make && make install
+
 COPY go.mod go.sum ./
 COPY ./operator/api ./operator/api
 COPY ./agent/ ./agent/
@@ -39,8 +42,9 @@ ENV GIT_COMMIT=${VCS_REF}
 
 # install agent binary
 COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
-
+COPY --from=builder /usr/local/lib/librdkafka.so.1 /usr/local/lib/librdkafka.so.1
 COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
+
 RUN /usr/local/scripts/user_setup
 
 USER ${USER_UID}
