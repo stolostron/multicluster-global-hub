@@ -269,7 +269,7 @@ func TestGenerateKlusterletConfig(t *testing.T) {
 	if err := clientgoscheme.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
 	}
-	mchv1.AddToScheme(scheme)
+	_ = mchv1.AddToScheme(scheme)
 	cases := []struct {
 		name                string
 		mch                 *mchv1.MultiClusterHub
