@@ -31,7 +31,7 @@ The migration process involves coordination between a source hub and a target hu
 <details>
 <summary> Migration Workflow </summary>
 
->![arch](images/migration-architecture.jpg)
+>![arch](images/migration-workflow.jpg)
 
 </details>
 
