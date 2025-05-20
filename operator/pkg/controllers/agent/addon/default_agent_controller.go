@@ -249,6 +249,11 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
+	// skip the local cluster
+	if cluster.Labels[constants.LocalClusterName] == "true" {
+		return ctrl.Result{}, nil
+	}
+
 	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
 	// delete the resources
 	if !cluster.DeletionTimestamp.IsZero() ||
@@ -260,10 +265,6 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// if not installed agent on hub cluster, global hub is installed in a greenfield cluster
-	if cluster.Labels[constants.LocalClusterName] == "true" {
-		return ctrl.Result{}, nil
-	}
 	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 }
 
