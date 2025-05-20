@@ -6,6 +6,8 @@ contentOrigin:
       baseurl: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/${basearch}/appstream/os/
 packages:
   - gcc-c++
+context:
+  containerfile: agent/Containerfile.agent
 arches:
   - aarch64
   - x86_64
