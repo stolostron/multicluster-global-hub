@@ -267,7 +267,7 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 			migrationv1alpha1.ConditionTypePending,
 			metav1.ConditionTrue,
 			"waitOtherMigrationCompleted",
-			fmt.Sprintf("wait for other migration <%s> to be completed", desiredMigration.Name),
+			fmt.Sprintf("Wait for other migration <%s> to be completed", desiredMigration.Name),
 		)
 		if e != nil {
 			log.Errorf("failed to update the %s condition: %v", mcm.Name, e)
