@@ -22,7 +22,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 4,
+      "id": 7,
       "links": [
         {
           "asDropdown": false,
@@ -53,7 +53,7 @@ data:
       "panels": [
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "fieldConfig": {
@@ -70,8 +70,7 @@ data:
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -87,6 +86,7 @@ data:
             "graphMode": "area",
             "justifyMode": "auto",
             "orientation": "auto",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -98,7 +98,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -108,7 +108,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "select   COUNT(DISTINCT cluster_id)\nfrom status.managed_clusters\nwhere deleted_at IS NULL",
+              "rawSql": "select   COUNT(DISTINCT cluster_id)\nfrom status.managed_clusters\nwhere deleted_at IS NULL AND payload -> 'metadata' -> 'annotations' ->> 'addon.open-cluster-management.io/on-multicluster-hub' IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -160,8 +160,7 @@ data:
                   }
                 ]
               },
-              "unit": "string",
-              "unitScale": true
+              "unit": "string"
             },
             "overrides": [
               {
@@ -324,7 +323,7 @@ data:
               }
             ]
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -334,7 +333,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND pending > 0 THEN 'pending'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\nCASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\nEND AS hub_obs_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL AND lh.deleted_at IS NULL",
+              "rawSql": "WITH data AS (\nSELECT\n  cluster_id,\n  COUNT(CASE WHEN lc.compliance = 'non_compliant' THEN 1 END) AS \"non_compliant\",\n  COUNT(CASE WHEN lc.compliance = 'unknown' THEN 1 END) AS \"unknown\",\n  COUNT(CASE WHEN lc.compliance = 'pending' THEN 1 END) AS \"pending\",\n  COUNT(CASE WHEN lc.compliance = 'compliant' THEN 1 END) AS \"compliant\"\nFROM\n  local_status.compliance lc\nGROUP BY (cluster_id)\n),\ncompliance_data AS(\nSELECT cluster_id,\nCASE\n    WHEN non_compliant > 0 THEN 'non_compliant'\n    WHEN non_compliant = 0 AND pending > 0 THEN 'pending'\n    WHEN non_compliant = 0 AND unknown = 0 AND compliant > 0 THEN 'compliant'\n    ELSE 'unknown'\nEND AS compliance\nFROM data\n)\nSELECT \nmc.leaf_hub_name,\nconsole_url as \"hub_console_url\",\nCASE\n    WHEN length(grafana_url) =0 THEN NULL\n    ELSE grafana_url || '/d/8Qvi3edMz/acm-resource-optimization-cluster?var-cluster=' || cluster_name\nEND AS hub_obs_url,\ncluster_name,\ncd.compliance\nFROM status.managed_clusters mc\nLEFT JOIN status.leaf_hubs lh\nON mc.leaf_hub_name=lh.leaf_hub_name\nLEFT JOIN compliance_data cd\nON mc.cluster_id = cd.cluster_id\nWHERE mc.deleted_at IS NULL AND lh.deleted_at IS NULL AND mc.payload -> 'metadata' -> 'annotations' ->> 'addon.open-cluster-management.io/on-multicluster-hub' IS NULL",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -394,8 +393,7 @@ data:
                     "value": null
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": []
           },
@@ -411,6 +409,7 @@ data:
             "graphMode": "area",
             "justifyMode": "auto",
             "orientation": "auto",
+            "percentChangeColorMode": "standard",
             "reduceOptions": {
               "calcs": [
                 "lastNotNull"
@@ -422,7 +421,7 @@ data:
             "textMode": "auto",
             "wideLayout": true
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -487,8 +486,7 @@ data:
                     "value": 80
                   }
                 ]
-              },
-              "unitScale": true
+              }
             },
             "overrides": [
               {
@@ -635,7 +633,7 @@ data:
             "showHeader": true,
             "sortBy": []
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -686,7 +684,7 @@ data:
         },
         {
           "datasource": {
-            "type": "postgres",
+            "type": "grafana-postgresql-datasource",
             "uid": "P244538DD76A4C61D"
           },
           "fieldConfig": {
@@ -701,8 +699,7 @@ data:
                   "viz": false
                 }
               },
-              "mappings": [],
-              "unitScale": true
+              "mappings": []
             },
             "overrides": [
               {
@@ -773,7 +770,7 @@ data:
               "editorMode": "code",
               "format": "table",
               "rawQuery": true,
-              "rawSql": "select leaf_hub_name,\ncount(distinct cluster_id)\nfrom status.managed_clusters\nwhere deleted_at IS NULL\nGROUP BY leaf_hub_name\n",
+              "rawSql": "select leaf_hub_name,\ncount(distinct cluster_id)\nfrom status.managed_clusters\nwhere deleted_at IS NULL AND payload -> 'metadata' -> 'annotations' ->> 'addon.open-cluster-management.io/on-multicluster-hub' IS NULL\nGROUP BY leaf_hub_name\n",
               "refId": "A",
               "sql": {
                 "columns": [
@@ -814,8 +811,7 @@ data:
                   "viz": false
                 }
               },
-              "mappings": [],
-              "unitScale": true
+              "mappings": []
             },
             "overrides": [
               {
@@ -936,8 +932,7 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit",
-              "unitScale": true
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -968,7 +963,7 @@ data:
             },
             "valueMode": "color"
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
@@ -1031,8 +1026,7 @@ data:
                   }
                 ]
               },
-              "unit": "percentunit",
-              "unitScale": true
+              "unit": "percentunit"
             },
             "overrides": []
           },
@@ -1063,7 +1057,7 @@ data:
             },
             "valueMode": "color"
           },
-          "pluginVersion": "10.3.3",
+          "pluginVersion": "11.1.0",
           "targets": [
             {
               "datasource": {
