@@ -190,16 +190,15 @@ func (r *ClusterManagementAddonController) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, err
 	}
 
-		needUpdate := addAddonConfig(cma)
-		if !needUpdate {
-			return ctrl.Result{}, nil
-		}
+	needUpdate := addAddonConfig(cma)
+	if !needUpdate {
+		return ctrl.Result{}, nil
+	}
 
-		err = r.c.Update(ctx, cma)
-		if err != nil {
-			log.Errorf("Failed to update cma, err:%v", err)
-			return ctrl.Result{}, err
-		}
+	err = r.c.Update(ctx, cma)
+	if err != nil {
+		log.Errorf("Failed to update cma, err:%v", err)
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

@@ -197,7 +197,6 @@ func (r *ManagedClusterAddonController) Reconcile(ctx context.Context, req ctrl.
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
-	config.SetImportClusterInHosted(mgh)
 
 	if mgh.DeletionTimestamp != nil {
 		// delete ClusterManagementAddon firstly to trigger clean up addons.
