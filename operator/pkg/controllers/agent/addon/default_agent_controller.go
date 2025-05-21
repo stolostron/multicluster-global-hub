@@ -186,6 +186,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
+	config.SetImportClusterInHosted(mgh)
 
 	if mgh.DeletionTimestamp != nil {
 		// delete ClusterManagementAddon firstly to trigger clean up addons.
@@ -399,8 +400,10 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	}
 	expectedAddonAnnotations := map[string]string{}
 
+	// ensure the hosting cluster
 	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
-	if deployMode == operatorconstants.GHAgentDeployModeHosted {
+	if config.GetImportClusterInHosted() &&
+		(deployMode == operatorconstants.GHAgentDeployModeHosted || deployMode == "") {
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			expectedAddonAnnotations[constants.AnnotationAddonHostingClusterName] = hostingCluster

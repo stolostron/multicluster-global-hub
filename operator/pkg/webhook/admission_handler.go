@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -61,6 +62,11 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		a.localClusterName, err = getLocalClusterName(ctx, a.client)
 		if err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
+		}
+
+		// only if the global hub enabled hosted -> cluster hosted: add annotation 'klusterlet-deploy-mode' = hosted
+		if !config.GetImportClusterInHosted() || cluster.Labels == nil {
+			return admission.Allowed("")
 		}
 
 		changed := a.setHostedAnnotations(cluster)
