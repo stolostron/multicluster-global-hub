@@ -74,7 +74,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
-		if !config.GetGlobalhubAgentRemoved() {
+		if !config.IsManagedClusterAddonResourcesRemoved() {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return r.pruneStrimziResources(ctx)
