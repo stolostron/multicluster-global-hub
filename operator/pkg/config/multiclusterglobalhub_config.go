@@ -87,10 +87,10 @@ var (
 		GrafanaImageKey:             "quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25",
 		PostgresImageKey:            "quay.io/stolostron/postgresql-16:9.5-1732622748",
 		PostgresExporterImageKey:    "quay.io/prometheuscommunity/postgres-exporter:v0.15.0",
-		InventoryImageKey:           fmt.Sprintf("%s/kessel-inventory/inventory-api:latest", RedHatKesselQuayIORegistry),
+		InventoryImageKey:           fmt.Sprintf("%s/kessel-inventory/inventory-api@sha256:c443e7494d7b1dd4bb24234cf265a3f0fb5e9c3c0e2edeb2f00285a2286ff24f", RedHatKesselQuayIORegistry),
 		SpiceDBOperatorImageKey:     fmt.Sprintf("%s/kessel-relations/spicedb-operator:latest", RedHatKesselQuayIORegistry),
 		SpiceDBInstanceImageKey:     fmt.Sprintf("%s/kessel-relations/spicedb:latest", RedHatKesselQuayIORegistry),
-		SpiceDBRelationsAPIImageKey: fmt.Sprintf("%s/kessel-relations/relations-api:latest", RedHatKesselQuayIORegistry),
+		SpiceDBRelationsAPIImageKey: fmt.Sprintf("%s/kessel-relations/relations-api@sha256:fff1d072580a65ee78a82a845eb256a669f67a0b0c1b810811c2a66e6c73b10d", RedHatKesselQuayIORegistry),
 	}
 	statisticLogInterval  = "1m"
 	metricsScrapeInterval = "1m"

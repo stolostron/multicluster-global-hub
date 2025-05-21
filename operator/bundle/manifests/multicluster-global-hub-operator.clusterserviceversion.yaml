@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-05-15T06:58:36Z"
+    createdAt: "2025-05-20T14:03:52Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -993,16 +993,8 @@ spec:
                   value: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
                 - name: RELATED_IMAGE_POSTGRESQL
                   value: quay.io/stolostron/postgresql-16:9.5-1732622748
-                - name: RELATED_IMAGE_INVENTORY_API
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-inventory/inventory-api@sha256:c443e7494d7b1dd4bb24234cf265a3f0fb5e9c3c0e2edeb2f00285a2286ff24f
                 - name: RELATED_IMAGE_POSTGRES_EXPORTER
                   value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
-                - name: RELATED_IMAGE_SPICEDB_OPERATOR
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb-operator:latest
-                - name: RELATED_IMAGE_SPICEDB_INSTANCE
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/spicedb:latest
-                - name: RELATED_IMAGE_RELATIONS_API
-                  value: quay.io/redhat-services-prod/project-kessel-tenant/kessel-relations/relations-api@sha256:fff1d072580a65ee78a82a845eb256a669f67a0b0c1b810811c2a66e6c73b10d
                 image: quay.io/stolostron/multicluster-global-hub-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
