@@ -174,6 +174,10 @@ spec:
         path: enableMetrics
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: FeatureGates represents the list of feature gates If it is set
+          empty, default feature gates will be used.
+        displayName: Feature Gates
+        path: featureGates
       - description: ImagePullPolicy specifies the pull policy of the multicluster
           global hub images
         displayName: Image Pull Policy

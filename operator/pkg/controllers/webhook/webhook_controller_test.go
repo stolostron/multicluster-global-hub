@@ -36,9 +36,6 @@ func TestWebhookResources(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: utils.GetDefaultNamespace(),
 					Name:      "mgh",
-					Annotations: map[string]string{
-						"global-hub.open-cluster-management.io/import-cluster-in-hosted": "false",
-					},
 				},
 				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			},
@@ -70,15 +67,19 @@ func TestWebhookResources(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: utils.GetDefaultNamespace(),
 					Name:      "mgh",
-					Annotations: map[string]string{
-						"global-hub.open-cluster-management.io/import-cluster-in-hosted": "true",
-					},
 					Finalizers: []string{
 						"fn",
 					},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+					FeatureGates: []globalhubv1alpha4.FeatureGate{
+						{
+							Feature: globalhubv1alpha4.FeatureGateImportClusterInHosted,
+							Mode:    globalhubv1alpha4.FeatureGateModeTypeEnable,
+						},
+					},
+				},
 			},
 			webhookItem: 0,
 			initObjects: []runtime.Object{
@@ -108,15 +109,19 @@ func TestWebhookResources(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: utils.GetDefaultNamespace(),
 					Name:      "mgh",
-					Annotations: map[string]string{
-						"global-hub.open-cluster-management.io/import-cluster-in-hosted": "true",
-					},
 					Finalizers: []string{
 						"fn",
 					},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
+					FeatureGates: []globalhubv1alpha4.FeatureGate{
+						{
+							Feature: globalhubv1alpha4.FeatureGateImportClusterInHosted,
+							Mode:    globalhubv1alpha4.FeatureGateModeTypeEnable,
+						},
+					},
+				},
 			},
 			webhookItem: 0,
 			initObjects: []runtime.Object{
