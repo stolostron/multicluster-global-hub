@@ -58,7 +58,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubToClusters == nil {
-		return false, fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		return false, fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
 	}
 
 	for fromHub := range sourceHubToClusters {
@@ -96,7 +96,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
-		condMessage = fmt.Sprintf("the migrated clusters are registering to the target hub %s", mcm.Spec.To)
+		condMessage = fmt.Sprintf("The managed clusters are registering to the target hub %s", mcm.Spec.To)
 		condStatus = metav1.ConditionFalse
 		condReason = conditionReasonClusterRegistered
 		return true, nil

@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -203,11 +204,22 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 	}
 	// clean notAvailableManagedClusters
 	notAvailableManagedClusters = notAvailableManagedClusters[:0]
-	for _, cluster := range evt.ManagedClusters {
+	for _, clusterName := range evt.ManagedClusters {
+		cluster := clusterv1.ManagedCluster{}
+		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, &cluster); err != nil {
+			log.Errorf("failed to get managed cluster %s: %v", clusterName, err)
+			continue
+		}
+
+		// if cluster is hosted mode, the klusterletManifestWorkName is different
+		klusterletManifestWorkName := fmt.Sprintf("%s%s", clusterName, KlusterletManifestWorkSuffix)
+		if cluster.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted {
+			klusterletManifestWorkName = fmt.Sprintf("%s-hosted-%s", clusterName, KlusterletManifestWorkSuffix)
+		}
 		work := &workv1.ManifestWork{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: cluster,
-				Name:      fmt.Sprintf("%s%s", cluster, KlusterletManifestWorkSuffix),
+				Namespace: clusterName,
+				Name:      klusterletManifestWorkName,
 			},
 		}
 		if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
@@ -216,7 +228,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 
 		if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
 			log.Infof("work %s is not applied", work.Name)
-			notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
+			notAvailableManagedClusters = append(notAvailableManagedClusters, clusterName)
 			continue
 		}
 		log.Infof("work %s is applied", work.Name)
