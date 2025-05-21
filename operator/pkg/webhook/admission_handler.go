@@ -75,8 +75,8 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		// 2. the cluster has label "global-hub.open-cluster-management.io/agent-deploy-mode"" -> addon hosted
 		// This is required because, in hosted mode, the Global Hub would otherwise auto-import
 		// the migrated cluster into the hosted cluster, which is incorrect.
-		deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
-		if deployMode != operatorconstants.GHAgentDeployModeHosted && deployMode != "" {
+		deployMode, ok := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+		if !ok || !(deployMode == operatorconstants.GHAgentDeployModeHosted || deployMode == "") {
 			return admission.Allowed("")
 		}
 
