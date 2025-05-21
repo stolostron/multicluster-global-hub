@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -64,8 +65,18 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 
-		// only if the global hub enabled hosted -> cluster hosted: add annotation 'klusterlet-deploy-mode' = hosted
+		// Add the annotation 'klusterlet-deploy-mode=hosted' under conditions 1 and 2.
+
+		// 1. the global hub enabled hosted -> cluster hosted:
 		if !config.GetImportClusterInHosted() {
+			return admission.Allowed("")
+		}
+
+		// 2. the cluster has label "global-hub.open-cluster-management.io/agent-deploy-mode"" -> addon hosted
+		// This is required because, in hosted mode, the Global Hub would otherwise auto-import
+		// the migrated cluster into the hosted cluster, which is incorrect.
+		deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+		if deployMode != operatorconstants.GHAgentDeployModeHosted && deployMode != "" {
 			return admission.Allowed("")
 		}
 
