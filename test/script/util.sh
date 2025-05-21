@@ -235,19 +235,24 @@ init_policy() {
   kubectl create ns "${MANAGED_NAMESPACE}" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
-  GIT_PATH="https://raw.githubusercontent.com/open-cluster-management-io"
+  PROPAGATOR_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-propagator.git"
   propagator="governance-policy-propagator"
-  policy_crd=${GIT_PATH}/$propagator/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_policies.yaml
+  if [ ! -d $propagator ];then
+    git clone $PROPAGATOR_GIT_HTTP_PATH
+    cd $propagator
+    git checkout $GRC_VERSION
+    cd ../
+  fi
 
   # On hub
   if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q $propagator | grep -q Running; then
     ## Apply the CRDs
-    kubectl --context $hub apply -f $policy_crd
-    kubectl --context $hub apply -f ${GIT_PATH}/$propagator/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml
-    kubectl --context $hub apply -f ${GIT_PATH}/$propagator/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml
-    kubectl --context $hub apply -f ${GIT_PATH}/$propagator/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_policysets.yaml
+    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policies.yaml
+    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml
+    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml
+    kubectl --context $hub apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policysets.yaml
     # Deploy the policy-propagator
-    kubectl --context $hub apply -f ${GIT_PATH}/$propagator/$GRC_VERSION/deploy/operator.yaml -n ${HUB_NAMESPACE}
+    kubectl --context $hub apply -f $propagator/deploy/operator.yaml -n ${HUB_NAMESPACE}
     sleep 2
 
     # Replace the laster image with the grc version
@@ -270,15 +275,24 @@ init_policy() {
   fi
 
   ## Apply the policy CRD
-  kubectl --context "$cluster" apply -f "$policy_crd"
+  kubectl --context "$cluster" apply -f $propagator/deploy/crds/policy.open-cluster-management.io_policies.yaml
 
   ## Deploy the synchronization component
-  policy_addon=governance-policy-framework-addon
+
   DEPLOY_ON_HUB=false                   # Set whether or not this is being deployed on the Hub
   local MANAGED_CLUSTER_NAME="$cluster" # Set the managed cluster name and create the namespace
   kubectl create ns "$MANAGED_CLUSTER_NAME" --dry-run=client -o yaml | kubectl --context "$cluster" apply -f -
 
-  retry "(kubectl --context $cluster apply -f $GIT_PATH/$policy_addon/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
+  POLICY_ADDON_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-framework-addon.git"
+  policy_addon=governance-policy-framework-addon
+  if [ ! -d $policy_addon ];then
+    git clone $POLICY_ADDON_GIT_HTTP_PATH
+    cd $policy_addon
+    git checkout $GRC_VERSION
+    cd ../
+  fi
+
+  retry "(kubectl --context $cluster apply -f $policy_addon/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
 
   kubectl --context "$cluster" set image deployment/$policy_addon $policy_addon=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" patch deployment $policy_addon -n ${MANAGED_NAMESPACE} \
@@ -287,9 +301,16 @@ init_policy() {
   ## Install configuration policy controller:
   ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/
   config_policy="config-policy-controller"
-  kubectl --context "$cluster" apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+  CONFIG_POLICY_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/config-policy-controller.git"
+  if [ ! -d $config_policy ];then
+    git clone $CONFIG_POLICY_GIT_HTTP_PATH
+    cd $config_policy
+    git checkout $GRC_VERSION
+    cd ../
+  fi
+  kubectl --context "$cluster" apply -f ${config_policy}/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
-  retry "(kubectl --context $cluster apply -f ${GIT_PATH}/${config_policy}/$GRC_VERSION/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$config_policy -n $MANAGED_NAMESPACE)"
+  retry "(kubectl --context $cluster apply -f ${config_policy}/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$config_policy -n $MANAGED_NAMESPACE)"
 
   kubectl --context "$cluster" set image deployment/$config_policy $config_policy=quay.io/open-cluster-management/config-policy-controller:$GRC_VERSION -n ${MANAGED_NAMESPACE}
   kubectl --context "$cluster" set env deployment/${config_policy} -n ${MANAGED_NAMESPACE} --containers=${config_policy} WATCH_NAMESPACE="${MANAGED_CLUSTER_NAME}"

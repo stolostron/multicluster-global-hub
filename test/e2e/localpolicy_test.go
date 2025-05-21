@@ -125,7 +125,7 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 
 				count := 0
 				eventPolicyIds := sets.NewString()
-				fmt.Println("local policy events: ")
+				fmt.Printf("local policy events: %v\n", policyEvents)
 				for _, e := range policyEvents {
 					fmt.Println(e.LeafHubName, e.ClusterName, e.EventName, e.Message, e.Compliance)
 					if string(hubToPolicyMap[e.LeafHubName].UID) == e.PolicyID {

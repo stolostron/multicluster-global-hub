@@ -73,8 +73,10 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						}
 					}
 				}
+
 				if len(hubToPolicyMap) != len(managedHubNames) {
-					return fmt.Errorf("expect policy has not synchronized")
+					return fmt.Errorf("expect policy has not synchronized. hubtopolicy: %v, managedhubs: %v",
+						len(hubToPolicyMap), len(managedHubNames))
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
