@@ -11,7 +11,10 @@
           "gomod"
         ],
         "matchDepTypes": [
-          "indirect"
+          "indirect",
+          "replace",
+          "final",
+          "stage"
         ],
         "matchUpdateTypes": [
           "pin",
@@ -42,7 +45,7 @@
           "rollback",
           "bump",
           "replacement",
-          "patch",
+          "minor",
           "major"
         ],
         "enabled": false
