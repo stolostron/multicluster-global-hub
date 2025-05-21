@@ -182,22 +182,24 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	isHostedAgentResourceRemoved = false
-	cma := &addonv1alpha1.ClusterManagementAddOn{}
-	err = r.c.Get(ctx, req.NamespacedName, cma)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	if config.GetImportClusterInHosted() {
+		isHostedAgentResourceRemoved = false
+		cma := &addonv1alpha1.ClusterManagementAddOn{}
+		err = r.c.Get(ctx, req.NamespacedName, cma)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
-	needUpdate := addAddonConfig(cma)
-	if !needUpdate {
-		return ctrl.Result{}, nil
-	}
+		needUpdate := addAddonConfig(cma)
+		if !needUpdate {
+			return ctrl.Result{}, nil
+		}
 
-	err = r.c.Update(ctx, cma)
-	if err != nil {
-		log.Errorf("Failed to update cma, err:%v", err)
-		return ctrl.Result{}, err
+		err = r.c.Update(ctx, cma)
+		if err != nil {
+			log.Errorf("Failed to update cma, err:%v", err)
+			return ctrl.Result{}, err
+		}
 	}
 	return ctrl.Result{}, nil
 }

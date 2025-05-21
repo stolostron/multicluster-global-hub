@@ -400,7 +400,7 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	}
 	expectedAddonAnnotations := map[string]string{}
 
-	// ensure the hosting cluster
+	// change the add-on installation namespace in hosted mode.
 	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
 	if config.GetImportClusterInHosted() &&
 		(deployMode == operatorconstants.GHAgentDeployModeHosted || deployMode == "") {

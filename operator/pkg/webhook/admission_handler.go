@@ -65,7 +65,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		}
 
 		// only if the global hub enabled hosted -> cluster hosted: add annotation 'klusterlet-deploy-mode' = hosted
-		if !config.GetImportClusterInHosted() || cluster.Labels == nil {
+		if !config.GetImportClusterInHosted() {
 			return admission.Allowed("")
 		}
 
