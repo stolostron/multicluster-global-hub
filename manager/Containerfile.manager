@@ -6,12 +6,16 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23 AS bui
 
 WORKDIR /workspace
 
+COPY ./librdkafka ./librdkafka
+RUN dnf -y install gcc-c++ --nobest
+RUN cd ./librdkafka && ./configure && make && make install
+
 COPY go.mod go.sum ./
 COPY ./manager/ ./manager/
 COPY ./operator/api ./operator/api
 COPY ./pkg/ ./pkg/
 
-RUN CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=readonly -tags strictfipsruntime -a -v -o bin/manager ./manager/cmd/main.go
+RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=readonly -tags dynamic,strictfipsruntime -a -v -o bin/manager ./manager/cmd/main.go
 
 # Stage 2: Copy the binaries from the image builder to the base image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
@@ -39,8 +43,9 @@ ENV GIT_COMMIT=${VCS_REF}
 
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
-
+COPY --from=builder /usr/local/lib/librdkafka.so.1 /usr/local/lib/librdkafka.so.1
 COPY ./manager/scripts/user_setup /usr/local/scripts/user_setup
+
 RUN /usr/local/scripts/user_setup
 
 USER ${USER_UID}

@@ -10,7 +10,8 @@ metadata:
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch
       == "release-2.14" && (".tekton/multicluster-global-hub-manager-[!b]*.yaml".pathChanged()
-      || "go.{mod,sum}".pathChanged() || "{pkg,manager}/***".pathChanged())
+      || "go.{mod,sum}".pathChanged() || "{pkg,manager}/***".pathChanged()
+      || "rpms.in.yaml".pathChanged() || "rpms.lock.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: release-globalhub-1-5
@@ -29,6 +30,9 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
+    - linux/ppc64le
+    - linux/s390x
+    - linux/arm64
   - name: dockerfile
     value: manager/Containerfile.manager
   - name: path-context
@@ -38,7 +42,7 @@ spec:
   - name: hermetic
     value: "true"
   - name: prefetch-input
-    value: '[ {"type": "gomod", "path": "."} ]'
+    value: '[ {"type": "gomod", "path": "."}, {"type": "rpm", "path": "."} ]'
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -192,6 +196,8 @@ spec:
         value: $(params.output-image).prefetch
       - name: ociArtifactExpiresAfter
         value: $(params.image-expires-after)
+      - name: dev-package-managers
+        value: "true"
       runAfter:
       - clone-repository
       taskRef:
