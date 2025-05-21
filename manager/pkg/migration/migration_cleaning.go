@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -24,6 +25,7 @@ const (
 func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
+	succeed := false
 	if !mcm.DeletionTimestamp.IsZero() {
 		RemoveMigrationStatus(string(mcm.GetUID()))
 		return false, nil
@@ -36,18 +38,29 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 
 	log.Infof("migration start cleaning: %s - %s", mcm.Name, mcm.Status.Phase)
 
-	condType := migrationv1alpha1.ConditionTypeCleaned
-	condStatus := metav1.ConditionTrue
-	condReason := conditionReasonResourceCleaned
-	condMsg := "Resources have been cleaned from the hub clusters"
 	var err error
+	var condStatus metav1.ConditionStatus
+	var condReason string
+	var condMsg string
+	condType := migrationv1alpha1.ConditionTypeCleaned
 
+	// Add cleaned condition only when clean finished.
 	defer func() {
-		if err != nil {
+		// Successfully cleaned the resources from the hub clusters
+		if err == nil && succeed {
+			condStatus = metav1.ConditionTrue
+			condReason = conditionReasonResourceCleaned
+			condMsg = "Resources have been cleaned from the hub clusters"
+		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
+			// If clean timeout, update the condition
 			condMsg = err.Error()
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonResourceNotCleaned
+		} else {
+			// requeue the migration to retry cleaning
+			return
 		}
+
 		log.Infof("cleaning condition %s(%s): %s", condType, condReason, condMsg)
 		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg)
 		if err != nil {
@@ -64,7 +77,8 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {
-		return false, fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		err = fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		return false, err
 	}
 
 	// cleanup the source hub: cleaning or failed state
@@ -115,7 +129,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			return true, nil
 		}
 	}
-
+	succeed = true
 	log.Info("migration cleaning finished")
 	return false, nil
 }
