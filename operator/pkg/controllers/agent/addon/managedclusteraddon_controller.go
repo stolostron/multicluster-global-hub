@@ -77,7 +77,7 @@ func StartManagedClusterAddonController(initOption config.ControllerOption) (con
 	managedClusterAddonController = NewManagedClusterAddonController(initOption.Manager.GetClient())
 
 	err := ctrl.NewControllerManagedBy(initOption.Manager).
-		Named("managedclusteraddon-reconciler").
+		Named("managedclusteraddon-ctrl").
 		For(&clusterv1.ManagedCluster{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {

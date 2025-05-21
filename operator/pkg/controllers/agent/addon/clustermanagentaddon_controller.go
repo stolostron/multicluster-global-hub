@@ -93,7 +93,7 @@ func NewHostedAgentController(mgr ctrl.Manager) *ClusterManagementAddonControlle
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ClusterManagementAddonController) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("CMA-Controller").
+	return ctrl.NewControllerManagedBy(mgr).Named("clustermanagentaddon-ctrl").
 		For(&addonv1alpha1.ClusterManagementAddOn{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {
