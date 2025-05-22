@@ -212,7 +212,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 		}
 
 		// if cluster is hosted mode, the klusterletManifestWorkName is different
-		klusterletManifestWorkName := fmt.Sprintf("%s%s", clusterName, KlusterletManifestWorkSuffix)
+		klusterletManifestWorkName := fmt.Sprintf("%s-%s", clusterName, KlusterletManifestWorkSuffix)
 		if cluster.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted {
 			klusterletManifestWorkName = fmt.Sprintf("%s-hosted-%s", clusterName, KlusterletManifestWorkSuffix)
 		}
@@ -223,6 +223,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 			},
 		}
 		if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
+			log.Infof("failed to get the klusterlet manifestwork: %s.%s", work.Namespace, work.Name)
 			return err
 		}
 
