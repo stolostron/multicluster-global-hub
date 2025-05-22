@@ -259,6 +259,9 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 			}
 			return nil
 		})
+		if err != nil {
+			log.Errorf("failed to update the %s condition: %v", desiredMigration.Name, err)
+		}
 	}
 
 	for _, mcm := range pendingMigrations {

@@ -37,7 +37,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	condType := migrationv1alpha1.ConditionTypeDeployed
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonResourcesDeployed
-	condMessage := "Resources have been deployed to the target hub cluster"
+	condMessage := "Resources have been successfully deployed to the target hub cluster"
 	var err error
 
 	defer func() {
