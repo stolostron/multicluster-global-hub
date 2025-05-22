@@ -40,6 +40,7 @@ LABEL description="multicluster global hub manager"
 ENV USER_UID=1001
 ENV USER_NAME=manager
 ENV GIT_COMMIT=${VCS_REF}
+ENV LD_LIBRARY_PATH=/usr/local/lib/
 
 # install operator binary
 COPY --from=builder /workspace/bin/manager /usr/local/bin/manager
