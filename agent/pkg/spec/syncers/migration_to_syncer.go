@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	KlusterletManifestWorkSuffix = "-klusterlet"
+	KlusterletManifestWorkSuffix = "klusterlet"
 )
 
 var log = logger.DefaultZapLogger()
