@@ -40,7 +40,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	condType := migrationv1alpha1.ConditionTypeRegistered
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonClusterRegistered
-	condMessage := "All migrated clusters are registered"
+	condMessage := "All migrated clusters have been successfully registered"
 	var err error
 
 	defer func() {
