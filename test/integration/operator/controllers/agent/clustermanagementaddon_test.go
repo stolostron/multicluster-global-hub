@@ -11,12 +11,35 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 // go test ./test/integration/operator/controllers/agent -ginkgo.focus "deploy hosted addon" -v
 var _ = Describe("deploy hosted addon", func() {
+	BeforeEach(func() {
+		mgh := &v1alpha4.MulticlusterGlobalHub{
+			Spec: v1alpha4.MulticlusterGlobalHubSpec{
+				FeatureGates: []v1alpha4.FeatureGate{
+					{
+						Feature: v1alpha4.FeatureGateImportClusterInHosted,
+						Mode:    v1alpha4.FeatureGateModeTypeEnable,
+					},
+				},
+			},
+		}
+		config.SetImportClusterInHosted(mgh)
+	})
+	AfterEach(func() {
+		mgh := &v1alpha4.MulticlusterGlobalHub{
+			Spec: v1alpha4.MulticlusterGlobalHubSpec{
+				FeatureGates: []v1alpha4.FeatureGate{},
+			},
+		}
+		config.SetImportClusterInHosted(mgh)
+	})
 	It("Should create hosted addon in OCP", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))                // managed hub cluster -> enable local cluster
 		hostingClusterName := fmt.Sprintf("hub-hosting-%s", rand.String(6)) // hosting cluster -> global hub
