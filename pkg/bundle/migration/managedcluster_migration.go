@@ -32,9 +32,6 @@ type ManagedClusterMigrationToEvent struct {
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
-	// default mode: fmt.Sprintf("%s%s", cluster, KlusterletManifestWorkSuffix
-	// hosted mode: fmt.Sprintf("%s-hosted-%s", cluster, KlusterletManifestWorkSuffix
-	KlusterletManifestwork string `json:"managedClusters,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub
