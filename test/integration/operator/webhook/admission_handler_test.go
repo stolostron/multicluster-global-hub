@@ -14,6 +14,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -25,8 +26,11 @@ var _ = Describe("Multicluster hub webhook", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-mc-",
 					Namespace:    utils.GetDefaultNamespace(),
-					Labels:       map[string]string{},
-					Annotations:  map[string]string{},
+					Labels: map[string]string{
+						// global hub featuregate for klusterlet hosted, this label for addon hosted
+						operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
+					},
+					Annotations: map[string]string{},
 				},
 			}
 
