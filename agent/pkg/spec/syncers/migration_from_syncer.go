@@ -435,7 +435,7 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 	var err error
 	if s.restConfig != nil {
 		// create a non-cached client for the migration, cause the manager client will only get the cached objects
-		c, err = client.New(nil, client.Options{Scheme: configs.GetRuntimeScheme()})
+		c, err = client.New(s.restConfig, client.Options{Scheme: configs.GetRuntimeScheme()})
 		if err != nil {
 			return fmt.Errorf("failed to create a non-cached client: %w", err)
 		}
