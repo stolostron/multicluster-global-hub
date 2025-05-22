@@ -44,18 +44,20 @@ import (
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=addondeploymentconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=clustermanagementaddons,verbs=get;list;watch
 
-type HostedAgentController struct {
+type ClusterManagementAddonController struct {
 	c client.Client
 }
 
 var (
-	isHostedAgentResourceRemoved = true
-	hostedAgentController        *HostedAgentController
+	isHostedAgentResourceRemoved     = true
+	clusterManagementAddonController *ClusterManagementAddonController
 )
 
-func StartHostedAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	if hostedAgentController != nil {
-		return hostedAgentController, nil
+// StartClusterManagedAddonController watches CMA resources and updates their configuration.
+// Currently, it only adds settings in hosted mode and removes them in non-hosted mode.
+func StartClusterManagedAddonController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if clusterManagementAddonController != nil {
+		return clusterManagementAddonController, nil
 	}
 	if !config.IsACMResourceReady() {
 		return nil, nil
@@ -64,36 +66,46 @@ func StartHostedAgentController(initOption config.ControllerOption) (config.Cont
 		return nil, nil
 	}
 
-	log.Info("start hosted agent  controller")
+	log.Info("start clusterManagementAddon(hosted mode) controller")
 
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
 	}
 
-	hostedAgentController = NewHostedAgentController(initOption.Manager)
+	clusterManagementAddonController = NewHostedAgentController(initOption.Manager)
 
-	if err := hostedAgentController.SetupWithManager(initOption.Manager); err != nil {
-		hostedAgentController = nil
+	if err := clusterManagementAddonController.SetupWithManager(initOption.Manager); err != nil {
+		clusterManagementAddonController = nil
 		return nil, err
 	}
-	log.Info("inited hosted agent controller")
-	return hostedAgentController, nil
+	log.Info("initialized clusterManagementAddon(hosted mode) controller")
+	return clusterManagementAddonController, nil
 }
 
-func (c *HostedAgentController) IsResourceRemoved() bool {
-	log.Infof("HostedAgentController resource removed: %v", isHostedAgentResourceRemoved)
+func (c *ClusterManagementAddonController) IsResourceRemoved() bool {
+	log.Infof("ClusterManagementAddon setting removed: %v", isHostedAgentResourceRemoved)
 	return isHostedAgentResourceRemoved
 }
 
-func NewHostedAgentController(mgr ctrl.Manager) *HostedAgentController {
-	return &HostedAgentController{c: mgr.GetClient()}
+func NewHostedAgentController(mgr ctrl.Manager) *ClusterManagementAddonController {
+	return &ClusterManagementAddonController{c: mgr.GetClient()}
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("AddonsController").
+func (r *ClusterManagementAddonController) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).Named("clustermanagentaddon-ctrl").
 		For(&addonv1alpha1.ClusterManagementAddOn{},
-			builder.WithPredicates(addonPred)).
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return config.HostedAddonList.Has(e.Object.GetName())
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return config.HostedAddonList.Has(e.ObjectNew.GetName())
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+			})).
 		// requeue all cma when mgh annotation changed.
 		Watches(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -107,49 +119,35 @@ func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
 					requests = append(requests, request)
 				}
 				return requests
-			}), builder.WithPredicates(mghPred)).
+			}),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return true
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					old, ok := e.ObjectOld.(*v1alpha4.MulticlusterGlobalHub)
+					if !ok {
+						return false
+					}
+					new, ok := e.ObjectNew.(*v1alpha4.MulticlusterGlobalHub)
+					if !ok {
+						return false
+					}
+					// reconcile if ImportClusterInHosted feature changed
+					if config.EnabledFeature(old, v1alpha4.FeatureGateImportClusterInHosted) !=
+						config.EnabledFeature(new, v1alpha4.FeatureGateImportClusterInHosted) {
+						return true
+					}
+					return false
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+			})).
 		Complete(r)
 }
 
-var addonPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return config.HostedAddonList.Has(e.Object.GetName())
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return config.HostedAddonList.Has(e.ObjectNew.GetName())
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		old, ok := e.ObjectOld.(*v1alpha4.MulticlusterGlobalHub)
-		if !ok {
-			return false
-		}
-		new, ok := e.ObjectNew.(*v1alpha4.MulticlusterGlobalHub)
-		if !ok {
-			return false
-		}
-
-		// reconcile if ImportClusterInHosted feature changed
-		if config.EnabledFeature(old, v1alpha4.FeatureGateImportClusterInHosted) !=
-			config.EnabledFeature(new, v1alpha4.FeatureGateImportClusterInHosted) {
-			return true
-		}
-		return false
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ClusterManagementAddonController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile ClusterManagementAddOn: %v", req.NamespacedName)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
 	if err != nil {
@@ -159,6 +157,8 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
+
+	// Removes ClusterManagementAddOn settings when MGH is deleted or in non-hosted mode.
 	if mgh.DeletionTimestamp != nil || !config.GetImportClusterInHosted() {
 		if config.GetImportClusterInHosted() { // deleting mgh: require to delete the all the managed hubs
 			containManagedHub, err := r.hasManagedHub(ctx)
@@ -182,6 +182,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	// MGH is not being deleted and has enabled import cluster in hosted mode.
 	isHostedAgentResourceRemoved = false
 	cma := &addonv1alpha1.ClusterManagementAddOn{}
 	err = r.c.Get(ctx, req.NamespacedName, cma)
@@ -204,7 +205,7 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 
 // revertClusterManagementAddon: Revert the addonConfig(Global Hub hosted addon placement strategy) from
 // the ClusterManagementAddon, which is added when enabling the hosted mode
-func (r *HostedAgentController) revertClusterManagementAddon(ctx context.Context) error {
+func (r *ClusterManagementAddonController) revertClusterManagementAddon(ctx context.Context) error {
 	cmaList := &addonv1alpha1.ClusterManagementAddOnList{}
 	err := r.c.List(ctx, cmaList)
 	if err != nil {
@@ -223,7 +224,7 @@ func (r *HostedAgentController) revertClusterManagementAddon(ctx context.Context
 }
 
 // removeAddonConfig remove the addonConfig of the global hub: Global Hub hosted addon placement strategy
-func (r *HostedAgentController) removeAddonConfig(ctx context.Context, cma addonv1alpha1.ClusterManagementAddOn) error {
+func (r *ClusterManagementAddonController) removeAddonConfig(ctx context.Context, cma addonv1alpha1.ClusterManagementAddOn) error {
 	if len(cma.Spec.InstallStrategy.Placements) == 0 {
 		return nil
 	}
@@ -245,7 +246,7 @@ func (r *HostedAgentController) removeAddonConfig(ctx context.Context, cma addon
 
 // removeAddonDeploymentConfig: remove the addonDeploymentConfig named "global-hub",
 // which is used to specify the GH addon namespace, default 'mulitlcuster-global-hub-agent'
-func (r *HostedAgentController) removeAddonDeploymentConfig(ctx context.Context) error {
+func (r *ClusterManagementAddonController) removeAddonDeploymentConfig(ctx context.Context) error {
 	addonDeployConfig := &addonv1alpha1.AddOnDeploymentConfig{}
 	if err := r.c.Get(ctx, types.NamespacedName{
 		Namespace: utils.GetDefaultNamespace(),
@@ -260,7 +261,7 @@ func (r *HostedAgentController) removeAddonDeploymentConfig(ctx context.Context)
 }
 
 // hasManagedHub: the managed hub cluster will have the GH addon, the managed cluster shouldn't contain the GH addon
-func (r *HostedAgentController) hasManagedHub(ctx context.Context) (bool, error) {
+func (r *ClusterManagementAddonController) hasManagedHub(ctx context.Context) (bool, error) {
 	mcaList := &addonv1alpha1.ManagedClusterAddOnList{}
 	err := r.c.List(ctx, mcaList)
 	if err != nil {

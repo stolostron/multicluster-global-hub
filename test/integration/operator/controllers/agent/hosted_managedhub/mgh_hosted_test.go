@@ -96,7 +96,7 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 
 // go test ./test/integration/operator/controllers/agent/hosted_managedhub -ginkgo.focus "other addons in hosted mode test" -v
 var _ = Describe("other addons in hosted mode test", Ordered, func() {
-	var hostedAddonReconciler *addon.HostedAgentController
+	var hostedAddonReconciler *addon.ClusterManagementAddonController
 	BeforeAll(func() {
 		config.SetImportClusterInHosted(&hostedMGH)
 		var err error
@@ -113,7 +113,7 @@ var _ = Describe("other addons in hosted mode test", Ordered, func() {
 			MulticlusterGlobalHub: &hostedMGH,
 			Manager:               mgr,
 		}
-		_, err = addon.StartHostedAgentController(initOption)
+		_, err = addon.StartClusterManagedAddonController(initOption)
 		Expect(err).Should(Succeed())
 
 		config.SetACMResourceReady(true)

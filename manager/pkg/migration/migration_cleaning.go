@@ -39,7 +39,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	condType := migrationv1alpha1.ConditionTypeCleaned
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonResourceCleaned
-	condMsg := "Resources have been cleaned from the hub clusters"
+	condMsg := "Resources have been successfully cleaned up from the hub clusters"
 	var err error
 
 	defer func() {

@@ -36,69 +36,16 @@ import (
 // +kubebuilder:rbac:groups=addon.open-cluster-management.io,resources=managedclusteraddons/status,verbs=update;patch
 
 var (
-	log                    = logger.DefaultZapLogger()
-	defaultAgentController *DefaultAgentController
+	log                           = logger.DefaultZapLogger()
+	managedClusterAddonController *ManagedClusterAddonController
 )
 
-type DefaultAgentController struct {
+type ManagedClusterAddonController struct {
 	client.Client
 }
 
-var clusterPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return !filterManagedCluster(e.Object)
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if filterManagedCluster(e.ObjectNew) {
-			return false
-		}
-		if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
-			return false
-		}
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return !filterManagedCluster(e.Object)
-	},
-}
-
-var mghAddonPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return false
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetName() != constants.GHManagedClusterAddonName {
-			return false
-		}
-		if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
-			return false
-		}
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetName() == constants.GHManagedClusterAddonName
-	},
-}
-
-var clusterManagementAddonPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return e.Object.GetName() == constants.GHManagedClusterAddonName
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetName() != constants.GHManagedClusterAddonName {
-			return false
-		}
-		if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
-			return false
-		}
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return e.Object.GetName() == constants.GHManagedClusterAddonName
-	},
-}
-
-var secretCond = func(obj client.Object) bool {
+// Assert whether a secret is associated with or affects the addon
+func targetAddonSecret(obj client.Object) bool {
 	if obj.GetName() == config.GetImagePullSecretName() ||
 		obj.GetName() == constants.GHTransportSecretName ||
 		obj.GetLabels() != nil && obj.GetLabels()["strimzi.io/cluster"] == operatortrans.KafkaClusterName &&
@@ -108,76 +55,140 @@ var secretCond = func(obj client.Object) bool {
 	return false
 }
 
-var secretPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return secretCond(e.Object)
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return secretCond(e.ObjectNew)
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
-func NewDefaultAgentController(c client.Client) *DefaultAgentController {
-	return &DefaultAgentController{
+func NewManagedClusterAddonController(c client.Client) *ManagedClusterAddonController {
+	return &ManagedClusterAddonController{
 		Client: c,
 	}
 }
 
-func StartDefaultAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
-	if defaultAgentController != nil {
-		return defaultAgentController, nil
+// ManagedClusterAddonController manages addon-related resources for each cluster.
+// It watches ManagedCluster resources to create or modify addons accordingly.
+// It also watches the MulticlusterGlobalHub (MGH) resource to trigger cleanup
+// of these addon resources when the MGH is deleted.
+func StartManagedClusterAddonController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+	if managedClusterAddonController != nil {
+		return managedClusterAddonController, nil
 	}
-	log.Info("start default agent controller")
+	log.Info("start managedClusterAddon controller")
 
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
 	}
-	defaultAgentController = NewDefaultAgentController(initOption.Manager.GetClient())
+	managedClusterAddonController = NewManagedClusterAddonController(initOption.Manager.GetClient())
 
 	err := ctrl.NewControllerManagedBy(initOption.Manager).
-		Named("default-agent-reconciler").
-		For(&v1alpha4.MulticlusterGlobalHub{},
-			builder.WithPredicates(config.MGHPred)).
-		Watches(&clusterv1.ManagedCluster{}, &handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
-		// WatchesRawSource(source.Kind(acmCache, &clusterv1.ManagedCluster{}),
-		// 	&handler.EnqueueRequestForObject{}, builder.WithPredicates(clusterPred)).
+		Named("managedclusteraddon-ctrl").
+		For(&clusterv1.ManagedCluster{},
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return !filterManagedCluster(e.Object)
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if filterManagedCluster(e.ObjectNew) {
+						return false
+					}
+					if e.ObjectNew.GetResourceVersion() == e.ObjectOld.GetResourceVersion() {
+						return false
+					}
+					return true
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return !filterManagedCluster(e.Object)
+				},
+			})).
+		// Secondary watch for MGH
+		// Why watch MGH: to trigger cleanup of managed cluster addons when MGH is deleted,
+		// so there's no need to requeue all clusters.
+		Watches(&v1alpha4.MulticlusterGlobalHub{},
+			&handler.EnqueueRequestForObject{},
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return false
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return true
+				},
+			})).
 		// secondary watch for managedclusteraddon
+		// only trigger the addon reconcile when addon is updated/deleted
 		Watches(&addonv1alpha1.ManagedClusterAddOn{},
 			handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 				return []reconcile.Request{
-					// only trigger the addon reconcile when addon is updated/deleted
 					{NamespacedName: types.NamespacedName{
 						Name: obj.GetNamespace(),
 					}},
 				}
-			}), builder.WithPredicates(mghAddonPred)).
+			}),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return false
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if e.ObjectNew.GetName() != constants.GHManagedClusterAddonName {
+						return false
+					}
+					if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
+						return false
+					}
+					return true
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return e.Object.GetName() == constants.GHManagedClusterAddonName
+				},
+			})).
 		// secondary watch for managedclusteraddon
 		Watches(&addonv1alpha1.ClusterManagementAddOn{},
-			handler.EnqueueRequestsFromMapFunc(defaultAgentController.renderAllManifestsHandler),
-			builder.WithPredicates(clusterManagementAddonPred)).
+			handler.EnqueueRequestsFromMapFunc(managedClusterAddonController.allClusterRequests),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return e.Object.GetName() == constants.GHManagedClusterAddonName
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					if e.ObjectNew.GetName() != constants.GHManagedClusterAddonName {
+						return false
+					}
+					if e.ObjectNew.GetGeneration() == e.ObjectOld.GetGeneration() {
+						return false
+					}
+					return true
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return e.Object.GetName() == constants.GHManagedClusterAddonName
+				},
+			})).
 		// secondary watch for transport credentials or image pull secret
 		Watches(&corev1.Secret{}, // the cache is set in manager
-			handler.EnqueueRequestsFromMapFunc(defaultAgentController.renderAllManifestsHandler),
-			builder.WithPredicates(secretPred)).
-		Complete(defaultAgentController)
+			handler.EnqueueRequestsFromMapFunc(managedClusterAddonController.allClusterRequests),
+			builder.WithPredicates(predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool {
+					return targetAddonSecret(e.Object)
+				},
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					return targetAddonSecret(e.ObjectNew)
+				},
+				DeleteFunc: func(e event.DeleteEvent) bool {
+					return false
+				},
+			})).
+		Complete(managedClusterAddonController)
 	if err != nil {
-		defaultAgentController = nil
+		managedClusterAddonController = nil
 		return nil, err
 	}
-	log.Info("the default agent controller is started")
-	return defaultAgentController, nil
+	log.Info("the managedClusterAddon controller is started")
+	return managedClusterAddonController, nil
 }
 
-func (c *DefaultAgentController) IsResourceRemoved() bool {
-	log.Infof("DefaultAgentController resource removed: %v", config.GetGlobalhubAgentRemoved())
-	return config.GetGlobalhubAgentRemoved()
+func (c *ManagedClusterAddonController) IsResourceRemoved() bool {
+	log.Infof("managedClusterAddon resource removed: %v", config.IsManagedClusterAddonResourcesRemoved())
+	return config.IsManagedClusterAddonResourcesRemoved()
 }
 
-func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Debugf("reconcile default agent controller: %v", req)
+func (r *ManagedClusterAddonController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log.Debugf("reconcile managedClusterAddon: %v", req)
 
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
 	if err != nil {
@@ -192,8 +203,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.deleteClusterManagementAddon(ctx); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
 		}
-
-		log.Info("deleted ClusterManagementAddon", "name", constants.GHClusterManagementAddonName)
+		log.Infow("deleted ClusterManagementAddon", "name", constants.GHClusterManagementAddonName)
 
 		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
 		listOptions := []client.ListOption{
@@ -207,15 +217,16 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		}
 
 		if len(addonList.Items) != 0 {
-			log.Info("waiting for managedclusteraddon to be deleted", "addon size", len(addonList.Items))
+			log.Infow("waiting for ManagedClusterAddon to be deleted", "addon size", len(addonList.Items))
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
-		log.Info("all addons are deleted")
-		config.SetGlobalhubAgentRemoved(true)
+		log.Info("all ManagedClusterAddons are deleted")
+		config.ManagedClusterAddonRemoved(true)
 		return ctrl.Result{}, nil
 	}
-	config.SetGlobalhubAgentRemoved(false)
+
+	config.ManagedClusterAddonRemoved(false)
 	if config.GetTransporter() == nil {
 		log.Debug("wait transporter ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -227,7 +238,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	}, clusterManagementAddOn)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			log.Infow("waiting until clustermanagementaddon is created", "namespacedname", req.NamespacedName)
+			log.Infow("waiting until ClusterManagementAddon is created", "namespacedname", req.NamespacedName)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 		} else {
 			return ctrl.Result{}, err
@@ -236,6 +247,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	if !clusterManagementAddOn.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
+
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: req.NamespacedName.Name,
@@ -244,6 +256,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	err = r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			log.Infof("not found the cluster %s, the controller might triggered by multiclusterglboalhub", mgh.Name)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -268,7 +281,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
 }
 
-func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
+func (r *ManagedClusterAddonController) deleteClusterManagementAddon(ctx context.Context) error {
 	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.GHClusterManagementAddonName,
@@ -283,8 +296,8 @@ func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Contex
 	return nil
 }
 
-func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context, cluster *clusterv1.ManagedCluster,
-	cma *addonv1alpha1.ClusterManagementAddOn,
+func (r *ManagedClusterAddonController) reconcileAddonAndResources(ctx context.Context,
+	cluster *clusterv1.ManagedCluster, cma *addonv1alpha1.ClusterManagementAddOn,
 ) error {
 	expectedAddon, err := expectedManagedClusterAddon(cluster, cma)
 	if err != nil {
@@ -346,7 +359,7 @@ func EnsureTransportResource(clusterName string) error {
 	return nil
 }
 
-func (r *DefaultAgentController) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
+func (r *ManagedClusterAddonController) removeResourcesAndAddon(ctx context.Context, cluster *clusterv1.ManagedCluster) error {
 	// should remove the addon first, otherwise it mightn't update the mainfiest work for the addon
 	existingAddon := &addonv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
@@ -399,8 +412,10 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	}
 	expectedAddonAnnotations := map[string]string{}
 
-	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
-	if deployMode == operatorconstants.GHAgentDeployModeHosted {
+	// change the add-on installation namespace in hosted mode.
+	deployMode, ok := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+	if config.GetImportClusterInHosted() && ok &&
+		(deployMode == operatorconstants.GHAgentDeployModeHosted || deployMode == "") {
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			expectedAddonAnnotations[constants.AnnotationAddonHostingClusterName] = hostingCluster
@@ -420,33 +435,16 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	return expectedAddon, nil
 }
 
-func (r *DefaultAgentController) renderAllManifestsHandler(
+func (r *ManagedClusterAddonController) allClusterRequests(
 	ctx context.Context, obj client.Object,
 ) []reconcile.Request {
 	requests := []reconcile.Request{}
 
-	hubNames, err := GetAllManagedHubNames(ctx, r.Client)
-	if err != nil {
-		log.Error(err, "failed to list managed clusters to trigger addoninstall reconciler")
-		return requests
-	}
-	for _, name := range hubNames {
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name: name,
-			},
-		})
-	}
-	log.Infow("triggers addoninstall reconciler for all managed clusters", "requests", len(requests))
-	return requests
-}
-
-func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, error) {
-	names := []string{}
 	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := c.List(ctx, managedClusterList)
+	err := r.Client.List(ctx, managedClusterList)
 	if err != nil {
-		return nil, err
+		log.Errorf("failed to list managedClusters to trigger mca controller")
+		return requests
 	}
 
 	for i := range managedClusterList.Items {
@@ -454,9 +452,15 @@ func GetAllManagedHubNames(ctx context.Context, c client.Client) ([]string, erro
 		if filterManagedCluster(&managedCluster) {
 			continue
 		}
-		names = append(names, managedCluster.GetName())
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: managedCluster.GetName(),
+			},
+		})
 	}
-	return names, nil
+
+	log.Info("triggering all the addons/clusters: %d", len(requests))
+	return requests
 }
 
 func filterManagedCluster(obj client.Object) bool {
