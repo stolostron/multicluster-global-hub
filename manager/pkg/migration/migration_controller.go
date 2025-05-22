@@ -219,7 +219,7 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 		}
 		// skip the migration which is failed and cleaned
 		if migration.Status.Phase == migrationv1alpha1.PhaseFailed &&
-			meta.IsStatusConditionTrue(migration.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) {
+			meta.FindStatusCondition(migration.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) != nil {
 			continue
 		}
 
