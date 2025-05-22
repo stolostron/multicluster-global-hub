@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -72,6 +71,8 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			return fmt.Errorf("must set the migrationId: %v", evt)
 		}
 
+		log.Infof("target hub handle the migration: %s", managedClusterMigrationToEvent.MigrationId)
+
 		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseInitializing {
 			s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
 			// reset the bundle version for each new migration
@@ -91,33 +92,24 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
 			go func() {
-				log.Infof("registering managed cluster migration")
+				log.Info("registering managed cluster migration")
 				reportErrMessage := ""
-				notAvailableManagedClusters := []string{}
-				err := wait.PollUntilContextTimeout(ctx, 10*time.Second, 10*time.Minute, true,
-					func(context.Context) (done bool, err error) {
-						if e := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); e != nil {
-							log.Infof("waiting the migrating clusters are available: %v", e)
-							return false, nil
-						}
-						return true, nil
-					})
+				err := s.registering(ctx, managedClusterMigrationToEvent)
 				if err != nil {
-					reportErrMessage = fmt.Sprintf("failed to register these clusters [%s]: %v",
-						strings.Join(notAvailableManagedClusters, ", "), err)
+					reportErrMessage = err.Error()
 				}
-
-				if err := ReportMigrationStatus(
+				err = ReportMigrationStatus(
 					cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 					s.transportClient,
 					&migration.ManagedClusterMigrationBundle{
 						MigrationId: managedClusterMigrationToEvent.MigrationId,
 						Stage:       migrationv1alpha1.ConditionTypeRegistered,
 						ErrMessage:  reportErrMessage,
-					}, s.bundleVersion); err != nil {
-					log.Errorf("failed to send migration event due to %v", err)
+					}, s.bundleVersion)
+				if err != nil {
+					log.Errorf("failed to report the registering migration event due to %v", err)
 				} else {
-					log.Info("finished registring clusters")
+					log.Info("finished registering clusters")
 				}
 			}()
 		}
@@ -194,21 +186,15 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 	return nil
 }
 
-// TODO: Don't need to check the whole clusters every time. only check the not available clusters
 // registering watches the migrated managed clusters
-func (s *migrationTargetSyncer) registering(ctx context.Context,
-	evt *migration.ManagedClusterMigrationToEvent, notAvailableManagedClusters []string,
-) error {
+func (s *migrationTargetSyncer) registering(ctx context.Context, evt *migration.ManagedClusterMigrationToEvent) error {
 	if len(evt.ManagedClusters) == 0 {
-		return fmt.Errorf("no managed clusters to register for migration %s", evt.MigrationId)
+		return fmt.Errorf("no managed clusters found in migration event: %s", evt.MigrationId)
 	}
-	// clean notAvailableManagedClusters
-	notAvailableManagedClusters = notAvailableManagedClusters[:0]
 	for _, clusterName := range evt.ManagedClusters {
 		cluster := clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, &cluster); err != nil {
-			log.Errorf("failed to get managed cluster %s: %v", clusterName, err)
-			continue
+			return fmt.Errorf("failed to get the managed cluster %s: %v", cluster.Name, err)
 		}
 
 		// if cluster is hosted mode, the klusterletManifestWorkName is different
@@ -222,21 +208,24 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 				Name:      klusterletManifestWorkName,
 			},
 		}
-		if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
-			log.Infof("failed to get the klusterlet manifestwork: %s.%s", work.Namespace, work.Name)
-			return err
-		}
 
-		if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
-			log.Infof("work %s is not applied", work.Name)
-			notAvailableManagedClusters = append(notAvailableManagedClusters, clusterName)
-			continue
-		}
-		log.Infof("work %s is applied", work.Name)
-	}
+		// the registering stage timeout should less than migration timeout
+		err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 6*time.Minute, true,
+			func(context.Context) (done bool, err error) {
+				if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
+					log.Infof("failed to get the klusterletManifestWork %s/%s: %v", work.Namespace, work.Name, err.Error())
+					return false, nil
+				}
 
-	if len(notAvailableManagedClusters) > 0 {
-		return fmt.Errorf("works aren't applied: %v", notAvailableManagedClusters)
+				if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
+					log.Infof("wait the klusterletManifestWork %s/%s to be applied", work.Namespace, work.Name)
+					return false, nil
+				}
+				return true, nil
+			})
+		if err != nil {
+			return fmt.Errorf("klusterletManifestWork %s/%s is not ready: %v", work.Namespace, work.Name, err)
+		}
 	}
 	return nil
 }
@@ -314,6 +303,8 @@ func (s *migrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	migrationResources *migration.SourceClusterMigrationResources,
 ) error {
+	log.Infof("started the deploying: %s", migrationResources.MigrationId)
+
 	for _, mc := range migrationResources.ManagedClusters {
 		if err := s.ensureNamespace(ctx, mc.Name); err != nil {
 			return err
@@ -370,7 +361,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		return err
 	}
 
-	log.Info("finished the deploying")
+	log.Infof("finished the deploying %s", migrationResources.MigrationId)
 	// stop the migration consumer
 	return nil
 }
