@@ -16,9 +16,11 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type Object interface {
@@ -116,6 +118,17 @@ var _ = Describe("none addon", func() {
 
 		By("By preparing an OCP with deploy mode = Hosted without hosting cluster")
 		clusterName5 := fmt.Sprintf("hub-ocp-mode-none-%s", rand.String(6))
+		// enable hosted: 1 featuregate in gh, 2 hosted labe in managed cluster
+		config.SetImportClusterInHosted(&v1alpha4.MulticlusterGlobalHub{
+			Spec: v1alpha4.MulticlusterGlobalHubSpec{
+				FeatureGates: []v1alpha4.FeatureGate{
+					{
+						Feature: v1alpha4.FeatureGateImportClusterInHosted,
+						Mode:    v1alpha4.FeatureGateModeTypeEnable,
+					},
+				},
+			},
+		})
 		prepareCluster(clusterName5,
 			map[string]string{
 				"vendor": "OpenShift",
@@ -137,6 +150,7 @@ var _ = Describe("none addon", func() {
 			}
 
 			if len(addonList.Items) != 0 {
+				utils.PrettyPrint(addonList.Items)
 				return fmt.Errorf("expected there is no addon, but got %#v", addonList)
 			}
 			if checkCount == 5 {
@@ -146,6 +160,12 @@ var _ = Describe("none addon", func() {
 			time.Sleep(1 * time.Second)
 			return fmt.Errorf("check again %v", checkCount)
 		}, timeout, interval).ShouldNot(HaveOccurred())
+
+		config.SetImportClusterInHosted(&v1alpha4.MulticlusterGlobalHub{
+			Spec: v1alpha4.MulticlusterGlobalHubSpec{
+				FeatureGates: []v1alpha4.FeatureGate{},
+			},
+		})
 	})
 
 	It("Should not create agent for the local-cluster", func() {
