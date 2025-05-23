@@ -38,7 +38,10 @@ const (
 	KlusterletManifestWorkSuffix = "klusterlet"
 )
 
-var log = logger.DefaultZapLogger()
+var (
+	log                = logger.DefaultZapLogger()
+	registeringTimeout = 6 * time.Minute // the registering stage timeout should less than migration timeout
+)
 
 type migrationTargetSyncer struct {
 	client             client.Client
@@ -209,8 +212,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context, evt *migration.
 			},
 		}
 
-		// the registering stage timeout should less than migration timeout
-		err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 6*time.Minute, true,
+		err := wait.PollUntilContextTimeout(ctx, 5*time.Second, registeringTimeout, true,
 			func(context.Context) (done bool, err error) {
 				if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
 					log.Infof("failed to get the klusterletManifestWork %s/%s: %v", work.Namespace, work.Name, err.Error())
