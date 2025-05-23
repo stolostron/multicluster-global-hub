@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
@@ -968,12 +969,14 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "manifestworks.work.open-cluster-management.io \"cluster2-klusterlet\" not found",
+			expectedError: "klusterletManifestWork cluster2/cluster2-klusterlet is not ready",
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			// change the resitering timeout
+			registeringTimeout = 10 * time.Second
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
