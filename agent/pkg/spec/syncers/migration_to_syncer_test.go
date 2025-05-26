@@ -969,7 +969,7 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "klusterletManifestWork cluster2/cluster2-klusterlet is not ready",
+			expectedError: "manifestworks.work.open-cluster-management.io \"cluster2-klusterlet\" not found",
 		},
 	}
 
@@ -981,7 +981,8 @@ func TestRegistering(t *testing.T) {
 
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
 
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent)
+			notAvailableManagedClusters := []string{}
+			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, notAvailableManagedClusters)
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {

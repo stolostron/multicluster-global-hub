@@ -251,7 +251,7 @@ func TestPruneReconciler_hasManagedHub(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			addonv1alpha1.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.cmas...).Build()
-			hac := ClusterManagementAddonController{
+			hac := HostedAgentController{
 				c: fakeClient,
 			}
 			ctx := context.Background()
@@ -367,7 +367,7 @@ func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			addonv1alpha1.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.cmas...).Build()
-			hac := ClusterManagementAddonController{
+			hac := HostedAgentController{
 				c: fakeClient,
 			}
 			ctx := context.Background()

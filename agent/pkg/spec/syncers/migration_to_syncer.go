@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -40,7 +41,7 @@ const (
 
 var (
 	log                = logger.DefaultZapLogger()
-	registeringTimeout = 6 * time.Minute // the registering stage timeout should less than migration timeout
+	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
 )
 
 type migrationTargetSyncer struct {
@@ -97,10 +98,25 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			go func() {
 				log.Info("registering managed cluster migration")
 				reportErrMessage := ""
-				err := s.registering(ctx, managedClusterMigrationToEvent)
+				notAvailableManagedClusters := []string{}
+				err := wait.PollUntilContextTimeout(ctx, 10*time.Second, registeringTimeout, true,
+					func(context.Context) (done bool, err error) {
+						if e := s.registering(ctx, managedClusterMigrationToEvent, notAvailableManagedClusters); e != nil {
+							log.Infof("waiting the migrating clusters are available: %v", e)
+							reportErrMessage = e.Error()
+							return false, nil
+						}
+						return true, nil
+					})
+				// the reportErrMessage record the detailed information why the registering failed,
+				// if registered successfully, remove the record error message during the registering
 				if err != nil {
-					reportErrMessage = err.Error()
+					reportErrMessage = fmt.Sprintf("failed to register these clusters [%s]: %s",
+						strings.Join(notAvailableManagedClusters, ", "), reportErrMessage)
+				} else {
+					reportErrMessage = ""
 				}
+
 				err = ReportMigrationStatus(
 					cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 					s.transportClient,
@@ -190,21 +206,21 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 }
 
 // registering watches the migrated managed clusters
-func (s *migrationTargetSyncer) registering(ctx context.Context, evt *migration.ManagedClusterMigrationToEvent) error {
+func (s *migrationTargetSyncer) registering(ctx context.Context,
+	evt *migration.ManagedClusterMigrationToEvent, notAvailableManagedClusters []string,
+) error {
 	if len(evt.ManagedClusters) == 0 {
 		return fmt.Errorf("no managed clusters found in migration event: %s", evt.MigrationId)
 	}
+	notAvailableManagedClusters = notAvailableManagedClusters[:0]
 	for _, clusterName := range evt.ManagedClusters {
 		cluster := clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, &cluster); err != nil {
 			return fmt.Errorf("failed to get the managed cluster %s: %v", cluster.Name, err)
 		}
 
-		// if cluster is hosted mode, the klusterletManifestWorkName is different
+		// not support hosted managed hub, the hosted klusterletManifestWork name is <cluster-name>-hosted-klusterlet
 		klusterletManifestWorkName := fmt.Sprintf("%s-%s", clusterName, KlusterletManifestWorkSuffix)
-		if cluster.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted {
-			klusterletManifestWorkName = fmt.Sprintf("%s-hosted-%s", clusterName, KlusterletManifestWorkSuffix)
-		}
 		work := &workv1.ManifestWork{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: clusterName,
@@ -212,23 +228,21 @@ func (s *migrationTargetSyncer) registering(ctx context.Context, evt *migration.
 			},
 		}
 
-		err := wait.PollUntilContextTimeout(ctx, 5*time.Second, registeringTimeout, true,
-			func(context.Context) (done bool, err error) {
-				if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
-					log.Infof("failed to get the klusterletManifestWork %s/%s: %v", work.Namespace, work.Name, err.Error())
-					return false, nil
-				}
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
+			return err
+		}
 
-				if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
-					log.Infof("wait the klusterletManifestWork %s/%s to be applied", work.Namespace, work.Name)
-					return false, nil
-				}
-				return true, nil
-			})
-		if err != nil {
-			return fmt.Errorf("klusterletManifestWork %s/%s is not ready: %v", work.Namespace, work.Name, err)
+		if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
+			log.Infof("work %s is not applied", work.Name)
+			notAvailableManagedClusters = append(notAvailableManagedClusters, clusterName)
+			continue
 		}
 	}
+
+	if len(notAvailableManagedClusters) > 0 {
+		return fmt.Errorf("works aren't applied: %v", notAvailableManagedClusters)
+	}
+
 	return nil
 }
 

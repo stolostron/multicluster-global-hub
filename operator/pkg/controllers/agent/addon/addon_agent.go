@@ -167,7 +167,7 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	a.addHostedConfig(cluster, &manifestsConfig)
+	a.setInstallHostedMode(cluster, &manifestsConfig)
 
 	return addonfactory.StructToValues(manifestsConfig), nil
 }
@@ -204,8 +204,7 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 	return nil
 }
 
-// addHostedConfig
-func (a *GlobalHubAddonAgent) addHostedConfig(cluster *clusterv1.ManagedCluster,
+func (a *GlobalHubAddonAgent) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
 	manifestsConfig *config.ManifestsConfig,
 ) {
 	// cluster hosted: the annotation 'klusterlet-deploy-mode' = hosted is added in the webhook by the gh hosted config

@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,8 +50,9 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonClusterNotRegistered
 		}
+		// the target hub registering timeout is 10 time.minutes, we need to ensure it larger than that
 		log.Infof("registering condition %s(%s): %s", condType, condReason, condMessage)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
+		err = m.UpdateConditionWithBackoff(ctx, mcm, condType, condStatus, condReason, condMessage, 12*time.Minute)
 		if err != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, err)
 		}

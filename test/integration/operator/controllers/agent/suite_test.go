@@ -130,7 +130,7 @@ var _ = BeforeSuite(func() {
 	By("start the addon manager and add addon controller to manager")
 	_, err = addon.StartAddonManagerController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
-	_, err = addon.StartManagedClusterAddonController(controllerOption)
+	_, err = addon.StartDefaultAgentController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())
 	_, err = agent.StartLocalAgentController(controllerOption)
 	Expect(err).ToNot(HaveOccurred())

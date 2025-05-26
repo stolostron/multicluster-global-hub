@@ -34,7 +34,8 @@ import (
 
 const SignerName = "open-cluster-management.io/globalhub-signer"
 
-var isManagedClusterAddonResourcesRemoved = true
+// isGlobalhubAgentRemoved used to mark the managedclusteraddon and related resources is removed
+var isGlobalhubAgentRemoved = true
 
 func GetAgentImage(cluster *clusterv1.ManagedCluster) (string, error) {
 	// image registry override by operator environment variable and mgh annotation
@@ -47,12 +48,12 @@ func GetAgentImage(cluster *clusterv1.ManagedCluster) (string, error) {
 	return image, nil
 }
 
-func ManagedClusterAddonRemoved(agentRemoved bool) {
-	isManagedClusterAddonResourcesRemoved = agentRemoved
+func SetGlobalhubAgentRemoved(agentRemoved bool) {
+	isGlobalhubAgentRemoved = agentRemoved
 }
 
-func IsManagedClusterAddonResourcesRemoved() bool {
-	return isManagedClusterAddonResourcesRemoved
+func GetGlobalhubAgentRemoved() bool {
+	return isGlobalhubAgentRemoved
 }
 
 // https://github.com/open-cluster-management-io/ocm/blob/main/pkg/registration/spoke/addon/configuration.go

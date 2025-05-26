@@ -65,7 +65,7 @@ func NewManagedClusterAddonController(c client.Client) *ManagedClusterAddonContr
 // It watches ManagedCluster resources to create or modify addons accordingly.
 // It also watches the MulticlusterGlobalHub (MGH) resource to trigger cleanup
 // of these addon resources when the MGH is deleted.
-func StartManagedClusterAddonController(initOption config.ControllerOption) (config.ControllerInterface, error) {
+func StartDefaultAgentController(initOption config.ControllerOption) (config.ControllerInterface, error) {
 	if managedClusterAddonController != nil {
 		return managedClusterAddonController, nil
 	}
@@ -183,8 +183,8 @@ func StartManagedClusterAddonController(initOption config.ControllerOption) (con
 }
 
 func (c *ManagedClusterAddonController) IsResourceRemoved() bool {
-	log.Infof("managedClusterAddon resource removed: %v", config.IsManagedClusterAddonResourcesRemoved())
-	return config.IsManagedClusterAddonResourcesRemoved()
+	log.Infof("managedClusterAddon resource removed: %v", config.GetGlobalhubAgentRemoved())
+	return config.GetGlobalhubAgentRemoved()
 }
 
 func (r *ManagedClusterAddonController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -222,11 +222,11 @@ func (r *ManagedClusterAddonController) Reconcile(ctx context.Context, req ctrl.
 		}
 
 		log.Info("all ManagedClusterAddons are deleted")
-		config.ManagedClusterAddonRemoved(true)
+		config.SetGlobalhubAgentRemoved(true)
 		return ctrl.Result{}, nil
 	}
 
-	config.ManagedClusterAddonRemoved(false)
+	config.SetGlobalhubAgentRemoved(false)
 	if config.GetTransporter() == nil {
 		log.Debug("wait transporter ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil

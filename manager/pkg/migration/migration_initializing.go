@@ -168,7 +168,19 @@ func (m *ClusterMigrationController) UpdateConditionWithRetry(ctx context.Contex
 	reason, message string,
 ) error {
 	// timeout
-	if status == metav1.ConditionFalse && time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
+	return m.UpdateConditionWithBackoff(ctx, mcm, conditionType, status, reason, message, migrationStageTimeout)
+}
+
+// update with conflict error, and also add timeout validating in the conditions
+func (m *ClusterMigrationController) UpdateConditionWithBackoff(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration,
+	conditionType string,
+	status metav1.ConditionStatus,
+	reason, message string,
+	timeout time.Duration,
+) error {
+	// timeout
+	if status == metav1.ConditionFalse && time.Since(mcm.CreationTimestamp.Time) > timeout {
 		reason = ConditionReasonTimeout
 	}
 
