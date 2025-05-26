@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -214,11 +213,6 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 	}
 	notAvailableManagedClusters = notAvailableManagedClusters[:0]
 	for _, clusterName := range evt.ManagedClusters {
-		cluster := clusterv1.ManagedCluster{}
-		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, &cluster); err != nil {
-			return fmt.Errorf("failed to get the managed cluster %s: %v", cluster.Name, err)
-		}
-
 		// not support hosted managed hub, the hosted klusterletManifestWork name is <cluster-name>-hosted-klusterlet
 		klusterletManifestWorkName := fmt.Sprintf("%s-%s", clusterName, KlusterletManifestWorkSuffix)
 		work := &workv1.ManifestWork{
