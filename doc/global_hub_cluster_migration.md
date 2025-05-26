@@ -63,7 +63,26 @@ Each migration goes through several phases, visible in the resource `status.phas
 ### 🟤 Brownfield Mode
 
 - Deploy the Global Hub in the **source** or **target hub**.
-- Import managed hubs into Global Hub using **hosted mode**, if needed.
+- To import managed hubs into the Global Hub using hosted mode, follow these steps:
+  1. Enable the `ImportClusterInHosted` feature gate in the `MulticlusterGlobalHub` resource:
+  ```yaml
+  apiVersion: operator.open-cluster-management.io/v1alpha4
+  kind: MulticlusterGlobalHub
+  metadata:
+    name: multiclusterglobalhub
+    namespace: multicluster-global-hub
+  spec:
+    availabilityConfig: Basic
+    installAgentOnLocal: true
+    featureGates:
+    - feature: ImportClusterInHosted
+      mode: Enable
+  ```
+
+  2. Add the `hosted` label to the managed hub cluster:
+  ```bash
+  global-hub.open-cluster-management.io/agent-deploy-mode=Hosted
+  ```
 
 ---
 
@@ -89,8 +108,8 @@ spec:
   includedManagedClusters:
     - cluster1
   includedResources:
-    - configmap/default/*
-    - secret/cluster1/*
+    - configmap/default/foo
+    - secret/cluster1/bar
   to: hub2
 ```
 
@@ -99,10 +118,7 @@ spec:
 * `from`: The source hub (in this case, `local-cluster` = `hub1`)
 * `to`: Target hub (`hub2`)
 * `includedManagedClusters`: Lists the clusters to be migrated. All cluster names must be unique across hubs.
-* `includedResources`: Specifies the Kubernetes resources to migrate, using the format `kind/namespace/name`. Wildcard (`*`) is only supported in the name field:
-
-  * `configmap/default/*` → All ConfigMaps in `default` namespace.
-  * `secret/cluster1/*` → All Secrets in `cluster1` namespace.
+* `includedResources`: Specifies the Kubernetes resources to migrate, using the format `kind/namespace/name`. 
 
 ---
 
@@ -120,13 +136,13 @@ status:
       message: All source and target hubs have been initialized
     - type: ResourceDeployed
       status: "True"
-      message: Resources deployed to target hub
+      message: Resources have been successfully deployed to the target hub cluster
     - type: ClusterRegistered
       status: "True"
-      message: Migrated cluster registered with target hub
+      message: All migrated clusters have been successfully registered
     - type: ResourceCleaned
       status: "True"
-      message: Temporary resources cleaned up
+      message: Resources have been successfully cleaned up from the hub clusters
   phase: Completed
 ```
 
