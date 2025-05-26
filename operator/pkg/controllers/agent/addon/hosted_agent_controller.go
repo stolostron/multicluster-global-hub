@@ -66,7 +66,7 @@ func StartHostedAgentController(initOption config.ControllerOption) (config.Cont
 		return nil, nil
 	}
 
-	log.Info("start clusterManagementAddon(hosted mode) controller")
+	log.Info("start agent(hosted mode) controller")
 
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
@@ -78,12 +78,12 @@ func StartHostedAgentController(initOption config.ControllerOption) (config.Cont
 		hostedAgentController = nil
 		return nil, err
 	}
-	log.Info("initialized clusterManagementAddon(hosted mode) controller")
+	log.Info("initialized agent(hosted mode) controller")
 	return hostedAgentController, nil
 }
 
 func (c *HostedAgentController) IsResourceRemoved() bool {
-	log.Infof("ClusterManagementAddon setting removed: %v", isHostedAgentResourceRemoved)
+	log.Infof("hosted agent setting removed: %v", isHostedAgentResourceRemoved)
 	return isHostedAgentResourceRemoved
 }
 
@@ -148,7 +148,7 @@ func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Debugf("reconcile ClusterManagementAddOn: %v", req.NamespacedName)
+	log.Debugf("reconcile hosted agent: %v", req.NamespacedName)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.c)
 	if err != nil {
 		log.Error(err)

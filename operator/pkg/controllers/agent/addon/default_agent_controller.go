@@ -55,13 +55,13 @@ func targetAddonSecret(obj client.Object) bool {
 	return false
 }
 
-func NewManagedClusterAddonController(c client.Client) *DefaultAgentController {
+func NewDefaultAgentController(c client.Client) *DefaultAgentController {
 	return &DefaultAgentController{
 		Client: c,
 	}
 }
 
-// ManagedClusterAddonController manages addon-related resources for each cluster.
+// StartDefaultAgentController manages addon-related resources for each cluster.
 // It watches ManagedCluster resources to create or modify addons accordingly.
 // It also watches the MulticlusterGlobalHub (MGH) resource to trigger cleanup
 // of these addon resources when the MGH is deleted.
@@ -69,15 +69,15 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 	if defaultAgentController != nil {
 		return defaultAgentController, nil
 	}
-	log.Info("start managedClusterAddon controller")
+	log.Info("start default agent controller")
 
 	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
 		return nil, nil
 	}
-	defaultAgentController = NewManagedClusterAddonController(initOption.Manager.GetClient())
+	defaultAgentController = NewDefaultAgentController(initOption.Manager.GetClient())
 
 	err := ctrl.NewControllerManagedBy(initOption.Manager).
-		Named("managedclusteraddon-ctrl").
+		Named("default-agent-ctrl").
 		// TODO: Should move the mgh into secondary watch for MGH, also only trigger it when mgh is deleting
 		// Why watch MGH? to trigger cleanup of managed cluster addons when MGH is deleted,
 		// so there's no need to requeue all clusters.
@@ -168,17 +168,17 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 		defaultAgentController = nil
 		return nil, err
 	}
-	log.Info("the managedClusterAddon controller is started")
+	log.Info("the default agent controller is started")
 	return defaultAgentController, nil
 }
 
 func (c *DefaultAgentController) IsResourceRemoved() bool {
-	log.Infof("managedClusterAddon resource removed: %v", config.GetGlobalhubAgentRemoved())
+	log.Infof("default agent resource removed: %v", config.GetGlobalhubAgentRemoved())
 	return config.GetGlobalhubAgentRemoved()
 }
 
 func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Debugf("reconcile managedClusterAddon: %v", req)
+	log.Debugf("reconcile managedClusterAddon and related resources: %v", req)
 
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, r.Client)
 	if err != nil {
@@ -193,7 +193,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		if err := r.deleteClusterManagementAddon(ctx); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete ClusterManagementAddon: %w", err)
 		}
-		log.Infow("deleted ClusterManagementAddon", "name", constants.GHClusterManagementAddonName)
+		log.Infow("deleted ClusterManagementAddon and related resources", "name", constants.GHClusterManagementAddonName)
 
 		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
 		listOptions := []client.ListOption{
@@ -207,7 +207,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		}
 
 		if len(addonList.Items) != 0 {
-			log.Infow("waiting for ManagedClusterAddon to be deleted", "addon size", len(addonList.Items))
+			log.Infow("waiting for ManagedClusterAddon and resources to be deleted", "addon size", len(addonList.Items))
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
