@@ -43,12 +43,14 @@ Each migration goes through several phases, visible in the resource `status.phas
 | Phase        | Description                                                                 |
 |--------------|-----------------------------------------------------------------------------|
 | Validating   | Verifies clusters and hubs are valid.                                       |
-| Initializing | Prepares target hub (kubeconfig, RBAC) and source hub (`KubeletConfig`).   |
+| Initializing | Prepares target hub (kubeconfig, RBAC) and source hub (`KubeletConfig`).    |
 | Deploying    | Migrates selected clusters and resources.                                   |
 | Registering  | Re-registers the cluster to the target hub.                                 |
 | Cleaning     | Cleans up resources from both hubs. Also handles rollback if needed.        |
 | Completed    | Migration completed successfully.                                           |
 | Failed       | Migration failed; error message included in status.                         |
+
+Note: The Validating phase currently does not check resources such as `ConfigMap`, `Secret`, etc. So if you specify resources that do not exist in the source hub, the migration will fail in the `Deploying` phase.
 
 ---
 
@@ -63,7 +65,7 @@ Each migration goes through several phases, visible in the resource `status.phas
 ### 🟤 Brownfield Mode
 
 - Deploy the Global Hub in the **source** or **target hub**.
-- To import managed hubs into the Global Hub using hosted mode, follow these steps:
+- To import managed hubs into the Global Hub using **hosted mode**, follow these steps:
   1. Enable the `ImportClusterInHosted` feature gate in the `MulticlusterGlobalHub` resource:
   ```yaml
   apiVersion: operator.open-cluster-management.io/v1alpha4
