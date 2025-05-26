@@ -42,6 +42,7 @@ Each migration goes through several phases, visible in the resource `status.phas
 
 | Phase        | Description                                                                 |
 |--------------|-----------------------------------------------------------------------------|
+| Pending      | Only one migration can be handled at a time; others will remain pending     |
 | Validating   | Verifies clusters and hubs are valid.                                       |
 | Initializing | Prepares target hub (kubeconfig, RBAC) and source hub (`KubeletConfig`).    |
 | Deploying    | Migrates selected clusters and resources.                                   |
@@ -60,14 +61,28 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ### 🟢 Greenfield Mode
 
+![alt text](images/migration-deployment-greenfield-mode.png)
+
 - Deploy the **Global Hub** in a **separate ACM hub cluster**.
 
 ### 🟤 Brownfield Mode
 
-- Deploy the Global Hub in the **source** or **target hub**.
-- To import managed hubs into the Global Hub using **hosted mode**, follow these steps:
-  1. Enable the `ImportClusterInHosted` feature gate in the `MulticlusterGlobalHub` resource:
-  ```yaml
+![alt text](images/migration-deployment-brownfield-mode.png)
+
+- Deploy the Global Hub in **source** hub.
+- Deploy the Global Hub in the **target** hub.
+
+---
+
+## 🧪 Example: Migrate `cluster1` from `hub1` to `hub2` (Brownfield, and import the hub in hosted mode)
+
+![arch](images/migration-sample.png)
+
+### Step 1 – Deploy the Global Hub on the Source Hub
+
+Install the Global Hub on `hub1`, enable the `ImportClusterInHosted` feature gate, and deploy the agent locally:
+
+```yaml
   apiVersion: operator.open-cluster-management.io/v1alpha4
   kind: MulticlusterGlobalHub
   metadata:
@@ -81,24 +96,20 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
       mode: Enable
   ```
 
-  2. Add the `hosted` label to the managed hub cluster:
-  ```bash
-  global-hub.open-cluster-management.io/agent-deploy-mode=Hosted
-  ```
-
----
-
-## 🧪 Example: Migrate `cluster1` from `hub1` to `hub2` (Brownfield)
-
->![arch](images/migration-sample.png)
-
-### Step 1 – Deploy the Global Hub
-
-Install the Global Hub on `hub1` and enable the local agent to run the `multicluster-global-hub-agent` in the current hub.
-
 > In this setup, the **Global Hub**, **source hub**, and `local-cluster` are all on `hub1`.
 
-### Step 2 – Create Migration Resource
+### Step 2 – Import the Target Hub in Hosted Mode
+
+Label `hub2` with the `hosted` deployment mode before importing:
+
+```bash
+global-hub.open-cluster-management.io/agent-deploy-mode=Hosted
+```
+
+### Step 3 – Create Migration Resource
+
+Define the `ManagedClusterMigration` resource to move the cluster and related resources:
+
 
 ```yaml
 apiVersion: global-hub.open-cluster-management.io/v1alpha1
@@ -124,7 +135,7 @@ spec:
 
 ---
 
-### Step 3 – Sample Migration Status
+### Step 4 – Sample Migration Status
 
 
 ```yaml
