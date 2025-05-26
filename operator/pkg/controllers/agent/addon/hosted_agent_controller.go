@@ -93,7 +93,7 @@ func NewHostedAgentController(mgr ctrl.Manager) *HostedAgentController {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).Named("clustermanagentaddon-ctrl").
+	return ctrl.NewControllerManagedBy(mgr).Named("AddonsController").
 		For(&addonv1alpha1.ClusterManagementAddOn{},
 			builder.WithPredicates(predicate.Funcs{
 				CreateFunc: func(e event.CreateEvent) bool {

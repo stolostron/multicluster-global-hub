@@ -35,7 +35,7 @@ import (
 )
 
 const (
-	KlusterletManifestWorkSuffix = "klusterlet"
+	KlusterletManifestWorkSuffix = "-klusterlet"
 )
 
 var (
@@ -212,12 +212,12 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 		return fmt.Errorf("no managed clusters found in migration event: %s", evt.MigrationId)
 	}
 	notAvailableManagedClusters = notAvailableManagedClusters[:0]
-	for _, clusterName := range evt.ManagedClusters {
+	for _, cluster := range evt.ManagedClusters {
 		// not support hosted managed hub, the hosted klusterletManifestWork name is <cluster-name>-hosted-klusterlet
-		klusterletManifestWorkName := fmt.Sprintf("%s-%s", clusterName, KlusterletManifestWorkSuffix)
+		klusterletManifestWorkName := fmt.Sprintf("%s%s", cluster, KlusterletManifestWorkSuffix)
 		work := &workv1.ManifestWork{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: clusterName,
+				Namespace: cluster,
 				Name:      klusterletManifestWorkName,
 			},
 		}
@@ -228,7 +228,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 
 		if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
 			log.Infof("work %s is not applied", work.Name)
-			notAvailableManagedClusters = append(notAvailableManagedClusters, clusterName)
+			notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
 			continue
 		}
 	}
@@ -236,7 +236,6 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 	if len(notAvailableManagedClusters) > 0 {
 		return fmt.Errorf("works aren't applied: %v", notAvailableManagedClusters)
 	}
-
 	return nil
 }
 

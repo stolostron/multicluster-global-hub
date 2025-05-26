@@ -296,7 +296,7 @@ func TestAddonInstaller(t *testing.T) {
 			}, fakeClient)
 			config.SetTransporter(transporter)
 
-			r := &ManagedClusterAddonController{
+			r := &DefaultAgentController{
 				Client: fakeClient,
 			}
 

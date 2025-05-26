@@ -34,7 +34,7 @@ import (
 
 const SignerName = "open-cluster-management.io/globalhub-signer"
 
-// isGlobalhubAgentRemoved used to mark the managedclusteraddon and related resources is removed
+// isGlobalhubAgentRemoved is used to mark the managedclusteraddon and related resources is removed
 var isGlobalhubAgentRemoved = true
 
 func GetAgentImage(cluster *clusterv1.ManagedCluster) (string, error) {
