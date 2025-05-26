@@ -66,7 +66,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			condReason = ConditionReasonResourceNotInitialized
 		}
 		log.Debugf("initializing condition %s(%s): %s", condType, condReason, condMessage)
-		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
+		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, migrationStageTimeout)
 		if e != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, e)
 		}
@@ -166,20 +166,8 @@ func (m *ClusterMigrationController) UpdateConditionWithRetry(ctx context.Contex
 	conditionType string,
 	status metav1.ConditionStatus,
 	reason, message string,
-) error {
-	// timeout
-	return m.UpdateConditionWithBackoff(ctx, mcm, conditionType, status, reason, message, migrationStageTimeout)
-}
-
-// update with conflict error, and also add timeout validating in the conditions
-func (m *ClusterMigrationController) UpdateConditionWithBackoff(ctx context.Context,
-	mcm *migrationv1alpha1.ManagedClusterMigration,
-	conditionType string,
-	status metav1.ConditionStatus,
-	reason, message string,
 	timeout time.Duration,
 ) error {
-	// timeout
 	if status == metav1.ConditionFalse && time.Since(mcm.CreationTimestamp.Time) > timeout {
 		reason = ConditionReasonTimeout
 	}

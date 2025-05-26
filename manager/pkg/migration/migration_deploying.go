@@ -47,7 +47,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 			condReason = conditionReasonResourcesNotDeployed
 		}
 		log.Debugf("deploying condition %s(%s): %s", condType, condReason, condMessage)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, migrationStageTimeout)
 		if err != nil {
 			log.Errorf("failed to update the condition %v", err)
 		}

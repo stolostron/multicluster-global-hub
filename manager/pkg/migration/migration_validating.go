@@ -74,7 +74,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 			condStatus = metav1.ConditionFalse
 		}
 		log.Infof("validating condition %s(%s): %s", condType, condReason, condMessage)
-		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
+		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, migrationStageTimeout)
 		if e != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, e)
 		}

@@ -62,7 +62,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		}
 
 		log.Infof("cleaning condition %s(%s): %s", condType, condReason, condMsg)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg, migrationStageTimeout)
 		if err != nil {
 			log.Errorf("failed to update the condition %v", err)
 		}

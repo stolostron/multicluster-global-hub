@@ -52,7 +52,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		}
 		// the target hub registering timeout is 10 time.minutes, we need to ensure it larger than that
 		log.Infof("registering condition %s(%s): %s", condType, condReason, condMessage)
-		err = m.UpdateConditionWithBackoff(ctx, mcm, condType, condStatus, condReason, condMessage, 12*time.Minute)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, 12*time.Minute)
 		if err != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, err)
 		}
