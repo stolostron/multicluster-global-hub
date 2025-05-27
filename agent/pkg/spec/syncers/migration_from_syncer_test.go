@@ -121,7 +121,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
 				},
 				ManagedClusters: []string{"cluster1"},
-				Resources:       []string{"configmap/cluster1/*", "configmap/cluster1/test-configmap", "secret/cluster1/*"},
+				Resources:       []string{"configmap/cluster1/test-configmap", "secret/cluster1/test-secret"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
