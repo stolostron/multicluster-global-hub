@@ -57,20 +57,21 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ## Deployment Modes
 
->![arch](images/migration-deployment.png)
+### Global Hub supports the following deployment modes:
 
-### 🟢 Greenfield Mode
+- 🟢 Greenfield Mode
+  ![alt text](images/migration-deployment-greenfield-mode.png)
+  - Deploy the **Global Hub** in a **separate ACM hub cluster**:
 
-![alt text](images/migration-deployment-greenfield-mode.png)
+- 🟤 Brownfield Mode
+  ![alt text](images/migration-deployment-brownfield-mode.png)
+  - Deploy the Global Hub in **source** hub.
+  - Deploy the Global Hub in the **target** hub.
 
-- Deploy the **Global Hub** in a **separate ACM hub cluster**.
+### Importing a Managed Hub into the Global Hub
 
-### 🟤 Brownfield Mode
-
-![alt text](images/migration-deployment-brownfield-mode.png)
-
-- Deploy the Global Hub in **source** hub.
-- Deploy the Global Hub in the **target** hub.
+- Default mode
+- Hosted mode - see the example below for how to enable it
 
 ---
 
@@ -128,10 +129,10 @@ spec:
 
 #### Field Explanations:
 
-* `from`: The source hub (in this case, `local-cluster` = `hub1`)
-* `to`: Target hub (`hub2`)
-* `includedManagedClusters`: Lists the clusters to be migrated. All cluster names must be unique across hubs.
-* `includedResources`: Specifies the Kubernetes resources to migrate, using the format `kind/namespace/name`. 
+- `from`: The source hub (in this case, `local-cluster` = `hub1`)
+- `to`: Target hub (`hub2`)
+- `includedManagedClusters`: Lists the clusters to be migrated. All cluster names must be unique across hubs.
+- `includedResources`: Specifies the Kubernetes resources to migrate, using the format `kind/namespace/name`. 
 
 ---
 
@@ -165,9 +166,9 @@ status:
 
 Managed Cluster Migration helps you:
 
-* Reorganize cluster ownership between ACM hub clusters
-* Move clusters and resources together
-* Automate re-registration and cleanup
-* Track every step with detailed status updates
+- Reorganize cluster ownership between ACM hub clusters
+- Move clusters and resources together
+- Automate re-registration and cleanup
+- Track every step with detailed status updates
 
 > ⚠️ **Note:** This feature is currently in **Tech Preview**. Feedback and contributions are welcome!
