@@ -183,10 +183,7 @@ func IsValidResource(resource string) error {
 	if !dns1123LabelRegex.MatchString(ns) {
 		return fmt.Errorf("invalid namespace: %s", ns)
 	}
-	if name != "*" && !dns1123LabelRegex.MatchString(name) {
-		return fmt.Errorf("invalid name: %s", name)
-	}
-	if strings.Contains(name, "*") && name != "*" {
+	if !dns1123LabelRegex.MatchString(name) {
 		return fmt.Errorf("invalid name: %s", name)
 	}
 	return nil

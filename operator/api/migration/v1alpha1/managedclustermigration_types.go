@@ -69,7 +69,6 @@ type ManagedClusterMigrationSpec struct {
 	// the format is (g.v.r)|(kind)/namespace/name. i.e.:
 	// - configmap/multicluster-engine/cm1
 	// - hive.v1.clusterclaim/namespace1/name1
-	// - hive.v1.clusterclaim/namespace1/*
 	// - clusterrole/admin
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	IncludedResources []string `json:"includedResources,omitempty"`

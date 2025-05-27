@@ -14,7 +14,7 @@ func TestIsValidResource(t *testing.T) {
 		errorMsg string
 	}{
 		{"valid configmap", "configmap/default/my-config", false, ""},
-		{"valid secret with wildcard", "secret/ns1/*", false, ""},
+		{"valid secret with wildcard", "secret/ns1/*", true, "invalid name"},
 		{"invalid format", "configmap/default", true, "invalid format"},
 		{"unsupported kind", "pod/ns1/name1", true, "unsupported kind"},
 		{"invalid namespace", "configmap/Inv@lid/ns", true, "invalid namespace"},
