@@ -58,8 +58,7 @@ spec:
         path: includedManagedClusters
       - description: 'IncludedResources is a list of resources that you want to migrate.
           the format is (g.v.r)|(kind)/namespace/name. i.e.: - configmap/multicluster-engine/cm1
-          - hive.v1.clusterclaim/namespace1/name1 - hive.v1.clusterclaim/namespace1/*
-          - clusterrole/admin'
+          - hive.v1.clusterclaim/namespace1/name1 - clusterrole/admin'
         displayName: Included Resources
         path: includedResources
       - description: To defines which hub cluster the managed clusters migrate to

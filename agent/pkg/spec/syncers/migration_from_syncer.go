@@ -450,41 +450,19 @@ func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []st
 
 		switch kind {
 		case "configmap":
-			if name == "*" {
-				configmaps := &corev1.ConfigMapList{}
-				if err := c.List(ctx, configmaps, client.InNamespace(ns)); err != nil {
-					return fmt.Errorf("failed to list configmaps in namespace %s: %w", ns, err)
-				}
-				for i := range configmaps.Items {
-					resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, &configmaps.Items[i])
-					log.Infof("deploying: attach configmap %s/%s", configmaps.Items[i].Namespace, configmaps.Items[i].Name)
-				}
-			} else {
-				configmap := &corev1.ConfigMap{}
-				if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
-					return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
-				}
-				log.Infof("deploying: attach configmap %s/%s", configmap.Namespace, configmap.Name)
-				resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmap)
+			configmap := &corev1.ConfigMap{}
+			if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
+				return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
 			}
+			log.Infof("deploying: attach configmap %s/%s", configmap.Namespace, configmap.Name)
+			resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmap)
 		case "secret":
-			if name == "*" {
-				secrets := &corev1.SecretList{}
-				if err := c.List(ctx, secrets, client.InNamespace(ns)); err != nil {
-					return fmt.Errorf("failed to list secrets in namespace %s: %w", ns, err)
-				}
-				for i := range secrets.Items {
-					log.Infof("deploying: attach secret %s/%s", secrets.Items[i].Namespace, secrets.Items[i].Name)
-					resourceEvent.Secrets = append(resourceEvent.Secrets, &secrets.Items[i])
-				}
-			} else {
-				secret := &corev1.Secret{}
-				if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
-					return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
-				}
-				log.Infof("deploying: attach secret %s/%s", secret.Namespace, secret.Name)
-				resourceEvent.Secrets = append(resourceEvent.Secrets, secret)
+			secret := &corev1.Secret{}
+			if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
+				return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
 			}
+			log.Infof("deploying: attach secret %s/%s", secret.Namespace, secret.Name)
+			resourceEvent.Secrets = append(resourceEvent.Secrets, secret)
 		default:
 			return fmt.Errorf("unsupported kind: %s", kind)
 		}
