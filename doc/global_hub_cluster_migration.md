@@ -69,8 +69,8 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
   ![alt text](images/migration-deployment-brownfield-mode.png)
 
-  - Deploy the Global Hub in **source** hub
-  - Deploy the Global Hub in the **target** hub
+  - Deploy the Global Hub in **source** hub (hub1)
+  - Deploy the Global Hub in the **target** hub (hub2)
 
 ### Importing a Managed Hub into the Global Hub
 
@@ -94,7 +94,7 @@ Install the Global Hub on `hub1`, enable the `ImportClusterInHosted` feature gat
     name: multiclusterglobalhub
     namespace: multicluster-global-hub
   spec:
-    availabilityConfig: Basic
+    availabilityConfig: High
     installAgentOnLocal: true
     featureGates:
     - feature: ImportClusterInHosted
@@ -105,7 +105,7 @@ Install the Global Hub on `hub1`, enable the `ImportClusterInHosted` feature gat
 
 ### Step 2 – Import the Target Hub in Hosted Mode
 
-Label `hub2` with the `hosted` deployment mode before importing:
+Label `hub2` with the `hosted` deployment mode during importing:
 
 ```bash
 global-hub.open-cluster-management.io/agent-deploy-mode=Hosted
