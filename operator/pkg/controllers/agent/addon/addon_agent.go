@@ -221,8 +221,8 @@ func (a *GlobalHubAddonAgent) setInstallHostedMode(cluster *clusterv1.ManagedClu
 	if cluster.Labels == nil {
 		return
 	}
-	deployMode, ok := cluster.Labels[operatorconstants.GHAgentDeployModeLabelKey]
-	if !ok || !(deployMode == "" || deployMode == operatorconstants.GHAgentDeployModeHosted) {
+	deployMode, ok := cluster.Labels[constants.GHAgentDeployModeLabelKey]
+	if !ok || !(deployMode == "" || deployMode == constants.GHAgentDeployModeHosted) {
 		return
 	}
 

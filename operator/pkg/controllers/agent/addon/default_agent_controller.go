@@ -23,7 +23,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -257,10 +256,10 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	deployMode := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+	deployMode := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
 	// delete the resources
 	if !cluster.DeletionTimestamp.IsZero() ||
-		deployMode == operatorconstants.GHAgentDeployModeNone {
+		deployMode == constants.GHAgentDeployModeNone {
 		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
@@ -403,9 +402,9 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	expectedAddonAnnotations := map[string]string{}
 
 	// change the add-on installation namespace in hosted mode.
-	deployMode, ok := cluster.GetLabels()[operatorconstants.GHAgentDeployModeLabelKey]
+	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
 	if config.GetImportClusterInHosted() && ok &&
-		(deployMode == operatorconstants.GHAgentDeployModeHosted || deployMode == "") {
+		(deployMode == constants.GHAgentDeployModeHosted || deployMode == "") {
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			expectedAddonAnnotations[constants.AnnotationAddonHostingClusterName] = hostingCluster

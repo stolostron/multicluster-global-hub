@@ -18,7 +18,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -77,8 +76,8 @@ var _ = Describe("none addon", func() {
 		clusterName1 := fmt.Sprintf("hub-non-ocp-%s", rand.String(6))
 		prepareCluster(clusterName1,
 			map[string]string{
-				"vendor": "GCP",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
+				"vendor":                            "GCP",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeDefault,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -88,8 +87,8 @@ var _ = Describe("none addon", func() {
 		clusterName2 := fmt.Sprintf("hub-ocp-mode-none-%s", rand.String(6))
 		prepareCluster(clusterName2,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeNone,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeNone,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -99,8 +98,8 @@ var _ = Describe("none addon", func() {
 		clusterName3 := fmt.Sprintf("hub-ocp-no-condtion-%s", rand.String(6))
 		prepareCluster(clusterName3,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeDefault,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -109,8 +108,8 @@ var _ = Describe("none addon", func() {
 		By("By preparing a local cluster")
 		clusterName4 := constants.LocalClusterName
 		prepareCluster(clusterName4, map[string]string{
-			"vendor": "OpenShift",
-			operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeDefault,
+			"vendor":                            "OpenShift",
+			constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeDefault,
 		},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -131,8 +130,8 @@ var _ = Describe("none addon", func() {
 		})
 		prepareCluster(clusterName5,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeHosted,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
