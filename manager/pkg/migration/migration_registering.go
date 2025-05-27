@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +41,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	condType := migrationv1alpha1.ConditionTypeRegistered
 	condStatus := metav1.ConditionTrue
 	condReason := conditionReasonClusterRegistered
-	condMessage := "All migrated clusters are registered"
+	condMessage := "All migrated clusters have been successfully registered"
 	var err error
 
 	defer func() {
@@ -49,8 +50,9 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonClusterNotRegistered
 		}
+		// the target hub registering timeout is 10 time.minutes, we need to ensure it larger than that
 		log.Infof("registering condition %s(%s): %s", condType, condReason, condMessage)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, 12*time.Minute)
 		if err != nil {
 			log.Errorf("failed to update the %s condition: %v", condType, err)
 		}
@@ -58,7 +60,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubToClusters == nil {
-		return false, fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		return false, fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
 	}
 
 	for fromHub := range sourceHubToClusters {
@@ -96,7 +98,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
-		condMessage = fmt.Sprintf("the migrated clusters are registering to the target hub %s", mcm.Spec.To)
+		condMessage = fmt.Sprintf("The managed clusters are registering to the target hub %s", mcm.Spec.To)
 		condStatus = metav1.ConditionFalse
 		condReason = conditionReasonClusterRegistered
 		return true, nil

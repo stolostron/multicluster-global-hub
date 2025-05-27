@@ -259,6 +259,9 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 			}
 			return nil
 		})
+		if err != nil {
+			log.Errorf("failed to update the %s condition: %v", desiredMigration.Name, err)
+		}
 	}
 
 	for _, mcm := range pendingMigrations {
@@ -268,6 +271,7 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 			metav1.ConditionTrue,
 			"waitOtherMigrationCompleted",
 			fmt.Sprintf("Wait for other migration <%s> to be completed", desiredMigration.Name),
+			migrationStageTimeout,
 		)
 		if e != nil {
 			log.Errorf("failed to update the %s condition: %v", mcm.Name, e)
