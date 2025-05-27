@@ -34,7 +34,7 @@ const (
 
 // Migration Condition Types
 const (
-	ConditionTypePending     = "Pending"
+	ConditionTypeStarted     = "MigrationStarted"
 	ConditionTypeValidated   = "ResourceValidated"
 	ConditionTypeInitialized = "ResourceInitialized"
 	ConditionTypeRegistered  = "ClusterRegistered"
