@@ -57,16 +57,20 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ## Deployment Modes
 
-### Global Hub supports the following deployment modes:
+### Global Hub supports the following deployment modes
 
 - 🟢 Greenfield Mode
+
   ![alt text](images/migration-deployment-greenfield-mode.png)
-  - Deploy the **Global Hub** in a **separate ACM hub cluster**:
+
+  - Deploy the **Global Hub** in a **separate ACM hub cluster**
 
 - 🟤 Brownfield Mode
+
   ![alt text](images/migration-deployment-brownfield-mode.png)
-  - Deploy the Global Hub in **source** hub.
-  - Deploy the Global Hub in the **target** hub.
+
+  - Deploy the Global Hub in **source** hub
+  - Deploy the Global Hub in the **target** hub
 
 ### Importing a Managed Hub into the Global Hub
 
