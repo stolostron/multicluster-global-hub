@@ -53,6 +53,28 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		}
 	}()
 
+	// check the source hub to see is there any error message reported
+	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
+	if sourceHubToClusters == nil {
+		return false, fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+	}
+
+	for fromHub := range sourceHubToClusters {
+		errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
+		if errMessage != "" {
+			err = fmt.Errorf("deploying source hub %s error: %s", fromHub, errMessage)
+			return false, err
+		}
+
+		// waiting the source hub confirmation
+		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
+			condMessage = fmt.Sprintf("The deploying resources are preparing in the source hub %s", fromHub)
+			condStatus = metav1.ConditionFalse
+			condReason = conditionReasonResourcesDeploying
+			return true, nil
+		}
+	}
+
 	errMessage := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying)
 	if errMessage != "" {
 		err = fmt.Errorf("deploying to hub %s error: %s", mcm.Spec.To, errMessage)
