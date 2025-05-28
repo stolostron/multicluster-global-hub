@@ -79,9 +79,9 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ---
 
-## 🧪 Example: Migrate `cluster1` from `hub1` to `hub2`
+## 🧪 Recommended Way to Migrate (Brownfield & Hosted Mode)
 
-**Recommended:** Brownfield and Hosted Mode
+**Recommended:** The preferred way to migrate is to install in a brownfield environment and import the cluster in hosted mode. The following example demonstrates this recommended approach.
 
 ![arch](images/migration-sample.png)
 

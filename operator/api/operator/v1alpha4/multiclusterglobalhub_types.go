@@ -126,16 +126,13 @@ type MulticlusterGlobalHubSpec struct {
 }
 
 type FeatureGate struct {
-	// Feature specifies the name of the feature to be controlled.
-	// 'ImportClusterInHosted' enables importing managed hub clusters in hosted mode.
+	// ImportClusterInHosted enables importing managed hub clusters in hosted mode.
 	// +kubebuilder:validation:Enum=ImportClusterInHosted
 	// +kubebuilder:validation:Required
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:ImportClusterInHosted"}
 	Feature string `json:"feature"`
 
-	// Mode indicates whether the feature is enabled or disabled.
-	// 'Enable' sets the corresponding feature gate to true, 'Disable' to false.
-	// +kubebuilder:default=Disable
+	// +kubebuilder:default=Enable
 	// +kubebuilder:validation:Enum=Enable;Disable
 	// +optional
 	Mode FeatureGateModeType `json:"mode,omitempty"`

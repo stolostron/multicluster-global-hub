@@ -246,17 +246,13 @@ spec:
                 items:
                   properties:
                     feature:
-                      description: |-
-                        Feature specifies the name of the feature to be controlled.
-                        'ImportClusterInHosted' enables importing managed hub clusters in hosted mode.
+                      description: ImportClusterInHosted enables importing managed
+                        hub clusters in hosted mode.
                       enum:
                       - ImportClusterInHosted
                       type: string
                     mode:
-                      default: Disable
-                      description: |-
-                        Mode indicates whether the feature is enabled or disabled.
-                        'Enable' sets the corresponding feature gate to true, 'Disable' to false.
+                      default: Enable
                       enum:
                       - Enable
                       - Disable

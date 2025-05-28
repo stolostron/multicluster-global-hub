@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-05-28T07:14:31Z"
+    createdAt: "2025-05-28T09:44:21Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -176,8 +176,8 @@ spec:
       - description: FeatureGates represents a list of configurable feature gates.
         displayName: Feature Gates
         path: featureGates
-      - description: Feature specifies the name of the feature to be controlled. 'ImportClusterInHosted'
-          enables importing managed hub clusters in hosted mode.
+      - description: ImportClusterInHosted enables importing managed hub clusters
+          in hosted mode.
         displayName: Feature
         path: featureGates[0].feature
         x-descriptors:
