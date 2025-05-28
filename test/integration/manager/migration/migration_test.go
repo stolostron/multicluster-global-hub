@@ -442,6 +442,10 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
+			// mock the source hub report result
+			migration.SetFinished(string(migrationInstance.GetUID()), migrationInstance.Spec.From,
+				migrationv1alpha1.PhaseDeploying)
+
 			// mock the target hub report result
 			migration.SetFinished(string(migrationInstance.GetUID()), migrationInstance.Spec.To,
 				migrationv1alpha1.PhaseDeploying)
