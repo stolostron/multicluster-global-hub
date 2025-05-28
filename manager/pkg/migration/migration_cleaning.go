@@ -12,6 +12,7 @@ import (
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -53,7 +54,8 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			condMsg = "Resources have been successfully cleaned up from the hub clusters"
 		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
 			// If clean timeout, update the condition
-			condMsg = err.Error()
+			condMsg = fmt.Sprintf("cleanup failed: %s. Please manually remove the annotation (%s) from the managed cluster.",
+				err.Error(), constants.ManagedClusterMigrating)
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonResourceNotCleaned
 		} else {
