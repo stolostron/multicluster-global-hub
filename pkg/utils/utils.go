@@ -159,6 +159,26 @@ func GetClusterIdFromClusterVersion(c client.Client, ctx context.Context) (error
 	return nil, clusterID
 }
 
+// GetTopicACL creates a KafkaUserSpecAuthorizationAclsElem for a given topic name
+// with the specified operations. The returned ACL element has a wildcard host
+// and specifies the resource type as Topic.
+func GetTopicACL(topicName string,
+	operations []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem,
+) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
+	host := "*"
+	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
+	writeAcl := kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
+		Host: &host,
+		Resource: kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResource{
+			Type:        kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourceTypeTopic,
+			Name:        &topicName,
+			PatternType: &patternType,
+		},
+		Operations: operations,
+	}
+	return writeAcl
+}
+
 func WriteTopicACL(topicName string) kafkav1beta2.KafkaUserSpecAuthorizationAclsElem {
 	host := "*"
 	patternType := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral

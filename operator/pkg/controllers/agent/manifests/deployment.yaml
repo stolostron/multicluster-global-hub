@@ -63,7 +63,9 @@ spec:
         {{- range .Tolerations}}
         - key: "{{.Key}}"
           operator: "{{.Operator}}"
+          {{- if .Value }}
           value: "{{.Value}}"
+          {{- end }}
           effect: "{{.Effect}}"
           {{- if .TolerationSeconds}}
           tolerationSeconds: {{.TolerationSeconds}}
