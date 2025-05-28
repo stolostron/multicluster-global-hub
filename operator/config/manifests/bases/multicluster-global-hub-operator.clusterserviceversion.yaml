@@ -138,10 +138,15 @@ spec:
         path: enableMetrics
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: FeatureGates represents the list of feature gates If it is set
-          empty, default feature gates will be used.
+      - description: FeatureGates represents a list of configurable feature gates.
         displayName: Feature Gates
         path: featureGates
+      - description: ImportClusterInHosted enables importing managed hub clusters
+          in hosted mode.
+        displayName: Feature
+        path: featureGates[0].feature
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:select:ImportClusterInHosted
       - description: ImagePullPolicy specifies the pull policy of the multicluster
           global hub images
         displayName: Image Pull Policy
