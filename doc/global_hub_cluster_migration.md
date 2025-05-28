@@ -79,7 +79,9 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ---
 
-## 🧪 Example: Migrate `cluster1` from `hub1` to `hub2` (Brownfield, and import the hub in hosted mode)
+## 🧪 Example: Migrate `cluster1` from `hub1` to `hub2`
+
+**Recommended:** Brownfield and Hosted Mode
 
 ![arch](images/migration-sample.png)
 
