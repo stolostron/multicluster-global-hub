@@ -8,12 +8,13 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestHandleMigrationEvent(t *testing.T) {
