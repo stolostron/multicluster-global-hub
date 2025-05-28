@@ -1,0 +1,41 @@
+# .github/workflows/ai-code-review.yml
+name: AI Code Review
+on:
+  # Automatically trigger on PR events
+  pull_request:
+    types: [opened, synchronize, reopened]
+  # Keep manual trigger option
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'The PR number to review'
+        required: true
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine PR number
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
+          else
+            echo "PR_NUMBER=${{ github.event.inputs.pr_number }}" >> $GITHUB_ENV
+          fi
+      - name: Checkout PR merge ref
+        uses: actions/checkout@v4
+        with:
+          # For pull_request events, checkout the merge commit
+          # For manual dispatch, use the specified PR number
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || format('refs/pull/{0}/merge', env.PR_NUMBER) }}
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install PyGithub openai
+      - name: Run AI Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python .github/scripts/auto_review.py --pr $PR_NUMBER
