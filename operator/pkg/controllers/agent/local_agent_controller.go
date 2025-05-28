@@ -130,7 +130,7 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete;deletecollection
 
 func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Debug("reconcile local agent controller")
+	log.Debugf("reconcile local agent controller: %v", req)
 	mgh, err := config.GetMulticlusterGlobalHub(ctx, s.GetClient())
 	if err != nil {
 		return ctrl.Result{}, nil

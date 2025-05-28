@@ -148,6 +148,24 @@ var kafkaPred = predicate.Funcs{
 	},
 }
 
+var kafkaUserPred = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		return false
+	},
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		if e.ObjectNew.GetName() != DefaultGlobalHubKafkaUserName {
+			return false
+		}
+		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		if e.Object.GetName() != DefaultGlobalHubKafkaUserName {
+			return false
+		}
+		return e.Object.GetNamespace() == utils.GetDefaultNamespace()
+	},
+}
+
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
 	if startedKafkaController {
 		return nil
@@ -165,7 +183,7 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
-			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
+			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaUserPred)).
 		Watches(&kafkav1beta2.KafkaTopic{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Complete(r)
