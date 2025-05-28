@@ -119,24 +119,24 @@ type MulticlusterGlobalHubSpec struct {
 	// +optional
 	InstallAgentOnLocal bool `json:"installAgentOnLocal,omitempty"`
 
-	// FeatureGates represents the list of feature gates
-	// If it is set empty, default feature gates will be used.
+	// FeatureGates represents a list of configurable feature gates.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +optional
 	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
 }
 
 type FeatureGate struct {
-	// Feature is the key of feature gate. e.g. featuregate/Foo.
+	// Feature specifies the name of the feature to be controlled.
+	// 'ImportClusterInHosted' enables importing managed hub clusters in hosted mode.
+	// +kubebuilder:validation:Enum=ImportClusterInHosted
 	// +kubebuilder:validation:Required
-	// +required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:ImportClusterInHosted"}
 	Feature string `json:"feature"`
 
-	// Mode is either Enable, Disable, "" where "" is Disable by default.
-	// In Enable mode, a valid feature gate `featuregate/Foo` will be set to "--featuregate/Foo=true".
-	// In Disable mode, a valid feature gate `featuregate/Foo` will be set to "--featuregate/Foo=false".
-	// +kubebuilder:default:=Disable
-	// +kubebuilder:validation:Enum:=Enable;Disable
+	// Mode indicates whether the feature is enabled or disabled.
+	// 'Enable' sets the corresponding feature gate to true, 'Disable' to false.
+	// +kubebuilder:default=Disable
+	// +kubebuilder:validation:Enum=Enable;Disable
 	// +optional
 	Mode FeatureGateModeType `json:"mode,omitempty"`
 }
