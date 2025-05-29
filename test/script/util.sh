@@ -199,7 +199,7 @@ join_cluster() {
     else
       sed -e "s;<cluster_name>;$cluster --context $cluster --wait;" "$join_file" | bash
     fi
-    timeout 5m clusteradm accept --clusters "$2" --context "${hub}" --wait
+    timeout 1m clusteradm accept --clusters "$2" --context "${hub}" --wait
   fi
 }
 
