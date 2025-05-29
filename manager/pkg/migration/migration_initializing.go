@@ -202,6 +202,12 @@ func (m *ClusterMigrationController) UpdateCondition(
 
 	// Handle phase updates based on condition type and status
 	if status == metav1.ConditionFalse {
+		// migration not start, means the migration is pending
+		if conditionType == migrationv1alpha1.ConditionTypeStarted && mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+			mcm.Status.Phase = migrationv1alpha1.PhasePending
+			update = true
+		}
+
 		// 1. timeout -> failed
 		// 2. validated error, then status switch to failed immediately
 		if reason == ConditionReasonTimeout || conditionType == migrationv1alpha1.ConditionTypeValidated {
@@ -210,10 +216,6 @@ func (m *ClusterMigrationController) UpdateCondition(
 		}
 	} else {
 		switch conditionType {
-		case migrationv1alpha1.ConditionTypePending:
-			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
-				mcm.Status.Phase = migrationv1alpha1.ConditionTypePending
-			}
 		case migrationv1alpha1.ConditionTypeValidated:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
 				mcm.Status.Phase = migrationv1alpha1.PhaseInitializing
