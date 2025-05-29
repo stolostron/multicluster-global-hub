@@ -124,12 +124,13 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				Resources:       []string{"configmap/cluster1/test-configmap", "secret/cluster1/test-secret"},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
+				// report to global hub deploying status
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
 
 				evt := cloudevents.NewEvent()
-				evt.SetType(constants.MigrationTargetMsgKey) // spec message: initialize -> deploy
+				evt.SetType(string(enum.ManagedClusterMigrationType)) // spec message: initialize -> deploy
 				evt.SetSource("hub1")
-				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
+				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "global-hub")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				return &evt
 			}(),
@@ -265,7 +266,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			sentEvent := producer.sentEvent
 			expectEvent := c.expectedProduceEvent
 			if expectEvent != nil {
-				// fmt.Println(sentEvent)
+				assert.Equal(t, sentEvent.Type(), expectEvent.Type())
 				assert.Equal(t, sentEvent.Type(), expectEvent.Type())
 				assert.Equal(t, sentEvent.Source(), expectEvent.Source())
 				assert.Equal(t, sentEvent.Extensions(), sentEvent.Extensions())

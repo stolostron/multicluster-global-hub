@@ -180,10 +180,28 @@ func (s *migrationSourceSyncer) deploying(
 	resources := migratingEvt.Resources
 	toHub := migratingEvt.ToHub
 	id := migratingEvt.MigrationId
+
+	reportErrMessage := ""
+	defer func() {
+		err := ReportMigrationStatus(
+			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic), s.transportClient,
+			&migration.ManagedClusterMigrationBundle{
+				MigrationId: s.currentMigrationId,
+				Stage:       migrationv1alpha1.ConditionTypeDeployed,
+				ErrMessage:  reportErrMessage,
+			},
+			s.bundleVersion)
+		if err != nil {
+			log.Warnf("failed to report the deploying message(%s): %v", reportErrMessage, err)
+		}
+	}()
+
 	err := s.SendMigrationResources(ctx, id, managedClusters, resources, configs.GetLeafHubName(), toHub)
 	if err != nil {
+		reportErrMessage = err.Error()
 		return err
 	}
+
 	return nil
 }
 

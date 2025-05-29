@@ -70,25 +70,35 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("failed to parse migrationBundle event source")
 	}
 
+	if bundle.MigrationId == "" {
+		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
+	}
+
+	phase := ""
 	if bundle.Stage == migrationv1alpha1.ConditionTypeInitialized {
-		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseInitializing)
+		phase = migrationv1alpha1.PhaseInitializing
 	}
 
 	if bundle.Stage == migrationv1alpha1.ConditionTypeDeployed {
-		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseDeploying)
+		phase = migrationv1alpha1.PhaseDeploying
 	}
 
 	if bundle.Stage == migrationv1alpha1.ConditionTypeRegistered {
-		if bundle.MigrationId == "" {
-			return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
-		}
-		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseRegistering)
-		migration.SetErrorMessage(bundle.MigrationId, hubClusterName,
-			migrationv1alpha1.PhaseRegistering, bundle.ErrMessage)
+		phase = migrationv1alpha1.PhaseRegistering
 	}
 
 	if bundle.Stage == migrationv1alpha1.ConditionTypeCleaned {
-		migration.SetFinished(bundle.MigrationId, hubClusterName, migrationv1alpha1.PhaseCleaning)
+		phase = migrationv1alpha1.PhaseCleaning
+	}
+
+	if phase == "" {
+		return fmt.Errorf("don't support the migration stage: %s", bundle.Stage)
+	}
+
+	if bundle.ErrMessage != "" {
+		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, phase, bundle.ErrMessage)
+	} else {
+		migration.SetFinished(bundle.MigrationId, hubClusterName, phase)
 	}
 	return nil
 }
