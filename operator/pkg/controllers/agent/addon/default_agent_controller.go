@@ -256,9 +256,13 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	deployMode := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
-	// delete the resources
+	// Don't install the global hub agent in the following case:
+	//   1. Detaching cluster
+	//   2. Install global hub in brownfield mode, and deploy model label doesn't exists
+	//   3. The cluster have the 'agent-deploy-mode' = None
+	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
 	if !cluster.DeletionTimestamp.IsZero() ||
+		(!ok && mgh.Spec.InstallAgentOnLocal) ||
 		deployMode == constants.GHAgentDeployModeNone {
 		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
