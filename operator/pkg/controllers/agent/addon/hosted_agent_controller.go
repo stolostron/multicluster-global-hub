@@ -141,7 +141,7 @@ func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
-					return false
+					return true
 				},
 			})).
 		Complete(r)
