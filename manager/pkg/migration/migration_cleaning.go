@@ -54,7 +54,8 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			condMsg = "Resources have been successfully cleaned up from the hub clusters"
 		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
 			// If clean timeout, update the condition
-			condMsg = fmt.Sprintf("cleanup failed: %s. Please manually remove the annotation (%s) from the managed cluster.",
+			condMsg = fmt.Sprintf("cleanup failed: %s. "+
+				"You may need to manually remove the annotation (%s) from the managed clusters.",
 				err.Error(), constants.ManagedClusterMigrating)
 			condStatus = metav1.ConditionFalse
 			condReason = conditionReasonResourceNotCleaned
@@ -79,7 +80,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {
-		err = fmt.Errorf("Not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		err = fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
 		return false, err
 	}
 
