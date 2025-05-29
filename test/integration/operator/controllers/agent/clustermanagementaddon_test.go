@@ -48,8 +48,8 @@ var _ = Describe("deploy hosted addon", func() {
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeHosted,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeHosted,
 			},
 			map[string]string{
 				constants.AnnotationClusterDeployMode:                constants.ClusterDeployModeHosted,
@@ -60,8 +60,8 @@ var _ = Describe("deploy hosted addon", func() {
 			clusterAvailableCondition)
 		prepareCluster(hostingClusterName,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeNone,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeNone,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -99,8 +99,8 @@ var _ = Describe("deploy hosted addon", func() {
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey:    operatorconstants.GHAgentDeployModeHosted,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeHosted,
 				operatorconstants.GHAgentACMHubInstallLabelKey: "",
 			},
 			map[string]string{
@@ -117,8 +117,8 @@ var _ = Describe("deploy hosted addon", func() {
 			clusterAvailableCondition)
 		prepareCluster(hostingClusterName,
 			map[string]string{
-				"vendor": "OpenShift",
-				operatorconstants.GHAgentDeployModeLabelKey: operatorconstants.GHAgentDeployModeNone,
+				"vendor":                            "OpenShift",
+				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeNone,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
