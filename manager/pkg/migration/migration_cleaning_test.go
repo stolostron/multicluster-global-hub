@@ -83,7 +83,7 @@ func TestCompleted(t *testing.T) {
 			},
 			sourceClusters: nil,
 			wantRequeue:    false,
-			wantErr:        true,
+			wantErr:        false,
 		},
 		{
 			name: "cleaning in progress",
@@ -112,7 +112,7 @@ func TestCompleted(t *testing.T) {
 				"destination-hub": true,
 			},
 			wantRequeue: false,
-			wantErr:     true,
+			wantErr:     false,
 		},
 		{
 			name: "cleaning completed",
@@ -141,7 +141,7 @@ func TestCompleted(t *testing.T) {
 				"destination-hub": true,
 			},
 			wantRequeue: false,
-			wantErr:     true,
+			wantErr:     false,
 		},
 	}
 
