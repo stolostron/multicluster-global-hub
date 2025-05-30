@@ -272,26 +272,45 @@ func (s *migrationTargetSyncer) initializing(ctx context.Context,
 func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: %v", evt.Type())
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		payload := evt.Data()
-		migrationResources := &migration.SourceClusterMigrationResources{}
-		if err := json.Unmarshal(payload, migrationResources); err != nil {
-			log.Errorf("failed to unmarshal cluster migration resources %v", err)
-			return err
-		}
 
-		migrationId := migrationResources.MigrationId
-		if s.currentMigrationId != migrationId {
-			log.Infof("ignore the deploying event: expected migrationId %s, but got  %s", s.currentMigrationId, migrationId)
-			return nil
-		}
+	payload := evt.Data()
+	migrationResources := &migration.SourceClusterMigrationResources{}
+	if err := json.Unmarshal(payload, migrationResources); err != nil {
+		log.Errorf("failed to unmarshal cluster migration resources %v", err)
+		return err
+	}
 
-		if err := s.syncMigrationResources(ctx, migrationResources); err != nil {
-			return err
-		}
+	migrationId := migrationResources.MigrationId
+	if s.currentMigrationId != migrationId {
+		log.Infof("ignore the deploying event: expected migrationId %s, but got  %s", s.currentMigrationId, migrationId)
 		return nil
+	}
+
+	var err error
+
+	defer func() {
+		deployingReportBundle := &migration.ManagedClusterMigrationBundle{
+			MigrationId: migrationResources.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeDeployed,
+		}
+		if err != nil {
+			deployingReportBundle.ErrMessage = err.Error()
+		}
+
+		// report the deploying confirmation
+		if err := ReportMigrationStatus(
+			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+			s.transportClient, deployingReportBundle, s.bundleVersion); err != nil {
+			log.Errorf("failed to report the deploying migration event due to %v", err)
+			return
+		}
+		log.Infof("finished the deploying %s", migrationResources.MigrationId)
+	}()
+
+	if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return s.syncMigrationResources(ctx, migrationResources)
 	}); err != nil {
-		log.Errorw("sync failed", "type", evt.Type(), "error", err)
+		log.Errorw("failed to deploying", "type", evt.Type(), "error", err)
 	}
 	return nil
 }
@@ -313,33 +332,31 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	migrationResources *migration.SourceClusterMigrationResources,
 ) error {
 	log.Infof("started the deploying: %s", migrationResources.MigrationId)
+	log.Debugf("migration resources %v", migrationResources)
 
 	for _, mc := range migrationResources.ManagedClusters {
 		if err := s.ensureNamespace(ctx, mc.Name); err != nil {
 			return err
 		}
 		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &mc, func() error { return nil }); err != nil {
-			log.Debugf("managed cluster is %v", mc)
-			log.Errorf("failed to create or update the managed cluster %s", mc.Name)
+			log.Errorf("failed to create or update the managed cluster %s: %v", mc.Name, err)
 			return err
 		}
 	}
 	for _, config := range migrationResources.KlusterletAddonConfig {
 		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &config, func() error { return nil }); err != nil {
-			log.Debugf("klusterlet addon config is %v", config)
-			log.Errorf("failed to create or update the klusterlet addon config %s", config.Name)
+			log.Errorf("failed to create or update the klusterlet addon config %s: %v", config.Name, err)
 			return err
 		}
 	}
 
-	for _, configmap := range migrationResources.ConfigMaps {
-		if err := s.ensureNamespace(ctx, configmap.Namespace); err != nil {
+	for _, configMap := range migrationResources.ConfigMaps {
+		if err := s.ensureNamespace(ctx, configMap.Namespace); err != nil {
 			return err
 		}
 
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, configmap, func() error { return nil }); err != nil {
-			log.Debugf("configmap is %v", configmap)
-			log.Errorf("failed to create or update the configmap %s", configmap.Name)
+		if err := s.client.Create(ctx, configMap); err != nil {
+			log.Errorf("failed to create configMap(%s): %v", configMap.Name, err)
 			return err
 		}
 	}
@@ -348,30 +365,13 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		if err := s.ensureNamespace(ctx, secret.Namespace); err != nil {
 			return err
 		}
-
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, secret, func() error { return nil }); err != nil {
-			log.Debugf("secret is %v", secret)
-			log.Errorf("failed to create or update the secret %s", secret.Name)
+		if err := s.client.Create(ctx, secret); err != nil {
+			log.Errorf("failed to create the secret %s: &v", secret.Name, err)
 			return err
 		}
 	}
 
 	log.Info("finished syncing migration resources")
-
-	// report the deployed confirmation
-	err := ReportMigrationStatus(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-		s.transportClient,
-		&migration.ManagedClusterMigrationBundle{
-			MigrationId: migrationResources.MigrationId,
-			Stage:       migrationv1alpha1.ConditionTypeDeployed,
-		}, s.bundleVersion)
-	if err != nil {
-		return err
-	}
-
-	log.Infof("finished the deploying %s", migrationResources.MigrationId)
-	// stop the migration consumer
 	return nil
 }
 
