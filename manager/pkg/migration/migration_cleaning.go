@@ -26,6 +26,7 @@ const (
 func (m *ClusterMigrationController) completed(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
+	// TODO: Deprecated: Use this only to add the final cleanup condition—intermediate states are not shown in conditions
 	succeed := false
 	if !mcm.DeletionTimestamp.IsZero() {
 		RemoveMigrationStatus(string(mcm.GetUID()))
@@ -80,8 +81,9 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {
-		err = fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
-		return false, err
+		condMsg = "Skipping cleanup: the migration has not been initialized."
+		succeed = true
+		return false, nil
 	}
 
 	// cleanup the source hub: cleaning or failed state
