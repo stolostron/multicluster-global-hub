@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-05-28T09:44:21Z"
+    createdAt: "2025-05-29T06:09:17Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -197,8 +197,7 @@ spec:
       - description: InstallAgentOnLocal determines whether deploy the Global Hub
           Agent on the local hub cluster or not. If set to true, the Global Hub Agent
           will be installed on the local hub cluster only. If set to false, the Global
-          Hub Agent will not be installed on the local hub cluster. Currently, switching
-          the value of this field is not supported after the Global Hub is installed.
+          Hub Agent will not be installed on the local hub cluster.
         displayName: Install Agent On Local
         path: installAgentOnLocal
         x-descriptors:
