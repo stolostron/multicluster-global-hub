@@ -50,8 +50,8 @@ for f in pr.get_files():
         print(f"⏭️  Skipping workflow file: {f.filename}")
         continue
     
-    # Only review Python files with changes
-    if not f.filename.endswith(".py") or not f.patch:
+    # Review all files with changes
+    if not f.patch:
         continue
 
     diff = f.patch
