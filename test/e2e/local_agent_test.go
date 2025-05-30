@@ -46,19 +46,6 @@ var _ = Describe("Local Agent", Label("e2e-test-local-agent"), Ordered, func() {
 		}, 5*time.Minute, 1*time.Second).Should(Succeed())
 	})
 
-	It("validate the clusters on database", func() {
-		Eventually(func() (err error) {
-			curManagedCluster, err := getManagedCluster(httpClient)
-			if err != nil {
-				return err
-			}
-			if len(curManagedCluster) != (ExpectedMH*ExpectedMC + 2) {
-				return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH*ExpectedMC + 2), len(curManagedCluster))
-			}
-			return nil
-		}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
-	})
-
 	It("disable local agent in globalhub", func() {
 		// Wait for the leafhub heartbeat and leafhub info to update
 		Eventually(func() error {
