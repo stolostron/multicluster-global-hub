@@ -6,7 +6,7 @@ require (
 	github.com/IBM/sarama v1.44.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20241021120453-70fb95191324
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250526073932-1b863c85f77f
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
 	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250214143010-93e1a8d64cd6
 	github.com/cloudflare/cfssl v1.6.5
