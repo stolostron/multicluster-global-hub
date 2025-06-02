@@ -26,7 +26,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.9.4
 	github.com/lib/pq v1.10.9
-	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
 	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
@@ -69,6 +69,7 @@ require (
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
 	helm.sh/helm/v3 v3.17.3 // indirect
 )
 
@@ -125,7 +126,7 @@ require (
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
+	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
