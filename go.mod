@@ -24,7 +24,7 @@ require (
 	github.com/gonvenience/ytbx v1.4.7
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/homeport/dyff v1.9.4
+	github.com/homeport/dyff v1.10.1
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.23.4
 	github.com/onsi/gomega v1.37.0
@@ -69,6 +69,7 @@ require (
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/gonvenience/idem v0.0.1 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	helm.sh/helm/v3 v3.17.3 // indirect
 )
