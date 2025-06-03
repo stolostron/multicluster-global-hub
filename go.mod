@@ -16,7 +16,7 @@ require (
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fergusstrange/embedded-postgres v1.30.0
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-gonic/gin v1.10.1
 	github.com/go-co-op/gocron v1.37.0
 	github.com/go-kratos/kratos/v2 v2.8.4
 	github.com/go-logr/logr v1.4.2
