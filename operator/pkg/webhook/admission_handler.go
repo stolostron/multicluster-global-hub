@@ -64,18 +64,8 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 
-		// Add the annotation 'klusterlet-deploy-mode=hosted' under conditions 1 and 2.
-
-		// 1. the global hub enabled hosted -> cluster hosted:
+		// Add the annotation 'klusterlet-deploy-mode=hosted' only if the feature gate enabled -> cluster(klusterlet)
 		if !config.GetImportClusterInHosted() {
-			return admission.Allowed("")
-		}
-
-		// 2. the cluster has label "global-hub.open-cluster-management.io/agent-deploy-mode"" -> addon hosted
-		// This is required because, in hosted mode, the Global Hub would otherwise auto-import
-		// the migrated cluster into the hosted cluster, which is incorrect.
-		deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
-		if !ok || !(deployMode == constants.GHAgentDeployModeHosted || deployMode == "") {
 			return admission.Allowed("")
 		}
 
