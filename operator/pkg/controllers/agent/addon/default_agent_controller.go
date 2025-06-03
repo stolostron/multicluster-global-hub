@@ -256,17 +256,20 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// Don't install the global hub agent in the following cases:
-	//   1. Detaching cluster
-	//   2. Install global hub in brownfield mode, and cluster deploy mode label doesn't exists
-	//   3. The cluster have the label 'agent-deploy-mode' = None
+	// Avoid installing the global hub agent in the following scenarios:
+	//   1. The cluster is being detached.
+	//   2. The global hub is being installed in brownfield mode without a deploy mode label.
+	//   3. The cluster has the label 'agent-deploy-mode' set to None.
 	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
-	if !cluster.DeletionTimestamp.IsZero() ||
-		(mgh.Spec.InstallAgentOnLocal && !ok) ||
-		deployMode == constants.GHAgentDeployModeNone {
+
+	isDetaching := !cluster.DeletionTimestamp.IsZero()
+	isBrownfieldWithoutDeployMode := mgh.Spec.InstallAgentOnLocal && !ok
+	isNoneDeployMode := deployMode == constants.GHAgentDeployModeNone
+	if isDetaching || isBrownfieldWithoutDeployMode || isNoneDeployMode {
 		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
+			log.Error(err, "failed to delete resources and addon", "cluster", cluster.Name)
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
 	}
