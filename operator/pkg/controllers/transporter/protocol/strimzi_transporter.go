@@ -338,11 +338,16 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 
 	simpleACLs := []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem{
 		utils.ConsumeGroupReadACL(),
-		utils.ReadTopicACL(clusterTopic.SpecTopic, false),
-		// report status into gh: allow the current hub to write messages to the specific status topic
-		utils.WriteTopicACL(clusterTopic.StatusTopic),
 		// migration resource into mh: write access to the spec topic is required for cluster migration.
-		utils.WriteTopicACL(clusterTopic.SpecTopic),
+		utils.GetTopicACL(clusterTopic.SpecTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemDescribe,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemRead,
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		}),
+		// report status into gh: allow the current hub to write messages to the specific status topic
+		utils.GetTopicACL(clusterTopic.StatusTopic, []kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElem{
+			kafkav1beta2.KafkaUserSpecAuthorizationAclsElemOperationsElemWrite,
+		}),
 	}
 
 	desiredKafkaUser := newKafkaUser(k.kafkaClusterNamespace, k.kafkaClusterName, userName, authnType, simpleACLs)
