@@ -256,13 +256,22 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	deployMode := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
-	// delete the resources
-	if !cluster.DeletionTimestamp.IsZero() ||
-		deployMode == constants.GHAgentDeployModeNone {
+	// Avoid installing the global hub agent in the following scenarios:
+	//   1. The cluster is being detached.
+	//   2. The global hub is being installed in brownfield mode without a deploy mode label.
+	//   3. The cluster has the label 'agent-deploy-mode' set to None.
+	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
+
+	isDetaching := !cluster.DeletionTimestamp.IsZero()
+	isBrownfieldWithoutDeployMode := mgh.Spec.InstallAgentOnLocal && !ok
+	isNoneDeployMode := (deployMode == constants.GHAgentDeployModeNone)
+	log.Infof("cluster(%s): isDetaching - %v, isBrownfieldWithoutDeployMode - %v, isNoneDeployMode - %v",
+		cluster.Name, isDetaching, isBrownfieldWithoutDeployMode, isNoneDeployMode)
+	if isDetaching || isBrownfieldWithoutDeployMode || isNoneDeployMode {
 		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to remove resources and addon %s: %v", cluster.Name, err)
+			log.Error(err, "failed to delete resources and addon", "cluster", cluster.Name)
+			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
 	}
@@ -401,7 +410,9 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	}
 	expectedAddonAnnotations := map[string]string{}
 
-	// change the add-on installation namespace in hosted mode.
+	// Change the add-on installation namespace in hosted mode must meet the following conditions:
+	//   1. The imported clustered must be hosted.
+	//   2. The deployMode label exist, the val is hosted or ""
 	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
 	if config.GetImportClusterInHosted() && ok &&
 		(deployMode == constants.GHAgentDeployModeHosted || deployMode == "") {

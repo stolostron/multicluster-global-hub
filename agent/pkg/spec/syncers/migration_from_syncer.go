@@ -401,15 +401,6 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 		cluster.Spec.ManagedClusterClientConfigs = nil
 		cluster.Status = clusterv1.ManagedClusterStatus{}
 
-		// Do not deploy globalhub agent in the cluster
-		// hanlde the target cluster is globalhub cluster
-		labels := cluster.GetLabels()
-		if labels == nil {
-			labels = make(map[string]string)
-		}
-		labels[constants.GHAgentDeployModeLabelKey] = constants.GHAgentDeployModeNone
-		cluster.Labels = labels
-
 		// remove migrating and klusterletconfig annotations from managedcluster
 		annotations := cluster.GetAnnotations()
 		if annotations != nil {
