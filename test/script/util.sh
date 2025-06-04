@@ -220,7 +220,7 @@ init_app() {
   fi
 
   # enable the addon on the managed clusters
-  clusteradm addon enable --names application-manager --clusters "$cluster" --context "$hub"
+  retry "clusteradm addon enable --names application-manager --clusters $cluster --context $hub" 10
 }
 
 init_policy() {
