@@ -111,7 +111,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				// the reportErrMessage record the detailed information why the registering failed,
 				// if registered successfully, remove the record error message during the registering
 				if err != nil {
-					reportErrMessage = fmt.Sprintf("failed to register clusters %s: %s", err.Error(), reportErrMessage)
+					reportErrMessage = fmt.Sprintf("registering %s - %s", err.Error(), reportErrMessage)
 				}
 
 				err = ReportMigrationStatus(
@@ -235,7 +235,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 	}
 
 	if len(notAvailableManagedClusters) > 0 {
-		return fmt.Errorf("manifestwork(cluster-klusterlet) are not applied: %v", notAvailableManagedClusters)
+		return fmt.Errorf("manifestwork(*-klusterlet) are not applied in these clusters: %v", notAvailableManagedClusters)
 	}
 	return nil
 }
