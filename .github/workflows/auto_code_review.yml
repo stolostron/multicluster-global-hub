@@ -2,8 +2,9 @@
 name: AI Code Review
 on:
   # Automatically trigger on PR events
-  pull_request:
-    types: [opened, synchronize, reopened]
+    pull_request_target:
+    branches:
+      - main
     paths-ignore:
       - '.github/workflows/**'
       - '.github/scripts/**'
