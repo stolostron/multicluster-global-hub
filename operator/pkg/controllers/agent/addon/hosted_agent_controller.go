@@ -138,6 +138,9 @@ func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
 						config.EnabledFeature(new, v1alpha4.FeatureGateImportClusterInHosted) {
 						return true
 					}
+					if new.DeletionTimestamp != nil {
+						return true
+					}
 					return false
 				},
 				DeleteFunc: func(e event.DeleteEvent) bool {
