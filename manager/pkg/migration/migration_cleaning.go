@@ -72,18 +72,18 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		}
 	}()
 
+	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
+	if sourceHubClusters == nil {
+		log.Infof("skipping cleanup: migration %q not initialized", mcm.Name)
+		succeed = true
+		return false, nil
+	}
+
 	// Deleting the ManagedServiceAccount will revoke the bootstrap kubeconfig secret of the migrated cluster.
 	// Be cautious — this action may carry potential risks.
 	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
 		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
 		return false, err
-	}
-
-	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
-	if sourceHubClusters == nil {
-		condMsg = "Skipping cleanup: the migration has not been initialized."
-		succeed = true
-		return false, nil
 	}
 
 	// cleanup the source hub: cleaning or failed state
