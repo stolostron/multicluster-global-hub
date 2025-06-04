@@ -264,7 +264,9 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 	isDetaching := !cluster.DeletionTimestamp.IsZero()
 	isBrownfieldWithoutDeployMode := mgh.Spec.InstallAgentOnLocal && !ok
-	isNoneDeployMode := deployMode == constants.GHAgentDeployModeNone
+	isNoneDeployMode := (deployMode == constants.GHAgentDeployModeNone)
+	log.Infof("cluster(%s): isDetaching - %v, isBrownfieldWithoutDeployMode - %v, isNoneDeployMode - %v",
+		cluster.Name, isDetaching, isBrownfieldWithoutDeployMode, isNoneDeployMode)
 	if isDetaching || isBrownfieldWithoutDeployMode || isNoneDeployMode {
 		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
@@ -408,7 +410,9 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	}
 	expectedAddonAnnotations := map[string]string{}
 
-	// change the add-on installation namespace in hosted mode.
+	// Change the add-on installation namespace in hosted mode must meet the following conditions:
+	//   1. The imported clustered must be hosted.
+	//   2. The deployMode label exist, the val is hosted or ""
 	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
 	if config.GetImportClusterInHosted() && ok &&
 		(deployMode == constants.GHAgentDeployModeHosted || deployMode == "") {
