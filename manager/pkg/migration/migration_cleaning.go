@@ -38,6 +38,12 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, nil
 	}
 
+	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
+	if sourceHubClusters == nil {
+		log.Infof("skipping cleanup: migration %q not initialized", mcm.Name)
+		return false, nil
+	}
+
 	log.Infof("migration start cleaning: %s - %s", mcm.Name, mcm.Status.Phase)
 
 	var err error
@@ -77,13 +83,6 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
 		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
 		return false, err
-	}
-
-	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
-	if sourceHubClusters == nil {
-		condMsg = "Skipping cleanup: the migration has not been initialized."
-		succeed = true
-		return false, nil
 	}
 
 	// cleanup the source hub: cleaning or failed state
