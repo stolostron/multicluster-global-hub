@@ -168,7 +168,9 @@ func (m *ClusterMigrationController) UpdateConditionWithRetry(ctx context.Contex
 	reason, message string,
 	timeout time.Duration,
 ) error {
-	if status == metav1.ConditionFalse && time.Since(mcm.CreationTimestamp.Time) > timeout {
+	// The MigrationStarted type should not have timeout
+	if conditionType != migrationv1alpha1.ConditionTypeStarted &&
+		status == metav1.ConditionFalse && time.Since(mcm.CreationTimestamp.Time) > timeout {
 		reason = ConditionReasonTimeout
 	}
 
