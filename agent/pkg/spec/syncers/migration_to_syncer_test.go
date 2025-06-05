@@ -850,6 +850,7 @@ func TestDeploying(t *testing.T) {
 	assert.Equal(t, "secret", secret.StringData["test"])
 }
 
+// go test -timeout 30s -run ^TestRegistering$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
 func TestRegistering(t *testing.T) {
 	ctx := context.Background()
 	scheme := configs.GetRuntimeScheme()
@@ -969,7 +970,7 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "manifestworks.work.open-cluster-management.io \"cluster2-klusterlet\" not found",
+			expectedError: "manifestwork(*-klusterlet) are not applied in these clusters: [cluster2]",
 		},
 	}
 
@@ -981,8 +982,7 @@ func TestRegistering(t *testing.T) {
 
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
 
-			notAvailableManagedClusters := []string{}
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, notAvailableManagedClusters)
+			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent)
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {
