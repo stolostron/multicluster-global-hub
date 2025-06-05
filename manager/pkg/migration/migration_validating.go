@@ -30,8 +30,8 @@ var AllowedKinds = map[string]bool{
 	"secret":    true,
 }
 
-// Kubernetes DNS-1123 label regex for name and namespace
-var dns1123LabelRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+// DNS Subdomain (RFC 1123) — for ConfigMap, Secret, Namespace, etc.
+var dns1123SubdomainRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9\.]*[a-z0-9])?$`)
 
 // Validation:
 // 1. Verify if the migrating clusters exist in the current hubs
@@ -180,10 +180,10 @@ func IsValidResource(resource string) error {
 	if !AllowedKinds[kind] {
 		return fmt.Errorf("unsupported kind: %s", kind)
 	}
-	if !dns1123LabelRegex.MatchString(ns) {
+	if !dns1123SubdomainRegex.MatchString(ns) {
 		return fmt.Errorf("invalid namespace: %s", ns)
 	}
-	if !dns1123LabelRegex.MatchString(name) {
+	if !dns1123SubdomainRegex.MatchString(name) {
 		return fmt.Errorf("invalid name: %s", name)
 	}
 	return nil
