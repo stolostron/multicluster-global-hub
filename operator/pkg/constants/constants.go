@@ -95,11 +95,19 @@ const (
 	// GHAgentInstallACMHubLabelKey is to indicate whether to install ACM hub on the agent
 	GHAgentACMHubInstallLabelKey = "global-hub.open-cluster-management.io/hub-cluster-install"
 
-	// CommunityCatalogSourceNameKey defines the catalog source name. it is mainly used for deploy kafka in KinD cluster.
-	CommunityCatalogSourceNameKey = "global-hub.open-cluster-management.io/catalog-source-name"
-	// CommunityCatalogSourceNamespaceKey defines the catalog source namespace.
+	// CatalogSourceNameKey defines the catalog source name. it is mainly used for deploy kafka in KinD cluster.
+	// Customer may also need to set this value if they want to use a custom catalog source.
+	CatalogSourceNameKey = "global-hub.open-cluster-management.io/catalog-source-name"
+	// CatalogSourceNamespaceKey defines the catalog source namespace.
 	// It is mainly used for deploying kafka in KinD cluster.
-	CommunityCatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/catalog-source-namespace"
+	// Customer may also need to set this value if they want to use a custom catalog source.
+	CatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/catalog-source-namespace"
+
+	// SubscriptionPackageName defines the subscription package name.
+	SubscriptionPackageName = "global-hub.open-cluster-management.io/subscription-package-name"
+	// SubscriptionChannel defines the subscription channel.
+	SubscriptionChannel = "global-hub.open-cluster-management.io/subscription-channel"
+
 	// KinDClusterIPKey defines a KinD container host which is used for test.
 	// It will be inject to the server certificates of kafka and inventory
 	KinDClusterIPKey = "global-hub.open-cluster-management.io/kind-cluster-ip"
