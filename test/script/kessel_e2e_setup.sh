@@ -49,8 +49,8 @@ apiVersion: operator.open-cluster-management.io/v1alpha4
 kind: MulticlusterGlobalHub
 metadata:
   annotations:
-    global-hub.open-cluster-management.io/catalog-source-name: operatorhubio-catalog
-    global-hub.open-cluster-management.io/catalog-source-namespace: olm
+    global-hub.open-cluster-management.io/strimzi-catalog-source-name: operatorhubio-catalog
+    global-hub.open-cluster-management.io/strimzi-catalog-source-namespace: olm
     global-hub.open-cluster-management.io/with-inventory: ""
     global-hub.open-cluster-management.io/kafka-use-nodeport: ""
     global-hub.open-cluster-management.io/kind-cluster-ip: "$global_hub_node_ip"
