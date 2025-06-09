@@ -21,6 +21,8 @@ func TestNewStrimziTransporter(t *testing.T) {
 			Annotations: map[string]string{
 				operatorconstants.CatalogSourceNameKey:      "test",
 				operatorconstants.CatalogSourceNamespaceKey: "default",
+				operatorconstants.SubscriptionPackageName:   "test-package",
+				operatorconstants.SubscriptionChannel:       "test-channel",
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
@@ -48,6 +50,12 @@ func TestNewStrimziTransporter(t *testing.T) {
 
 	if trans.subCatalogSourceNamespace != "default" {
 		t.Errorf("catalogSource name should be default, but %v", trans.subCatalogSourceNamespace)
+	}
+	if trans.subPackageName != "test-package" {
+		t.Errorf("subPackageName name should be test-package, but %v", trans.subCatalogSourceNamespace)
+	}
+	if trans.subChannel != "test-channel" {
+		t.Errorf("subChannel name should be test-channel, but %v", trans.subCatalogSourceNamespace)
 	}
 }
 

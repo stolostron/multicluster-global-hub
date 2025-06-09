@@ -113,17 +113,17 @@ const (
 	GHAgentACMHubInstallLabelKey = "global-hub.open-cluster-management.io/hub-cluster-install"
 
 	// CatalogSourceNameKey defines the catalog source name. it is mainly used for deploy kafka in KinD cluster.
-	// Customer may also need to set this value if they want to use a custom catalog source.
-	CatalogSourceNameKey = "global-hub.open-cluster-management.io/catalog-source-name"
+	// Customer may also need to set this value if they want to use a custom catalog source for strimzi.
+	CatalogSourceNameKey = "global-hub.open-cluster-management.io/strimzi-catalog-source-name"
 	// CatalogSourceNamespaceKey defines the catalog source namespace.
 	// It is mainly used for deploying kafka in KinD cluster.
-	// Customer may also need to set this value if they want to use a custom catalog source.
-	CatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/catalog-source-namespace"
+	// Customer may also need to set this value if they want to use a custom catalog source for strimzi.
+	CatalogSourceNamespaceKey = "global-hub.open-cluster-management.io/strimzi-catalog-source-namespace"
 
-	// SubscriptionPackageName defines the subscription package name.
-	SubscriptionPackageName = "global-hub.open-cluster-management.io/subscription-package-name"
-	// SubscriptionChannel defines the subscription channel.
-	SubscriptionChannel = "global-hub.open-cluster-management.io/subscription-channel"
+	// SubscriptionPackageName defines the subscription package name for strimzi.
+	SubscriptionPackageName = "global-hub.open-cluster-management.io/strimzi-subscription-package-name"
+	// SubscriptionChannel defines the subscription channel for strimzi.
+	SubscriptionChannel = "global-hub.open-cluster-management.io/strimzi-subscription-channel"
 
 	// KinDClusterIPKey defines a KinD container host which is used for test.
 	// It will be inject to the server certificates of kafka and inventory
