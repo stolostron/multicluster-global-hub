@@ -37,8 +37,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	mgrwebhook "github.com/stolostron/multicluster-global-hub/operator/pkg/webhook"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -131,20 +129,6 @@ var _ = BeforeSuite(func() {
 	}
 	err = c.Create(ctx, renamedLocalcluster, &client.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
-
-	// set the hosted configuration into true: the webhook is only takes effect when the global hub enable hosted mode
-	mgh := &v1alpha4.MulticlusterGlobalHub{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "test"},
-		Spec: v1alpha4.MulticlusterGlobalHubSpec{
-			FeatureGates: []v1alpha4.FeatureGate{
-				{
-					Feature: v1alpha4.FeatureGateImportClusterInHosted,
-					Mode:    v1alpha4.FeatureGateModeTypeEnable,
-				},
-			},
-		},
-	}
-	config.SetImportClusterInHosted(mgh)
 })
 
 var _ = AfterSuite(func() {

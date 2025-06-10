@@ -27,7 +27,7 @@ var _ = Describe("Multicluster hub webhook", func() {
 					Namespace:    utils.GetDefaultNamespace(),
 					Labels: map[string]string{
 						// global hub featuregate for klusterlet hosted, this label for addon hosted
-						constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeHosted,
+						constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
 					},
 					Annotations: map[string]string{},
 				},

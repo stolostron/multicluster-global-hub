@@ -65,8 +65,8 @@ var _ = Describe("deploy default addon", func() {
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
-				"vendor":                            "OpenShift",
-				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeDefault,
+				"vendor":                       "OpenShift",
+				constants.GHDeployModeLabelKey: constants.GHDeployModeDefault,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -104,7 +104,7 @@ var _ = Describe("deploy default addon", func() {
 			map[string]string{
 				"vendor": "OpenShift",
 				operatorconstants.GHAgentACMHubInstallLabelKey: "", // with label hub-cluster-install
-				constants.GHAgentDeployModeLabelKey:            constants.GHAgentDeployModeDefault,
+				constants.GHDeployModeLabelKey:                 constants.GHDeployModeDefault,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{

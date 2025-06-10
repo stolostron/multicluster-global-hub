@@ -71,14 +71,7 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 			"fz",
 		},
 	},
-	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
-		FeatureGates: []globalhubv1alpha4.FeatureGate{
-			{
-				Feature: globalhubv1alpha4.FeatureGateImportClusterInHosted,
-				Mode:    globalhubv1alpha4.FeatureGateModeTypeEnable,
-			},
-		},
-	},
+	Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 	Status: globalhubv1alpha4.MulticlusterGlobalHubStatus{
 		Conditions: []v1.Condition{
 			metav1.Condition{
@@ -98,7 +91,6 @@ var hostedMGH = globalhubv1alpha4.MulticlusterGlobalHub{
 var _ = Describe("other addons in hosted mode test", Ordered, func() {
 	var hostedAddonReconciler *addon.HostedAgentController
 	BeforeAll(func() {
-		config.SetImportClusterInHosted(&hostedMGH)
 		var err error
 
 		hostedAddonReconciler = addon.NewHostedAgentController(mgr)
@@ -204,7 +196,6 @@ var _ = Describe("other addons in hosted mode test", Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 		newMgh := hostedMGH.DeepCopy()
 		newMgh.Annotations = nil
-		config.SetImportClusterInHosted(newMgh)
 		time.Sleep(1 * time.Second) // add buffer to ensure the deletion timestamp added in the mgh cr
 		_, err = hostedAddonReconciler.Reconcile(ctx, reconcile.Request{
 			NamespacedName: types.NamespacedName{},
