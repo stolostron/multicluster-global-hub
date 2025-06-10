@@ -65,7 +65,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 				cluster.Name, constants.GHDeployModeLabelKey))
 		}
 
-		if deployMode != constants.GHDeployModeHosted || deployMode != constants.GHDeployModeDefault {
+		if deployMode != constants.GHDeployModeHosted && deployMode != constants.GHDeployModeDefault {
 			return admission.Denied(fmt.Sprintf("The cluster %s with invalid label %s=%s, only support %s and %s",
 				cluster.Name, constants.GHDeployModeLabelKey, deployMode, constants.GHDeployModeHosted,
 				constants.GHDeployModeDefault))
