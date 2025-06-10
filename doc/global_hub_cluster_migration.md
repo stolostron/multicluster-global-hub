@@ -110,7 +110,7 @@ Install the Global Hub on `hub1`, enable the `ImportClusterInHosted` feature gat
 Label `hub2` with the `hosted` deployment mode during importing:
 
 ```bash
-global-hub.open-cluster-management.io/agent-deploy-mode=Hosted
+global-hub.open-cluster-management.io/deploy-mode=hosted
 ```
 
 ### Step 3 – Create Migration Resource

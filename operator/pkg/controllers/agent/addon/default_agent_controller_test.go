@@ -31,7 +31,7 @@ func fakeCluster(name, hostingCluster, addonDeployMode string) *v1.ManagedCluste
 		Spec: v1.ManagedClusterSpec{},
 	}
 	labels := map[string]string{
-		constants.GHAgentDeployModeLabelKey: addonDeployMode,
+		constants.GHDeployModeLabelKey: addonDeployMode,
 	}
 	cluster.SetLabels(labels)
 
@@ -73,15 +73,7 @@ func fakeMGH(namespace, name string, enableHosted bool) *operatorv1alpha4.Multic
 		},
 	}
 	if enableHosted {
-		mgh.Spec = operatorv1alpha4.MulticlusterGlobalHubSpec{
-			FeatureGates: []operatorv1alpha4.FeatureGate{
-				{
-					Feature: operatorv1alpha4.FeatureGateImportClusterInHosted,
-					Mode:    operatorv1alpha4.FeatureGateModeTypeEnable,
-				},
-			},
-		}
-		config.SetImportClusterInHosted(mgh)
+		mgh.Spec = operatorv1alpha4.MulticlusterGlobalHubSpec{}
 	}
 	return mgh
 }
@@ -125,7 +117,7 @@ func TestAddonInstaller(t *testing.T) {
 		{
 			name:            "clustermanagementaddon not ready",
 			mgh:             fakeMGH(namespace, name, false),
-			cluster:         fakeCluster("cluster1", "", constants.GHAgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", constants.GHDeployModeDefault),
 			managementAddon: nil,
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
@@ -140,7 +132,7 @@ func TestAddonInstaller(t *testing.T) {
 		{
 			name:            "req not found",
 			mgh:             fakeMGH(namespace, name, false),
-			cluster:         fakeCluster("cluster1", "", constants.GHAgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", constants.GHDeployModeDefault),
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster2"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
@@ -155,7 +147,7 @@ func TestAddonInstaller(t *testing.T) {
 		{
 			name:            "do not create addon",
 			mgh:             fakeMGH(namespace, name, false),
-			cluster:         fakeCluster("cluster1", "", constants.GHAgentDeployModeNone),
+			cluster:         fakeCluster("cluster1", "", ""),
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
@@ -170,7 +162,7 @@ func TestAddonInstaller(t *testing.T) {
 		{
 			name:            "create addon in default mode",
 			mgh:             fakeMGH(namespace, name, false),
-			cluster:         fakeCluster("cluster1", "", constants.GHAgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", constants.GHDeployModeDefault),
 			managementAddon: fakeHoHManagementAddon(),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
@@ -185,7 +177,7 @@ func TestAddonInstaller(t *testing.T) {
 		},
 		{
 			name:            "create addon in hosted mode",
-			cluster:         fakeCluster("cluster1", "cluster2", constants.GHAgentDeployModeHosted),
+			cluster:         fakeCluster("cluster1", "cluster2", constants.GHDeployModeHosted),
 			managementAddon: fakeHoHManagementAddon(),
 			mgh:             fakeMGH(namespace, name, true),
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
@@ -205,7 +197,7 @@ func TestAddonInstaller(t *testing.T) {
 		{
 			name: "update addon in hosted mode",
 			cluster: fakeCluster("cluster1", "cluster2",
-				constants.GHAgentDeployModeHosted),
+				constants.GHDeployModeHosted),
 			managementAddon: fakeHoHManagementAddon(),
 			mgh:             fakeMGH(namespace, name, true),
 			addon:           fakeHoHAddon("cluster1", "test", ""),
@@ -243,7 +235,7 @@ func TestAddonInstaller(t *testing.T) {
 					},
 				},
 			},
-			cluster:         fakeCluster("cluster1", "", constants.GHAgentDeployModeDefault),
+			cluster:         fakeCluster("cluster1", "", constants.GHDeployModeDefault),
 			managementAddon: nil,
 			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
 			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {

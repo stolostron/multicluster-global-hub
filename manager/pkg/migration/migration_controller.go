@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -299,12 +300,22 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
-	// default managedserviceaccount addon namespace
-	msaNamespace := "open-cluster-management-agent-addon"
-	if m.managerConfigs.ImportClusterInHosted && !isLocalCluster {
-		// hosted mode, the  managedserviceaccount addon namespace
-		msaNamespace = "open-cluster-management-global-hub-agent-addon"
+	// addon
+	msa := addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{
+		Name:      migration.Name,
+		Namespace: migration.Spec.To, // target hub
+	}}
+
+	err := m.Client.Get(ctx, client.ObjectKeyFromObject(&msa), &msa)
+	if err != nil {
+		return err
 	}
+
+	if msa.Status.Namespace == "" {
+		return fmt.Errorf("the status.namespace of managedserviceaccount %s/%s is not ready", msa.Namespace, msa.Name)
+	}
+
+	msaNamespace := msa.Status.Namespace
 	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
 	// if user specifies the managedserviceaccount addon namespace, then use it
 	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {

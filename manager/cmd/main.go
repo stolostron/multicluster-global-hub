@@ -114,8 +114,6 @@ func parseFlags() *configs.ManagerConfig {
 		"enable the global resource feature")
 	pflag.BoolVar(&managerConfig.WithACM, "with-acm", false,
 		"run on Red Hat Advanced Cluster Management")
-	pflag.BoolVar(&managerConfig.ImportClusterInHosted, "import-cluster-in-hosted", false,
-		"import cluster in hosted mode")
 	pflag.BoolVar(&managerConfig.EnableInventoryAPI, "enable-inventory-api", false,
 		"enable the inventory api")
 	pflag.BoolVar(&managerConfig.EnablePprof, "enable-pprof", false, "enable the pprof tool")

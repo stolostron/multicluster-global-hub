@@ -72,14 +72,7 @@ func TestWebhookResources(t *testing.T) {
 					},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
-					FeatureGates: []globalhubv1alpha4.FeatureGate{
-						{
-							Feature: globalhubv1alpha4.FeatureGateImportClusterInHosted,
-							Mode:    globalhubv1alpha4.FeatureGateModeTypeEnable,
-						},
-					},
-				},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			},
 			webhookItem: 0,
 			initObjects: []runtime.Object{
@@ -114,14 +107,7 @@ func TestWebhookResources(t *testing.T) {
 					},
 					DeletionTimestamp: &metav1.Time{Time: time.Now()},
 				},
-				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{
-					FeatureGates: []globalhubv1alpha4.FeatureGate{
-						{
-							Feature: globalhubv1alpha4.FeatureGateImportClusterInHosted,
-							Mode:    globalhubv1alpha4.FeatureGateModeTypeEnable,
-						},
-					},
-				},
+				Spec: globalhubv1alpha4.MulticlusterGlobalHubSpec{},
 			},
 			webhookItem: 0,
 			initObjects: []runtime.Object{
@@ -153,7 +139,6 @@ func TestWebhookResources(t *testing.T) {
 			subv1alpha1.AddToScheme(scheme.Scheme)
 			addonv1alpha1.AddToScheme(scheme.Scheme)
 			globalhubv1alpha4.AddToScheme(scheme.Scheme)
-			config.SetImportClusterInHosted(tt.mgh)
 			config.SetACMResourceReady(true)
 			tt.initObjects = append(tt.initObjects, tt.mgh)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()

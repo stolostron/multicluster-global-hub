@@ -62,9 +62,6 @@ func StartHostedAgentController(initOption config.ControllerOption) (config.Cont
 	if !config.IsACMResourceReady() {
 		return nil, nil
 	}
-	if !config.GetImportClusterInHosted() {
-		return nil, nil
-	}
 
 	log.Info("start agent(hosted mode) controller")
 
@@ -125,18 +122,9 @@ func (r *HostedAgentController) SetupWithManager(mgr ctrl.Manager) error {
 					return true
 				},
 				UpdateFunc: func(e event.UpdateEvent) bool {
-					old, ok := e.ObjectOld.(*v1alpha4.MulticlusterGlobalHub)
-					if !ok {
-						return false
-					}
 					new, ok := e.ObjectNew.(*v1alpha4.MulticlusterGlobalHub)
 					if !ok {
 						return false
-					}
-					// reconcile if ImportClusterInHosted feature changed
-					if config.EnabledFeature(old, v1alpha4.FeatureGateImportClusterInHosted) !=
-						config.EnabledFeature(new, v1alpha4.FeatureGateImportClusterInHosted) {
-						return true
 					}
 					if new.DeletionTimestamp != nil {
 						return true
@@ -162,17 +150,17 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	// Removes ClusterManagementAddOn settings when MGH is deleted or in non-hosted mode.
-	if mgh.DeletionTimestamp != nil || !config.GetImportClusterInHosted() {
-		if config.GetImportClusterInHosted() { // deleting mgh: require to delete the all the managed hubs
-			containManagedHub, err := r.hasManagedHub(ctx)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			if containManagedHub {
-				log.Errorf("You need to detach all the managed hub clusters before uninstalling")
-				return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
-			}
-		}
+	if mgh.DeletionTimestamp != nil {
+		// if config.GetImportClusterInHosted() { // deleting mgh: require to delete the all the managed hubs
+		// 	containManagedHub, err := r.hasManagedHub(ctx)
+		// 	if err != nil {
+		// 		return ctrl.Result{}, err
+		// 	}
+		// 	if containManagedHub {
+		// 		log.Errorf("You need to detach all the managed hub clusters before uninstalling")
+		// 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		// 	}
+		// }
 		err = r.revertClusterManagementAddon(ctx)
 		if err != nil {
 			return ctrl.Result{}, err

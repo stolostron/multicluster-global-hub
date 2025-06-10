@@ -118,10 +118,10 @@ type MulticlusterGlobalHubSpec struct {
 	// +optional
 	InstallAgentOnLocal bool `json:"installAgentOnLocal,omitempty"`
 
-	// FeatureGates represents a list of configurable feature gates.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +optional
-	FeatureGates []FeatureGate `json:"featureGates,omitempty"`
+	// // FeatureGates represents a list of configurable feature gates.
+	// // +operator-sdk:csv:customresourcedefinitions:type=spec
+	// // +optional
+	// FeatureGates []FeatureGate `json:"featureGates,omitempty"`
 }
 
 type FeatureGate struct {

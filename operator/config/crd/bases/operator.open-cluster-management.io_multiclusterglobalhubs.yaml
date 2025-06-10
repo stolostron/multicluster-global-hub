@@ -240,27 +240,6 @@ spec:
                   EnableMetrics enables the metrics for the global hub created kafka and postgres components.
                   If the user provides the kafka and postgres, then the enablemetrics variable is useless.
                 type: boolean
-              featureGates:
-                description: FeatureGates represents a list of configurable feature
-                  gates.
-                items:
-                  properties:
-                    feature:
-                      description: ImportClusterInHosted enables importing managed
-                        hub clusters in hosted mode.
-                      enum:
-                      - ImportClusterInHosted
-                      type: string
-                    mode:
-                      default: Enable
-                      enum:
-                      - Enable
-                      - Disable
-                      type: string
-                  required:
-                  - feature
-                  type: object
-                type: array
               imagePullPolicy:
                 description: ImagePullPolicy specifies the pull policy of the multicluster
                   global hub images

@@ -13,21 +13,20 @@ import (
 )
 
 type ManagerConfig struct {
-	ManagerNamespace      string
-	WatchNamespace        string
-	SchedulerInterval     string
-	SyncerConfig          *SyncerConfig
-	DatabaseConfig        *DatabaseConfig
-	TransportConfig       *transport.TransportInternalConfig
-	StatisticsConfig      *statistics.StatisticsConfig
-	RestAPIServerConfig   *restapis.RestApiServerConfig
-	ElectionConfig        *commonobjects.LeaderElectionConfig
-	EnableGlobalResource  bool
-	ImportClusterInHosted bool
-	EnableInventoryAPI    bool
-	WithACM               bool
-	LaunchJobNames        string
-	EnablePprof           bool
+	ManagerNamespace     string
+	WatchNamespace       string
+	SchedulerInterval    string
+	SyncerConfig         *SyncerConfig
+	DatabaseConfig       *DatabaseConfig
+	TransportConfig      *transport.TransportInternalConfig
+	StatisticsConfig     *statistics.StatisticsConfig
+	RestAPIServerConfig  *restapis.RestApiServerConfig
+	ElectionConfig       *commonobjects.LeaderElectionConfig
+	EnableGlobalResource bool
+	EnableInventoryAPI   bool
+	WithACM              bool
+	LaunchJobNames       string
+	EnablePprof          bool
 }
 
 type SyncerConfig struct {
