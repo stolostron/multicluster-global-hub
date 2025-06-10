@@ -57,7 +57,7 @@ var _ = BeforeSuite(func() {
 			StatusTopic: "status",
 		},
 	}
-	managerConfig := &configs.ManagerConfig{TransportConfig: transportConfig, ImportClusterInHosted: false}
+	managerConfig := &configs.ManagerConfig{TransportConfig: transportConfig}
 
 	By("Prepare envtest environment")
 	var err error
