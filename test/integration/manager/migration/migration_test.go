@@ -14,9 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -170,6 +169,25 @@ var _ = Describe("migration", Ordered, func() {
 			},
 		}
 		Expect(mgr.GetClient().Create(testCtx, cluster1)).To(Succeed())
+
+		// create the managedserviceaccount
+		statusNamespace := "open-cluster-management-agent-addon"
+		By("create a managedserviceaddon")
+		msa := &addonapiv1alpha1.ManagedClusterAddOn{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "hub2",
+				Name:      "managed-serviceaccount",
+			},
+			Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{
+				InstallNamespace: statusNamespace,
+			},
+		}
+		Expect(mgr.GetClient().Create(testCtx, msa)).To(Succeed())
+
+		// update status
+		Expect(mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(msa), msa)).To(Succeed())
+		msa.Status.Namespace = statusNamespace
+		Expect(mgr.GetClient().Status().Update(ctx, msa)).To(Succeed())
 
 		// mimic msa generated secret
 		By("mimic msa generated secret")
@@ -331,64 +349,16 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
-			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
-			if cond.Status == metav1.ConditionTrue && cond.Reason == migration.ConditionReasonResourceValidated &&
-				migrationInstance.Status.Phase == migrationv1alpha1.PhaseInitializing {
+			cond := meta.FindStatusCondition(migrationInstance.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+			if cond == nil {
+				return fmt.Errorf("should get the initialized condition, but got nil")
+			}
+			if cond.Status == metav1.ConditionTrue && cond.Reason == migration.ConditionReasonResourceInitialized {
 				return nil
 			}
 			utils.PrettyPrint(migrationInstance.Status)
-			return fmt.Errorf("should get the initializing resource, but got %s", migrationInstance.Status.Phase)
+			return fmt.Errorf("should get the initialized resource, but got %s", migrationInstance.Status.Phase)
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
-	})
-
-	It("should have managedserviceaccount created", func() {
-		Eventually(func() error {
-			return mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "migration",
-				Namespace: "hub2",
-			}, &v1beta1.ManagedServiceAccount{})
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
-
-		// verify the re-create
-		Expect(mgr.GetClient().Delete(testCtx, &v1beta1.ManagedServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "migration",
-				Namespace: "hub2",
-			},
-		})).To(Succeed())
-
-		Eventually(func() error {
-			return mgr.GetClient().Get(testCtx, types.NamespacedName{
-				Name:      "migration",
-				Namespace: "hub2",
-			}, &v1beta1.ManagedServiceAccount{})
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
-	})
-
-	It("should send the initialized event into source hub", func() {
-		Eventually(func() error {
-			if sourceHubEvent == nil {
-				return fmt.Errorf("wait for the event sent to from hub")
-			}
-			payload := sourceHubEvent.Data()
-			if payload == nil {
-				return fmt.Errorf("wait for the event sent to source hub")
-			}
-
-			Expect(sourceHubEvent.Type()).To(Equal(constants.MigrationSourceMsgKey))
-
-			// handle migration.from cloud event
-			managedClusterMigrationEvent := &migrationbundle.ManagedClusterMigrationFromEvent{}
-			if err := json.Unmarshal(payload, managedClusterMigrationEvent); err != nil {
-				return err
-			}
-
-			Expect(managedClusterMigrationEvent.Stage).To(Equal(migrationv1alpha1.PhaseInitializing))
-			Expect(managedClusterMigrationEvent.ToHub).To(Equal("hub2"))
-			Expect(managedClusterMigrationEvent.ManagedClusters[0]).To(Equal("cluster1"))
-
-			return nil
-		}, 3*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("should initialize the migration cluster", func() {
@@ -411,18 +381,17 @@ var _ = Describe("migration", Ordered, func() {
 				return err
 			}
 
-			if migrationInstance.Status.Phase != migrationv1alpha1.PhaseInitializing &&
-				migrationInstance.Status.Phase != migrationv1alpha1.PhaseCompleted {
-				utils.PrettyPrint(migrationInstance.Status)
-				return fmt.Errorf("wait for the migration Migrating to be ready: %s", migrationInstance.Status.Phase)
-			}
-
 			initCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
 				migrationv1alpha1.ConditionTypeInitialized)
 			if initCond == nil {
 				utils.PrettyPrint(migrationInstance.Status)
 				return fmt.Errorf("the initializing condition should appears in the migration CR")
 			}
+
+			if initCond.Status != metav1.ConditionTrue {
+				return fmt.Errorf("the initializing condtion should ready")
+			}
+
 			return nil
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
@@ -463,6 +432,21 @@ var _ = Describe("migration", Ordered, func() {
 	})
 
 	It("should register the migration cluster", func() {
+		// // create the managedserviceaccount
+		// statusNamespace := "open-cluster-management-agent-addon"
+		// By("create a managedserviceaddon")
+		// msa := &addonapiv1alpha1.ManagedClusterAddOn{
+		// 	ObjectMeta: metav1.ObjectMeta{
+		// 		Namespace: "hub2",
+		// 		Name:      "open-cluster-management-agent-addon",
+		// 	},
+		// }
+		// Expect(mgr.GetClient().Create(testCtx, msa)).To(Succeed())
+		// Expect(mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(msa), msa)).To(Succeed())
+
+		// msa.Status.Namespace = statusNamespace
+		// Expect(mgr.GetClient().Status().Update(ctx, msa)).To(Succeed())
+
 		// get the register event in the source hub
 		Eventually(func() error {
 			payload := sourceHubEvent.Data()

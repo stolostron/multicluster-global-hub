@@ -128,6 +128,19 @@ var _ = BeforeSuite(func() {
 	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
 	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
 
+	By("Add deploy mode label to the managed hub")
+	clusters := &clusterv1.ManagedClusterList{}
+	Expect(globalHubClient.List(ctx, clusters)).To(Succeed())
+	for _, clusterItem := range clusters.Items {
+		cluster := &clusterv1.ManagedCluster{}
+		err = globalHubClient.Get(ctx, client.ObjectKeyFromObject(&clusterItem), cluster)
+		Expect(err).To(Succeed())
+		cluster.Labels[commonconstants.GHDeployModeLabelKey] = commonconstants.GHDeployModeDefault
+		err = globalHubClient.Update(ctx, cluster)
+		Expect(err).To(Succeed(), "Failed to update cluster %s with deploy mode %s", cluster.Name,
+			commonconstants.GHDeployModeDefault)
+	}
+
 	if isPrune != "true" {
 		// valid the clients
 		deployClient := testClients.KubeClient().AppsV1().Deployments(testOptions.GlobalHub.Namespace)

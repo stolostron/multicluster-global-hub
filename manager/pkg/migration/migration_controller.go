@@ -300,33 +300,34 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
-	// addon
-	msa := addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{
-		Name:      migration.Name,
-		Namespace: migration.Spec.To, // target hub
-	}}
-
-	err := m.Client.Get(ctx, client.ObjectKeyFromObject(&msa), &msa)
-	if err != nil {
-		return err
-	}
-
-	if msa.Status.Namespace == "" {
-		return fmt.Errorf("the status.namespace of managedserviceaccount %s/%s is not ready", msa.Namespace, msa.Name)
-	}
-
-	msaNamespace := msa.Status.Namespace
-	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
-	// if user specifies the managedserviceaccount addon namespace, then use it
-	if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
-		msaNamespace = val
-	}
 	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
-		MigrationId:                           string(migration.GetUID()),
-		Stage:                                 stage,
-		ManagedServiceAccountName:             migration.Name,
-		ManagedServiceAccountInstallNamespace: msaNamespace,
-		ManagedClusters:                       managedClusters,
+		MigrationId:     string(migration.GetUID()),
+		Stage:           stage,
+		ManagedClusters: managedClusters,
+	}
+
+	// require the msa info when initializing or cleaning
+	if stage == migrationv1alpha1.PhaseInitializing || stage == migrationv1alpha1.PhaseCleaning {
+		// get the namespace from the managedserviceaccount addon
+		msa := addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{
+			Name:      "managed-serviceaccount",
+			Namespace: migration.Spec.To, // target hub
+		}}
+		err := m.Client.Get(ctx, client.ObjectKeyFromObject(&msa), &msa)
+		if err != nil {
+			return fmt.Errorf("failed to get the managedserviceaccount %s/%s: %v", msa.Namespace, msa.Name, err)
+		}
+		if msa.Status.Namespace == "" {
+			return fmt.Errorf("the status.namespace of managedserviceaccount %s/%s is not ready", msa.Namespace, msa.Name)
+		}
+		msaNamespace := msa.Status.Namespace
+		msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
+		// if user specifies the managedserviceaccount addon namespace, then use it
+		if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
+			msaNamespace = val
+		}
+		managedClusterMigrationToEvent.ManagedServiceAccountName = migration.Name
+		managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = msaNamespace
 	}
 
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)

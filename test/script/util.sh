@@ -237,7 +237,7 @@ init_policy() {
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
   PROPAGATOR_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-propagator.git"
   propagator="governance-policy-propagator"
-  if [ ! -d $propagator ];then
+  if [ ! -d $propagator ]; then
     git clone $PROPAGATOR_GIT_HTTP_PATH
     cd $propagator
     git checkout $GRC_VERSION
@@ -285,7 +285,7 @@ init_policy() {
 
   POLICY_ADDON_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-framework-addon.git"
   policy_addon=governance-policy-framework-addon
-  if [ ! -d $policy_addon ];then
+  if [ ! -d $policy_addon ]; then
     git clone $POLICY_ADDON_GIT_HTTP_PATH
     cd $policy_addon
     git checkout $GRC_VERSION
@@ -302,7 +302,7 @@ init_policy() {
   ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/
   config_policy="config-policy-controller"
   CONFIG_POLICY_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/config-policy-controller.git"
-  if [ ! -d $config_policy ];then
+  if [ ! -d $config_policy ]; then
     git clone $CONFIG_POLICY_GIT_HTTP_PATH
     cd $config_policy
     git checkout $GRC_VERSION
