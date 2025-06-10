@@ -61,6 +61,7 @@ const (
 const (
 	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
 	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
+	GHDeployModeLabelKey      = "global-hub.open-cluster-management.io/deploy-mode"
 	// GHAgentDeployModeHosted is to install agent in Hosted mode
 	GHAgentDeployModeHosted = "Hosted"
 	// GHAgentDeployModeDefault is to install agent in Default mode

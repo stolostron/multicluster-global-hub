@@ -21,374 +21,343 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/apimachinery/pkg/types"
 	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func TestHostedAgentConfig(t *testing.T) {
+func TestIfHostedLabelChange(t *testing.T) {
 	tests := []struct {
-		name      string
-		cma       *addonv1alpha1.ClusterManagementAddOn
-		expectCma *addonv1alpha1.ClusterManagementAddOn
-		want      bool
+		name        string
+		newLabels   map[string]string
+		oldLabels   map[string]string
+		wantChanged bool
 	}{
 		{
-			name: "empty spec",
-			cma: &addonv1alpha1.ClusterManagementAddOn{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "work-manager",
-					Namespace: "c1",
-				},
-			},
-			expectCma: &addonv1alpha1.ClusterManagementAddOn{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "work-manager",
-					Namespace: "c1",
-				},
-				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: addonv1alpha1.InstallStrategy{
-						Type: "Manual",
-						Placements: []addonv1alpha1.PlacementStrategy{
-							{
-								PlacementRef: addonv1alpha1.PlacementRef{
-									Namespace: constants.GHDefaultNamespace,
-									Name:      "non-local-cluster",
-								},
-								Configs: []addonv1alpha1.AddOnConfig{
-									{
-										ConfigReferent: addonv1alpha1.ConfigReferent{
-											Name:      "global-hub",
-											Namespace: constants.GHDefaultNamespace,
-										},
-										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
-											Group:    "addon.open-cluster-management.io",
-											Resource: "addondeploymentconfigs",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: true,
+			name:        "nil maps",
+			newLabels:   nil,
+			oldLabels:   nil,
+			wantChanged: false,
 		},
 		{
-			name: "has config in spec",
-			cma: &addonv1alpha1.ClusterManagementAddOn{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "work-manager",
-					Namespace: "c1",
-				},
-				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: addonv1alpha1.InstallStrategy{
-						Type: "Manual",
-						Placements: []addonv1alpha1.PlacementStrategy{
-							{
-								PlacementRef: addonv1alpha1.PlacementRef{
-									Namespace: "ns",
-									Name:      "pl",
-								},
-							},
-						},
-					},
-				},
-			},
-			expectCma: &addonv1alpha1.ClusterManagementAddOn{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "work-manager",
-					Namespace: "c1",
-				},
-				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: addonv1alpha1.InstallStrategy{
-						Type: "Manual",
-						Placements: []addonv1alpha1.PlacementStrategy{
-							{
-								PlacementRef: addonv1alpha1.PlacementRef{
-									Namespace: "ns",
-									Name:      "pl",
-								},
-							},
-							{
-								PlacementRef: addonv1alpha1.PlacementRef{
-									Namespace: constants.GHDefaultNamespace,
-									Name:      "non-local-cluster",
-								},
-								Configs: []addonv1alpha1.AddOnConfig{
-									{
-										ConfigReferent: addonv1alpha1.ConfigReferent{
-											Name:      "global-hub",
-											Namespace: constants.GHDefaultNamespace,
-										},
-										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
-											Group:    "addon.open-cluster-management.io",
-											Resource: "addondeploymentconfigs",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: true,
+			name:        "empty maps",
+			newLabels:   map[string]string{},
+			oldLabels:   map[string]string{},
+			wantChanged: false,
 		},
 		{
-			name: "has needed config in spec",
-			cma: &addonv1alpha1.ClusterManagementAddOn{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "work-manager",
-					Namespace: "c1",
-				},
-				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: addonv1alpha1.InstallStrategy{
-						Type: "Manual",
-						Placements: []addonv1alpha1.PlacementStrategy{
-							{
-								PlacementRef: addonv1alpha1.PlacementRef{
-									Namespace: constants.GHDefaultNamespace,
-									Name:      "non-local-cluster",
-								},
-								Configs: []addonv1alpha1.AddOnConfig{
-									{
-										ConfigReferent: addonv1alpha1.ConfigReferent{
-											Name:      "global-hub",
-											Namespace: constants.GHDefaultNamespace,
-										},
-										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
-											Group:    "addon.open-cluster-management.io",
-											Resource: "addondeploymentconfigs",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expectCma: &addonv1alpha1.ClusterManagementAddOn{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "work-manager",
-					Namespace: "c1",
-				},
-				Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-					InstallStrategy: addonv1alpha1.InstallStrategy{
-						Type: "Manual",
-						Placements: []addonv1alpha1.PlacementStrategy{
-							{
-								PlacementRef: addonv1alpha1.PlacementRef{
-									Namespace: constants.GHDefaultNamespace,
-									Name:      "non-local-cluster",
-								},
-								Configs: []addonv1alpha1.AddOnConfig{
-									{
-										ConfigReferent: addonv1alpha1.ConfigReferent{
-											Name:      "global-hub",
-											Namespace: constants.GHDefaultNamespace,
-										},
-										ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
-											Group:    "addon.open-cluster-management.io",
-											Resource: "addondeploymentconfigs",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			want: false,
+			name:        "same label value",
+			newLabels:   map[string]string{constants.GHDeployModeLabelKey: "hosted"},
+			oldLabels:   map[string]string{constants.GHDeployModeLabelKey: "hosted"},
+			wantChanged: false,
+		},
+		{
+			name:        "different label value",
+			newLabels:   map[string]string{constants.GHDeployModeLabelKey: "hosted"},
+			oldLabels:   map[string]string{constants.GHDeployModeLabelKey: "non-hosted"},
+			wantChanged: true,
+		},
+		{
+			name:        "label added",
+			newLabels:   map[string]string{constants.GHDeployModeLabelKey: "hosted"},
+			oldLabels:   map[string]string{},
+			wantChanged: true,
+		},
+		{
+			name:        "label removed",
+			newLabels:   map[string]string{},
+			oldLabels:   map[string]string{constants.GHDeployModeLabelKey: "hosted"},
+			wantChanged: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := addAddonConfig(tt.cma)
-			if got != tt.want {
-				t.Errorf("addAddonConfig() = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(tt.expectCma.Spec.InstallStrategy.Placements, tt.cma.Spec.InstallStrategy.Placements) {
-				t.Errorf("expectCma() = %v, want %v", tt.expectCma.Spec, tt.cma.Spec)
+			if got := IfHostedLabelChange(tt.newLabels, tt.oldLabels); got != tt.wantChanged {
+				t.Errorf("IfHostedLabelChange() = %v, want %v", got, tt.wantChanged)
 			}
 		})
 	}
 }
 
-func TestPruneReconciler_hasManagedHub(t *testing.T) {
+func TestRemoveAddonConfig(t *testing.T) {
 	tests := []struct {
-		name    string
-		cmas    []runtime.Object
-		want    bool
-		wantErr bool
+		name     string
+		mca      *addonv1alpha1.ManagedClusterAddOn
+		expected bool
 	}{
 		{
-			name:    "no mca",
-			cmas:    []runtime.Object{},
-			want:    false,
-			wantErr: false,
-		},
-		{
-			name: "has mca",
-			cmas: []runtime.Object{
-				&addonv1alpha1.ManagedClusterAddOn{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      constants.GHManagedClusterAddonName,
-						Namespace: "mh1",
-					},
+			name: "empty config list",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{},
 				},
 			},
-			want:    true,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			addonv1alpha1.AddToScheme(scheme.Scheme)
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.cmas...).Build()
-			hac := HostedAgentController{
-				c: fakeClient,
-			}
-			ctx := context.Background()
-			got, err := hac.hasManagedHub(ctx)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("PruneReconciler.hasManagedHub() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("PruneReconciler.hasManagedHub() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestPruneReconciler_revertClusterManagementAddon(t *testing.T) {
-	tests := []struct {
-		name    string
-		cmas    []runtime.Object
-		wantErr bool
-	}{
-		{
-			name:    "no cma",
-			cmas:    []runtime.Object{},
-			wantErr: false,
+			expected: false,
 		},
 		{
-			name: "cma do not have placements",
-			cmas: []runtime.Object{
-				&addonv1alpha1.ClusterManagementAddOn{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "work-manager",
-						Namespace: utils.GetDefaultNamespace(),
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "cma do not have target placements",
-			cmas: []runtime.Object{
-				&addonv1alpha1.ClusterManagementAddOn{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "work-manager",
-						Namespace: utils.GetDefaultNamespace(),
-					},
-					Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-						InstallStrategy: addonv1alpha1.InstallStrategy{
-							Placements: []addonv1alpha1.PlacementStrategy{
-								{
-									PlacementRef: addonv1alpha1.PlacementRef{
-										Namespace: constants.GHDefaultNamespace,
-										Name:      "global",
-									},
-									Configs: []addonv1alpha1.AddOnConfig{
-										{
-											ConfigReferent: addonv1alpha1.ConfigReferent{
-												Name:      "global-hub",
-												Namespace: constants.GHDefaultNamespace,
-											},
-											ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
-												Group:    "addon.open-cluster-management.io",
-												Resource: "addondeploymentconfigs",
-											},
-										},
-									},
-								},
+			name: "config not found",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{
+						{
+							ConfigReferent: addonv1alpha1.ConfigReferent{
+								Name:      "other-config",
+								Namespace: "test",
 							},
 						},
 					},
 				},
 			},
-			wantErr: false,
+			expected: false,
 		},
 		{
-			name: "cma have target placements",
-			cmas: []runtime.Object{
-				&addonv1alpha1.ClusterManagementAddOn{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "work-manager",
-						Namespace: utils.GetDefaultNamespace(),
+			name: "config found and removed",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{
+						GlobalHubHostedAddonConfig,
 					},
-					Spec: addonv1alpha1.ClusterManagementAddOnSpec{
-						InstallStrategy: addonv1alpha1.InstallStrategy{
-							Placements: []addonv1alpha1.PlacementStrategy{
-								{
-									PlacementRef: addonv1alpha1.PlacementRef{
-										Namespace: constants.GHDefaultNamespace,
-										Name:      "non-local-cluster",
-									},
-									Configs: []addonv1alpha1.AddOnConfig{
-										{
-											ConfigReferent: addonv1alpha1.ConfigReferent{
-												Name:      "global-hub",
-												Namespace: constants.GHDefaultNamespace,
-											},
-											ConfigGroupResource: addonv1alpha1.ConfigGroupResource{
-												Group:    "addon.open-cluster-management.io",
-												Resource: "addondeploymentconfigs",
-											},
-										},
-									},
-								},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "config found among others",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{
+						{
+							ConfigReferent: addonv1alpha1.ConfigReferent{
+								Name:      "other-config",
+								Namespace: "test",
+							},
+						},
+						GlobalHubHostedAddonConfig,
+						{
+							ConfigReferent: addonv1alpha1.ConfigReferent{
+								Name:      "another-config",
+								Namespace: "test",
 							},
 						},
 					},
 				},
 			},
-			wantErr: false,
+			expected: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			addonv1alpha1.AddToScheme(scheme.Scheme)
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.cmas...).Build()
-			hac := HostedAgentController{
-				c: fakeClient,
+			result := removeAddonConfig(tt.mca)
+			if result != tt.expected {
+				t.Errorf("removeAddonConfig() = %v, want %v", result, tt.expected)
 			}
-			ctx := context.Background()
-			if err := hac.revertClusterManagementAddon(ctx); (err != nil) != tt.wantErr {
-				t.Errorf("PruneReconciler.revertClusterManagementAddon() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			cmaList := &addonv1alpha1.ClusterManagementAddOnList{}
 
-			err := hac.c.List(ctx, cmaList)
-			if err != nil {
-				t.Errorf("Failed to list cma:%v", err)
-			}
-			for _, cma := range cmaList.Items {
-				if !config.HostedAddonList.Has(cma.Name) {
-					continue
-				}
-				for _, pl := range cma.Spec.InstallStrategy.Placements {
-					if reflect.DeepEqual(pl.PlacementRef, config.GlobalHubHostedAddonPlacementStrategy.PlacementRef) {
-						t.Errorf("Failed to revert cma")
+			if tt.expected {
+				// Verify config was actually removed
+				for _, config := range tt.mca.Spec.Configs {
+					if reflect.DeepEqual(config, GlobalHubHostedAddonConfig) {
+						t.Error("GlobalHubHostedAddonConfig still present after removal")
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestAddAddonConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		mca      *addonv1alpha1.ManagedClusterAddOn
+		expected bool
+	}{
+		{
+			name: "empty config list",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "config already exists",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{
+						GlobalHubHostedAddonConfig,
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "config added to existing configs",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{
+						{
+							ConfigReferent: addonv1alpha1.ConfigReferent{
+								Name:      "other-config",
+								Namespace: "test",
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			initialLen := len(tt.mca.Spec.Configs)
+			result := addAddonConfig(tt.mca)
+			if result != tt.expected {
+				t.Errorf("addAddonConfig() = %v, want %v", result, tt.expected)
+			}
+
+			if tt.expected {
+				// Verify config was actually added
+				if len(tt.mca.Spec.Configs) != initialLen+1 {
+					t.Error("Config list length did not increase by 1")
+				}
+				found := false
+				for _, config := range tt.mca.Spec.Configs {
+					if reflect.DeepEqual(config, GlobalHubHostedAddonConfig) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Error("GlobalHubHostedAddonConfig not found after addition")
+				}
+			}
+		})
+	}
+}
+
+func TestReconcile(t *testing.T) {
+	tests := []struct {
+		name      string
+		mca       addonv1alpha1.ManagedClusterAddOn
+		mc        clusterv1.ManagedCluster
+		expectMca addonv1alpha1.ManagedClusterAddOn
+		wantErr   bool
+	}{
+		{
+			name: "mca not found",
+			mc: clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mc1",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mc not found",
+			mca: addonv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "mc1",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "mc not hosted",
+			mca: addonv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "mc1",
+				},
+			},
+			mc: clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mc1",
+				},
+			},
+			expectMca: addonv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "mc1",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "mc hosted",
+			mca: addonv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "mc1",
+				},
+			},
+			mc: clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mc1",
+					Labels: map[string]string{
+						constants.GHDeployModeLabelKey: constants.GHAgentDeployModeHosted,
+					},
+				},
+			},
+			expectMca: addonv1alpha1.ManagedClusterAddOn{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "work-manager",
+					Namespace: "mc1",
+				},
+				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+					Configs: []addonv1alpha1.AddOnConfig{
+						GlobalHubHostedAddonConfig,
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			_ = addonv1alpha1.AddToScheme(scheme)
+			_ = clusterv1.AddToScheme(scheme)
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme)
+
+			fakeClient = fakeClient.WithObjects(&tt.mca).WithObjects(&tt.mc)
+
+			c := &HostedAgentController{
+				c: fakeClient.Build(),
+			}
+
+			req := ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      "work-manager",
+					Namespace: "mc1",
+				},
+			}
+
+			_, err := c.Reconcile(context.Background(), req)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("name: %v, Reconcile() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			}
+			mca := &addonv1alpha1.ManagedClusterAddOn{}
+			err = c.c.Get(context.Background(), req.NamespacedName, mca)
+			if err == nil {
+				if !reflect.DeepEqual(mca.Spec.Configs, tt.expectMca.Spec.Configs) {
+					t.Errorf("tt.name: %v ,Reconcile() ManagedClusterAddOn configs = %v, want %v", tt.name, mca.Spec.Configs, tt.expectMca.Spec.Configs)
+				}
+			}
+			if err != nil && !errors.IsNotFound(err) {
+				t.Errorf("Reconcile() error getting ManagedClusterAddOn: %v", err)
 			}
 		})
 	}
