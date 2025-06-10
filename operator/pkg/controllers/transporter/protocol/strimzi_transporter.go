@@ -137,15 +137,23 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 		transporter.subChannel = CommunityChannel
 		transporter.subPackageName = CommunityPackageName
 		transporter.subCatalogSourceName = CommunityCatalogSourceName
-		// it will be operatorhubio-catalog to install kafka in KinD cluster
-		catalogSourceName, ok := mgh.Annotations[operatorconstants.CommunityCatalogSourceNameKey]
-		if ok && catalogSourceName != "" {
-			transporter.subCatalogSourceName = catalogSourceName
-		}
-		catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CommunityCatalogSourceNamespaceKey]
-		if ok && catalogSourceNamespace != "" {
-			transporter.subCatalogSourceNamespace = catalogSourceNamespace
-		}
+	}
+	// user could customize the catalog config
+	catalogSourceName, ok := mgh.Annotations[operatorconstants.CatalogSourceNameKey]
+	if ok && catalogSourceName != "" {
+		transporter.subCatalogSourceName = catalogSourceName
+	}
+	catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CatalogSourceNamespaceKey]
+	if ok && catalogSourceNamespace != "" {
+		transporter.subCatalogSourceNamespace = catalogSourceNamespace
+	}
+	subscriptionChannel, ok := mgh.Annotations[operatorconstants.SubscriptionChannel]
+	if ok && catalogSourceNamespace != "" {
+		transporter.subChannel = subscriptionChannel
+	}
+	subscriptionPackageName, ok := mgh.Annotations[operatorconstants.SubscriptionPackageName]
+	if ok && catalogSourceNamespace != "" {
+		transporter.subPackageName = subscriptionPackageName
 	}
 
 	return transporter

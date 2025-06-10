@@ -22,7 +22,10 @@ List all annotations are used by multicluster global hub.
 | global-hub.open-cluster-management.io/with-inventory                | This annotation is used to identify the common inventory is deployed.                                                                  |
 | global-hub.open-cluster-management.io/with-stackrox-integration | This annotation enables the experimental integration with [Stackrox](https://github.com/stackrox).|
 | global-hub.open-cluster-management.io/kafka-cluster-id | This annotation save the kafka cluster id in transport-config secret in agent part, it is used to identify if the kafka cluster changed.|
-
+| global-hub.open-cluster-management.io/strimzi-catalog-source-name | This annotation is used to set catalog source name to strimzi subscription |
+| global-hub.open-cluster-management.io/strimzi-catalog-source-namespace | This annotation is used to set catalog source namespace to strimzi subscription |
+| global-hub.open-cluster-management.io/strimzi-subscription-package-name | This annotation is used to set package name to strimzi subscription |
+| global-hub.open-cluster-management.io/strimzi-subscription-channel | This annotation is used to set channel to strimzi subscription|
 # Finalizer
 
 List all of the finalizers that are used by the multicluster global hub.
