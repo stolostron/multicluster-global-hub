@@ -213,14 +213,29 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 		if !migration.GetDeletionTimestamp().IsZero() && req.Name == migration.Name {
 			return &migration, nil
 		}
-		// skip the migration which is completed or failed
+		// skip the migration which is completed
 		if migration.Status.Phase == migrationv1alpha1.PhaseCompleted {
 			continue
 		}
 		// skip the migration which is failed and cleaned
 		if migration.Status.Phase == migrationv1alpha1.PhaseFailed &&
 			meta.FindStatusCondition(migration.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) != nil {
-			continue
+			// Need to wait until the cleanup is done, otherwise we may meet the message is dropped
+			// due to the version is not newer than the previous one.
+			isCleanCompleted := true
+			if !GetFinished(string(migration.GetUID()), migration.Spec.To, migrationv1alpha1.PhaseCleaning) {
+				isCleanCompleted = false
+			}
+
+			sourceHubClusters := GetSourceClusters(string(migration.GetUID()))
+			for fromHubName := range sourceHubClusters {
+				if !GetFinished(string(migration.GetUID()), fromHubName, migrationv1alpha1.PhaseCleaning) {
+					isCleanCompleted = false
+				}
+			}
+			if isCleanCompleted {
+				continue
+			}
 		}
 
 		// if the migration has the finalizer, it means that the migration is in progress
