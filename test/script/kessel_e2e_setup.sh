@@ -14,7 +14,7 @@ source "$CURRENT_DIR/util.sh"
 cluster_name="global-hub-kessel"
 
 kind_cluster $cluster_name
-install_crds $cluster_name false
+install_crds $cluster_name true
 enable_service_ca $cluster_name "$TEST_DIR/manifest"
 enable_olm $cluster_name
 
