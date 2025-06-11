@@ -113,12 +113,13 @@ check_kind() {
 kind_cluster() {
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local cluster_name="$1"
+  local kind_image="$2"
   local kubeconfig="$dir/$cluster_name"
   local max_retries=5
   local counter=0
   while [ $counter -lt $max_retries ] && ! (kind get clusters 2>/dev/null | grep -xq "$cluster_name"); do
     echo "creating cluster $cluster_name"
-    ensure_cluster "$cluster_name" "$kubeconfig"
+    ensure_cluster "$cluster_name" "$kubeconfig" "$kind_image"
     counter=$((counter + 1))
   done
   if [ $counter -eq $max_retries ]; then
@@ -131,12 +132,17 @@ kind_cluster() {
 ensure_cluster() {
   local cluster_name="$1"
   local kubeconfig="$2"
+  local kind_image="$3"
 
   if kind get clusters 2>/dev/null | grep -xq "$cluster_name"; then
     kind delete cluster --name="$cluster_name"
   fi
 
-  kind create cluster --name "$cluster_name" --wait 5m
+  if [ -n "$kind_image" ]; then
+    kind create cluster --name "$cluster_name" --image "$kind_image" --wait 5m
+  else
+    kind create cluster --name "$cluster_name" --wait 5m
+  fi
 
   # modify the context = KinD cluster name = kubeconfig name
   kubectl config delete-context "$cluster_name" 2>/dev/null || true
