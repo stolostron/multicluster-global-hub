@@ -11,8 +11,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -20,25 +18,8 @@ import (
 // go test ./test/integration/operator/controllers/agent -ginkgo.focus "deploy hosted addon" -v
 var _ = Describe("deploy hosted addon", func() {
 	BeforeEach(func() {
-		mgh := &v1alpha4.MulticlusterGlobalHub{
-			Spec: v1alpha4.MulticlusterGlobalHubSpec{
-				FeatureGates: []v1alpha4.FeatureGate{
-					{
-						Feature: v1alpha4.FeatureGateImportClusterInHosted,
-						Mode:    v1alpha4.FeatureGateModeTypeEnable,
-					},
-				},
-			},
-		}
-		config.SetImportClusterInHosted(mgh)
 	})
 	AfterEach(func() {
-		mgh := &v1alpha4.MulticlusterGlobalHub{
-			Spec: v1alpha4.MulticlusterGlobalHubSpec{
-				FeatureGates: []v1alpha4.FeatureGate{},
-			},
-		}
-		config.SetImportClusterInHosted(mgh)
 	})
 	It("Should create hosted addon in OCP", func() {
 		clusterName := fmt.Sprintf("hub-%s", rand.String(6))                // managed hub cluster -> enable local cluster
@@ -48,8 +29,8 @@ var _ = Describe("deploy hosted addon", func() {
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
-				"vendor":                            "OpenShift",
-				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeHosted,
+				"vendor":                       "OpenShift",
+				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
 			},
 			map[string]string{
 				constants.AnnotationClusterDeployMode:                constants.ClusterDeployModeHosted,
@@ -60,8 +41,8 @@ var _ = Describe("deploy hosted addon", func() {
 			clusterAvailableCondition)
 		prepareCluster(hostingClusterName,
 			map[string]string{
-				"vendor":                            "OpenShift",
-				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeNone,
+				"vendor": "OpenShift",
+				// constants.GHDeployModeLabelKey: constants.GHDeployModeNone,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -99,8 +80,8 @@ var _ = Describe("deploy hosted addon", func() {
 		By("By preparing clusters")
 		prepareCluster(clusterName,
 			map[string]string{
-				"vendor":                            "OpenShift",
-				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeHosted,
+				"vendor":                       "OpenShift",
+				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
 				operatorconstants.GHAgentACMHubInstallLabelKey: "",
 			},
 			map[string]string{
@@ -117,8 +98,8 @@ var _ = Describe("deploy hosted addon", func() {
 			clusterAvailableCondition)
 		prepareCluster(hostingClusterName,
 			map[string]string{
-				"vendor":                            "OpenShift",
-				constants.GHAgentDeployModeLabelKey: constants.GHAgentDeployModeNone,
+				"vendor": "OpenShift",
+				// constants.GHDeployModeLabelKey: constants.GHDeployModeNone,
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},

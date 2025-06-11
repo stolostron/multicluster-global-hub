@@ -90,10 +90,8 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if mgh == nil || config.IsPaused(mgh) {
 		return ctrl.Result{}, nil
 	}
-	// set importClusterInHosted from mgh annotation
-	config.SetImportClusterInHosted(mgh)
 
-	if mgh.DeletionTimestamp != nil || !config.GetImportClusterInHosted() {
+	if mgh.DeletionTimestamp != nil {
 		err = r.pruneWebhookResources(ctx)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -116,8 +114,7 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	webhookObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return WebhookVariables{
-			ImportClusterInHosted: config.GetImportClusterInHosted(),
-			Namespace:             mgh.Namespace,
+			Namespace: mgh.Namespace,
 		}, nil
 	})
 	if err != nil {
@@ -130,8 +127,7 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 type WebhookVariables struct {
-	ImportClusterInHosted bool
-	Namespace             string
+	Namespace string
 }
 
 // SetupWithManager sets up the controller with the Manager.

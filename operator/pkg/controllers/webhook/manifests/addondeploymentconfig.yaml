@@ -1,4 +1,3 @@
-{{- if .ImportClusterInHosted}}
 apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: AddOnDeploymentConfig
 metadata:
@@ -11,4 +10,3 @@ spec:
   customizedVariables:
   - name: enableSyncLabelsToClusterClaims
     value: "false"
-{{ end }}

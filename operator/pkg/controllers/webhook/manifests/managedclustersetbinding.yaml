@@ -1,9 +1,0 @@
-{{- if .ImportClusterInHosted}}
-apiVersion: cluster.open-cluster-management.io/v1beta2
-kind: ManagedClusterSetBinding
-metadata:
-  name: global
-  namespace: {{.Namespace}}
-spec:
-  clusterSet: global
-{{ end }}

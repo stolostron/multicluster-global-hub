@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-05-29T06:09:17Z"
+    createdAt: "2025-06-10T06:58:35Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -173,15 +173,6 @@ spec:
         path: enableMetrics
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: FeatureGates represents a list of configurable feature gates.
-        displayName: Feature Gates
-        path: featureGates
-      - description: ImportClusterInHosted enables importing managed hub clusters
-          in hosted mode.
-        displayName: Feature
-        path: featureGates[0].feature
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:select:ImportClusterInHosted
       - description: ImagePullPolicy specifies the pull policy of the multicluster
           global hub images
         displayName: Image Pull Policy

@@ -18,7 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -45,43 +44,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 
 	switch req.Kind.Kind {
 	case "ManagedCluster":
-		cluster := &clusterv1.ManagedCluster{}
-		err := a.decoder.Decode(req, cluster)
-		if err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		if cluster.Labels[constants.LocalClusterName] == "true" {
-			return admission.Allowed("")
-		}
-
-		// If cluster already imported, skip it
-		if meta.IsStatusConditionTrue(cluster.Status.Conditions, constants.ManagedClusterImportSucceeded) {
-			return admission.Allowed("")
-		}
-
-		a.localClusterName, err = getLocalClusterName(ctx, a.client)
-		if err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-
-		// Add the annotation 'klusterlet-deploy-mode=hosted' only if the feature gate enabled -> cluster(klusterlet)
-		if !config.GetImportClusterInHosted() {
-			return admission.Allowed("")
-		}
-
-		changed := a.setHostedAnnotations(cluster)
-		if !changed {
-			return admission.Allowed("")
-		}
-
-		log.Infof("Add hosted annotation for managedcluster: %v", cluster.Name)
-
-		marshaledCluster, err := json.Marshal(cluster)
-		if err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledCluster)
-
+		return a.handleManagedCluster(ctx, req)
 	case "KlusterletAddonConfig":
 		klusterletaddonconfig := &addonv1.KlusterletAddonConfig{}
 		err := a.decoder.Decode(req, klusterletaddonconfig)
@@ -123,18 +86,79 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 	}
 }
 
+func (a *admissionHandler) handleManagedCluster(ctx context.Context, req admission.Request) admission.Response {
+	cluster := &clusterv1.ManagedCluster{}
+	err := a.decoder.Decode(req, cluster)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	if cluster.Labels[constants.LocalClusterName] == "true" {
+		return admission.Allowed("")
+	}
+
+	// If cluster already imported, skip it
+	if meta.IsStatusConditionTrue(cluster.Status.Conditions, constants.ManagedClusterImportSucceeded) {
+		return admission.Allowed("")
+	}
+
+	// Check the importing label
+	deployMode, ok := cluster.Labels[constants.GHDeployModeLabelKey]
+	if !ok {
+		return admission.Allowed(fmt.Sprintf("The cluster %s does not have the label %s, importing as a managed cluster",
+			cluster.Name, constants.GHDeployModeLabelKey))
+	}
+
+	if deployMode != constants.GHDeployModeHosted && deployMode != constants.GHDeployModeDefault {
+		return admission.Denied(fmt.Sprintf("The cluster %s with invalid label %s=%s, only support %s and %s",
+			cluster.Name, constants.GHDeployModeLabelKey, deployMode, constants.GHDeployModeHosted,
+			constants.GHDeployModeDefault))
+	}
+
+	if deployMode == constants.GHDeployModeDefault {
+		return admission.Allowed(fmt.Sprintf("The cluster %s with label %s=%s, importing the managed hub in default mode",
+			cluster.Name, constants.GHDeployModeLabelKey, deployMode))
+	}
+
+	// If hosted mode is enabled, the local cluster must also be enabled, since the klusterlet-agent of the hosted
+	// cluster must be reconciled by the klusterlet operator(required) running in the current (global hub) cluster.
+	if deployMode == constants.GHDeployModeHosted {
+		log.Infof("The cluster %s with label %s=%s, importing the managed hub in hosted mode",
+			cluster.Name, constants.GHDeployModeLabelKey, deployMode)
+
+		a.localClusterName, err = getLocalClusterName(ctx, a.client)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+
+		changed := a.setHostedAnnotations(cluster)
+		if !changed {
+			return admission.Allowed("")
+		}
+
+		log.Infof("Add hosted annotation into managedcluster: %v", cluster.Name)
+		marshaledCluster, err := json.Marshal(cluster)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledCluster)
+	}
+	return admission.Allowed("")
+}
+
+// getLocalClusterName gets the local cluster name of the current cluster,
 func getLocalClusterName(ctx context.Context, client client.Client) (string, error) {
 	mcList := &clusterv1.ManagedClusterList{}
 	err := client.List(ctx, mcList)
 	if err != nil {
-		return "", fmt.Errorf("there is no clusters, the local clusters should enable,err:%v", err.Error())
+		return "", fmt.Errorf("the local clusters must be enabled, err: %v", err.Error())
 	}
 	for _, mc := range mcList.Items {
 		if mc.Labels[constants.LocalClusterName] == "true" {
 			return mc.Name, nil
 		}
 	}
-	return "", fmt.Errorf("the local clusters should be enabled")
+	return "", fmt.Errorf("the local clusters must be enabled")
 }
 
 // isInHostedCluster check if the cluster has hosted annotations

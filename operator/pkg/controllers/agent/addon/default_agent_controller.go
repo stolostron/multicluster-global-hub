@@ -258,17 +258,13 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 	// Avoid installing the global hub agent in the following scenarios:
 	//   1. The cluster is being detached.
-	//   2. The global hub is being installed in brownfield mode without a deploy mode label.
-	//   3. The cluster has the label 'agent-deploy-mode' set to None.
-	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
-
+	//   2. The deploy mode label is not added
+	_, hasDeployLabel := cluster.GetLabels()[constants.GHDeployModeLabelKey]
 	isDetaching := !cluster.DeletionTimestamp.IsZero()
-	isBrownfieldWithoutDeployMode := mgh.Spec.InstallAgentOnLocal && !ok
-	isNoneDeployMode := (deployMode == constants.GHAgentDeployModeNone)
-	log.Infof("cluster(%s): isDetaching - %v, isBrownfieldWithoutDeployMode - %v, isNoneDeployMode - %v",
-		cluster.Name, isDetaching, isBrownfieldWithoutDeployMode, isNoneDeployMode)
-	if isDetaching || isBrownfieldWithoutDeployMode || isNoneDeployMode {
-		log.Infow("deleting resources and addon", "cluster", cluster.Name, "deployMode", deployMode)
+
+	log.Infof("cluster(%s): isDetaching - %v, hasDeployLabel - %v", cluster.Name, isDetaching, hasDeployLabel)
+	if isDetaching || !hasDeployLabel {
+		log.Infow("deleting resources and addon", "cluster", cluster.Name)
 		if err := r.removeResourcesAndAddon(ctx, cluster); err != nil {
 			log.Error(err, "failed to delete resources and addon", "cluster", cluster.Name)
 			return ctrl.Result{}, err
@@ -413,9 +409,8 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	// Change the add-on installation namespace in hosted mode must meet the following conditions:
 	//   1. The imported clustered must be hosted.
 	//   2. The deployMode label exist, the val is hosted or ""
-	deployMode, ok := cluster.GetLabels()[constants.GHAgentDeployModeLabelKey]
-	if config.GetImportClusterInHosted() && ok &&
-		(deployMode == constants.GHAgentDeployModeHosted || deployMode == "") {
+	deployMode, hasDeployLabel := cluster.GetLabels()[constants.GHDeployModeLabelKey]
+	if hasDeployLabel && (deployMode == constants.GHDeployModeHosted) {
 		annotations := cluster.GetAnnotations()
 		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
 			expectedAddonAnnotations[constants.AnnotationAddonHostingClusterName] = hostingCluster

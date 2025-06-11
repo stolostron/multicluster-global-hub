@@ -58,15 +58,24 @@ const (
 	GHManagedClusterAddonName = "multicluster-global-hub-controller"
 )
 
+// const (
+// 	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
+// 	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
+// 	// GHAgentDeployModeHosted is to install agent in Hosted mode
+// 	GHAgentDeployModeHosted = "Hosted"
+// 	// GHAgentDeployModeDefault is to install agent in Default mode
+// 	GHAgentDeployModeDefault = "Default"
+// 	// GHAgentDeployModeNone is to not install agent
+// 	GHAgentDeployModeNone = "None"
+// )
+
 const (
-	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
-	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
-	// GHAgentDeployModeHosted is to install agent in Hosted mode
-	GHAgentDeployModeHosted = "Hosted"
-	// GHAgentDeployModeDefault is to install agent in Default mode
-	GHAgentDeployModeDefault = "Default"
-	// GHAgentDeployModeNone is to not install agent
-	GHAgentDeployModeNone = "None"
+	// GHDeployModeLabelKey is to indicate which deploy mode of the importing cluster
+	GHDeployModeLabelKey = "global-hub.open-cluster-management.io/deploy-mode"
+	// GHDeployModeHosted is to install agent in hosted mode
+	GHDeployModeHosted = "hosted"
+	// GHDeployModeDefault is to install agent in default mode
+	GHDeployModeDefault = "default"
 )
 
 const (

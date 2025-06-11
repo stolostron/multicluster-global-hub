@@ -207,22 +207,18 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 func (a *GlobalHubAddonAgent) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
 	manifestsConfig *config.ManifestsConfig,
 ) {
-	// cluster hosted: feature gate is enabled
-	if !config.GetImportClusterInHosted() {
-		return
-	}
-	// cluster hosted: the annotation 'klusterlet-deploy-mode' = hosted is added in the webhook by the gh hosted config
-	annotations := cluster.GetAnnotations()
-	if annotations[constants.AnnotationClusterDeployMode] != constants.ClusterDeployModeHosted {
-		return
-	}
-
-	// gh addon hosted: 'agent-deploy-mode' = 'Hosted' or ''
+	// gh addon hosted: 'deploy-mode' = 'Hosted'
 	if cluster.Labels == nil {
 		return
 	}
-	deployMode, ok := cluster.Labels[constants.GHAgentDeployModeLabelKey]
-	if !ok || !(deployMode == "" || deployMode == constants.GHAgentDeployModeHosted) {
+	deployMode, ok := cluster.Labels[constants.GHDeployModeLabelKey]
+	if !ok || deployMode != constants.GHDeployModeHosted {
+		return
+	}
+
+	// cluster hosted: the annotation 'klusterlet-deploy-mode' = hosted is added in the webhook by the gh hosted config
+	annotations := cluster.GetAnnotations()
+	if annotations[constants.AnnotationClusterDeployMode] != constants.ClusterDeployModeHosted {
 		return
 	}
 

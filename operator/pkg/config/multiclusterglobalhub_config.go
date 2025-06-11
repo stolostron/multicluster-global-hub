@@ -96,7 +96,6 @@ var (
 	metricsScrapeInterval = "1m"
 	imagePullSecretName   = ""
 	addonMgr              addonmanager.AddonManager
-	importClusterInHosted = false
 	mu                    sync.Mutex
 	log                   = logger.DefaultZapLogger()
 	localClusterName      = ""
@@ -293,28 +292,6 @@ func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	return nil
 }
 
-func SetImportClusterInHosted(mgh *v1alpha4.MulticlusterGlobalHub) {
-	importClusterInHosted = EnabledFeature(mgh, v1alpha4.FeatureGateImportClusterInHosted)
-}
-
-func EnabledFeature(mgh *v1alpha4.MulticlusterGlobalHub, feature string) bool {
-	featureGates := mgh.Spec.FeatureGates
-	if featureGates == nil {
-		return false
-	}
-	for _, featureGate := range featureGates {
-		if featureGate.Feature == feature &&
-			featureGate.Mode == v1alpha4.FeatureGateModeTypeEnable {
-			return true
-		}
-	}
-	return false
-}
-
-func GetImportClusterInHosted() bool {
-	return importClusterInHosted
-}
-
 func SetOauthProxyImage(image string) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -379,8 +356,6 @@ func SetMulticlusterGlobalHubConfig(ctx context.Context, mgh *v1alpha4.Multiclus
 	SetMGHNamespacedName(types.NamespacedName{
 		Namespace: mgh.GetNamespace(), Name: mgh.GetName(),
 	})
-
-	SetImportClusterInHosted(mgh)
 
 	// set image overrides
 	if err := SetImageOverrides(mgh); err != nil {

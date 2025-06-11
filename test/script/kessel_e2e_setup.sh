@@ -72,7 +72,27 @@ spec:
 EOF
 
 # Trap exit to ignore the function's exit 1
-trap '' EXIT
+trap 'on_error' EXIT
+
+# Debug on failure
+on_error() {
+  echo "❌ Error occurred. Printing debug info..."
+
+  echo "🔍 Get Kafka:"
+  kubectl get kafka -n multicluster-global-hub -oyaml --context "$cluster_name" || true
+
+  echo "🔍 Get Pods:"
+  kubectl get pod -n multicluster-global-hub --context "$cluster_name" || true
+
+  echo "🔍 Get MCGH:"
+  kubectl get mcgh -n multicluster-global-hub -oyaml --context "$cluster_name" || true
+
+  echo "🔍 Logs (GH Operator):"
+  kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub --context "$cluster_name" || true
+
+  echo "🔍 Get Deployments:"
+  kubectl get deploy -n multicluster-global-hub --context "$cluster_name" || true
+}
 
 # Wait the control planes are ready
 wait_cmd "kubectl get deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name"
@@ -83,13 +103,6 @@ kubectl wait deploy/inventory-api -n multicluster-global-hub --for condition=Ava
 kubectl wait deploy/relations-api -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
 kubectl wait deploy/spicedb-operator -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
 kubectl wait deploy/spicedb-spicedb -n multicluster-global-hub --for condition=Available=True --timeout=60s --context $cluster_name
-
-# Debug information
-kubectl get kafka -n multicluster-global-hub -oyaml --context $cluster_name || true
-kubectl get pod -n multicluster-global-hub --context $cluster_name || true
-kubectl get mcgh -n multicluster-global-hub -oyaml --context $cluster_name || true
-kubectl logs deploy/multicluster-global-hub-operator -n multicluster-global-hub --context $cluster_name || true
-kubectl get deploy -n multicluster-global-hub --context $cluster_name || true
 
 # Restore default behavior
 trap - EXIT

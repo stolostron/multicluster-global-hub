@@ -37,7 +37,6 @@ spec:
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
             - --enable-global-resource={{.EnableGlobalResource}}
-            - --import-cluster-in-hosted={{.ImportClusterInHosted}}
             - --enable-inventory-api={{.EnableInventoryAPI}}
             - --with-acm={{.WithACM}}
             - --transport-failure-threshold={{.TransportFailureThreshold}}
