@@ -432,21 +432,6 @@ var _ = Describe("migration", Ordered, func() {
 	})
 
 	It("should register the migration cluster", func() {
-		// // create the managedserviceaccount
-		// statusNamespace := "open-cluster-management-agent-addon"
-		// By("create a managedserviceaddon")
-		// msa := &addonapiv1alpha1.ManagedClusterAddOn{
-		// 	ObjectMeta: metav1.ObjectMeta{
-		// 		Namespace: "hub2",
-		// 		Name:      "open-cluster-management-agent-addon",
-		// 	},
-		// }
-		// Expect(mgr.GetClient().Create(testCtx, msa)).To(Succeed())
-		// Expect(mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(msa), msa)).To(Succeed())
-
-		// msa.Status.Namespace = statusNamespace
-		// Expect(mgr.GetClient().Status().Update(ctx, msa)).To(Succeed())
-
 		// get the register event in the source hub
 		Eventually(func() error {
 			payload := sourceHubEvent.Data()
@@ -487,7 +472,6 @@ var _ = Describe("migration", Ordered, func() {
 			migration.SetFinished(string(migrationInstance.GetUID()), migrationInstance.Spec.To,
 				migrationv1alpha1.PhaseRegistering)
 
-			// db should changed into deploying
 			registeredCond := meta.FindStatusCondition(migrationInstance.Status.Conditions,
 				migrationv1alpha1.ConditionTypeRegistered)
 			if registeredCond == nil || registeredCond.Status == metav1.ConditionFalse {
