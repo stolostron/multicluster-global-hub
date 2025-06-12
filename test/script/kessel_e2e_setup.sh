@@ -13,7 +13,7 @@ source "$CURRENT_DIR/util.sh"
 
 cluster_name="global-hub-kessel"
 
-kind_cluster $cluster_name
+kind_cluster $cluster_name "kindest/node:v1.32.2"
 install_crds $cluster_name false
 enable_service_ca $cluster_name "$TEST_DIR/manifest"
 enable_olm $cluster_name

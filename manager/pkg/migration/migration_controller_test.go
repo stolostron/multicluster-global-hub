@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
@@ -23,6 +24,7 @@ func TestGetCurrentMigration(t *testing.T) {
 		name          string
 		migrations    []migrationv1alpha1.ManagedClusterMigration
 		expectedName  string
+		preExec       func()
 		expectedError bool
 	}{
 		{
@@ -32,7 +34,7 @@ func TestGetCurrentMigration(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "Should skip completed and failed migrations",
+			name: "Should skip the completed migration",
 			migrations: []migrationv1alpha1.ManagedClusterMigration{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "migration1"},
@@ -40,6 +42,13 @@ func TestGetCurrentMigration(t *testing.T) {
 						Phase: migrationv1alpha1.PhaseCompleted,
 					},
 				},
+			},
+			expectedName:  "",
+			expectedError: false,
+		},
+		{
+			name: "Should not skip the failed migration since it is not completed",
+			migrations: []migrationv1alpha1.ManagedClusterMigration{
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "migration2"},
 					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
@@ -55,8 +64,42 @@ func TestGetCurrentMigration(t *testing.T) {
 					},
 				},
 			},
+			expectedName:  "migration2",
+			expectedError: false,
+		},
+		{
+			name: "Should skip the failed migration since it was completed",
+			migrations: []migrationv1alpha1.ManagedClusterMigration{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "migration2",
+						UID:  "migration2",
+					},
+					Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+						From:                    "hub1",
+						To:                      "hub2",
+						IncludedManagedClusters: []string{"cluster1"},
+					},
+					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+						Phase: migrationv1alpha1.PhaseFailed,
+						Conditions: []metav1.Condition{
+							{
+								Type:    migrationv1alpha1.ConditionTypeCleaned,
+								Status:  metav1.ConditionTrue,
+								Reason:  "ResourceCleaned",
+								Message: "Resources have been cleaned from the hub clusters",
+							},
+						},
+					},
+				},
+			},
 			expectedName:  "",
 			expectedError: false,
+			preExec: func() {
+				AddMigrationStatus("migration2")
+				SetFinished("migration2", "hub1", v1alpha1.PhaseCleaning)
+				SetFinished("migration2", "hub2", v1alpha1.PhaseCleaning)
+			},
 		},
 		{
 			name: "Should return migration with finalizer",
@@ -119,6 +162,9 @@ func TestGetCurrentMigration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.preExec != nil {
+				tt.preExec()
+			}
 			migrationList := &migrationv1alpha1.ManagedClusterMigrationList{
 				Items: tt.migrations,
 			}
