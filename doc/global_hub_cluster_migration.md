@@ -57,7 +57,7 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ## Deployment Modes
 
-### Global Hub supports the following deployment modes
+### Global Hub Installation Modes
 
 - 🟢 Greenfield Mode
 
@@ -72,10 +72,18 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
   - Deploy the Global Hub in **source** hub (hub1)
   - Deploy the Global Hub in the **target** hub (hub2)
 
-### Importing a Managed Hub into the Global Hub
+### Importing Managed Hub Modes
 
-- Default mode
-- Hosted mode - see the example below for how to enable it
+Starting from Global Hub version 1.5.0, when importing an ACM hub into Global Hub, you must add the label `global-hub.open-cluster-management.io/deploy-mode` to indicate it is a Managed Hub. Without this label, the imported cluster will be treated as a standard managed cluster, meaning the Global Hub agent will not be installed.
+
+Currently, the label supports two values: `default` and `hosted`. each suited for different scenarios:
+
+* **`default`**: Use this when the ACM hub being imported does not have self-management enabled. In this case, both the Klusterlet and the Global Hub agent will be installed directly in the importing ACM hub cluster.
+
+* **`hosted`**: Use this when the ACM hub being imported **has** self-management enabled. In default mode, the klusterlet from the `local-cluster` of Managed Hub may conflict with Global Hub. To avoid this, `hosted` mode should be used. However, there are two limitations within such mode:
+
+  * The `kubeconfig` of the importing ACM hub cluster must never expire.
+  * The Global Hub cluster must also have self-management enabled, so that the hosted Klusterlet can be properly reconciled by the operator from the `local-cluster` of Global Hub.
 
 ---
 
@@ -85,9 +93,9 @@ Note: The Validating phase currently does not check resources such as `ConfigMap
 
 ![arch](images/migration-sample.png)
 
-### Step 1 – Deploy the Global Hub on the Source Hub
+### Step 1 – Deploy the Global Hub in Brownfield Mode
 
-Install the Global Hub on `hub1`, enable the `ImportClusterInHosted` feature gate, and deploy the agent locally:
+Install the Global Hub on `hub1`, and enable the agent running locally:
 
 ```yaml
   apiVersion: operator.open-cluster-management.io/v1alpha4
@@ -98,14 +106,11 @@ Install the Global Hub on `hub1`, enable the `ImportClusterInHosted` feature gat
   spec:
     availabilityConfig: High
     installAgentOnLocal: true
-    featureGates:
-    - feature: ImportClusterInHosted
-      mode: Enable
   ```
 
 > In this setup, the **Global Hub**, **source hub**, and `local-cluster` are all on `hub1`.
 
-### Step 2 – Import the Target Hub in Hosted Mode
+### Step 2 – Import the Managed Hub in Hosted Mode
 
 Label `hub2` with the `hosted` deployment mode during importing:
 
@@ -116,7 +121,6 @@ global-hub.open-cluster-management.io/deploy-mode=hosted
 ### Step 3 – Create Migration Resource
 
 Define the `ManagedClusterMigration` resource to move the cluster and related resources:
-
 
 ```yaml
 apiVersion: global-hub.open-cluster-management.io/v1alpha1
