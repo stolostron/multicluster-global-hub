@@ -113,10 +113,11 @@ check_kind() {
 kind_cluster() {
   dir="${CONFIG_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
   local cluster_name="$1"
-  local kind_image="$2"
   local kubeconfig="$dir/$cluster_name"
   local max_retries=5
   local counter=0
+  local kind_image="${2:-}"
+
   while [ $counter -lt $max_retries ] && ! (kind get clusters 2>/dev/null | grep -xq "$cluster_name"); do
     echo "creating cluster $cluster_name"
     ensure_cluster "$cluster_name" "$kubeconfig" "$kind_image"

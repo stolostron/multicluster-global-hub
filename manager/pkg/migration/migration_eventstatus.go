@@ -116,22 +116,27 @@ func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 func GetStarted(migrationId, hub, phase string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	p := getProgress(migrationId, hub, phase)
-	return p.started
+	if p := getProgress(migrationId, hub, phase); p != nil {
+		return p.started
+	}
+	return false
 }
 
 // GetFinished returns true if the status of the given stage is finished for the hub cluster
 func GetFinished(migrationId, hub, phase string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
-	p := getProgress(migrationId, hub, phase)
-	return p.finished
+	if p := getProgress(migrationId, hub, phase); p != nil {
+		return p.finished
+	}
+	return false
 }
 
 func GetErrorMessage(migrationId, hub, phase string) string {
 	mu.RLock()
 	defer mu.RUnlock()
-	p := getProgress(migrationId, hub, phase)
-
-	return p.error
+	if p := getProgress(migrationId, hub, phase); p != nil {
+		return p.error
+	}
+	return ""
 }
