@@ -6,11 +6,11 @@ require (
 	github.com/IBM/sarama v1.44.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20241021120453-70fb95191324
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250612083559-65b45e42ad3c
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
-	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250214143010-93e1a8d64cd6
+	github.com/cloudevents/sdk-go/v2 v2.16.0
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
+	github.com/confluentinc/confluent-kafka-go/v2 v2.10.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
@@ -124,7 +124,7 @@ require (
 	github.com/gonvenience/wrap v1.1.2 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
