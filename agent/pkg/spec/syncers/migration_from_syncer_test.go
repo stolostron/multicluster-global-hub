@@ -62,6 +62,8 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
 	}
 
+	currentSyncerMigrationId := "020340324302432049234023040320"
+
 	cases := []struct {
 		name                         string
 		receivedMigrationEventBundle migration.ManagedClusterMigrationFromEvent
@@ -114,7 +116,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				MigrationId: "020340324302432049234023040320",
+				MigrationId: currentSyncerMigrationId,
 				ToHub:       "hub2",
 				Stage:       migrationv1alpha1.PhaseInitializing,
 				BootstrapSecret: &corev1.Secret{
@@ -136,7 +138,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}(),
 		},
 		{
-			name: "Registering: register cluster1 to hub2",
+			name: "Registering: migrate cluster1 from hub1 to hub2",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
@@ -158,7 +160,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				MigrationId:     "020340324302432049234023040320",
+				MigrationId:     currentSyncerMigrationId,
 				ToHub:           "hub2",
 				Stage:           migrationv1alpha1.PhaseRegistering,
 				ManagedClusters: []string{"cluster1"},
@@ -199,7 +201,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			},
 			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
-				MigrationId: "020340324302432049234023040320",
+				MigrationId: currentSyncerMigrationId,
 				ToHub:       "hub2",
 				Stage:       migrationv1alpha1.PhaseCleaning,
 				BootstrapSecret: &corev1.Secret{
@@ -248,7 +250,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 			managedClusterMigrationSyncer := NewMigrationSourceSyncer(fakeClient, nil, transportClient,
 				transportConfig)
-
+			managedClusterMigrationSyncer.currentMigrationId = currentSyncerMigrationId
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
 			if err != nil {
