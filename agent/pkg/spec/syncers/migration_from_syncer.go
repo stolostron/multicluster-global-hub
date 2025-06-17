@@ -78,33 +78,42 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		s.currentMigrationId = migrationSourceHubEvent.MigrationId
 		// reset the bundle version for the new migration
 		s.bundleVersion.Reset()
+		log.Infof("migration initialing: %s", migrationSourceHubEvent.MigrationId)
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
-
-		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
-			return err
-		}
+		log.Infof("migration initialing is finished: %s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if s.currentMigrationId != migrationSourceHubEvent.MigrationId {
-		log.Infof("ignore the migration event %s, current migrationId is %s", migrationSourceHubEvent.MigrationId,
+		log.Infof("ignore the received migration event %s, current migrationId is %s", migrationSourceHubEvent.MigrationId,
 			s.currentMigrationId)
+		return nil
+	}
+
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseDeploying {
+		log.Infof("migration deploying: %s", migrationSourceHubEvent.MigrationId)
+		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
+			return err
+		}
+		log.Infof("migration deploying is finished: %s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
-		log.Infof("registering managed cluster migration")
+		log.Infof("migration registering: %s", migrationSourceHubEvent.MigrationId)
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
+		log.Infof("migration registering is finished: %s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning ||
 		migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseFailed {
-		log.Infof("cleaning managed cluster migration: %s", migrationSourceHubEvent.Stage)
+		log.Infof("migration cleaning: %s - %s", migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.Stage)
 		if err := s.cleaning(ctx, migrationSourceHubEvent); err != nil {
 			return err
 		}
+		log.Infof("migration cleaning is finished: %s", migrationSourceHubEvent.MigrationId)
 	}
 	return nil
 }
@@ -291,7 +300,6 @@ func (m *migrationSourceSyncer) initializing(
 	if err != nil {
 		return err
 	}
-	log.Info("initializing migration is finished")
 	return nil
 }
 

@@ -59,6 +59,18 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		return false, fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
 	}
 
+	for fromHub, clusters := range sourceHubToClusters {
+		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
+			log.Infof("migration deploying to source hub: %s", fromHub)
+			err = m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters,
+				mcm.Spec.IncludedResources, nil)
+			if err != nil {
+				return false, err
+			}
+			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
+		}
+	}
+
 	for fromHub := range sourceHubToClusters {
 		errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
 		if errMessage != "" {
