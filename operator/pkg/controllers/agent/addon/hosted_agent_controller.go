@@ -172,6 +172,12 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 		log.Errorf("Failed to get managed cluster %s, err:%v", req.NamespacedName.Namespace, err)
 		return ctrl.Result{}, err
 	}
+
+	// If the cluster is local cluster, skip the reconcile
+	if mc.Labels[constants.LocalClusterName] == "true" {
+		return ctrl.Result{}, nil
+	}
+
 	isHosted := false
 	needUpdate := false
 
