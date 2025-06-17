@@ -216,6 +216,17 @@ func (m *ClusterMigrationController) UpdateCondition(
 			mcm.Status.Phase = migrationv1alpha1.PhaseFailed
 			update = true
 		}
+
+		// cleanup when timeout with initializing, deploying and registering; don't cleanup when cleaning stage timeout
+		if reason == ConditionReasonTimeout &&
+			(conditionType == migrationv1alpha1.ConditionTypeInitialized ||
+				conditionType == migrationv1alpha1.ConditionTypeDeployed ||
+				conditionType == migrationv1alpha1.ConditionTypeRegistered) {
+			SetCleanup(string(mcm.UID), true)
+		}
+		if reason == ConditionReasonTimeout && conditionType == migrationv1alpha1.ConditionTypeCleaned {
+			SetCleanup(string(mcm.UID), false)
+		}
 	} else {
 		switch conditionType {
 		case migrationv1alpha1.ConditionTypeValidated:
@@ -232,9 +243,13 @@ func (m *ClusterMigrationController) UpdateCondition(
 			}
 		case migrationv1alpha1.ConditionTypeRegistered:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted {
+				// cleanup when the registered is finished, and the whole process not finished
+				SetCleanup(string(mcm.UID), true)
 				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
 			}
 		case migrationv1alpha1.ConditionTypeCleaned:
+			// don't cleanup when cleanup successfully
+			SetCleanup(string(mcm.UID), false)
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
 				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
 			}

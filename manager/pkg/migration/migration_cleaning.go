@@ -6,7 +6,6 @@ import (
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
@@ -33,8 +32,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		return false, nil
 	}
 
-	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) ||
-		(mcm.Status.Phase != migrationv1alpha1.PhaseCleaning && mcm.Status.Phase != migrationv1alpha1.PhaseFailed) {
+	if !ToCleanup(string(mcm.GetUID())) {
 		return false, nil
 	}
 
@@ -53,16 +51,16 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			condStatus = metav1.ConditionTrue
 			condReason = conditionReasonResourceCleaned
 			condMsg = "Resources have been successfully cleaned up from the hub clusters"
-		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
+		} else if time.Since(mcm.CreationTimestamp.Time) > (migrationStageTimeout + migrationStageTimeout) {
 			// If clean timeout, update the condition
-			errMessage := "cleanup timeout. "
+			errMessage := ""
 			if err != nil {
-				errMessage = fmt.Sprintf("cleanup failed: %s", err.Error())
+				errMessage = fmt.Sprintf("cleanup failed: %s.", err.Error())
 			}
 			condMsg = fmt.Sprintf("%s You may need to manually remove the annotation (%s) from the managed clusters.",
 				errMessage, constants.ManagedClusterMigrating)
 			condStatus = metav1.ConditionFalse
-			condReason = conditionReasonResourceNotCleaned
+			condReason = ConditionReasonTimeout
 		} else {
 			// requeue the migration to retry cleaning
 			return

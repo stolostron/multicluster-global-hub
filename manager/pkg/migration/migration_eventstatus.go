@@ -11,8 +11,36 @@ var (
 )
 
 type MigrationStatus struct {
-	Progress map[string]*MigrationProgress // key: hub-phase
-	Clusters map[string][]string           // key: source hub -> clusters
+	Progress       map[string]*MigrationProgress // key: hub-phase
+	Clusters       map[string][]string           // key: source hub -> clusters
+	RequireCleanup bool
+}
+
+// ToCleanup indicates whether the cleanup stage should be started.
+func ToCleanup(migrationId string) bool {
+	status := getMigrationStatus(migrationId)
+	if status == nil {
+		return false
+	}
+	return status.RequireCleanup
+}
+
+// SetCleanup determines whether the cleanup stage should be triggered.
+//
+//	true:
+//	  1. Registering is complete.
+//	  2. Initialing, deploying, or registering has failed due to a timeout.
+//
+//	false:
+//	  1. Cleaning condition with timed out.
+//	  2. Cleaning has completed successfully.
+func SetCleanup(migrationId string, required bool) {
+	status := getMigrationStatus(migrationId)
+	if status == nil {
+		log.Warnf("not get the status for the migration cleanup: %s", migrationId)
+		return
+	}
+	status.RequireCleanup = required
 }
 
 type MigrationProgress struct {
