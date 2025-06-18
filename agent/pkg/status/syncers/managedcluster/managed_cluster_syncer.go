@@ -28,14 +28,7 @@ func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConf
 			constants.ManagedClusterManagedByAnnotation: configs.GetLeafHubName(),
 		})
 	}
-	shouldUpdate := func(obj client.Object) bool {
-		// If the managed cluster is managedhub do not update it
-		if utils.HasLabel(obj, constants.GHDeployModeLabelKey) {
-			return false
-		}
-
-		return !utils.HasAnnotation(obj, constants.ManagedClusterMigrating)
-	}
+	shouldUpdate := func(obj client.Object) bool { return !utils.HasAnnotation(obj, constants.ManagedClusterMigrating) }
 
 	return generic.LaunchMultiEventSyncer(
 		"status.managed_cluster",
