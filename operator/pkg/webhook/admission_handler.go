@@ -56,11 +56,6 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Allowed("")
 		}
 
-		a.localClusterName, err = getLocalClusterName(ctx, a.client)
-		if err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-
 		// only handle hosted clusters
 		isHosted, err := a.isInHostedCluster(ctx, a.client, klusterletaddonconfig.Namespace)
 		if err != nil {
@@ -68,6 +63,12 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		}
 		if !isHosted {
 			return admission.Allowed("")
+		}
+
+		log.Infof("handling klusterletaddonconfig for hosted cluster: %s", klusterletaddonconfig.Name)
+		a.localClusterName, err = getLocalClusterName(ctx, a.client)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
 		}
 
 		changed := disableAddons(klusterletaddonconfig)
@@ -105,6 +106,7 @@ func (a *admissionHandler) handleManagedCluster(ctx context.Context, req admissi
 	// Check the importing label
 	deployMode, ok := cluster.Labels[constants.GHDeployModeLabelKey]
 	if !ok {
+		log.Infof("The cluster %s does not have the label, importing as a managed cluster", cluster.Name)
 		return admission.Allowed(fmt.Sprintf("The cluster %s does not have the label %s, importing as a managed cluster",
 			cluster.Name, constants.GHDeployModeLabelKey))
 	}
