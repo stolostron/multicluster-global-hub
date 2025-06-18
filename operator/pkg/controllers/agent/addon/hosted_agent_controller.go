@@ -19,6 +19,7 @@ package addon
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -187,6 +188,12 @@ func (r *HostedAgentController) Reconcile(ctx context.Context, req ctrl.Request)
 	log.Debugf("ManagedCluster %s is hosted: %v", mc.Name, isHosted)
 
 	if isHosted {
+		// Fix issue: https://issues.redhat.com/browse/ACM-21642
+		// After the supported config ready, we could add the globalhub config to mca.
+		if !supportAddonDeployConfigs(mca) {
+			log.Debugf("ManagedClusterAddOn %s is not ready to add globalhub config", req.NamespacedName)
+			return ctrl.Result{RequeueAfter: 1 * time.Second}, nil
+		}
 		needUpdate = addAddonConfig(mca)
 	} else {
 		needUpdate = removeAddonConfig(mca)
@@ -211,6 +218,18 @@ func removeAddonConfig(mca *addonv1alpha1.ManagedClusterAddOn) bool {
 	for i, addonConfig := range mca.Spec.Configs {
 		if reflect.DeepEqual(addonConfig, GlobalHubHostedAddonConfig) {
 			mca.Spec.Configs = append(mca.Spec.Configs[:i], mca.Spec.Configs[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func supportAddonDeployConfigs(mca *addonv1alpha1.ManagedClusterAddOn) bool {
+	if mca.Status.SupportedConfigs == nil {
+		return false
+	}
+	for _, config := range mca.Status.SupportedConfigs {
+		if config.Resource == "addondeploymentconfigs" {
 			return true
 		}
 	}

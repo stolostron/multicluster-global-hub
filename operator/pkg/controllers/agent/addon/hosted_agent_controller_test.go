@@ -300,6 +300,13 @@ func TestReconcile(t *testing.T) {
 					Name:      "work-manager",
 					Namespace: "mc1",
 				},
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: []addonv1alpha1.ConfigGroupResource{
+						{
+							Resource: "addondeploymentconfigs",
+						},
+					},
+				},
 			},
 			mc: clusterv1.ManagedCluster{
 				ObjectMeta: metav1.ObjectMeta{
@@ -317,6 +324,13 @@ func TestReconcile(t *testing.T) {
 				Spec: addonv1alpha1.ManagedClusterAddOnSpec{
 					Configs: []addonv1alpha1.AddOnConfig{
 						GlobalHubHostedAddonConfig,
+					},
+				},
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: []addonv1alpha1.ConfigGroupResource{
+						{
+							Resource: "addondeploymentconfigs",
+						},
 					},
 				},
 			},
@@ -358,6 +372,83 @@ func TestReconcile(t *testing.T) {
 			}
 			if err != nil && !errors.IsNotFound(err) {
 				t.Errorf("Reconcile() error getting ManagedClusterAddOn: %v", err)
+			}
+		})
+	}
+}
+
+func TestSupportAddonDeployConfigs(t *testing.T) {
+	tests := []struct {
+		name string
+		mca  *addonv1alpha1.ManagedClusterAddOn
+		want bool
+	}{
+		{
+			name: "nil supported configs",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: nil,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "empty supported configs",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: []addonv1alpha1.ConfigGroupResource{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "supported configs without addondeploymentconfigs",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: []addonv1alpha1.ConfigGroupResource{
+						{
+							Resource: "other-resource",
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "supported configs with addondeploymentconfigs",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: []addonv1alpha1.ConfigGroupResource{
+						{
+							Resource: "addondeploymentconfigs",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "multiple supported configs with addondeploymentconfigs",
+			mca: &addonv1alpha1.ManagedClusterAddOn{
+				Status: addonv1alpha1.ManagedClusterAddOnStatus{
+					SupportedConfigs: []addonv1alpha1.ConfigGroupResource{
+						{
+							Resource: "other-resource",
+						},
+						{
+							Resource: "addondeploymentconfigs",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := supportAddonDeployConfigs(tt.mca); got != tt.want {
+				t.Errorf("supportAddonDeployConfigs() = %v, want %v", got, tt.want)
 			}
 		})
 	}
