@@ -53,7 +53,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			condStatus = metav1.ConditionTrue
 			condReason = conditionReasonResourceCleaned
 			condMsg = "Resources have been successfully cleaned up from the hub clusters"
-		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout {
+		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout+migrationStageTimeout {
 			// If clean timeout, update the condition
 			errMessage := "cleanup timeout. "
 			if err != nil {

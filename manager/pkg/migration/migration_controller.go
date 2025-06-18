@@ -221,6 +221,10 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 		// skip the migration which is failed and cleaned
 		if migration.Status.Phase == migrationv1alpha1.PhaseFailed &&
 			meta.FindStatusCondition(migration.Status.Conditions, migrationv1alpha1.ConditionTypeCleaned) != nil {
+			// Deprecated: if not started, means the clean condition is added for the placeholder, like validating failed
+			if !GetStarted(string(migration.GetUID()), migration.Spec.To, migrationv1alpha1.PhaseCleaning) {
+				continue
+			}
 			// Need to wait until the cleanup is done, otherwise we may meet the message is dropped
 			// due to the version is not newer than the previous one.
 			isCleanCompleted := true
