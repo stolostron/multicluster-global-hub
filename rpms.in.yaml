@@ -7,8 +7,9 @@ contentOrigin:
 packages:
   - gcc-c++
 context:
-  containerfile: agent/Containerfile.agent
-  stageName: builder
+  containerfile:
+    file: agent/Containerfile.agent
+    stageName: builder
 arches:
   - aarch64
   - x86_64
