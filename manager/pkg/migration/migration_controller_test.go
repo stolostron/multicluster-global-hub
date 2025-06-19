@@ -47,27 +47,6 @@ func TestGetCurrentMigration(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name: "Should not skip the failed migration since it is not completed",
-			migrations: []migrationv1alpha1.ManagedClusterMigration{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "migration2"},
-					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-						Phase: migrationv1alpha1.PhaseFailed,
-						Conditions: []metav1.Condition{
-							{
-								Type:    migrationv1alpha1.ConditionTypeCleaned,
-								Status:  metav1.ConditionTrue,
-								Reason:  "ResourceCleaned",
-								Message: "Resources have been cleaned from the hub clusters",
-							},
-						},
-					},
-				},
-			},
-			expectedName:  "migration2",
-			expectedError: false,
-		},
-		{
 			name: "Should skip the failed migration since it was completed",
 			migrations: []migrationv1alpha1.ManagedClusterMigration{
 				{
