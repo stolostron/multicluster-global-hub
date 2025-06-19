@@ -35,7 +35,10 @@ func LaunchManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, agentConf
 		mgr,
 		generic.NewGenericController(
 			func() client.Object { return &clusterv1.ManagedCluster{} },
-			predicate.NewPredicateFuncs(func(object client.Object) bool { return true })),
+			predicate.NewPredicateFuncs(func(object client.Object) bool {
+				// If the managed cluster is managedhub do not sync it
+				return !utils.HasLabel(object, constants.GHDeployModeLabelKey)
+			})),
 		producer,
 		configmap.GetManagerClusterDuration,
 		[]*generic.EmitterHandler{
