@@ -52,10 +52,6 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
-		if klusterletaddonconfig.Spec.ClusterLabels[constants.LocalClusterName] == "true" {
-			return admission.Allowed("")
-		}
-
 		// only handle hosted clusters
 		isHosted, err := a.isInHostedCluster(ctx, a.client, klusterletaddonconfig.Namespace)
 		if err != nil {
@@ -169,7 +165,7 @@ func (a *admissionHandler) isInHostedCluster(ctx context.Context, client client.
 	err := client.Get(ctx, types.NamespacedName{Name: mcName}, mc)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return true, nil
+			return false, nil
 		}
 		errMsg := fmt.Errorf("failed to get managedcluster, err:%v", err)
 		log.Errorf(errMsg.Error())
