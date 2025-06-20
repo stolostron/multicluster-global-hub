@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"strconv"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -151,33 +153,55 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 	clusterName := string(infra.GetUID())
 
 	return renderAgentManifests(
-		ctx,
-		mgha.Namespace,
-		mgha.Spec.ImagePullPolicy,
 		s.Manager,
-		mgha.Spec.Resources,
-		mgha.Spec.ImagePullSecret,
-		mgha.Spec.NodeSelector,
-		mgha.Spec.Tolerations,
-		mgha,
 		clusterName,
 		constants.GHTransportConfigSecret,
+		mgha, nil,
 	)
 }
 
 func renderAgentManifests(
-	ctx context.Context,
-	namespace string,
-	agentImagePullPolicy corev1.PullPolicy,
 	mgr ctrl.Manager,
-	resources *shared.ResourceRequirements,
-	imagePullSecret string,
-	nodeSelector map[string]string,
-	tolerations []corev1.Toleration,
-	owner metav1.Object,
 	clusterName string,
 	transportConfigSecretName string,
+	mgha *v1alpha1.MulticlusterGlobalHubAgent,
+	mgh *v1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
+
+	var namespace string
+	var agentImagePullPolicy corev1.PullPolicy
+	var resources *shared.ResourceRequirements
+	var imagePullSecret string
+	var nodeSelector map[string]string
+	var tolerations []corev1.Toleration
+	var owner metav1.Object
+	var enableStackroxIntegration bool
+	var stackroxPollInterval time.Duration
+
+	if mgh != nil {
+		namespace = mgh.Namespace
+		agentImagePullPolicy = mgh.Spec.ImagePullPolicy
+		if mgh.Spec.AdvancedSpec != nil &&
+			mgh.Spec.AdvancedSpec.Agent != nil &&
+			mgh.Spec.AdvancedSpec.Agent.Resources != nil {
+			resources = mgh.Spec.AdvancedSpec.Agent.Resources
+		}
+		imagePullSecret = mgh.Spec.ImagePullSecret
+		nodeSelector = mgh.Spec.NodeSelector
+		tolerations = mgh.Spec.Tolerations
+		owner = mgh
+		enableStackroxIntegration = config.WithStackroxIntegration(mgh)
+		stackroxPollInterval = config.GetStackroxPollInterval(mgh)
+	}
+	if mgha != nil {
+		namespace = mgha.Namespace
+		agentImagePullPolicy = mgha.Spec.ImagePullPolicy
+		resources = mgha.Spec.Resources
+		imagePullSecret = mgha.Spec.ImagePullSecret
+		nodeSelector = mgha.Spec.NodeSelector
+		tolerations = mgha.Spec.Tolerations
+		owner = mgha
+	}
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(mgr.GetClient())
 
@@ -234,6 +258,8 @@ func renderAgentManifests(
 			ClusterId                 string
 			Resources                 *corev1.ResourceRequirements
 			TransportConfigSecretName string
+			EnableStackroxIntegration bool
+			StackroxPollInterval      time.Duration
 		}{
 			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
 			ImagePullSecret:           imagePullSecret,
@@ -250,6 +276,8 @@ func renderAgentManifests(
 			ClusterId:                 clusterName,
 			Resources:                 &resourceReq,
 			TransportConfigSecretName: transportConfigSecretName,
+			EnableStackroxIntegration: enableStackroxIntegration,
+			StackroxPollInterval:      stackroxPollInterval,
 		}, nil
 	})
 	if err != nil {
