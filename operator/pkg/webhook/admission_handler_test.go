@@ -178,7 +178,7 @@ func Test_isInHostedCluster(t *testing.T) {
 					Name: "test-not",
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "has annotation, but not hosted",
