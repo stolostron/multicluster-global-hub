@@ -37,6 +37,10 @@ spec:
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
             - --standalone=true
+            - --enable-stackrox-integration={{.EnableStackroxIntegration}}
+            {{- if .StackroxPollInterval}}
+            - --stackrox-poll-interval={{.StackroxPollInterval}}
+            {{- end}}
           env:
             - name: POD_NAMESPACE
               valueFrom:
