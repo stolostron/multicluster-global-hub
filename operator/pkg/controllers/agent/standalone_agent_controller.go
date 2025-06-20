@@ -167,7 +167,6 @@ func renderAgentManifests(
 	mgha *v1alpha1.MulticlusterGlobalHubAgent,
 	mgh *v1alpha4.MulticlusterGlobalHub,
 ) (ctrl.Result, error) {
-
 	var namespace string
 	var agentImagePullPolicy corev1.PullPolicy
 	var resources *shared.ResourceRequirements
