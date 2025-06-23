@@ -549,6 +549,6 @@ func ToEvent(source string, eventType string, currentVersion string) *cloudevent
 	e := cloudevents.NewEvent()
 	e.SetSource(source)
 	e.SetType(eventType)
-	e.SetExtension(eventversion.ExtDependencyVersion, currentVersion)
+	e.SetExtension(eventversion.ExtVersion, currentVersion)
 	return &e
 }
