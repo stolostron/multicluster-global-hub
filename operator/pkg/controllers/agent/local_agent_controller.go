@@ -20,7 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/shared"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
@@ -185,26 +184,12 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	var resources *shared.ResourceRequirements
-	if mgh.Spec.AdvancedSpec != nil &&
-		mgh.Spec.AdvancedSpec.Agent != nil &&
-		mgh.Spec.AdvancedSpec.Agent.Resources != nil {
-		resources = mgh.Spec.AdvancedSpec.Agent.Resources
-	}
-
 	log.Debugf("render agent resources")
 	return renderAgentManifests(
-		ctx,
-		mgh.Namespace,
-		mgh.Spec.ImagePullPolicy,
 		s.Manager,
-		resources,
-		mgh.Spec.ImagePullSecret,
-		mgh.Spec.NodeSelector,
-		mgh.Spec.Tolerations,
-		mgh,
 		clusterName,
 		getTransportSecretName(),
+		nil, mgh,
 	)
 }
 
