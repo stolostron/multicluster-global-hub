@@ -45,6 +45,8 @@ spec:
     value: "true"
   - name: prefetch-input
     value: '[ {"type": "gomod", "path": "."}, {"type": "rpm", "path": "."} ]'
+  - name: use-dev-package-managers
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -134,6 +136,10 @@ spec:
         set of values is determined by the configuration of the multi-platform-controller.
       name: build-platforms
       type: array
+    - default: "false"
+      description: Use dev package managers
+      name: use-dev-package-managers
+      type: string
     results:
     - description: ""
       name: IMAGE_URL
@@ -204,6 +210,8 @@ spec:
         value: $(params.output-image).prefetch
       - name: ociArtifactExpiresAfter
         value: $(params.image-expires-after)
+      - name: dev-package-managers
+        value: $(params.use-dev-package-managers)
       runAfter:
       - clone-repository
       taskRef:
