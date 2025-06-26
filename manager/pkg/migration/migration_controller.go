@@ -261,27 +261,25 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 	if desiredMigration == nil {
 		return nil, nil
 	}
-	if desiredMigration.Status.Phase == migrationv1alpha1.PhasePending {
-		// if the migration is in pending, update the condition
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			if err := m.Client.Get(ctx, client.ObjectKeyFromObject(desiredMigration), desiredMigration); err != nil {
-				return err
-			}
-
-			if err := m.UpdateCondition(ctx,
-				desiredMigration,
-				migrationv1alpha1.ConditionTypeStarted,
-				metav1.ConditionTrue,
-				"migrationInProgress",
-				"Migration is in progress",
-			); err != nil {
-				return err
-			}
-			return nil
-		})
-		if err != nil {
-			log.Errorf("failed to update the %s condition: %v", desiredMigration.Name, err)
+	// update the desired migration with started condition
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := m.Client.Get(ctx, client.ObjectKeyFromObject(desiredMigration), desiredMigration); err != nil {
+			return err
 		}
+
+		if err := m.UpdateCondition(ctx,
+			desiredMigration,
+			migrationv1alpha1.ConditionTypeStarted,
+			metav1.ConditionTrue,
+			"migrationInProgress",
+			"Migration is in progress",
+		); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		log.Errorf("failed to update the %s condition: %v", desiredMigration.Name, err)
 	}
 
 	for _, mcm := range pendingMigrations {
