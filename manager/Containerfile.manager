@@ -28,7 +28,7 @@ LABEL org.label-schema.schema-version="1.0"
 
 # Bundle metadata
 LABEL name="multicluster-global-hub/multicluster-global-hub-manager"
-LABEL version="release-1.5"
+LABEL version="release-1.6"
 LABEL summary="multicluster global hub manager"
 LABEL io.openshift.expose-services=""
 LABEL io.openshift.tags="data,images"

@@ -48,7 +48,7 @@ jobs:
           # ignore createdAt updated in csv by `make bundle`
           git checkout . -f
           # clone multicluster-global-hub-operator-bundle repo
-          git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git -b release-1.5
+          git clone https://github.com/stolostron/multicluster-global-hub-operator-bundle.git -b release-1.6
 
           # compare the bundle dir
           diff -I 'createdAt' -ruN operator/bundle multicluster-global-hub-operator-bundle/bundle
