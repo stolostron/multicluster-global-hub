@@ -71,20 +71,22 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 		return fmt.Errorf("failed to launch hub cluster heartbeat syncer: %w", err)
 	}
 
-	// placement
-	if err := placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, producer); err != nil {
-		return fmt.Errorf("failed to launch placement syncer: %w", err)
-	}
-	if err := placement.LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, producer); err != nil {
-		return fmt.Errorf("failed to launch placementDecision syncer: %w", err)
-	}
-	if err := placement.LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, producer); err != nil {
-		return fmt.Errorf("failed to launch placementRule syncer: %w", err)
-	}
+	if agentConfig.EnableGlobalResource {
+		// placement
+		if err := placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, producer); err != nil {
+			return fmt.Errorf("failed to launch placement syncer: %w", err)
+		}
+		if err := placement.LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, producer); err != nil {
+			return fmt.Errorf("failed to launch placementDecision syncer: %w", err)
+		}
+		if err := placement.LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, producer); err != nil {
+			return fmt.Errorf("failed to launch placementRule syncer: %w", err)
+		}
 
-	// app
-	if err := apps.LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, producer); err != nil {
-		return fmt.Errorf("failed to launch subscription report syncer: %w", err)
+		// app
+		if err := apps.LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, producer); err != nil {
+			return fmt.Errorf("failed to launch subscription report syncer: %w", err)
+		}
 	}
 
 	config, err := rest.InClusterConfig()

@@ -72,7 +72,7 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 				LeafHubName:    leafHubName,
 				Source:         sourceJSONB,
 				Count:          int(policyStatusEvent.Count),
-				Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance)),
+				Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance, h.log)),
 				CreatedAt:      policyStatusEvent.CreatedAt.Time,
 			},
 			ClusterID:   policyStatusEvent.ClusterID,

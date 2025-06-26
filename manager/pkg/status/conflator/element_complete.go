@@ -57,7 +57,7 @@ func (e *completeElement) SyncMode() enum.EventSyncMode {
 }
 
 func (e *completeElement) Predicate(eventVersion *version.Version) bool {
-	// when the agent is started without incarnation configmap, the first message version will be 0.1. then we need to
+	// when the agent is started, the first message version will be 0.1. then we need to
 	// 1. reset lastProcessedBundleVersion to 0
 	// 2. reset the bundleInfo version to 0 (add the resetBundleVersion() function to bundleInfo interface)
 	if eventVersion.InitGen() {
