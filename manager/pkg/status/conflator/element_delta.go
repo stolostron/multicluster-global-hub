@@ -57,8 +57,11 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 		e.lastProcessedVersion = version.NewVersion()
 		e.log.Infow("resetting element processed version", "version", eventVersion)
 	}
-	e.log.Debugw("inserting event", "version", eventVersion)
-	return eventVersion.NewerThan(e.lastProcessedVersion)
+	if !eventVersion.NewerThan(e.lastProcessedVersion) {
+		log.Infof("drop delta bundle: get version %s, current hold version%s", eventVersion, e.metadata.Version())
+		return false
+	}
+	return true
 }
 
 func (e *deltaElement) AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit) {
