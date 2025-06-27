@@ -50,8 +50,12 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 		log.Infow("resetting delta element version", "type", enum.ShortenEventType(e.eventType),
 			"version", eventVersion)
 	}
+	if !eventVersion.NewerThan(e.lastProcessedVersion) {
+		log.Debugw("drop delta bundle: get version %s, current hold version%s", eventVersion, e.metadata.Version())
+		return false
+	}
 	log.Debugw("inserting event", "version", eventVersion)
-	return eventVersion.NewerThan(e.lastProcessedVersion)
+	return true
 }
 
 func (e *deltaElement) AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit) {
