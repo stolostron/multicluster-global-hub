@@ -537,6 +537,12 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	if err := k.loadUserCredential(userName, credential); err != nil {
 		return nil, err
 	}
+
+	if k.mgh.Spec.DataLayerSpec.Kafka.KafkaConfig != nil &&
+		k.mgh.Spec.DataLayerSpec.Kafka.KafkaConfig.MessageMaxBytes != constants.KafkaBrokerMessageMaxBytes {
+		// set the message max bytes for the kafka broker
+		credential.MessageMaxBytes = k.mgh.Spec.DataLayerSpec.Kafka.KafkaConfig.MessageMaxBytes
+	}
 	return credential, nil
 }
 
@@ -773,8 +779,22 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 	}
 
 	config := ""
+
+	// Set message.max.bytes and replica.fetch.max.bytes if specified
+	if mgh.Spec.DataLayerSpec.Kafka.KafkaConfig != nil &&
+		mgh.Spec.DataLayerSpec.Kafka.KafkaConfig.MessageMaxBytes != constants.KafkaBrokerMessageMaxBytes {
+		config = fmt.Sprintf(`{
+"message.max.bytes": %d,
+"replica.fetch.max.bytes": %d
+}`,
+			mgh.Spec.DataLayerSpec.Kafka.KafkaConfig.MessageMaxBytes,
+			mgh.Spec.DataLayerSpec.Kafka.KafkaConfig.MessageMaxBytes)
+	}
+
+	// Set replication-related configs based on topicPartitionReplicas
+	replicationConfig := ""
 	if k.topicPartitionReplicas != DefaultPartitionReplicas {
-		config = `{
+		replicationConfig = `{
 "default.replication.factor": 1,
 "min.insync.replicas": 1,
 "offsets.topic.replication.factor": 1,
@@ -782,13 +802,21 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 "transaction.state.log.replication.factor": 1
 }`
 	} else {
-		config = `{
+		replicationConfig = `{
 "default.replication.factor": 3,
 "min.insync.replicas": 2,
 "offsets.topic.replication.factor": 3,
 "transaction.state.log.min.isr": 2,
 "transaction.state.log.replication.factor": 3
 }`
+	}
+
+	// Merge configs if both are set
+	if config != "" && replicationConfig != "" {
+		// Remove trailing } from config and leading { from replicationConfig, then join with comma
+		config = strings.TrimSuffix(config, "}") + "," + strings.TrimPrefix(replicationConfig, "{")
+	} else if replicationConfig != "" {
+		config = replicationConfig
 	}
 
 	kafkaCluster := &kafkav1beta2.Kafka{

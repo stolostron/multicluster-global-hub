@@ -186,6 +186,16 @@ spec:
                         statusTopic: gh-status.*
                     description: Kafka specifies the desired state of kafka
                     properties:
+                      config:
+                        description: KafkaConfig specifies the kafka broker configurations
+                        properties:
+                          messageMaxBytes:
+                            default: 1048576
+                            description: |-
+                              MessageMaxBytes defines the maximum size (in bytes) of a message that the Kafka broker will accept
+                              The value is configured across the Kafka broker, topic, producer, and consumer.
+                            type: integer
+                        type: object
                       storageSize:
                         description: StorageSize specifies the size for storage
                         type: string

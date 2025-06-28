@@ -14,6 +14,7 @@ type KafkaConfig struct {
 	ClientKey        string `yaml:"client.key,omitempty"`
 	CASecretName     string `yaml:"ca.secret,omitempty"`
 	ClientSecretName string `yaml:"client.secret,omitempty"`
+	MessageMaxBytes  int    `yaml:"message.max.bytes,omitempty"`
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
