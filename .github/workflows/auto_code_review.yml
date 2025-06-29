@@ -5,6 +5,12 @@ on:
   pull_request_target:
     branches:
       - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+
   # Keep manual trigger option
   workflow_dispatch:
     inputs:
