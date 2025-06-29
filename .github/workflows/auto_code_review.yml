@@ -5,9 +5,6 @@ on:
   pull_request_target:
     branches:
       - main
-    paths-ignore:
-      - '.github/workflows/**'
-      - '.github/scripts/**'
   # Keep manual trigger option
   workflow_dispatch:
     inputs:
@@ -20,7 +17,7 @@ jobs:
     steps:
       - name: Determine PR number
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
           else
             echo "PR_NUMBER=${{ github.event.inputs.pr_number }}" >> $GITHUB_ENV
