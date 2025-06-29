@@ -23,7 +23,7 @@ import (
 
 const (
 	MaxMessageKBLimit    = 1024
-	DefaultMessageKBSize = 960
+	DefaultMessageKBSize = 102400 // disable the chunking.
 )
 
 type GenericProducer struct {

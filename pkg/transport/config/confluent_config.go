@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -32,15 +33,22 @@ func GetBasicConfigMap() *kafkav2.ConfigMap {
 	}
 }
 
-func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
+func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap, messageMaxBytes int) {
 	_ = kafkaConfigMap.SetKey("acks", "1")
 	_ = kafkaConfigMap.SetKey("retries", "1")
+	if messageMaxBytes != 0 && messageMaxBytes != constants.KafkaBrokerMessageMaxBytes {
+		_ = kafkaConfigMap.SetKey("message.max.bytes", messageMaxBytes)
+	}
 }
 
-func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
+func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string, messageMaxBytes int) {
 	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	_ = kafkaConfigMap.SetKey("group.id", groupId)
+	if messageMaxBytes != 0 && messageMaxBytes != constants.KafkaBrokerMessageMaxBytes {
+		_ = kafkaConfigMap.SetKey("max.partition.fetch.bytes", messageMaxBytes)
+		_ = kafkaConfigMap.SetKey("fetch.message.max.bytes", messageMaxBytes)
+	}
 }
 
 func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {
@@ -88,9 +96,9 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaInternalConfig, producer 
 	kafkaConfigMap := GetBasicConfigMap()
 	_ = kafkaConfigMap.SetKey("bootstrap.servers", kafkaConfig.BootstrapServer)
 	if producer {
-		SetProducerConfig(kafkaConfigMap)
+		SetProducerConfig(kafkaConfigMap, constants.KafkaBrokerMessageMaxBytes)
 	} else {
-		SetConsumerConfig(kafkaConfigMap, kafkaConfig.ConsumerConfig.ConsumerID)
+		SetConsumerConfig(kafkaConfigMap, kafkaConfig.ConsumerConfig.ConsumerID, constants.KafkaBrokerMessageMaxBytes)
 	}
 	if !kafkaConfig.EnableTLS {
 		return kafkaConfigMap, nil
@@ -118,9 +126,9 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig, consume
 ) {
 	kafkaConfigMap := GetBasicConfigMap()
 	if consumerGroupID != "" {
-		SetConsumerConfig(kafkaConfigMap, consumerGroupID)
+		SetConsumerConfig(kafkaConfigMap, consumerGroupID, conn.MessageMaxBytes)
 	} else {
-		SetProducerConfig(kafkaConfigMap)
+		SetProducerConfig(kafkaConfigMap, conn.MessageMaxBytes)
 	}
 	_ = kafkaConfigMap.SetKey("bootstrap.servers", conn.BootstrapServer)
 	// if the certs is invalid

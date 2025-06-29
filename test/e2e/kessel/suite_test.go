@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/requester"
@@ -97,7 +98,8 @@ var _ = BeforeSuite(func() {
 		options.Namespace, options.KafkaCluster, options.KafkaUser)
 	Expect(err).To(Succeed())
 
-	transportconfig.SetConsumerConfig(kafkaConfigMap, fmt.Sprintf("%s-%d", options.KafkaUser, rand.Intn(1000000)))
+	transportconfig.SetConsumerConfig(kafkaConfigMap, fmt.Sprintf("%s-%d", options.KafkaUser, rand.Intn(1000000)),
+		constants.KafkaBrokerMessageMaxBytes)
 
 	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(kafkaConfigMap),
 		kafka_confluent.WithReceiverTopics([]string{options.KafkaTopic}))

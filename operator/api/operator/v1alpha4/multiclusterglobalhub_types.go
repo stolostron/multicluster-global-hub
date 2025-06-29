@@ -214,6 +214,18 @@ type KafkaSpec struct {
 	// StorageSize specifies the size for storage
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
+
+	// KafkaConfig specifies the kafka broker configurations
+	// +optional
+	KafkaConfig *KafkaConfig `json:"config,omitempty"`
+}
+
+// KafkaConfig defines the kafka broker configurations
+type KafkaConfig struct {
+	// MessageMaxBytes defines the maximum size (in bytes) of a message that the Kafka broker will accept
+	// The value is configured across the Kafka broker, topic, producer, and consumer.
+	// +kubebuilder:default=1048576
+	MessageMaxBytes int `json:"messageMaxBytes,omitempty"`
 }
 
 // KafkaTopics is the transport topics for the manager and agent to communicate to one another
