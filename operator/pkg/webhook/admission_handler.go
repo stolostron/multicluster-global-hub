@@ -10,10 +10,10 @@ import (
 	"net/http"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -50,10 +50,6 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 		err := a.decoder.Decode(req, klusterletaddonconfig)
 		if err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
-		}
-
-		if klusterletaddonconfig.Spec.ClusterLabels[constants.LocalClusterName] == "true" {
-			return admission.Allowed("")
 		}
 
 		// only handle hosted clusters
@@ -166,14 +162,25 @@ func getLocalClusterName(ctx context.Context, client client.Client) (string, err
 // isInHostedCluster check if the cluster has hosted annotations
 func (a *admissionHandler) isInHostedCluster(ctx context.Context, client client.Client, mcName string) (bool, error) {
 	mc := &clusterv1.ManagedCluster{}
-	err := client.Get(ctx, types.NamespacedName{Name: mcName}, mc)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return true, nil
+
+	// Retry to get the managed cluster, since it may not be created yet
+	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
+		if err != nil {
+			log.Warnf("failed to get managedcluster, err:%v", err)
+			return true
 		}
-		errMsg := fmt.Errorf("failed to get managedcluster, err:%v", err)
-		log.Errorf(errMsg.Error())
-		return false, errMsg
+		return false
+	},
+		func() error {
+			err := client.Get(ctx, types.NamespacedName{Name: mcName}, mc)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to get managedcluster %s, err: %v", mcName, err)
 	}
 
 	if (mc.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted) &&
