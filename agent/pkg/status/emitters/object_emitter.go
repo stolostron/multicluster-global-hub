@@ -29,6 +29,7 @@ type ObjectEmitter struct {
 	mu          sync.Mutex
 }
 
+// NewEmitter creates a new ObjectEmitter with the provided event type and producer.
 func NewEmitter(
 	eventType enum.EventType,
 	producer transport.Producer,

@@ -7,6 +7,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -45,6 +46,7 @@ func (s *resyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 			return nil
 		}
 		resyncVersion.Incr()
+		configs.GlobalResyncQueue.Add(eventType)
 	}
 	return nil
 }

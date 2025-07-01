@@ -12,8 +12,13 @@ type Controller interface {
 	Predicate() predicate.Predicate
 }
 
+// ObjectController defines methods for managing instances of objects.
 type ObjectController interface {
+	// Instance returns the current object instance associated with this controller.
 	Instance() client.Object
+
+	// List retrieves a list of objects managed by this controller.
+	// The parameter 'c' is an instance of the client used for fetching objects.
 	List(c client.Client) ([]client.Object, error)
 }
 

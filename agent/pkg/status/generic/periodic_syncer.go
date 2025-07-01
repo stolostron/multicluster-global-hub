@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,10 +49,10 @@ func (p *PeriodicSyncer) Register(e *EmitterRegistration) {
 			log.Warnf("Emitter for event type %s is already registered, skipping", e.Emitter.EventType())
 			return
 		}
-
-		p.emitterRegistrations = append(p.emitterRegistrations, e)
-		log.Infof("Registered emitter for event type: %s", e.Emitter.EventType())
 	}
+
+	p.emitterRegistrations = append(p.emitterRegistrations, e)
+	log.Infof("Registered emitter for event type: %s", e.Emitter.EventType())
 }
 
 func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
@@ -63,7 +64,7 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 
 		objects, err := reg.ListFunc()
 		if err != nil {
-			return fmt.Errorf("failed to list objects for event type %s: %w", reg.Emitter.EventType(), err)
+			return fmt.Errorf("failed to list objects for event type %s in Resync: %w", reg.Emitter.EventType(), err)
 		}
 
 		if len(objects) == 0 {
@@ -93,7 +94,9 @@ func (p *PeriodicSyncer) Start(ctx context.Context) error {
 
 	// start with an initial resync for all registered emitters
 	for _, reg := range p.emitterRegistrations {
-		p.Resync(ctx, reg.Emitter.EventType())
+		if err := p.Resync(ctx, reg.Emitter.EventType()); err != nil {
+			log.Errorf("failed to resync the event(%s): %v", reg.Emitter.EventType(), err)
+		}
 	}
 
 	for {
@@ -103,14 +106,25 @@ func (p *PeriodicSyncer) Start(ctx context.Context) error {
 			// resync if the next resync time has passed
 			if time.Now().After(p.nextResyncAt) {
 				for _, reg := range p.emitterRegistrations {
-					p.Resync(ctx, reg.Emitter.EventType())
+					if err := p.Resync(ctx, reg.Emitter.EventType()); err != nil {
+						log.Errorf("failed to resync the event(%s): %v", reg.Emitter.EventType(), err)
+					}
 				}
 				p.nextResyncAt = time.Now().Add(resyncInterval)
 			}
 
+			// resync when the manager request, every tick to resync one
+			if eventType := configs.GlobalResyncQueue.Pop(); eventType != "" {
+				if err := p.Resync(ctx, eventType); err != nil {
+					log.Errorf("failed to resync the request event(%s): %v", eventType, err)
+				}
+			}
+
 			// send events for all registered emitters
 			for _, reg := range p.emitterRegistrations {
-				reg.Emitter.Send()
+				if err := reg.Emitter.Send(); err != nil {
+					log.Errorf("failed to sync the event(%s): %v", reg.Emitter.EventType(), err)
+				}
 			}
 
 			// check if sync or resync intervals have changed
@@ -118,13 +132,13 @@ func (p *PeriodicSyncer) Start(ctx context.Context) error {
 			if resolvedInterval != syncInterval {
 				syncInterval = resolvedInterval
 				ticker.Reset(syncInterval)
-				log.Info(fmt.Sprintf("sync interval has been reset to %s", syncInterval.String()))
+				log.Infof("sync interval has been reset to %s", syncInterval.String())
 			}
 			resolvedResyncInterval := p.resyncIntervalFunc()
 			if resolvedResyncInterval != resyncInterval {
 				resyncInterval = resolvedResyncInterval
 				p.nextResyncAt = time.Now().Add(resyncInterval)
-				log.Info(fmt.Sprintf("resync interval has been reset to %s", resyncInterval.String()))
+				log.Infof("resync interval has been reset to %s", resyncInterval.String())
 			}
 
 		case <-ctx.Done():
