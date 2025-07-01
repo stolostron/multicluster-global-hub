@@ -374,7 +374,7 @@ func (c *TransportCtrl) credentialSecret(name string) bool {
 	if c.secretName == name {
 		return true
 	}
-	if c.extraSecretNames == nil || len(c.extraSecretNames) == 0 {
+	if len(c.extraSecretNames) == 0 {
 		return false
 	}
 	for _, secretName := range c.extraSecretNames {
