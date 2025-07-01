@@ -62,7 +62,7 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 }
 
 func (e *deltaElement) AddToReadyQueue(event *cloudevents.Event, metadata ConflationMetadata, cu *ConflationUnit) {
-	cu.readyQueue.DeltaEventJobChan <- NewConflationJob(event, metadata, e.handlerFunction, cu)
+	cu.readyQueue.DeltaEventJobChan <- NewConflationJob(event, metadata, e.handlerFunction, cu, nil)
 	e.metadata = metadata
 }
 

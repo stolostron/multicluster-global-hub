@@ -46,6 +46,10 @@ func newConflationUnit(name string, readyQueue *ConflationReadyQueue,
 			conflationUnit.ElementPriorityQueue[registration.priority] = NewDeltaElement(name, registration)
 		}
 
+		if registration.syncMode == enum.HybridStateMode {
+			conflationUnit.ElementPriorityQueue[registration.priority] = NewHybridElement(registration)
+		}
+
 		conflationUnit.eventTypeToPriority[registration.eventType] = registration.priority
 	}
 

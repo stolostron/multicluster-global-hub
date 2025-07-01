@@ -160,7 +160,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).Should(Succeed())
 
 	// managed cluster
-	err = managedcluster.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, chanTransport.Producer(ManagedClusterTopic))
+	err = managedcluster.AddManagedClusterSyncer(ctx, mgr, chanTransport.Producer(ManagedClusterTopic), nil)
 	Expect(err).To(Succeed())
 
 	// application

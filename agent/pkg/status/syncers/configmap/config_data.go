@@ -12,7 +12,10 @@ var (
 		HubClusterHeartBeatIntervalKey: 60 * time.Second,
 		EventIntervalKey:               5 * time.Second,
 	}
-	agentConfigs = map[AgentConfigKey]AgentConfigValue{
+
+	resyncInterval = 6 * time.Hour
+	syncInterval   = 5 * time.Second
+	agentConfigs   = map[AgentConfigKey]AgentConfigValue{
 		AgentAggregationKey:  AggregationFull,
 		EnableLocalPolicyKey: EnableLocalPolicyTrue,
 	}
@@ -75,6 +78,18 @@ func GetEnableLocalPolicy() AgentConfigValue {
 	return agentConfigs[EnableLocalPolicyKey]
 }
 
+func GetResyncInterval() time.Duration {
+	return resyncInterval
+}
+
+func GetSyncInterval() time.Duration {
+	return syncInterval
+}
+
 func SetInterval(key AgentConfigKey, val time.Duration) {
 	syncIntervals[key] = val
+}
+
+func SetResyncInterval(val time.Duration) {
+	resyncInterval = val
 }

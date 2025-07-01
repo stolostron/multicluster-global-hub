@@ -12,6 +12,11 @@ type Controller interface {
 	Predicate() predicate.Predicate
 }
 
+type ObjectController interface {
+	Instance() client.Object
+	List(c client.Client) ([]client.Object, error)
+}
+
 // Use the event emitter to control the flow of the event syncer
 type Emitter interface {
 	PostUpdate()

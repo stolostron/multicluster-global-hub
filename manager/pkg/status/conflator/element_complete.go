@@ -104,7 +104,7 @@ func (e *completeElement) ProcessJob(cu *ConflationUnit) *ConflationJob {
 		return nil
 	}
 	e.isInProcess = true
-	return NewConflationJob(e.event, e.metadata, e.handlerFunction, cu)
+	return NewConflationJob(e.event, e.metadata, e.handlerFunction, cu, nil)
 }
 
 // Success is to update the conflation element state after processing the event

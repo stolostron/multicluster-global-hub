@@ -12,7 +12,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -230,9 +229,7 @@ func TestPostToInventoryApi(t *testing.T) {
 				},
 			}
 
-			h := &managedClusterHandler{
-				log: logger.ZapLogger("test"),
-			}
+			h := &managedClusterHandler{}
 
 			// Execute function under test
 			h.postToInventoryApi(
@@ -249,9 +246,7 @@ func TestPostToInventoryApi(t *testing.T) {
 } // FakeRequester is a mock implementation of the Requester interface.
 
 func TestGenerateCreateUpdateDeleteClusters(t *testing.T) {
-	handler := &managedClusterHandler{
-		log: logger.ZapLogger("test"),
-	}
+	handler := &managedClusterHandler{}
 
 	tests := []struct {
 		name                        string
@@ -462,9 +457,7 @@ func TestSyncInventory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create handler with mock components
-			h := &managedClusterHandler{
-				log: logger.ZapLogger("test"),
-			}
+			h := &managedClusterHandler{}
 
 			if !tt.requesterNil {
 				fakeClient := &FakeKesselK8SClusterServiceHTTPClientImpl{}

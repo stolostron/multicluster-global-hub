@@ -225,7 +225,6 @@ func syncInventory(
 		log.Warnf("failed to get cluster info from db - %v", err)
 	}
 	return postCompliancesToInventoryApi(
-		log,
 		policy.Name,
 		requester,
 		leafHubName,
@@ -237,7 +236,6 @@ func syncInventory(
 }
 
 func postCompliancesToInventoryApi(
-	log *zap.SugaredLogger,
 	policyNamespacedName string,
 	requester transport.Requester,
 	leafHub string,

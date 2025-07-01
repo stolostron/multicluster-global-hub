@@ -4,26 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"maps"
-	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -32,7 +31,6 @@ const (
 )
 
 type localPolicySpecHandler struct {
-	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -41,11 +39,9 @@ type localPolicySpecHandler struct {
 
 func RegisterLocalPolicySpecHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.LocalPolicySpecType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
 	h := &localPolicySpecHandler{
-		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
-		eventSyncMode: enum.CompleteStateMode,
+		eventSyncMode: enum.HybridStateMode,
 		eventPriority: conflator.LocalPolicySpecPriority,
 		requester:     conflationManager.Requster,
 	}
@@ -58,90 +54,83 @@ func RegisterLocalPolicySpecHandler(conflationManager *conflator.ConflationManag
 }
 
 // handleLocalObjectsBundle generic function to handle bundles of local objects.
-// if the row doesn't exist then add it.
-// if the row exists then update it.
-// if the row isn't in the bundle then delete it.
 func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	db := database.GetGorm()
-	policyIdToVersionMapFromDB, err := getPolicyIdToVersionMap(db, leafHubName)
-	if err != nil {
-		return err
-	}
-	copyPolicyIdToVersionMapFromDB := maps.Clone(policyIdToVersionMapFromDB)
-	var data []policiesv1.Policy
-	if err := evt.DataAs(&data); err != nil {
+	var bundle generic.GenericBundle
+	if err := evt.DataAs(&bundle); err != nil {
 		return err
 	}
 
 	batchLocalPolicySpec := []models.LocalSpecPolicy{}
-	for _, object := range data {
-		specificObj := object
-		uid := string(specificObj.GetUID())
-		resourceVersionFromDB, objInDB := policyIdToVersionMapFromDB[uid]
 
-		payload, err := json.Marshal(specificObj)
+	// update or create managed clusters in the database.
+	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
+		payload, err := json.Marshal(obj)
 		if err != nil {
 			return err
 		}
-		// if the row doesn't exist in db then add it.
-		if !objInDB {
-			batchLocalPolicySpec = append(batchLocalPolicySpec, models.LocalSpecPolicy{
-				PolicyID:    uid,
-				LeafHubName: leafHubName,
-				Payload:     payload,
-			})
-			continue
-		}
-
-		// remove the handled object from the map
-		delete(policyIdToVersionMapFromDB, uid)
-
-		// update object only if what we got is a different (newer) version of the resource
-		if specificObj.GetResourceVersion() == resourceVersionFromDB.ResourceVersion {
-			continue
-		}
 		batchLocalPolicySpec = append(batchLocalPolicySpec, models.LocalSpecPolicy{
-			PolicyID:    uid,
+			PolicyID:    string(obj.GetUID()),
 			LeafHubName: leafHubName,
 			Payload:     payload,
 		})
 	}
 
-	err = db.Clauses(clause.OnConflict{
+	db := database.GetGorm()
+	err := db.Clauses(clause.OnConflict{
 		UpdateAll: true,
 	}).CreateInBatches(batchLocalPolicySpec, 100).Error
 	if err != nil {
 		return err
 	}
 
-	// delete objects that in the db but were not sent in the bundle (leaf hub sends only living resources).
-	// https://gorm.io/docs/transactions.html
-	// https://gorm.io/docs/delete.html#Soft-Delete
-	err = db.Transaction(func(tx *gorm.DB) error {
-		for uid := range policyIdToVersionMapFromDB {
-			err = tx.Where(&models.LocalSpecPolicy{
-				PolicyID: uid,
-			}).Delete(&models.LocalSpecPolicy{}).Error
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	// delete managed clusters that are not in the bundle.
+	var ids []string
+	err = db.Model(&models.LocalSpecPolicy{}).Where("leaf_hub_name = ?", leafHubName).Pluck("policy_id", &ids).Error
 	if err != nil {
-		return fmt.Errorf("failed deleting records from local_spec.policies - %w", err)
+		return fmt.Errorf("failed to get existing policy IDs - %w", err)
 	}
-	if configs.IsInventoryAPIEnabled() {
-		err = h.syncInventory(ctx, db, data, leafHubName, copyPolicyIdToVersionMapFromDB)
-		if err != nil {
-			return fmt.Errorf("failed syncing inventory - %w", err)
+
+	deletingObjects := []unstructured.Unstructured{}
+	for _, object := range bundle.ResyncMetadata {
+		if utils.ContainsString(ids, string(object.GetUID())) {
+			continue
 		}
+		deletingObjects = append(deletingObjects, object)
 	}
-	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+
+	// https://gorm.io/docs/delete.html#Soft-Delete
+	if len(deletingObjects) == 0 {
+		log.Debugw("no managed clusters to delete", "LH", leafHubName)
+	} else {
+		err = db.Transaction(func(tx *gorm.DB) error {
+			for _, object := range deletingObjects {
+				err = tx.Where(&models.LocalSpecPolicy{
+					PolicyID:    string(object.GetUID()),
+					LeafHubName: leafHubName,
+				}).Delete(&models.LocalSpecPolicy{}).Error
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed deleting local policies - %w", err)
+		}
+		log.Debugw("deleted policies", "LH", leafHubName, "count", len(deletingObjects))
+	}
+
+	// if configs.IsInventoryAPIEnabled() {
+	// 	err = h.syncInventory(ctx, db, data, leafHubName, copyPolicyIdToVersionMapFromDB)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed syncing inventory - %w", err)
+	// 	}
+	// }
+	log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 
@@ -172,22 +161,21 @@ func (h *localPolicySpecHandler) syncInventory(
 	policyIdToVersionMapFromDB map[string]models.ResourceVersion,
 ) error {
 	createPolicy, updatePolicy, deletePolicy := generateCreateUpdateDeletePolicy(
-		h.log,
 		data,
 		leafHubName,
 		policyIdToVersionMapFromDB,
 	)
 	if len(createPolicy) == 0 && len(updatePolicy) == 0 && len(deletePolicy) == 0 {
-		h.log.Debugf("no policy to post to inventory")
+		log.Debugf("no policy to post to inventory")
 		return nil
 	}
 	if h.requester == nil {
 		return fmt.Errorf("requester is nil")
 	}
 	clusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
-	h.log.Debugf("clusterInfo: %v", clusterInfo)
+	log.Debugf("clusterInfo: %v", clusterInfo)
 	if err != nil || clusterInfo.MchVersion == "" {
-		h.log.Errorf("failed to get cluster info from db - %v", err)
+		log.Errorf("failed to get cluster info from db - %v", err)
 	}
 	return h.postPolicyToInventoryApi(
 		ctx,
@@ -203,7 +191,6 @@ func (h *localPolicySpecHandler) syncInventory(
 // generateCreateUpdateDeletePolicy generates the create, update and delete Policy
 // from the Policy in the database and the Policy in the bundle.
 func generateCreateUpdateDeletePolicy(
-	log *zap.SugaredLogger,
 	data []policiesv1.Policy,
 	leafHubName string,
 	policyIdToVersionMapFromDB map[string]models.ResourceVersion) (
@@ -321,7 +308,7 @@ func (h *localPolicySpecHandler) postPolicyToInventoryApi(
 			// delete the policy related compliance data in inventory when policy is deleted
 			err := h.deleteAllComplianceDataOfPolicy(ctx, db, h.requester, leafHubName, policy, mchVersion)
 			if err != nil {
-				h.log.Errorf("failed to delete compliance data of policy %s: %w", policy.Name, err)
+				log.Errorf("failed to delete compliance data of policy %s: %w", policy.Name, err)
 			}
 		}
 	}
@@ -349,7 +336,7 @@ func (h *localPolicySpecHandler) deleteAllComplianceDataOfPolicy(
 	if len(deleteCompliances) == 0 {
 		return nil
 	}
-	return postCompliancesToInventoryApi(h.log, policy.Name, requester, leafHubName,
+	return postCompliancesToInventoryApi(policy.Name, requester, leafHubName,
 		nil, nil, deleteCompliances, mchVersion)
 }
 
