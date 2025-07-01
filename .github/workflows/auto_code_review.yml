@@ -20,14 +20,14 @@ jobs:
           if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
           else
+            # Only available if your workflow is manually triggered via the workflow_dispatch event
             echo "PR_NUMBER=${{ github.event.inputs.pr_number }}" >> $GITHUB_ENV
           fi
       - name: Checkout PR merge ref
         uses: actions/checkout@v4
         with:
-          # For pull_request events, checkout the merge commit
-          # For manual dispatch, use the specified PR number
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || format('refs/pull/{0}/merge', env.PR_NUMBER) }}
+          # Merged the PR into the base branch — without actually merging it
+          ref: ${{ format('refs/pull/{0}/merge', env.PR_NUMBER) }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
