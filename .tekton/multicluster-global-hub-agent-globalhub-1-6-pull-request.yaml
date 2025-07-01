@@ -10,7 +10,7 @@ metadata:
     pipelinesascode.tekton.dev/max-keep-runs: "3"
     pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
       == "main" && (".tekton/multicluster-global-hub-agent-[!b]*.yaml".pathChanged()
-      || "go.{mod,sum}".pathChanged() || "{pkg,agent}/***".pathChanged()
+      || "go.{mod,sum}".pathChanged() || "{pkg,agent}/***".pathChanged() || "librdkafka/***".pathChanged()
       || "rpms.in.yaml".pathChanged() || "rpms.lock.yaml".pathChanged())
   creationTimestamp: null
   labels:
