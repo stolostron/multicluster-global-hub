@@ -1412,8 +1412,8 @@ github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:l
 github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b h1:wbh8IK+aMLTCey9sZasO7b6BWLAJnHHvb79fvWCXwxw=
 github.com/authzed/grpcutil v0.0.0-20240123194739-2ea1e3d2d98b/go.mod h1:s3qC7V7XIbiNWERv7Lfljy/Lx25/V1Qlexb0WJuA8uQ=
-github.com/authzed/spicedb-operator v1.20.0 h1:N48ydxZlq8sKkJK/nwPvEvIkDkxDiotHSGc6R4O1JIo=
-github.com/authzed/spicedb-operator v1.20.0/go.mod h1:0edMGGUA9aclA7b7j+AYDCsFQhGGIUo7dZeXcY3iQaI=
+github.com/authzed/spicedb-operator v1.20.1 h1:gNZ0eAuER1A1044It/oChGJ+lxyCh+VFvR4+im2kyHM=
+github.com/authzed/spicedb-operator v1.20.1/go.mod h1:lfHGChvTr2kOF2ziMkjju+rheDynxwVpplEJb518iDo=
 github.com/aws/aws-sdk-go-v2 v1.26.1 h1:5554eUqIYVWpU0YmeeYZ0wU64H2VLBs8TlhRB2L+EkA=
 github.com/aws/aws-sdk-go-v2 v1.26.1/go.mod h1:ffIFB97e2yNsv4aTSGkqtHnppsIJzw7G7BReUZ3jCXM=
 github.com/aws/aws-sdk-go-v2/config v1.27.10 h1:PS+65jThT0T/snC5WjyfHHyUgG+eBoupSDV+f838cro=
