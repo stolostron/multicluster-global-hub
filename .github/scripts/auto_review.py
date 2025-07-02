@@ -53,7 +53,7 @@ for f in pr.get_files():
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            response_format="json",
+            # response_format="json", # gpt-4o、gpt-4-turbo
             messages=[
                 {
                     "role": "system",
