@@ -2,7 +2,6 @@ package generic
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,7 +21,6 @@ type syncController struct {
 	instance      func() client.Object
 	leafHubName   string
 	finalizerName string
-	lock          sync.Mutex
 }
 
 // AddSyncCtrl registers a controller that watch the specific client.Object,

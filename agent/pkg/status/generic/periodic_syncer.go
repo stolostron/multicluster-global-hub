@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 )
 
 type EmitterRegistration struct {

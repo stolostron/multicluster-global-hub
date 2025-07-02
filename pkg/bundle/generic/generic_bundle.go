@@ -3,10 +3,11 @@ package generic
 import (
 	"encoding/json"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 const MaxBundleBytes = 980 * 1024 // 980 KiB

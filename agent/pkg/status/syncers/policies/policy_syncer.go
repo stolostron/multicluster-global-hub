@@ -118,11 +118,3 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 			},
 		})
 }
-
-func cleanPolicy(object client.Object) {
-	policy, ok := object.(*policiesv1.Policy)
-	if !ok {
-		panic("Wrong instance passed to clean policy function, not a Policy")
-	}
-	policy.Status = policiesv1.PolicyStatus{}
-}

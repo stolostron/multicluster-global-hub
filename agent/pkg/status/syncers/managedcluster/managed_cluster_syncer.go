@@ -3,6 +3,7 @@ package managedcluster
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,7 +16,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Producer,
