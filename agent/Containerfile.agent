@@ -38,7 +38,7 @@ LABEL description="multicluster global hub agent"
 
 ENV USER_UID=1001
 ENV USER_NAME=agent
-ENV GIT_COMMIT=${VCS_REF}
+ENV GIT_COMMIT=${GIT_COMMIT}
 ENV LD_LIBRARY_PATH=/usr/local/lib/
 
 # install agent binary
