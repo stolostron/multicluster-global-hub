@@ -308,7 +308,7 @@ func (h *localPolicySpecHandler) postPolicyToInventoryApi(
 			// delete the policy related compliance data in inventory when policy is deleted
 			err := h.deleteAllComplianceDataOfPolicy(ctx, db, h.requester, leafHubName, policy, mchVersion)
 			if err != nil {
-				log.Errorf("failed to delete compliance data of policy %s: %w", policy.Name, err)
+				log.Errorf("failed to delete compliance data of policy %s: %v", policy.Name, err)
 			}
 		}
 	}
