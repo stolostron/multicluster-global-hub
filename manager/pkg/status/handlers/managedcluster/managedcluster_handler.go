@@ -13,7 +13,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
@@ -24,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const BatchSize = 50
@@ -136,6 +136,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		if err != nil {
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
+		deletingObjects = append(deletingObjects, object)
 	}
 	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
