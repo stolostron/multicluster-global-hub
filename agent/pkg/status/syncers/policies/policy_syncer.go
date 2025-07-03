@@ -12,7 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies/handlers"
-	genericpayload "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -21,9 +20,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var addedPolicySyncer = false
+
 func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *configs.AgentConfig,
 	producer transport.Producer,
 ) error {
+	if addedPolicySyncer {
+		return nil
+	}
 	// controller config
 	instance := func() client.Object { return &policiesv1.Policy{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
@@ -59,17 +63,17 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	localStatusEventEmitter := handlers.NewPolicyStatusEventEmitter(enum.LocalReplicatedPolicyEventType)
 
 	// 4. local policy spec
-	localPolicySpecHandler := generic.NewGenericHandler(&genericpayload.GenericObjectBundle{},
-		generic.WithShouldUpdate(
-			func(obj client.Object) bool {
-				return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
-					!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
-					!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
-			}),
-		generic.WithSpec(true),
-		generic.WithTweakFunc(cleanPolicy),
-	)
-	localPolicySpecEmitter := generic.NewGenericEmitter(enum.LocalPolicySpecType)
+	// localPolicySpecHandler := generic.NewGenericHandler(&genericpayload.GenericObjectBundle{},
+	// 	generic.WithShouldUpdate(
+	// 		func(obj client.Object) bool {
+	// 			return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
+	// 				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
+	// 				!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
+	// 		}),
+	// 	generic.WithSpec(true),
+	// 	generic.WithTweakFunc(cleanPolicy),
+	// )
+	// localPolicySpecEmitter := generic.NewGenericEmitter(enum.LocalPolicySpecType)
 
 	// 5. global policy compliance
 	complianceVersion := eventversion.NewVersion()
@@ -87,17 +91,13 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	globalCompleteEmitter := generic.NewGenericEmitter(enum.CompleteComplianceType,
 		generic.WithDependencyVersion(complianceVersion))
 
-	return generic.LaunchMultiEventSyncer(
+	err := generic.LaunchMultiEventSyncer(
 		"status.policy",
 		mgr,
 		generic.NewGenericController(instance, predicate),
 		producer,
 		configmap.GetPolicyDuration,
 		[]*generic.EmitterHandler{
-			{
-				Handler: localPolicySpecHandler,
-				Emitter: localPolicySpecEmitter,
-			},
 			{
 				Handler: localComplianceHandler,
 				Emitter: localComplianceEmitter,
@@ -122,12 +122,9 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				Emitter: globalCompleteEmitter,
 			},
 		})
-}
-
-func cleanPolicy(object client.Object) {
-	policy, ok := object.(*policiesv1.Policy)
-	if !ok {
-		panic("Wrong instance passed to clean policy function, not a Policy")
+	if err != nil {
+		return err
 	}
-	policy.Status = policiesv1.PolicyStatus{}
+	addedPolicySyncer = true
+	return nil
 }

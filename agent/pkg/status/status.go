@@ -15,6 +15,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
@@ -61,6 +62,9 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	}
 
 	// policy syncer(local and global)
+	if err = policies.AddPolicySpecSyncer(ctx, mgr, producer, periodicSyncer); err != nil {
+		return fmt.Errorf("failed to add policy spec syncer: %w", err)
+	}
 	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, producer)
 	if err != nil {
 		return fmt.Errorf("failed to launch policy syncer: %w", err)
