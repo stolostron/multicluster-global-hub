@@ -194,8 +194,8 @@ for f in pr.get_files():
                         all_review_comments.append({
                             "path": f.filename,
                             "body": comment["comment"],
-                            "line": line_num,
-                            "side": "RIGHT"
+                            "line": line_num
+                            # "side": "RIGHT"
                         })
                         valid_count += 1
                     else:
