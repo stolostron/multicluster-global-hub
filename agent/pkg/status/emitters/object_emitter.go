@@ -89,7 +89,7 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 		}
 		// re-add
 		added, err = e.bundle.AddDelete(generic.ObjectMetadata{
-			ID:        string(obj.GetUID()),
+			ID:        string(tweaked.GetUID()),
 			Namespace: tweaked.GetNamespace(),
 			Name:      tweaked.GetName(),
 		})
@@ -250,20 +250,19 @@ func (e *ObjectEmitter) handleDeltaEvent(obj client.Object, addFunc func(client.
 	if added {
 		e.version.Incr()
 		return nil
+	} else {
+		if err := e.sendBundle(); err != nil {
+			return err
+		}
+		added, err = addFunc(tweaked)
+		if err != nil {
+			return fmt.Errorf("failed to add event to bundle: %v", err)
+		}
+		if !added {
+			return fmt.Errorf("failed to add event to bundle after resend: %v ", obj)
+		}
+		e.version.Incr()
 	}
 
-	if err := e.sendBundle(); err != nil {
-		return err
-	}
-
-	// re-add
-	added, err = addFunc(tweaked)
-	if err != nil {
-		return fmt.Errorf("failed to add event to bundle: %v", err)
-	}
-	if !added {
-		return fmt.Errorf("failed to add event to bundle after resend: %v ", obj)
-	}
-	e.version.Incr()
 	return nil
 }
