@@ -83,7 +83,6 @@ func TestPostCompliancesToInventoryApi(t *testing.T) {
 			}
 
 			err := postCompliancesToInventoryApi(
-				logger.ZapLogger("test"),
 				"default/policy-name",
 				mockRequester,
 				"test-hub",

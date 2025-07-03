@@ -122,7 +122,7 @@ func Test_generateCreateUpdateDeletePolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2 := generateCreateUpdateDeletePolicy(logger.ZapLogger("test"), tt.args.data, tt.args.leafHubName, tt.args.policyIdToVersionMapFromDB)
+			got, got1, got2 := generateCreateUpdateDeletePolicy(tt.args.data, tt.args.leafHubName, tt.args.policyIdToVersionMapFromDB)
 			if !equality.Semantic.DeepEqual(got, tt.want) {
 				t.Errorf("generateCreateUpdateDeletePolicy() got = %v, want %v", got, tt.want)
 			}
@@ -280,7 +280,6 @@ func Test_postPolicyToInventoryApi(t *testing.T) {
 				},
 			}
 			h := &localPolicySpecHandler{
-				log:       logger.ZapLogger("test"),
 				requester: fakeRequester,
 			}
 			h.postPolicyToInventoryApi(tt.args.ctx, nil, tt.args.createPolicy, tt.args.updatePolicy, tt.args.deletePolicy, tt.args.leafHubName, tt.args.mchVersion)
@@ -409,7 +408,6 @@ func Test_localPolicySpecHandler_syncInventory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := &localPolicySpecHandler{
-				log:           tt.fields.log,
 				eventType:     tt.fields.eventType,
 				eventSyncMode: tt.fields.eventSyncMode,
 				eventPriority: tt.fields.eventPriority,

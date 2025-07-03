@@ -60,7 +60,6 @@ func (worker *Worker) start(ctx context.Context) {
 }
 
 func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJob) {
-	startTime := time.Now()
 	conn := database.GetConn()
 
 	err := database.Lock(conn)
@@ -71,11 +70,54 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 		log.Error(err)
 		return
 	}
+	// deprecated: previous full bundle handling
+	if job.ElementState == nil {
+		worker.fullBundleHandle(ctx, job)
+		return
+	}
 
-	// handle the event until it's metadata is marked as processed
+	// the list/watch bundle: only process the current event if previous is finished
+	job.ElementState.HandlerLock.Lock()
+	defer job.ElementState.HandlerLock.Unlock()
+
+	// based on the handle result, update the element state
+	startTime := time.Now()
 	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
-			err = job.Handle(ctx, job.Event) // db connection released to pool when done
+			err := job.Handle(ctx, job.Event)
+			if err != nil {
+				log.Warnf("retrying to handle failed event (%s): %v", job.Event.Type(), err)
+				return false, nil
+			}
+
+			// mark the offset in kafka position
+			job.ElementState.LastProcessedMetadata = job.Metadata
+
+			// update the element state
+			job.ElementState.LastProcessedVersion = job.Metadata.Version()
+
+			return true, nil
+		},
+	)
+
+	worker.statistics.AddDatabaseMetrics(job.Event, time.Since(startTime), err)
+
+	if err != nil {
+		log.Errorw("fails to process the DB job", "LF", job.Event.Source(), "WorkerID", worker.workerID,
+			"event", job.Event, "error", err)
+	} else {
+		log.Debugw("handle the DB job successfully", "LF", job.Event.Source(),
+			"WorkerID", worker.workerID,
+			"event", job.Event)
+	}
+}
+
+func (worker *Worker) fullBundleHandle(ctx context.Context, job *conflator.ConflationJob) {
+	startTime := time.Now()
+	// handle the event until it's metadata is marked as processed
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true,
+		func(ctx context.Context) (bool, error) {
+			err := job.Handle(ctx, job.Event) // db connection released to pool when done
 			if err != nil {
 				job.Metadata.MarkAsUnprocessed()
 				log.Warnf("failed to handle event (%s): %v", job.Event.Type(), err)
@@ -84,7 +126,7 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 			}
 			// retrying
 			if !job.Metadata.Processed() || err != nil {
-				log.Info("retrying to handle the above")
+				log.Infof("retrying to handle the job event: %v", job.Metadata)
 				return false, nil
 			}
 			// success or up to retry threshold

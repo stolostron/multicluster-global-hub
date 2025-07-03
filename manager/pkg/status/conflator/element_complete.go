@@ -65,7 +65,7 @@ func (e *completeElement) Predicate(eventVersion *version.Version) bool {
 		if e.metadata != nil {
 			e.metadata.Version().Reset()
 		}
-		e.log.Info("resetting element processed version", "version", eventVersion)
+		e.log.Info("resetting complete element processed version", "version", eventVersion)
 	}
 
 	// version validation
@@ -104,7 +104,7 @@ func (e *completeElement) ProcessJob(cu *ConflationUnit) *ConflationJob {
 		return nil
 	}
 	e.isInProcess = true
-	return NewConflationJob(e.event, e.metadata, e.handlerFunction, cu)
+	return NewConflationJob(e.event, e.metadata, e.handlerFunction, cu, nil)
 }
 
 // Success is to update the conflation element state after processing the event
