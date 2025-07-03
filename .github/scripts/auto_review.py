@@ -69,7 +69,10 @@ review_tool = {
     }
 }
 
-# ─── Review Patch Files ─────────────────────────────────────────
+# ─── Collect all files and review them ─────────────────────────────
+all_review_comments = []
+reviewed_files = []
+
 for f in pr.get_files():
     if (
         f.filename.startswith('.github/')
@@ -82,6 +85,7 @@ for f in pr.get_files():
         continue
 
     print(f"🔍 Reviewing {f.filename}")
+    reviewed_files.append(f.filename)
 
     try:
         response = client.chat.completions.create(
@@ -121,57 +125,78 @@ for f in pr.get_files():
                     print(f"✅ No critical issues found in {f.filename}")
                     continue
 
-                # Create a review with comments
-                review_comments = []
+                # Add comments to the master list
                 for comment in comments:
-                    review_comments.append({
+                    all_review_comments.append({
                         "path": f.filename,
                         "body": comment["comment"],
                         "line": comment["line"],
                         "side": "RIGHT"
                     })
                 
-                print(f"📝 Creating review with {len(review_comments)} comments for {f.filename}")
-                print(f"🔍 Commit SHA: {pr.head.sha}")
-                print(f"📋 Review comments: {review_comments}")
-                
-                # Try multiple approaches to create the review
-                try:
-                    # Method 1: Create review with all parameters
-                    pr.create_review(
-                        commit=pr.head.sha,
-                        body="Automated code review",
-                        event="COMMENT",
-                        comments=review_comments
-                    )
-                    print("✅ Successfully created review with Method 1")
-                except Exception as e1:
-                    print(f"❌ Method 1 failed: {e1}")
-                    try:
-                        # Method 2: Create review without commit
-                        pr.create_review(
-                            body="Automated code review",
-                            event="COMMENT",
-                            comments=review_comments
-                        )
-                        print("✅ Successfully created review with Method 2")
-                    except Exception as e2:
-                        print(f"❌ Method 2 failed: {e2}")
-                        try:
-                            # Method 3: Create individual comments
-                            for comment in comments:
-                                pr.create_issue_comment(
-                                    body=f"**🤖 Code Review Comment for `{f.filename}:L{comment['line']}`**\n\n{comment['comment']}"
-                                )
-                            print("✅ Successfully created comments with Method 3")
-                        except Exception as e3:
-                            print(f"❌ Method 3 failed: {e3}")
-                            print("❌ All methods failed to create comments")
-                print(f"💬 Posted {len(comments)} comment(s) for {f.filename}")
+                print(f"📝 Found {len(comments)} issues in {f.filename}")
 
     except Exception as e:
-        print("⚠️ Failed to process tool calls or post comments:", e)
+        print("⚠️ Failed to process tool calls:", e)
         if hasattr(response, 'choices') and response.choices:
             print("🔎 Raw response:", response.choices[0].message)
+
+# ─── Generate review body and create combined review ─────────────
+if all_review_comments:
+    print(f"📋 Total comments found: {len(all_review_comments)} across {len(reviewed_files)} files")
+    
+    # Generate meaningful review body
+    try:
+        body_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a code review summarizer. "
+                        "Generate a concise summary of the code review findings. "
+                        "Focus on the main themes and critical issues found. "
+                        "Keep it professional and constructive."
+                    )
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Generate a summary for a code review with the following findings:\n\n"
+                        f"Files reviewed: {', '.join(reviewed_files)}\n"
+                        f"Total issues found: {len(all_review_comments)}\n\n"
+                        f"Issues:\n" + 
+                        "\n".join([f"- {comment['path']}:L{comment['line']}: {comment['body']}" 
+                                 for comment in all_review_comments])
+                    )
+                }
+            ]
+        )
+        
+        review_body = body_response.choices[0].message.content
+        print(f"📝 Generated review body: {review_body}")
+        
+    except Exception as e:
+        print(f"⚠️ Failed to generate review body: {e}")
+        review_body = f"Automated code review found {len(all_review_comments)} issues across {len(reviewed_files)} files."
+    
+    # Create the combined review
+    try:
+        pr.create_review(
+            body=review_body,
+            event="COMMENT",
+            comments=all_review_comments
+        )
+        print(f"✅ Successfully created combined review with {len(all_review_comments)} comments")
+    except Exception as e:
+        print(f"❌ Failed to create combined review: {e}")
+        print("🔄 Falling back to issue comments...")
+        for comment in all_review_comments:
+            pr.create_issue_comment(
+                body=f"**🤖 Code Review Comment for `{comment['path']}:L{comment['line']}`**\n\n{comment['body']}"
+            )
+        print(f"✅ Posted {len(all_review_comments)} individual comments")
+else:
+    print("✅ No critical issues found in any reviewed files")
 
 print(f"🏁 Finished reviewing PR #{pr_number}")
