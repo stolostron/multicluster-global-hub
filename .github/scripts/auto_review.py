@@ -183,7 +183,7 @@ for f in pr.get_files():
 
                 # Parse diff to find valid line numbers
                 valid_lines = parse_diff_lines(f.patch)
-                print(f"🔍 Valid diff lines for {f.filename}: {sorted(valid_lines) if valid_lines else 'None'}")
+                # print(f"🔍 Valid diff lines for {f.filename}: {sorted(valid_lines) if valid_lines else 'None'}")
                 
                 # Add comments to the master list, only for valid lines
                 valid_count = 0
@@ -339,14 +339,14 @@ if all_review_comments:
             )
         print(f"✅ Posted summary + {len(all_review_comments)} individual comments")
     
-    # Handle invalid comments (lines not in diff) as issue comments
-    if hasattr(pr, '_invalid_comments') and pr._invalid_comments:
-        print(f"📝 Posting {len(pr._invalid_comments)} comments for lines not in diff as issue comments...")
-        for invalid_comment in pr._invalid_comments:
-            pr.create_issue_comment(
-                body=f"**📍 `{invalid_comment['path']}:L{invalid_comment['line']}` (not in diff)**\n\n{invalid_comment['comment']}"
-            )
-        print(f"✅ Posted {len(pr._invalid_comments)} additional issue comments for invalid lines")
+    # # Handle invalid comments (lines not in diff) as issue comments, Ignore the invalid comments for now
+    # if hasattr(pr, '_invalid_comments') and pr._invalid_comments:
+    #     print(f"📝 Posting {len(pr._invalid_comments)} comments for lines not in diff as issue comments...")
+    #     for invalid_comment in pr._invalid_comments:
+    #         pr.create_issue_comment(
+    #             body=f"**📍 `{invalid_comment['path']}:L{invalid_comment['line']}` (not in diff)**\n\n{invalid_comment['comment']}"
+    #         )
+    #     print(f"✅ Posted {len(pr._invalid_comments)} additional issue comments for invalid lines")
 else:
     print("✅ No critical issues found in any reviewed files")
 
