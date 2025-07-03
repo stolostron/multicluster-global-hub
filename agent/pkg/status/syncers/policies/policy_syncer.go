@@ -20,9 +20,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var addedPolicySyncer = false
+
 func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *configs.AgentConfig,
 	producer transport.Producer,
 ) error {
+	if addedPolicySyncer {
+		return nil
+	}
 	// controller config
 	instance := func() client.Object { return &policiesv1.Policy{} }
 	predicate := predicate.NewPredicateFuncs(func(object client.Object) bool { return true })
@@ -86,7 +91,7 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	globalCompleteEmitter := generic.NewGenericEmitter(enum.CompleteComplianceType,
 		generic.WithDependencyVersion(complianceVersion))
 
-	return generic.LaunchMultiEventSyncer(
+	err := generic.LaunchMultiEventSyncer(
 		"status.policy",
 		mgr,
 		generic.NewGenericController(instance, predicate),

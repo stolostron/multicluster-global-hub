@@ -6,13 +6,13 @@ import (
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-kratos/kratos/v2/log"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/api/errors"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
@@ -20,8 +20,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var log = logger.DefaultZapLogger()
@@ -141,6 +141,7 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 		if err != nil {
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
+		deletingObjects = append(deletingObjects, object)
 	}
 	log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
