@@ -59,25 +59,19 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 	// delete
 	if !object.GetDeletionTimestamp().IsZero() {
-		if err := c.emitter.Delete(object); err != nil {
-			log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
-		}
-
 		if IsGlobalResource(object) && controllerutil.RemoveFinalizer(object, c.finalizerName) {
 			if err := c.client.Update(ctx, object); err != nil {
 				log.Errorw("failed to add remove cleanup finalizer", "error", err, "name", request.Name)
 				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 			}
 		}
-		return ctrl.Result{}, nil
-	}
 
-	// update/insert
-	cleanObject(object)
-	if err := c.emitter.Update(object); err != nil {
-		log.Errorw("failed to add updated object into bundle", "error", err, "name", request.Name)
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		if err := c.emitter.Delete(object); err != nil {
+			log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	if IsGlobalResource(object) && controllerutil.AddFinalizer(object, c.finalizerName) {
@@ -85,6 +79,13 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 			log.Error(err, "failed to add cleanup fianlizer", "namespace", request.Namespace, "name", request.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
+	}
+
+	// update/insert
+	cleanObject(object)
+	if err := c.emitter.Update(object); err != nil {
+		log.Errorw("failed to add updated object into bundle", "error", err, "name", request.Name)
+		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 	}
 
 	return ctrl.Result{}, nil

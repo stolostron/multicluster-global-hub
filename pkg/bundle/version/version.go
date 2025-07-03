@@ -102,7 +102,7 @@ func (this *Version) String() string {
 // Incr increments the Value when bundle is updated.
 func (this *Version) Incr() {
 	this.Value++
-	if this.Value >= math.MaxUint64-10 {
+	if this.Value >= math.MaxUint64-100 {
 		this.Reset()
 	}
 }
@@ -110,7 +110,7 @@ func (this *Version) Incr() {
 // Next increments the Generation and resets the Value when bundle is sended to the hub.
 func (this *Version) Next() {
 	this.Generation++
-	if this.Generation >= math.MaxUint64-10 {
+	if this.Generation >= math.MaxUint64-100 {
 		this.Reset()
 	}
 }
