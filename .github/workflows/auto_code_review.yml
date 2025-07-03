@@ -1,8 +1,8 @@
-# .github/workflows/ai-code-review.yml
 name: AI Code Review
 on:
   # Automatically trigger on PR events
   pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
     branches:
       - main
   # Keep manual trigger option
@@ -13,6 +13,7 @@ on:
         required: true
 jobs:
   review:
+    if: github.event.action != 'labeled' || contains(github.event.pull_request.labels.*.name, 'ai-review')
     runs-on: ubuntu-latest
     steps:
       - name: Determine PR number
@@ -40,3 +41,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           python .github/scripts/auto_review.py --pr $PR_NUMBER
+      - name: Remove `ai-review` label
+        if: github.event_name == 'pull_request_target' && contains(github.event.pull_request.labels.*.name, 'ai-review')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit $PR_NUMBER --remove-label "ai-review"
