@@ -124,7 +124,7 @@ for f in pr.get_files():
                 for comment in comments:
                     pr.create_review_comment(
                         body=comment["comment"],
-                        commit_id=pr.head.sha,
+                        commit=pr.head.sha,
                         path=f.filename,
                         line=comment["line"],
                         side="RIGHT"
