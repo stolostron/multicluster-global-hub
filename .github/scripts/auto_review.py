@@ -131,13 +131,42 @@ for f in pr.get_files():
                         "side": "RIGHT"
                     })
                 
-                # Create the review
-                pr.create_review(
-                    commit=pr.head.sha,
-                    body="Automated code review",
-                    event="COMMENT",
-                    comments=review_comments
-                )
+                print(f"📝 Creating review with {len(review_comments)} comments for {f.filename}")
+                print(f"🔍 Commit SHA: {pr.head.sha}")
+                print(f"📋 Review comments: {review_comments}")
+                
+                # Try multiple approaches to create the review
+                try:
+                    # Method 1: Create review with all parameters
+                    pr.create_review(
+                        commit=pr.head.sha,
+                        body="Automated code review",
+                        event="COMMENT",
+                        comments=review_comments
+                    )
+                    print("✅ Successfully created review with Method 1")
+                except Exception as e1:
+                    print(f"❌ Method 1 failed: {e1}")
+                    try:
+                        # Method 2: Create review without commit
+                        pr.create_review(
+                            body="Automated code review",
+                            event="COMMENT",
+                            comments=review_comments
+                        )
+                        print("✅ Successfully created review with Method 2")
+                    except Exception as e2:
+                        print(f"❌ Method 2 failed: {e2}")
+                        try:
+                            # Method 3: Create individual comments
+                            for comment in comments:
+                                pr.create_issue_comment(
+                                    body=f"**🤖 Code Review Comment for `{f.filename}:L{comment['line']}`**\n\n{comment['comment']}"
+                                )
+                            print("✅ Successfully created comments with Method 3")
+                        except Exception as e3:
+                            print(f"❌ Method 3 failed: {e3}")
+                            print("❌ All methods failed to create comments")
                 print(f"💬 Posted {len(comments)} comment(s) for {f.filename}")
 
     except Exception as e:
