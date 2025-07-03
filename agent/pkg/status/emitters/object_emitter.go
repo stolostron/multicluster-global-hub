@@ -135,7 +135,7 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 		}
 		metas = append(metas, generic.ObjectMetadata{
 			ID:        string(tweaked.GetUID()),
-			Namespace: tweaked.GetGenerateName(),
+			Namespace: tweaked.GetNamespace(),
 			Name:      tweaked.GetName(),
 		})
 	}
