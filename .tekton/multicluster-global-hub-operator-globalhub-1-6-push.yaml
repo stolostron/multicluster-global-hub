@@ -43,7 +43,7 @@ spec:
   - name: prefetch-input
     value: '[ {"type": "gomod", "path": "."} ]'
   - name: build-args
-    value: ["GIT_COMMIT=$(tasks.clone-repository.results.commit)"]
+    value: ["GIT_COMMIT={{revision}}"]
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
