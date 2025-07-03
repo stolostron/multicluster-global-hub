@@ -69,6 +69,30 @@ review_tool = {
     }
 }
 
+# ─── Define tool schema for prioritizing issues ────────────────
+prioritize_tool = {
+    "type": "function",
+    "function": {
+        "name": "select_most_important_issues",
+        "description": "Select the 10 most important issues from a list of code review findings",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "selected_indices": {
+                    "type": "array",
+                    "description": "Array of indices (0-based) of the 10 most important issues to prioritize",
+                    "items": {
+                        "type": "integer",
+                        "description": "Index of an important issue"
+                    },
+                    "maxItems": 10
+                }
+            },
+            "required": ["selected_indices"]
+        }
+    }
+}
+
 # ─── Collect all files and review them ─────────────────────────────
 all_review_comments = []
 reviewed_files = []
@@ -144,6 +168,64 @@ for f in pr.get_files():
 # ─── Generate review body and create combined review ─────────────
 if all_review_comments:
     print(f"📋 Total comments found: {len(all_review_comments)} across {len(reviewed_files)} files")
+    
+    # If more than 10 comments, select the most important ones
+    if len(all_review_comments) > 10:
+        print("🔍 More than 10 issues found, selecting the 10 most important ones...")
+        try:
+            # Prepare the issues for selection
+            issues_for_selection = []
+            for i, comment in enumerate(all_review_comments):
+                issues_for_selection.append({
+                    "index": i,
+                    "file": comment["path"],
+                    "line": comment["line"],
+                    "issue": comment["body"]
+                })
+            
+            selection_response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a code review prioritizer. "
+                            "Select the 10 most important issues from the provided list. "
+                            "Prioritize: 1) Logic bugs, 2) Security issues, 3) Performance problems, 4) Correctness issues, 5) Other critical problems. "
+                            "Use the select_most_important_issues function to provide your selection."
+                        )
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Select the 10 most important issues from these {len(issues_for_selection)} code review findings:\n\n" +
+                            "\n".join([f"Index {issue['index']}: {issue['file']}:L{issue['line']} - {issue['issue']}" 
+                                     for issue in issues_for_selection])
+                        )
+                    }
+                ],
+                tools=[prioritize_tool],
+                tool_choice="required"
+            )
+            
+            # Process tool calls for prioritization
+            tool_calls = selection_response.choices[0].message.tool_calls
+            if tool_calls and tool_calls[0].function.name == "select_most_important_issues":
+                arguments = json.loads(tool_calls[0].function.arguments)
+                selected_indices = arguments.get("selected_indices", [])
+            else:
+                selected_indices = []
+            
+            # Filter to selected comments
+            selected_comments = [all_review_comments[i] for i in selected_indices if i < len(all_review_comments)]
+            all_review_comments = selected_comments[:10]  # Ensure we don't exceed 10
+            
+            print(f"✅ Selected {len(all_review_comments)} most important issues")
+            
+        except Exception as e:
+            print(f"⚠️ Failed to prioritize issues: {e}")
+            print("🔄 Using first 10 issues as fallback")
+            all_review_comments = all_review_comments[:10]
     
     # Generate meaningful review body
     try:
