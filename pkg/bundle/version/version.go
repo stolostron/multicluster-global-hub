@@ -2,6 +2,7 @@ package version
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -9,6 +10,7 @@ import (
 const (
 	ExtVersion           = "extversion"
 	ExtDependencyVersion = "extdependencyversion"
+	MaxUint64            = math.MaxUint64 - 10
 )
 
 // NewVersion returns a new instance of BundleVersion.
@@ -86,6 +88,13 @@ func (this *Version) NewerValueThan(other *Version) bool {
 	return this.Value > other.Value
 }
 
+func (this *Version) NewerGenerationThan(other *Version) bool {
+	if other == nil {
+		return true
+	}
+	return this.Generation >= other.Generation
+}
+
 // String returns string representation of the bundle version.
 func (this *Version) String() string {
 	return fmt.Sprintf("%d.%d", this.Generation, this.Value)
@@ -94,11 +103,17 @@ func (this *Version) String() string {
 // Incr increments the Value when bundle is updated.
 func (this *Version) Incr() {
 	this.Value++
+	if this.Value >= MaxUint64 {
+		this.Reset()
+	}
 }
 
 // Next increments the Generation and resets the Value when bundle is sended to the hub.
 func (this *Version) Next() {
 	this.Generation++
+	if this.Generation >= MaxUint64 {
+		this.Reset()
+	}
 }
 
 // Reset resets the bundle version with minimal Generation and Value.
