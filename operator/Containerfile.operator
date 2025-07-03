@@ -32,6 +32,7 @@ LABEL io.k8s.description="This is the standard release image for the multicluste
 LABEL maintainer="['acm-component-maintainers@redhat.com']"
 LABEL description="multicluster global hub operator"
 
+ARG GIT_COMMIT
 ENV OPERATOR=/usr/local/bin/multicluster-global-hub-operator \
   USER_UID=1001 \
   USER_NAME=operator \
