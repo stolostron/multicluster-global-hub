@@ -151,7 +151,6 @@ for f in pr.get_files():
                     "role": "system",
                     "content": (
                         "You are a strict and concise code reviewer. "
-                        "Only comment on critical issues such as logic bugs, incorrect assumptions, syntax errors, or spelling mistakes. "
                         "Do not comment on minor style or formatting issues. "
                         "Use the submit_review_comments function to provide your review. "
                         "If there are no important issues, call the function with an empty comments array."
@@ -243,7 +242,7 @@ if all_review_comments:
                         "content": (
                             "You are a code review prioritizer. "
                             "Select the 10 most important issues from the provided list. "
-                            "Prioritize: 1) Logic bugs, 2) Security issues, 3) Performance problems, 4) Correctness issues, 5) Other critical problems. "
+                            "Prioritize: 1) Logic bugs, 2) Security issues, 3) Correctness issues, 4) Performance problems, 5) Other critical problems. "
                             "Use the select_most_important_issues function to provide your selection."
                         )
                     },
