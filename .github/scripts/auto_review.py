@@ -121,14 +121,23 @@ for f in pr.get_files():
                     print(f"✅ No critical issues found in {f.filename}")
                     continue
 
+                # Create a review with comments
+                review_comments = []
                 for comment in comments:
-                    pr.create_review_comment(
-                        body=comment["comment"],
-                        commit=pr.head.sha,
-                        path=f.filename,
-                        line=comment["line"],
-                        side="RIGHT"
-                    )
+                    review_comments.append({
+                        "path": f.filename,
+                        "body": comment["comment"],
+                        "line": comment["line"],
+                        "side": "RIGHT"
+                    })
+                
+                # Create the review
+                pr.create_review(
+                    commit=pr.head.sha,
+                    body="Automated code review",
+                    event="COMMENT",
+                    comments=review_comments
+                )
                 print(f"💬 Posted {len(comments)} comment(s) for {f.filename}")
 
     except Exception as e:
