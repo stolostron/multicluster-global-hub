@@ -8,7 +8,6 @@ const (
 	CompleteStateMode EventSyncMode = iota
 	// DeltaStateMode used to identify sync mode of delta state bundles.
 	DeltaStateMode EventSyncMode = iota
-
 	// HybridStateMode enables synchronization using both full state (via list) and delta updates (via watch).
 	HybridStateMode EventSyncMode = iota
 )

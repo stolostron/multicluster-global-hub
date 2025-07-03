@@ -73,6 +73,8 @@ func (b *GenericBundle[T]) AddResync(obj T) (bool, error) {
 }
 
 func (b *GenericBundle[T]) AddDelete(meta ObjectMetadata) (bool, error) {
+	emptyBundle := b.IsEmpty()
+
 	b.Delete = append(b.Delete, meta)
 
 	size, err := b.Size()
@@ -82,7 +84,7 @@ func (b *GenericBundle[T]) AddDelete(meta ObjectMetadata) (bool, error) {
 	}
 
 	if size > MaxBundleBytes {
-		if len(b.Delete) == 1 {
+		if emptyBundle {
 			log.Warnf("Metadata [%s/%s] exceeds bundle size: %d bytes", meta.Namespace, meta.Name, size)
 			return true, nil
 		}
@@ -108,6 +110,8 @@ func (b *GenericBundle[T]) AddResyncMetadata(metas []ObjectMetadata) error {
 
 // tryAdd tries to append an object and checks for size constraint.
 func (b *GenericBundle[T]) tryAdd(target *[]T, obj T) (bool, error) {
+	emptyBundle := b.IsEmpty()
+
 	*target = append(*target, obj)
 
 	size, err := b.Size()
@@ -117,7 +121,7 @@ func (b *GenericBundle[T]) tryAdd(target *[]T, obj T) (bool, error) {
 	}
 
 	if size > MaxBundleBytes {
-		if len(*target) == 1 {
+		if emptyBundle {
 			log.Warnf("Object exceeds bundle size limit: %d bytes", size)
 			return true, nil
 		}
