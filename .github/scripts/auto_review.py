@@ -36,6 +36,39 @@ if not openai_key:
     sys.exit(1)
 client = OpenAI(api_key=openai_key)
 
+# ─── Define tool schema for review comments ────────────────────
+review_tool = {
+    "type": "function",
+    "function": {
+        "name": "submit_review_comments",
+        "description": "Submit review comments for code issues found in the diff",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "description": "List of review comments for critical issues",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "line": {
+                                "type": "integer",
+                                "description": "Line number where the issue occurs"
+                            },
+                            "comment": {
+                                "type": "string",
+                                "description": "The review comment describing the issue"
+                            }
+                        },
+                        "required": ["line", "comment"]
+                    }
+                }
+            },
+            "required": ["comments"]
+        }
+    }
+}
+
 # ─── Review Patch Files ─────────────────────────────────────────
 for f in pr.get_files():
     if (
@@ -53,7 +86,6 @@ for f in pr.get_files():
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            # response_format="json", # gpt-4o、gpt-4-turbo
             messages=[
                 {
                     "role": "system",
@@ -61,37 +93,47 @@ for f in pr.get_files():
                         "You are a strict and concise code reviewer. "
                         "Only comment on critical issues such as logic bugs, incorrect assumptions, syntax errors, or spelling mistakes. "
                         "Do not comment on minor style or formatting issues. "
-                        "Return a JSON object in the format: { \"comments\": [ {\"line\": <line_number>, \"comment\": <text>} ] }. "
-                        "If there are no important issues, return: { \"comments\": [] }."
+                        "Use the submit_review_comments function to provide your review. "
+                        "If there are no important issues, call the function with an empty comments array."
                     )
                 },
                 {
                     "role": "user",
                     "content": f"Review this code diff:\n\n```diff\n{f.patch}\n```"
                 }
-            ]
+            ],
+            tools=[review_tool],
+            tool_choice="required"
         )
 
-        result = response.choices[0].message.content
-        parsed = json.loads(result)
-        comments = parsed.get("comments", [])
-
-        if not comments:
-            print(f"✅ No critical issues found in {f.filename}")
+        # Process tool calls
+        tool_calls = response.choices[0].message.tool_calls
+        if not tool_calls:
+            print(f"✅ No tool calls made for {f.filename}")
             continue
 
-        for comment in comments:
-            pr.create_review_comment(
-                body=comment["comment"],
-                commit_id=pr.head.sha,
-                path=f.filename,
-                line=comment["line"],
-                side="RIGHT"
-            )
-        print(f"💬 Posted {len(comments)} comment(s) for {f.filename}")
+        for tool_call in tool_calls:
+            if tool_call.function.name == "submit_review_comments":
+                arguments = json.loads(tool_call.function.arguments)
+                comments = arguments.get("comments", [])
+                
+                if not comments:
+                    print(f"✅ No critical issues found in {f.filename}")
+                    continue
+
+                for comment in comments:
+                    pr.create_review_comment(
+                        body=comment["comment"],
+                        commit_id=pr.head.sha,
+                        path=f.filename,
+                        line=comment["line"],
+                        side="RIGHT"
+                    )
+                print(f"💬 Posted {len(comments)} comment(s) for {f.filename}")
 
     except Exception as e:
-        print("⚠️ Failed to parse or post comments:", e)
-        print("🔎 Raw response:", response.choices[0].message.content)
+        print("⚠️ Failed to process tool calls or post comments:", e)
+        if hasattr(response, 'choices') and response.choices:
+            print("🔎 Raw response:", response.choices[0].message)
 
 print(f"🏁 Finished reviewing PR #{pr_number}")
