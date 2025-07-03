@@ -36,6 +36,38 @@ if not openai_key:
     sys.exit(1)
 client = OpenAI(api_key=openai_key)
 
+# ─── Parse diff to extract valid line numbers ───────────────────
+def parse_diff_lines(patch):
+    """Parse diff patch to extract line numbers that can receive comments"""
+    if not patch:
+        return set()
+    
+    valid_lines = set()
+    current_line = 0
+    
+    for line in patch.split('\n'):
+        if line.startswith('@@'):
+            # Parse hunk header: @@ -old_start,old_count +new_start,new_count @@
+            parts = line.split()
+            if len(parts) >= 3:
+                new_info = parts[2]  # +new_start,new_count
+                if new_info.startswith('+'):
+                    current_line = int(new_info[1:].split(',')[0]) - 1
+        elif line.startswith('+'):
+            # Added line - valid for comments
+            current_line += 1
+            valid_lines.add(current_line)
+        elif line.startswith('-'):
+            # Removed line - skip (don't increment current_line)
+            pass
+        elif line.startswith(' '):
+            # Context line - valid for comments
+            current_line += 1
+            valid_lines.add(current_line)
+        # Skip other lines (like \ No newline at end of file)
+    
+    return valid_lines
+
 # ─── Define tool schema for review comments ────────────────────
 review_tool = {
     "type": "function",
@@ -149,16 +181,36 @@ for f in pr.get_files():
                     print(f"✅ No critical issues found in {f.filename}")
                     continue
 
-                # Add comments to the master list
-                for comment in comments:
-                    all_review_comments.append({
-                        "path": f.filename,
-                        "body": comment["comment"],
-                        "line": comment["line"],
-                        "side": "RIGHT"
-                    })
+                # Parse diff to find valid line numbers
+                valid_lines = parse_diff_lines(f.patch)
+                print(f"🔍 Valid diff lines for {f.filename}: {sorted(valid_lines) if valid_lines else 'None'}")
                 
-                print(f"📝 Found {len(comments)} issues in {f.filename}")
+                # Add comments to the master list, only for valid lines
+                valid_count = 0
+                invalid_count = 0
+                for comment in comments:
+                    line_num = comment["line"]
+                    if line_num in valid_lines:
+                        all_review_comments.append({
+                            "path": f.filename,
+                            "body": comment["comment"],
+                            "line": line_num,
+                            "side": "RIGHT"
+                        })
+                        valid_count += 1
+                    else:
+                        print(f"⚠️  Skipping comment on line {line_num} (not in diff): {comment['comment'][:50]}...")
+                        # Store invalid comments for issue comments fallback
+                        if not hasattr(pr, '_invalid_comments'):
+                            pr._invalid_comments = []
+                        pr._invalid_comments.append({
+                            "path": f.filename,
+                            "line": line_num,
+                            "comment": comment["comment"]
+                        })
+                        invalid_count += 1
+                
+                print(f"📝 Found {len(comments)} issues in {f.filename} ({valid_count} valid, {invalid_count} invalid)")
 
     except Exception as e:
         print("⚠️ Failed to process tool calls:", e)
@@ -262,22 +314,39 @@ if all_review_comments:
         print(f"⚠️ Failed to generate review body: {e}")
         review_body = f"Automated code review found {len(all_review_comments)} issues across {len(reviewed_files)} files."
     
-    # Create the combined review
+    # Try to create the combined review with valid comments
     try:
-        pr.create_review(
-            body=review_body,
-            event="COMMENT",
-            comments=all_review_comments
-        )
-        print(f"✅ Successfully created combined review with {len(all_review_comments)} comments")
+        if all_review_comments:
+            pr.create_review(
+                body=review_body,
+                event="COMMENT",
+                comments=all_review_comments
+            )
+            print(f"✅ Successfully created combined review with {len(all_review_comments)} valid comments")
+        else:
+            # No valid comments for review, just post the summary
+            pr.create_issue_comment(body=f"## 🤖 Automated Code Review Summary\n\n{review_body}")
+            print("✅ Posted review summary (no valid diff lines for inline comments)")
     except Exception as e:
         print(f"❌ Failed to create combined review: {e}")
         print("🔄 Falling back to issue comments...")
+        # Post review summary
+        pr.create_issue_comment(body=f"## 🤖 Automated Code Review Summary\n\n{review_body}")
+        # Post individual comments
         for comment in all_review_comments:
             pr.create_issue_comment(
-                body=f"**🤖 Code Review Comment for `{comment['path']}:L{comment['line']}`**\n\n{comment['body']}"
+                body=f"**📍 `{comment['path']}:L{comment['line']}`**\n\n{comment['body']}"
             )
-        print(f"✅ Posted {len(all_review_comments)} individual comments")
+        print(f"✅ Posted summary + {len(all_review_comments)} individual comments")
+    
+    # Handle invalid comments (lines not in diff) as issue comments
+    if hasattr(pr, '_invalid_comments') and pr._invalid_comments:
+        print(f"📝 Posting {len(pr._invalid_comments)} comments for lines not in diff as issue comments...")
+        for invalid_comment in pr._invalid_comments:
+            pr.create_issue_comment(
+                body=f"**📍 `{invalid_comment['path']}:L{invalid_comment['line']}` (not in diff)**\n\n{invalid_comment['comment']}"
+            )
+        print(f"✅ Posted {len(pr._invalid_comments)} additional issue comments for invalid lines")
 else:
     print("✅ No critical issues found in any reviewed files")
 
