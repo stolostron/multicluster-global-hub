@@ -7,7 +7,9 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -38,11 +40,13 @@ func (s *resyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	}
 
 	for _, eventType := range eventTypes {
-		s.log.Info("resync event", "type", eventType)
+		s.log.Infow("resyncing event type", "eventType", enum.ShortenEventType(eventType))
+		configs.GlobalResyncQueue.Add(eventType)
+		// deprecated
 		resyncVersion, ok := registeredResyncTypes[eventType]
 		if !ok {
-			s.log.Warn("not support to resync the current resource type", "event key", eventType)
-			return nil
+			s.log.Infof("event type %s is not registered for resync", eventType)
+			continue
 		}
 		resyncVersion.Incr()
 	}
