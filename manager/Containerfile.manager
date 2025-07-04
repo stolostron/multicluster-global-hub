@@ -37,9 +37,10 @@ LABEL io.k8s.description="This is the standard release image for the multicluste
 LABEL maintainer="['acm-component-maintainers@redhat.com']"
 LABEL description="multicluster global hub manager"
 
+ARG GIT_COMMIT
 ENV USER_UID=1001
 ENV USER_NAME=manager
-ENV GIT_COMMIT=${VCS_REF}
+ENV GIT_COMMIT=${GIT_COMMIT}
 ENV LD_LIBRARY_PATH=/usr/local/lib/
 
 # install operator binary

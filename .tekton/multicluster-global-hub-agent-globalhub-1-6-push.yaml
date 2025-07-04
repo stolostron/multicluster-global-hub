@@ -45,6 +45,8 @@ spec:
     value: '[ {"type": "gomod", "path": "."}, {"type": "rpm", "path": "."} ]'
   - name: use-dev-package-managers
     value: "true"
+  - name: build-args
+    value: ["GIT_COMMIT={{revision}}"]
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
