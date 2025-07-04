@@ -9,6 +9,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -56,7 +57,7 @@ func (d *TransportDispatcher) dispatch(ctx context.Context) {
 			return
 		case evt := <-d.consumer.EventChan():
 			d.statistic.ReceivedEvent(evt)
-			d.log.Debugw("forward received event to conflation", "event type", evt.Type())
+			d.log.Debugw("forward received event to conflation", "event type", enum.ShortenEventType(evt.Type()))
 			d.conflationManager.Insert(evt)
 		}
 	}

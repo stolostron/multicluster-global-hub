@@ -18,9 +18,14 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
+var addedEventSyncer = false
+
 func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 	agentConfig *configs.AgentConfig, producer transport.Producer,
 ) error {
+	if addedEventSyncer {
+		return nil
+	}
 	// controller
 	instance := func() client.Object { return &corev1.Event{} }
 	eventPredicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
@@ -34,7 +39,7 @@ func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 			event.InvolvedObject.Kind == constants.ClusterGroupUpgradeKind
 	})
 
-	return generic.LaunchMultiEventSyncer(
+	err := generic.LaunchMultiEventSyncer(
 		"status.event",
 		mgr,
 		generic.NewGenericController(instance, eventPredicate),
@@ -54,4 +59,9 @@ func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
 				Emitter: handlers.NewClusterGroupUpgradeEventEmitter(),
 			},
 		})
+	if err != nil {
+		return err
+	}
+	addedEventSyncer = true
+	return nil
 }

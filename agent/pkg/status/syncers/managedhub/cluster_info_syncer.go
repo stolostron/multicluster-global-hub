@@ -19,7 +19,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var addedHubClusterInfoSyncer = false
+
 func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) error {
+	if addedHubClusterInfoSyncer {
+		return nil
+	}
+
 	mch, err := utils.ListMCH(context.Background(), mgr.GetClient())
 	if err != nil {
 		return err
@@ -29,7 +35,7 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 	}
 
 	eventData := &cluster.HubClusterInfo{}
-	return generic.LaunchMultiObjectSyncer(
+	err = generic.LaunchMultiObjectSyncer(
 		"status.hub_cluster_info",
 		mgr,
 		[]generic.ControllerHandler{
@@ -62,6 +68,11 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 		configmap.GetHubClusterInfoDuration,
 		generic.NewGenericEmitter(enum.HubClusterInfoType),
 	)
+	if err != nil {
+		return err
+	}
+	addedHubClusterInfoSyncer = true
+	return nil
 }
 
 // 1. Use ClusterVersion to update the HubClusterInfo
