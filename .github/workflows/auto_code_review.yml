@@ -13,7 +13,11 @@ on:
         required: true
 jobs:
   review:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ai-review')
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request_target' && 
+       github.event.action == 'labeled' && 
+       github.event.label.name == 'ai-review')
     runs-on: ubuntu-latest
     steps:
       - name: Determine PR number
