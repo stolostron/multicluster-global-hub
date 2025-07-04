@@ -1,7 +1,7 @@
 name: AI Code Review
 
 on:
-  pull_request:
+  pull_request_target:
     types: 
       - labeled
   workflow_dispatch:
@@ -12,12 +12,12 @@ on:
 
 jobs:
   run_if_label_matches:
-    if: contains(toJson(github.event.pull_request.labels.*.name), 'ai-review')
+    if: contains(github.event.pull_request.labels.*.name, 'ai-review')
     runs-on: ubuntu-latest
     steps:
       - name: Determine PR number
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
             echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
           else
             echo "PR_NUMBER=${{ github.event.inputs.pr_number }}" >> $GITHUB_ENV
