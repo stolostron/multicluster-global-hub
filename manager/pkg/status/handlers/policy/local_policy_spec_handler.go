@@ -67,13 +67,7 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 
 	// update or create managed clusters in the database.
 	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
-
-		policy := &policiesv1.Policy{}
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, policy)
-		if err != nil {
-			return fmt.Errorf("failed to convert unstructured to policy: %w", err)
-		}
-		payload, err := json.Marshal(policy)
+		payload, err := json.Marshal(obj)
 		if err != nil {
 			return err
 		}
