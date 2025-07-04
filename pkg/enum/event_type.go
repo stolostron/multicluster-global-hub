@@ -1,5 +1,7 @@
 package enum
 
+import "strings"
+
 const EventTypePrefix = "io.open-cluster-management.operator.multiclusterglobalhubs."
 
 type EventType string
@@ -40,3 +42,7 @@ const (
 	// Used to send security alerts:
 	SecurityAlertCountsType EventType = EventTypePrefix + "security.alertcounts"
 )
+
+func ShortenEventType(eventType string) string {
+	return strings.Replace(eventType, EventTypePrefix, "", -1)
+}
