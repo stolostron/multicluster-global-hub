@@ -2,7 +2,8 @@ name: AI Code Review
 
 on:
   pull_request:
-    types: [ labeled ]
+    types: 
+      - labeled
   workflow_dispatch:
     inputs:
       pr_number:
@@ -10,8 +11,8 @@ on:
         required: true
 
 jobs:
-  review:
-    if: contains(github.event.pull_request.labels.*.name, 'ai-review') 
+  run_if_label_matches:
+    if: github.event.label.name == 'ai-review'
     runs-on: ubuntu-latest
     steps:
       - name: Determine PR number
