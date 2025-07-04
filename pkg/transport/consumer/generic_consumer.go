@@ -16,10 +16,10 @@ import (
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
@@ -28,7 +28,6 @@ import (
 var transportID string
 
 type GenericConsumer struct {
-	log                  *zap.SugaredLogger
 	assembler            *messageAssembler
 	eventChan            chan *cloudevents.Event
 	enableDatabaseOffset bool
@@ -55,7 +54,6 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig, topics []
 	opts ...GenericConsumeOption,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
-		log:                  logger.ZapLogger(fmt.Sprintf("%s-consumer", tranConfig.TransportType)),
 		eventChan:            make(chan *cloudevents.Event),
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: tranConfig.EnableDatabaseOffset,
@@ -82,13 +80,13 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
-		c.log.Info("transport consumer with cloudevents-kafka receiver")
+		log.Info("transport consumer with cloudevents-kafka receiver")
 		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
 		if err != nil {
 			return err
 		}
 	case string(transport.Chan):
-		c.log.Info("transport consumer with go chan receiver")
+		log.Info("transport consumer with go chan receiver")
 		if tranConfig.Extends == nil {
 			tranConfig.Extends = make(map[string]interface{})
 		}
@@ -137,7 +135,7 @@ func (c *GenericConsumer) Reconnect(ctx context.Context,
 
 	go func() {
 		if err := c.Start(c.consumerCtx); err != nil {
-			c.log.Error(err, "failed to reconnect(start) the consumer")
+			log.Errorf("failed to reconnect(start) the consumer: %v", err)
 		}
 	}()
 	return nil
@@ -150,7 +148,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		c.log.Info("init consumer", "offsets", offsets)
+		log.Infow("init consumer", "offsets", offsets)
 		if len(offsets) > 0 {
 			receiveContext = kafka_confluent.WithTopicPartitionOffsets(ctx, offsets)
 		}
@@ -158,7 +156,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 	c.consumerCtx, c.consumerCancel = context.WithCancel(receiveContext)
 	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		c.log.Debugw("received message", "event.Source", event.Source(), "event.Type", event.Type())
+		log.Debugw("received message", "event.Source", event.Source(), "event.Type",
+			enum.ShortenEventType(event.Type()))
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
@@ -167,7 +166,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
-				c.log.Error(err, "failed the set the assembled data to event")
+				log.Errorw("failed the set the assembled data to event", "error", err)
 			} else {
 				c.eventChan <- &event
 			}
@@ -177,7 +176,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to start Receiver: %w", err)
 	}
-	c.log.Info("receiver stopped\n")
+	log.Info("receiver stopped\n")
 	return nil
 }
 

@@ -2,6 +2,7 @@ package version
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -86,6 +87,13 @@ func (this *Version) NewerValueThan(other *Version) bool {
 	return this.Value > other.Value
 }
 
+func (this *Version) NewerGenerationThan(other *Version) bool {
+	if other == nil {
+		return true
+	}
+	return this.Generation >= other.Generation
+}
+
 // String returns string representation of the bundle version.
 func (this *Version) String() string {
 	return fmt.Sprintf("%d.%d", this.Generation, this.Value)
@@ -94,11 +102,17 @@ func (this *Version) String() string {
 // Incr increments the Value when bundle is updated.
 func (this *Version) Incr() {
 	this.Value++
+	if this.Value >= math.MaxUint64-100 {
+		this.Reset()
+	}
 }
 
 // Next increments the Generation and resets the Value when bundle is sended to the hub.
 func (this *Version) Next() {
 	this.Generation++
+	if this.Generation >= math.MaxUint64-100 {
+		this.Reset()
+	}
 }
 
 // Reset resets the bundle version with minimal Generation and Value.
