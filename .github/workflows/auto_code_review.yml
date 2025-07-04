@@ -5,29 +5,17 @@ on:
     types: [labeled]
     branches:
       - main
-  # Keep manual trigger option
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'The PR number to review'
-        required: true
 jobs:
   review:
     if: |
-      (github.event_name == 'workflow_dispatch') ||
-      (github.event_name == 'pull_request_target' && 
-       github.event.action == 'labeled' && 
-       github.event.label.name == 'ai-review')
+      github.event_name == 'pull_request_target' && 
+      github.event.action == 'labeled' && 
+      github.event.label.name == 'ai-review'
     runs-on: ubuntu-latest
     steps:
       - name: Determine PR number
         run: |
-          if [ "${{ github.event_name }}" = "pull_request_target" ]; then
-            echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
-          else
-            # Only available if your workflow is manually triggered via the workflow_dispatch event
-            echo "PR_NUMBER=${{ github.event.inputs.pr_number }}" >> $GITHUB_ENV
-          fi
+          echo "PR_NUMBER=${{ github.event.number }}" >> $GITHUB_ENV
       - name: Checkout PR merge ref
         uses: actions/checkout@v4
         with:
