@@ -67,13 +67,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 
 	// update or create managed clusters in the database.
 	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
-
-		cluster := &clusterv1.ManagedCluster{}
-		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, cluster)
-		if err != nil {
-			return fmt.Errorf("failed to convert unstructured to managed cluster: %w", err)
-		}
-		payload, err := json.Marshal(cluster)
+		payload, err := json.Marshal(obj)
 		if err != nil {
 			return err
 		}
