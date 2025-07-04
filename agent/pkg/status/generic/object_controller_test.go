@@ -265,6 +265,9 @@ func TestSyncController_Reconcile_EdgeCases(t *testing.T) {
 			},
 		}
 
+		// Mark it for deletion
+		require.NoError(t, fakeClient.Delete(context.Background(), deploy))
+
 		result, err := controller.Reconcile(context.Background(), request)
 		require.NoError(t, err)
 		require.Equal(t, ctrl.Result{}, result)
