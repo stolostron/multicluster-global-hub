@@ -12,7 +12,7 @@ on:
 
 jobs:
   run_if_label_matches:
-    if: github.event.label.name == 'ai-review'
+    if: contains(toJson(github.event.pull_request.labels.*.name), 'ai-review')
     runs-on: ubuntu-latest
     steps:
       - name: Determine PR number
