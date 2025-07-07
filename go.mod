@@ -47,9 +47,9 @@ require (
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.0
-	k8s.io/api v0.32.5
+	k8s.io/api v0.32.6
 	k8s.io/apiextensions-apiserver v0.32.3
-	k8s.io/apimachinery v0.32.5
+	k8s.io/apimachinery v0.32.6
 	k8s.io/client-go v0.32.5
 	k8s.io/klog v1.0.0
 	k8s.io/kube-aggregator v0.32.5
