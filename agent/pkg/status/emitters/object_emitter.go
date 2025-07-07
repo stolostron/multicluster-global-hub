@@ -61,12 +61,30 @@ func (e *ObjectEmitter) EventFilter() predicate.Predicate {
 	return e.eventFilter
 }
 
+// Update modifies the bundle with the provided object.
+// Returns an error if the update fails.
+// Example cloudevents:
+//
+//	{
+//	  "data": { "update": [obj1, obj2] },
+//	  "extversion": "2.1",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
 func (e *ObjectEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.handleDeltaEvent(obj, e.bundle.AddUpdate)
 }
 
+// Delete removes the bundle associated with the provided object.
+// Returns an error if the deletion fails.
+// Example cloudevents:
+//
+//	{
+//	  "data": { "delete": [obj1, obj2] },
+//	  "extversion": "2.8",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
 func (e *ObjectEmitter) Delete(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -104,6 +122,20 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 	return nil
 }
 
+// Resync periodically reconciles the state of the given objects.
+// Example cloudevents:
+//
+//	{
+//	  "data": { "resync": [obj1, obj2] },
+//	  "extversion": "3.1",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
+//
+//	{
+//	  "data": { "resync": [obj3, obj4, obj5] },
+//	  "extversion": "3.1",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
 func (e *ObjectEmitter) Resync(objects []client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -150,6 +182,35 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 	return e.sendBundle()
 }
 
+// Send triggers the emission of an event.
+// It sends the current bundle as a CloudEvent and increments the version.
+// Returns an error if sending fails.
+// Example cloudevents:
+//
+//	{
+//	  "data": { "create": [obj1, obj2], "update": [obj3], "delete": [obj4] },
+//	  "extversion": "2.9",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
+//	{
+//	  "data": { "resync": [obj1, obj2, obj3]},
+//	  "extversion": "3.1	",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
+//
+// ...
+//
+//	{
+//	  "data": { "resync": [obj5, obj6]},
+//	  "extversion": "3.1	",
+//	  "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster"
+//	}
+//
+// {
+// "data": {"resync_metadata": [metadata1, metadata2, metadat3, metadata4, metadata5, metadata6]},
+// "extversion": "3.1",
+// "type": "io.open-cluster-management.operator.multiclusterglobalhubs.managedcluster",
+// }
 func (e *ObjectEmitter) Send() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -254,10 +315,12 @@ func (e *ObjectEmitter) handleDeltaEvent(obj client.Object, addFunc func(client.
 		if err := e.sendBundle(); err != nil {
 			return err
 		}
+		// re-add the object after sending the bundle
 		added, err = addFunc(tweaked)
 		if err != nil {
 			return fmt.Errorf("failed to add event to bundle: %v", err)
 		}
+		// Rare case: add the safeguard to ensure the object is added to the bundle successfully.
 		if !added {
 			return fmt.Errorf("failed to add event to bundle after resend: %v ", obj)
 		}
