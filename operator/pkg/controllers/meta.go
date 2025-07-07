@@ -46,6 +46,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/managedhub"
 	globalhubmanager "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/manager"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/mceaddons"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
@@ -62,7 +63,7 @@ var controllerStartFuncMap = map[string]Func{
 	"globalhubManager": globalhubmanager.StartController,
 	"grafana":          grafana.StartController,
 	"defaultAgent":     addonagent.StartDefaultAgentController,
-	"hostedAgent":      addonagent.StartHostedAgentController,
+	"hostedAgent":      mceaddons.StartMceAddonsController,
 	"addonManager":     addonagent.StartAddonManagerController,
 	"localAgent":       agent.StartLocalAgentController,
 	"webhook":          webhook.StartController,
