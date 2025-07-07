@@ -21,7 +21,6 @@ type Emitter interface {
 
 	// Delete removes the bundle associated with the provided object.
 	// Returns an error if the deletion fails.
-
 	Delete(obj client.Object) error
 
 	// Resync periodically reconciles the state of the provided objects.

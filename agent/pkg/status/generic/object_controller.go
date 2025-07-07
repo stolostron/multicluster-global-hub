@@ -61,7 +61,7 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 	if !object.GetDeletionTimestamp().IsZero() {
 		if IsGlobalResource(object) && controllerutil.RemoveFinalizer(object, c.finalizerName) {
 			if err := c.client.Update(ctx, object); err != nil {
-				log.Errorw("failed to add remove cleanup finalizer", "error", err, "name", request.Name)
+				log.Errorw("failed to remove finalizer", "error", err, "name", request.Name)
 				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 			}
 		}
@@ -76,7 +76,7 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 	if IsGlobalResource(object) && controllerutil.AddFinalizer(object, c.finalizerName) {
 		if err := c.client.Update(ctx, object); err != nil {
-			log.Error(err, "failed to add cleanup fianlizer", "namespace", request.Namespace, "name", request.Name)
+			log.Error(err, "failed to add fianlizer", "namespace", request.Namespace, "name", request.Name)
 			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
 		}
 	}
