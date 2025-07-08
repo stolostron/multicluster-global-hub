@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
@@ -25,12 +26,12 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 
-		data := generic.GenericObjectBundle{}
 		clusterID := "3f406177-34b2-4852-88dd-ff2809680335"
 		cluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "testManagedCluster",
 				Namespace: "default",
+				UID:       types.UID(clusterID),
 			},
 			Status: clusterv1.ManagedClusterStatus{
 				ClusterClaims: []clusterv1.ManagedClusterClaim{
@@ -41,8 +42,9 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 				},
 			},
 		}
-		data = append(data, cluster)
-		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, data)
+		bundle := generic.GenericBundle[clusterv1.ManagedCluster]{}
+		bundle.Create = []clusterv1.ManagedCluster{*cluster}
+		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, bundle)
 
 		By("Sync event with transport")
 		err := producer.SendEvent(ctx, *evt)
