@@ -22,17 +22,18 @@ type hybridElement struct {
 	elementState    *ElementState
 }
 
-func NewHybridElement(registration *ConflationRegistration) *deltaElement {
-	return &deltaElement{
-		eventType:            registration.eventType,
-		syncMode:             registration.syncMode,
-		handlerFunction:      registration.handleFunc,
-		lastProcessedVersion: version.NewVersion(),
+func NewHybridElement(registration *ConflationRegistration) *hybridElement {
+	return &hybridElement{
+		eventType:       registration.eventType,
+		syncMode:        registration.syncMode,
+		handlerFunction: registration.handleFunc,
+		elementState: &ElementState{
+			LastProcessedVersion: version.NewVersion(),
+		},
 	}
 }
 
 func (e *hybridElement) Name() string {
-	log.Infof("hibridElement Name called for eventType: %s", e.eventType)
 	return e.eventType
 }
 

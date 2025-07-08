@@ -24,7 +24,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const BatchSize = 50
@@ -87,35 +86,36 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		return err
 	}
 
-	// delete managed clusters that are not in the bundle.
-	var ids []string
-	err = db.Model(&models.ManagedCluster{}).Where("leaf_hub_name = ?", leafHubName).Pluck("cluster_id", &ids).Error
-	if err != nil {
-		return fmt.Errorf("failed to get existing cluster IDs - %w", err)
-	}
-
-	deletingObjects := []generic.ObjectMetadata{}
-	for _, object := range bundle.ResyncMetadata {
-		if utils.ContainsString(ids, object.ID) {
-			continue
-		}
-		deletingObjects = append(deletingObjects, object)
-	}
-
-	// https://gorm.io/docs/delete.html#Soft-Delete
-	if len(deletingObjects) == 0 {
-		log.Debugw("no managed clusters to delete", "LH", leafHubName)
-	} else {
-		deletingIds := make([]string, len(deletingObjects))
-		for i, object := range deletingObjects {
-			deletingIds[i] = object.ID
-		}
-		err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id IN ?", deletingIds).
-			Delete(&models.ManagedCluster{}).Error
+	if len(bundle.ResyncMetadata) > 0 {
+		// delete managed clusters that are not in the bundle.
+		var ids []string
+		err = db.Model(&models.ManagedCluster{}).Where("leaf_hub_name = ?", leafHubName).Pluck("cluster_id", &ids).Error
 		if err != nil {
-			return fmt.Errorf("failed deleting managed clusters - %w", err)
+			return fmt.Errorf("failed to get existing cluster IDs - %w", err)
 		}
-		log.Debugw("deleted managed clusters", "LH", leafHubName, "count", len(deletingObjects))
+
+		deletingIds := []string{}
+		for _, id := range ids {
+			for _, object := range bundle.ResyncMetadata {
+				if object.ID == id {
+					continue
+				}
+			}
+			deletingIds = append(deletingIds, id)
+		}
+
+		// https://gorm.io/docs/delete.html#Soft-Delete
+		if len(deletingIds) == 0 {
+			log.Debugw("no managed clusters to delete", "LH", leafHubName)
+		} else {
+			err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id IN ?", deletingIds).
+				Delete(&models.ManagedCluster{}).Error
+			if err != nil {
+				return fmt.Errorf("failed deleting managed clusters - %w", err)
+			}
+			log.Debugw("deleted managed clusters", "LH", leafHubName, "count", len(deletingIds))
+		}
+		return nil
 	}
 
 	if configs.IsInventoryAPIEnabled() {
@@ -142,7 +142,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 	leafHubClusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
 	log.Debugf("leafhub clusterInfo: %v", leafHubClusterInfo)
 	if err != nil {
-		log.Warnf("failed to get cluster info from db - %w", err)
+		log.Warnf("failed to get cluster info from db: %v", err)
 	}
 
 	if len(bundle.Create) > 0 {
@@ -150,7 +150,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, leafHubClusterInfo)
 			if resp, err := requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-				log.Errorf("failed to create k8sCluster %v: %w", resp, err)
+				log.Errorf("failed to create k8sCluster %v: %v", resp, err)
 				return err
 			}
 		}
@@ -161,7 +161,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, leafHubClusterInfo)
 			if resp, err := requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 				&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
-				log.Errorf("failed to update k8sCluster %v: %w", resp, err)
+				log.Errorf("failed to update k8sCluster %v: %v", resp, err)
 				return err
 			}
 		}
@@ -175,7 +175,7 @@ func (h *managedClusterHandler) postToInventoryApi(
 					ReporterInstanceId: leafHubName,
 					LocalResourceId:    clusterMetadata.Name,
 				}}); err != nil {
-				log.Errorf("failed to delete k8sCluster %v: %w", resp, err)
+				log.Errorf("failed to delete k8sCluster %v: %v", resp, err)
 				return err
 			}
 		}
