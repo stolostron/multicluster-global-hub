@@ -28,7 +28,6 @@ type SyncState struct {
 }
 
 type PeriodicSyncer struct {
-	// emitterRegistrations []*EmitterRegistration
 	syncStates []*SyncState
 }
 
