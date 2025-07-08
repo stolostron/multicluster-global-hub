@@ -13,6 +13,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
@@ -117,150 +118,70 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		log.Debugw("deleted managed clusters", "LH", leafHubName, "count", len(deletingObjects))
 	}
 
-	// if configs.IsInventoryAPIEnabled() {
-	// 	err = h.syncInventory(
-	// 		ctx,
-	// 		data,
-	// 		leafHubName,
-	// 		copyclusterIdToVersionMapFromDB,
-	// 	)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed syncing inventory - %w", err)
-	// 	}
-	// }
+	if configs.IsInventoryAPIEnabled() {
+		err = h.postToInventoryApi(
+			ctx,
+			h.requester,
+			bundle,
+			leafHubName,
+		)
+		if err != nil {
+			return fmt.Errorf("failed syncing inventory - %w", err)
+		}
+	}
 	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
-	return nil
-}
-
-func (h *managedClusterHandler) syncInventory(
-	ctx context.Context,
-	data []clusterv1.ManagedCluster,
-	leafHubName string,
-	clusterIdToVersionMapFromDB map[string]models.ResourceVersion,
-) error {
-	createClusters, updateClusters, deleteClusters := h.generateCreateUpdateDeleteClusters(
-		data,
-		leafHubName,
-		clusterIdToVersionMapFromDB,
-	)
-	if len(createClusters) == 0 && len(updateClusters) == 0 && len(deleteClusters) == 0 {
-		log.Debugw("no changes to managed clusters", "LH", leafHubName)
-		return nil
-	}
-	if h.requester == nil {
-		return fmt.Errorf("requester is nil")
-	}
-
-	clusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
-	log.Debugf("clusterInfo: %v", clusterInfo)
-	if err != nil {
-		log.Warnf("failed to get cluster info from db - %w", err)
-	}
-	h.postToInventoryApi(
-		ctx,
-		h.requester,
-		clusterInfo,
-		createClusters,
-		updateClusters,
-		deleteClusters,
-		leafHubName,
-	)
 	return nil
 }
 
 func (h *managedClusterHandler) postToInventoryApi(
 	ctx context.Context,
 	requester transport.Requester,
-	clusterInfo models.ClusterInfo,
-	createClusters,
-	updateClusters []clusterv1.ManagedCluster,
-	deleteClusters []models.ResourceVersion,
+	bundle generic.GenericBundle[clusterv1.ManagedCluster],
 	leafHubName string,
-) {
-	if len(createClusters) > 0 {
-		for _, cluster := range createClusters {
-			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, clusterInfo)
+) error {
+	leafHubClusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
+	log.Debugf("leafhub clusterInfo: %v", leafHubClusterInfo)
+	if err != nil {
+		log.Errorf("failed to get cluster info from db - %w", err)
+		return err
+	}
+
+	if len(bundle.Create) > 0 {
+		for _, cluster := range bundle.Create {
+			k8sCluster := GetK8SCluster(ctx, &cluster, leafHubName, leafHubClusterInfo)
 			if resp, err := requester.GetHttpClient().K8sClusterService.CreateK8SCluster(ctx,
 				&kessel.CreateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				log.Errorf("failed to create k8sCluster %v: %w", resp, err)
+				return err
 			}
 		}
 	}
 
-	if len(updateClusters) > 0 {
-		for _, cluster := range updateClusters {
-			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, clusterInfo)
+	if len(bundle.Update) > 0 {
+		for _, cluster := range bundle.Update {
+			k8sCluster := GetK8SCluster(context.TODO(), &cluster, leafHubName, leafHubClusterInfo)
 			if resp, err := requester.GetHttpClient().K8sClusterService.UpdateK8SCluster(ctx,
 				&kessel.UpdateK8SClusterRequest{K8SCluster: k8sCluster}); err != nil {
 				log.Errorf("failed to update k8sCluster %v: %w", resp, err)
+				return err
 			}
 		}
 	}
 
-	if len(deleteClusters) > 0 {
-		for _, cluster := range deleteClusters {
+	if len(bundle.Delete) > 0 {
+		for _, clusterMetadata := range bundle.Delete {
 			if resp, err := requester.GetHttpClient().K8sClusterService.DeleteK8SCluster(ctx,
 				&kessel.DeleteK8SClusterRequest{ReporterData: &kessel.ReporterData{
 					ReporterType:       kessel.ReporterData_ACM,
 					ReporterInstanceId: leafHubName,
-					LocalResourceId:    cluster.Name,
+					LocalResourceId:    clusterMetadata.Name,
 				}}); err != nil {
 				log.Errorf("failed to delete k8sCluster %v: %w", resp, err)
+				return err
 			}
 		}
 	}
-}
-
-// generateCreateUpdateDeleteClusters generates the create, update and delete clusters
-// from the managed clusters in the database and the managed clusters in the bundle.
-func (h *managedClusterHandler) generateCreateUpdateDeleteClusters(
-	data []clusterv1.ManagedCluster,
-	leafHubName string,
-	// clusterIdToVersionMapFromDB is a map of clusterID to resourceVersion
-	// for all managed clusters in the database
-	clusterIdToVersionMapFromDB map[string]models.ResourceVersion) (
-	[]clusterv1.ManagedCluster,
-	[]clusterv1.ManagedCluster,
-	[]models.ResourceVersion,
-) {
-	var createClusters []clusterv1.ManagedCluster
-	var updateClusters []clusterv1.ManagedCluster
-	var deleteClusters []models.ResourceVersion
-
-	for _, object := range data {
-		cluster := object
-		// Initially, if the clusterID is not exist we will skip it until we get it from ClusterClaim
-		clusterId := ""
-		for _, claim := range cluster.Status.ClusterClaims {
-			if claim.Name == constants.ClusterIdClaimName {
-				clusterId = claim.Value
-				break
-			}
-		}
-		if clusterId == "" {
-			continue
-		}
-		// create clusters
-		clusterVersionFromDB, exist := clusterIdToVersionMapFromDB[clusterId]
-		if !exist {
-			createClusters = append(createClusters, cluster)
-			continue
-		}
-
-		// remove the handled object from the map
-		delete(clusterIdToVersionMapFromDB, clusterId)
-
-		if cluster.GetResourceVersion() == clusterVersionFromDB.ResourceVersion {
-			continue // update cluster in db only if what we got is a different (newer) version of the resource
-		}
-
-		// update clusters
-		updateClusters = append(updateClusters, cluster)
-	}
-	for _, rv := range clusterIdToVersionMapFromDB {
-		deleteClusters = append(deleteClusters, rv)
-	}
-	return createClusters, updateClusters, deleteClusters
+	return nil
 }
 
 func GetK8SCluster(ctx context.Context,
