@@ -45,12 +45,12 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 	if err := c.client.Get(ctx, request.NamespacedName, object); errors.IsNotFound(err) {
 		// the instance was deleted and it had no finalizer on it.
 		// for the local resources, there is no finalizer so we need to delete the object from the entry handler
-		object.SetNamespace(request.Namespace)
-		object.SetName(request.Name)
-		if err = c.emitter.Delete(object); err != nil {
-			log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
-		}
+		// object.SetNamespace(request.Namespace)
+		// object.SetName(request.Name)
+		// if err = c.emitter.Delete(object); err != nil {
+		// 	log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
+		// 	return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		// }
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		log.Errorw("failed to get the object", "error", err, "namespace", request.Namespace, "name", request.Name)
