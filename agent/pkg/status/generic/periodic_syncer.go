@@ -16,7 +16,6 @@ import (
 
 // EmitterRegistration registers a bundle with the periodic syncer,
 // providing both the delta emitter and the full data listing function.
-// TODO: support configuring different sync/resync intervals per bundle.
 type EmitterRegistration struct {
 	ListFunc func() ([]client.Object, error)
 	Emitter  emitters.Emitter
