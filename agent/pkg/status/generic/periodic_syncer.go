@@ -21,6 +21,9 @@ type EmitterRegistration struct {
 	Emitter  emitters.Emitter
 }
 
+// syncStates holds the next sync time for each bundle and is only updated by the current goroutine.
+// Items are added to the slice before the goroutine starts.
+// After the goroutine begins, it only reads from the slice, so there is no risk of race conditions.
 type SyncState struct {
 	Registration *EmitterRegistration
 	NextResyncAt time.Time
@@ -81,7 +84,7 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 
 		if len(objects) == 0 {
 			log.Infof("No objects found for event type: %s", registeredType)
-			continue
+			return nil
 		}
 
 		if err = state.Registration.Emitter.Resync(objects); err != nil {

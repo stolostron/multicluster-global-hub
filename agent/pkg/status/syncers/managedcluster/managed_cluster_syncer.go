@@ -14,9 +14,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var log = logger.DefaultZapLogger()
 
 var addedManagedClusterSyncer = false
 
@@ -87,7 +90,8 @@ func clusterTweakFunc(object client.Object) {
 func getClusterClaimID(object client.Object) string {
 	cluster, ok := object.(*clusterv1.ManagedCluster)
 	if !ok {
-		panic("Wrong instance passed to tweak function, not a ManagedCluster")
+		log.Errorf("wrong instance passed to tweak function, not a ManagedCluster: %v", object)
+		return ""
 	}
 	for _, claim := range cluster.Status.ClusterClaims {
 		if claim.Name == "id.k8s.io" {
