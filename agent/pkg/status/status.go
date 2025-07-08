@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
@@ -46,7 +45,7 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	agentConfig *configs.AgentConfig,
 ) error {
 	// start periodic syncer
-	periodicSyncer, err := generic.AddPeriodicSyncer(mgr, configmap.GetSyncInterval, configmap.GetResyncInterval)
+	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to start the periodic syncer: %w", err)
 	}

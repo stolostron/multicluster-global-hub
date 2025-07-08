@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -19,8 +20,10 @@ import (
 var _ = Describe("ManagedCluster", Ordered, func() {
 	var testMangedCluster *clusterv1.ManagedCluster
 	var consumer transport.Consumer
+	var clusterID string
 	BeforeAll(func() {
 		consumer = chanTransport.Consumer(ManagedClusterTopic)
+		clusterID = "2f9c3a64-8d57-4a43-9a70-2f8d4ef67259"
 	})
 
 	It("should be able to sync managed clusters", func() {
@@ -36,6 +39,7 @@ var _ = Describe("ManagedCluster", Ordered, func() {
 					"cloud":  "Other",
 					"vendor": "Other",
 				},
+				Finalizers: []string{"cleaning-up"},
 			},
 			Spec: clusterv1.ManagedClusterSpec{
 				HubAcceptsClient:     true,
@@ -44,6 +48,14 @@ var _ = Describe("ManagedCluster", Ordered, func() {
 		}
 
 		Expect(runtimeClient.Create(ctx, testMangedCluster)).Should(Succeed())
+
+		testMangedCluster.Status.ClusterClaims = []clusterv1.ManagedClusterClaim{
+			{
+				Name:  "id.k8s.io",
+				Value: clusterID,
+			},
+		}
+		Expect(runtimeClient.Status().Update(ctx, testMangedCluster))
 
 		By("Check the managed cluster status bundle can be read from cloudevents consumer")
 		evt := <-consumer.EventChan()
@@ -67,17 +79,18 @@ var _ = Describe("ManagedCluster", Ordered, func() {
 			if evt.Type() != string(enum.ManagedClusterType) {
 				return fmt.Errorf("want the eventType: %s, but got %s", string(enum.ManagedClusterType), evt.Type())
 			}
-			clusters := []clusterv1.ManagedCluster{}
-			err := json.Unmarshal(evt.Data(), &clusters)
+			bundle := generic.GenericBundle[clusterv1.ManagedCluster]{}
+			err := json.Unmarshal(evt.Data(), &bundle)
 			if err != nil {
 				return err
 			}
-			for _, c := range clusters {
-				if c.Name == testMangedCluster.Name {
-					return fmt.Errorf("the cluster %s should be deleted", c.Name)
+
+			for _, obj := range bundle.Delete {
+				if obj.Name == testMangedCluster.Name && obj.ID == clusterID {
+					return nil
 				}
 			}
-			return nil
+			return fmt.Errorf("the managed cluster %s with id %s should be deleted", testMangedCluster.Name, clusterID)
 		}, 30*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 })
