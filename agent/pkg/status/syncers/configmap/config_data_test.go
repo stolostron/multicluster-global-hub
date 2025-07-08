@@ -45,7 +45,7 @@ func TestGetResyncInterval_KnownTypes(t *testing.T) {
 
 func TestSetResyncInterval(t *testing.T) {
 	assert := assert.New(t)
-	SetResyncInterval(GetResyncKey(enum.ManagedClusterType), 2*time.Hour)
+	SetInterval(GetResyncKey(enum.ManagedClusterType), 2*time.Hour)
 	assert.Equal(2*time.Hour, GetResyncInterval(enum.ManagedClusterType))
 }
 

@@ -93,16 +93,17 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key string) {
 	intervalStr, found := configMap.Data[string(key)]
 	if !found {
-		c.log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncIntervals[key].String()))
+		c.log.Infof("%s sync interval not defined in configmap, using default value", key)
 		return
 	}
 
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {
-		c.log.Info(fmt.Sprintf("%s sync interval has invalid format, using %s", key, syncIntervals[key].String()))
+		c.log.Errorf("failed to parse %s sync interval: %v", key, err)
 		return
 	}
-	syncIntervals[key] = interval
+	c.log.Infof("setting %s interval to %s", key, interval.String())
+	SetInterval(key, interval)
 }
 
 func (c *hubOfHubsConfigController) setAgentConfig(configMap *v1.ConfigMap, configKey string) {

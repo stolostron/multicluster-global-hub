@@ -2,6 +2,7 @@ package configmap
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -102,11 +103,11 @@ func GetSyncInterval(eventType enum.EventType) time.Duration {
 // SetInterval sets the sync/resync interval for a specific bundle.
 // The key is derived from the EventType, e.g., GetSyncKey(enum.ManagedClusterEventType).
 func SetInterval(key string, val time.Duration) {
-	syncIntervals[key] = val
-}
-
-func SetResyncInterval(key string, val time.Duration) {
-	reSyncIntervals[key] = val
+	if strings.HasPrefix(key, "resync.") {
+		reSyncIntervals[key] = val
+	} else {
+		syncIntervals[key] = val
+	}
 }
 
 func GetResyncKey(eventType enum.EventType) string {
