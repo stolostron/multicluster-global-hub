@@ -5,16 +5,13 @@ import (
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
-	log                  *zap.SugaredLogger
 	ElementPriorityQueue []ConflationElement
 	eventTypeToPriority  map[string]ConflationPriority
 	readyQueue           *ConflationReadyQueue
@@ -28,7 +25,6 @@ func newConflationUnit(name string, readyQueue *ConflationReadyQueue,
 	registrations map[string]*ConflationRegistration, statistics *statistics.Statistics,
 ) *ConflationUnit {
 	conflationUnit := &ConflationUnit{
-		log:                  logger.ZapLogger(name),
 		ElementPriorityQueue: make([]ConflationElement, len(registrations)),
 		eventTypeToPriority:  make(map[string]ConflationPriority),
 		readyQueue:           readyQueue,
@@ -40,10 +36,17 @@ func newConflationUnit(name string, readyQueue *ConflationReadyQueue,
 
 	for _, registration := range registrations {
 		if registration.syncMode == enum.CompleteStateMode {
+			log.Infow("registering complete element", "eventType", registration.eventType)
 			conflationUnit.ElementPriorityQueue[registration.priority] = NewCompleteElement(name, registration)
 		}
 		if registration.syncMode == enum.DeltaStateMode {
+			log.Infow("registering delta element", "eventType", registration.eventType)
 			conflationUnit.ElementPriorityQueue[registration.priority] = NewDeltaElement(name, registration)
+		}
+
+		if registration.syncMode == enum.HybridStateMode {
+			log.Infow("registering hybrid element", "eventType", registration.eventType)
+			conflationUnit.ElementPriorityQueue[registration.priority] = NewHybridElement(registration)
 		}
 
 		conflationUnit.eventTypeToPriority[registration.eventType] = registration.priority
@@ -60,12 +63,12 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	priority := cu.eventTypeToPriority[event.Type()]
 	conflationElement := cu.ElementPriorityQueue[priority]
 	if conflationElement == nil {
-		cu.log.Infow("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
+		log.Infow("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
 		return
 	}
 
 	if !conflationElement.Predicate(eventMetadata.Version()) {
-		cu.log.Infow("the conflationElement predication is false", "event", event)
+		log.Infow("the conflationElement predication is false", "event", event)
 		return
 	}
 
@@ -133,12 +136,12 @@ func (cu *ConflationUnit) getNextReadyCompleteElement() *completeElement {
 	// going over priority queue according to priorities.
 	for _, conflationElement := range cu.ElementPriorityQueue {
 		// skip the delta element
-		if conflationElement.SyncMode() == enum.DeltaStateMode {
+		if conflationElement.SyncMode() == enum.DeltaStateMode || conflationElement.SyncMode() == enum.HybridStateMode {
 			continue
 		}
 		complete, ok := conflationElement.(*completeElement)
 		if !ok {
-			cu.log.Info("cannot process the element", "type", conflationElement.Metadata())
+			log.Info("cannot process the element", "type", conflationElement.Metadata())
 			continue
 		}
 		if complete.IsReadyToProcess(cu) {

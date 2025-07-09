@@ -10,6 +10,7 @@ import (
 const (
 	ExtVersion           = "extversion"
 	ExtDependencyVersion = "extdependencyversion"
+	MaxUint64            = math.MaxUint64 - 10
 )
 
 // NewVersion returns a new instance of BundleVersion.

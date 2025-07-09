@@ -15,6 +15,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -58,12 +59,25 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 			fmt.Errorf("reconciliation failed: %w", err)
 	}
 
-	c.setSyncInterval(agentConfigMap, ManagedClusterIntervalKey)
-	c.setSyncInterval(agentConfigMap, PolicyIntervalKey)
-	c.setSyncInterval(agentConfigMap, HubClusterInfoIntervalKey)
-	c.setSyncInterval(agentConfigMap, HubClusterHeartBeatIntervalKey)
-	c.setSyncInterval(agentConfigMap, EventIntervalKey)
+	// Set the cluster interval by the configmap
+	// sync interval - managedcluster: 5s,
+	// resync interval - resync.managedcluster: 6h
+	c.setSyncInterval(agentConfigMap, GetResyncKey(enum.ManagedClusterType))
+	c.setSyncInterval(agentConfigMap, GetSyncKey(enum.ManagedClusterType))
 
+	c.setSyncInterval(agentConfigMap, GetResyncKey(enum.LocalPolicySpecType))
+	c.setSyncInterval(agentConfigMap, GetSyncKey(enum.LocalPolicySpecType))
+
+	c.setSyncInterval(agentConfigMap, GetResyncKey(enum.HubClusterInfoType))
+	c.setSyncInterval(agentConfigMap, GetSyncKey(enum.HubClusterInfoType))
+
+	c.setSyncInterval(agentConfigMap, GetResyncKey(enum.HubClusterHeartbeatType))
+	c.setSyncInterval(agentConfigMap, GetSyncKey(enum.HubClusterHeartbeatType))
+
+	c.setSyncInterval(agentConfigMap, GetResyncKey(enum.ManagedClusterEventType))
+	c.setSyncInterval(agentConfigMap, GetSyncKey(enum.ManagedClusterEventType))
+
+	// Set the agent configs
 	c.setAgentConfig(agentConfigMap, AgentAggregationKey)
 	c.setAgentConfig(agentConfigMap, EnableLocalPolicyKey)
 
@@ -76,22 +90,23 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key AgentConfigKey) {
+func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key string) {
 	intervalStr, found := configMap.Data[string(key)]
 	if !found {
-		c.log.Info(fmt.Sprintf("%s sync interval not defined, using %s", key, syncIntervals[key].String()))
+		c.log.Infof("%s sync interval not defined in configmap, using default value", key)
 		return
 	}
 
 	interval, err := time.ParseDuration(intervalStr)
 	if err != nil {
-		c.log.Info(fmt.Sprintf("%s sync interval has invalid format, using %s", key, syncIntervals[key].String()))
+		c.log.Errorf("failed to parse %s sync interval: %v", key, err)
 		return
 	}
-	syncIntervals[key] = interval
+	c.log.Infof("setting %s interval to %s", key, interval.String())
+	SetInterval(key, interval)
 }
 
-func (c *hubOfHubsConfigController) setAgentConfig(configMap *v1.ConfigMap, configKey AgentConfigKey) {
+func (c *hubOfHubsConfigController) setAgentConfig(configMap *v1.ConfigMap, configKey string) {
 	val, found := configMap.Data[string(configKey)]
 	if !found {
 		c.log.Info(fmt.Sprintf("%s not defined in agentConfig, using default value", configKey))

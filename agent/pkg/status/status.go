@@ -13,6 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
@@ -43,13 +44,18 @@ func AddToManager(ctx context.Context, mgr ctrl.Manager, transportClient transpo
 func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Producer,
 	agentConfig *configs.AgentConfig,
 ) error {
+	// start periodic syncer
+	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
+	if err != nil {
+		return fmt.Errorf("failed to start the periodic syncer: %w", err)
+	}
 	// managed cluster
-	if err := managedcluster.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, producer); err != nil {
+	if err := managedcluster.AddManagedClusterSyncer(ctx, mgr, producer, periodicSyncer); err != nil {
 		return fmt.Errorf("failed to launch managedcluster syncer: %w", err)
 	}
 
 	// event syncer
-	err := events.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
+	err = events.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
 	if err != nil {
 		return fmt.Errorf("failed to launch event syncer: %w", err)
 	}

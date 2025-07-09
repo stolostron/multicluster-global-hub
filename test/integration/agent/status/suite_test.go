@@ -20,6 +20,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
@@ -28,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
@@ -52,6 +54,7 @@ var (
 	runtimeClient  client.Client
 	chanTransport  *ChanTransport
 	receivedEvents map[string]*cloudevents.Event
+	agentConfig    *configs.AgentConfig
 )
 
 func TestControllers(t *testing.T) {
@@ -76,8 +79,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	agentConfig := &configs.AgentConfig{
-		LeafHubName: leafHubName,
+	agentConfig = &configs.AgentConfig{
+		PodNamespace: constants.GHAgentNamespace,
+		LeafHubName:  leafHubName,
 		TransportConfig: &transport.TransportInternalConfig{
 			CommitterInterval: 1 * time.Second,
 			TransportType:     string(transport.Chan),
@@ -89,8 +93,8 @@ var _ = BeforeSuite(func() {
 		EnableGlobalResource: true,
 	}
 	configs.SetAgentConfig(agentConfig)
-	configmap.SetInterval(configmap.HubClusterHeartBeatIntervalKey, 2*time.Second)
-	configmap.SetInterval(configmap.HubClusterInfoIntervalKey, 2*time.Second)
+	configmap.SetInterval(configmap.GetSyncKey(enum.HubClusterHeartbeatType), 2*time.Second)
+	configmap.SetInterval(configmap.GetSyncKey(enum.HubClusterInfoType), 2*time.Second)
 
 	By("Create controller-runtime manager")
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -159,8 +163,12 @@ var _ = BeforeSuite(func() {
 	err = managedhub.LaunchHubClusterInfoSyncer(mgr, chanTransport.Producer(HubClusterInfoTopic))
 	Expect(err).Should(Succeed())
 
+	// start periodic syncer
+	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
+	Expect(err).Should(Succeed())
+
 	// managed cluster
-	err = managedcluster.LaunchManagedClusterSyncer(ctx, mgr, agentConfig, chanTransport.Producer(ManagedClusterTopic))
+	err = managedcluster.AddManagedClusterSyncer(ctx, mgr, chanTransport.Producer(ManagedClusterTopic), periodicSyncer)
 	Expect(err).To(Succeed())
 
 	// application
