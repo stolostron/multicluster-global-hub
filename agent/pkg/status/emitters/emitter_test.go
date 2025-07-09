@@ -155,9 +155,12 @@ func TestObjectEmitter_MixedBundleOperations(t *testing.T) {
 	}
 
 	// Add different operations to the same bundle
-	emitter.Update(obj1)
-	emitter.Update(obj2)
-	emitter.Delete(obj1)
+	err := emitter.Update(obj1)
+	require.NoError(t, err)
+	err = emitter.Update(obj2)
+	require.NoError(t, err)
+	err = emitter.Delete(obj1)
+	require.NoError(t, err)
 
 	// Verify bundle state
 	require.Len(t, emitter.bundle.Update, 2)
@@ -167,7 +170,7 @@ func TestObjectEmitter_MixedBundleOperations(t *testing.T) {
 	require.False(t, emitter.bundle.IsEmpty())
 
 	// Test Send operation - should send and clean bundle
-	err := emitter.Send()
+	err = emitter.Send()
 	require.NoError(t, err)
 
 	// Bundle should be cleaned after send
