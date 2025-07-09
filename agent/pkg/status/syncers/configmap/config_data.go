@@ -117,7 +117,3 @@ func GetResyncKey(eventType enum.EventType) string {
 func GetSyncKey(eventType enum.EventType) string {
 	return enum.ShortenEventType(string(eventType))
 }
-
-func SetResyncInterval(val time.Duration) {
-	resyncInterval = val
-}

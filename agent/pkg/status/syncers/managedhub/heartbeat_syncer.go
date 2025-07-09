@@ -14,13 +14,8 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-var addedHubClusterHeartbeatSyncer = false
-
 func LaunchHubClusterHeartbeatSyncer(mgr ctrl.Manager, producer transport.Producer) error {
-	if addedHubClusterHeartbeatSyncer {
-		return nil
-	}
-	err := generic.LaunchMultiObjectSyncer(
+	return generic.LaunchMultiObjectSyncer(
 		"status.hub_cluster_heartbeat",
 		mgr,
 		nil,
@@ -28,11 +23,6 @@ func LaunchHubClusterHeartbeatSyncer(mgr ctrl.Manager, producer transport.Produc
 		configmap.GetHeartbeatDuration,
 		NewHeartbeatEmitter(),
 	)
-	if err != nil {
-		return err
-	}
-	addedHubClusterHeartbeatSyncer = true
-	return nil
 }
 
 var _ interfaces.Emitter = &heartbeatEmitter{}
