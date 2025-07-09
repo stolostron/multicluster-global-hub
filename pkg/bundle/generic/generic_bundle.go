@@ -131,3 +131,13 @@ func (b *GenericBundle[T]) tryAdd(target *[]T, obj T) (bool, error) {
 
 	return true, nil
 }
+
+// FoundMetadataById returns the metadata object with the given ID if it exists in the bundle.
+func (b *GenericBundle[T]) FoundMetadataById(id string) *ObjectMetadata {
+	for _, object := range b.ResyncMetadata {
+		if object.ID == id {
+			return &object
+		}
+	}
+	return nil
+}

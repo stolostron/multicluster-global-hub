@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/handlers/managedhub"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
@@ -21,7 +22,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -86,149 +86,52 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 		return err
 	}
 
-	// delete managed clusters that are not in the bundle.
-	var ids []string
-	err = db.Model(&models.LocalSpecPolicy{}).Where("leaf_hub_name = ?", leafHubName).Pluck("policy_id", &ids).Error
-	if err != nil {
-		return fmt.Errorf("failed to get existing policy IDs - %w", err)
-	}
-
-	deletingObjects := []generic.ObjectMetadata{}
-	for _, object := range bundle.ResyncMetadata {
-		if utils.ContainsString(ids, object.ID) {
-			continue
-		}
-		deletingObjects = append(deletingObjects, object)
-	}
-
-	// https://gorm.io/docs/delete.html#Soft-Delete
-	if len(deletingObjects) == 0 {
-		log.Debugw("no managed clusters to delete", "LH", leafHubName)
-	} else {
-		err = db.Transaction(func(tx *gorm.DB) error {
-			for _, object := range deletingObjects {
-				err = tx.Where(&models.LocalSpecPolicy{
-					PolicyID:    object.ID,
-					LeafHubName: leafHubName,
-				}).Delete(&models.LocalSpecPolicy{}).Error
-				if err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+	// delete local policies that are not in the bundle.
+	if len(bundle.ResyncMetadata) > 0 {
+		var ids []string
+		err = db.Model(&models.LocalSpecPolicy{}).Where("leaf_hub_name = ?", leafHubName).Pluck("policy_id", &ids).Error
 		if err != nil {
-			return fmt.Errorf("failed deleting local policies - %w", err)
+			return fmt.Errorf("failed to get existing policy IDs - %w", err)
 		}
-		log.Debugw("deleted policies", "LH", leafHubName, "count", len(deletingObjects))
+
+		deletingIds := []string{}
+		for _, id := range ids {
+			metadata := bundle.FoundMetadataById(id)
+			if metadata == nil {
+				deletingIds = append(deletingIds, id)
+			}
+		}
+
+		if len(deletingIds) == 0 {
+			log.Debugw("no local policies to delete", "LH", leafHubName)
+		} else {
+			err = db.Transaction(func(tx *gorm.DB) error {
+				for _, id := range deletingIds {
+					// https://gorm.io/docs/delete.html#Soft-Delete
+					if err = tx.Where(&models.LocalSpecPolicy{
+						PolicyID:    id,
+						LeafHubName: leafHubName,
+					}).Delete(&models.LocalSpecPolicy{}).Error; err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("failed deleting local policies - %w", err)
+			}
+			log.Debugw("deleted local policies", "LH", leafHubName, "count", len(deletingIds))
+		}
 	}
 
-	// if configs.IsInventoryAPIEnabled() {
-	// 	err = h.syncInventory(ctx, db, data, leafHubName, copyPolicyIdToVersionMapFromDB)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed syncing inventory - %w", err)
-	// 	}
-	// }
+	if configs.IsInventoryAPIEnabled() {
+		err = h.postPolicyToInventoryApi(ctx, db, bundle, leafHubName)
+		if err != nil {
+			return fmt.Errorf("failed syncing inventory - %w", err)
+		}
+	}
 	log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
-}
-
-func getPolicyIdToVersionMap(db *gorm.DB, leafHubName string) (map[string]models.ResourceVersion, error) {
-	var resourceVersions []models.ResourceVersion
-	err := db.Select(
-		"policy_id AS key, concat(payload->'metadata'->>'namespace', '/', payload->'metadata'->>'name') AS name, payload->'metadata'->>'resourceVersion' AS resource_version").
-		Where(&models.LocalSpecPolicy{ // Find soft deleted records: db.Unscoped().Where(...).Find(...)
-			LeafHubName: leafHubName,
-		}).
-		Find(&models.LocalSpecPolicy{}).Scan(&resourceVersions).Error
-	if err != nil {
-		return nil, err
-	}
-	idToVersionMap := make(map[string]models.ResourceVersion)
-	for _, resource := range resourceVersions {
-		idToVersionMap[resource.Key] = resource
-	}
-
-	return idToVersionMap, nil
-}
-
-func (h *localPolicySpecHandler) syncInventory(
-	ctx context.Context,
-	db *gorm.DB,
-	data []policiesv1.Policy,
-	leafHubName string,
-	policyIdToVersionMapFromDB map[string]models.ResourceVersion,
-) error {
-	createPolicy, updatePolicy, deletePolicy := generateCreateUpdateDeletePolicy(
-		data,
-		leafHubName,
-		policyIdToVersionMapFromDB,
-	)
-	if len(createPolicy) == 0 && len(updatePolicy) == 0 && len(deletePolicy) == 0 {
-		log.Debugf("no policy to post to inventory")
-		return nil
-	}
-	if h.requester == nil {
-		return fmt.Errorf("requester is nil")
-	}
-	clusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
-	log.Debugf("clusterInfo: %v", clusterInfo)
-	if err != nil || clusterInfo.MchVersion == "" {
-		log.Errorf("failed to get cluster info from db - %v", err)
-	}
-	return h.postPolicyToInventoryApi(
-		ctx,
-		db,
-		createPolicy,
-		updatePolicy,
-		deletePolicy,
-		leafHubName,
-		clusterInfo.MchVersion,
-	)
-}
-
-// generateCreateUpdateDeletePolicy generates the create, update and delete Policy
-// from the Policy in the database and the Policy in the bundle.
-func generateCreateUpdateDeletePolicy(
-	data []policiesv1.Policy,
-	leafHubName string,
-	policyIdToVersionMapFromDB map[string]models.ResourceVersion) (
-	[]policiesv1.Policy,
-	[]policiesv1.Policy,
-	[]models.ResourceVersion,
-) {
-	var createPolicy []policiesv1.Policy
-	var updatePolicy []policiesv1.Policy
-	var deletePolicy []models.ResourceVersion
-
-	for _, object := range data {
-		specificObj := object
-		log.Debugf("policy: %v", specificObj)
-		uid := string(specificObj.GetUID())
-		log.Debugf("policy uid: %s", uid)
-		if uid == "" {
-			continue
-		}
-		resourceVersionFromDB, objInDB := policyIdToVersionMapFromDB[uid]
-
-		// if the row doesn't exist in db then add it.
-		if !objInDB {
-			createPolicy = append(createPolicy, specificObj)
-			continue
-		}
-		// remove the existing object from the map
-		delete(policyIdToVersionMapFromDB, uid)
-
-		// update object only if what we got is a different (newer) version of the resource
-		if specificObj.GetResourceVersion() == resourceVersionFromDB.ResourceVersion {
-			continue
-		}
-		updatePolicy = append(updatePolicy, specificObj)
-	}
-	for _, rv := range policyIdToVersionMapFromDB {
-		deletePolicy = append(deletePolicy, rv)
-	}
-	return createPolicy, updatePolicy, deletePolicy
 }
 
 func generateK8SPolicy(policy *policiesv1.Policy, reporterInstanceId string, mchVersion string) *kessel.K8SPolicy {
@@ -267,45 +170,48 @@ func generateK8SPolicy(policy *policiesv1.Policy, reporterInstanceId string, mch
 func (h *localPolicySpecHandler) postPolicyToInventoryApi(
 	ctx context.Context,
 	db *gorm.DB,
-	createPolicy []policiesv1.Policy,
-	updatePolicy []policiesv1.Policy,
-	deletePolicy []models.ResourceVersion,
+	bundle generic.GenericBundle[policiesv1.Policy],
 	leafHubName string,
-	mchVersion string,
 ) error {
-	if len(createPolicy) > 0 {
-		for _, policy := range createPolicy {
-			k8sPolicy := generateK8SPolicy(&policy, leafHubName, mchVersion)
+	clusterInfo, err := managedhub.GetClusterInfo(database.GetGorm(), leafHubName)
+	log.Debugf("clusterInfo: %v", clusterInfo)
+	if err != nil || clusterInfo.MchVersion == "" {
+		log.Errorf("failed to get cluster info from db - %v", err)
+	}
+
+	if len(bundle.Create) > 0 {
+		for _, policy := range bundle.Create {
+			k8sPolicy := generateK8SPolicy(&policy, leafHubName, clusterInfo.MchVersion)
 			if resp, err := h.requester.GetHttpClient().PolicyServiceClient.CreateK8SPolicy(
 				ctx, &kessel.CreateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil && !errors.IsAlreadyExists(err) {
 				return fmt.Errorf("failed to create k8sCluster %v: %w", resp, err)
 			}
 		}
 	}
-	if len(updatePolicy) > 0 {
-		for _, policy := range updatePolicy {
-			k8sPolicy := generateK8SPolicy(&policy, leafHubName, mchVersion)
+	if len(bundle.Update) > 0 {
+		for _, policy := range bundle.Update {
+			k8sPolicy := generateK8SPolicy(&policy, leafHubName, clusterInfo.MchVersion)
 			if resp, err := h.requester.GetHttpClient().PolicyServiceClient.UpdateK8SPolicy(
 				ctx, &kessel.UpdateK8SPolicyRequest{K8SPolicy: k8sPolicy}); err != nil {
 				return fmt.Errorf("failed to update k8sCluster %v: %w", resp, err)
 			}
 		}
 	}
-	if len(deletePolicy) > 0 {
-		for _, policy := range deletePolicy {
+	if len(bundle.Delete) > 0 {
+		for _, policy := range bundle.Delete {
 			if resp, err := h.requester.GetHttpClient().PolicyServiceClient.DeleteK8SPolicy(
 				ctx, &kessel.DeleteK8SPolicyRequest{
 					ReporterData: &kessel.ReporterData{
 						ReporterType:       kessel.ReporterData_ACM,
 						ReporterInstanceId: leafHubName,
-						ReporterVersion:    mchVersion,
+						ReporterVersion:    clusterInfo.MchVersion,
 						LocalResourceId:    policy.Name,
 					},
 				}); err != nil && !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete k8sCluster %v: %w", resp, err)
 			}
 			// delete the policy related compliance data in inventory when policy is deleted
-			err := h.deleteAllComplianceDataOfPolicy(ctx, db, h.requester, leafHubName, policy, mchVersion)
+			err := h.deleteAllComplianceDataOfPolicy(ctx, db, h.requester, leafHubName, &policy, clusterInfo.MchVersion)
 			if err != nil {
 				log.Errorf("failed to delete compliance data of policy %s: %v", policy.Name, err)
 			}
@@ -319,7 +225,7 @@ func (h *localPolicySpecHandler) deleteAllComplianceDataOfPolicy(
 	db *gorm.DB,
 	requester transport.Requester,
 	leafHubName string,
-	policy models.ResourceVersion,
+	policyMetadata *generic.ObjectMetadata,
 	mchVersion string,
 ) error {
 	if requester == nil {
@@ -328,14 +234,14 @@ func (h *localPolicySpecHandler) deleteAllComplianceDataOfPolicy(
 	if db == nil {
 		return fmt.Errorf("db is nil")
 	}
-	deleteCompliances, err := getComplianceDataOfPolicy(db, leafHubName, policy.Key)
+	deleteCompliances, err := getComplianceDataOfPolicy(db, leafHubName, policyMetadata.ID)
 	if err != nil {
 		return err
 	}
 	if len(deleteCompliances) == 0 {
 		return nil
 	}
-	return postCompliancesToInventoryApi(policy.Name, requester, leafHubName,
+	return postCompliancesToInventoryApi(policyMetadata.Name, requester, leafHubName,
 		nil, nil, deleteCompliances, mchVersion)
 }
 

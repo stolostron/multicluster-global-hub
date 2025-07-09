@@ -14,18 +14,16 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var addedPolicySpecSyncer = false
+var log = logger.DefaultZapLogger()
 
 func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Producer,
 	periodicSyncer *generic.PeriodicSyncer,
 ) error {
-	if addedPolicySpecSyncer {
-		return nil
-	}
 	// 1. emitter: define how to load the object into bundle and send the bundle
 	enableLocalPolicy := func(obj client.Object) bool {
 		return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
@@ -49,7 +47,7 @@ func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Prod
 		emitters.WithTweakFunc(func(object client.Object) {
 			policy, ok := object.(*policiesv1.Policy)
 			if !ok {
-				panic("Wrong instance passed to clean policy function, not a Policy")
+				log.Errorf("Wrong instance passed to clean policy function, not a Policy")
 			}
 			policy.Status = policiesv1.PolicyStatus{}
 		}),
@@ -83,6 +81,5 @@ func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Prod
 		Emitter: localPolicySpecEmitter,
 	})
 
-	addedPolicySpecSyncer = true
 	return nil
 }
