@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	"github.com/go-kratos/kratos/v2/log"
 	kessel "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -21,6 +20,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
