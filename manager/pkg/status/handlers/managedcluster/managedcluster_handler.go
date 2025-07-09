@@ -85,6 +85,15 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	if err != nil {
 		return err
 	}
+	if len(bundle.Delete) > 0 {
+		for _, deleted := range bundle.Delete {
+			err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id", deleted.ID).
+				Delete(&models.ManagedCluster{}).Error
+			if err != nil {
+				return fmt.Errorf("failed deleting managed clusters - %w", err)
+			}
+		}
+	}
 
 	if len(bundle.ResyncMetadata) > 0 {
 		// delete managed clusters that are not in the bundle.

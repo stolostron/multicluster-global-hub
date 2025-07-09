@@ -60,7 +60,7 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 
 	var bundle generic.GenericBundle[policiesv1.Policy]
 	if err := evt.DataAs(&bundle); err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
 
 	batchLocalPolicySpec := []models.LocalSpecPolicy{}
@@ -84,6 +84,16 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 	}).CreateInBatches(batchLocalPolicySpec, 100).Error
 	if err != nil {
 		return err
+	}
+
+	if len(bundle.Delete) > 0 {
+		for _, deleted := range bundle.Delete {
+			err = db.Where("leaf_hub_name", leafHubName).Where("policy_id", deleted.ID).
+				Delete(&models.LocalSpecPolicy{}).Error
+			if err != nil {
+				return fmt.Errorf("failed deleting local policies - %v", err)
+			}
+		}
 	}
 
 	// delete local policies that are not in the bundle.

@@ -18,7 +18,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-// go test /test/integration/manager/status -v -ginkgo.focus "ManagedClusterHandler"
+// go test ./test/integration/manager/status -v -ginkgo.focus "ManagedClusterHandler"
 var _ = Describe("ManagedClusterHandler", Ordered, func() {
 	var version *eventversion.Version
 	var clusterID1 string
@@ -139,43 +139,42 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
-	// skip this for the inventory error
-	// It("should be able to delete managed clusters", func() {
-	// 	By("Create event")
-	// 	leafHubName := "hub1"
-	// 	version.Incr()
+	It("should be able to delete managed clusters", func() {
+		By("Create event")
+		leafHubName := "hub1"
+		version.Incr()
 
-	// 	bundle := generic.GenericBundle[clusterv1.ManagedCluster]{}
-	// 	bundle.Delete = []generic.ObjectMetadata{
-	// 		{
-	// 			Namespace: "cluster2",
-	// 			Name:      "cluster2",
-	// 			ID:        clusterID2,
-	// 		},
-	// 	}
-	// 	evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, bundle)
+		bundle := generic.GenericBundle[clusterv1.ManagedCluster]{}
+		bundle.Delete = []generic.ObjectMetadata{
+			{
+				Namespace: "cluster2",
+				Name:      "cluster2",
+				ID:        clusterID2,
+			},
+		}
+		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, bundle)
 
-	// 	By("Sync event with transport")
-	// 	err := producer.SendEvent(ctx, *evt)
-	// 	version.Next()
-	// 	Expect(err).Should(Succeed())
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		version.Next()
+		Expect(err).Should(Succeed())
 
-	// 	By("Check the leaf hubs table")
-	// 	Eventually(func() error {
-	// 		db := database.GetGorm()
+		By("Check the leaf hubs table")
+		Eventually(func() error {
+			db := database.GetGorm()
 
-	// 		items := []models.ManagedCluster{}
-	// 		if err := db.Where("leaf_hub_name = ?", leafHubName).Find(&items).Error; err != nil {
-	// 			return fmt.Errorf("failed to get the managed clusters: %v", err)
-	// 		}
+			items := []models.ManagedCluster{}
+			if err := db.Where("leaf_hub_name = ?", leafHubName).Find(&items).Error; err != nil {
+				return fmt.Errorf("failed to get the managed clusters: %v", err)
+			}
 
-	// 		fmt.Println("ManagedCluster Delete", items)
-	// 		for _, item := range items {
-	// 			if item.ClusterID == clusterID2 {
-	// 				return fmt.Errorf("should delete the cluster %s", clusterID2)
-	// 			}
-	// 		}
-	// 		return nil
-	// 	}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
-	// })
+			fmt.Println("ManagedCluster Delete", items)
+			for _, item := range items {
+				if item.ClusterID == clusterID2 {
+					return fmt.Errorf("should delete the cluster %s", clusterID2)
+				}
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
 })

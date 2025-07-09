@@ -12,6 +12,7 @@ import (
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -45,20 +46,25 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		By("Check the local policy spec can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := <-consumer.EventChan()
+			fmt.Println("============================ create policy -> policy spec event: disabled")
 			fmt.Println(evt)
-			if evt.Type() != string(enum.LocalPolicySpecType) {
-				policy := &policyv1.Policy{}
-				err := evt.DataAs(policy)
+			if evt.Type() == string(enum.LocalPolicySpecType) {
+				bundle := &generic.GenericBundle[policyv1.Policy]{}
+				err := evt.DataAs(bundle)
 				if err != nil {
 					return err
 				}
-				if !policy.Spec.Disabled {
-					return fmt.Errorf("policy should be disabled")
+				for _, policy := range bundle.Update {
+					if policy.Name == "root-policy-test123" {
+						if policy.Spec.Disabled {
+							return nil
+						}
+						return fmt.Errorf("policy should be disabled")
+					}
 				}
-				return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
+				return fmt.Errorf("policy not found")
 			}
-			fmt.Println("============================ create policy -> policy spec event")
-			return nil
+			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("Update the root policy")
@@ -72,20 +78,25 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		By("Check the local policy spec can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := <-consumer.EventChan()
+			fmt.Println("============================ update policy -> policy spec event: enabled")
 			fmt.Println(evt)
-			if evt.Type() != string(enum.LocalPolicySpecType) {
-				policy := &policyv1.Policy{}
-				err := evt.DataAs(policy)
+			if evt.Type() == string(enum.LocalPolicySpecType) {
+				bundle := generic.GenericBundle[policyv1.Policy]{}
+				err := evt.DataAs(&bundle)
 				if err != nil {
 					return err
 				}
-				if policy.Spec.Disabled {
-					return fmt.Errorf("policy should be enabled")
+				for _, policy := range bundle.Update {
+					if policy.Name == "root-policy-test123" {
+						if !policy.Spec.Disabled {
+							return nil
+						}
+						return fmt.Errorf("policy should be enabled")
+					}
 				}
-				return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
+				return fmt.Errorf("policy not found")
 			}
-			fmt.Println("============================ update policy -> policy spec event")
-			return nil
+			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
