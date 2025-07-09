@@ -62,7 +62,6 @@ func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) e
 		configmap.GetHubClusterInfoDuration,
 		generic.NewGenericEmitter(enum.HubClusterInfoType),
 	)
-	return nil
 }
 
 // 1. Use ClusterVersion to update the HubClusterInfo
