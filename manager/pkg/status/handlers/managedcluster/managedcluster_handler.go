@@ -87,10 +87,21 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	}
 	if len(bundle.Delete) > 0 {
 		for _, deleted := range bundle.Delete {
-			err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id", deleted.ID).
-				Delete(&models.ManagedCluster{}).Error
-			if err != nil {
-				return fmt.Errorf("failed deleting managed clusters - %w", err)
+			if deleted.ID != "" {
+				err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id", deleted.ID).
+					Delete(&models.ManagedCluster{}).Error
+				if err != nil {
+					return fmt.Errorf("failed deleting managed clusters - %w", err)
+				}
+			} else if deleted.Name != "" {
+				// if the cluster is deleted, we need to delete it by name and namespace
+				err = db.Where("leaf_hub_name = ?", leafHubName).Where("cluster_name = ?", deleted.Name).
+					Delete(&models.ManagedCluster{}).Error
+				if err != nil {
+					return fmt.Errorf("failed deleting managed clusters by name and namespace - %w", err)
+				}
+			} else {
+				log.Warnw("managed cluster delete event without ID or Name/Namespace", "LH", leafHubName)
 			}
 		}
 	}

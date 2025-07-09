@@ -90,10 +90,23 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 
 	if len(bundle.Delete) > 0 {
 		for _, deleted := range bundle.Delete {
-			err = db.Where("leaf_hub_name", leafHubName).Where("policy_id", deleted.ID).
-				Delete(&models.LocalSpecPolicy{}).Error
-			if err != nil {
-				return fmt.Errorf("failed deleting local policies - %v", err)
+			if deleted.ID != "" {
+				err = db.Where("leaf_hub_name", leafHubName).Where("policy_id", deleted.ID).
+					Delete(&models.LocalSpecPolicy{}).Error
+				if err != nil {
+					return fmt.Errorf("failed deleting local policy - %v", err)
+				}
+			} else if deleted.Name != "" && deleted.Namespace != "" {
+				err = db.Model(&models.LocalSpecPolicy{}).
+					Where("leaf_hub_name = ?", leafHubName).
+					Where("(payload -> 'metadata' ->> 'name') = ?", deleted.Name).
+					Where("(payload -> 'metadata' ->> 'namespace') = ?", deleted.Namespace).
+					Delete(&models.LocalSpecPolicy{}).Error
+				if err != nil {
+					return fmt.Errorf("failed to deleting local policy by namesapce/name - %v", err)
+				}
+			} else {
+				log.Warnw("local policy delete event without ID or Name/Namespace", "LH", leafHubName)
 			}
 		}
 	}
