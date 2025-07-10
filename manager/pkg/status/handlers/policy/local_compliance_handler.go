@@ -8,7 +8,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	set "github.com/deckarep/golang-set"
 	"github.com/go-kratos/kratos/v2/errors"
-	"github.com/go-kratos/kratos/v2/log"
 	kesselv1betarelations "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -225,7 +224,6 @@ func syncInventory(
 		log.Warnf("failed to get cluster info from db - %v", err)
 	}
 	return postCompliancesToInventoryApi(
-		log,
 		policy.Name,
 		requester,
 		leafHubName,
@@ -237,7 +235,6 @@ func syncInventory(
 }
 
 func postCompliancesToInventoryApi(
-	log *zap.SugaredLogger,
 	policyNamespacedName string,
 	requester transport.Requester,
 	leafHub string,
@@ -252,7 +249,7 @@ func postCompliancesToInventoryApi(
 				UpdateK8SPolicyIsPropagatedToK8SCluster(context.Background(), updateK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, createCompliance.ClusterName, string(createCompliance.Compliance),
 					leafHub, mchVersion)); err != nil {
-				log.Errorf("failed to create k8s policy is propagated to k8s cluster -%v: %w", resp, err)
+				log.Errorf("failed to create k8s policy is propagated to k8s cluster -%v: %v", resp, err)
 			}
 		}
 	}
@@ -262,7 +259,7 @@ func postCompliancesToInventoryApi(
 				UpdateK8SPolicyIsPropagatedToK8SCluster(context.Background(), updateK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, updateCompliance.ClusterName, string(updateCompliance.Compliance),
 					leafHub, mchVersion)); err != nil {
-				log.Errorf("failed to update k8s policy is propagated to k8s cluster -%v: %w", resp, err)
+				log.Errorf("failed to update k8s policy is propagated to k8s cluster -%v: %v", resp, err)
 			}
 		}
 	}
@@ -271,7 +268,7 @@ func postCompliancesToInventoryApi(
 			if resp, err := requester.GetHttpClient().K8SPolicyIsPropagatedToK8SClusterServiceHTTPClient.
 				DeleteK8SPolicyIsPropagatedToK8SCluster(context.Background(), deleteK8SPolicyIsPropagatedToK8SCluster(
 					policyNamespacedName, deleteCompliance.ClusterName, leafHub, mchVersion)); err != nil && !errors.IsNotFound(err) {
-				log.Warnf("failed to delete k8s policy is propagated to k8s cluster -%v: %w", resp, err)
+				log.Warnf("failed to delete k8s policy is propagated to k8s cluster -%v: %v", resp, err)
 			}
 		}
 	}

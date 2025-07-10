@@ -85,6 +85,15 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	if err != nil {
 		return err
 	}
+	if len(bundle.Delete) > 0 {
+		for _, deleted := range bundle.Delete {
+			err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id", deleted.ID).
+				Delete(&models.ManagedCluster{}).Error
+			if err != nil {
+				return fmt.Errorf("failed deleting managed clusters - %w", err)
+			}
+		}
+	}
 
 	if len(bundle.ResyncMetadata) > 0 {
 		// delete managed clusters that are not in the bundle.
@@ -96,12 +105,11 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 
 		deletingIds := []string{}
 		for _, id := range ids {
-			for _, object := range bundle.ResyncMetadata {
-				if object.ID == id {
-					continue
-				}
+			// if the metadata is not found, it means the cluster is deleted
+			metadata := bundle.FoundMetadataById(id)
+			if metadata == nil {
+				deletingIds = append(deletingIds, id)
 			}
-			deletingIds = append(deletingIds, id)
 		}
 
 		// https://gorm.io/docs/delete.html#Soft-Delete

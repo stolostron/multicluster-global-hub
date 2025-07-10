@@ -143,12 +143,17 @@ var _ = BeforeSuite(func() {
 	By("Waiting for the manager to be ready")
 	Expect(mgr.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
 	By("Add syncers")
+	// start periodic syncer
+	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
+	Expect(err).Should(Succeed())
+
 	// policy
 	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, chanTransport.Producer(PolicyTopic))
 	Expect(err).To(Succeed())
+	err = policies.AddPolicySpecSyncer(ctx, mgr, chanTransport.Producer(PolicyTopic), periodicSyncer)
+	Expect(err).To(Succeed())
 
 	// placement
-	err = placement.LaunchPlacementRuleSyncer(ctx, mgr, agentConfig, chanTransport.Producer(PlacementTopic))
 	Expect(err).To(Succeed())
 	err = placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, chanTransport.Producer(PlacementTopic))
 	Expect(err).To(Succeed())
@@ -161,10 +166,6 @@ var _ = BeforeSuite(func() {
 	err = managedhub.LaunchHubClusterHeartbeatSyncer(mgr, chanTransport.Producer(HeartBeatTopic))
 	Expect(err).Should(Succeed())
 	err = managedhub.LaunchHubClusterInfoSyncer(mgr, chanTransport.Producer(HubClusterInfoTopic))
-	Expect(err).Should(Succeed())
-
-	// start periodic syncer
-	periodicSyncer, err := generic.AddPeriodicSyncer(mgr)
 	Expect(err).Should(Succeed())
 
 	// managed cluster

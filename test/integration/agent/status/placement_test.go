@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -19,28 +18,6 @@ var _ = Describe("Placement", Ordered, func() {
 	var consumer transport.Consumer
 	BeforeAll(func() {
 		consumer = chanTransport.Consumer(PlacementTopic)
-	})
-
-	It("should be able to sync placementrule", func() {
-		By("Create global placementrule")
-		testGlobalPlacementRuleOriginUID := "test-globalplacementrule-uid"
-		testGlobalPlacementRule := &placementrulev1.PlacementRule{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "test-globalplacementrule-1",
-				Namespace:    "default",
-				Annotations: map[string]string{
-					constants.OriginOwnerReferenceAnnotation: testGlobalPlacementRuleOriginUID,
-				},
-			},
-			Spec: placementrulev1.PlacementRuleSpec{},
-		}
-		Expect(runtimeClient.Create(ctx, testGlobalPlacementRule)).ToNot(HaveOccurred())
-
-		By("Check the placementrule can be read from cloudevents consumer")
-		evt := <-consumer.EventChan()
-		fmt.Println(evt)
-		Expect(evt).ShouldNot(BeNil())
-		Expect(evt.Type()).Should(Equal(string(enum.PlacementRuleSpecType)))
 	})
 
 	It("should be able to sync placement", func() {
