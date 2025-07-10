@@ -92,11 +92,10 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if mgh.DeletionTimestamp != nil {
-		err = r.pruneWebhookResources(ctx)
+		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, r.pruneWebhookResources)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		isResourceRemoved = true
 		return ctrl.Result{}, nil
 	}
 	isResourceRemoved = false
@@ -188,7 +187,7 @@ var webhookPred = predicate.Funcs{
 	},
 }
 
-func (r *WebhookReconciler) pruneWebhookResources(ctx context.Context) error {
+func (r *WebhookReconciler) pruneWebhookResources(ctx context.Context, namespaces string) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
