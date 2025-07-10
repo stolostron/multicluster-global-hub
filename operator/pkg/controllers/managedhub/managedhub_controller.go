@@ -85,11 +85,10 @@ func (r *ManagedHubController) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
-		err = r.pruneManagedHubs(ctx)
+		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, r.pruneManagedHubs)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		isResourceRemoved = true
 		return ctrl.Result{}, nil
 	}
 	isResourceRemoved = false
@@ -126,7 +125,7 @@ var mcPred = predicate.Funcs{
 	},
 }
 
-func (r *ManagedHubController) pruneManagedHubs(ctx context.Context) error {
+func (r *ManagedHubController) pruneManagedHubs(ctx context.Context, namespace string) error {
 	clusters := &clusterv1.ManagedClusterList{}
 	if err := r.c.List(ctx, clusters, &client.ListOptions{}); err != nil {
 		return err
