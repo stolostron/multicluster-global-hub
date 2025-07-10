@@ -197,46 +197,46 @@ var _ = Describe("LocalPolicySpecHandler", Ordered, func() {
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 
-	// // delete policy1
-	// It("should handle delete policy spec bundle", func() {
-	// 	version.Incr()
+	// delete policy1
+	It("should handle delete policy based on namespace and name", func() {
+		version.Incr()
 
-	// 	bundle := generic.GenericBundle[policiesv1.Policy]{}
-	// 	bundle.Delete = []generic.ObjectMetadata{
-	// 		{
-	// 			ID:        policyID1,
-	// 			Namespace: "default",
-	// 			Name:      "testLocalPolicy1",
-	// 		},
-	// 	}
+		bundle := generic.GenericBundle[policiesv1.Policy]{}
+		bundle.Delete = []generic.ObjectMetadata{
+			{
+				// ID:        policyID1,
+				Namespace: "default",
+				Name:      "testLocalPolicy1",
+			},
+		}
 
-	// 	evt := ToCloudEvent(leafHubName, string(enum.LocalPolicySpecType), version, bundle)
+		evt := ToCloudEvent(leafHubName, string(enum.LocalPolicySpecType), version, bundle)
 
-	// 	By("Sync event with transport")
-	// 	err := producer.SendEvent(ctx, *evt)
-	// 	version.Next()
-	// 	Expect(err).Should(Succeed())
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		version.Next()
+		Expect(err).Should(Succeed())
 
-	// 	By("Check that policy1 is deleted")
-	// 	Eventually(func() error {
-	// 		db := database.GetGorm()
+		By("Check that policy1 is deleted")
+		Eventually(func() error {
+			db := database.GetGorm()
 
-	// 		var count int64
-	// 		if err := db.Model(&models.LocalSpecPolicy{}).Where("leaf_hub_name = ?", leafHubName).Count(&count).Error; err != nil {
-	// 			return err
-	// 		}
+			var count int64
+			if err := db.Model(&models.LocalSpecPolicy{}).Where("leaf_hub_name = ?", leafHubName).Count(&count).Error; err != nil {
+				return err
+			}
 
-	// 		items := []models.LocalSpecPolicy{}
-	// 		if err := db.Where("leaf_hub_name = ?", leafHubName).Find(&items).Error; err != nil {
-	// 			return err
-	// 		}
+			items := []models.LocalSpecPolicy{}
+			if err := db.Where("leaf_hub_name = ?", leafHubName).Find(&items).Error; err != nil {
+				return err
+			}
 
-	// 		for _, item := range items {
-	// 			if item.PolicyID == policyID1 {
-	// 				return fmt.Errorf("policy1 should be deleted")
-	// 			}
-	// 		}
-	// 		return nil
-	// 	}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
-	// })
+			for _, item := range items {
+				if item.PolicyID == policyID1 {
+					return fmt.Errorf("policy1 should be deleted")
+				}
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
 })
