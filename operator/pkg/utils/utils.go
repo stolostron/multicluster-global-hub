@@ -537,3 +537,17 @@ func DeleteResourcesWithLabels(ctx context.Context,
 	}
 	return nil
 }
+
+func HandleMghDelete(ctx context.Context, isResourceRemoved *bool, namespace string,
+	pruneResources func(context.Context, string) error,
+) error {
+	if *isResourceRemoved {
+		return nil
+	}
+	err := pruneResources(ctx, namespace)
+	if err != nil {
+		return err
+	}
+	*isResourceRemoved = true
+	return nil
+}

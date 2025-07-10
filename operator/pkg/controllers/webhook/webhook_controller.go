@@ -92,12 +92,10 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	if mgh.DeletionTimestamp != nil {
-		err = r.pruneWebhookResources(ctx)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		isResourceRemoved = true
-		return ctrl.Result{}, nil
+		log.Debugf("deleting mgh in webhook controller")
+		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, r.pruneWebhookResources)
+		log.Debugf("deleted webhook resources, isResourceRemoved:%v", isResourceRemoved)
+		return ctrl.Result{}, err
 	}
 	isResourceRemoved = false
 	// create new HoHRenderer and HoHDeployer
@@ -154,6 +152,9 @@ var mghPred = predicate.Funcs{
 		if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
 			return true
 		}
+		if e.ObjectNew.GetDeletionTimestamp() != nil {
+			return true
+		}
 		return !reflect.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations())
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
@@ -188,7 +189,7 @@ var webhookPred = predicate.Funcs{
 	},
 }
 
-func (r *WebhookReconciler) pruneWebhookResources(ctx context.Context) error {
+func (r *WebhookReconciler) pruneWebhookResources(ctx context.Context, namespaces string) error {
 	listOpts := []client.ListOption{
 		client.MatchingLabels(map[string]string{
 			constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
