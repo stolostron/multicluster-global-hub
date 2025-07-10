@@ -154,7 +154,6 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 		if err != nil {
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
-		deletingObjects = append(deletingObjects, object)
 	}
 	log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
