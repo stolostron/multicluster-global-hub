@@ -298,7 +298,8 @@ init_policy() {
     git checkout $GRC_VERSION
     cd ../
   fi
-
+  pwd
+  ls -l
   retry "(kubectl --context $cluster apply -f $policy_addon/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
 
   kubectl --context "$cluster" set image deployment/$policy_addon $policy_addon=quay.io/open-cluster-management/governance-policy-framework-addon:$GRC_VERSION -n ${MANAGED_NAMESPACE}
@@ -315,7 +316,7 @@ init_policy() {
     git checkout $GRC_VERSION
     cd ../
   fi
-  kubectl --context "$cluster" apply -f ${config_policy}/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
+  retry "(kubectl --context $cluster apply -f ${config_policy}/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml"
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
   retry "(kubectl --context $cluster apply -f ${config_policy}/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$config_policy -n $MANAGED_NAMESPACE)"
 

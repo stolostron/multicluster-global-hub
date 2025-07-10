@@ -1,9 +1,9 @@
 
 e2e-dep: 
-	./test/script/e2e_dep.sh
+	sh -x ./test/script/e2e_dep.sh
 
 e2e-setup: tidy vendor e2e-dep
-	./test/script/e2e_setup.sh
+	sh -x ./test/script/e2e_setup.sh
 
 kessel-e2e-setup:
 	./test/script/kessel_e2e_setup.sh
@@ -15,7 +15,7 @@ e2e-cleanup:
 	./test/script/e2e_cleanup.sh
 
 e2e-test-all: tidy vendor
-	sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana,e2e-test-agent,e2e-test-local-agent" -v $(VERBOSE)
+	sh -x ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-test-placement,e2e-test-app,e2e-test-policy,e2e-tests-backup,e2e-test-grafana,e2e-test-agent,e2e-test-local-agent" -v $(VERBOSE)
 	sh ./test/script/e2e_run_qe.sh
 	sh ./test/script/e2e_run.sh -f "e2e-test-prune" -v $(VERBOSE)
 	sh ./test/script/e2e_clean_globalhub.sh
