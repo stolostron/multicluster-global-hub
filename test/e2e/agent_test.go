@@ -19,6 +19,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	runtimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	sampleconfig "github.com/stolostron/multicluster-global-hub/samples/config"
@@ -67,11 +68,11 @@ var _ = Describe("Standalone Agent", Label("e2e-test-agent"), Ordered, func() {
 				if event.Type() == string(enum.ManagedClusterType) {
 					mutex.Lock()
 					defer mutex.Unlock()
-					var data []clusterv1.ManagedCluster
-					if err := event.DataAs(&data); err != nil {
+					var bundle genericbundle.GenericBundle[clusterv1.ManagedCluster]
+					if err := event.DataAs(&bundle); err != nil {
 						log.Fatalf("failed to parse the clusters: %s", err)
 					}
-					for _, cluster := range data {
+					for _, cluster := range append(bundle.Create, bundle.Update...) {
 						clusters.Add(cluster.Name)
 					}
 				}
