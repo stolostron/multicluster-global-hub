@@ -119,13 +119,19 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		transportSecretName = agentConfig.TransportConfigSecretName
 	}
 	// add transport ctrl to manager, also load the transportConfig(from secret) into the agentConfig
-	err = controller.NewTransportCtrl(
+	transportCtrl := controller.NewTransportCtrl(
 		agentConfig.PodNamespace,
 		transportSecretName,
 		transportCallback(mgr, agentConfig),
 		agentConfig.TransportConfig,
 		false,
-	).SetupWithManager(hostingMgr)
+	)
+
+	if agentConfig.Standalone {
+		transportCtrl.DisableConsumer()
+	}
+
+	transportCtrl.SetupWithManager(hostingMgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)
 	}
