@@ -48,7 +48,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 			By("Create the cluster event")
 			cluster := managedClusters[0]
 			hubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
-			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdd", cluster.Name)
+			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdc", cluster.Name)
 			eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
 			clusterEvent := &corev1.Event{
 				ObjectMeta: metav1.ObjectMeta{
@@ -79,7 +79,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 					LeafHubName: hubName,
 					EventName:   eventName,
 				}
-				err := db.First(&clusterEvent).Error
+				err := db.Where(clusterEvent).First(&clusterEvent).Error
 				if err != nil {
 					return err
 				}
@@ -94,6 +94,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 		})
 	})
 
+	// TODO: which case the test case want to cover, can we skip it, or move it into intergration test?
 	Context("Cluster Managedcluster, should have some annotation", func() {
 		It("create managedhub cluster, should have annotation", func() {
 			By("Create the managed cluster")
