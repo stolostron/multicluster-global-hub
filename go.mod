@@ -20,7 +20,7 @@ require (
 	github.com/go-kratos/kratos/v2 v2.8.3
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
-	github.com/gonvenience/ytbx v1.4.4
+	github.com/gonvenience/ytbx v1.4.7
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.5.5
 	github.com/lib/pq v1.10.9
