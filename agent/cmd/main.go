@@ -131,7 +131,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		transportCtrl.DisableConsumer()
 	}
 
-	transportCtrl.SetupWithManager(hostingMgr)
+	err = transportCtrl.SetupWithManager(hostingMgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)
 	}
