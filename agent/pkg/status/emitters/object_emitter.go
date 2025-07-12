@@ -32,6 +32,7 @@ type ObjectEmitter struct {
 	bundle      *genericbundle.GenericBundle[client.Object]
 	version     *eventversion.Version
 	mu          sync.Mutex
+	keyFunc     func(client.Object) string
 }
 
 // NewObjectEmitter creates a new ObjectEmitter with the provided event type and producer.
@@ -45,6 +46,9 @@ func NewObjectEmitter(
 		producer:  producer,
 		version:   eventversion.NewVersion(),
 		bundle:    genericbundle.NewGenericBundle[client.Object](),
+		keyFunc: func(obj client.Object) string {
+			return obj.GetNamespace() + "/" + obj.GetName()
+		},
 	}
 	// apply the options
 	for _, fn := range opts {
@@ -73,6 +77,16 @@ func (e *ObjectEmitter) EventFilter() predicate.Predicate {
 func (e *ObjectEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	// if the object is in update array, update it
+	for i, existingObj := range e.bundle.Update {
+		if e.keyFunc(existingObj) == e.keyFunc(obj) {
+			e.bundle.Update[i] = obj
+			e.version.Incr()
+			return nil
+		}
+	}
+
 	return e.handleDeltaEvent(obj, e.bundle.AddUpdate)
 }
 
@@ -92,6 +106,22 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 	if err != nil {
 		return err
 	}
+	// if the object is in update array, remove it
+	for i, existingObj := range e.bundle.Update {
+		if e.keyFunc(existingObj) == e.keyFunc(tweaked) {
+			e.bundle.Update = append(e.bundle.Update[:i], e.bundle.Update[i+1:]...)
+			e.version.Incr()
+			break
+		}
+	}
+
+	// if already in delete array, do nothing
+	for _, existingObj := range e.bundle.Delete {
+		if (existingObj.Namespace + "/" + existingObj.Name) == e.keyFunc(tweaked) {
+			return nil
+		}
+	}
+
 	added, err := e.bundle.AddDelete(generic.ObjectMetadata{
 		ID:        string(tweaked.GetUID()),
 		Namespace: tweaked.GetNamespace(),
