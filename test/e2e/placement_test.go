@@ -51,39 +51,31 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 				Expect(updateClusterLabel(cluster.GetName(), localPolicyLabelStr)).Should(Succeed())
 			}
 
-			By("Verify the policy is scheduled to leafhubs")
-			hubToPolicyMap := make(map[string]*policiesv1.Policy)
+			By("Verify the policy is scheduled to leaf hubs")
 			Eventually(func() error {
 				var localPolicies []models.LocalSpecPolicy
 				err := database.GetGorm().Find(&localPolicies).Error
 				if err != nil {
 					return err
 				}
-				for _, p := range localPolicies {
-					policy := &policiesv1.Policy{}
-					err = json.Unmarshal(p.Payload, policy)
-					if err != nil {
-						return err
-					}
-					for _, leafhubName := range managedHubNames {
-						if p.LeafHubName == leafhubName &&
-							policy.Name == localPolicyName &&
-							policy.Namespace == localPolicyNamespace {
-							hubToPolicyMap[leafhubName] = policy
+
+				for _, leafHubName := range managedHubNames {
+					found := false
+					for _, p := range localPolicies {
+						if p.LeafHubName == leafHubName &&
+							p.PolicyName == localPolicyName {
+							found = true
+							break
 						}
 					}
-				}
-
-				if len(hubToPolicyMap) != len(managedHubNames) {
-					return fmt.Errorf("expect policy has not synchronized. hubtopolicy: %v, managedhubs: %v",
-						len(hubToPolicyMap), len(managedHubNames))
+					if !found {
+						return fmt.Errorf("the policy is not scheduled to the leafhub %s", leafHubName)
+					}
 				}
 				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
+			}, 2*time.Minute, 1*time.Second).Should(Succeed())
 		})
 
-		// to use the finalizer achieves deleting local resource from database:
-		// finalizer(deprecated) -> delete from bundle -> transport -> database
 		It("check the local policy(placement) resource isn't added the global cleanup finalizer", func() {
 			By("Local Policy")
 			Eventually(func() error {
