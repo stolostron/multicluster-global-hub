@@ -6,11 +6,11 @@ require (
 	github.com/IBM/sarama v1.44.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250630074109-a9ca6131519a
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250707070324-70dc78ca61be
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
 	github.com/cloudevents/sdk-go/v2 v2.16.1
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/confluentinc/confluent-kafka-go/v2 v2.10.1
+	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.0+incompatible
