@@ -69,7 +69,7 @@ var _ = Describe("Apply policy/app with placement on the global hub", Ordered, L
 						}
 					}
 					if !found {
-						return fmt.Errorf("the policy is not scheduled to the leafhub %s", leafHubName)
+						return fmt.Errorf("the local policy is not scheduled to the leafhub %s", leafHubName)
 					}
 				}
 				return nil
