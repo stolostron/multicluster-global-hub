@@ -39,6 +39,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	pkgutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
 
@@ -207,16 +208,20 @@ var _ = BeforeSuite(func() {
 		if err != nil {
 			return err
 		}
+		tmpManagedClusters := []clusterv1.ManagedCluster{}
 		for _, mc := range allManagedClusters {
 			// hub1 and hub2 write in db in local_agent_test.go
 			if mc.Name == "hub1" || mc.Name == "hub2" {
 				continue
 			}
-			managedClusters = append(managedClusters, mc)
+			tmpManagedClusters = append(tmpManagedClusters, mc)
 		}
-		if len(managedClusters) != (ExpectedMH * ExpectedMC) {
-			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(managedClusters))
+		if len(tmpManagedClusters) != (ExpectedMH * ExpectedMC) {
+			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(tmpManagedClusters))
 		}
+		managedClusters = tmpManagedClusters
+		fmt.Println(">> managedClusters: ")
+		pkgutils.PrettyPrint(managedClusters)
 		return nil
 	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 })
