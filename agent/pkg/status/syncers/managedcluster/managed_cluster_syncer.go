@@ -85,6 +85,7 @@ func clusterTweakFunc(object client.Object) {
 		constants.ManagedClusterManagedByAnnotation: configs.GetLeafHubName(),
 	})
 	object.SetUID(types.UID(getClusterClaimID(object)))
+	object.SetManagedFields(nil)
 }
 
 func getClusterClaimID(object client.Object) string {

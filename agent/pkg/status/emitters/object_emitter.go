@@ -271,6 +271,8 @@ func (e *ObjectEmitter) sendBundle() error {
 		return fmt.Errorf("failed to load bundle into cloudevent: %v", err)
 	}
 
+	log.Debugf("sending cloudevents: %s", evt)
+
 	ctx := context.Background()
 	if e.topic != "" {
 		ctx = cecontext.WithTopic(ctx, e.topic)
