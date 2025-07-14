@@ -66,16 +66,17 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
 
-	if err := h.insertOrUpdate(bundle.Resync, leafHubName); err != nil {
-		return fmt.Errorf("failed to resync local policies - %w", err)
+	// Handle insertOrUpdate operations for Resync, Create, and Update
+	operations := [][]policiesv1.Policy{
+		bundle.Resync,
+		bundle.Create,
+		bundle.Update,
 	}
 
-	if err := h.insertOrUpdate(bundle.Create, leafHubName); err != nil {
-		return fmt.Errorf("failed to insert local policies - %w", err)
-	}
-
-	if err := h.insertOrUpdate(bundle.Update, leafHubName); err != nil {
-		return fmt.Errorf("failed to update local policies - %w", err)
+	for _, data := range operations {
+		if err := h.insertOrUpdate(data, leafHubName); err != nil {
+			return fmt.Errorf("failed to process local policies - %w", err)
+		}
 	}
 
 	db := database.GetGorm()

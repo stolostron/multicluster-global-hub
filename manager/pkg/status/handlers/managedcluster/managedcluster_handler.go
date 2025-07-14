@@ -65,16 +65,17 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
 
-	if err := h.insertOrUpdate(bundle.Resync, leafHubName); err != nil {
-		return fmt.Errorf("failed to resync managed clusters - %w", err)
+	// Handle insertOrUpdate operations for Resync, Create, and Update
+	operations := [][]clusterv1.ManagedCluster{
+		bundle.Resync,
+		bundle.Create,
+		bundle.Update,
 	}
 
-	if err := h.insertOrUpdate(bundle.Create, leafHubName); err != nil {
-		return fmt.Errorf("failed to insert managed clusters - %w", err)
-	}
-
-	if err := h.insertOrUpdate(bundle.Update, leafHubName); err != nil {
-		return fmt.Errorf("failed to update managed clusters - %w", err)
+	for _, data := range operations {
+		if err := h.insertOrUpdate(data, leafHubName); err != nil {
+			return fmt.Errorf("failed to process managed clusters - %w", err)
+		}
 	}
 
 	db := database.GetGorm()
