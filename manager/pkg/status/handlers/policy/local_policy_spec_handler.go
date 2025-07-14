@@ -58,36 +58,27 @@ func RegisterLocalPolicySpecHandler(conflationManager *conflator.ConflationManag
 func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw(startMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	var bundle generic.GenericBundle[policiesv1.Policy]
-	if err := evt.DataAs(&bundle); err != nil {
+	err := evt.DataAs(&bundle)
+	if err != nil {
 		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
 
-	batchLocalPolicySpec := []models.LocalSpecPolicy{}
+	if err := h.insertOrUpdate(bundle.Resync, leafHubName); err != nil {
+		return fmt.Errorf("failed to resync local policies - %w", err)
+	}
 
-	// update or create managed clusters in the database.
-	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
-		payload, err := json.Marshal(obj)
-		if err != nil {
-			return err
-		}
-		batchLocalPolicySpec = append(batchLocalPolicySpec, models.LocalSpecPolicy{
-			PolicyID:    string(obj.GetUID()),
-			LeafHubName: leafHubName,
-			Payload:     payload,
-		})
+	if err := h.insertOrUpdate(bundle.Create, leafHubName); err != nil {
+		return fmt.Errorf("failed to insert local policies - %w", err)
+	}
+
+	if err := h.insertOrUpdate(bundle.Update, leafHubName); err != nil {
+		return fmt.Errorf("failed to update local policies - %w", err)
 	}
 
 	db := database.GetGorm()
-	err := db.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).CreateInBatches(batchLocalPolicySpec, 100).Error
-	if err != nil {
-		return err
-	}
-
 	if len(bundle.Delete) > 0 {
 		for _, deleted := range bundle.Delete {
 			if deleted.ID != "" {
@@ -155,7 +146,31 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
 	}
-	log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw(finishMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+	return nil
+}
+
+func (h *localPolicySpecHandler) insertOrUpdate(objs []policiesv1.Policy, leafHubName string) error {
+	db := database.GetGorm()
+	batchLocalPolicySpec := []models.LocalSpecPolicy{}
+	for _, obj := range objs {
+		payload, err := json.Marshal(obj)
+		if err != nil {
+			return err
+		}
+		batchLocalPolicySpec = append(batchLocalPolicySpec, models.LocalSpecPolicy{
+			PolicyID:    string(obj.GetUID()),
+			LeafHubName: leafHubName,
+			Payload:     payload,
+		})
+	}
+
+	err := db.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).CreateInBatches(batchLocalPolicySpec, 100).Error
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

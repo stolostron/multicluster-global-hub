@@ -57,42 +57,27 @@ func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator
 func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
-
-	batchManagedClusters := []models.ManagedCluster{}
+	log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	var bundle generic.GenericBundle[clusterv1.ManagedCluster]
-	if err := evt.DataAs(&bundle); err != nil {
-		return err
-	}
-
-	// update or create managed clusters in the database.
-	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
-		id := utils.GetClusterClaimID(&obj)
-		if id == "" {
-			log.Warnf("managed cluster %s has no cluster claim id, skip", obj.Name)
-			continue
-		}
-
-		payload, err := json.Marshal(obj)
-		if err != nil {
-			return err
-		}
-
-		batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
-			ClusterID:   id,
-			LeafHubName: leafHubName,
-			Payload:     payload,
-			Error:       database.ErrorNone,
-		})
-	}
-	db := database.GetGorm()
-	err := db.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).CreateInBatches(batchManagedClusters, BatchSize).Error
+	err := evt.DataAs(&bundle)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
+
+	if err := h.insertOrUpdate(bundle.Resync, leafHubName); err != nil {
+		return fmt.Errorf("failed to resync managed clusters - %w", err)
+	}
+
+	if err := h.insertOrUpdate(bundle.Create, leafHubName); err != nil {
+		return fmt.Errorf("failed to insert managed clusters - %w", err)
+	}
+
+	if err := h.insertOrUpdate(bundle.Update, leafHubName); err != nil {
+		return fmt.Errorf("failed to update managed clusters - %w", err)
+	}
+
+	db := database.GetGorm()
 	if len(bundle.Delete) > 0 {
 		for _, deleted := range bundle.Delete {
 			if deleted.ID != "" {
@@ -156,7 +141,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
 	}
-	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 
@@ -327,4 +312,42 @@ func GetK8SCluster(ctx context.Context,
 		kesselNode,
 	}
 	return k8sCluster
+}
+
+func (h *managedClusterHandler) insertOrUpdate(objs []clusterv1.ManagedCluster, leafHubName string) error {
+	if len(objs) == 0 {
+		return nil
+	}
+
+	batchClusters := []models.ManagedCluster{}
+	for _, obj := range objs {
+		id := utils.GetClusterClaimID(&obj)
+		if id == "" {
+			log.Warnf("managed cluster %s has no cluster claim id, skip", obj.Name)
+			return nil
+		}
+
+		log.Debugf("inserting or updating cluster: name=%s, id=%s", obj.Name, id)
+
+		payload, err := json.Marshal(obj)
+		if err != nil {
+			return fmt.Errorf("failed to marshal cluster %s: %w", obj.Name, err)
+		}
+
+		batchClusters = append(batchClusters, models.ManagedCluster{
+			ClusterID:   id,
+			LeafHubName: leafHubName,
+			Payload:     payload,
+			Error:       database.ErrorNone,
+		})
+	}
+
+	db := database.GetGorm()
+	err := db.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).CreateInBatches(batchClusters, BatchSize).Error
+	if err != nil {
+		return fmt.Errorf("failed to insert or update clusters: %w", err)
+	}
+	return nil
 }
