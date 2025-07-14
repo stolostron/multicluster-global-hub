@@ -219,7 +219,6 @@ func GetK8SCluster(ctx context.Context,
 		}
 	}
 
-	// TODO: remove this after the vendorVersion is optional
 	if vendorVersion == "" {
 		vendorVersion = kubeVersion
 	}
@@ -296,7 +295,6 @@ func GetK8SCluster(ctx context.Context,
 		}
 	}
 
-	// TODO: should get nodelist from clusterInfo.Status.NodeList
 	kesselNode := &kessel.K8SClusterDetailNodesInner{
 		Name: cluster.Name,
 	}
@@ -324,7 +322,7 @@ func (h *managedClusterHandler) insertOrUpdate(objs []clusterv1.ManagedCluster, 
 		id := utils.GetClusterClaimID(&obj)
 		if id == "" {
 			log.Warnf("managed cluster %s has no cluster claim id, skip", obj.Name)
-			return nil
+			continue
 		}
 
 		log.Debugf("inserting or updating cluster: name=%s, id=%s", obj.Name, id)
