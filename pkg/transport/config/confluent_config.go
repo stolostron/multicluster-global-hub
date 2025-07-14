@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -37,6 +38,7 @@ func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
 	_ = kafkaConfigMap.SetKey("acks", "1")
 	_ = kafkaConfigMap.SetKey("retries", "1")
 	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
+	_ = kafkaConfigMap.SetKey("message.max.bytes", constants.KafkaClientMessageMaxBytes)
 }
 
 func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
@@ -44,6 +46,8 @@ func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	_ = kafkaConfigMap.SetKey("group.id", groupId)
 	_ = kafkaConfigMap.SetKey("go.events.channel.size", 1000)
+	_ = kafkaConfigMap.SetKey("max.partition.fetch.bytes", constants.KafkaClientMessageMaxBytes)
+	_ = kafkaConfigMap.SetKey("fetch.message.max.bytes", constants.KafkaClientMessageMaxBytes)
 }
 
 func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {

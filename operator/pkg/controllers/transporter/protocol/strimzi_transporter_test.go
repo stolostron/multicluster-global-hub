@@ -19,8 +19,10 @@ func TestNewStrimziTransporter(t *testing.T) {
 			Name:      "test-mgh",
 			Namespace: utils.GetDefaultNamespace(),
 			Annotations: map[string]string{
-				operatorconstants.CommunityCatalogSourceNameKey:      "test",
-				operatorconstants.CommunityCatalogSourceNamespaceKey: "default",
+				operatorconstants.CatalogSourceNameKey:      "test",
+				operatorconstants.CatalogSourceNamespaceKey: "default",
+				operatorconstants.SubscriptionPackageName:   "test-package",
+				operatorconstants.SubscriptionChannel:       "test-channel",
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
@@ -49,6 +51,12 @@ func TestNewStrimziTransporter(t *testing.T) {
 	if trans.subCatalogSourceNamespace != "default" {
 		t.Errorf("catalogSource name should be default, but %v", trans.subCatalogSourceNamespace)
 	}
+	if trans.subPackageName != "test-package" {
+		t.Errorf("subPackageName name should be test-package, but %v", trans.subCatalogSourceNamespace)
+	}
+	if trans.subChannel != "test-channel" {
+		t.Errorf("subChannel name should be test-channel, but %v", trans.subCatalogSourceNamespace)
+	}
 }
 
 func TestNewKafkaCluster(t *testing.T) {
@@ -66,8 +74,8 @@ func TestNewKafkaCluster(t *testing.T) {
 					Name:      "test-mgh",
 					Namespace: utils.GetDefaultNamespace(),
 					Annotations: map[string]string{
-						operatorconstants.CommunityCatalogSourceNameKey:      "test",
-						operatorconstants.CommunityCatalogSourceNamespaceKey: "default",
+						operatorconstants.CatalogSourceNameKey:      "test",
+						operatorconstants.CatalogSourceNamespaceKey: "default",
 					},
 				},
 				Spec: v1alpha4.MulticlusterGlobalHubSpec{
@@ -138,8 +146,8 @@ func TestNewKafkaCluster(t *testing.T) {
 					Name:      "test-mgh",
 					Namespace: utils.GetDefaultNamespace(),
 					Annotations: map[string]string{
-						operatorconstants.CommunityCatalogSourceNameKey:      "test",
-						operatorconstants.CommunityCatalogSourceNamespaceKey: "default",
+						operatorconstants.CatalogSourceNameKey:      "test",
+						operatorconstants.CatalogSourceNamespaceKey: "default",
 					},
 				},
 				Spec: v1alpha4.MulticlusterGlobalHubSpec{
@@ -210,10 +218,10 @@ func TestNewKafkaCluster(t *testing.T) {
 					Name:      "test-mgh",
 					Namespace: utils.GetDefaultNamespace(),
 					Annotations: map[string]string{
-						operatorconstants.CommunityCatalogSourceNameKey:      "test",
-						operatorconstants.CommunityCatalogSourceNamespaceKey: "default",
-						operatorconstants.KafkaUseNodeport:                   "",
-						operatorconstants.KinDClusterIPKey:                   "10.0.0.1",
+						operatorconstants.CatalogSourceNameKey:      "test",
+						operatorconstants.CatalogSourceNamespaceKey: "default",
+						operatorconstants.KafkaUseNodeport:          "",
+						operatorconstants.KinDClusterIPKey:          "10.0.0.1",
 					},
 				},
 				Spec: v1alpha4.MulticlusterGlobalHubSpec{

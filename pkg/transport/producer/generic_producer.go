@@ -9,7 +9,6 @@ import (
 	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
-	"github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cectx "github.com/cloudevents/sdk-go/v2/context"
 	"github.com/cloudevents/sdk-go/v2/protocol"
@@ -17,14 +16,10 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-)
-
-const (
-	MaxMessageKBLimit    = 1024
-	DefaultMessageKBSize = 960
 )
 
 type GenericProducer struct {
@@ -37,7 +32,7 @@ type GenericProducer struct {
 func NewGenericProducer(transportConfig *transport.TransportInternalConfig) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
 		log:              logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		messageSizeLimit: DefaultMessageKBSize * 1000,
+		messageSizeLimit: constants.KafkaClientMessageMaxBytes,
 	}
 	err := genericProducer.initClient(transportConfig)
 	if err != nil {
@@ -154,22 +149,6 @@ func (p *GenericProducer) splitPayloadIntoChunks(payload []byte) [][]byte {
 
 func (p *GenericProducer) SetDataLimit(size int) {
 	p.messageSizeLimit = size
-}
-
-func getSaramaSenderProtocol(kafkaConfig *transport.KafkaInternalConfig, defaultTopic string) (interface{}, error) {
-	saramaConfig, err := config.GetSaramaConfig(kafkaConfig)
-	if err != nil {
-		return nil, err
-	}
-	// set max message bytes to 1 MB: 1000 000 > config.ProducerConfig.MessageSizeLimitKB * 1000
-	saramaConfig.Producer.MaxMessageBytes = MaxMessageKBLimit * 1000
-	saramaConfig.Producer.Return.Successes = true
-	sender, err := kafka_sarama.NewSender([]string{kafkaConfig.BootstrapServer},
-		saramaConfig, defaultTopic)
-	if err != nil {
-		return nil, err
-	}
-	return sender, nil
 }
 
 func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
