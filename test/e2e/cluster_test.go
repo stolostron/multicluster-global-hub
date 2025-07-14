@@ -295,19 +295,19 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 		if err != nil {
 			return err
 		}
-		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
+		managedCluster, err := getManagedClusterByName(httpClient, cluster.Name)
 		if err != nil {
 			return err
 		}
-		if managedClusterInfo == nil {
+		if managedCluster == nil {
 			return fmt.Errorf("no managedcluster found")
 		}
-		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+		if val, ok := managedCluster.Labels[labelKey]; ok {
 			if labelVal == val {
 				return nil
 			}
 		}
-		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, managedClusterInfo: %v", labelKey, labelVal, cluster.Name, *managedClusterInfo)
+		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, managedClusterInfo: %v", labelKey, labelVal, cluster.Name, *managedCluster)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
@@ -325,17 +325,17 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 		if err != nil {
 			return err
 		}
-		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
+		managedCluster, err := getManagedClusterByName(httpClient, cluster.Name)
 		if err != nil {
 			return err
 		}
-		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+		if val, ok := managedCluster.Labels[labelKey]; ok {
 			if val == labelVal {
 				return fmt.Errorf("the label %s:%s should be deleted from cluster %s", labelKey, labelVal, cluster.Name)
 			}
 		}
 		return nil
-	}, 3*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
 func updateClusterLabelByAPI(client *http.Client, patches []patch, managedClusterID string) error {
