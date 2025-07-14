@@ -3,7 +3,6 @@ package managedcluster
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -12,6 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -34,7 +34,8 @@ func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.
 		enum.ManagedClusterType,
 		p,
 		emitters.WithEventFilterFunc(predicate.NewPredicateFuncs(validCluster)),
-		emitters.WithTweakFunc(clusterTweakFunc),
+		emitters.WithTweakFunc(clusterTweakFunc),     // clean unnecessary fields, like managedFields
+		emitters.WithMetadataFunc(clusterMedataFunc), // extract metadata from object, use clusterClaim id as the object id
 	)
 
 	// 2. add the emitter to controller
@@ -84,8 +85,15 @@ func clusterTweakFunc(object client.Object) {
 	utils.MergeAnnotations(object, map[string]string{
 		constants.ManagedClusterManagedByAnnotation: configs.GetLeafHubName(),
 	})
-	object.SetUID(types.UID(getClusterClaimID(object)))
 	object.SetManagedFields(nil)
+}
+
+func clusterMedataFunc(object client.Object) *genericbundle.ObjectMetadata {
+	return &genericbundle.ObjectMetadata{
+		ID:        getClusterClaimID(object),
+		Namespace: object.GetNamespace(),
+		Name:      object.GetName(),
+	}
 }
 
 func getClusterClaimID(object client.Object) string {

@@ -24,15 +24,16 @@ import (
 var log = logger.DefaultZapLogger()
 
 type ObjectEmitter struct {
-	eventType   enum.EventType
-	topic       string
-	producer    transport.Producer
-	tweakFunc   func(client.Object)
-	eventFilter predicate.Predicate
-	bundle      *genericbundle.GenericBundle[client.Object]
-	version     *eventversion.Version
-	mu          sync.Mutex
-	keyFunc     func(client.Object) string
+	eventType    enum.EventType
+	topic        string
+	producer     transport.Producer
+	tweakFunc    func(client.Object)
+	eventFilter  predicate.Predicate
+	metadataFunc func(client.Object) *genericbundle.ObjectMetadata
+	bundle       *genericbundle.GenericBundle[client.Object]
+	version      *eventversion.Version
+	mu           sync.Mutex
+	keyFunc      func(client.Object) string
 }
 
 // NewObjectEmitter creates a new ObjectEmitter with the provided event type and producer.
@@ -122,11 +123,17 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 		}
 	}
 
-	added, err := e.bundle.AddDelete(generic.ObjectMetadata{
+	metadata := &generic.ObjectMetadata{
 		ID:        string(tweaked.GetUID()),
 		Namespace: tweaked.GetNamespace(),
 		Name:      tweaked.GetName(),
-	})
+	}
+
+	if e.metadataFunc != nil {
+		metadata = e.metadataFunc(tweaked)
+	}
+
+	added, err := e.bundle.AddDelete(*metadata)
 	if err != nil {
 		return fmt.Errorf("failed to add delete event to bundle: %v", err)
 	}
@@ -195,11 +202,15 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 				return fmt.Errorf("failed to add event to resync bundle for obj: %v ", obj)
 			}
 		}
-		metas = append(metas, generic.ObjectMetadata{
+		tmp := genericbundle.ObjectMetadata{
 			ID:        string(tweaked.GetUID()),
 			Namespace: tweaked.GetNamespace(),
 			Name:      tweaked.GetName(),
-		})
+		}
+		if e.metadataFunc != nil {
+			tmp = *e.metadataFunc(tweaked)
+		}
+		metas = append(metas, tmp)
 	}
 
 	if err := e.sendBundle(); err != nil {
@@ -292,6 +303,12 @@ func (e *ObjectEmitter) sendBundle() error {
 }
 
 type EmitterOption func(*ObjectEmitter)
+
+func WithMetadataFunc(metadataFunc func(client.Object) *genericbundle.ObjectMetadata) EmitterOption {
+	return func(e *ObjectEmitter) {
+		e.metadataFunc = metadataFunc
+	}
+}
 
 func WithTweakFunc(tweakFunc func(client.Object)) EmitterOption {
 	return func(e *ObjectEmitter) {
