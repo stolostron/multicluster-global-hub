@@ -6,19 +6,19 @@ require (
 	github.com/IBM/sarama v1.44.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20241021120453-70fb95191324
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250707070324-70dc78ca61be
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
-	github.com/cloudevents/sdk-go/v2 v2.15.3-0.20250214143010-93e1a8d64cd6
+	github.com/cloudevents/sdk-go/v2 v2.16.1
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
+	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
-	github.com/evanphx/json-patch v5.9.0+incompatible
+	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fergusstrange/embedded-postgres v1.30.0
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-gonic/gin v1.10.1
 	github.com/go-co-op/gocron v1.37.0
-	github.com/go-kratos/kratos/v2 v2.8.3
-	github.com/go-logr/logr v1.4.2
+	github.com/go-kratos/kratos/v2 v2.8.4
+	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/gonvenience/ytbx v1.4.7
 	github.com/google/uuid v1.6.0
@@ -33,7 +33,7 @@ require (
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.74.0
-	github.com/spf13/pflag v1.0.6-0.20210604193023-d5e0c0615ace
+	github.com/spf13/pflag v1.0.6
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
@@ -203,11 +203,11 @@ require (
 	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/sync v0.12.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/time v0.7.0 // indirect
+	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.31.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20241021214115-324edc3d5d38 // indirect
