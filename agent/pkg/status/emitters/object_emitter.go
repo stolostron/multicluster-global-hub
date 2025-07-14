@@ -143,11 +143,7 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 			return err
 		}
 		// re-add
-		added, err = e.bundle.AddDelete(generic.ObjectMetadata{
-			ID:        string(tweaked.GetUID()),
-			Namespace: tweaked.GetNamespace(),
-			Name:      tweaked.GetName(),
-		})
+		added, err = e.bundle.AddDelete(*metadata)
 		if err != nil {
 			return fmt.Errorf("failed to re-add delete event to bundle: %v", err)
 		}

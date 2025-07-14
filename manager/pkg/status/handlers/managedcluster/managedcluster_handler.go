@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const BatchSize = 50
@@ -67,12 +68,19 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 
 	// update or create managed clusters in the database.
 	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
+		id := utils.GetClusterClaimID(&obj)
+		if id == "" {
+			log.Warnf("managed cluster %s has no cluster claim id, skip", obj.Name)
+			continue
+		}
+
 		payload, err := json.Marshal(obj)
 		if err != nil {
 			return err
 		}
+
 		batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
-			ClusterID:   string(obj.GetUID()),
+			ClusterID:   id,
 			LeafHubName: leafHubName,
 			Payload:     payload,
 			Error:       database.ErrorNone,

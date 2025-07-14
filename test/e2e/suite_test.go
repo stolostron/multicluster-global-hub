@@ -268,15 +268,6 @@ func completeOptions() utils.Options {
 	return testOptions
 }
 
-func GetClusterID(cluster clusterv1.ManagedCluster) string {
-	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == commonconstants.ClusterIdClaimName {
-			return claim.Value
-		}
-	}
-	return ""
-}
-
 // Traverse directories upwards until a directory containing go.mod is found.
 func findRootDir(dir string) (string, error) {
 	for {

@@ -21,6 +21,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -291,7 +292,7 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 
 	By("Check the label is added")
 	Eventually(func() error {
-		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
+		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster))
 		if err != nil {
 			return err
 		}
@@ -307,7 +308,8 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 				return nil
 			}
 		}
-		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, managedClusterInfo: %v", labelKey, labelVal, cluster.Name, *managedCluster)
+		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, labels: %v", labelKey, labelVal, cluster.Name,
+			cluster.Labels)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
@@ -321,7 +323,7 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 	}
 
 	Eventually(func() error {
-		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
+		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster))
 		if err != nil {
 			return err
 		}

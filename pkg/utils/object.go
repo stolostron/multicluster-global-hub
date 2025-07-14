@@ -80,13 +80,20 @@ func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName 
 		return "", fmt.Errorf("failed to get cluster - %w", err)
 	}
 	clusterId := string(cluster.GetUID())
-	for _, claim := range cluster.Status.ClusterClaims {
-		if claim.Name == constants.ClusterIdClaimName {
-			clusterId = claim.Value
-			break
-		}
+	claimID := GetClusterClaimID(&cluster)
+	if claimID != "" {
+		clusterId = claimID
 	}
 	return clusterId, nil
+}
+
+func GetClusterClaimID(cluster *clusterv1.ManagedCluster) string {
+	for _, claim := range cluster.Status.ClusterClaims {
+		if claim.Name == constants.ClusterIdClaimName {
+			return claim.Value
+		}
+	}
+	return ""
 }
 
 func GetObjectKey(obj client.Object) string {
