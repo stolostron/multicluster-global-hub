@@ -331,7 +331,7 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 		}
 		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
 			if val == labelVal {
-				return fmt.Errorf("the label %s:%s should not be deleted from cluster %s", labelKey, labelVal, cluster.Name)
+				return fmt.Errorf("the label %s:%s should be deleted from cluster %s", labelKey, labelVal, cluster.Name)
 			}
 		}
 		return nil
