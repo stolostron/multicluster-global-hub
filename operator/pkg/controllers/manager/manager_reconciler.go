@@ -201,25 +201,10 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
-		// Remove the migrations if exists
-		mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
-		err := r.GetClient().List(ctx, mcms, client.InNamespace(mgh.Namespace))
-		if len(mcms.Items) > 0 {
-			for _, mcm := range mcms.Items {
-				err = r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{})
-				if err != nil {
-					return ctrl.Result{}, err
-				}
-			}
-			log.Info("removing the migration resources")
-			return ctrl.Result{}, nil
-		}
-
-		err = r.pruneServiceMonitorResources(ctx)
+		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, r.pruneResources)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		isResourceRemoved = true
 		return ctrl.Result{}, nil
 	}
 	isResourceRemoved = false
@@ -364,11 +349,25 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	return r.setUpMetrics(ctx, mgh)
 }
 
-func (r *ManagerReconciler) pruneServiceMonitorResources(ctx context.Context) error {
+func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string) error {
+	// Remove the migrations if exists
+	mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
+	err := r.GetClient().List(ctx, mcms, client.InNamespace(namespace))
+	if len(mcms.Items) > 0 {
+		for _, mcm := range mcms.Items {
+			err = r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		log.Info("removing the migration resources")
+		return nil
+	}
+
 	mghServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
-			Namespace: commonutils.GetDefaultNamespace(),
+			Namespace: namespace,
 			Labels: map[string]string{
 				constants.GlobalHubOwnerLabelKey: constants.GHOperatorOwnerLabelVal,
 			},

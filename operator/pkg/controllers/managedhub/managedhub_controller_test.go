@@ -164,7 +164,7 @@ func TestManagedHubController_pruneManagedHubs(t *testing.T) {
 			r := &ManagedHubController{
 				c: fakeClient,
 			}
-			if err := r.pruneManagedHubs(context.Background()); (err != nil) != tt.wantErr {
+			if err := r.pruneManagedHubs(context.Background(), ""); (err != nil) != tt.wantErr {
 				t.Errorf("ManagedHubController.pruneManagedHubs() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
