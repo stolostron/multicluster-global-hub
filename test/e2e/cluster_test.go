@@ -21,6 +21,7 @@ import (
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -48,7 +49,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 			By("Create the cluster event")
 			cluster := managedClusters[0]
 			hubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
-			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdd", cluster.Name)
+			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdc", cluster.Name)
 			eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
 			clusterEvent := &corev1.Event{
 				ObjectMeta: metav1.ObjectMeta{
@@ -79,7 +80,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 					LeafHubName: hubName,
 					EventName:   eventName,
 				}
-				err := db.First(&clusterEvent).Error
+				err := db.Where(clusterEvent).First(&clusterEvent).Error
 				if err != nil {
 					return err
 				}
@@ -94,6 +95,7 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 		})
 	})
 
+	// TODO: which case the test case want to cover, can we skip it, or move it into intergration test?
 	Context("Cluster Managedcluster, should have some annotation", func() {
 		It("create managedhub cluster, should have annotation", func() {
 			By("Create the managed cluster")
@@ -290,23 +292,24 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 
 	By("Check the label is added")
 	Eventually(func() error {
-		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
+		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster))
 		if err != nil {
 			return err
 		}
-		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
+		managedCluster, err := getManagedClusterByName(httpClient, cluster.Name)
 		if err != nil {
 			return err
 		}
-		if managedClusterInfo == nil {
+		if managedCluster == nil {
 			return fmt.Errorf("no managedcluster found")
 		}
-		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+		if val, ok := managedCluster.Labels[labelKey]; ok {
 			if labelVal == val {
 				return nil
 			}
 		}
-		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, managedClusterInfo: %v", labelKey, labelVal, cluster.Name, *managedClusterInfo)
+		return fmt.Errorf("failed to add label [%s: %s] to cluster %s, labels: %v", labelKey, labelVal, cluster.Name,
+			cluster.Labels)
 	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
@@ -320,21 +323,21 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 	}
 
 	Eventually(func() error {
-		err := updateClusterLabelByAPI(httpClient, patches, GetClusterID(cluster))
+		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster))
 		if err != nil {
 			return err
 		}
-		managedClusterInfo, err := getManagedClusterByName(httpClient, cluster.Name)
+		managedCluster, err := getManagedClusterByName(httpClient, cluster.Name)
 		if err != nil {
 			return err
 		}
-		if val, ok := managedClusterInfo.Labels[labelKey]; ok {
+		if val, ok := managedCluster.Labels[labelKey]; ok {
 			if val == labelVal {
-				return fmt.Errorf("the label %s:%s should not be deleted from cluster %s", labelKey, labelVal, cluster.Name)
+				return fmt.Errorf("the label %s:%s should be deleted from cluster %s", labelKey, labelVal, cluster.Name)
 			}
 		}
 		return nil
-	}, 3*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+	}, 5*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 }
 
 func updateClusterLabelByAPI(client *http.Client, patches []patch, managedClusterID string) error {

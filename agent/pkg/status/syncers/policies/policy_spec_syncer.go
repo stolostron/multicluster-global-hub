@@ -49,6 +49,7 @@ func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Prod
 			if !ok {
 				log.Errorf("Wrong instance passed to clean policy function, not a Policy")
 			}
+			policy.SetManagedFields(nil)
 			policy.Status = policiesv1.PolicyStatus{}
 		}),
 	)

@@ -163,7 +163,7 @@ func TestObjectEmitter_MixedBundleOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify bundle state
-	require.Len(t, emitter.bundle.Update, 2)
+	require.Len(t, emitter.bundle.Update, 1)
 	require.Len(t, emitter.bundle.Delete, 1)
 
 	// Test that bundle is not empty

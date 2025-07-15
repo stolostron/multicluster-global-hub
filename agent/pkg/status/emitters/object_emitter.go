@@ -24,14 +24,16 @@ import (
 var log = logger.DefaultZapLogger()
 
 type ObjectEmitter struct {
-	eventType   enum.EventType
-	topic       string
-	producer    transport.Producer
-	tweakFunc   func(client.Object)
-	eventFilter predicate.Predicate
-	bundle      *genericbundle.GenericBundle[client.Object]
-	version     *eventversion.Version
-	mu          sync.Mutex
+	eventType    enum.EventType
+	topic        string
+	producer     transport.Producer
+	tweakFunc    func(client.Object)
+	eventFilter  predicate.Predicate
+	metadataFunc func(client.Object) *genericbundle.ObjectMetadata
+	bundle       *genericbundle.GenericBundle[client.Object]
+	version      *eventversion.Version
+	mu           sync.Mutex
+	keyFunc      func(client.Object) string
 }
 
 // NewObjectEmitter creates a new ObjectEmitter with the provided event type and producer.
@@ -45,6 +47,9 @@ func NewObjectEmitter(
 		producer:  producer,
 		version:   eventversion.NewVersion(),
 		bundle:    genericbundle.NewGenericBundle[client.Object](),
+		keyFunc: func(obj client.Object) string {
+			return obj.GetNamespace() + "/" + obj.GetName()
+		},
 	}
 	// apply the options
 	for _, fn := range opts {
@@ -73,6 +78,16 @@ func (e *ObjectEmitter) EventFilter() predicate.Predicate {
 func (e *ObjectEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	// if the object is in update array, update it
+	for i, existingObj := range e.bundle.Update {
+		if e.keyFunc(existingObj) == e.keyFunc(obj) {
+			e.bundle.Update[i] = obj
+			e.version.Incr()
+			return nil
+		}
+	}
+
 	return e.handleDeltaEvent(obj, e.bundle.AddUpdate)
 }
 
@@ -92,11 +107,33 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 	if err != nil {
 		return err
 	}
-	added, err := e.bundle.AddDelete(generic.ObjectMetadata{
+	// if the object is in update array, remove it
+	for i, existingObj := range e.bundle.Update {
+		if e.keyFunc(existingObj) == e.keyFunc(tweaked) {
+			e.bundle.Update = append(e.bundle.Update[:i], e.bundle.Update[i+1:]...)
+			e.version.Incr()
+			break
+		}
+	}
+
+	// if already in delete array, do nothing
+	for _, existingObj := range e.bundle.Delete {
+		if (existingObj.Namespace + "/" + existingObj.Name) == e.keyFunc(tweaked) {
+			return nil
+		}
+	}
+
+	metadata := &generic.ObjectMetadata{
 		ID:        string(tweaked.GetUID()),
 		Namespace: tweaked.GetNamespace(),
 		Name:      tweaked.GetName(),
-	})
+	}
+
+	if e.metadataFunc != nil {
+		metadata = e.metadataFunc(tweaked)
+	}
+
+	added, err := e.bundle.AddDelete(*metadata)
 	if err != nil {
 		return fmt.Errorf("failed to add delete event to bundle: %v", err)
 	}
@@ -106,11 +143,7 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 			return err
 		}
 		// re-add
-		added, err = e.bundle.AddDelete(generic.ObjectMetadata{
-			ID:        string(tweaked.GetUID()),
-			Namespace: tweaked.GetNamespace(),
-			Name:      tweaked.GetName(),
-		})
+		added, err = e.bundle.AddDelete(*metadata)
 		if err != nil {
 			return fmt.Errorf("failed to re-add delete event to bundle: %v", err)
 		}
@@ -165,11 +198,15 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 				return fmt.Errorf("failed to add event to resync bundle for obj: %v ", obj)
 			}
 		}
-		metas = append(metas, generic.ObjectMetadata{
+		tmp := genericbundle.ObjectMetadata{
 			ID:        string(tweaked.GetUID()),
 			Namespace: tweaked.GetNamespace(),
 			Name:      tweaked.GetName(),
-		})
+		}
+		if e.metadataFunc != nil {
+			tmp = *e.metadataFunc(tweaked)
+		}
+		metas = append(metas, tmp)
 	}
 
 	if err := e.sendBundle(); err != nil {
@@ -241,6 +278,8 @@ func (e *ObjectEmitter) sendBundle() error {
 		return fmt.Errorf("failed to load bundle into cloudevent: %v", err)
 	}
 
+	log.Debugf("sending cloudevents: %s", evt)
+
 	ctx := context.Background()
 	if e.topic != "" {
 		ctx = cecontext.WithTopic(ctx, e.topic)
@@ -260,6 +299,12 @@ func (e *ObjectEmitter) sendBundle() error {
 }
 
 type EmitterOption func(*ObjectEmitter)
+
+func WithMetadataFunc(metadataFunc func(client.Object) *genericbundle.ObjectMetadata) EmitterOption {
+	return func(e *ObjectEmitter) {
+		e.metadataFunc = metadataFunc
+	}
+}
 
 func WithTweakFunc(tweakFunc func(client.Object)) EmitterOption {
 	return func(e *ObjectEmitter) {

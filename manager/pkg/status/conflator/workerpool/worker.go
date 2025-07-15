@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
@@ -108,7 +109,7 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 	} else {
 		log.Debugw("handle the DB job successfully", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
-			"event", job.Event)
+			"version", job.Event.Extensions()[version.ExtVersion])
 	}
 }
 
