@@ -24,14 +24,18 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	ConditionReasonResourceInitialized = "ResourceInitialized"
-	ConditionReasonError               = "Error"
-	ConditionReasonTimeout             = "Timeout"
-	ManagedServiceAddonName            = "managed-serviceaccount"
-	DefaultAddOnInstallationNamespace  = "open-cluster-management-agent-addon"
+	ConditionReasonTokenSecretMissing     = "TokenSecretMissing"
+	ConditionReasonResourceInitialized    = "ResourceInitialized"
+	ConditionReasonResourceNotInitialized = "ResourceNotInitialized"
+	ConditionReasonTimeout                = "Timeout"
+	ConditionReasonWaiting                = "Waiting"
+	ConditionReasonError                  = "Error"
+	ManagedServiceAddonName               = "managed-serviceaccount"
+	DefaultAddOnInstallationNamespace     = "open-cluster-management-agent-addon"
 )
 
 var (
@@ -56,28 +60,43 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 	log.Info("migration initializing started")
 
-	condition := metav1.Condition{
-		Type:    migrationv1alpha1.ConditionTypeInitialized,
-		Status:  metav1.ConditionFalse,
-		Reason:  ConditionReasonWaiting,
-		Message: "Waiting for the source and target hubs to be initialized",
+	// Add finalizer when entering initialization phase since cleanup may be needed
+	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+		if err := m.Update(ctx, mcm); err != nil {
+			return false, err
+		}
 	}
-	nextPhase := migrationv1alpha1.PhaseInitializing
 
-	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	condType := migrationv1alpha1.ConditionTypeInitialized
+	condStatus := metav1.ConditionTrue
+	condReason := ConditionReasonResourceInitialized
+	condMessage := "All source and target hubs have been successfully initialized"
+	var err error
+
+	defer func() {
+		if err != nil {
+			condMessage = err.Error()
+			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonResourceNotInitialized
+		}
+		log.Debugf("initializing condition %s(%s): %s", condType, condReason, condMessage)
+		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, migrationStageTimeout)
+		if e != nil {
+			log.Errorf("failed to update the %s condition: %v", condType, e)
+		}
+	}()
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubToClusters == nil {
-		sourceHubToClustersFromDB, err := getSourceHubToClustersFromDB(mcm)
-		if err != nil {
-			condition.Message = err.Error()
-			condition.Reason = ConditionReasonError
+		sourceHubToClustersFromDB, e := getSourceHubToClustersFromDB(mcm)
+		if e != nil {
+			err = e
 			return false, err
 		}
 		if len(sourceHubToClustersFromDB) == 0 {
-			condition.Message = fmt.Sprintf("not found the clusters %s", mcm.Spec.IncludedManagedClusters)
-			condition.Reason = ConditionReasonError
+			err = fmt.Errorf("not found the clusters %s", mcm.Spec.IncludedManagedClusters)
 			return false, nil
 		}
 		sourceHubToClusters = sourceHubToClustersFromDB
@@ -85,25 +104,23 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	// 1. Create the managedserviceaccount -> generate bootstrap secret
-	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
+	if err = m.ensureManagedServiceAccount(ctx, mcm); err != nil {
 		return false, err
 	}
-	token := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: mcm.Name, Namespace: mcm.Spec.To}}
-	err := m.Client.Get(ctx, client.ObjectKeyFromObject(token), token)
+	tokenSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: mcm.Name, Namespace: mcm.Spec.To}}
+	err = m.Client.Get(ctx, client.ObjectKeyFromObject(tokenSecret), tokenSecret)
 	if err != nil && !apierrors.IsNotFound(err) {
-		condition.Message = err.Error()
-		condition.Reason = ConditionReasonError
 		return false, err
 	} else if apierrors.IsNotFound(err) {
-		condition.Message = fmt.Sprintf("waiting for token secret (%s/%s) to be created", token.Namespace, token.Name)
-		log.Info(condition.Message)
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonWaiting
+		condMessage = fmt.Sprintf("waiting for token secret(%s/%s) to be created", tokenSecret.Namespace, tokenSecret.Name)
+		err = nil // An unready token should not be considered an error
 		return true, nil
 	}
 	// bootstrap secret for source hub
 	bootstrapSecret, err := m.generateBootstrapSecret(ctx, mcm)
 	if err != nil {
-		condition.Message = err.Error()
-		condition.Reason = ConditionReasonError
 		return false, err
 	}
 
@@ -111,9 +128,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
-			condition.Message = err.Error()
-			condition.Reason = ConditionReasonError
+		if err = m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
 			return false, err
 		}
 		log.Infof("sent initializing event to target hub %s", mcm.Spec.To)
@@ -123,11 +138,9 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// 3. Send event to Source Hub
 	for fromHubName, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
-			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
+			err = m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
 				nil, bootstrapSecret)
 			if err != nil {
-				condition.Message = err.Error()
-				condition.Reason = ConditionReasonError
 				return false, err
 			}
 			log.Infof("sent initialing events to source hubs: %s", fromHubName)
@@ -137,70 +150,42 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	// 4. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-		condition.Message = fmt.Sprintf("initializing target hub %s with err :%s", mcm.Spec.To, errMsg)
-		condition.Reason = ConditionReasonError
+		err = fmt.Errorf("initializing target hub %s with err :%s", mcm.Spec.To, errMsg)
 		return false, nil
 	}
 	for fromHubName := range sourceHubToClusters {
 		if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-			condition.Message = fmt.Sprintf("initializing source hub %s with err :%s", fromHubName, errMsg)
-			condition.Reason = ConditionReasonError
+			err = fmt.Errorf("initializing source hub %s with err :%s", fromHubName, errMsg)
 			return false, nil
 		}
 	}
 
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
-		condition.Message = fmt.Sprintf("waiting for target hub %s to complete initialization", mcm.Spec.To)
+		condMessage = fmt.Sprintf("waiting for target hub %s to complete initialization", mcm.Spec.To)
+		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonWaiting
+		err = nil // waiting should not be considered an error
 		return true, nil
 	}
 
 	for fromHubName := range sourceHubToClusters {
 		if !GetFinished(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
-			condition.Message = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHubName)
+			condMessage = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHubName)
+			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonWaiting
+			err = nil // waiting should not be considered an error
 			return true, nil
 		}
 	}
 
-	condition.Status = metav1.ConditionTrue
-	condition.Reason = ConditionReasonResourceInitialized
-	condition.Message = "All source and target hubs have been successfully initialized"
-	nextPhase = migrationv1alpha1.PhaseDeploying
+	condStatus = metav1.ConditionTrue
+	condReason = ConditionReasonResourceInitialized
+	condMessage = "All source and target hubs have been successfully initialized"
 
 	log.Info("migration initializing finished")
 	return false, nil
 }
 
-// handleMigrationStatus updates the migration's condition and phase, transitioning to Cleaning if not already Cleaning
-// and a timeout or "Error" condition occurs, or to Failed if in Cleaning with a timeout or "Error" condition.
-func (m *ClusterMigrationController) handleMigrationStatus(ctx context.Context,
-	mcm *migrationv1alpha1.ManagedClusterMigration,
-	condition *metav1.Condition,
-	nextPhase *string,
-	stageTimeout time.Duration,
-) {
-	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
-		condition.Reason = ConditionReasonTimeout
-		condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
-		*nextPhase = migrationv1alpha1.PhaseCleaning
-		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-			*nextPhase = migrationv1alpha1.PhaseFailed
-		}
-	}
-
-	if condition.Reason == ConditionReasonError {
-		*nextPhase = migrationv1alpha1.PhaseCleaning
-		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-			*nextPhase = migrationv1alpha1.PhaseFailed
-		}
-	}
-
-	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
-	if err != nil {
-		log.Errorf("failed to update the %s condition: %v", condition.Type, err)
-	}
-}
 
 // sendEventToSourceHub specifies the manager send the message into "From Hub" via spec path(or topic)
 // Stage is the expected state for migration, it algin with the condition states
@@ -397,3 +382,4 @@ func getBootstrapSecret(sourceHubCluster string, kubeconfigBytes []byte) *corev1
 	}
 	return secret
 }
+
