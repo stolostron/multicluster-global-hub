@@ -18,13 +18,13 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (

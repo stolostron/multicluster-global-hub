@@ -77,8 +77,8 @@ func (m *ClusterMigrationController) selectActiveMigration(migrations []migratio
 // updateMigrationConditions updates the conditions for desired and pending migrations
 func (m *ClusterMigrationController) updateMigrationConditions(ctx context.Context,
 	desiredMigration *migrationv1alpha1.ManagedClusterMigration,
-	pendingMigrations []migrationv1alpha1.ManagedClusterMigration) error {
-
+	pendingMigrations []migrationv1alpha1.ManagedClusterMigration,
+) error {
 	// Update desired migration with started condition
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := m.Client.Get(ctx, client.ObjectKeyFromObject(desiredMigration), desiredMigration); err != nil {

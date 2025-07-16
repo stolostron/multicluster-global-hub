@@ -10,10 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
