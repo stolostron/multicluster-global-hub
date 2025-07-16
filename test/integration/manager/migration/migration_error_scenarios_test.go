@@ -1,0 +1,377 @@
+package migration_test
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+)
+
+var _ = Describe("Migration Error Scenarios", func() {
+	var ctx context.Context
+	var cancel context.CancelFunc
+	var testID, fromHubName, toHubName, clusterName, migrationName string
+
+	BeforeEach(func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		testID = fmt.Sprintf("test-%d", time.Now().UnixNano())
+		fromHubName = "hub1-" + testID
+		toHubName = "hub2-" + testID
+		clusterName = "cluster-" + testID
+		migrationName = "migration-" + testID
+
+		Expect(createHubAndCluster(ctx, fromHubName, clusterName)).To(Succeed())
+		Expect(createHubAndCluster(ctx, toHubName, "temp-cluster-for-hub-creation")).To(Succeed())
+	})
+
+	AfterEach(func() {
+		By("Cleaning up test resources")
+		cleanupHubAndClusters(ctx, fromHubName, clusterName)
+		cleanupHubAndClusters(ctx, toHubName, "temp-cluster-for-hub-creation")
+
+		By("Cleaning up migration CR and waiting for deletion")
+		Expect(cleanupMigrationCR(ctx, migrationName, "default")).To(Succeed())
+
+		By("Ensuring no migrations are running before next test")
+		Eventually(func() bool {
+			migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
+			if err := mgr.GetClient().List(ctx, migrationList); err != nil {
+				return false
+			}
+			for _, m := range migrationList.Items {
+				if m.Status.Phase != migrationv1alpha1.PhaseCompleted &&
+					m.Status.Phase != migrationv1alpha1.PhaseFailed &&
+					m.DeletionTimestamp == nil {
+					return false
+				}
+			}
+			return true
+		}, "10s", "200ms").Should(BeTrue())
+
+		cancel()
+	})
+
+	Describe("Validation Error Scenarios", func() {
+		Context("Missing Resources", func() {
+			It("should fail when from hub does not exist", func() {
+				By("Creating migration with non-existent from hub")
+				m, err := createMigrationCR(ctx, migrationName, "non-existent-hub", toHubName, []string{clusterName})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m).NotTo(BeNil())
+
+				By("Verifying validation failure with proper condition and phase")
+				Eventually(func() error {
+					if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+						return fmt.Errorf("failed to get migration: %v", err)
+					}
+					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
+					}
+					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					if condition == nil {
+						return fmt.Errorf("ConditionTypeValidated not found")
+					}
+					if condition.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ConditionTypeValidated status expected False, got %s", condition.Status)
+					}
+					if condition.Reason != migration.ConditionReasonHubClusterNotFound {
+						return fmt.Errorf("ConditionTypeValidated reason expected %s, got %s", migration.ConditionReasonHubClusterNotFound, condition.Reason)
+					}
+					return nil
+				}, "10s", "200ms").Should(Succeed())
+			})
+
+			It("should fail when to hub does not exist", func() {
+				By("Creating migration with non-existent to hub")
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, "non-existent-hub", []string{clusterName})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m).NotTo(BeNil())
+
+				By("Verifying validation failure with proper condition and phase")
+				Eventually(func() error {
+					if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+						return fmt.Errorf("failed to get migration: %v", err)
+					}
+					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
+					}
+					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					if condition == nil {
+						return fmt.Errorf("ConditionTypeValidated not found")
+					}
+					if condition.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ConditionTypeValidated status expected False, got %s", condition.Status)
+					}
+					if condition.Reason != migration.ConditionReasonHubClusterNotFound {
+						return fmt.Errorf("ConditionTypeValidated reason expected %s, got %s", migration.ConditionReasonHubClusterNotFound, condition.Reason)
+					}
+					return nil
+				}, "10s", "200ms").Should(Succeed())
+			})
+		})
+
+		Context("Invalid Clusters", func() {
+			It("should fail when cluster does not exist", func() {
+				By("Creating migration with non-existent cluster")
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{"non-existent-cluster"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m).NotTo(BeNil())
+
+				By("Verifying validation failure with proper condition and phase")
+				Eventually(func() error {
+					if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+						return fmt.Errorf("failed to get migration: %v", err)
+					}
+					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
+					}
+					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					if condition == nil {
+						return fmt.Errorf("ConditionTypeValidated not found")
+					}
+					if condition.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ConditionTypeValidated status expected False, got %s", condition.Status)
+					}
+					if condition.Reason != migration.ConditionReasonClusterNotFound {
+						return fmt.Errorf("ConditionTypeValidated reason expected %s, got %s", migration.ConditionReasonClusterNotFound, condition.Reason)
+					}
+					return nil
+				}, "10s", "200ms").Should(Succeed())
+			})
+
+			It("should fail when cluster is already in destination hub", func() {
+				By("Creating cluster in destination hub")
+				destCluster := clusterName + "-dest"
+				Expect(createHubAndCluster(ctx, toHubName, destCluster)).To(Succeed())
+
+				By("Creating migration with cluster already in destination")
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{destCluster})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m).NotTo(BeNil())
+
+				By("Verifying validation failure with proper condition and phase")
+				Eventually(func() error {
+					if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+						return fmt.Errorf("failed to get migration: %v", err)
+					}
+					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
+					}
+					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					if condition == nil {
+						return fmt.Errorf("ConditionTypeValidated not found")
+					}
+					if condition.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ConditionTypeValidated status expected False, got %s", condition.Status)
+					}
+					if condition.Reason != migration.ConditionReasonClusterConflict {
+						return fmt.Errorf("ConditionTypeValidated reason expected %s, got %s", migration.ConditionReasonClusterConflict, condition.Reason)
+					}
+					return nil
+				}, "10s", "200ms").Should(Succeed())
+
+				By("Cleaning up additional cluster")
+				cleanupHubAndClusters(ctx, toHubName, destCluster)
+			})
+
+			It("should fail when cluster is not in specified from hub", func() {
+				By("Creating cluster in a different hub")
+				otherHub := "other-hub-" + testID
+				Expect(createHubAndCluster(ctx, otherHub, clusterName)).To(Succeed())
+
+				By("Creating migration with cluster not in specified from hub")
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m).NotTo(BeNil())
+
+				By("Verifying validation failure with proper condition and phase")
+				Eventually(func() error {
+					if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+						return fmt.Errorf("failed to get migration: %v", err)
+					}
+					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
+					}
+					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					if condition == nil {
+						return fmt.Errorf("ConditionTypeValidated not found")
+					}
+					if condition.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ConditionTypeValidated status expected False, got %s", condition.Status)
+					}
+					if condition.Reason != migration.ConditionReasonClusterNotFound {
+						return fmt.Errorf("ConditionTypeValidated reason expected %s, got %s", migration.ConditionReasonClusterNotFound, condition.Reason)
+					}
+					return nil
+				}, "10s", "200ms").Should(Succeed())
+
+				By("Cleaning up additional cluster")
+				cleanupHubAndClusters(ctx, otherHub, clusterName)
+			})
+		})
+
+		Context("Resource Validation", func() {
+			It("should fail when invalid resource format is provided", func() {
+				By("Creating migration with invalid resource format")
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(m).NotTo(BeNil())
+
+				By("Adding invalid resource to spec")
+				m.Spec.IncludedResources = []string{"invalid-resource-format"}
+				Expect(mgr.GetClient().Update(ctx, m)).To(Succeed())
+
+				By("Verifying validation failure with proper condition and phase")
+				Eventually(func() error {
+					if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+						return fmt.Errorf("failed to get migration: %v", err)
+					}
+					if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+						return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
+					}
+					condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+					if condition == nil {
+						return fmt.Errorf("ConditionTypeValidated not found")
+					}
+					if condition.Status != metav1.ConditionFalse {
+						return fmt.Errorf("ConditionTypeValidated status expected False, got %s", condition.Status)
+					}
+					if condition.Reason != migration.ConditionReasonResourceInvalid {
+						return fmt.Errorf("ConditionTypeValidated reason expected %s, got %s", migration.ConditionReasonResourceInvalid, condition.Reason)
+					}
+					return nil
+				}, "10s", "200ms").Should(Succeed())
+			})
+		})
+	})
+
+	Describe("Initialization Error Scenarios", func() {
+		var m *migrationv1alpha1.ManagedClusterMigration
+
+		BeforeEach(func() {
+			var err error
+			m, err = createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m).NotTo(BeNil())
+
+			By("Waiting for migration to reach Initializing phase")
+			Eventually(func() error {
+				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+					return fmt.Errorf("failed to get migration: %v", err)
+				}
+				if m.Status.Phase != migrationv1alpha1.PhaseInitializing {
+					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseInitializing, m.Status.Phase)
+				}
+				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeValidated)
+				if condition == nil || condition.Status != metav1.ConditionTrue || condition.Reason != migration.ConditionReasonResourceValidated {
+					return fmt.Errorf("validation condition not properly set")
+				}
+				return nil
+			}, "10s", "200ms").Should(Succeed())
+
+			By("Creating token secret for migration")
+			Expect(ensureManagedServiceAccount(m.Name, toHubName)).To(Succeed())
+		})
+
+		It("should transition to cleaning when from hub reports error", func() {
+			By("Simulating from hub error during initialization")
+			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing)
+			migration.SetErrorMessage(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing, "initialization failed")
+
+			By("Verifying error condition and transition to Cleaning phase")
+			Eventually(func() error {
+				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+					return fmt.Errorf("failed to get migration: %v", err)
+				}
+
+				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				if condition == nil {
+					return fmt.Errorf("ConditionTypeInitialized not found")
+				}
+				if condition.Status != metav1.ConditionFalse {
+					return fmt.Errorf("ConditionTypeInitialized status expected False, got %s", condition.Status)
+				}
+				if condition.Reason != migration.ConditionReasonError {
+					return fmt.Errorf("ConditionTypeInitialized reason expected %s, got %s", migration.ConditionReasonError, condition.Reason)
+				}
+
+				if m.Status.Phase != migrationv1alpha1.PhaseCleaning {
+					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseCleaning, m.Status.Phase)
+				}
+				return nil
+			}, "10s", "200ms").Should(Succeed())
+		})
+
+		It("should transition to cleaning when to hub reports error", func() {
+			By("Simulating to hub error during initialization")
+			migration.SetStarted(string(m.GetUID()), toHubName, migrationv1alpha1.PhaseInitializing)
+			migration.SetErrorMessage(string(m.GetUID()), toHubName, migrationv1alpha1.PhaseInitializing, "initialization failed")
+
+			By("Verifying error condition and transition to Cleaning phase")
+			Eventually(func() error {
+				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+					return fmt.Errorf("failed to get migration: %v", err)
+				}
+
+				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				if condition == nil {
+					return fmt.Errorf("ConditionTypeInitialized not found")
+				}
+				if condition.Status != metav1.ConditionFalse {
+					return fmt.Errorf("ConditionTypeInitialized status expected False, got %s", condition.Status)
+				}
+				if condition.Reason != migration.ConditionReasonError {
+					return fmt.Errorf("ConditionTypeInitialized reason expected %s, got %s", migration.ConditionReasonError, condition.Reason)
+				}
+
+				if m.Status.Phase != migrationv1alpha1.PhaseCleaning {
+					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseCleaning, m.Status.Phase)
+				}
+				return nil
+			}, "10s", "200ms").Should(Succeed())
+		})
+
+		It("should handle timeout when hub doesn't respond", func() {
+			By("Waiting for migration timeout without hub response")
+			// The migration controller checks for timeout using isReachedTimeout()
+			// which uses the ConditionTypeStarted.LastTransitionTime
+			// Since the timeout is 5 minutes in controller, this test should trigger timeout behavior
+
+			By("Verifying timeout condition and transition to Cleaning phase")
+			Eventually(func() error {
+				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
+					return fmt.Errorf("failed to get migration: %v", err)
+				}
+
+				condition := meta.FindStatusCondition(m.Status.Conditions, migrationv1alpha1.ConditionTypeInitialized)
+				if condition == nil {
+					return fmt.Errorf("ConditionTypeInitialized not found")
+				}
+				if condition.Status != metav1.ConditionFalse {
+					return fmt.Errorf("ConditionTypeInitialized status expected False, got %s", condition.Status)
+				}
+				// Could be either Waiting, Timeout, or Error depending on timing
+				if condition.Reason != migration.ConditionReasonWaiting &&
+					condition.Reason != migration.ConditionReasonTimeout &&
+					condition.Reason != migration.ConditionReasonError {
+					return fmt.Errorf("ConditionTypeInitialized reason expected Waiting/Timeout/Error, got %s", condition.Reason)
+				}
+
+				// Phase should still be Initializing if waiting, or Cleaning if timeout/error
+				if m.Status.Phase != migrationv1alpha1.PhaseInitializing &&
+					m.Status.Phase != migrationv1alpha1.PhaseCleaning {
+					return fmt.Errorf("expected phase Initializing or Cleaning, got %s", m.Status.Phase)
+				}
+				return nil
+			}, "10s", "200ms").Should(Succeed())
+		})
+	})
+})

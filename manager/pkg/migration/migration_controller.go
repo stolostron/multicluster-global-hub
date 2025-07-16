@@ -13,12 +13,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -117,22 +117,28 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	log.Infof("reconcile managed cluster migration %v", req)
 
 	// get the current migration
-	mcm, err := m.getCurrentMigration(ctx, req)
+	mcm, err := m.selectAndPrepareMigration(ctx, req)
 	if err != nil {
 		log.Errorf("failed to get managedclustermigration %v", err)
 		return ctrl.Result{}, err
 	}
 	if mcm == nil {
-		log.Infof("no desired managedclustermigration found")
+		log.Info("no desired managedclustermigration found")
 		return ctrl.Result{}, nil
 	}
 
-	log.Debugf("current migration: %s", mcm.Name)
+	log.Infof("processing migration instance: %s", mcm.Name)
 
-	// Check if migration is in final state (completed or failed)
-	if mcm.Status.Phase == migrationv1alpha1.PhaseCompleted || mcm.Status.Phase == migrationv1alpha1.PhaseFailed {
-		log.Infof("migration %s is in final state: %s", mcm.Name, mcm.Status.Phase)
-		return ctrl.Result{}, nil
+	// add the finalizer if the migration is not being deleted
+	if mcm.DeletionTimestamp == nil {
+		if controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+			if err := m.Update(ctx, mcm); err != nil {
+				log.Errorf("failed to add finalizer: %v", err)
+				return ctrl.Result{}, err
+			}
+			// initializing the migration status for the instance
+			AddMigrationStatus(string(mcm.GetUID()))
+		}
 	}
 
 	// validating
@@ -180,10 +186,14 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// Handle deletion
-	if !mcm.DeletionTimestamp.IsZero() {
-		// Let the cleaning phase handle finalizer removal
-		return ctrl.Result{}, nil
+	// clean up the finalizer
+	if mcm.DeletionTimestamp != nil {
+		if controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+			if updateErr := m.Update(ctx, mcm); updateErr != nil {
+				log.Errorf("failed to remove finalizer: %v", updateErr)
+			}
+			RemoveMigrationStatus(string(mcm.GetUID()))
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -216,26 +226,14 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 
 	// require the msa info when initializing or cleaning
 	if stage == migrationv1alpha1.PhaseInitializing || stage == migrationv1alpha1.PhaseCleaning {
-		// get the namespace from the managedserviceaccount addon
-		msa := addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{
-			Name:      "managed-serviceaccount",
-			Namespace: migration.Spec.To, // target hub
-		}}
-		err := m.Client.Get(ctx, client.ObjectKeyFromObject(&msa), &msa)
+
+		installNamespace, err := m.getManagedServiceAccountAddonInstallNamespace(ctx, migration)
 		if err != nil {
-			return fmt.Errorf("failed to get the managedserviceaccount %s/%s: %v", msa.Namespace, msa.Name, err)
+			return fmt.Errorf("failed to get the managedserviceaccount addon installNamespace: %v", err)
 		}
-		if msa.Status.Namespace == "" {
-			return fmt.Errorf("the status.namespace of managedserviceaccount %s/%s is not ready", msa.Namespace, msa.Name)
-		}
-		msaNamespace := msa.Status.Namespace
-		msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
-		// if user specifies the managedserviceaccount addon namespace, then use it
-		if val, ok := migration.Annotations[msaInstallNamespaceAnnotation]; ok {
-			msaNamespace = val
-		}
+
 		managedClusterMigrationToEvent.ManagedServiceAccountName = migration.Name
-		managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = msaNamespace
+		managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = installNamespace
 	}
 
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
