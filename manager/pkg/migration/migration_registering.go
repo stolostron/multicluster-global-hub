@@ -11,11 +11,7 @@ import (
 )
 
 const (
-	conditionReasonClusterRegistering     = "ClusterRegistering"
-	conditionReasonClusterNotRegistered   = "ClusterNotRegistered"
-	conditionReasonClusterRegistered      = "ClusterRegistered"
-	conditionReasonAddonConfigNotDeployed = "AddonConfigNotDeployed"
-	conditionReasonAddonConfigDeployed    = "AddonConfigDeployed"
+	ConditionReasonClusterRegistered = "ClusterRegistered"
 )
 
 // Migrating - registering:
@@ -38,16 +34,16 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	log.Info("migration registering")
 
 	condType := migrationv1alpha1.ConditionTypeRegistered
-	condStatus := metav1.ConditionTrue
-	condReason := conditionReasonClusterRegistered
-	condMessage := "All migrated clusters have been successfully registered"
+	condStatus := metav1.ConditionFalse
+	condReason := ConditionReasonWaiting
+	condMessage := "Waiting for the managed clusters to be registered into the target hub"
 	var err error
 
 	defer func() {
 		if err != nil {
 			condMessage = err.Error()
 			condStatus = metav1.ConditionFalse
-			condReason = conditionReasonClusterNotRegistered
+			condReason = ConditionReasonError
 		}
 		// the target hub registering timeout is 10 time.minutes, we need to ensure it larger than that
 		log.Infof("registering condition %s(%s): %s", condType, condReason, condMessage)
@@ -59,7 +55,8 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubToClusters == nil {
-		return false, fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		err = fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		return false, nil
 	}
 
 	for fromHub := range sourceHubToClusters {
@@ -98,10 +95,12 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
 		condMessage = fmt.Sprintf("waiting for managed clusters to register to the target hub %s", mcm.Spec.To)
-		condStatus = metav1.ConditionFalse
-		condReason = ConditionReasonWaiting
 		return true, nil
 	}
+
+	condStatus = metav1.ConditionTrue
+	condReason = ConditionReasonClusterRegistered
+	condMessage = "All migrated clusters have been successfully registered"
 
 	return true, nil
 }

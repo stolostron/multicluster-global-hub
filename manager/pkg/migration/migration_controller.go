@@ -19,6 +19,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -114,7 +115,7 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Infof("reconcile managed cluster migration %v", req)
+	log.Warnf("reconcile managed cluster migration %v", req)
 
 	// get the current migration
 	mcm, err := m.getCurrentMigration(ctx, req)
@@ -123,16 +124,21 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	if mcm == nil {
-		log.Infof("no desired managedclustermigration found")
+		log.Warn("no desired managedclustermigration found")
 		return ctrl.Result{}, nil
 	}
 
-	log.Debugf("current migration: %s", mcm.Name)
+	log.Infof("processing migration instance: %s", mcm.Name)
 
-	// Check if migration is in final state (completed or failed)
-	if mcm.Status.Phase == migrationv1alpha1.PhaseCompleted || mcm.Status.Phase == migrationv1alpha1.PhaseFailed {
-		log.Infof("migration %s is in final state: %s", mcm.Name, mcm.Status.Phase)
-		return ctrl.Result{}, nil
+	// add the finalizer if the migration is not being deleted
+	if mcm.DeletionTimestamp.IsZero() &&
+		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+		if err := m.Update(ctx, mcm); err != nil {
+			log.Errorf("failed to add finalizer: %v", err)
+			return ctrl.Result{}, err
+		}
+		// initializing the migration status for the instance
+		AddMigrationStatus(string(mcm.GetUID()))
 	}
 
 	// validating
@@ -180,10 +186,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// Handle deletion
-	if !mcm.DeletionTimestamp.IsZero() {
-		// Let the cleaning phase handle finalizer removal
-		return ctrl.Result{}, nil
+	// clean up the finalizer
+	if !mcm.DeletionTimestamp.IsZero() &&
+		controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+		if updateErr := m.Update(ctx, mcm); updateErr != nil {
+			log.Errorf("failed to remove finalizer: %v", updateErr)
+		}
+		RemoveMigrationStatus(string(mcm.GetUID()))
 	}
 
 	return ctrl.Result{}, nil

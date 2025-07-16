@@ -2,14 +2,15 @@ package migration
 
 import (
 	"context"
-	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+)
+
+const (
+	ConditionReasonStarted = "InstanceStarted"
 )
 
 // getCurrentMigration returns the current migration object.
@@ -25,95 +26,55 @@ func (m *ClusterMigrationController) getCurrentMigration(ctx context.Context,
 		return nil, err
 	}
 
-	// Check if this is a deletion request
+	condType := migrationv1alpha1.ConditionTypeStarted
+	condStatus := metav1.ConditionFalse
+	condReason := ConditionReasonWaiting
+	condMessage := "Waiting for the migration to be started"
+
+	// update the migration condition to false if the phase is empty
 	for i := range migrationList.Items {
 		migration := &migrationList.Items[i]
+
+		if migration.Status.Phase == "" {
+			err := m.UpdateCondition(ctx, migration, condType, condStatus, condReason, condMessage)
+			if err != nil {
+				log.Errorf("failed to update migration condition: %v", err)
+				return nil, err
+			}
+		}
+
+		// return the migration if it is the deletion request
 		if !migration.GetDeletionTimestamp().IsZero() && req.Name == migration.Name {
 			return migration, nil
 		}
 	}
 
-	// Filter active migrations and select the desired one
-	desiredMigration, pendingMigrations := m.selectActiveMigration(migrationList.Items)
-	if desiredMigration == nil {
-		return nil, nil
-	}
+	var nextMigration *migrationv1alpha1.ManagedClusterMigration
 
-	// Update conditions for desired and pending migrations
-	if err := m.updateMigrationConditions(ctx, desiredMigration, pendingMigrations); err != nil {
-		log.Errorf("failed to update migration conditions: %v", err)
-	}
-
-	return desiredMigration, nil
-}
-
-// selectActiveMigration selects the active migration from the list
-func (m *ClusterMigrationController) selectActiveMigration(migrations []migrationv1alpha1.ManagedClusterMigration) (*migrationv1alpha1.ManagedClusterMigration, []migrationv1alpha1.ManagedClusterMigration) {
-	var desiredMigration *migrationv1alpha1.ManagedClusterMigration
-	var pendingMigrations []migrationv1alpha1.ManagedClusterMigration
-
-	for i := range migrations {
-		migration := &migrations[i]
+	for i := range migrationList.Items {
+		migration := &migrationList.Items[i]
 
 		// Skip final states (completed or failed) - these are truly done
-		if migration.Status.Phase == migrationv1alpha1.PhaseCompleted || migration.Status.Phase == migrationv1alpha1.PhaseFailed {
+		if migration.Status.Phase == migrationv1alpha1.PhaseCompleted ||
+			migration.Status.Phase == migrationv1alpha1.PhaseFailed {
 			continue
 		}
 
-		// Select the oldest migration as the active one
-		if desiredMigration == nil {
-			desiredMigration = migration
-		} else if migration.CreationTimestamp.Before(&desiredMigration.CreationTimestamp) {
-			pendingMigrations = append(pendingMigrations, *desiredMigration)
-			desiredMigration = migration
-		} else {
-			pendingMigrations = append(pendingMigrations, *migration)
+		if nextMigration == nil {
+			nextMigration = migration
+		} else if migration.CreationTimestamp.Before(&nextMigration.CreationTimestamp) {
+			nextMigration = migration
 		}
 	}
 
-	return desiredMigration, pendingMigrations
-}
-
-// updateMigrationConditions updates the conditions for desired and pending migrations
-func (m *ClusterMigrationController) updateMigrationConditions(ctx context.Context,
-	desiredMigration *migrationv1alpha1.ManagedClusterMigration,
-	pendingMigrations []migrationv1alpha1.ManagedClusterMigration,
-) error {
-	// Update desired migration with started condition
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := m.Client.Get(ctx, client.ObjectKeyFromObject(desiredMigration), desiredMigration); err != nil {
-			return err
-		}
-
-		if err := m.UpdateCondition(ctx,
-			desiredMigration,
-			migrationv1alpha1.ConditionTypeStarted,
-			metav1.ConditionTrue,
-			"migrationInProgress",
-			"Migration is in progress",
-		); err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to update started condition for migration %s: %v", desiredMigration.Name, err)
-	}
-
-	// Update pending migrations
-	for _, mcm := range pendingMigrations {
-		e := m.UpdateConditionWithRetry(ctx,
-			&mcm,
-			migrationv1alpha1.ConditionTypeStarted,
-			metav1.ConditionFalse,
-			"waitOtherMigrationCompleted",
-			fmt.Sprintf("Wait for other migration <%s> to be completed", desiredMigration.Name),
-			migrationStageTimeout,
-		)
-		if e != nil {
-			log.Errorf("failed to update pending condition for migration %s: %v", mcm.Name, e)
+	if nextMigration != nil {
+		condStatus = metav1.ConditionTrue
+		condReason = ConditionReasonStarted
+		condMessage = "Migration instance is started"
+		if err := m.UpdateCondition(ctx, nextMigration, condType, condStatus, condReason, condMessage); err != nil {
+			log.Errorf("failed to update migration condition: %v", err)
 		}
 	}
 
-	return nil
+	return nextMigration, nil
 }
