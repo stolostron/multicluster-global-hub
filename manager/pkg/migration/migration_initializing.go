@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -31,9 +32,14 @@ const (
 	ConditionReasonResourceInitialized    = "ResourceInitialized"
 	ConditionReasonResourceNotInitialized = "ResourceNotInitialized"
 	ConditionReasonTimeout                = "Timeout"
+	ConditionReasonWaiting                = "Waiting"
+	ConditionReasonError                  = "Error"
 )
 
-var migrationStageTimeout = 5 * time.Minute
+var (
+	migrationStageTimeout = 5 * time.Minute  // Default timeout for most migration stages
+	registeringTimeout    = 12 * time.Minute // Extended timeout for registering phase
+)
 
 // Initializing:
 //  1. Destination Hub: create managedserviceaccount, Set autoApprove for the SA by initializing event
@@ -52,6 +58,14 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, nil
 	}
 	log.Info("migration initializing started")
+
+	// Add finalizer when entering initialization phase since cleanup may be needed
+	if !controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+		if err := m.Update(ctx, mcm); err != nil {
+			return false, err
+		}
+	}
 
 	condType := migrationv1alpha1.ConditionTypeInitialized
 	condStatus := metav1.ConditionTrue
@@ -93,8 +107,8 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, err
 	} else if apierrors.IsNotFound(err) {
 		condStatus = metav1.ConditionFalse
-		condReason = ConditionReasonTokenSecretMissing
-		condMessage = fmt.Sprintf("token secret(%s/%s) is not found!", tokenSecret.Namespace, tokenSecret.Name)
+		condReason = ConditionReasonWaiting
+		condMessage = fmt.Sprintf("waiting for token secret(%s/%s) to be created", tokenSecret.Namespace, tokenSecret.Name)
 		err = nil // An unready token should not be considered an error
 		return true, nil
 	}
@@ -143,15 +157,17 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
-		condMessage = fmt.Sprintf("The target hub %s is initializing", mcm.Spec.To)
+		condMessage = fmt.Sprintf("waiting for target hub %s to complete initialization", mcm.Spec.To)
 		condStatus = metav1.ConditionFalse
+		condReason = ConditionReasonWaiting
 		return true, nil
 	}
 
 	for fromHubName := range sourceHubToClusters {
 		if !GetFinished(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
-			condMessage = fmt.Sprintf("The source hub %s is initializing", fromHubName)
+			condMessage = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHubName)
 			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonWaiting
 			return true, nil
 		}
 	}
@@ -210,11 +226,17 @@ func (m *ClusterMigrationController) UpdateCondition(
 			update = true
 		}
 
-		// 1. timeout -> failed
-		// 2. validated error, then status switch to failed immediately
-		if reason == ConditionReasonTimeout || conditionType == migrationv1alpha1.ConditionTypeValidated {
-			mcm.Status.Phase = migrationv1alpha1.PhaseFailed
-			update = true
+		// Check if migration should go to cleaning phase before failed
+		// Enter failure handling if validation failed OR reason is not waiting
+		if conditionType == migrationv1alpha1.ConditionTypeValidated || reason != ConditionReasonWaiting {
+			// Check if cleanup is needed before setting to failed
+			if shouldCleanupBeforeFailed(mcm) {
+				mcm.Status.Phase = migrationv1alpha1.PhaseCleaning
+				update = true
+			} else {
+				mcm.Status.Phase = migrationv1alpha1.PhaseFailed
+				update = true
+			}
 		}
 	} else {
 		switch conditionType {
@@ -236,7 +258,13 @@ func (m *ClusterMigrationController) UpdateCondition(
 			}
 		case migrationv1alpha1.ConditionTypeCleaned:
 			if mcm.Status.Phase != migrationv1alpha1.PhaseCompleted && mcm.Status.Phase != migrationv1alpha1.PhaseFailed {
-				mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
+				// If ConditionTypeRegistered is True, it means normal cleanup after successful registration
+				// Otherwise, it's cleanup after failure
+				if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
+					mcm.Status.Phase = migrationv1alpha1.PhaseCompleted
+				} else {
+					mcm.Status.Phase = migrationv1alpha1.PhaseFailed
+				}
 			}
 		}
 		update = true
@@ -412,4 +440,12 @@ func getBootstrapSecret(sourceHubCluster string, kubeconfigBytes []byte) *corev1
 		}
 	}
 	return secret
+}
+
+// shouldCleanupBeforeFailed checks if the migration needs cleanup before being marked as failed
+func shouldCleanupBeforeFailed(mcm *migrationv1alpha1.ManagedClusterMigration) bool {
+	// Only need cleanup if migration failed during initializing, deploying, or registering phases
+	return mcm.Status.Phase == migrationv1alpha1.PhaseInitializing ||
+		mcm.Status.Phase == migrationv1alpha1.PhaseDeploying ||
+		mcm.Status.Phase == migrationv1alpha1.PhaseRegistering
 }
