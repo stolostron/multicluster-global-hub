@@ -13,17 +13,19 @@ import (
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
 	conditionReasonResourceNotCleaned = "ResourceNotCleaned"
 	conditionReasonResourceCleaned    = "ResourceCleaned"
+	cleaningTimeout                   = 10 * time.Minute // Separate timeout for cleaning phase
 )
 
-// Completed:
+// cleaning handles the cleanup phase of migration
 // 1. Once the cluster registered into the destination hub, Clean up the resources in the source hub
 // 2. Clean up the resource if the migration failed, to let it rollback
-func (m *ClusterMigrationController) completed(ctx context.Context,
+func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
 	// TODO: Deprecated: Use this only to add the final cleanup condition—intermediate states are not shown in conditions
@@ -53,7 +55,7 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 			condStatus = metav1.ConditionTrue
 			condReason = conditionReasonResourceCleaned
 			condMsg = "Resources have been successfully cleaned up from the hub clusters"
-		} else if time.Since(mcm.CreationTimestamp.Time) > migrationStageTimeout+migrationStageTimeout {
+		} else if time.Since(mcm.CreationTimestamp.Time) > cleaningTimeout {
 			// If clean timeout, update the condition
 			errMessage := "cleanup timeout. "
 			if err != nil {
@@ -69,9 +71,19 @@ func (m *ClusterMigrationController) completed(ctx context.Context,
 		}
 
 		log.Infof("cleaning condition %s(%s): %s", condType, condReason, condMsg)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg, migrationStageTimeout)
+		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg, cleaningTimeout)
 		if err != nil {
 			log.Errorf("failed to update the condition %v", err)
+		}
+
+		// Remove finalizer only when cleanup is successful
+		if condStatus == metav1.ConditionTrue {
+			if controllerutil.ContainsFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+				controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer)
+				if updateErr := m.Update(ctx, mcm); updateErr != nil {
+					log.Errorf("failed to remove finalizer: %v", updateErr)
+				}
+			}
 		}
 	}()
 

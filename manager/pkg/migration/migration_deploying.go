@@ -80,9 +80,9 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 
 		// waiting the source hub confirmation
 		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
-			condMessage = fmt.Sprintf("The deploying resources are preparing in the source hub %s", fromHub)
+			condMessage = fmt.Sprintf("waiting for resources to be prepared in the source hub %s", fromHub)
 			condStatus = metav1.ConditionFalse
-			condReason = conditionReasonResourcesDeploying
+			condReason = ConditionReasonWaiting
 			return true, nil
 		}
 	}
@@ -95,9 +95,9 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying) {
-		condMessage = fmt.Sprintf("The resources is deploying into the target hub %s", mcm.Spec.To)
+		condMessage = fmt.Sprintf("waiting for resources to be deployed into the target hub %s", mcm.Spec.To)
 		condStatus = metav1.ConditionFalse
-		condReason = conditionReasonResourcesDeploying
+		condReason = ConditionReasonWaiting
 		return true, nil
 	}
 

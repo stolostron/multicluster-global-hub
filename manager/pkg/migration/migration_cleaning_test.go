@@ -182,7 +182,7 @@ func TestCompleted(t *testing.T) {
 				}
 			}
 
-			requeue, err := ctrl.completed(ctx, tt.mcm)
+			requeue, err := ctrl.cleaning(ctx, tt.mcm)
 
 			if tt.wantErr {
 				assert.Error(t, err)
