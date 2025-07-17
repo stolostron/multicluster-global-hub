@@ -131,7 +131,7 @@ var _ = Describe("ManagedCluster Migration Controller", func() {
 				g.Expect(mgr.GetClient().Get(testCtx, client.ObjectKeyFromObject(m), m)).To(Succeed())
 				g.Expect(m.GetUID()).NotTo(BeEmpty())
 			}).Should(Succeed())
-			
+
 			simulateHubConfirmation(m.GetUID(), FROM_HUB, migrationv1alpha1.PhaseDeploying)
 			simulateHubConfirmation(m.GetUID(), TO_HUB, migrationv1alpha1.PhaseDeploying)
 			assertMigrationCondition(testCtx, m, migrationv1alpha1.ConditionTypeDeployed, metav1.ConditionTrue, migration.ConditionReasonResourcesDeployed)
@@ -219,7 +219,8 @@ func createTestManagedCluster(ctx context.Context, clusterName, hubName string) 
 }
 
 func assertMigrationCondition(ctx context.Context, m *migrationv1alpha1.ManagedClusterMigration,
-	conditionType string, status metav1.ConditionStatus, reason string) {
+	conditionType string, status metav1.ConditionStatus, reason string,
+) {
 	Eventually(func(g Gomega) {
 		key := types.NamespacedName{Name: m.Name, Namespace: m.Namespace}
 		g.Expect(mgr.GetClient().Get(ctx, key, m)).To(Succeed())
