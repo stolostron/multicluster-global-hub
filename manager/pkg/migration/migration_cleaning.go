@@ -16,9 +16,12 @@ import (
 )
 
 const (
-	conditionReasonResourceCleaned = "ResourceCleaned"
-	cleaningTimeout                = 10 * time.Minute // Separate timeout for cleaning phase
+	ConditionReasonResourceCleaned = "ResourceCleaned"
+	CleaningTimeout                = 10 * time.Minute // Separate timeout for cleaning phase
 )
+
+var cleaningAnnotation = fmt.Sprintf("Please ensure the annotation (%s) is removed from all managed clusters",
+	constants.ManagedClusterMigrating)
 
 // cleaning handles the cleanup phase of migration
 // 1. Once the cluster registered into the destination hub, Clean up the resources in the source hub
@@ -26,7 +29,7 @@ const (
 func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	if !mcm.DeletionTimestamp.IsZero() {
+	if mcm.DeletionTimestamp != nil {
 		return false, nil
 	}
 
@@ -35,34 +38,42 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 		return false, nil
 	}
 
-	log.Infof("migration start cleaning: %s - %s", mcm.Name, mcm.Status.Phase)
+	log.Info("migration start cleaning")
 
-	condType := migrationv1alpha1.ConditionTypeCleaned
-	condStatus := metav1.ConditionFalse
-	condReason := ConditionReasonWaiting
-	condMsg := "Waiting for the resources to be cleaned up from the both source and target hub clusters"
-	var err error
+	condition := metav1.Condition{
+		Type:    migrationv1alpha1.ConditionTypeCleaned,
+		Status:  metav1.ConditionFalse,
+		Reason:  ConditionReasonWaiting,
+		Message: "Waiting for the resources to be cleaned up from the both source and target hub clusters",
+	}
+
+	nextPhase := migrationv1alpha1.PhaseCleaning
 
 	defer func() {
-		if err != nil {
-			condStatus = metav1.ConditionFalse
-			condReason = ConditionReasonError
-			condMsg = fmt.Sprintf(
-				"Cleaning failed: %s. Please ensure the annotation (%s) is removed from all managed clusters",
-				err.Error(), constants.ManagedClusterMigrating,
-			)
+		if condition.Reason == ConditionReasonWaiting && m.isReachedTimeout(ctx, mcm, CleaningTimeout) {
+			condition.Reason = ConditionReasonTimeout
+			condition.Message = fmt.Sprintf("[Timeout] %s. %s", condition.Message, cleaningAnnotation)
+			nextPhase = migrationv1alpha1.PhaseFailed
 		}
 
-		log.Infof("cleaning condition %s(%s): %s", condType, condReason, condMsg)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMsg, cleaningTimeout)
+		if condition.Reason == ConditionReasonError {
+			condition.Message = fmt.Sprintf("%s. %s", condition.Message, cleaningAnnotation)
+			nextPhase = migrationv1alpha1.PhaseFailed
+		}
+
+		err := m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
 		if err != nil {
-			log.Errorf("failed to update the condition %v", err)
+			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
 		}
 	}()
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {
 		log.Infof("skipping cleanup: migration %q not initialized", mcm.Name)
+		condition.Message = fmt.Sprintf("migration %q not initialized", mcm.Name)
+		condition.Reason = ConditionReasonResourceCleaned
+		condition.Status = metav1.ConditionTrue
+		nextPhase = migrationv1alpha1.PhaseCompleted
 		return false, nil
 	}
 
@@ -77,8 +88,10 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	for sourceHub, clusters := range sourceHubClusters {
 		if !GetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning) {
-			err = m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters, nil, bootstrapSecret)
-			if err != nil {
+			if err := m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters,
+				nil, bootstrapSecret); err != nil {
+				condition.Message = err.Error()
+				condition.Reason = ConditionReasonError
 				return false, err
 			}
 			SetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning)
@@ -87,7 +100,9 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	// cleanup the target hub: cleaning or failed state
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		if err = m.sendEventToDestinationHub(ctx, mcm, mcm.Status.Phase, mcm.Spec.IncludedManagedClusters); err != nil {
+		if err := m.sendEventToDestinationHub(ctx, mcm, mcm.Status.Phase, mcm.Spec.IncludedManagedClusters); err != nil {
+			condition.Message = err.Error()
+			condition.Reason = ConditionReasonError
 			return false, err
 		}
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
@@ -96,33 +111,36 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// check error message
 	errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
 	if errMsg != "" {
-		err = fmt.Errorf("cleaning target hub %s with err :%s", mcm.Spec.To, errMsg) // the err will be updated into cr
-		return true, nil
+		condition.Message = fmt.Sprintf("cleaning target hub %s with err :%s", mcm.Spec.To, errMsg)
+		condition.Reason = ConditionReasonError
+		return false, nil
 	}
 	for fromHubName := range sourceHubClusters {
 		errMsg := GetErrorMessage(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseCleaning)
 		if errMsg != "" {
-			err = fmt.Errorf("cleaning source hub %s with err :%s", fromHubName, errMsg)
-			return true, nil
+			condition.Message = fmt.Sprintf("cleaning source hub %s with err :%s", fromHubName, errMsg)
+			condition.Reason = ConditionReasonError
+			return false, nil
 		}
 	}
 
 	// confirmation from hubs
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		condMsg = fmt.Sprintf("The target hub %s is cleaning", mcm.Spec.To)
+		condition.Message = fmt.Sprintf("The target hub %s is cleaning", mcm.Spec.To)
 		return true, nil
 	}
 
 	for fromHubName := range sourceHubClusters {
 		if !GetFinished(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseCleaning) {
-			condMsg = fmt.Sprintf("The source hub %s is cleaning", fromHubName)
+			condition.Message = fmt.Sprintf("The source hub %s is cleaning", fromHubName)
 			return true, nil
 		}
 	}
 
-	condStatus = metav1.ConditionTrue
-	condReason = conditionReasonResourceCleaned
-	condMsg = "Resources have been successfully cleaned up from the hub clusters"
+	condition.Status = metav1.ConditionTrue
+	condition.Reason = ConditionReasonResourceCleaned
+	condition.Message = "Resources have been successfully cleaned up from the hub clusters"
+	nextPhase = migrationv1alpha1.PhaseCompleted
 
 	log.Info("migration cleaning finished")
 	return false, nil

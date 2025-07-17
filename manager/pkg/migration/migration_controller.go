@@ -115,30 +115,31 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Warnf("reconcile managed cluster migration %v", req)
+	log.Infof("reconcile managed cluster migration %v", req)
 
 	// get the current migration
-	mcm, err := m.getCurrentMigration(ctx, req)
+	mcm, err := m.selectAndPrepareMigration(ctx, req)
 	if err != nil {
 		log.Errorf("failed to get managedclustermigration %v", err)
 		return ctrl.Result{}, err
 	}
 	if mcm == nil {
-		log.Warn("no desired managedclustermigration found")
+		log.Info("no desired managedclustermigration found")
 		return ctrl.Result{}, nil
 	}
 
 	log.Infof("processing migration instance: %s", mcm.Name)
 
 	// add the finalizer if the migration is not being deleted
-	if mcm.DeletionTimestamp.IsZero() &&
-		controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-		if err := m.Update(ctx, mcm); err != nil {
-			log.Errorf("failed to add finalizer: %v", err)
-			return ctrl.Result{}, err
+	if mcm.DeletionTimestamp == nil {
+		if controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+			if err := m.Update(ctx, mcm); err != nil {
+				log.Errorf("failed to add finalizer: %v", err)
+				return ctrl.Result{}, err
+			}
+			// initializing the migration status for the instance
+			AddMigrationStatus(string(mcm.GetUID()))
 		}
-		// initializing the migration status for the instance
-		AddMigrationStatus(string(mcm.GetUID()))
 	}
 
 	// validating
@@ -187,12 +188,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// clean up the finalizer
-	if !mcm.DeletionTimestamp.IsZero() &&
-		controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-		if updateErr := m.Update(ctx, mcm); updateErr != nil {
-			log.Errorf("failed to remove finalizer: %v", updateErr)
+	if mcm.DeletionTimestamp != nil {
+		if controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
+			if updateErr := m.Update(ctx, mcm); updateErr != nil {
+				log.Errorf("failed to remove finalizer: %v", updateErr)
+			}
+			RemoveMigrationStatus(string(mcm.GetUID()))
 		}
-		RemoveMigrationStatus(string(mcm.GetUID()))
 	}
 
 	return ctrl.Result{}, nil

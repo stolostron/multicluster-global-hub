@@ -61,6 +61,20 @@ func GetSourceClusters(migrationId string) map[string][]string {
 	return status.Clusters
 }
 
+func SetSourceClusters(migrationId string, sourceHub string, clusters []string) {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	status := getMigrationStatus(migrationId)
+	if status == nil {
+		return
+	}
+	if status.Clusters == nil {
+		status.Clusters = make(map[string][]string)
+	}
+	status.Clusters[sourceHub] = clusters
+}
+
 func hubPhaseKey(hub, phase string) string {
 	return fmt.Sprintf("%s-%s", hub, phase)
 }
