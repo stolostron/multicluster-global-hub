@@ -49,23 +49,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	nextPhase := migrationv1alpha1.PhaseCleaning
 
-	defer func() {
-		if condition.Reason == ConditionReasonWaiting && m.isReachedTimeout(ctx, mcm, CleaningTimeout) {
-			condition.Reason = ConditionReasonTimeout
-			condition.Message = fmt.Sprintf("[Timeout] %s. %s", condition.Message, cleaningAnnotation)
-			nextPhase = migrationv1alpha1.PhaseFailed
-		}
-
-		if condition.Reason == ConditionReasonError {
-			condition.Message = fmt.Sprintf("%s. %s", condition.Message, cleaningAnnotation)
-			nextPhase = migrationv1alpha1.PhaseFailed
-		}
-
-		err := m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
-		if err != nil {
-			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
-		}
-	}()
+	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, CleaningTimeout)
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {

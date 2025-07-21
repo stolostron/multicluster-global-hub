@@ -64,22 +64,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseInitializing
 
-	defer func() {
-		if condition.Reason == ConditionReasonWaiting && m.isReachedTimeout(ctx, mcm, migrationStageTimeout) {
-			condition.Reason = ConditionReasonTimeout
-			condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
-			nextPhase = migrationv1alpha1.PhaseCleaning
-		}
-
-		if condition.Reason == ConditionReasonError {
-			nextPhase = migrationv1alpha1.PhaseCleaning
-		}
-
-		err := m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
-		if err != nil {
-			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
-		}
-	}()
+	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
@@ -185,16 +170,36 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	return false, nil
 }
 
-func (m *ClusterMigrationController) isReachedTimeout(ctx context.Context,
+// handleMigrationStatus updates the migration's condition and phase, transitioning to Cleaning if not already Cleaning
+// and a timeout or "Error" condition occurs, or to Failed if in Cleaning with a timeout or "Error" condition.
+func (m *ClusterMigrationController) handleMigrationStatus(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
-	timeout time.Duration,
-) bool {
+	condition *metav1.Condition,
+	nextPhase *string,
+	stageTimeout time.Duration,
+) {
 	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-	if startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > timeout {
-		return true
+	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
+		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
+		condition.Reason = ConditionReasonTimeout
+		condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
+		*nextPhase = migrationv1alpha1.PhaseCleaning
+		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
+			*nextPhase = migrationv1alpha1.PhaseFailed
+		}
 	}
-	return false
+
+	if condition.Reason == ConditionReasonError {
+		*nextPhase = migrationv1alpha1.PhaseCleaning
+		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
+			*nextPhase = migrationv1alpha1.PhaseFailed
+		}
+	}
+
+	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
+	if err != nil {
+		log.Errorf("failed to update the %s condition: %v", condition.Type, err)
+	}
 }
 
 // sendEventToSourceHub specifies the manager send the message into "From Hub" via spec path(or topic)
