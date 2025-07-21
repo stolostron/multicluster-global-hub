@@ -63,7 +63,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 		Context("Missing Resources", func() {
 			It("should fail when from hub does not exist", func() {
 				By("Creating migration with non-existent from hub")
-				m, err := createMigrationCR(ctx, migrationName, "non-existent-hub", toHubName, []string{clusterName})
+				m, err := createMigrationCR(ctx, migrationName, "non-existent-hub", toHubName, []string{clusterName}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(m).NotTo(BeNil())
 
@@ -91,7 +91,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 
 			It("should fail when to hub does not exist", func() {
 				By("Creating migration with non-existent to hub")
-				m, err := createMigrationCR(ctx, migrationName, fromHubName, "non-existent-hub", []string{clusterName})
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, "non-existent-hub", []string{clusterName}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(m).NotTo(BeNil())
 
@@ -121,7 +121,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 		Context("Invalid Clusters", func() {
 			It("should fail when cluster does not exist", func() {
 				By("Creating migration with non-existent cluster")
-				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{"non-existent-cluster"})
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{"non-existent-cluster"}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(m).NotTo(BeNil())
 
@@ -153,7 +153,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 				Expect(createHubAndCluster(ctx, toHubName, destCluster)).To(Succeed())
 
 				By("Creating migration with cluster already in destination")
-				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{destCluster})
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{destCluster}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(m).NotTo(BeNil())
 
@@ -188,7 +188,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 				Expect(createHubAndCluster(ctx, otherHub, clusterName)).To(Succeed())
 
 				By("Creating migration with cluster not in specified from hub")
-				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(m).NotTo(BeNil())
 
@@ -221,13 +221,9 @@ var _ = Describe("Migration Error Scenarios", func() {
 		Context("Resource Validation", func() {
 			It("should fail when invalid resource format is provided", func() {
 				By("Creating migration with invalid resource format")
-				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+				m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{"invalid-resource-format"})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(m).NotTo(BeNil())
-
-				By("Adding invalid resource to spec")
-				m.Spec.IncludedResources = []string{"invalid-resource-format"}
-				Expect(mgr.GetClient().Update(ctx, m)).To(Succeed())
 
 				By("Verifying validation failure with proper condition and phase")
 				Eventually(func() error {
@@ -258,7 +254,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 
 		BeforeEach(func() {
 			var err error
-			m, err = createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+			m, err = createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(m).NotTo(BeNil())
 

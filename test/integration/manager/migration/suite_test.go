@@ -235,7 +235,7 @@ func cleanupHubAndClusters(ctx context.Context, hubName, clusterName string) {
 }
 
 // createMigrationCR creates a ManagedClusterMigration custom resource.
-func createMigrationCR(ctx context.Context, name, fromHub, toHub string, clusters []string) (*migrationv1alpha1.ManagedClusterMigration, error) {
+func createMigrationCR(ctx context.Context, name, fromHub, toHub string, clusters []string, resources []string) (*migrationv1alpha1.ManagedClusterMigration, error) {
 	m := &migrationv1alpha1.ManagedClusterMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -245,6 +245,7 @@ func createMigrationCR(ctx context.Context, name, fromHub, toHub string, cluster
 			From:                    fromHub,
 			To:                      toHub,
 			IncludedManagedClusters: clusters,
+			IncludedResources:       resources,
 		},
 	}
 	if err := mgr.GetClient().Create(ctx, m); err != nil {
@@ -254,27 +255,10 @@ func createMigrationCR(ctx context.Context, name, fromHub, toHub string, cluster
 	return m, nil
 }
 
-// getMigrationCR gets a migration CR by name and namespace
-func getMigrationCR(ctx context.Context, name, namespace string) (*migrationv1alpha1.ManagedClusterMigration, error) {
-	m := &migrationv1alpha1.ManagedClusterMigration{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-	}
-	if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
-		return nil, fmt.Errorf("failed to get migration CR %s: %w", name, err)
-	}
-	return m, nil
-}
-
 // simulateHubConfirmation simulates a hub sending a confirmation for a specific phase.
 func simulateHubConfirmation(uid types.UID, hubName, phase string) {
 	migration.SetStarted(string(uid), hubName, phase)
 	migration.SetFinished(string(uid), hubName, phase)
-}
-
-// simulateHubError simulates a hub sending an error for a specific phase.
-func simulateHubError(uid types.UID, hubName, phase, message string) {
-	migration.SetStarted(string(uid), hubName, phase)
-	migration.SetErrorMessage(string(uid), hubName, phase, message)
 }
 
 // cleanupMigrationCR removes a migration CR - deletion waiting should be handled by Eventually in test

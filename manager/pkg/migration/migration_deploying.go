@@ -40,22 +40,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseDeploying
 
-	defer func() {
-		if condition.Reason == ConditionReasonWaiting && m.isReachedTimeout(ctx, mcm, migrationStageTimeout) {
-			condition.Reason = ConditionReasonTimeout
-			condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
-			nextPhase = migrationv1alpha1.PhaseCleaning
-		}
-
-		if condition.Reason == ConditionReasonError {
-			nextPhase = migrationv1alpha1.PhaseCleaning
-		}
-
-		err := m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
-		if err != nil {
-			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
-		}
-	}()
+	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
