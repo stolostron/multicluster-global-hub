@@ -61,7 +61,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 
 	It("should transition from creation to Initializing phase", func() {
 		By("Creating migration CR")
-		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{})
 		Expect(err).NotTo(HaveOccurred(), "Failed to create migration CR")
 		Expect(m).NotTo(BeNil())
 
@@ -85,7 +85,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 
 	It("should fail validation for non-existent cluster", func() {
 		By("Creating migration with non-existent cluster")
-		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{"non-existent-cluster"})
+		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{"non-existent-cluster"}, []string{})
 		Expect(err).NotTo(HaveOccurred(), "Failed to create migration CR")
 		Expect(m).NotTo(BeNil())
 
@@ -116,7 +116,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 
 	It("should progress from Initializing to Deploying with proper setup", func() {
 		By("Creating migration CR and reaching Initializing")
-		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{})
 		Expect(err).NotTo(HaveOccurred(), "Failed to create migration CR")
 		Expect(m).NotTo(BeNil())
 
@@ -165,7 +165,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 
 	It("should handle hub error during initialization", func() {
 		By("Creating migration and reaching Initializing")
-		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{})
 		Expect(err).NotTo(HaveOccurred(), "Failed to create migration CR")
 		Expect(m).NotTo(BeNil())
 
@@ -200,7 +200,7 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 
 	It("should complete full successful migration lifecycle", func() {
 		By("Creating migration CR")
-		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName})
+		m, err := createMigrationCR(ctx, migrationName, fromHubName, toHubName, []string{clusterName}, []string{})
 		Expect(err).NotTo(HaveOccurred(), "Failed to create migration CR")
 		Expect(m).NotTo(BeNil())
 
