@@ -50,7 +50,8 @@ type TransportCtrl struct {
 	mutex          sync.Mutex
 	// inManager is used to check if the controller is in the manager.
 	// if it's true, then the controller is in the manager, otherwise it's in the agent.
-	inManager bool
+	inManager       bool
+	disableConsumer bool
 }
 
 type TransportClient struct {
@@ -94,7 +95,12 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		transportConfig:   transportConfig,
 		extraSecretNames:  make([]string, 2),
 		inManager:         inManager,
+		disableConsumer:   false,
 	}
+}
+
+func (c *TransportCtrl) DisableConsumer() {
+	c.disableConsumer = true
 }
 
 func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -124,9 +130,12 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		// the consumer should reconcile in either credential updated or consumer exit
-		if err := c.ReconcileConsumer(ctx); err != nil {
-			return ctrl.Result{}, err
+		if !c.disableConsumer {
+			if err := c.ReconcileConsumer(ctx); err != nil {
+				return ctrl.Result{}, err
+			}
 		}
+
 		if updated {
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err

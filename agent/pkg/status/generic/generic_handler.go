@@ -39,13 +39,12 @@ func (h *genericHandler) Get() interface{} {
 }
 
 func (h *genericHandler) Update(obj client.Object) bool {
-	log.Debugf("update obj: %v", obj)
+	log.Debugf("update bundle by object: %v", obj)
 	if h.shouldUpdate != nil {
 		if updated := h.shouldUpdate(obj); !updated {
 			return false
 		}
 	}
-	log.Debug("updating obj")
 
 	index := getObjectIndexByUID(obj.GetUID(), (*h.eventData))
 	if index == -1 { // object not found, need to add it to the bundle

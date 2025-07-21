@@ -23,12 +23,14 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 	var version *eventversion.Version
 	var clusterID1 string
 	var clusterID2 string
+	var clusterID3 string
 	BeforeEach(func() {
 		if version == nil {
 			version = eventversion.NewVersion()
 		}
 		clusterID1 = "3f406177-34b2-4852-88dd-ff2809680331"
 		clusterID2 = "3f406177-34b2-4852-88dd-ff2809680332"
+		clusterID3 = "3f406177-34b2-4852-88dd-ff2809680333"
 	})
 
 	It("should be able to sync managed cluster event", func() {
@@ -64,6 +66,21 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 						{
 							Name:  constants.ClusterIdClaimName,
 							Value: clusterID2,
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cluster3",
+					Namespace: "cluster3",
+					UID:       types.UID(clusterID3),
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					ClusterClaims: []clusterv1.ManagedClusterClaim{
+						{
+							Name:  constants.ClusterIdClaimName,
+							Value: clusterID3,
 						},
 					},
 				},
@@ -111,6 +128,11 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 				Namespace: "cluster2",
 				Name:      "cluster2",
 				ID:        clusterID2,
+			},
+			{
+				Namespace: "cluster3",
+				Name:      "cluster3",
+				ID:        clusterID3,
 			},
 		}
 		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, bundle)
@@ -172,6 +194,43 @@ var _ = Describe("ManagedClusterHandler", Ordered, func() {
 			for _, item := range items {
 				if item.ClusterID == clusterID2 {
 					return fmt.Errorf("should delete the cluster %s", clusterID2)
+				}
+			}
+			return nil
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should be able to delete managed clusters by name", func() {
+		By("Create event")
+		leafHubName := "hub1"
+		version.Incr()
+
+		bundle := generic.GenericBundle[clusterv1.ManagedCluster]{}
+		bundle.Delete = []generic.ObjectMetadata{
+			{
+				Name: "cluster3",
+			},
+		}
+		evt := ToCloudEvent(leafHubName, string(enum.ManagedClusterType), version, bundle)
+
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		version.Next()
+		Expect(err).Should(Succeed())
+
+		By("Check the leaf hubs table")
+		Eventually(func() error {
+			db := database.GetGorm()
+
+			items := []models.ManagedCluster{}
+			if err := db.Where("leaf_hub_name = ?", leafHubName).Find(&items).Error; err != nil {
+				return fmt.Errorf("failed to get the managed clusters: %v", err)
+			}
+
+			fmt.Println("ManagedCluster Delete", items)
+			for _, item := range items {
+				if item.ClusterID == clusterID3 {
+					return fmt.Errorf("should delete the cluster3 %s", clusterID3)
 				}
 			}
 			return nil

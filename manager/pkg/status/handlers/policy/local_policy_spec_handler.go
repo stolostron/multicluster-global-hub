@@ -58,42 +58,47 @@ func RegisterLocalPolicySpecHandler(conflationManager *conflator.ConflationManag
 func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw(startMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	var bundle generic.GenericBundle[policiesv1.Policy]
-	if err := evt.DataAs(&bundle); err != nil {
+	err := evt.DataAs(&bundle)
+	if err != nil {
 		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
 
-	batchLocalPolicySpec := []models.LocalSpecPolicy{}
+	// Handle insertOrUpdate operations for Resync, Create, and Update
+	operations := [][]policiesv1.Policy{
+		bundle.Resync,
+		bundle.Create,
+		bundle.Update,
+	}
 
-	// update or create managed clusters in the database.
-	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
-		payload, err := json.Marshal(obj)
-		if err != nil {
-			return err
+	for _, data := range operations {
+		if err := h.insertOrUpdate(data, leafHubName); err != nil {
+			return fmt.Errorf("failed to process local policies - %w", err)
 		}
-		batchLocalPolicySpec = append(batchLocalPolicySpec, models.LocalSpecPolicy{
-			PolicyID:    string(obj.GetUID()),
-			LeafHubName: leafHubName,
-			Payload:     payload,
-		})
 	}
 
 	db := database.GetGorm()
-	err := db.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).CreateInBatches(batchLocalPolicySpec, 100).Error
-	if err != nil {
-		return err
-	}
-
 	if len(bundle.Delete) > 0 {
 		for _, deleted := range bundle.Delete {
-			err = db.Where("leaf_hub_name", leafHubName).Where("policy_id", deleted.ID).
-				Delete(&models.LocalSpecPolicy{}).Error
-			if err != nil {
-				return fmt.Errorf("failed deleting local policies - %v", err)
+			if deleted.ID != "" {
+				err = db.Where("leaf_hub_name", leafHubName).Where("policy_id", deleted.ID).
+					Delete(&models.LocalSpecPolicy{}).Error
+				if err != nil {
+					return fmt.Errorf("failed deleting local policy - %v", err)
+				}
+			} else if deleted.Name != "" && deleted.Namespace != "" {
+				err = db.Model(&models.LocalSpecPolicy{}).
+					Where("leaf_hub_name = ?", leafHubName).
+					Where("(payload -> 'metadata' ->> 'name') = ?", deleted.Name).
+					Where("(payload -> 'metadata' ->> 'namespace') = ?", deleted.Namespace).
+					Delete(&models.LocalSpecPolicy{}).Error
+				if err != nil {
+					return fmt.Errorf("failed to deleting local policy by namesapce/name - %v", err)
+				}
+			} else {
+				log.Warnw("local policy delete event without ID or Name/Namespace", "LH", leafHubName)
 			}
 		}
 	}
@@ -142,7 +147,31 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
 	}
-	log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw(finishMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+	return nil
+}
+
+func (h *localPolicySpecHandler) insertOrUpdate(objs []policiesv1.Policy, leafHubName string) error {
+	db := database.GetGorm()
+	batchLocalPolicySpec := []models.LocalSpecPolicy{}
+	for _, obj := range objs {
+		payload, err := json.Marshal(obj)
+		if err != nil {
+			return err
+		}
+		batchLocalPolicySpec = append(batchLocalPolicySpec, models.LocalSpecPolicy{
+			PolicyID:    string(obj.GetUID()),
+			LeafHubName: leafHubName,
+			Payload:     payload,
+		})
+	}
+
+	err := db.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).CreateInBatches(batchLocalPolicySpec, 100).Error
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
