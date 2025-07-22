@@ -5,7 +5,7 @@ go 1.23.6
 require (
 	github.com/IBM/sarama v1.45.2
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
-	github.com/authzed/spicedb-operator v1.20.0
+	github.com/authzed/spicedb-operator v1.20.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250714100115-d6abf9d145ab
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
