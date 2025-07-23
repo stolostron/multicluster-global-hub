@@ -56,8 +56,6 @@ spec:
           value: quay.io/stolostron/grafana:2.12.0-SNAPSHOT-2024-09-03-21-11-25
         - name: RELATED_IMAGE_POSTGRESQL
           value: quay.io/stolostron/postgresql-16:9.5-1732622748
-        - name: RELATED_IMAGE_INVENTORY_API
-          value: quay.io/stolostron/inventory-api:latest
         - name: RELATED_IMAGE_POSTGRES_EXPORTER
           value: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
         securityContext:

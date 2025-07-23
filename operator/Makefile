@@ -226,7 +226,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 	# ignore relatedImages
-	$(SED_COMMAND) '/relatedImages/,+12d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
+	$(SED_COMMAND) '/relatedImages/,+10d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
 	# remove bundle.Dockerfile
 	rm -rf bundle.Dockerfile
 	git diff -I 'createdAt' --exit-code
