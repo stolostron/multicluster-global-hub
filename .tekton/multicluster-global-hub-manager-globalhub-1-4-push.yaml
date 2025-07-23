@@ -120,6 +120,10 @@ spec:
       description: List of platforms to build the container images on. The available set of values is determined by the configuration of the multi-platform-controller.
       name: build-platforms
       type: array
+    - default: "false"
+      description: Use dev package managers
+      name: use-dev-package-managers
+      type: string
     results:
     - description: ""
       name: IMAGE_URL
@@ -190,6 +194,8 @@ spec:
         value: $(params.output-image).prefetch
       - name: ociArtifactExpiresAfter
         value: $(params.image-expires-after)
+      - name: dev-package-managers
+        value: $(params.use-dev-package-managers)
       runAfter:
       - clone-repository
       taskRef:
