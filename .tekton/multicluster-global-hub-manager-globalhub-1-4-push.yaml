@@ -26,10 +26,21 @@ spec:
   - name: build-platforms
     value:
     - linux/x86_64
+    - linux/ppc64le
+    - linux/s390x
+    - linux/arm64
   - name: dockerfile
-    value: manager/Containerfile.manager
+    value: agent/Containerfile.agent
   - name: path-context
     value: .
+  - name: build-source-image
+    value: "true"
+  - name: hermetic
+    value: "true"
+  - name: prefetch-input
+    value: '[ {"type": "gomod", "path": "."}, {"type": "rpm", "path": "."} ]'
+  - name: use-dev-package-managers
+    value: "true"
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
