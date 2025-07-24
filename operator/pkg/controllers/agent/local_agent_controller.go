@@ -138,15 +138,10 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil || !mgh.Spec.InstallAgentOnLocal {
-		if isResourceRemoved {
-			return ctrl.Result{}, nil
-		}
-		err := pruneAgentResources(ctx, s.GetClient(), mgh.Namespace)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		isResourceRemoved = true
-		return ctrl.Result{}, nil
+		log.Debugf("deleting mgh in local agent controller")
+		err = utils.HandleMghDelete(ctx, &isResourceRemoved, mgh.Namespace, s.pruneAgentResources)
+		log.Debugf("deleted local agent resources, isResourceRemoved:%v", isResourceRemoved)
+		return ctrl.Result{}, err
 	}
 	err, currentClusterName := getCurrentClusterName(ctx, s.GetClient(), mgh.Namespace)
 	if err != nil {
@@ -166,7 +161,7 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 	// we need to recreate the agent resources
 	if localClusterName != "" && currentClusterName != "" && localClusterName != currentClusterName {
 		log.Infof("local cluster name changed from %s to %s", currentClusterName, localClusterName)
-		err := pruneAgentResources(ctx, s.GetClient(), mgh.Namespace)
+		err := s.pruneAgentResources(ctx, mgh.Namespace)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -238,11 +233,11 @@ func GetLocalClusterName(ctx context.Context, c client.Client, namespace string)
 	return nil, mcList.Items[0].Name
 }
 
-func pruneAgentResources(ctx context.Context, c client.Client, namespace string) error {
+func (s *LocalAgentController) pruneAgentResources(ctx context.Context, namespace string) error {
 	log.Debugf("prune agent resources in namespace: %v", namespace)
 	// delete deployment
 
-	err := utils.DeleteResourcesWithLabels(ctx, c, namespace, map[string]string{
+	err := utils.DeleteResourcesWithLabels(ctx, s.GetClient(), namespace, map[string]string{
 		"component": agentName,
 	},
 		[]client.Object{
