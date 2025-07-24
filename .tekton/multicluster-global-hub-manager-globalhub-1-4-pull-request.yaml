@@ -32,7 +32,7 @@ spec:
     - linux/s390x
     - linux/arm64
   - name: dockerfile
-    value: agent/Containerfile.agent
+    value: manager/Containerfile.manager
   - name: path-context
     value: .
   - name: build-source-image
