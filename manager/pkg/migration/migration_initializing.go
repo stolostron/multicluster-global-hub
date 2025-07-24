@@ -119,7 +119,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	for fromHubName, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
-				mcm.Spec.IncludedResources, bootstrapSecret)
+				nil, bootstrapSecret)
 			if err != nil {
 				return false, err
 			}
