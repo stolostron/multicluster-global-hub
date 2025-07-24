@@ -45,7 +45,6 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	var err error
 	succeed := true
 
-<<<<<<< HEAD
 	// Add cleaned condition only when clean finished.
 	defer func() {
 		// Successfully cleaned the resources from the hub clusters
@@ -84,9 +83,6 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 			}
 		}
 	}()
-=======
-	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, CleaningTimeout)
->>>>>>> 6ec72f3a (migraiton it)
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {

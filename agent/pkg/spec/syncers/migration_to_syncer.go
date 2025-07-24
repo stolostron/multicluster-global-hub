@@ -63,6 +63,15 @@ func NewMigrationTargetSyncer(client client.Client,
 
 func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("received migration event from %s", evt.Source())
+	if evt.Source() == constants.CloudEventGlobalHubClusterName {
+		managedClusterMigrationToEvent := &migration.MigrationTargetHubBundle{}
+		if err := json.Unmarshal(evt.Data(), managedClusterMigrationToEvent); err != nil {
+			return fmt.Errorf("failed to unmarshal payload %v", err)
+		}
+		log.Debugf("received cloudevent %v", string(evt.Data()))
+		if managedClusterMigrationToEvent.MigrationId == "" {
+			return fmt.Errorf("must set the migrationId: %v", evt)
+		}
 
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
 		return s.deploying(ctx, evt)
@@ -83,9 +92,49 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		if s.currentMigrationId != managedClusterMigrationToEvent.MigrationId {
 			return
 		}
+<<<<<<< HEAD
 		errMessage := ""
 		if err != nil {
 			errMessage = err.Error()
+=======
+
+		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
+			go func() {
+				log.Info("registering managed cluster migration")
+				reportErrMessage := ""
+				err := wait.PollUntilContextTimeout(ctx, 5*time.Second, registeringTimeout, true,
+					func(context.Context) (done bool, err error) {
+						if e := s.registering(ctx, managedClusterMigrationToEvent); e != nil {
+							log.Infof("waiting the migrating clusters are available: %v", e)
+							reportErrMessage = e.Error()
+							return false, nil
+						}
+						log.Info("finished registering clusters")
+						reportErrMessage = ""
+						return true, nil
+					},
+				)
+				// the reportErrMessage record the detailed information why the registering failed,
+				// if registered successfully, remove the record error message during the registering
+				if err != nil {
+					reportErrMessage = fmt.Sprintf("registering %s - %s", err.Error(), reportErrMessage)
+				}
+
+				err = ReportMigrationStatus(
+					cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+					s.transportClient,
+					&migration.MigrationGlobalHubBundle{
+						MigrationId: managedClusterMigrationToEvent.MigrationId,
+						Stage:       migrationv1alpha1.ConditionTypeRegistered,
+						ErrMessage:  reportErrMessage,
+					}, s.bundleVersion)
+				if err != nil {
+					log.Errorf("failed to report the registering migration event due to %v", err)
+				} else {
+					log.Info("report registering process successfully")
+				}
+			}()
+>>>>>>> b51ae4d7 (rollback)
 		}
 		err := ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 			s.transportClient,
@@ -142,8 +191,13 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	return nil
 }
 
+<<<<<<< HEAD
 func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
+=======
+func (s *migrationTargetSyncer) cleaning(ctx context.Context,
+	evt *migration.MigrationTargetHubBundle,
+>>>>>>> b51ae4d7 (rollback)
 ) error {
 	msaName := evt.ManagedServiceAccountName
 
@@ -180,6 +234,7 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		}
 	}
 
+<<<<<<< HEAD
 	// delete the agent registration cluster role binding
 	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -196,13 +251,30 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		if err = s.client.Delete(ctx, registrationClusterRoleBinding); err != nil {
 			return err
 		}
+=======
+	// report the cleaned up confirmation
+	err := ReportMigrationStatus(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient,
+		&migration.MigrationGlobalHubBundle{
+			MigrationId: evt.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeCleaned,
+		}, s.bundleVersion)
+	if err != nil {
+		return err
+>>>>>>> b51ae4d7 (rollback)
 	}
 	return nil
 }
 
 // registering watches the migrated managed clusters
+<<<<<<< HEAD
 func (s *MigrationTargetSyncer) registering(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
+=======
+func (s *migrationTargetSyncer) registering(ctx context.Context,
+	evt *migration.MigrationTargetHubBundle,
+>>>>>>> b51ae4d7 (rollback)
 ) error {
 	if len(evt.ManagedClusters) == 0 {
 		return fmt.Errorf("no managed clusters found in migration event: %s", evt.MigrationId)
@@ -251,8 +323,13 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 }
 
 // initializing create the permission for the migration service account, and enable auto-approval for registration
+<<<<<<< HEAD
 func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
+=======
+func (s *migrationTargetSyncer) initializing(ctx context.Context,
+	evt *migration.MigrationTargetHubBundle,
+>>>>>>> b51ae4d7 (rollback)
 ) error {
 	msaName := evt.ManagedServiceAccountName
 	msaNamespace := evt.ManagedServiceAccountInstallNamespace
@@ -270,7 +347,18 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 		return err
 	}
 
+<<<<<<< HEAD
 	return nil
+=======
+	return ReportMigrationStatus(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient,
+		&migration.MigrationGlobalHubBundle{
+			MigrationId: evt.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeInitialized,
+		},
+		s.bundleVersion)
+>>>>>>> b51ae4d7 (rollback)
 }
 
 func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
@@ -291,9 +379,35 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 
 	log.Infof("migration deploying is starting: %s", migrationId)
 
+<<<<<<< HEAD
 	deployingReportBundle := &migration.ManagedClusterMigrationBundle{
 		MigrationId: migrationResources.MigrationId,
 		Stage:       migrationv1alpha1.PhaseDeploying,
+=======
+	defer func() {
+		deployingReportBundle := &migration.MigrationGlobalHubBundle{
+			MigrationId: migrationResources.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeDeployed,
+		}
+		if err != nil {
+			deployingReportBundle.ErrMessage = err.Error()
+		}
+
+		// report the deploying confirmation
+		if err := ReportMigrationStatus(
+			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+			s.transportClient, deployingReportBundle, s.bundleVersion); err != nil {
+			log.Errorf("failed to report the deploying migration event due to %v", err)
+			return
+		}
+		log.Infof("finished the deploying %s", migrationResources.MigrationId)
+	}()
+
+	if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return s.syncMigrationResources(ctx, migrationResources)
+	}); err != nil {
+		log.Errorw("failed to deploying", "type", evt.Type(), "error", err)
+>>>>>>> b51ae4d7 (rollback)
 	}
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {

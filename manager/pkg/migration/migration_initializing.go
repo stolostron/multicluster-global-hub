@@ -186,7 +186,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	return false, nil
 }
 
-
 // sendEventToSourceHub specifies the manager send the message into "From Hub" via spec path(or topic)
 // Stage is the expected state for migration, it algin with the condition states
 // 1. ResourceInitialized: request sync the klusterletconfig from source hub
@@ -197,13 +196,19 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 	resources []string, bootstrapSecret *corev1.Secret,
 ) error {
-	managedClusterMigrationFromEvent := &migrationbundle.ManagedClusterMigrationFromEvent{
+	managedClusterMigrationFromEvent := &migrationbundle.MigrationSourceHubBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ToHub:           migration.Spec.To,
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
 		Resources:       resources,
+	}
+
+	// if the registered status is false, and the current stage is cleaning, then the migration will be rolled back
+	if stage == migrationv1alpha1.PhaseCleaning &&
+		!meta.IsStatusConditionTrue(migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
+		managedClusterMigrationFromEvent.Rollback = true
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -126,7 +127,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	log.Debugf("current migration: %s", mcm.Name)
+	log.Infof("processing migration instance: %s, phase: %s", mcm.Name, mcm.Status.Phase)
 
 	// Check if migration is in final state (completed or failed)
 	if mcm.Status.Phase == migrationv1alpha1.PhaseCompleted || mcm.Status.Phase == migrationv1alpha1.PhaseFailed {
@@ -188,9 +189,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-// sendEventToDestinationHub:
-// 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
-// 2. if KlusterletAddonConfig is not nil -> deploying
 func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 ) error {
@@ -207,10 +205,16 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
-	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+	managedClusterMigrationToEvent := &migrationbundle.MigrationTargetHubBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ManagedClusters: managedClusters,
+	}
+
+	// if the registered status is false, and the current stage is cleaning, then the migration will be rolled back
+	if stage == migrationv1alpha1.PhaseCleaning &&
+		!meta.IsStatusConditionTrue(migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
+		managedClusterMigrationToEvent.Rollback = true
 	}
 
 	// require the msa info when initializing or cleaning

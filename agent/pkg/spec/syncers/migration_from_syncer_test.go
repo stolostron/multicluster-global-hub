@@ -66,7 +66,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 	cases := []struct {
 		name                         string
-		receivedMigrationEventBundle migration.ManagedClusterMigrationFromEvent
+		receivedMigrationEventBundle migration.MigrationSourceHubBundle
 		initObjects                  []client.Object
 		expectedProduceEvent         *cloudevents.Event
 		expectedObjects              []client.Object
@@ -115,7 +115,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					StringData: map[string]string{"test": "secret"},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceHubBundle{
 				MigrationId: currentSyncerMigrationId,
 				ToHub:       "hub2",
 				Stage:       migrationv1alpha1.PhaseInitializing,
@@ -159,7 +159,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceHubBundle{
 				MigrationId:     currentSyncerMigrationId,
 				ToHub:           "hub2",
 				Stage:           migrationv1alpha1.PhaseRegistering,
@@ -200,7 +200,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceHubBundle{
 				MigrationId: currentSyncerMigrationId,
 				ToHub:       "hub2",
 				Stage:       migrationv1alpha1.PhaseCleaning,
@@ -223,7 +223,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt.SetSource("hub1")
 				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
-				_ = evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
+				_ = evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.MigrationGlobalHubBundle{
 					Stage: migrationv1alpha1.ConditionTypeCleaned,
 				})
 				return &evt
