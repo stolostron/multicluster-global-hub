@@ -63,7 +63,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
 			log.Infof("migration deploying to source hub: %s", fromHub)
 			err = m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters,
-				mcm.Spec.IncludedResources, nil)
+				nil, nil)
 			if err != nil {
 				return false, err
 			}

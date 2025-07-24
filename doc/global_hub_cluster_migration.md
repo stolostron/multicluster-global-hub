@@ -2,7 +2,7 @@
 
 ## What Is It?
 
-**Multicluster Global Hub** introduces **Managed Cluster Migration**, a feature that allows you to move managed clusters from one ACM hub cluster to another. In addition to clusters, it also supports migrating associated Kubernetes resources such as `ConfigMaps`, `Secrets`, and more.
+**Multicluster Global Hub** introduces **Managed Cluster Migration**, a feature that allows you to move managed clusters from one ACM hub cluster to another.
 
 This provides a unified way to reorganize or rebalance workloads across multiple hub clusters without manual reconfiguration.
 
@@ -14,7 +14,7 @@ This provides a unified way to reorganize or rebalance workloads across multiple
 
 Multicluster Global Hub is built to manage large-scale fleets of clusters using an event-driven architecture. Traditionally, the Global Hub acts as a bridge between itself and managed hubs. With Managed Cluster Migration, it can now also act as a communication and orchestration layer between multiple hub clusters.
 
-Because Global Hub is event-based, it can efficiently track, sync, and transfer resources and cluster state across hubs, making it an ideal tool for cross-hub migration.
+Because Global Hub is event-based, it can efficiently track, sync, and transfer cluster state across hubs, making it an ideal tool for cross-hub migration.
 
 ---
 
@@ -45,13 +45,11 @@ Each migration goes through several phases, visible in the resource `status.phas
 | Pending      | Only one migration can be handled at a time; others will remain pending     |
 | Validating   | Verifies clusters and hubs are valid.                                       |
 | Initializing | Prepares target hub (kubeconfig, RBAC) and source hub (`KubeletConfig`).    |
-| Deploying    | Migrates selected clusters and resources.                                   |
+| Deploying    | Migrates selected clusters.                                                 |
 | Registering  | Re-registers the cluster to the target hub.                                 |
-| Cleaning     | Cleans up resources from both hubs. Also handles rollback if needed.        |
+| Cleaning     | Cleans up resources from both hubs. Also handles rollback if needed.                  |
 | Completed    | Migration completed successfully.                                           |
 | Failed       | Migration failed; error message included in status.                         |
-
-Note: The Validating phase currently does not check resources such as `ConfigMap`, `Secret`, etc. So if you specify resources that do not exist in the source hub, the migration will fail in the `Deploying` phase.
 
 ---
 
@@ -120,7 +118,7 @@ global-hub.open-cluster-management.io/deploy-mode=hosted
 
 ### Step 3 – Create Migration Resource
 
-Define the `ManagedClusterMigration` resource to move the cluster and related resources:
+Define the `ManagedClusterMigration` resource to move the cluster:
 
 ```yaml
 apiVersion: global-hub.open-cluster-management.io/v1alpha1
@@ -131,9 +129,6 @@ spec:
   from: local-cluster
   includedManagedClusters:
     - cluster1
-  includedResources:
-    - configmap/default/foo
-    - secret/cluster1/bar
   to: hub2
 ```
 
@@ -142,7 +137,6 @@ spec:
 - `from`: The source hub (in this case, `local-cluster` = `hub1`)
 - `to`: Target hub (`hub2`)
 - `includedManagedClusters`: Lists the clusters to be migrated. All cluster names must be unique across hubs.
-- `includedResources`: Specifies the Kubernetes resources to migrate, using the format `kind/namespace/name`. 
 
 ---
 
@@ -177,7 +171,7 @@ status:
 Managed Cluster Migration helps you:
 
 - Reorganize cluster ownership between ACM hub clusters
-- Move clusters and resources together
+- Move clusters
 - Automate re-registration and cleanup
 - Track every step with detailed status updates
 

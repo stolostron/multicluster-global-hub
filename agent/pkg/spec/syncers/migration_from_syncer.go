@@ -35,6 +35,7 @@ import (
 )
 
 const (
+	errFailedToSendEvent       = "failed to send event(%s) from %s to %s: %v"
 	klusterletConfigNamePrefix = "migration-"
 	bootstrapSecretNamePrefix  = "bootstrap-"
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
@@ -186,7 +187,6 @@ func (s *migrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
-	resources := migratingEvt.Resources
 	toHub := migratingEvt.ToHub
 	id := migratingEvt.MigrationId
 
@@ -205,7 +205,7 @@ func (s *migrationSourceSyncer) deploying(
 		}
 	}()
 
-	err := s.SendMigrationResources(ctx, id, managedClusters, resources, configs.GetLeafHubName(), toHub)
+	err := s.SendMigrationResources(ctx, id, managedClusters, nil, configs.GetLeafHubName(), toHub)
 	if err != nil {
 		reportErrMessage = err.Error()
 		return err
@@ -448,7 +448,7 @@ func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
 	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
 	if err := s.transportClient.GetProducer().SendEvent(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
-		return fmt.Errorf("failed to send event(%s) from %s to %s: %v",
+		return fmt.Errorf(errFailedToSendEvent,
 			constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
 	log.Info("deploying the resources into the target hub cluster")
@@ -553,7 +553,7 @@ func ReportMigrationStatus(
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {
 		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf("failed to send event(%s) from %s to %s: %v", eventType, source, clusterName, err)
+			return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
 		}
 		version.Next()
 		return nil
@@ -575,7 +575,7 @@ func SendEvent(
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {
 		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf("failed to send event(%s) from %s to %s: %v", eventType, source, clusterName, err)
+			return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
 		}
 		version.Next()
 		return nil
@@ -600,15 +600,14 @@ func (s *migrationSourceSyncer) cleaningClusters(ctx context.Context, managedClu
 			}
 		}
 		if stage == migrationv1alpha1.PhaseCleaning {
-			if !mc.Spec.HubAcceptsClient {
-				if err := s.client.Delete(ctx, mc); err != nil {
-					if apierrors.IsNotFound(err) {
-						continue
-					} else {
-						return err
-					}
-				}
+			if mc.Spec.HubAcceptsClient {
+				continue
 			}
+			err := s.client.Delete(ctx, mc)
+			if err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+			continue
 		} else {
 			if !mc.Spec.HubAcceptsClient {
 				mc.Spec.HubAcceptsClient = true

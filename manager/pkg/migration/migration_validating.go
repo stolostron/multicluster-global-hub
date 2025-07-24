@@ -155,16 +155,6 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return nil
 	}
 
-	// validate resources
-	for _, resource := range mcm.Spec.IncludedResources {
-		if err := IsValidResource(resource); err != nil {
-			condStatus = metav1.ConditionFalse
-			condReason = ConditionReasonResourceInvalid
-			condMessage = fmt.Sprintf("invalid resources: %s", err.Error())
-			return nil
-		}
-	}
-
 	return nil
 }
 
