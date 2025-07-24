@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -127,7 +128,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	log.Infof("processing migration instance: %s", mcm.Name)
+	log.Infof("processing migration instance: %s, phase: %s", mcm.Name, mcm.Status.Phase)
 
 	// add the finalizer if the migration is not being deleted
 	if mcm.DeletionTimestamp == nil {
@@ -141,49 +142,26 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// validating
-	requeue, err := m.validating(ctx, mcm)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if requeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// initializing
-	requeue, err = m.initializing(ctx, mcm)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if requeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	// Process migration phases with centralized phase transition logic
+	phases := []struct {
+		name    string
+		handler func(context.Context, *migrationv1alpha1.ManagedClusterMigration) (bool, error)
+	}{
+		{"validating", m.validating},
+		{"initializing", m.initializing},
+		{"deploying", m.deploying},
+		{"registering", m.registering},
+		{"cleaning", m.cleaning},
 	}
 
-	// deploying
-	requeue, err = m.deploying(ctx, mcm)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if requeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// registering
-	requeue, err = m.registering(ctx, mcm)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if requeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-	}
-
-	// cleaning
-	requeue, err = m.cleaning(ctx, mcm)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if requeue {
-		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	for _, phase := range phases {
+		if requeue, err := phase.handler(ctx, mcm); err != nil {
+			log.Errorf("error in phase %s: %v", phase.name, err)
+			return ctrl.Result{}, err
+		} else if requeue {
+			log.Infof("requeuing migration %s in phase %s", mcm.Name, phase.name)
+			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 	}
 
 	// clean up the finalizer
@@ -199,12 +177,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-// sendEventToDestinationHub:
-// 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
-// 2. if KlusterletAddonConfig is not nil -> deploying
+// sendEventToDestinationHub sends migration event to the destination hub with validation.
+// It creates the appropriate bundle based on the migration stage and sends it via the transport.
 func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 ) error {
+	log.Debugf("sending event to destination hub %s for migration %s in stage %s",
+		migration.Spec.To, migration.Name, stage)
 	// if the target cluster is local cluster, then the msaNamespace is open-cluster-management-agent-addon
 	isLocalCluster := false
 	managedCluster := &clusterv1.ManagedCluster{}
@@ -218,10 +197,16 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
-	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+	targetHubBundle := &migrationbundle.MigrationTargetHubBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ManagedClusters: managedClusters,
+	}
+
+	// if the registered status is false, and the current stage is cleaning, then the migration will be rolled back
+	if stage == migrationv1alpha1.PhaseCleaning &&
+		!meta.IsStatusConditionTrue(migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
+		targetHubBundle.Rollback = true
 	}
 
 	// require the msa info when initializing or cleaning
@@ -232,14 +217,14 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 			return fmt.Errorf("failed to get the managedserviceaccount addon installNamespace: %v", err)
 		}
 
-		managedClusterMigrationToEvent.ManagedServiceAccountName = migration.Name
-		managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = installNamespace
+		targetHubBundle.ManagedServiceAccountName = migration.Name
+		targetHubBundle.ManagedServiceAccountInstallNamespace = installNamespace
 	}
 
-	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
+	payloadToBytes, err := json.Marshal(targetHubBundle)
 	if err != nil {
 		return fmt.Errorf("failed to marshal managed cluster migration to event(%v) - %w",
-			managedClusterMigrationToEvent, err)
+			targetHubBundle, err)
 	}
 
 	eventType := constants.MigrationTargetMsgKey

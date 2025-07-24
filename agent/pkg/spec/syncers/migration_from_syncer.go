@@ -64,7 +64,7 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	payload := evt.Data()
 	// handle migration.from cloud event
-	migrationSourceHubEvent := &migration.ManagedClusterMigrationFromEvent{}
+	migrationSourceHubEvent := &migration.MigrationSourceHubBundle{}
 	if err := json.Unmarshal(payload, migrationSourceHubEvent); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 }
 
 func (m *migrationSourceSyncer) cleaning(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	bootstrapSecret := migratingEvt.BootstrapSecret
 	// delete bootstrap kubeconfig secret
@@ -169,7 +169,7 @@ func (m *migrationSourceSyncer) cleaning(
 	// send the cleanup confirmation
 	err := ReportMigrationStatus(cecontext.WithTopic(ctx, m.transportConfig.KafkaCredential.StatusTopic),
 		m.transportClient,
-		&migration.ManagedClusterMigrationBundle{
+		&migration.MigrationGlobalHubBundle{
 			MigrationId: migratingEvt.MigrationId,
 			Stage:       migrationv1alpha1.ConditionTypeCleaned,
 		},
@@ -183,7 +183,7 @@ func (m *migrationSourceSyncer) cleaning(
 
 // deploying: send clusters and addon config into target hub
 func (s *migrationSourceSyncer) deploying(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
 	resources := migratingEvt.Resources
@@ -194,7 +194,7 @@ func (s *migrationSourceSyncer) deploying(
 	defer func() {
 		err := ReportMigrationStatus(
 			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic), s.transportClient,
-			&migration.ManagedClusterMigrationBundle{
+			&migration.MigrationGlobalHubBundle{
 				MigrationId: s.currentMigrationId,
 				Stage:       migrationv1alpha1.ConditionTypeDeployed,
 				ErrMessage:  reportErrMessage,
@@ -218,7 +218,7 @@ func (s *migrationSourceSyncer) deploying(
 // Note: Add the "global-hub.open-cluster-management.io/migrating" to avoid the race condition of the cluster
 // reported by both target and source hub
 func (m *migrationSourceSyncer) initializing(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	if migratingEvt.BootstrapSecret == nil {
 		return fmt.Errorf("bootstrap secret is nil when initializing")
@@ -292,7 +292,7 @@ func (m *migrationSourceSyncer) initializing(
 	// send the initialized confirmation
 	err = ReportMigrationStatus(
 		cecontext.WithTopic(ctx, m.transportConfig.KafkaCredential.StatusTopic), m.transportClient,
-		&migration.ManagedClusterMigrationBundle{
+		&migration.MigrationGlobalHubBundle{
 			MigrationId: migratingEvt.MigrationId,
 			Stage:       migrationv1alpha1.ConditionTypeInitialized,
 		},
@@ -358,7 +358,7 @@ spec:
 }
 
 func (m *migrationSourceSyncer) registering(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
 	// set the hub accept client into false to trigger the re-registering
@@ -537,7 +537,7 @@ func sanitizeObjectMeta(obj metav1.Object) {
 func ReportMigrationStatus(
 	ctx context.Context,
 	transportClient transport.TransportClient,
-	migrationBundle *migration.ManagedClusterMigrationBundle,
+	migrationBundle *migration.MigrationGlobalHubBundle,
 	version *eventversion.Version,
 ) error {
 	source := configs.GetLeafHubName()

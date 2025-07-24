@@ -137,14 +137,16 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	// 4. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-		condition.Message = fmt.Sprintf("initializing target hub %s with err :%s", mcm.Spec.To, errMsg)
+		condition.Message = fmt.Sprintf("initializing target hub %s failed: %s", mcm.Spec.To, errMsg)
 		condition.Reason = ConditionReasonError
+		log.Errorf("target hub initialization error: %s", errMsg)
 		return false, nil
 	}
 	for fromHubName := range sourceHubToClusters {
 		if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-			condition.Message = fmt.Sprintf("initializing source hub %s with err :%s", fromHubName, errMsg)
+			condition.Message = fmt.Sprintf("initializing source hub %s failed: %s", fromHubName, errMsg)
 			condition.Reason = ConditionReasonError
+			log.Errorf("source hub %s initialization error: %s", fromHubName, errMsg)
 			return false, nil
 		}
 	}
@@ -184,15 +186,24 @@ func (m *ClusterMigrationController) handleMigrationStatus(ctx context.Context,
 		condition.Reason = ConditionReasonTimeout
 		condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
 		*nextPhase = migrationv1alpha1.PhaseCleaning
-		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-			*nextPhase = migrationv1alpha1.PhaseFailed
-		}
 	}
 
+	// if the condition is error, then the migration will be cleaning and rollback
 	if condition.Reason == ConditionReasonError {
 		*nextPhase = migrationv1alpha1.PhaseCleaning
-		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-			*nextPhase = migrationv1alpha1.PhaseFailed
+	}
+
+	if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
+		if condition.Status == metav1.ConditionTrue {
+			*nextPhase = migrationv1alpha1.PhaseCompleted
+			if !meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
+				*nextPhase = migrationv1alpha1.PhaseFailed
+			}
+		} else {
+			*nextPhase = migrationv1alpha1.PhaseCleaning
+			if condition.Reason != ConditionReasonWaiting {
+				*nextPhase = migrationv1alpha1.PhaseFailed
+			}
 		}
 	}
 
@@ -212,7 +223,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 	resources []string, bootstrapSecret *corev1.Secret,
 ) error {
-	managedClusterMigrationFromEvent := &migrationbundle.ManagedClusterMigrationFromEvent{
+	sourceHubBundle := &migrationbundle.MigrationSourceHubBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ToHub:           migration.Spec.To,
@@ -221,10 +232,16 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 		Resources:       resources,
 	}
 
-	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)
+	// if the registered status is false, and the current stage is cleaning, then the migration will be rolled back
+	if stage == migrationv1alpha1.PhaseCleaning &&
+		!meta.IsStatusConditionTrue(migration.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) {
+		sourceHubBundle.Rollback = true
+	}
+
+	payloadBytes, err := json.Marshal(sourceHubBundle)
 	if err != nil {
 		return fmt.Errorf("failed to marshal managed cluster migration from event(%v) - %w",
-			managedClusterMigrationFromEvent, err)
+			sourceHubBundle, err)
 	}
 
 	eventType := constants.MigrationSourceMsgKey
@@ -380,10 +397,10 @@ func (m *ClusterMigrationController) generateBootstrapSecret(ctx context.Context
 	return bootstrapSecret, nil
 }
 
-func getBootstrapSecret(sourceHubCluster string, kubeconfigBytes []byte) *corev1.Secret {
+func getBootstrapSecret(toHubClusterName string, kubeconfigBytes []byte) *corev1.Secret {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      bootstrapSecretNamePrefix + sourceHubCluster,
+			Name:      bootstrapSecretNamePrefix + toHubClusterName,
 			Namespace: "multicluster-engine",
 		},
 		Data: map[string][]byte{

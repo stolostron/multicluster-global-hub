@@ -36,7 +36,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	scheme := configs.GetRuntimeScheme()
 	cases := []struct {
 		name                          string
-		migrationEvent                *migration.ManagedClusterMigrationToEvent
+		migrationEvent                *migration.MigrationTargetHubBundle
 		initObjects                   []client.Object
 		expectedClusterManager        *operatorv1.ClusterManager
 		expectedClusterRole           *rbacv1.ClusterRole
@@ -45,7 +45,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	}{
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -129,7 +129,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having empty registration configuration",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -171,7 +171,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -222,7 +222,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate disabled",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -269,7 +269,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate auto approve user",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -316,7 +316,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with existing clusterrole and clusterrolebinding",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -446,7 +446,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with changed clusterrole and clusterrolebinding",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -643,13 +643,13 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	cases := []struct {
 		name                         string
-		receivedMigrationEventBundle migration.ManagedClusterMigrationToEvent
+		receivedMigrationEventBundle migration.MigrationTargetHubBundle
 		initObjects                  []client.Object
 		expectedError                error
 	}{
 		{
 			name: "Deploying resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+			receivedMigrationEventBundle: migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -670,7 +670,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		},
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+			receivedMigrationEventBundle: migration.MigrationTargetHubBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -858,7 +858,7 @@ func TestRegistering(t *testing.T) {
 	cases := []struct {
 		name                 string
 		initObjects          []client.Object
-		migrationEvent       *migration.ManagedClusterMigrationToEvent
+		migrationEvent       *migration.MigrationTargetHubBundle
 		expectedError        string
 		expectedErrorMessage string
 	}{
@@ -912,7 +912,7 @@ func TestRegistering(t *testing.T) {
 					},
 				},
 			},
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
 			expectedError: "",
@@ -967,7 +967,7 @@ func TestRegistering(t *testing.T) {
 					},
 				},
 			},
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetHubBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
 			expectedError: "manifestwork(*-klusterlet) are not applied in these clusters: [cluster2]",

@@ -64,7 +64,7 @@ func NewMigrationTargetSyncer(client client.Client,
 func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("received migration event from %s", evt.Source())
 	if evt.Source() == constants.CloudEventGlobalHubClusterName {
-		managedClusterMigrationToEvent := &migration.ManagedClusterMigrationToEvent{}
+		managedClusterMigrationToEvent := &migration.MigrationTargetHubBundle{}
 		if err := json.Unmarshal(evt.Data(), managedClusterMigrationToEvent); err != nil {
 			return fmt.Errorf("failed to unmarshal payload %v", err)
 		}
@@ -117,7 +117,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				err = ReportMigrationStatus(
 					cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 					s.transportClient,
-					&migration.ManagedClusterMigrationBundle{
+					&migration.MigrationGlobalHubBundle{
 						MigrationId: managedClusterMigrationToEvent.MigrationId,
 						Stage:       migrationv1alpha1.ConditionTypeRegistered,
 						ErrMessage:  reportErrMessage,
@@ -151,7 +151,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 }
 
 func (s *migrationTargetSyncer) cleaning(ctx context.Context,
-	evt *migration.ManagedClusterMigrationToEvent,
+	evt *migration.MigrationTargetHubBundle,
 ) error {
 	msaName := evt.ManagedServiceAccountName
 
@@ -192,7 +192,7 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 	err := ReportMigrationStatus(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 		s.transportClient,
-		&migration.ManagedClusterMigrationBundle{
+		&migration.MigrationGlobalHubBundle{
 			MigrationId: evt.MigrationId,
 			Stage:       migrationv1alpha1.ConditionTypeCleaned,
 		}, s.bundleVersion)
@@ -204,7 +204,7 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 
 // registering watches the migrated managed clusters
 func (s *migrationTargetSyncer) registering(ctx context.Context,
-	evt *migration.ManagedClusterMigrationToEvent,
+	evt *migration.MigrationTargetHubBundle,
 ) error {
 	if len(evt.ManagedClusters) == 0 {
 		return fmt.Errorf("no managed clusters found in migration event: %s", evt.MigrationId)
@@ -242,7 +242,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 
 // initializing create the permission for the migration service account, and enable auto-approval for registration
 func (s *migrationTargetSyncer) initializing(ctx context.Context,
-	evt *migration.ManagedClusterMigrationToEvent,
+	evt *migration.MigrationTargetHubBundle,
 ) error {
 	msaName := evt.ManagedServiceAccountName
 	msaNamespace := evt.ManagedServiceAccountInstallNamespace
@@ -263,7 +263,7 @@ func (s *migrationTargetSyncer) initializing(ctx context.Context,
 	return ReportMigrationStatus(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 		s.transportClient,
-		&migration.ManagedClusterMigrationBundle{
+		&migration.MigrationGlobalHubBundle{
 			MigrationId: evt.MigrationId,
 			Stage:       migrationv1alpha1.ConditionTypeInitialized,
 		},
@@ -290,7 +290,7 @@ func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 	var err error
 
 	defer func() {
-		deployingReportBundle := &migration.ManagedClusterMigrationBundle{
+		deployingReportBundle := &migration.MigrationGlobalHubBundle{
 			MigrationId: migrationResources.MigrationId,
 			Stage:       migrationv1alpha1.ConditionTypeDeployed,
 		}

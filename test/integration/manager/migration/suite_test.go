@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 	. "github.com/onsi/ginkgo/v2"
@@ -32,9 +33,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
@@ -50,6 +54,8 @@ var (
 	db                  *gorm.DB
 	mgr                 manager.Manager
 	migrationReconciler *migration.ClusterMigrationController
+	specConsumer        *consumer.GenericConsumer
+	specEvents          []*cloudevents.Event
 )
 
 func TestController(t *testing.T) {
@@ -66,8 +72,8 @@ var _ = BeforeSuite(func() {
 	transportConfig = &transport.TransportInternalConfig{
 		TransportType: string(transport.Chan),
 		KafkaCredential: &transport.KafkaConfig{
-			SpecTopic:   "spec",
-			StatusTopic: "status",
+			SpecTopic: "spec",
+			// StatusTopic: "status",
 		},
 	}
 	managerConfig := &configs.ManagerConfig{TransportConfig: transportConfig}
@@ -121,6 +127,18 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, managerConfig)
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
+
+	// add the spec consumer to the manager
+	specConsumer, err = consumer.NewGenericConsumer(transportConfig, []string{transportConfig.KafkaCredential.SpecTopic})
+	Expect(err).NotTo(HaveOccurred())
+	Expect(mgr.Add(specConsumer)).To(Succeed())
+
+	// consume events from the spec topic
+	go func() {
+		for event := range specConsumer.EventChan() {
+			specEvents = append(specEvents, event)
+		}
+	}()
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
@@ -272,4 +290,120 @@ func cleanupMigrationCR(ctx context.Context, name, namespace string) error {
 		return fmt.Errorf("failed to delete migration %s: %w", name, err)
 	}
 	return nil
+}
+
+func validateSpecEvent(events []*cloudevents.Event, expectedEvent cloudevents.Event) error {
+	hubKey := constants.CloudEventExtensionKeyClusterName
+
+	var expectedSourceBundle *migrationbundle.MigrationSourceHubBundle
+	var expectedTargetBundle *migrationbundle.MigrationTargetHubBundle
+
+	if expectedEvent.Type() == constants.MigrationSourceMsgKey {
+		expectedSourceBundle = &migrationbundle.MigrationSourceHubBundle{}
+		if err := json.Unmarshal(expectedEvent.Data(), expectedSourceBundle); err != nil {
+			return fmt.Errorf("failed to unmarshal expected source bundle: %v", err)
+		}
+	} else if expectedEvent.Type() == constants.MigrationTargetMsgKey {
+		expectedTargetBundle = &migrationbundle.MigrationTargetHubBundle{}
+		if err := json.Unmarshal(expectedEvent.Data(), expectedTargetBundle); err != nil {
+			return fmt.Errorf("failed to unmarshal expected target bundle: %v", err)
+		}
+	}
+
+	for _, event := range events {
+		if event.Type() != expectedEvent.Type() ||
+			event.Source() != expectedEvent.Source() ||
+			event.Extensions()[hubKey] != expectedEvent.Extensions()[hubKey] {
+			continue
+		}
+
+		if expectedEvent.Type() == constants.MigrationSourceMsgKey {
+			sourceBundle := &migrationbundle.MigrationSourceHubBundle{}
+			if err := json.Unmarshal(event.Data(), sourceBundle); err != nil {
+				return fmt.Errorf("failed to unmarshal source bundle: %v", err)
+			}
+			if sourceBundle.MigrationId != expectedSourceBundle.MigrationId ||
+				sourceBundle.Stage != expectedSourceBundle.Stage {
+				continue
+			}
+
+			if sourceBundle.ToHub != expectedSourceBundle.ToHub {
+				return fmt.Errorf("to hub mismatch, expected %s, got %s", expectedSourceBundle.ToHub, sourceBundle.ToHub)
+			}
+
+			if sourceBundle.Rollback != expectedSourceBundle.Rollback {
+				return fmt.Errorf("rollback mismatch, expected %v, got %v", expectedSourceBundle.Rollback, sourceBundle.Rollback)
+			}
+
+			if len(sourceBundle.Resources) != len(expectedSourceBundle.Resources) {
+				return fmt.Errorf("resources mismatch, expected %d, got %d", len(expectedSourceBundle.Resources), len(sourceBundle.Resources))
+			}
+			for i, resource := range sourceBundle.Resources {
+				if resource != expectedSourceBundle.Resources[i] {
+					return fmt.Errorf("resource mismatch, expected %v, got %v", expectedSourceBundle.Resources[i], resource)
+				}
+			}
+
+			if len(sourceBundle.ManagedClusters) != len(expectedSourceBundle.ManagedClusters) {
+				return fmt.Errorf("managed clusters mismatch, expected %d, got %d", len(expectedSourceBundle.ManagedClusters), len(sourceBundle.ManagedClusters))
+			}
+			for i, managedCluster := range sourceBundle.ManagedClusters {
+				if managedCluster != expectedSourceBundle.ManagedClusters[i] {
+					return fmt.Errorf("managed cluster mismatch, expected %v, got %v", expectedSourceBundle.ManagedClusters[i], managedCluster)
+				}
+			}
+
+			if expectedSourceBundle.BootstrapSecret != nil {
+				expectedBootstrapSecret := expectedSourceBundle.BootstrapSecret
+				if sourceBundle.BootstrapSecret == nil {
+					return fmt.Errorf("bootstrap secret mismatch, expected %v, got %v", expectedBootstrapSecret, sourceBundle.BootstrapSecret)
+				}
+				if sourceBundle.BootstrapSecret.Name != expectedBootstrapSecret.Name ||
+					sourceBundle.BootstrapSecret.Namespace != expectedBootstrapSecret.Namespace {
+					return fmt.Errorf("bootstrap secret mismatch, expected %v, got %v", expectedBootstrapSecret.ObjectMeta, sourceBundle.BootstrapSecret.ObjectMeta)
+				}
+
+				// if expected contains key, check if sourceBundle.BootstrapSecret.Data contains the key
+				for key := range expectedBootstrapSecret.Data {
+					if _, ok := sourceBundle.BootstrapSecret.Data[key]; !ok {
+						return fmt.Errorf("bootstrap secret data mismatch, expected contains key %s, got data %v", key, sourceBundle.BootstrapSecret.Data)
+					}
+				}
+			}
+			return nil
+		}
+
+		if expectedEvent.Type() == constants.MigrationTargetMsgKey {
+			targetBundle := &migrationbundle.MigrationTargetHubBundle{}
+			if err := json.Unmarshal(event.Data(), targetBundle); err != nil {
+				return fmt.Errorf("failed to unmarshal target bundle: %v", err)
+			}
+			if targetBundle.MigrationId != expectedTargetBundle.MigrationId ||
+				targetBundle.Stage != expectedTargetBundle.Stage {
+				continue
+			}
+
+			if expectedTargetBundle.ManagedServiceAccountName != targetBundle.ManagedServiceAccountName {
+				return fmt.Errorf("managed service account name mismatch, expected %s, got %s", expectedTargetBundle.ManagedServiceAccountName, targetBundle.ManagedServiceAccountName)
+			}
+			if expectedTargetBundle.ManagedServiceAccountInstallNamespace != targetBundle.ManagedServiceAccountInstallNamespace {
+				return fmt.Errorf("managed service account install namespace mismatch, expected %s, got %s", expectedTargetBundle.ManagedServiceAccountInstallNamespace, targetBundle.ManagedServiceAccountInstallNamespace)
+			}
+			if len(expectedTargetBundle.ManagedClusters) != len(targetBundle.ManagedClusters) {
+				return fmt.Errorf("managed clusters mismatch, expected %d, got %d", len(expectedTargetBundle.ManagedClusters), len(targetBundle.ManagedClusters))
+			}
+			for i, managedCluster := range targetBundle.ManagedClusters {
+				if managedCluster != expectedTargetBundle.ManagedClusters[i] {
+					return fmt.Errorf("managed cluster mismatch, expected %v, got %v", expectedTargetBundle.ManagedClusters[i], managedCluster)
+				}
+			}
+
+			if expectedTargetBundle.Rollback != targetBundle.Rollback {
+				return fmt.Errorf("rollback mismatch, expected %v, got %v", expectedTargetBundle.Rollback, targetBundle.Rollback)
+			}
+
+			return nil
+		}
+	}
+	return fmt.Errorf("expected event %s not found", expectedEvent)
 }

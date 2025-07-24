@@ -73,7 +73,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	for sourceHub, clusters := range sourceHubClusters {
 		if !GetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning) {
 			if err := m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters,
-				nil, bootstrapSecret); err != nil {
+				mcm.Spec.IncludedResources, bootstrapSecret); err != nil {
 				condition.Message = err.Error()
 				condition.Reason = ConditionReasonError
 				return false, err
