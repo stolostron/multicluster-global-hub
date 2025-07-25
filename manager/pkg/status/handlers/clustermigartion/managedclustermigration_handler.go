@@ -14,7 +14,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
-	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -74,31 +73,10 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
 	}
 
-	phase := ""
-	if bundle.Stage == migrationv1alpha1.ConditionTypeInitialized {
-		phase = migrationv1alpha1.PhaseInitializing
-	}
-
-	if bundle.Stage == migrationv1alpha1.ConditionTypeDeployed {
-		phase = migrationv1alpha1.PhaseDeploying
-	}
-
-	if bundle.Stage == migrationv1alpha1.ConditionTypeRegistered {
-		phase = migrationv1alpha1.PhaseRegistering
-	}
-
-	if bundle.Stage == migrationv1alpha1.ConditionTypeCleaned {
-		phase = migrationv1alpha1.PhaseCleaning
-	}
-
-	if phase == "" {
-		return fmt.Errorf("don't support the migration stage: %s", bundle.Stage)
-	}
-
 	if bundle.ErrMessage != "" {
-		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, phase, bundle.ErrMessage)
+		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
 	} else {
-		migration.SetFinished(bundle.MigrationId, hubClusterName, phase)
+		migration.SetFinished(bundle.MigrationId, hubClusterName, bundle.Stage)
 	}
 	return nil
 }

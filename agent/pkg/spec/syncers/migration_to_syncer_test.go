@@ -799,24 +799,6 @@ func TestDeploying(t *testing.T) {
 				},
 			},
 		},
-		Secrets: []*corev1.Secret{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: "cluster1",
-				},
-				StringData: map[string]string{"test": "secret"},
-			},
-		},
-		ConfigMaps: []*corev1.ConfigMap{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-configmap",
-					Namespace: "cluster1",
-				},
-				Data: map[string]string{"test": "configmap"},
-			},
-		},
 	})
 
 	scheme := configs.GetRuntimeScheme()
