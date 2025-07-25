@@ -235,7 +235,7 @@ func cleanupHubAndClusters(ctx context.Context, hubName, clusterName string) {
 }
 
 // createMigrationCR creates a ManagedClusterMigration custom resource.
-func createMigrationCR(ctx context.Context, name, fromHub, toHub string, clusters []string, resources []string) (*migrationv1alpha1.ManagedClusterMigration, error) {
+func createMigrationCR(ctx context.Context, name, fromHub, toHub string, clusters []string) (*migrationv1alpha1.ManagedClusterMigration, error) {
 	m := &migrationv1alpha1.ManagedClusterMigration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -245,7 +245,6 @@ func createMigrationCR(ctx context.Context, name, fromHub, toHub string, cluster
 			From:                    fromHub,
 			To:                      toHub,
 			IncludedManagedClusters: clusters,
-			IncludedResources:       resources,
 		},
 	}
 	if err := mgr.GetClient().Create(ctx, m); err != nil {
