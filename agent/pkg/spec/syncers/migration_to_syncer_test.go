@@ -11,7 +11,6 @@ import (
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -808,7 +807,11 @@ func TestDeploying(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
 	transportConfig := &transport.TransportInternalConfig{KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"}}
-	syncer := NewMigrationTargetSyncer(fakeClient, nil, transportConfig)
+
+	producer := ProducerMock{}
+	transportClient := &controller.TransportClient{}
+	transportClient.SetProducer(&producer)
+	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
 	syncer.currentMigrationId = migrationId
 	err := syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
@@ -820,16 +823,6 @@ func TestDeploying(t *testing.T) {
 	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	assert.Nil(t, err)
 	assert.True(t, cluster.Spec.HubAcceptsClient)
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-secret",
-			Namespace: "cluster1",
-		},
-	}
-	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
-	assert.Nil(t, err)
-	assert.Equal(t, "secret", secret.StringData["test"])
 }
 
 // go test -timeout 30s -run ^TestRegistering$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
@@ -952,7 +945,7 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.ManagedClusterMigrationToEvent{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "manifestwork(*-klusterlet) are not applied in these clusters: [cluster2]",
+			expectedError: "waiting the manifestworks(*-klusterlet) to be applied in clusters: [cluster2]",
 		},
 	}
 

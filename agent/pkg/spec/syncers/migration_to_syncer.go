@@ -176,18 +176,6 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 			return err
 		}
 	}
-
-	// report the cleaned up confirmation
-	err := ReportMigrationStatus(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-		s.transportClient,
-		&migration.ManagedClusterMigrationBundle{
-			MigrationId: evt.MigrationId,
-			Stage:       migrationv1alpha1.ConditionTypeCleaned,
-		}, s.bundleVersion)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -261,14 +249,7 @@ func (s *migrationTargetSyncer) initializing(ctx context.Context,
 		return err
 	}
 
-	return ReportMigrationStatus(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-		s.transportClient,
-		&migration.ManagedClusterMigrationBundle{
-			MigrationId: evt.MigrationId,
-			Stage:       migrationv1alpha1.ConditionTypeInitialized,
-		},
-		s.bundleVersion)
+	return nil
 }
 
 func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
