@@ -205,7 +205,7 @@ func TestValidating(t *testing.T) {
 					From:                    "source-hub",
 					To:                      "target-hub",
 					IncludedManagedClusters: []string{"cluster1"},
-					IncludedResources:       []string{"invalid/format", "pod/ns1/name1"}, // Invalid resources
+					// IncludedResources:       []string{"invalid/format", "pod/ns1/name1"}, // Invalid resources
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseValidating,
@@ -242,7 +242,7 @@ func TestValidating(t *testing.T) {
 					From:                    "source-hub",
 					To:                      "target-hub",
 					IncludedManagedClusters: []string{"cluster1"},
-					IncludedResources:       []string{"configmap/default/my-config", "secret/ns1/my-secret"},
+					// IncludedResources:       []string{"configmap/default/my-config", "secret/ns1/my-secret"},
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseValidating,

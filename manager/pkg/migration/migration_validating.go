@@ -141,7 +141,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return false, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 // IsValidResource checks format kind/namespace/name
