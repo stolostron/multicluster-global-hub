@@ -408,35 +408,6 @@ func (m *migrationSourceSyncer) registering(
 	return nil
 }
 
-func sanitizeAndDedup[T metav1.Object](items []T, getKey func(T) string) []T {
-	seen := make(map[string]struct{})
-	result := make([]T, 0, len(items))
-	for _, item := range items {
-		key := getKey(item)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		sanitizeObjectMeta(item)
-		seen[key] = struct{}{}
-		result = append(result, item)
-	}
-	return result
-}
-
-func sanitizeObjectMeta(obj metav1.Object) {
-	obj.SetFinalizers(nil)
-	obj.SetOwnerReferences(nil)
-	obj.SetResourceVersion("")
-	obj.SetUID("")
-	obj.SetCreationTimestamp(metav1.Time{})
-	// ManagedFields is not available via interface, need type assertion
-	if accessor, ok := obj.(interface {
-		SetManagedFields([]metav1.ManagedFieldsEntry)
-	}); ok {
-		accessor.SetManagedFields(nil)
-	}
-}
-
 func ReportMigrationStatus(
 	ctx context.Context,
 	transportClient transport.TransportClient,
