@@ -36,7 +36,7 @@ spec:
             - --retry-period={{.RetryPeriod}}
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
-            - --standalone=true
+            - --standalone=false
             - --enable-stackrox-integration={{.EnableStackroxIntegration}}
             {{- if .StackroxPollInterval}}
             - --stackrox-poll-interval={{.StackroxPollInterval}}
