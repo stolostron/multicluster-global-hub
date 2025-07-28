@@ -5,123 +5,193 @@ import (
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-func TestGetCurrentMigration(t *testing.T) {
+// MockProducer is a mock implementation of the transport.Producer for testing.
+type MockProducer struct {
+	SentEvents []cloudevents.Event
+	SendError  error
+}
+
+// SendEvent mocks the sending of a cloud event.
+func (m *MockProducer) SendEvent(ctx context.Context, event cloudevents.Event) error {
+	if m.SendError != nil {
+		return m.SendError
+	}
+	m.SentEvents = append(m.SentEvents, event)
+	return nil
+}
+
+// Reconnect is a mock implementation of the Reconnect method.
+func (m *MockProducer) Reconnect(config *transport.TransportInternalConfig, topic string) error {
+	return nil
+}
+
+// findControllerCondition finds a specific condition in the conditions slice for controller tests
+func findControllerCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+	return nil
+}
+
+func TestUpdateStatusWithRetry(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {
-		name          string
-		migrations    []migrationv1alpha1.ManagedClusterMigration
-		expectedName  string
-		preExec       func()
-		expectedError bool
+		name                    string
+		migration               *migrationv1alpha1.ManagedClusterMigration
+		condition               metav1.Condition
+		phase                   string
+		expectedPhase           string
+		expectedConditionStatus metav1.ConditionStatus
+		expectedConditionReason string
 	}{
 		{
-			name:          "Should return nil when no migrations exist",
-			migrations:    []migrationv1alpha1.ManagedClusterMigration{},
-			expectedName:  "",
-			expectedError: false,
-		},
-		{
-			name: "Should skip the completed migration",
-			migrations: []migrationv1alpha1.ManagedClusterMigration{
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "migration1"},
-					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-						Phase: migrationv1alpha1.PhaseCompleted,
-					},
+			name: "Should update condition and phase successfully",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid"),
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhasePending,
 				},
 			},
-			expectedName:  "",
-			expectedError: false,
+			condition: metav1.Condition{
+				Type:    migrationv1alpha1.ConditionTypeStarted,
+				Status:  metav1.ConditionTrue,
+				Reason:  ConditionReasonStarted,
+				Message: "Migration instance is started",
+			},
+			phase:                   migrationv1alpha1.PhaseValidating,
+			expectedPhase:           migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus: metav1.ConditionTrue,
+			expectedConditionReason: ConditionReasonStarted,
 		},
 		{
-			name: "Should skip the failed migration since it was completed",
+			name: "Should update waiting condition",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-2",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-2"),
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseValidating,
+				},
+			},
+			condition: metav1.Condition{
+				Type:    migrationv1alpha1.ConditionTypeValidated,
+				Status:  metav1.ConditionFalse,
+				Reason:  ConditionReasonWaiting,
+				Message: "Waiting for validation to complete",
+			},
+			phase:                   migrationv1alpha1.PhaseValidating,
+			expectedPhase:           migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: ConditionReasonWaiting,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.migration).
+				WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
+				Build()
+
+			controller := &ClusterMigrationController{
+				Client:   fakeClient,
+				Producer: &MockProducer{},
+			}
+
+			ctx := context.TODO()
+			err := controller.UpdateStatusWithRetry(ctx, tt.migration, tt.condition, tt.phase)
+			assert.NoError(t, err)
+
+			// Verify the migration status after update
+			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase, "Expected phase should match")
+
+			// Verify the condition status and reason
+			condition := findControllerCondition(tt.migration.Status.Conditions, tt.condition.Type)
+			assert.NotNil(t, condition, "Condition should exist")
+			assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")
+			assert.Equal(t, tt.expectedConditionReason, condition.Reason, "Expected condition reason should match")
+			assert.Equal(t, tt.condition.Message, condition.Message, "Expected condition message should match")
+		})
+	}
+}
+
+func TestSelectAndPrepareMigration(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = migrationv1alpha1.AddToScheme(scheme)
+
+	tests := []struct {
+		name                    string
+		migrations              []migrationv1alpha1.ManagedClusterMigration
+		requestName             string
+		expectedSelected        *string // nil if no migration should be selected
+		expectedPhase           string
+		expectedConditionStatus metav1.ConditionStatus
+		expectedConditionReason string
+		expectedConditionType   string
+	}{
+		{
+			name:        "Should initialize new migration to pending",
+			requestName: "new-migration",
 			migrations: []migrationv1alpha1.ManagedClusterMigration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "migration2",
-						UID:  "migration2",
+						Name:              "new-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("new-uid"),
+						CreationTimestamp: metav1.Time{Time: time.Now()},
 					},
 					Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-						From:                    "hub1",
-						To:                      "hub2",
+						From:                    "source-hub",
+						To:                      "target-hub",
 						IncludedManagedClusters: []string{"cluster1"},
 					},
 					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-						Phase: migrationv1alpha1.PhaseFailed,
-						Conditions: []metav1.Condition{
-							{
-								Type:    migrationv1alpha1.ConditionTypeCleaned,
-								Status:  metav1.ConditionTrue,
-								Reason:  "ResourceCleaned",
-								Message: "Resources have been cleaned from the hub clusters",
-							},
-						},
+						Phase: "", // New migration with empty phase
 					},
 				},
 			},
-			expectedName:  "",
-			expectedError: false,
-			preExec: func() {
-				AddMigrationStatus("migration2")
-				SetFinished("migration2", "hub1", v1alpha1.PhaseCleaning)
-				SetFinished("migration2", "hub2", v1alpha1.PhaseCleaning)
-			},
+			expectedSelected:        stringPtr("new-migration"),
+			expectedPhase:           migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus: metav1.ConditionTrue,
+			expectedConditionReason: ConditionReasonStarted,
+			expectedConditionType:   migrationv1alpha1.ConditionTypeStarted,
 		},
 		{
-			name: "Should return migration with finalizer",
+			name:        "Should select oldest pending migration",
+			requestName: "older-migration",
 			migrations: []migrationv1alpha1.ManagedClusterMigration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:       "migration1",
-						Finalizers: []string{constants.ManagedClusterMigrationFinalizer},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{Name: "migration2"},
-				},
-			},
-			expectedName:  "migration1",
-			expectedError: false,
-		},
-		{
-			name: "Should return oldest migration when no finalizers exist",
-			migrations: []migrationv1alpha1.ManagedClusterMigration{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "migration1",
-						CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "migration2",
+						Name:              "newer-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("newer-uid"),
 						CreationTimestamp: metav1.Time{Time: time.Now()},
-					},
-				},
-			},
-			expectedName:  "migration1",
-			expectedError: false,
-		},
-		{
-			name: "Should return oldest migration when no finalizers exist, and it's pending",
-			migrations: []migrationv1alpha1.ManagedClusterMigration{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:              "migration1",
-						CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
 					},
 					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 						Phase: migrationv1alpha1.PhasePending,
@@ -129,46 +199,158 @@ func TestGetCurrentMigration(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:              "migration2",
-						CreationTimestamp: metav1.Time{Time: time.Now()},
+						Name:              "older-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("older-uid"),
+						CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+					},
+					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+						Phase: migrationv1alpha1.PhasePending,
 					},
 				},
 			},
-			expectedName:  "migration1",
-			expectedError: false,
+			expectedSelected:        stringPtr("older-migration"),
+			expectedPhase:           migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus: metav1.ConditionTrue,
+			expectedConditionReason: ConditionReasonStarted,
+			expectedConditionType:   migrationv1alpha1.ConditionTypeStarted,
+		},
+		{
+			name:        "Should skip completed and failed migrations",
+			requestName: "pending-migration",
+			migrations: []migrationv1alpha1.ManagedClusterMigration{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "completed-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("completed-uid"),
+						CreationTimestamp: metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
+					},
+					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+						Phase: migrationv1alpha1.PhaseCompleted,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "failed-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("failed-uid"),
+						CreationTimestamp: metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+					},
+					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+						Phase: migrationv1alpha1.PhaseFailed,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "pending-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("pending-uid"),
+						CreationTimestamp: metav1.Time{Time: time.Now()},
+					},
+					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+						Phase: migrationv1alpha1.PhasePending,
+					},
+				},
+			},
+			expectedSelected:        stringPtr("pending-migration"),
+			expectedPhase:           migrationv1alpha1.PhaseValidating,
+			expectedConditionStatus: metav1.ConditionTrue,
+			expectedConditionReason: ConditionReasonStarted,
+			expectedConditionType:   migrationv1alpha1.ConditionTypeStarted,
+		},
+		{
+			name:        "Should handle deletion request",
+			requestName: "deleting-migration",
+			migrations: []migrationv1alpha1.ManagedClusterMigration{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "deleting-migration",
+						Namespace:         utils.GetDefaultNamespace(),
+						UID:               types.UID("deleting-uid"),
+						CreationTimestamp: metav1.Time{Time: time.Now()},
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+						Finalizers:        []string{constants.ManagedClusterMigrationFinalizer},
+					},
+					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+						Phase: migrationv1alpha1.PhaseInitializing,
+					},
+				},
+			},
+			expectedSelected:        stringPtr("deleting-migration"),
+			expectedPhase:           migrationv1alpha1.PhaseInitializing,
+			expectedConditionStatus: "", // No condition change for deletion
+			expectedConditionReason: "",
+			expectedConditionType:   "",
+		},
+		{
+			name:                    "Should return nil when no migrations available",
+			requestName:             "non-existent",
+			migrations:              []migrationv1alpha1.ManagedClusterMigration{},
+			expectedSelected:        nil,
+			expectedPhase:           "",
+			expectedConditionStatus: "",
+			expectedConditionReason: "",
+			expectedConditionType:   "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.preExec != nil {
-				tt.preExec()
-			}
-			migrationList := &migrationv1alpha1.ManagedClusterMigrationList{
-				Items: tt.migrations,
+			// Convert to client.Object slice
+			objects := make([]client.Object, len(tt.migrations))
+			for i := range tt.migrations {
+				objects[i] = &tt.migrations[i]
 			}
 
 			fakeClient := fake.NewClientBuilder().
 				WithScheme(scheme).
-				WithLists(migrationList).
+				WithObjects(objects...).
+				WithStatusSubresource(&migrationv1alpha1.ManagedClusterMigration{}).
 				Build()
 
 			controller := &ClusterMigrationController{
-				Client: fakeClient,
+				Client:   fakeClient,
+				Producer: &MockProducer{},
 			}
 
-			migration, err := controller.getCurrentMigration(context.TODO(), reconcile.Request{})
+			ctx := context.TODO()
+			req := ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      tt.requestName,
+					Namespace: utils.GetDefaultNamespace(),
+				},
+			}
 
-			if tt.expectedError {
-				assert.Error(t, err)
+			selectedMigration, err := controller.selectAndPrepareMigration(ctx, req)
+			assert.NoError(t, err)
+
+			if tt.expectedSelected == nil {
+				assert.Nil(t, selectedMigration, "Expected no migration to be selected")
 			} else {
-				assert.NoError(t, err)
-				if tt.expectedName == "" {
-					assert.Nil(t, migration)
-				} else {
-					assert.Equal(t, tt.expectedName, migration.Name)
+				assert.NotNil(t, selectedMigration, "Expected a migration to be selected")
+				assert.Equal(t, *tt.expectedSelected, selectedMigration.Name, "Expected specific migration to be selected")
+
+				if tt.expectedPhase != "" {
+					assert.Equal(t, tt.expectedPhase, selectedMigration.Status.Phase, "Expected phase should match")
+				}
+
+				if tt.expectedConditionType != "" {
+					condition := findControllerCondition(selectedMigration.Status.Conditions, tt.expectedConditionType)
+					assert.NotNil(t, condition, "Expected condition should exist")
+					if tt.expectedConditionStatus != "" {
+						assert.Equal(t, tt.expectedConditionStatus, condition.Status, "Expected condition status should match")
+					}
+					if tt.expectedConditionReason != "" {
+						assert.Equal(t, tt.expectedConditionReason, condition.Reason, "Expected condition reason should match")
+					}
 				}
 			}
 		})
 	}
+}
+
+// Helper function for string pointer
+func stringPtr(s string) *string {
+	return &s
 }
