@@ -108,7 +108,8 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			managedClusterMigrationToEvent.MigrationId, managedClusterMigrationToEvent.ManagedClusters,
 			managedClusterMigrationToEvent.ManagedServiceAccountName)
 		if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
-			log.Errorf("migration initializing failed: migrationId=%s, error=%v", managedClusterMigrationToEvent.MigrationId, err)
+			log.Errorf("migration initializing failed: migrationId=%s, error=%v", managedClusterMigrationToEvent.MigrationId,
+				err)
 			return err
 		}
 		log.Infof("migration initializing completed: migrationId=%s", managedClusterMigrationToEvent.MigrationId)

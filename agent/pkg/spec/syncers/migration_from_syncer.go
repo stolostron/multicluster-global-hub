@@ -490,7 +490,9 @@ func (s *MigrationSourceSyncer) cleaningClusters(ctx context.Context, managedClu
 }
 
 // prepareManagedClusterForMigration prepares a managed cluster for migration by cleaning metadata
-func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (*clusterv1.ManagedCluster, error) {
+func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (
+	*clusterv1.ManagedCluster, error,
+) {
 	cluster := &clusterv1.ManagedCluster{}
 	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, cluster); err != nil {
 		return nil, fmt.Errorf("failed to get managed cluster %s: %w", clusterName, err)
@@ -513,7 +515,9 @@ func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Co
 }
 
 // prepareAddonConfigForMigration prepares addon config for migration by cleaning metadata
-func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Context, clusterName string) (*addonv1.KlusterletAddonConfig, error) {
+func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Context, clusterName string) (
+	*addonv1.KlusterletAddonConfig, error,
+) {
 	addonConfig := &addonv1.KlusterletAddonConfig{}
 	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: clusterName}, addonConfig); err != nil {
 		return nil, fmt.Errorf("failed to get addon config %s: %w", clusterName, err)
