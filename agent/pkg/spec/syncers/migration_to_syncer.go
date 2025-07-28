@@ -42,7 +42,7 @@ var (
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
 )
 
-type migrationTargetSyncer struct {
+type MigrationTargetSyncer struct {
 	client             client.Client
 	transportClient    transport.TransportClient
 	transportConfig    *transport.TransportInternalConfig
@@ -52,8 +52,8 @@ type migrationTargetSyncer struct {
 
 func NewMigrationTargetSyncer(client client.Client,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
-) *migrationTargetSyncer {
-	return &migrationTargetSyncer{
+) *MigrationTargetSyncer {
+	return &MigrationTargetSyncer{
 		client:          client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
@@ -61,7 +61,7 @@ func NewMigrationTargetSyncer(client client.Client,
 	}
 }
 
-func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("received migration event from %s", evt.Source())
 
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
@@ -74,7 +74,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 	log.Debugf("received cloudevent %v", string(evt.Data()))
 	if managedClusterMigrationToEvent.MigrationId == "" {
-		return fmt.Errorf("must set the migrationId: %v", evt)
+		return fmt.Errorf("migrationId is required but not provided in event")
 	}
 
 	var err error
@@ -104,12 +104,14 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
 		// reset the bundle version for each new migration
 		s.bundleVersion.Reset()
-		log.Infof("migration initialing is starting: %s", managedClusterMigrationToEvent.MigrationId)
+		log.Infof("migration initializing started: migrationId=%s, clusters=%v, msaName=%s",
+			managedClusterMigrationToEvent.MigrationId, managedClusterMigrationToEvent.ManagedClusters,
+			managedClusterMigrationToEvent.ManagedServiceAccountName)
 		if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
-			log.Errorf("failed to initialize the migration resources %v", err)
+			log.Errorf("migration initializing failed: migrationId=%s, error=%v", managedClusterMigrationToEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration initialing is finished: %s", managedClusterMigrationToEvent.MigrationId)
+		log.Infof("migration initializing completed: migrationId=%s", managedClusterMigrationToEvent.MigrationId)
 	}
 
 	if s.currentMigrationId != managedClusterMigrationToEvent.MigrationId {
@@ -139,7 +141,7 @@ func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	return nil
 }
 
-func (s *migrationTargetSyncer) cleaning(ctx context.Context,
+func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	msaName := evt.ManagedServiceAccountName
@@ -176,11 +178,29 @@ func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 			return err
 		}
 	}
+
+	// delete the agent registration cluster role binding
+	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
+	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: registrationClusterRoleBindingName,
+		},
+	}
+	if err := s.client.Get(ctx,
+		client.ObjectKeyFromObject(registrationClusterRoleBinding), registrationClusterRoleBinding); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+	} else {
+		if err = s.client.Delete(ctx, registrationClusterRoleBinding); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 // registering watches the migrated managed clusters
-func (s *migrationTargetSyncer) registering(ctx context.Context,
+func (s *MigrationTargetSyncer) registering(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	if len(evt.ManagedClusters) == 0 {
@@ -230,7 +250,7 @@ func (s *migrationTargetSyncer) registering(ctx context.Context,
 }
 
 // initializing create the permission for the migration service account, and enable auto-approval for registration
-func (s *migrationTargetSyncer) initializing(ctx context.Context,
+func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	msaName := evt.ManagedServiceAccountName
@@ -252,7 +272,7 @@ func (s *migrationTargetSyncer) initializing(ctx context.Context,
 	return nil
 }
 
-func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
+func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: %v", evt.Type())
 	payload := evt.Data()
@@ -268,7 +288,7 @@ func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		return nil
 	}
 
-	log.Info("migration deploying is starting: %s", migrationId)
+	log.Infof("migration deploying is starting: %s", migrationId)
 
 	deployingReportBundle := &migration.ManagedClusterMigrationBundle{
 		MigrationId: migrationResources.MigrationId,
@@ -290,11 +310,11 @@ func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		return err
 	}
 
-	log.Info("migration deploying is finished: %s", migrationId)
+	log.Infof("migration deploying is finished: %s", migrationId)
 	return nil
 }
 
-func (s *migrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
+func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -307,7 +327,7 @@ func (s *migrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 	return nil
 }
 
-func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
+func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	migrationResources *migration.SourceClusterMigrationResources,
 ) error {
 	log.Debugf("migration resources %v", migrationResources)
@@ -329,7 +349,7 @@ func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	return nil
 }
 
-func (s *migrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
+func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
 	saName, saNamespace string,
 ) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
@@ -410,7 +430,7 @@ func (s *migrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 	return nil
 }
 
-func (s *migrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
+func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	migrationClusterRole := &rbacv1.ClusterRole{
@@ -458,9 +478,12 @@ func (s *migrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Contex
 	return nil
 }
 
-func (s *migrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
+func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
+	if msaName == "" || msaNamespace == "" {
+		return fmt.Errorf("managed service account name and namespace are required")
+	}
 	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
 	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -513,9 +536,12 @@ func (s *migrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context
 	return nil
 }
 
-func (s *migrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
+func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
+	if msaName == "" || msaNamespace == "" {
+		return fmt.Errorf("managed service account name and namespace are required")
+	}
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
 	sarMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{

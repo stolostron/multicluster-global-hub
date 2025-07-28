@@ -43,7 +43,7 @@ const (
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 )
 
-type migrationSourceSyncer struct {
+type MigrationSourceSyncer struct {
 	client             client.Client
 	restConfig         *rest.Config // for init no-cached client of the runtime manager
 	transportClient    transport.TransportClient
@@ -54,8 +54,8 @@ type migrationSourceSyncer struct {
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
-) *migrationSourceSyncer {
-	return &migrationSourceSyncer{
+) *MigrationSourceSyncer {
+	return &MigrationSourceSyncer{
 		client:          client,
 		restConfig:      restConfig,
 		transportClient: transportClient,
@@ -64,7 +64,7 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 	}
 }
 
-func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	payload := evt.Data()
 	// handle migration.from cloud event
 	migrationSourceHubEvent := &migration.ManagedClusterMigrationFromEvent{}
@@ -74,7 +74,7 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	log.Debugf("received managed cluster migration event %s", string(payload))
 
 	if migrationSourceHubEvent.MigrationId == "" {
-		return fmt.Errorf("must set the migrationId: %v", evt)
+		return fmt.Errorf("migrationId is required but not provided in event")
 	}
 
 	var err error
@@ -104,11 +104,13 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		s.currentMigrationId = migrationSourceHubEvent.MigrationId
 		// reset the bundle version for the new migration
 		s.bundleVersion.Reset()
-		log.Infof("migration initialing is starting: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration initializing started: migrationId=%s, toHub=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ToHub, migrationSourceHubEvent.ManagedClusters)
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration initializing failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration initialing is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration initializing completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if s.currentMigrationId != migrationSourceHubEvent.MigrationId {
@@ -118,32 +120,38 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseDeploying {
-		log.Infof("migration deploying is starting: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration deploying started: migrationId=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ManagedClusters)
 		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration deploying failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration deploying is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration deploying completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
-		log.Infof("migration registering is starting: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration registering started: migrationId=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ManagedClusters)
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration registering failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration registering is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration registering completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning {
-		log.Infof("migration cleaning is starting: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration cleaning started: migrationId=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ManagedClusters)
 		if err := s.cleaning(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration cleaning failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration cleaning is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration cleaning completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 	return nil
 }
 
-func (m *migrationSourceSyncer) cleaning(
+func (m *MigrationSourceSyncer) cleaning(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	bootstrapSecret := migratingEvt.BootstrapSecret
@@ -194,7 +202,7 @@ func (m *migrationSourceSyncer) cleaning(
 }
 
 // deploying: send clusters and addon config into target hub
-func (s *migrationSourceSyncer) deploying(
+func (s *MigrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	migrationResources := &migration.SourceClusterMigrationResources{
@@ -203,45 +211,20 @@ func (s *migrationSourceSyncer) deploying(
 		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
 	}
 
-	// add clusters and klusterletAddonConfig
+	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range migratingEvt.ManagedClusters {
 		// add cluster
-		cluster := &clusterv1.ManagedCluster{}
-		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, cluster)
+		cluster, err := s.prepareManagedClusterForMigration(ctx, managedCluster)
 		if err != nil {
-			return err
-		}
-		cluster.SetManagedFields(nil)
-		cluster.SetFinalizers(nil)
-		cluster.SetOwnerReferences(nil)
-		cluster.SetSelfLink("")
-		cluster.SetResourceVersion("")
-		cluster.SetGeneration(0)
-		cluster.Spec.ManagedClusterClientConfigs = nil
-		cluster.Status = clusterv1.ManagedClusterStatus{}
-
-		// remove migrating and klusterletconfig annotations from managedcluster
-		annotations := cluster.GetAnnotations()
-		if annotations != nil {
-			delete(annotations, constants.ManagedClusterMigrating)
-			delete(annotations, KlusterletConfigAnnotation)
-			cluster.SetAnnotations(annotations)
+			return fmt.Errorf("failed to prepare managed cluster %s for migration: %w", managedCluster, err)
 		}
 		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
 
 		// add addonConfig
-		addonConfig := &addonv1.KlusterletAddonConfig{}
-		err = s.client.Get(ctx, types.NamespacedName{Name: managedCluster, Namespace: managedCluster}, addonConfig)
+		addonConfig, err := s.prepareAddonConfigForMigration(ctx, managedCluster)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to prepare addon config %s for migration: %w", managedCluster, err)
 		}
-		addonConfig.SetManagedFields(nil)
-		addonConfig.SetFinalizers(nil)
-		addonConfig.SetOwnerReferences(nil)
-		addonConfig.SetSelfLink("")
-		addonConfig.SetResourceVersion("")
-		addonConfig.SetGeneration(0)
-		addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
 		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
 	}
 	log.Info("deploying: attach clusters and addonConfigs into the event")
@@ -265,7 +248,7 @@ func (s *migrationSourceSyncer) deploying(
 // initializing: attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
 // Note: Add the "global-hub.open-cluster-management.io/migrating" to avoid the race condition of the cluster
 // reported by both target and source hub
-func (m *migrationSourceSyncer) initializing(
+func (m *MigrationSourceSyncer) initializing(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	if migratingEvt.BootstrapSecret == nil {
@@ -315,12 +298,18 @@ func (m *migrationSourceSyncer) initializing(
 		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.GetName() {
 			continue
 		}
-		annotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
-		annotations[constants.ManagedClusterMigrating] = ""
-		mc.SetAnnotations(annotations)
-
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error { return nil })
+			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error {
+				// Update annotations within the CreateOrUpdate function
+				currentAnnotations := mc.GetAnnotations()
+				if currentAnnotations == nil {
+					currentAnnotations = make(map[string]string)
+				}
+				currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
+				currentAnnotations[constants.ManagedClusterMigrating] = ""
+				mc.SetAnnotations(currentAnnotations)
+				return nil
+			})
 			log.Infof("managed clusters %s is %s", mc.GetName(), operation)
 			return err
 		}); err != nil {
@@ -384,7 +373,7 @@ spec:
 	return obj, err
 }
 
-func (m *migrationSourceSyncer) registering(
+func (m *MigrationSourceSyncer) registering(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
@@ -460,7 +449,7 @@ func SendEvent(
 // cleaningClusters handle the following two cases
 //  1. stage = failed: remove the added klusterletconfig/migrating, set the hubAccepted with true to rollback
 //  2. stage = cleaning: detach the clusters after the migrating finshed
-func (s *migrationSourceSyncer) cleaningClusters(ctx context.Context, managedClusters []string, stage string) error {
+func (s *MigrationSourceSyncer) cleaningClusters(ctx context.Context, managedClusters []string, stage string) error {
 	for _, managedCluster := range managedClusters {
 		log.Debugf("cleaning up managed cluster %s", managedCluster)
 		mc := &clusterv1.ManagedCluster{}
@@ -498,4 +487,51 @@ func (s *migrationSourceSyncer) cleaningClusters(ctx context.Context, managedClu
 		}
 	}
 	return nil
+}
+
+// prepareManagedClusterForMigration prepares a managed cluster for migration by cleaning metadata
+func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (*clusterv1.ManagedCluster, error) {
+	cluster := &clusterv1.ManagedCluster{}
+	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, cluster); err != nil {
+		return nil, fmt.Errorf("failed to get managed cluster %s: %w", clusterName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(cluster)
+	cluster.Spec.ManagedClusterClientConfigs = nil
+	cluster.Status = clusterv1.ManagedClusterStatus{}
+
+	// remove migrating and klusterletconfig annotations from managedcluster
+	annotations := cluster.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, constants.ManagedClusterMigrating)
+		delete(annotations, KlusterletConfigAnnotation)
+		cluster.SetAnnotations(annotations)
+	}
+
+	return cluster, nil
+}
+
+// prepareAddonConfigForMigration prepares addon config for migration by cleaning metadata
+func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Context, clusterName string) (*addonv1.KlusterletAddonConfig, error) {
+	addonConfig := &addonv1.KlusterletAddonConfig{}
+	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: clusterName}, addonConfig); err != nil {
+		return nil, fmt.Errorf("failed to get addon config %s: %w", clusterName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(addonConfig)
+	addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
+
+	return addonConfig, nil
+}
+
+// cleanObjectMetadata removes metadata fields that should not be migrated
+func (s *MigrationSourceSyncer) cleanObjectMetadata(obj client.Object) {
+	obj.SetManagedFields(nil)
+	obj.SetFinalizers(nil)
+	obj.SetOwnerReferences(nil)
+	obj.SetSelfLink("")
+	obj.SetResourceVersion("")
+	obj.SetGeneration(0)
 }
