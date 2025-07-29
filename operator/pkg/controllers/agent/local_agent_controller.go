@@ -185,6 +185,7 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		clusterName,
 		getTransportSecretName(),
 		nil, mgh,
+		"local", // deploy mode is local agent
 	)
 }
 

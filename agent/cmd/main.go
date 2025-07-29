@@ -127,7 +127,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		false,
 	)
 
-	if agentConfig.Standalone {
+	if agentConfig.DeployMode == string(constants.StandaloneMode) {
 		transportCtrl.DisableConsumer()
 	}
 
@@ -181,7 +181,7 @@ func parseFlags() *configs.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
-	pflag.BoolVar(&agentConfig.Standalone, "standalone", false, "Whether to deploy the agent with standalone mode")
+	pflag.StringVar(&agentConfig.DeployMode, "deploy-mode", "default", "The deploy mode for the agent. support values: default, local, standalone")
 	pflag.BoolVar(&agentConfig.EnableStackroxIntegration, "enable-stackrox-integration", false,
 		"Enable StackRox integration")
 	pflag.DurationVar(&agentConfig.StackroxPollInterval, "stackrox-poll-interval", 30*time.Minute,
@@ -192,10 +192,10 @@ func parseFlags() *configs.AgentConfig {
 }
 
 func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.AgentConfig) error {
-	if !agentConfig.Standalone && agentConfig.LeafHubName == "" {
-		return fmt.Errorf("the leaf-hub-name must not be empty")
-	}
 	if agentConfig.LeafHubName == "" {
+		if agentConfig.DeployMode != string(constants.StandaloneMode) {
+			return fmt.Errorf("the leaf-hub-name must not be empty")
+		}
 		err, clusterID := utils.GetClusterIdFromClusterVersion(c, ctx)
 		if err != nil {
 			return err
@@ -328,7 +328,7 @@ func initCache(restConfig *rest.Config, cacheOpts cache.Options) (cache.Cache, e
 		},
 		&corev1.Event{}: {},
 	}
-	if !configs.GetAgentConfig().Standalone {
+	if configs.GetAgentConfig().DeployMode == string(constants.DefaultMode) {
 		cacheOpts.ByObject[&clustersv1alpha1.ClusterClaim{}] = cache.ByObject{}
 	}
 	return cache.New(restConfig, cacheOpts)
