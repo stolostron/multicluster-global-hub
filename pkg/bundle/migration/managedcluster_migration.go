@@ -46,6 +46,4 @@ type SourceClusterMigrationResources struct {
 	MigrationId           string                          `json:"migrationId"`
 	ManagedClusters       []clusterv1.ManagedCluster      `json:"managedClusters,omitempty"`
 	KlusterletAddonConfig []addonv1.KlusterletAddonConfig `json:"klusterletAddonConfigs,omitempty"`
-	Secrets               []*corev1.Secret                `json:"secrets,omitempty"`
-	ConfigMaps            []*corev1.ConfigMap             `json:"configmaps,omitempty"`
 }

@@ -21,8 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
@@ -41,7 +43,7 @@ const (
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 )
 
-type migrationSourceSyncer struct {
+type MigrationSourceSyncer struct {
 	client             client.Client
 	restConfig         *rest.Config // for init no-cached client of the runtime manager
 	transportClient    transport.TransportClient
@@ -52,8 +54,8 @@ type migrationSourceSyncer struct {
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
-) *migrationSourceSyncer {
-	return &migrationSourceSyncer{
+) *MigrationSourceSyncer {
+	return &MigrationSourceSyncer{
 		client:          client,
 		restConfig:      restConfig,
 		transportClient: transportClient,
@@ -62,7 +64,7 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 	}
 }
 
-func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	payload := evt.Data()
 	// handle migration.from cloud event
 	migrationSourceHubEvent := &migration.ManagedClusterMigrationFromEvent{}
@@ -72,18 +74,43 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	log.Debugf("received managed cluster migration event %s", string(payload))
 
 	if migrationSourceHubEvent.MigrationId == "" {
-		return fmt.Errorf("must set the migrationId: %v", evt)
+		return fmt.Errorf("migrationId is required but not provided in event")
 	}
+
+	var err error
+	defer func() {
+		// don't report the status if migration instance is not matched
+		if s.currentMigrationId != migrationSourceHubEvent.MigrationId {
+			return
+		}
+		errMessage := ""
+		if err != nil {
+			errMessage = err.Error()
+		}
+		err := ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+			s.transportClient,
+			&migration.ManagedClusterMigrationBundle{
+				MigrationId: migrationSourceHubEvent.MigrationId,
+				Stage:       migrationSourceHubEvent.Stage,
+				ErrMessage:  errMessage,
+			},
+			s.bundleVersion)
+		if err != nil {
+			log.Errorf("failed to send the %s confirmation: %v", migrationSourceHubEvent.Stage, err)
+		}
+	}()
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseInitializing {
 		s.currentMigrationId = migrationSourceHubEvent.MigrationId
 		// reset the bundle version for the new migration
 		s.bundleVersion.Reset()
-		log.Infof("migration initialing: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration initializing started: migrationId=%s, toHub=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ToHub, migrationSourceHubEvent.ManagedClusters)
 		if err := s.initializing(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration initializing failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration initialing is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration initializing completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if s.currentMigrationId != migrationSourceHubEvent.MigrationId {
@@ -93,33 +120,38 @@ func (s *migrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseDeploying {
-		log.Infof("migration deploying: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration deploying started: migrationId=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ManagedClusters)
 		if err := s.deploying(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration deploying failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration deploying is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration deploying completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 
 	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRegistering {
-		log.Infof("migration registering: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration registering started: migrationId=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ManagedClusters)
 		if err := s.registering(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration registering failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration registering is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration registering completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 
-	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning ||
-		migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseFailed {
-		log.Infof("migration cleaning: %s - %s", migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.Stage)
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseCleaning {
+		log.Infof("migration cleaning started: migrationId=%s, clusters=%v",
+			migrationSourceHubEvent.MigrationId, migrationSourceHubEvent.ManagedClusters)
 		if err := s.cleaning(ctx, migrationSourceHubEvent); err != nil {
+			log.Errorf("migration cleaning failed: migrationId=%s, error=%v", migrationSourceHubEvent.MigrationId, err)
 			return err
 		}
-		log.Infof("migration cleaning is finished: %s", migrationSourceHubEvent.MigrationId)
+		log.Infof("migration cleaning completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
 	return nil
 }
 
-func (m *migrationSourceSyncer) cleaning(
+func (m *MigrationSourceSyncer) cleaning(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	bootstrapSecret := migratingEvt.BootstrapSecret
@@ -166,86 +198,71 @@ func (m *migrationSourceSyncer) cleaning(
 		log.Errorf("failed to clean up managed clusters: %v", err)
 		return err
 	}
-
-	// send the cleanup confirmation
-	err := ReportMigrationStatus(cecontext.WithTopic(ctx, m.transportConfig.KafkaCredential.StatusTopic),
-		m.transportClient,
-		&migration.ManagedClusterMigrationBundle{
-			MigrationId: migratingEvt.MigrationId,
-			Stage:       migrationv1alpha1.ConditionTypeCleaned,
-		},
-		m.bundleVersion)
-	if err != nil {
-		return err
-	}
-	log.Info("migration cleaning up is finished")
 	return nil
 }
 
 // deploying: send clusters and addon config into target hub
-func (s *migrationSourceSyncer) deploying(
+func (s *MigrationSourceSyncer) deploying(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
-	managedClusters := migratingEvt.ManagedClusters
-	toHub := migratingEvt.ToHub
-	id := migratingEvt.MigrationId
-
-	reportErrMessage := ""
-	defer func() {
-		err := ReportMigrationStatus(
-			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic), s.transportClient,
-			&migration.ManagedClusterMigrationBundle{
-				MigrationId: s.currentMigrationId,
-				Stage:       migrationv1alpha1.ConditionTypeDeployed,
-				ErrMessage:  reportErrMessage,
-			},
-			s.bundleVersion)
-		if err != nil {
-			log.Warnf("failed to report the deploying message(%s): %v", reportErrMessage, err)
-		}
-	}()
-
-	err := s.SendMigrationResources(ctx, id, managedClusters, nil, configs.GetLeafHubName(), toHub)
-	if err != nil {
-		reportErrMessage = err.Error()
-		return err
+	migrationResources := &migration.SourceClusterMigrationResources{
+		MigrationId:           migratingEvt.MigrationId,
+		ManagedClusters:       []clusterv1.ManagedCluster{},
+		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
 	}
 
+	// collect clusters and klusterletAddonConfig for migration
+	for _, managedCluster := range migratingEvt.ManagedClusters {
+		// add cluster
+		cluster, err := s.prepareManagedClusterForMigration(ctx, managedCluster)
+		if err != nil {
+			return fmt.Errorf("failed to prepare managed cluster %s for migration: %w", managedCluster, err)
+		}
+		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
+
+		// add addonConfig
+		addonConfig, err := s.prepareAddonConfigForMigration(ctx, managedCluster)
+		if err != nil {
+			return fmt.Errorf("failed to prepare addon config %s for migration: %w", managedCluster, err)
+		}
+		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
+	}
+	log.Info("deploying: attach clusters and addonConfigs into the event")
+
+	payloadBytes, err := json.Marshal(migrationResources)
+	if err != nil {
+		return fmt.Errorf("failed to marshal SourceClusterMigrationResources (%v) - %w", migrationResources, err)
+	}
+
+	fromHub := configs.GetLeafHubName()
+	toHub := migratingEvt.ToHub
+
+	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
+	if err := s.transportClient.GetProducer().SendEvent(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
+		return fmt.Errorf(errFailedToSendEvent, constants.MigrationTargetMsgKey, fromHub, toHub, err)
+	}
 	return nil
 }
 
 // initializing: attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
 // Note: Add the "global-hub.open-cluster-management.io/migrating" to avoid the race condition of the cluster
 // reported by both target and source hub
-func (m *migrationSourceSyncer) initializing(
+func (m *MigrationSourceSyncer) initializing(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	if migratingEvt.BootstrapSecret == nil {
 		return fmt.Errorf("bootstrap secret is nil when initializing")
 	}
-
 	bootstrapSecret := migratingEvt.BootstrapSecret
-	// ensure bootstrap kubeconfig secret
-	foundBootstrapSecret := &corev1.Secret{}
-	if err := m.client.Get(ctx,
-		types.NamespacedName{
-			Name:      bootstrapSecret.Name,
-			Namespace: bootstrapSecret.Namespace,
-		}, foundBootstrapSecret); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Infof("creating bootstrap secret %s", bootstrapSecret.GetName())
-			if err := m.client.Create(ctx, bootstrapSecret); err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
-	} else {
-		// update the bootstrap secret if it already exists
-		log.Infof("updating bootstrap secret %s", bootstrapSecret.GetName())
-		if err := m.client.Update(ctx, bootstrapSecret); err != nil {
-			return err
-		}
+	// ensure secret
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, bootstrapSecret, func() error { return nil })
+		log.Infof("bootstrap secret %s is %s", bootstrapSecret.GetName(), operation)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create/update bootstrap secret: %w", err)
 	}
 
 	// ensure klusterletconfig
@@ -281,24 +298,23 @@ func (m *migrationSourceSyncer) initializing(
 		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.GetName() {
 			continue
 		}
-		annotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
-		annotations[constants.ManagedClusterMigrating] = ""
-		mc.SetAnnotations(annotations)
-		if err := m.client.Update(ctx, mc); err != nil {
+		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error {
+				// Update annotations within the CreateOrUpdate function
+				currentAnnotations := mc.GetAnnotations()
+				if currentAnnotations == nil {
+					currentAnnotations = make(map[string]string)
+				}
+				currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
+				currentAnnotations[constants.ManagedClusterMigrating] = ""
+				mc.SetAnnotations(currentAnnotations)
+				return nil
+			})
+			log.Infof("managed clusters %s is %s", mc.GetName(), operation)
+			return err
+		}); err != nil {
 			return err
 		}
-	}
-
-	// send the initialized confirmation
-	err = ReportMigrationStatus(
-		cecontext.WithTopic(ctx, m.transportConfig.KafkaCredential.StatusTopic), m.transportClient,
-		&migration.ManagedClusterMigrationBundle{
-			MigrationId: migratingEvt.MigrationId,
-			Stage:       migrationv1alpha1.ConditionTypeInitialized,
-		},
-		m.bundleVersion)
-	if err != nil {
-		return err
 	}
 	return nil
 }
@@ -357,7 +373,7 @@ spec:
 	return obj, err
 }
 
-func (m *migrationSourceSyncer) registering(
+func (m *MigrationSourceSyncer) registering(
 	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
@@ -371,167 +387,14 @@ func (m *migrationSourceSyncer) registering(
 		}
 		mc.Spec.HubAcceptsClient = false
 		log.Infof("updating managedcluster %s to set HubAcceptsClient as false", mc.Name)
-		if err := m.client.Update(ctx, mc); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// SendMigrationResources sends required and customized resources to migration topic
-func (s *migrationSourceSyncer) SendMigrationResources(ctx context.Context,
-	migrationId string, managedClusters []string, resources []string, fromHub, toHub string,
-) error {
-	// send the managed cluster and klusterletAddonConfig to the target cluster
-	migrationResources := &migration.SourceClusterMigrationResources{
-		MigrationId:           migrationId,
-		ManagedClusters:       []clusterv1.ManagedCluster{},
-		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
-		Secrets:               []*corev1.Secret{},
-		ConfigMaps:            []*corev1.ConfigMap{},
-	}
-
-	// add clusters and klusterletAddonConfig
-	for _, managedCluster := range managedClusters {
-		// add cluster
-		cluster := &clusterv1.ManagedCluster{}
-		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, cluster)
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			return m.client.Update(ctx, mc)
+		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to update managedcluster %s: %w", mc.Name, err)
 		}
-		cluster.SetManagedFields(nil)
-		cluster.SetFinalizers(nil)
-		cluster.SetOwnerReferences(nil)
-		cluster.SetSelfLink("")
-		cluster.SetResourceVersion("")
-		cluster.SetGeneration(0)
-		cluster.Spec.ManagedClusterClientConfigs = nil
-		cluster.Status = clusterv1.ManagedClusterStatus{}
-
-		// remove migrating and klusterletconfig annotations from managedcluster
-		annotations := cluster.GetAnnotations()
-		if annotations != nil {
-			delete(annotations, constants.ManagedClusterMigrating)
-			delete(annotations, KlusterletConfigAnnotation)
-			cluster.SetAnnotations(annotations)
-		}
-		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
-
-		// add addonConfig
-		addonConfig := &addonv1.KlusterletAddonConfig{}
-		err = s.client.Get(ctx, types.NamespacedName{Name: managedCluster, Namespace: managedCluster}, addonConfig)
-		if err != nil {
-			return err
-		}
-		addonConfig.SetManagedFields(nil)
-		addonConfig.SetFinalizers(nil)
-		addonConfig.SetOwnerReferences(nil)
-		addonConfig.SetSelfLink("")
-		addonConfig.SetResourceVersion("")
-		addonConfig.SetGeneration(0)
-		addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
-		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
 	}
-	log.Info("deploying: attach clusters and addonConfigs into the event")
-
-	// add resources: secrets and configmaps
-	if err := s.addResources(ctx, resources, migrationResources); err != nil {
-		return err
-	}
-
-	payloadBytes, err := json.Marshal(migrationResources)
-	if err != nil {
-		return fmt.Errorf("failed to marshal SourceClusterMigrationResources (%v) - %w", migrationResources, err)
-	}
-
-	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
-	if err := s.transportClient.GetProducer().SendEvent(
-		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
-		return fmt.Errorf(errFailedToSendEvent,
-			constants.MigrationTargetMsgKey, fromHub, toHub, err)
-	}
-	log.Info("deploying the resources into the target hub cluster")
 	return nil
-}
-
-func (s *migrationSourceSyncer) addResources(ctx context.Context, resources []string,
-	resourceEvent *migration.SourceClusterMigrationResources,
-) error {
-	c := s.client
-	var err error
-	if s.restConfig != nil {
-		// create a non-cached client for the migration, cause the manager client will only get the cached objects
-		c, err = client.New(s.restConfig, client.Options{Scheme: configs.GetRuntimeScheme()})
-		if err != nil {
-			return fmt.Errorf("failed to create a non-cached client: %w", err)
-		}
-	}
-
-	for _, resource := range resources {
-		parts := strings.Split(resource, "/")
-		if len(parts) != 3 {
-			return fmt.Errorf("invalid resource format (must be kind/namespace/name): %s", resource)
-		}
-		kind, ns, name := strings.ToLower(parts[0]), parts[1], parts[2]
-
-		switch kind {
-		case "configmap":
-			configmap := &corev1.ConfigMap{}
-			if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, configmap); err != nil {
-				return fmt.Errorf("failed to get configmap %s/%s: %w", ns, name, err)
-			}
-			log.Infof("deploying: attach configmap %s/%s", configmap.Namespace, configmap.Name)
-			resourceEvent.ConfigMaps = append(resourceEvent.ConfigMaps, configmap)
-		case "secret":
-			secret := &corev1.Secret{}
-			if err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, secret); err != nil {
-				return fmt.Errorf("failed to get secret %s/%s: %w", ns, name, err)
-			}
-			log.Infof("deploying: attach secret %s/%s", secret.Namespace, secret.Name)
-			resourceEvent.Secrets = append(resourceEvent.Secrets, secret)
-		default:
-			return fmt.Errorf("unsupported kind: %s", kind)
-		}
-	}
-
-	// sanitize
-	resourceEvent.Secrets = sanitizeAndDedup(resourceEvent.Secrets, func(s *corev1.Secret) string {
-		return s.Namespace + "/" + s.Name
-	})
-	resourceEvent.ConfigMaps = sanitizeAndDedup(resourceEvent.ConfigMaps, func(s *corev1.ConfigMap) string {
-		return s.Namespace + "/" + s.Name
-	})
-	return nil
-}
-
-func sanitizeAndDedup[T metav1.Object](items []T, getKey func(T) string) []T {
-	seen := make(map[string]struct{})
-	result := make([]T, 0, len(items))
-	for _, item := range items {
-		key := getKey(item)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		sanitizeObjectMeta(item)
-		seen[key] = struct{}{}
-		result = append(result, item)
-	}
-	return result
-}
-
-func sanitizeObjectMeta(obj metav1.Object) {
-	obj.SetFinalizers(nil)
-	obj.SetOwnerReferences(nil)
-	obj.SetResourceVersion("")
-	obj.SetUID("")
-	obj.SetCreationTimestamp(metav1.Time{})
-	// ManagedFields is not available via interface, need type assertion
-	if accessor, ok := obj.(interface {
-		SetManagedFields([]metav1.ManagedFieldsEntry)
-	}); ok {
-		accessor.SetManagedFields(nil)
-	}
 }
 
 func ReportMigrationStatus(
@@ -586,7 +449,7 @@ func SendEvent(
 // cleaningClusters handle the following two cases
 //  1. stage = failed: remove the added klusterletconfig/migrating, set the hubAccepted with true to rollback
 //  2. stage = cleaning: detach the clusters after the migrating finshed
-func (s *migrationSourceSyncer) cleaningClusters(ctx context.Context, managedClusters []string, stage string) error {
+func (s *MigrationSourceSyncer) cleaningClusters(ctx context.Context, managedClusters []string, stage string) error {
 	for _, managedCluster := range managedClusters {
 		log.Debugf("cleaning up managed cluster %s", managedCluster)
 		mc := &clusterv1.ManagedCluster{}
@@ -624,4 +487,55 @@ func (s *migrationSourceSyncer) cleaningClusters(ctx context.Context, managedClu
 		}
 	}
 	return nil
+}
+
+// prepareManagedClusterForMigration prepares a managed cluster for migration by cleaning metadata
+func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (
+	*clusterv1.ManagedCluster, error,
+) {
+	cluster := &clusterv1.ManagedCluster{}
+	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, cluster); err != nil {
+		return nil, fmt.Errorf("failed to get managed cluster %s: %w", clusterName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(cluster)
+	cluster.Spec.ManagedClusterClientConfigs = nil
+	cluster.Status = clusterv1.ManagedClusterStatus{}
+
+	// remove migrating and klusterletconfig annotations from managedcluster
+	annotations := cluster.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, constants.ManagedClusterMigrating)
+		delete(annotations, KlusterletConfigAnnotation)
+		cluster.SetAnnotations(annotations)
+	}
+
+	return cluster, nil
+}
+
+// prepareAddonConfigForMigration prepares addon config for migration by cleaning metadata
+func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Context, clusterName string) (
+	*addonv1.KlusterletAddonConfig, error,
+) {
+	addonConfig := &addonv1.KlusterletAddonConfig{}
+	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: clusterName}, addonConfig); err != nil {
+		return nil, fmt.Errorf("failed to get addon config %s: %w", clusterName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(addonConfig)
+	addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
+
+	return addonConfig, nil
+}
+
+// cleanObjectMetadata removes metadata fields that should not be migrated
+func (s *MigrationSourceSyncer) cleanObjectMetadata(obj client.Object) {
+	obj.SetManagedFields(nil)
+	obj.SetFinalizers(nil)
+	obj.SetOwnerReferences(nil)
+	obj.SetSelfLink("")
+	obj.SetResourceVersion("")
+	obj.SetGeneration(0)
 }
