@@ -12,16 +12,12 @@ import (
 	"open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
 	ConditionReasonResourceCleaned = "ResourceCleaned"
 	CleaningTimeout                = 10 * time.Minute // Separate timeout for cleaning phase
 )
-
-var cleaningAnnotation = fmt.Sprintf("Please ensure the annotation (%s) is removed from all managed clusters",
-	constants.ManagedClusterMigrating)
 
 // cleaning handles the cleanup phase of migration
 // 1. Once the cluster registered into the destination hub, Clean up the resources in the source hub
@@ -49,7 +45,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	nextPhase := migrationv1alpha1.PhaseCleaning
 
-	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, CleaningTimeout)
+	defer m.handleCleaningStatus(ctx, mcm, &condition, &nextPhase, CleaningTimeout)
 
 	sourceHubClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubClusters == nil {
@@ -65,7 +61,9 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// Be cautious — this action may carry potential risks.
 	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
 		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
-		return false, err
+		condition.Message = fmt.Sprintf("failed to delete managedServiceAccount: %v", err)
+		condition.Reason = ConditionReasonError
+		return false, nil // Let defer handle the status update
 	}
 
 	// cleanup the source hub: cleaning or failed state
@@ -73,10 +71,10 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	for sourceHub, clusters := range sourceHubClusters {
 		if !GetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning) {
 			if err := m.sendEventToSourceHub(ctx, sourceHub, mcm, migrationv1alpha1.PhaseCleaning, clusters,
-				nil, bootstrapSecret); err != nil {
-				condition.Message = err.Error()
+				bootstrapSecret, ""); err != nil {
+				condition.Message = fmt.Sprintf("failed to send cleanup event to source hub %s: %v", sourceHub, err)
 				condition.Reason = ConditionReasonError
-				return false, err
+				return false, nil // Let defer handle the status update
 			}
 			SetStarted(string(mcm.GetUID()), sourceHub, migrationv1alpha1.PhaseCleaning)
 		}
@@ -84,10 +82,11 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	// cleanup the target hub: cleaning or failed state
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		if err := m.sendEventToDestinationHub(ctx, mcm, mcm.Status.Phase, mcm.Spec.IncludedManagedClusters); err != nil {
-			condition.Message = err.Error()
+		if err := m.sendEventToTargetHub(ctx, mcm, mcm.Status.Phase, mcm.Spec.IncludedManagedClusters,
+			""); err != nil {
+			condition.Message = fmt.Sprintf("failed to send cleanup event to destination hub %s: %v", mcm.Spec.To, err)
 			condition.Reason = ConditionReasonError
-			return false, err
+			return false, nil // Let defer handle the status update
 		}
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
 	}
@@ -144,4 +143,39 @@ func (m *ClusterMigrationController) deleteManagedServiceAccount(ctx context.Con
 		return fmt.Errorf("failed to get the managedservieaccount: %v", err)
 	}
 	return m.Delete(ctx, msa)
+}
+
+// handleCleaningStatus updates the migration status for cleaning phase
+// Cleaning phase always transitions to Completed regardless of success or failure
+func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration,
+	condition *metav1.Condition,
+	nextPhase *string,
+	stageTimeout time.Duration,
+) {
+	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
+
+	// Handle timeout - convert to warning and set Completed status
+	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
+		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
+		condition.Reason = ConditionReasonTimeout
+		condition.Message = fmt.Sprintf("[Warning - Cleanup Timeout] %s. Migration completed despite cleanup timeout. Manual cleanup may be required.", condition.Message)
+		condition.Status = metav1.ConditionFalse
+	}
+
+	// Handle errors - convert to warning and set Completed status
+	if condition.Reason == ConditionReasonError {
+		condition.Message = fmt.Sprintf("[Warning - Cleanup Issues] %s. Migration completed despite cleanup issues. Manual cleanup may be required.", condition.Message)
+		condition.Status = metav1.ConditionFalse
+	}
+
+	if condition.Reason != ConditionReasonWaiting {
+		// Ensure cleaning always ends in Completed phase, regardless of condition status
+		*nextPhase = migrationv1alpha1.PhaseCompleted
+	}
+
+	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
+	if err != nil {
+		log.Errorf("failed to update the %s condition: %v", condition.Type, err)
+	}
 }

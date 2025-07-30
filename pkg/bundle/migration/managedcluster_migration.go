@@ -21,8 +21,8 @@ type ManagedClusterMigrationFromEvent struct {
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
-	Resources       []string       `json:"resources,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
+	RollbackStage   string         `json:"rollbackStage,omitempty"` // Indicates which stage is being rolled back
 }
 
 // ManagedClusterMigrationToEvent defines the resources from migration controllers to the target cluster
@@ -32,6 +32,7 @@ type ManagedClusterMigrationToEvent struct {
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
+	RollbackStage                         string   `json:"rollbackStage,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub

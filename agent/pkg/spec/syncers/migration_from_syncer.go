@@ -148,7 +148,14 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		}
 		log.Infof("migration cleaning completed: migrationId=%s", migrationSourceHubEvent.MigrationId)
 	}
-	return nil
+
+	if migrationSourceHubEvent.Stage == migrationv1alpha1.PhaseRollbacking {
+		log.Infof("migration rollbacking: %s - %s", migrationSourceHubEvent.MigrationId,
+			migrationSourceHubEvent.RollbackStage)
+		err = s.rollbacking(ctx, migrationSourceHubEvent)
+		log.Infof("migration rollbacking is finished: %s", migrationSourceHubEvent.MigrationId)
+	}
+	return err
 }
 
 func (m *MigrationSourceSyncer) cleaning(
@@ -538,4 +545,159 @@ func (s *MigrationSourceSyncer) cleanObjectMetadata(obj client.Object) {
 	obj.SetSelfLink("")
 	obj.SetResourceVersion("")
 	obj.SetGeneration(0)
+}
+
+// rollbacking handles rollback operations for different stages
+// Based on RollbackStage field, it performs appropriate cleanup actions
+func (s *MigrationSourceSyncer) rollbacking(ctx context.Context, migrationSourceHubEvent 
+	*migration.ManagedClusterMigrationFromEvent) error {
+	log.Infof("performing rollback for stage: %s", migrationSourceHubEvent.RollbackStage)
+
+	var err error
+	var reportMessage string
+
+	switch migrationSourceHubEvent.RollbackStage {
+	case migrationv1alpha1.PhaseInitializing:
+		err = s.rollbackInitializing(ctx, migrationSourceHubEvent)
+		if err != nil {
+			reportMessage = fmt.Sprintf("Initializing rollback on source hub completed with issues: %v", err)
+		} else {
+			reportMessage = "Migration annotations successfully removed from all managed clusters on source hub"
+		}
+	case migrationv1alpha1.PhaseDeploying:
+		err = s.rollbackDeploying(ctx, migrationSourceHubEvent)
+		if err != nil {
+			reportMessage = fmt.Sprintf("Deploying rollback on source hub completed with issues: %v", err)
+		} else {
+			reportMessage = "Migration annotations successfully removed from all managed clusters on source hub"
+		}
+	case migrationv1alpha1.PhaseRegistering:
+		err = s.rollbackRegistering(ctx, migrationSourceHubEvent)
+		if err != nil {
+			reportMessage = fmt.Sprintf("Registering rollback on source hub completed with issues: %v", err)
+		} else {
+			reportMessage = "Migration annotations successfully removed from all managed clusters on source hub"
+		}
+	default:
+		log.Infof("no specific rollback action needed for stage: %s", migrationSourceHubEvent.RollbackStage)
+		reportMessage = fmt.Sprintf("No specific rollback action needed for stage: %s",
+			migrationSourceHubEvent.RollbackStage)
+	}
+
+	// Report rollback status to global hub, including detailed message
+	reportErr := ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: migrationSourceHubEvent.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeRolledBack,
+			ErrMessage:  reportMessage, // Use detailed message instead of just error
+		},
+		s.bundleVersion)
+
+	if reportErr != nil {
+		log.Errorf("failed to report rollback status: %v", reportErr)
+	}
+
+	// Return the original error if any
+	return err
+}
+
+// rollbackInitializing removes migration-related annotations from managed clusters
+// This is used when initializing phase fails
+func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context, migrationSourceHubEvent *migration.ManagedClusterMigrationFromEvent) error {
+	var successfulClusters []string
+	var failedClusters []string
+	var errorMessages []string
+
+	for _, managedCluster := range migrationSourceHubEvent.ManagedClusters {
+		log.Infof("cleaning up annotations for managed cluster: %s", managedCluster)
+
+		mc := &clusterv1.ManagedCluster{}
+		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, mc)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Infof("managed cluster %s not found, skipping annotation cleanup", managedCluster)
+				continue
+			}
+			failedClusters = append(failedClusters, managedCluster)
+			errorMessages = append(errorMessages, fmt.Sprintf("failed to get managed cluster %s: %v", managedCluster, err))
+			continue
+		}
+
+		annotations := mc.GetAnnotations()
+		if annotations == nil {
+			log.Infof("no annotations found on managed cluster %s, skipping cleanup", managedCluster)
+			continue
+		}
+
+		// Check if migration annotations exist
+		_, hasMigrating := annotations[constants.ManagedClusterMigrating]
+		_, hasKlusterletConfig := annotations[KlusterletConfigAnnotation]
+
+		if !hasMigrating && !hasKlusterletConfig {
+			log.Infof("no migration annotations found on managed cluster %s, skipping cleanup", managedCluster)
+			continue
+		}
+
+		// Remove migration-related annotations
+		delete(annotations, constants.ManagedClusterMigrating)
+		delete(annotations, KlusterletConfigAnnotation)
+		mc.SetAnnotations(annotations)
+
+		if err := s.client.Update(ctx, mc); err != nil {
+			failedClusters = append(failedClusters, managedCluster)
+			errorMessages = append(errorMessages, fmt.Sprintf("failed to remove migration annotations from managed cluster %s: %v", managedCluster, err))
+			continue
+		}
+
+		successfulClusters = append(successfulClusters, managedCluster)
+		log.Infof("successfully removed migration annotations from managed cluster: %s", managedCluster)
+	}
+
+	// Prepare detailed result message
+	if len(errorMessages) > 0 {
+		var resultMessage strings.Builder
+		if len(successfulClusters) > 0 {
+			resultMessage.WriteString(fmt.Sprintf("Migration annotations successfully removed from clusters: %v. ", successfulClusters))
+		}
+		resultMessage.WriteString(fmt.Sprintf("Failed to remove annotations from clusters: %v. Errors: %v", failedClusters, strings.Join(errorMessages, "; ")))
+		return errors.New(resultMessage.String())
+	}
+
+	return nil
+}
+
+// rollbackDeploying handles rollback operations for deploying stage
+func (s *MigrationSourceSyncer) rollbackDeploying(ctx context.Context, migrationSourceHubEvent *migration.ManagedClusterMigrationFromEvent) error {
+	log.Infof("rollback deploying stage for clusters: %v", migrationSourceHubEvent.ManagedClusters)
+
+	// For deploying stage rollback, we need to:
+	// 1. Clean up migration annotations from managed clusters on source hub
+	// 2. The target hub will handle removing the deployed addonConfig and clusters
+
+	// Clean up annotations on source hub - use the enhanced error handling
+	err := s.rollbackInitializing(ctx, migrationSourceHubEvent)
+	if err != nil {
+		// Return error with deploying stage context
+		return fmt.Errorf("deploying stage rollback failed: %v", err)
+	}
+	return nil
+}
+
+// rollbackRegistering handles rollback operations for registering stage
+func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, migrationSourceHubEvent *migration.ManagedClusterMigrationFromEvent) error {
+	log.Infof("rollback registering stage for clusters: %v", migrationSourceHubEvent.ManagedClusters)
+
+	// For registering stage rollback, we may need to:
+	// 1. Restore original cluster registration configuration
+	// 2. Remove bootstrap secrets
+	// 3. Clean up migration annotations
+
+	// For now, clean up annotations as the main rollback action
+	err := s.rollbackInitializing(ctx, migrationSourceHubEvent)
+	if err != nil {
+		// Return error with registering stage context
+		return fmt.Errorf("registering stage rollback failed: %v", err)
+	}
+	return nil
 }

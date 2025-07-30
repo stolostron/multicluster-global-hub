@@ -40,7 +40,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseDeploying
 
-	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleMigrationStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
@@ -53,8 +53,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	for fromHub, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
 			log.Infof("migration deploying to source hub: %s", fromHub)
-			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters,
-				nil, nil)
+			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters, nil, "")
 			if err != nil {
 				condition.Message = err.Error()
 				condition.Reason = ConditionReasonError

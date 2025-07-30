@@ -11,6 +11,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	workv1 "open-cluster-management.io/api/work/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,7 +44,7 @@ var (
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
 )
 
-type MigrationTargetSyncer struct {
+type migrationTargetSyncer struct {
 	client             client.Client
 	transportClient    transport.TransportClient
 	transportConfig    *transport.TransportInternalConfig
@@ -52,8 +54,8 @@ type MigrationTargetSyncer struct {
 
 func NewMigrationTargetSyncer(client client.Client,
 	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
-) *MigrationTargetSyncer {
-	return &MigrationTargetSyncer{
+) *migrationTargetSyncer {
+	return &migrationTargetSyncer{
 		client:          client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
@@ -61,88 +63,106 @@ func NewMigrationTargetSyncer(client client.Client,
 	}
 }
 
-func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+func (s *migrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("received migration event from %s", evt.Source())
+	if evt.Source() == constants.CloudEventGlobalHubClusterName {
+		managedClusterMigrationToEvent := &migration.ManagedClusterMigrationToEvent{}
+		if err := json.Unmarshal(evt.Data(), managedClusterMigrationToEvent); err != nil {
+			return fmt.Errorf("failed to unmarshal payload %v", err)
+		}
+		log.Debugf("received cloudevent %v", string(evt.Data()))
+		if managedClusterMigrationToEvent.MigrationId == "" {
+			return fmt.Errorf("must set the migrationId: %v", evt)
+		}
 
-	if evt.Source() != constants.CloudEventGlobalHubClusterName {
-		return s.deploying(ctx, evt)
-	}
+		log.Infof("target hub handle the migration: %s", managedClusterMigrationToEvent.MigrationId)
 
-	managedClusterMigrationToEvent := &migration.ManagedClusterMigrationToEvent{}
-	if err := json.Unmarshal(evt.Data(), managedClusterMigrationToEvent); err != nil {
-		return fmt.Errorf("failed to unmarshal payload %v", err)
-	}
-	log.Debugf("received cloudevent %v", string(evt.Data()))
-	if managedClusterMigrationToEvent.MigrationId == "" {
-		return fmt.Errorf("migrationId is required but not provided in event")
-	}
+		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseInitializing {
+			s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
+			// reset the bundle version for each new migration
+			s.bundleVersion.Reset()
+			if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
+				log.Errorf("failed to initialize the migration resources %v", err)
+				return err
+			}
+			log.Info("finished the initializing")
+		}
 
-	var err error
-
-	defer func() {
 		if s.currentMigrationId != managedClusterMigrationToEvent.MigrationId {
-			return
+			log.Infof("ignore the migration event: expected migrationId %s, but got  %s",
+				s.currentMigrationId, managedClusterMigrationToEvent.MigrationId)
+			return nil
 		}
-		errMessage := ""
-		if err != nil {
-			errMessage = err.Error()
-		}
-		err := ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-			s.transportClient,
-			&migration.ManagedClusterMigrationBundle{
-				MigrationId: managedClusterMigrationToEvent.MigrationId,
-				Stage:       managedClusterMigrationToEvent.Stage,
-				ErrMessage:  errMessage,
-			},
-			s.bundleVersion)
-		if err != nil {
-			log.Errorf("failed to send the %s confirmation: %v", managedClusterMigrationToEvent.Stage, err)
-		}
-	}()
 
-	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseInitializing {
-		s.currentMigrationId = managedClusterMigrationToEvent.MigrationId
-		// reset the bundle version for each new migration
-		s.bundleVersion.Reset()
-		log.Infof("migration initializing started: migrationId=%s, clusters=%v, msaName=%s",
-			managedClusterMigrationToEvent.MigrationId, managedClusterMigrationToEvent.ManagedClusters,
-			managedClusterMigrationToEvent.ManagedServiceAccountName)
-		if err := s.initializing(ctx, managedClusterMigrationToEvent); err != nil {
-			log.Errorf("migration initializing failed: migrationId=%s, error=%v", managedClusterMigrationToEvent.MigrationId,
-				err)
+		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
+			go func() {
+				log.Info("registering managed cluster migration")
+				reportErrMessage := ""
+				err := wait.PollUntilContextTimeout(ctx, 5*time.Second, registeringTimeout, true,
+					func(context.Context) (done bool, err error) {
+						if e := s.registering(ctx, managedClusterMigrationToEvent); e != nil {
+							log.Infof("waiting the migrating clusters are available: %v", e)
+							reportErrMessage = e.Error()
+							return false, nil
+						}
+						log.Info("finished registering clusters")
+						reportErrMessage = ""
+						return true, nil
+					},
+				)
+				// the reportErrMessage record the detailed information why the registering failed,
+				// if registered successfully, remove the record error message during the registering
+				if err != nil {
+					reportErrMessage = fmt.Sprintf("registering %s - %s", err.Error(), reportErrMessage)
+				}
+
+				err = ReportMigrationStatus(
+					cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+					s.transportClient,
+					&migration.ManagedClusterMigrationBundle{
+						MigrationId: managedClusterMigrationToEvent.MigrationId,
+						Stage:       migrationv1alpha1.ConditionTypeRegistered,
+						ErrMessage:  reportErrMessage,
+					}, s.bundleVersion)
+				if err != nil {
+					log.Errorf("failed to report the registering migration event due to %v", err)
+				} else {
+					log.Info("report registering process successfully")
+				}
+			}()
+		}
+
+		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseCleaning ||
+			managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseFailed {
+			log.Infof("cleaning up managed cluster migration: %s", managedClusterMigrationToEvent.Stage)
+
+			if err := s.cleaning(ctx, managedClusterMigrationToEvent); err != nil {
+				log.Errorf("failed to clean up the migration resources %v", err)
+				return nil
+			}
+			log.Info("finished the cleaning up resources")
+		}
+
+		if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRollbacking {
+			log.Infof("rolling back managed cluster migration, rollback stage: %s", managedClusterMigrationToEvent.RollbackStage)
+
+			if err := s.rollbacking(ctx, managedClusterMigrationToEvent); err != nil {
+				log.Errorf("failed to rollback the migration resources %v", err)
+				return err
+			}
+			log.Info("finished the rollback")
+		}
+	} else {
+		if err := s.deploying(ctx, evt); err != nil {
+			log.Errorf("failed to start migration consumer: %v", err)
 			return err
 		}
-		log.Infof("migration initializing completed: migrationId=%s", managedClusterMigrationToEvent.MigrationId)
-	}
-
-	if s.currentMigrationId != managedClusterMigrationToEvent.MigrationId {
-		log.Infof("ignore the migration event: expected migrationId %s, but got  %s",
-			s.currentMigrationId, managedClusterMigrationToEvent.MigrationId)
-		return nil
-	}
-
-	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseRegistering {
-		log.Infof("migration registering is starting: %s", managedClusterMigrationToEvent.MigrationId)
-		if err := s.registering(ctx, managedClusterMigrationToEvent); err != nil {
-			log.Errorf("failed to registering clusters: %v", err)
-			return err
-		}
-		log.Infof("migration registering is finished: %s", managedClusterMigrationToEvent.MigrationId)
-	}
-
-	if managedClusterMigrationToEvent.Stage == migrationv1alpha1.PhaseCleaning {
-		log.Infof("migration cleaning is starting: %s", managedClusterMigrationToEvent.MigrationId)
-		if err := s.cleaning(ctx, managedClusterMigrationToEvent); err != nil {
-			log.Errorf("failed to clean up the migration resources %v", err)
-			return err
-		}
-		log.Infof("migration cleaning is finished: %s", managedClusterMigrationToEvent.MigrationId)
 	}
 
 	return nil
 }
 
-func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
+func (s *migrationTargetSyncer) cleaning(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	msaName := evt.ManagedServiceAccountName
@@ -180,78 +200,60 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		}
 	}
 
-	// delete the agent registration cluster role binding
-	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
-	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: registrationClusterRoleBindingName,
-		},
-	}
-	if err := s.client.Get(ctx,
-		client.ObjectKeyFromObject(registrationClusterRoleBinding), registrationClusterRoleBinding); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return err
-		}
-	} else {
-		if err = s.client.Delete(ctx, registrationClusterRoleBinding); err != nil {
-			return err
-		}
+	// report the cleaned up confirmation
+	err := ReportMigrationStatus(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: evt.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeCleaned,
+		}, s.bundleVersion)
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 // registering watches the migrated managed clusters
-func (s *MigrationTargetSyncer) registering(ctx context.Context,
+func (s *migrationTargetSyncer) registering(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	if len(evt.ManagedClusters) == 0 {
 		return fmt.Errorf("no managed clusters found in migration event: %s", evt.MigrationId)
 	}
-	errMessage := ""
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, registeringTimeout, true,
-		func(context.Context) (done bool, err error) {
-			notAvailableClusters := []string{}
-			for _, cluster := range evt.ManagedClusters {
-				// not support hosted managed hub, the hosted klusterletManifestWork name is <cluster-name>-hosted-klusterlet
-				klusterletManifestWorkName := fmt.Sprintf("%s%s", cluster, KlusterletManifestWorkSuffix)
-				work := &workv1.ManifestWork{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: cluster,
-						Name:      klusterletManifestWorkName,
-					},
-				}
+	// notAvailableManagedClusters = notAvailableManagedClusters[:0]
+	notAvailableManagedClusters := []string{}
+	for _, cluster := range evt.ManagedClusters {
+		// not support hosted managed hub, the hosted klusterletManifestWork name is <cluster-name>-hosted-klusterlet
+		klusterletManifestWorkName := fmt.Sprintf("%s%s", cluster, KlusterletManifestWorkSuffix)
+		work := &workv1.ManifestWork{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: cluster,
+				Name:      klusterletManifestWorkName,
+			},
+		}
 
-				if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
-					log.Infof("failed to get manifestwork %s: %v", work.Name, err)
-					notAvailableClusters = append(notAvailableClusters, cluster)
-					continue
-				}
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(work), work); err != nil {
+			log.Infof("failed to get manifestwork %s: %v", work.Name, err)
+			notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
+			continue
+		}
 
-				if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
-					log.Infof("manifestwork %s is not applied", work.Name)
-					notAvailableClusters = append(notAvailableClusters, cluster)
-					continue
-				}
-			}
+		if !meta.IsStatusConditionTrue(work.Status.Conditions, workv1.WorkApplied) {
+			log.Infof("manifestwork %s is not applied", work.Name)
+			notAvailableManagedClusters = append(notAvailableManagedClusters, cluster)
+			continue
+		}
+	}
 
-			if len(notAvailableClusters) > 0 {
-				errMessage = fmt.Sprintf("waiting the manifestworks(*-klusterlet) to be applied in clusters: %v",
-					notAvailableClusters)
-				log.Infof(errMessage)
-				return false, nil
-			}
-			errMessage = ""
-			return true, nil
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("%w - %s", err, errMessage)
+	if len(notAvailableManagedClusters) > 0 {
+		return fmt.Errorf("manifestwork(*-klusterlet) are not applied in these clusters: %v", notAvailableManagedClusters)
 	}
 	return nil
 }
 
 // initializing create the permission for the migration service account, and enable auto-approval for registration
-func (s *MigrationTargetSyncer) initializing(ctx context.Context,
+func (s *migrationTargetSyncer) initializing(ctx context.Context,
 	evt *migration.ManagedClusterMigrationToEvent,
 ) error {
 	msaName := evt.ManagedServiceAccountName
@@ -270,12 +272,20 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 		return err
 	}
 
-	return nil
+	return ReportMigrationStatus(
+		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: evt.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeInitialized,
+		},
+		s.bundleVersion)
 }
 
-func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
+func (s *migrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: %v", evt.Type())
+
 	payload := evt.Data()
 	migrationResources := &migration.SourceClusterMigrationResources{}
 	if err := json.Unmarshal(payload, migrationResources); err != nil {
@@ -289,33 +299,36 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		return nil
 	}
 
-	log.Infof("migration deploying is starting: %s", migrationId)
+	var err error
 
-	deployingReportBundle := &migration.ManagedClusterMigrationBundle{
-		MigrationId: migrationResources.MigrationId,
-		Stage:       migrationv1alpha1.PhaseDeploying,
-	}
+	defer func() {
+		deployingReportBundle := &migration.ManagedClusterMigrationBundle{
+			MigrationId: migrationResources.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeDeployed,
+		}
+		if err != nil {
+			deployingReportBundle.ErrMessage = err.Error()
+		}
 
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		// report the deploying confirmation
+		if err := ReportMigrationStatus(
+			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+			s.transportClient, deployingReportBundle, s.bundleVersion); err != nil {
+			log.Errorf("failed to report the deploying migration event due to %v", err)
+			return
+		}
+		log.Infof("finished the deploying %s", migrationResources.MigrationId)
+	}()
+
+	if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return s.syncMigrationResources(ctx, migrationResources)
-	})
-	if err != nil {
+	}); err != nil {
 		log.Errorw("failed to deploying", "type", evt.Type(), "error", err)
-		deployingReportBundle.ErrMessage = err.Error()
 	}
-
-	// report the deploying confirmation
-	if err := ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-		s.transportClient, deployingReportBundle, s.bundleVersion); err != nil {
-		log.Errorf("failed to report the deploying migration event due to %v", err)
-		return err
-	}
-
-	log.Infof("migration deploying is finished: %s", migrationId)
 	return nil
 }
 
-func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
+func (s *migrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: namespace,
@@ -328,10 +341,12 @@ func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 	return nil
 }
 
-func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
+func (s *migrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	migrationResources *migration.SourceClusterMigrationResources,
 ) error {
+	log.Infof("started the deploying: %s", migrationResources.MigrationId)
 	log.Debugf("migration resources %v", migrationResources)
+
 	for _, mc := range migrationResources.ManagedClusters {
 		if err := s.ensureNamespace(ctx, mc.Name); err != nil {
 			return err
@@ -347,10 +362,33 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 			return err
 		}
 	}
+
+	for _, configMap := range migrationResources.ConfigMaps {
+		if err := s.ensureNamespace(ctx, configMap.Namespace); err != nil {
+			return err
+		}
+
+		if err := s.client.Create(ctx, configMap); err != nil {
+			log.Errorf("failed to create configMap(%s): %v", configMap.Name, err)
+			return err
+		}
+	}
+
+	for _, secret := range migrationResources.Secrets {
+		if err := s.ensureNamespace(ctx, secret.Namespace); err != nil {
+			return err
+		}
+		if err := s.client.Create(ctx, secret); err != nil {
+			log.Errorf("failed to create the secret %s: &v", secret.Name, err)
+			return err
+		}
+	}
+
+	log.Info("finished syncing migration resources")
 	return nil
 }
 
-func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
+func (s *migrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Context,
 	saName, saNamespace string,
 ) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
@@ -431,7 +469,7 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 	return nil
 }
 
-func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
+func (s *migrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	migrationClusterRole := &rbacv1.ClusterRole{
@@ -479,12 +517,9 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Contex
 	return nil
 }
 
-func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
+func (s *migrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	if msaName == "" || msaNamespace == "" {
-		return fmt.Errorf("managed service account name and namespace are required")
-	}
 	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
 	registrationClusterRoleBindingName := fmt.Sprintf("agent-registration-clusterrolebinding:%s", msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -537,12 +572,9 @@ func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context
 	return nil
 }
 
-func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
+func (s *migrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	if msaName == "" || msaNamespace == "" {
-		return fmt.Errorf("managed service account name and namespace are required")
-	}
 	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
 	sarMigrationClusterRoleBindingName := fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", msaName)
 	sarMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -602,4 +634,184 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context
 
 func getMigrationClusterRoleName(managedServiceAccountName string) string {
 	return fmt.Sprintf("multicluster-global-hub-migration:%s", managedServiceAccountName)
+}
+
+// rollbacking handles rollback operations for different stages on the target hub
+func (s *migrationTargetSyncer) rollbacking(ctx context.Context, migrationTargetHubEvent *migration.ManagedClusterMigrationToEvent) error {
+	log.Infof("performing rollback for stage: %s", migrationTargetHubEvent.RollbackStage)
+
+	var err error
+	var reportMessage string
+
+	switch migrationTargetHubEvent.RollbackStage {
+	case migrationv1alpha1.PhaseInitializing:
+		err = s.rollbackInitializing(ctx, migrationTargetHubEvent)
+		if err != nil {
+			reportMessage = fmt.Sprintf("Initializing rollback on target hub completed with issues: %v", err)
+		} else {
+			reportMessage = "RBAC resources successfully cleaned up on target hub"
+		}
+	case migrationv1alpha1.PhaseDeploying:
+		err = s.rollbackDeploying(ctx, migrationTargetHubEvent)
+		if err != nil {
+			reportMessage = fmt.Sprintf("Deploying rollback on target hub completed with issues: %v", err)
+		} else {
+			reportMessage = "ManagedClusters and KlusterletAddonConfigs successfully removed from target hub"
+		}
+	case migrationv1alpha1.PhaseRegistering:
+		err = s.rollbackRegistering(ctx, migrationTargetHubEvent)
+		if err != nil {
+			reportMessage = fmt.Sprintf("Registering rollback on target hub completed with issues: %v", err)
+		} else {
+			reportMessage = "Resources successfully cleaned up from target hub"
+		}
+	default:
+		log.Infof("no specific rollback action needed for stage: %s", migrationTargetHubEvent.RollbackStage)
+		reportMessage = fmt.Sprintf("No specific rollback action needed for stage: %s", migrationTargetHubEvent.RollbackStage)
+	}
+
+	// Report rollback status to global hub, including detailed message
+	reportErr := ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+		s.transportClient,
+		&migration.ManagedClusterMigrationBundle{
+			MigrationId: migrationTargetHubEvent.MigrationId,
+			Stage:       migrationv1alpha1.ConditionTypeRolledBack,
+			ErrMessage:  reportMessage, // Use detailed message instead of just error
+		},
+		s.bundleVersion)
+
+	if reportErr != nil {
+		log.Errorf("failed to report rollback status: %v", reportErr)
+	}
+
+	// Return the original error if any
+	return err
+}
+
+// rollbackInitializing handles rollback of initializing phase on target hub
+func (s *migrationTargetSyncer) rollbackInitializing(ctx context.Context, migrationTargetHubEvent *migration.ManagedClusterMigrationToEvent) error {
+	// For initializing rollback on target hub, mainly clean up RBAC resources
+	// that were created for the managed service account
+
+	if migrationTargetHubEvent.ManagedServiceAccountName == "" {
+		log.Info("no managed service account name provided, skipping RBAC cleanup")
+		return nil
+	}
+
+	return s.cleanupMigrationRBAC(ctx, migrationTargetHubEvent.ManagedServiceAccountName)
+}
+
+// rollbackDeploying handles rollback of deploying phase on target hub
+// This is the main rollback operation that removes addonConfig and clusters
+func (s *migrationTargetSyncer) rollbackDeploying(ctx context.Context, migrationTargetHubEvent *migration.ManagedClusterMigrationToEvent) error {
+	log.Infof("rollback deploying stage for clusters: %v", migrationTargetHubEvent.ManagedClusters)
+
+	// 1. Remove ManagedClusters from target hub
+	for _, clusterName := range migrationTargetHubEvent.ManagedClusters {
+		if err := s.removeManagedCluster(ctx, clusterName); err != nil {
+			log.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
+			// Continue with other clusters even if one fails
+		}
+	}
+
+	// 2. Remove KlusterletAddonConfigs from target hub
+	for _, clusterName := range migrationTargetHubEvent.ManagedClusters {
+		if err := s.removeKlusterletAddonConfig(ctx, clusterName); err != nil {
+			log.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
+			// Continue with other configs even if one fails
+		}
+	}
+
+	// 3. Cleanup RBAC resources if managed service account name is provided
+	if migrationTargetHubEvent.ManagedServiceAccountName != "" {
+		if err := s.cleanupMigrationRBAC(ctx, migrationTargetHubEvent.ManagedServiceAccountName); err != nil {
+			log.Errorf("failed to cleanup migration RBAC: %v", err)
+		}
+	}
+
+	log.Info("completed deploying stage rollback")
+	return nil
+}
+
+// rollbackRegistering handles rollback of registering phase on target hub
+func (s *migrationTargetSyncer) rollbackRegistering(ctx context.Context, migrationTargetHubEvent *migration.ManagedClusterMigrationToEvent) error {
+	log.Infof("rollback registering stage for clusters: %v", migrationTargetHubEvent.ManagedClusters)
+
+	// For registering rollback, we need to do similar cleanup as deploying
+	// since clusters might have been partially registered
+	return s.rollbackDeploying(ctx, migrationTargetHubEvent)
+}
+
+// removeManagedCluster removes a ManagedCluster from the target hub
+func (s *migrationTargetSyncer) removeManagedCluster(ctx context.Context, clusterName string) error {
+	managedCluster := &clusterv1.ManagedCluster{}
+	err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, managedCluster)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Infof("managed cluster %s not found, already removed", clusterName)
+			return nil
+		}
+		return fmt.Errorf("failed to get managed cluster %s: %w", clusterName, err)
+	}
+
+	if err := s.client.Delete(ctx, managedCluster); err != nil {
+		return fmt.Errorf("failed to delete managed cluster %s: %w", clusterName, err)
+	}
+
+	log.Infof("successfully removed managed cluster: %s", clusterName)
+	return nil
+}
+
+// removeKlusterletAddonConfig removes a KlusterletAddonConfig from the target hub
+func (s *migrationTargetSyncer) removeKlusterletAddonConfig(ctx context.Context, clusterName string) error {
+	addonConfig := &addonv1.KlusterletAddonConfig{}
+	err := s.client.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: clusterName}, addonConfig)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Infof("klusterlet addon config %s not found, already removed", clusterName)
+			return nil
+		}
+		return fmt.Errorf("failed to get klusterlet addon config %s: %w", clusterName, err)
+	}
+
+	if err := s.client.Delete(ctx, addonConfig); err != nil {
+		return fmt.Errorf("failed to delete klusterlet addon config %s: %w", clusterName, err)
+	}
+
+	log.Infof("successfully removed klusterlet addon config: %s", clusterName)
+	return nil
+}
+
+// cleanupMigrationRBAC removes RBAC resources created for the managed service account
+func (s *migrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, managedServiceAccountName string) error {
+	clusterRoleName := getMigrationClusterRoleName(managedServiceAccountName)
+	clusterRoleBindingName := clusterRoleName
+
+	// Remove ClusterRoleBinding
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	err := s.client.Get(ctx, types.NamespacedName{Name: clusterRoleBindingName}, clusterRoleBinding)
+	if err == nil {
+		if err := s.client.Delete(ctx, clusterRoleBinding); err != nil {
+			log.Errorf("failed to delete cluster role binding %s: %v", clusterRoleBindingName, err)
+		} else {
+			log.Infof("successfully removed cluster role binding: %s", clusterRoleBindingName)
+		}
+	} else if !apierrors.IsNotFound(err) {
+		log.Errorf("failed to get cluster role binding %s: %v", clusterRoleBindingName, err)
+	}
+
+	// Remove ClusterRole
+	clusterRole := &rbacv1.ClusterRole{}
+	err = s.client.Get(ctx, types.NamespacedName{Name: clusterRoleName}, clusterRole)
+	if err == nil {
+		if err := s.client.Delete(ctx, clusterRole); err != nil {
+			log.Errorf("failed to delete cluster role %s: %v", clusterRoleName, err)
+		} else {
+			log.Infof("successfully removed cluster role: %s", clusterRoleName)
+		}
+	} else if !apierrors.IsNotFound(err) {
+		log.Errorf("failed to get cluster role %s: %v", clusterRoleName, err)
+	}
+
+	return nil
 }
