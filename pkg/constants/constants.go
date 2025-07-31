@@ -235,3 +235,15 @@ const (
 const (
 	GHClusterManagementAddonName = "multicluster-global-hub-controller"
 )
+
+// DeployMode is a custom type for the deploy-mode flag.
+type DeployMode string
+
+const (
+	// DefaultMode represents the default deploy mode.
+	DefaultMode DeployMode = "default"
+	// LocalMode represents the local deploy mode.
+	LocalMode DeployMode = "local"
+	// StandaloneMode represents the standalone deploy mode.
+	StandaloneMode DeployMode = "standalone"
+)
