@@ -29,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
+// go test ./test/integration/agent/migration -v -ginkgo.focus "MigrationToSyncer"
 var _ = Describe("MigrationToSyncer", Ordered, func() {
 	var (
 		testCtx          context.Context
@@ -247,6 +248,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			event.SetData("application/json", data)
 
 			By("Processing the deployment event")
+			migrationSyncer.SetMigrationID(testMigrationID)
 			err := migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -387,6 +389,176 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				return verifyMigrationEvent(testToHub, string(enum.ManagedClusterMigrationType),
 					constants.CloudEventGlobalHubClusterName, testMigrationID, migrationv1alpha1.PhaseCleaning)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+		})
+	})
+
+	Context("Rollback scenarios", func() {
+		BeforeEach(func() {
+			By("Creating initial RBAC resources for testing rollback")
+			// Create resources that should be cleaned up during rollback
+			clusterRole := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+				},
+				Rules: []rbacv1.PolicyRule{
+					{
+						APIGroups: []string{"authorization.k8s.io"},
+						Resources: []string{"subjectaccessreviews"},
+						Verbs:     []string{"create"},
+					},
+				},
+			}
+			err := runtimeClient.Create(testCtx, clusterRole)
+			Expect(err).NotTo(HaveOccurred())
+
+			clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: fmt.Sprintf("agent-registration-clusterrolebinding:%s", testMSAName),
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      "ServiceAccount",
+						Name:      testMSAName,
+						Namespace: testMSANamespace,
+					},
+				},
+				RoleRef: rbacv1.RoleRef{
+					Kind:     "ClusterRole",
+					Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+					APIGroup: "rbac.authorization.k8s.io",
+				},
+			}
+			err = runtimeClient.Create(testCtx, clusterRoleBinding)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should rollback initializing stage successfully", func() {
+			By("Creating rollback event for initializing stage")
+			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
+			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           testMigrationID,
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             testMSAName,
+				ManagedServiceAccountInstallNamespace: testMSANamespace,
+			})
+
+			By("Processing the rollback event")
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying RBAC resources were cleaned up")
+			Eventually(func() bool {
+				clusterRole := &rbacv1.ClusterRole{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+				}, clusterRole)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+		})
+
+		It("should rollback deploying stage successfully", func() {
+			testClusterName = "test-cluster-rollback-deploying"
+			By("Creating test managed clusters and addon configs")
+			testCluster := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
+				Spec:       clusterv1.ManagedClusterSpec{HubAcceptsClient: true},
+			}
+			err := runtimeClient.Create(testCtx, testCluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			testNamespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
+			}
+			err = runtimeClient.Create(testCtx, testNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			testAddonConfig := &addonv1.KlusterletAddonConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testClusterName,
+					Namespace: testClusterName,
+				},
+				Spec: addonv1.KlusterletAddonConfigSpec{
+					ClusterName:      testClusterName,
+					ClusterNamespace: testClusterName,
+				},
+			}
+			err = runtimeClient.Create(testCtx, testAddonConfig)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating rollback event for deploying stage")
+			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
+			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           testMigrationID,
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseDeploying,
+				ManagedServiceAccountName:             testMSAName,
+				ManagedServiceAccountInstallNamespace: testMSANamespace,
+				ManagedClusters:                       []string{testClusterName},
+			})
+
+			By("Processing the rollback event")
+			err = migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying managed cluster was deleted")
+			Eventually(func() bool {
+				cluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			By("Verifying addon config was deleted")
+			Eventually(func() bool {
+				addonConfig := &addonv1.KlusterletAddonConfig{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name:      testClusterName,
+					Namespace: testClusterName,
+				}, addonConfig)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			By("Verifying RBAC resources were cleaned up")
+			Eventually(func() bool {
+				clusterRole := &rbacv1.ClusterRole{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+				}, clusterRole)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+		})
+
+		It("should rollback registering stage successfully", func() {
+			testClusterName = "test-cluster-rollback-registering"
+			By("Setting up resources that would exist after registering")
+			testCluster := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
+				Spec:       clusterv1.ManagedClusterSpec{HubAcceptsClient: true},
+			}
+			err := runtimeClient.Create(testCtx, testCluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating rollback event for registering stage")
+			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
+			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+				MigrationId:                           testMigrationID,
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseRegistering,
+				ManagedServiceAccountName:             testMSAName,
+				ManagedServiceAccountInstallNamespace: testMSANamespace,
+				ManagedClusters:                       []string{testClusterName},
+			})
+
+			By("Processing the rollback event")
+			err = migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying managed cluster was deleted")
+			Eventually(func() bool {
+				cluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 	})
 })

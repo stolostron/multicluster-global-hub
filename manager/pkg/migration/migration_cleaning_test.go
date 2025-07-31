@@ -215,9 +215,9 @@ func TestCompleted(t *testing.T) {
 			},
 			wantRequeue:             false,
 			wantErr:                 false,
-			expectedPhase:           v1alpha1.PhaseFailed,  // Should move to failed phase due to error
-			expectedConditionStatus: metav1.ConditionFalse, // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,  // Should indicate error
+			expectedPhase:           v1alpha1.PhaseCompleted, // Should complete despite error (design: cleanup failure doesn't affect migration success)
+			expectedConditionStatus: metav1.ConditionFalse,   // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,    // Should indicate error
 		},
 	}
 

@@ -63,6 +63,18 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			}
 			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
 		}
+
+		errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
+		if errMessage != "" {
+			condition.Message = fmt.Sprintf("registering to hub %s error: %s", fromHub, errMessage)
+			condition.Reason = ConditionReasonError
+			return false, nil
+		}
+
+		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
+			condition.Message = fmt.Sprintf("waiting for managed clusters to migrating from source hub %s", fromHub)
+			return true, nil
+		}
 	}
 
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {

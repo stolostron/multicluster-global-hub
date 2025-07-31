@@ -17,6 +17,8 @@ const (
 	ConditionReasonRollbackFailed     = "RollbackFailed"
 )
 
+var RollbackTimeout = 5 * time.Minute
+
 // rollbacking handles the rollback process when migration fails during initializing, deploying, or registering phases
 // This phase attempts to restore the system to its previous state before the failed migration attempt
 // 1. Source Hub: restore original cluster configurations and remove migration-related changes
@@ -167,7 +169,7 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 
 	// Handle timeout - still transition to Failed but with timeout message
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > migrationStageTimeout {
+		time.Since(startedCond.LastTransitionTime.Time) > RollbackTimeout {
 		condition.Reason = ConditionReasonTimeout
 		condition.Message = fmt.Sprintf("[Timeout] %s.", condition.Message)
 		condition.Status = metav1.ConditionFalse

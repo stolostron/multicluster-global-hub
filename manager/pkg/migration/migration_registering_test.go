@@ -113,9 +113,9 @@ func TestRegistering(t *testing.T) {
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 		{
 			name: "Should wait for target hub to complete registering",
@@ -170,9 +170,9 @@ func TestRegistering(t *testing.T) {
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 		{
 			name: "Should complete when target hub finishes registering",
