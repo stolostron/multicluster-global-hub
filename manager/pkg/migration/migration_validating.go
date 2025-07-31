@@ -41,34 +41,43 @@ var dns1123SubdomainRegex = regexp.MustCompile(`^[a-z0-9]([-a-z0-9\.]*[a-z0-9])?
 func (m *ClusterMigrationController) validating(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	if mcm.DeletionTimestamp != nil {
+	if !mcm.DeletionTimestamp.IsZero() {
 		return false, nil
 	}
 
+	if mcm.Status.Phase == "" || mcm.Status.Phase == migrationv1alpha1.PhasePending {
+		mcm.Status.Phase = migrationv1alpha1.PhaseValidating
+		if err := m.Client.Status().Update(ctx, mcm); err != nil {
+			return false, err
+		}
+		// initializing the migration status for the instance
+		AddMigrationStatus(string(mcm.GetUID()))
+	}
+
+	// Skip validation if the ResourceValidated is true,
+	// or if the phase status is not 'validating' (indicating it's currently in a different stage)
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseValidating {
 		return false, nil
 	}
 	log.Info("migration validating")
 
-	condition := metav1.Condition{
-		Type:    migrationv1alpha1.ConditionTypeValidated,
-		Status:  metav1.ConditionTrue,
-		Reason:  ConditionReasonResourceValidated,
-		Message: "Migration resources have been validated",
-	}
-
+	condType := migrationv1alpha1.ConditionTypeValidated
+	condStatus := metav1.ConditionTrue
+	condReason := ConditionReasonResourceValidated
+	condMessage := "Migration resources have been validated"
 	var err error
+
 	defer func() {
-		nextPhase := migrationv1alpha1.PhaseInitializing
 		if err != nil {
-			condition.Message = err.Error()
-			condition.Status = metav1.ConditionFalse
-			nextPhase = migrationv1alpha1.PhaseFailed
+			condMessage = err.Error()
+			condStatus = metav1.ConditionFalse
+			condReason = ConditionReasonResourceInvalid
 		}
-		err = m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
-		if err != nil {
-			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
+		log.Debugf("validating condition %s(%s): %s", condType, condReason, condMessage)
+		e := m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, migrationStageTimeout)
+		if e != nil {
+			log.Errorf("failed to update the %s condition: %v", condType, e)
 		}
 	}()
 
@@ -80,7 +89,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	toHubErr = m.Client.Get(ctx, types.NamespacedName{Name: mcm.Spec.To}, &clusterv1.ManagedCluster{})
 
 	if errors.IsNotFound(fromHubErr) || errors.IsNotFound(toHubErr) {
-		condition.Reason = ConditionReasonHubClusterNotFound
+		condReason = ConditionReasonHubClusterNotFound
 		switch {
 		case errors.IsNotFound(fromHubErr):
 			err = fmt.Errorf("not found the source hub: %s", mcm.Spec.From)
@@ -95,7 +104,8 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		err = toHubErr
 	}
 	if err != nil {
-		return false, err
+		condReason = ConditionReasonHubClusterNotFound
+		return false, nil
 	}
 
 	// verify the clusters in database
@@ -104,7 +114,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return false, err
 	}
 	if len(clusterWithHub) == 0 {
-		condition.Reason = ConditionReasonClusterNotFound
+		condReason = ConditionReasonClusterNotFound
 		err = fmt.Errorf("invalid managed clusters: %v", mcm.Spec.IncludedManagedClusters)
 		return false, nil
 	}
@@ -114,7 +124,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	for _, cluster := range mcm.Spec.IncludedManagedClusters {
 		hub, ok := clusterWithHub[cluster]
 		if !ok {
-			condition.Reason = ConditionReasonClusterNotFound
+			condReason = ConditionReasonClusterNotFound
 			err = fmt.Errorf("not found managed clusters: %s", cluster)
 			return false, nil
 		}
@@ -127,7 +137,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 	// clusters have been in the destination hub
 	if len(clustersInDestinationHub) > 0 {
-		condition.Reason = ConditionReasonClusterConflict
+		condReason = ConditionReasonClusterConflict
 		err = fmt.Errorf("the clusters %v have been in the hub cluster %s",
 			messageClusters(clustersInDestinationHub), mcm.Spec.To)
 		return false, nil
@@ -135,7 +145,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 	// not found validated clusters
 	if len(notFoundClusters) > 0 {
-		condition.Reason = ConditionReasonClusterNotFound
+		condReason = ConditionReasonClusterNotFound
 		err = fmt.Errorf("the validated clusters %v are not found in the source hub %s",
 			messageClusters(notFoundClusters), mcm.Spec.From)
 		return false, nil

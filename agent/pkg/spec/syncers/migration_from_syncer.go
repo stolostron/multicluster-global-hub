@@ -67,7 +67,7 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	payload := evt.Data()
 	// handle migration.from cloud event
-	migrationSourceHubEvent := &migration.ManagedClusterMigrationFromEvent{}
+	migrationSourceHubEvent := &migration.MigrationSourceHubBundle{}
 	if err := json.Unmarshal(payload, migrationSourceHubEvent); err != nil {
 		return err
 	}
@@ -151,13 +151,13 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	return nil
 }
 
-func (m *MigrationSourceSyncer) cleaning(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+func (s *MigrationSourceSyncer) cleaning(
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	bootstrapSecret := migratingEvt.BootstrapSecret
 	// delete bootstrap kubeconfig secret
 	foundBootstrapSecret := &corev1.Secret{}
-	if err := m.client.Get(ctx,
+	if err := s.client.Get(ctx,
 		types.NamespacedName{
 			Name:      bootstrapSecret.Name,
 			Namespace: bootstrapSecret.Namespace,
@@ -169,7 +169,7 @@ func (m *MigrationSourceSyncer) cleaning(
 		}
 	} else {
 		log.Infof("delete bootstrap secret %s", bootstrapSecret.GetName())
-		if err := m.client.Delete(ctx, bootstrapSecret); err != nil {
+		if err := s.client.Delete(ctx, bootstrapSecret); err != nil {
 			return err
 		}
 	}
@@ -180,7 +180,7 @@ func (m *MigrationSourceSyncer) cleaning(
 			Name: klusterletConfigNamePrefix + migratingEvt.ToHub,
 		},
 	}
-	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
+	if err := s.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Infof("klusterletConfig %s is removed", klusterletConfig.GetName())
 		} else {
@@ -188,7 +188,7 @@ func (m *MigrationSourceSyncer) cleaning(
 		}
 	} else {
 		log.Infof("delete klusterletconfig secret %s", klusterletConfig.GetName())
-		if err := m.client.Delete(ctx, klusterletConfig); err != nil {
+		if err := s.client.Delete(ctx, klusterletConfig); err != nil {
 			return err
 		}
 	}
@@ -203,12 +203,32 @@ func (m *MigrationSourceSyncer) cleaning(
 
 // deploying: send clusters and addon config into target hub
 func (s *MigrationSourceSyncer) deploying(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
-	migrationResources := &migration.SourceClusterMigrationResources{
-		MigrationId:           migratingEvt.MigrationId,
-		ManagedClusters:       []clusterv1.ManagedCluster{},
-		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
+	managedClusters := migratingEvt.ManagedClusters
+	resources := migratingEvt.Resources
+	toHub := migratingEvt.ToHub
+	id := migratingEvt.MigrationId
+
+	reportErrMessage := ""
+	defer func() {
+		err := ReportMigrationStatus(
+			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic), s.transportClient,
+			&migration.MigrationGlobalHubBundle{
+				MigrationId: s.currentMigrationId,
+				Stage:       migrationv1alpha1.ConditionTypeDeployed,
+				ErrMessage:  reportErrMessage,
+			},
+			s.bundleVersion)
+		if err != nil {
+			log.Warnf("failed to report the deploying message(%s): %v", reportErrMessage, err)
+		}
+	}()
+
+	err := s.SendMigrationResources(ctx, id, managedClusters, resources, configs.GetLeafHubName(), toHub)
+	if err != nil {
+		reportErrMessage = err.Error()
+		return err
 	}
 
 	// collect clusters and klusterletAddonConfig for migration
@@ -248,8 +268,8 @@ func (s *MigrationSourceSyncer) deploying(
 // initializing: attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
 // Note: Add the "global-hub.open-cluster-management.io/migrating" to avoid the race condition of the cluster
 // reported by both target and source hub
-func (m *MigrationSourceSyncer) initializing(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+func (s *MigrationSourceSyncer) initializing(
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	if migratingEvt.BootstrapSecret == nil {
 		return fmt.Errorf("bootstrap secret is nil when initializing")
@@ -257,7 +277,7 @@ func (m *MigrationSourceSyncer) initializing(
 	bootstrapSecret := migratingEvt.BootstrapSecret
 	// ensure secret
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, bootstrapSecret, func() error { return nil })
+		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, bootstrapSecret, func() error { return nil })
 		log.Infof("bootstrap secret %s is %s", bootstrapSecret.GetName(), operation)
 		return err
 	})
@@ -266,13 +286,13 @@ func (m *MigrationSourceSyncer) initializing(
 	}
 
 	// ensure klusterletconfig
-	klusterletConfig, err := generateKlusterletConfig(m.client, migratingEvt.ToHub, bootstrapSecret.Name)
+	klusterletConfig, err := generateKlusterletConfig(s.client, migratingEvt.ToHub, bootstrapSecret.Name)
 	if err != nil {
 		return err
 	}
-	if err := m.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
+	if err := s.client.Get(ctx, client.ObjectKeyFromObject(klusterletConfig), klusterletConfig); err != nil {
 		if apierrors.IsNotFound(err) {
-			if err := m.client.Create(ctx, klusterletConfig); err != nil {
+			if err := s.client.Create(ctx, klusterletConfig); err != nil {
 				return err
 			}
 		} else {
@@ -284,7 +304,7 @@ func (m *MigrationSourceSyncer) initializing(
 	managedClusters := migratingEvt.ManagedClusters
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}
-		if err := m.client.Get(ctx, types.NamespacedName{
+		if err := s.client.Get(ctx, types.NamespacedName{
 			Name: managedCluster,
 		}, mc); err != nil {
 			return err
@@ -299,7 +319,7 @@ func (m *MigrationSourceSyncer) initializing(
 			continue
 		}
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error {
+			operation, err := controllerutil.CreateOrUpdate(ctx, s.client, mc, func() error {
 				// Update annotations within the CreateOrUpdate function
 				currentAnnotations := mc.GetAnnotations()
 				if currentAnnotations == nil {
@@ -373,14 +393,14 @@ spec:
 	return obj, err
 }
 
-func (m *MigrationSourceSyncer) registering(
-	ctx context.Context, migratingEvt *migration.ManagedClusterMigrationFromEvent,
+func (s *MigrationSourceSyncer) registering(
+	ctx context.Context, migratingEvt *migration.MigrationSourceHubBundle,
 ) error {
 	managedClusters := migratingEvt.ManagedClusters
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
 		mc := &clusterv1.ManagedCluster{}
-		if err := m.client.Get(ctx, types.NamespacedName{
+		if err := s.client.Get(ctx, types.NamespacedName{
 			Name: managedCluster,
 		}, mc); err != nil {
 			return err
@@ -388,7 +408,7 @@ func (m *MigrationSourceSyncer) registering(
 		mc.Spec.HubAcceptsClient = false
 		log.Infof("updating managedcluster %s to set HubAcceptsClient as false", mc.Name)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			return m.client.Update(ctx, mc)
+			return s.client.Update(ctx, mc)
 		})
 		if err != nil {
 			return fmt.Errorf("failed to update managedcluster %s: %w", mc.Name, err)
@@ -400,7 +420,7 @@ func (m *MigrationSourceSyncer) registering(
 func ReportMigrationStatus(
 	ctx context.Context,
 	transportClient transport.TransportClient,
-	migrationBundle *migration.ManagedClusterMigrationBundle,
+	migrationBundle *migration.MigrationGlobalHubBundle,
 	version *eventversion.Version,
 ) error {
 	source := configs.GetLeafHubName()

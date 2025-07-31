@@ -15,27 +15,30 @@ import (
 // 2. Migration ID tagging: Include a unique migration ID with each event. This allows receivers to process only the
 // events relevant to their migration and ignore others.
 
-// ManagedClusterMigrationFromEvent defines the resources from migration controller to the source cluster
-type ManagedClusterMigrationFromEvent struct {
+// MigrationSourceHubBundle defines the resources from migration controller to the source cluster
+type MigrationSourceHubBundle struct {
 	MigrationId     string         `json:"migrationId"`
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	Resources       []string       `json:"resources,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
+	// should be true, if in cleaning stage, and the final phase is failed
+	Rollback bool `json:"rollback,omitempty"`
 }
 
-// ManagedClusterMigrationToEvent defines the resources from migration controllers to the target cluster
-type ManagedClusterMigrationToEvent struct {
+// MigrationTargetHubBundle defines the resources from migration controllers to the target cluster
+type MigrationTargetHubBundle struct {
 	MigrationId                           string   `json:"migrationId"`
 	Stage                                 string   `json:"stage"`
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
+	Rollback                              bool     `json:"rollback,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub
-type ManagedClusterMigrationBundle struct {
+type MigrationGlobalHubBundle struct {
 	MigrationId string `json:"migrationId"`
 	Stage       string `json:"stage"`
 	ErrMessage  string `json:"errMessage,omitempty"`
