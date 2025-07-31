@@ -154,12 +154,70 @@ func createHubAndCluster(ctx context.Context, hubName, clusterName string) error
 
 	// Create ManagedCluster for the hub
 	hubCluster := &clusterv1.ManagedCluster{
-		ObjectMeta: metav1.ObjectMeta{Name: hubName},
-		Spec:       clusterv1.ManagedClusterSpec{ManagedClusterClientConfigs: []clusterv1.ClientConfig{{URL: "https://hub.example.com"}}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: hubName,
+			Annotations: map[string]string{
+				"addon.open-cluster-management.io/on-multicluster-hub": "true",
+			},
+		},
+		Spec: clusterv1.ManagedClusterSpec{ManagedClusterClientConfigs: []clusterv1.ClientConfig{{URL: "https://hub.example.com"}}},
+		Status: clusterv1.ManagedClusterStatus{
+			Conditions: []metav1.Condition{
+				{
+					Type:               "ManagedClusterConditionAvailable",
+					Status:             "True",
+					Reason:             "ManagedClusterAvailable",
+					Message:            "The managed cluster is available",
+					LastTransitionTime: metav1.Now(),
+				},
+			},
+		},
 	}
 	if err := mgr.GetClient().Create(ctx, hubCluster); err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create hub cluster %s: %w", hubName, err)
 	}
+
+	// Update status subresource to persist the available condition
+	// Get latest hubCluster before status update to avoid resource version conflict
+	Eventually(func() error {
+		latest := &clusterv1.ManagedCluster{}
+		err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(hubCluster), latest)
+		if err != nil {
+			return err
+		}
+		latest.Status.Conditions = []metav1.Condition{
+			{
+				Type:               "ManagedClusterConditionAvailable",
+				Status:             "True",
+				Reason:             "ManagedClusterAvailable",
+				Message:            "The managed cluster is available",
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+
+		if err := mgr.GetClient().Status().Update(ctx, latest); err != nil {
+			return fmt.Errorf("failed to update hub cluster status %s: %w", hubName, err)
+		}
+		return nil
+	}, "10s", "200ms").Should(Succeed())
+
+	Eventually(func() error {
+		latest := &clusterv1.ManagedCluster{}
+		err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(hubCluster), latest)
+		if err != nil {
+			return err
+		}
+		if len(latest.Status.Conditions) == 0 {
+			return fmt.Errorf("ManagedCluster status conditions should not be empty")
+		}
+		if latest.Status.Conditions[0].Type != "ManagedClusterConditionAvailable" {
+			return fmt.Errorf("ManagedCluster status condition type should be ManagedClusterConditionAvailable, got %s", latest.Status.Conditions[0].Type)
+		}
+		if latest.Status.Conditions[0].Status != "True" {
+			return fmt.Errorf("ManagedCluster status condition status should be True, got %s", latest.Status.Conditions[0].Status)
+		}
+		return nil
+	}, "10s", "200ms").Should(Succeed())
 
 	// Create DB entry for the hub
 	if err := db.Create(&models.LeafHub{LeafHubName: hubName, ClusterID: uuid.New().String(), Payload: []byte("{}")}).Error; err != nil {
