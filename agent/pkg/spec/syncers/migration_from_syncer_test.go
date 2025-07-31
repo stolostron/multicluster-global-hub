@@ -66,7 +66,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 	cases := []struct {
 		name                         string
-		receivedMigrationEventBundle migration.ManagedClusterMigrationFromEvent
+		receivedMigrationEventBundle migration.MigrationSourceBundle
 		initObjects                  []client.Object
 		expectedProduceEvent         *cloudevents.Event
 		expectedObjects              []client.Object
@@ -115,7 +115,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					StringData: map[string]string{"test": "secret"},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
 				MigrationId: currentSyncerMigrationId,
 				ToHub:       "hub2",
 				Stage:       migrationv1alpha1.PhaseInitializing,
@@ -158,7 +158,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
 				MigrationId:     currentSyncerMigrationId,
 				ToHub:           "hub2",
 				Stage:           migrationv1alpha1.PhaseRegistering,
@@ -199,7 +199,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
 				MigrationId: currentSyncerMigrationId,
 				ToHub:       "hub2",
 				Stage:       migrationv1alpha1.PhaseCleaning,
@@ -222,7 +222,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt.SetSource("hub1")
 				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "hub2")
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
-				_ = evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.ManagedClusterMigrationBundle{
+				_ = evt.SetData(*cloudevents.StringOfApplicationCloudEventsJSON(), &migration.MigrationStatusBundle{
 					Stage: migrationv1alpha1.ConditionTypeCleaned,
 				})
 				return &evt
@@ -255,7 +255,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
 				MigrationId:     currentSyncerMigrationId,
 				ToHub:           "hub2",
 				Stage:           migrationv1alpha1.PhaseRollbacking,
@@ -311,7 +311,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 					},
 				},
 			},
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationFromEvent{
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
 				MigrationId:     currentSyncerMigrationId,
 				ToHub:           "hub2",
 				Stage:           migrationv1alpha1.PhaseRollbacking,

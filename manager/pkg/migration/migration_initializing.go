@@ -212,7 +212,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 	bootstrapSecret *corev1.Secret, rollbackStage string,
 ) error {
-	managedClusterMigrationFromEvent := &migrationbundle.ManagedClusterMigrationFromEvent{
+	managedClusterMigrationFromEvent := &migrationbundle.MigrationSourceBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ToHub:           migration.Spec.To,

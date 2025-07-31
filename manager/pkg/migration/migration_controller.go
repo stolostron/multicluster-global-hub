@@ -228,7 +228,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
-	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+	managedClusterMigrationToEvent := &migrationbundle.MigrationTargetBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ManagedClusters: managedClusters,

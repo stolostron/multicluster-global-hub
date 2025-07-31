@@ -103,7 +103,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		It("should initialize migration permissions successfully", func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub)
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:                           testMigrationID,
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             testMSAName,
@@ -215,7 +215,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			event.SetSource(testFromHub)
 
 			// Create source cluster migration resources
-			migrationResources := &migration.SourceClusterMigrationResources{
+			migrationResources := &migration.MigrationResourceBundle{
 				MigrationId: testMigrationID,
 				ManagedClusters: []clusterv1.ManagedCluster{
 					{
@@ -312,7 +312,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 			// Create migration event for registering stage
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRegistering, testFromHub, testToHub)
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:     testMigrationID,
 				Stage:           migrationv1alpha1.PhaseRegistering,
 				ManagedClusters: []string{testClusterName},
@@ -329,7 +329,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 						event.Type() == string(enum.ManagedClusterMigrationType) &&
 						event.Extensions()[constants.CloudEventExtensionKeyClusterName] == constants.CloudEventGlobalHubClusterName {
 
-						migrationBundle := &migration.ManagedClusterMigrationBundle{}
+						migrationBundle := &migration.MigrationStatusBundle{}
 						if err := json.Unmarshal(event.Data(), migrationBundle); err != nil {
 							return err
 						}
@@ -348,7 +348,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		It("should clean up migration resources successfully", func() {
 			By("Creating migration event for cleaning stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseCleaning, testFromHub, testToHub)
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:               testMigrationID,
 				Stage:                     migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName: testMSAName,
@@ -435,7 +435,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		It("should rollback initializing stage successfully", func() {
 			By("Creating rollback event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:                           testMigrationID,
 				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
@@ -488,7 +488,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 			By("Creating rollback event for deploying stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:                           testMigrationID,
 				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseDeploying,
@@ -540,7 +540,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 			By("Creating rollback event for registering stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationToEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
 				MigrationId:                           testMigrationID,
 				Stage:                                 migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:                         migrationv1alpha1.PhaseRegistering,
@@ -569,7 +569,7 @@ func createMigrationToEvent(migrationID, stage, fromHub, toHub string) *cloudeve
 	event.SetSource(constants.CloudEventGlobalHubClusterName)
 	event.SetSubject(toHub)
 
-	payload := &migration.ManagedClusterMigrationToEvent{
+	payload := &migration.MigrationTargetBundle{
 		MigrationId: migrationID,
 		Stage:       stage,
 	}
