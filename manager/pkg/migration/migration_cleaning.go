@@ -159,13 +159,13 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
 		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
-		condition.Message = fmt.Sprintf("[Warning - Cleanup Timeout] %s. Migration completed despite cleanup timeout. Manual cleanup may be required.", condition.Message)
+		condition.Message = fmt.Sprintf("[Warning - Cleanup Timeout] %s.", condition.Message)
 		condition.Status = metav1.ConditionFalse
 	}
 
 	// Handle errors - convert to warning and set Completed status
 	if condition.Reason == ConditionReasonError {
-		condition.Message = fmt.Sprintf("[Warning - Cleanup Issues] %s. Migration completed despite cleanup issues. Manual cleanup may be required.", condition.Message)
+		condition.Message = fmt.Sprintf("[Warning - Cleanup Issues] %s.", condition.Message)
 		condition.Status = metav1.ConditionFalse
 	}
 

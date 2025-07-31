@@ -40,7 +40,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseDeploying
 
-	defer m.handleMigrationStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))

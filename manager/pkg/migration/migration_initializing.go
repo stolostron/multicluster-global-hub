@@ -64,7 +64,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseInitializing
 
-	defer m.handleMigrationStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
@@ -170,9 +170,9 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	return false, nil
 }
 
-// handleMigrationStatusWithRollback updates the migration's condition and phase, transitioning to Rollbacking for most phases
+// handleStatusWithRollback updates the condition and phase, transitioning to Rollbacking for most phases
 // Note: Cleaning phase has its own handleCleaningStatus function and should not use this function
-func (m *ClusterMigrationController) handleMigrationStatusWithRollback(ctx context.Context,
+func (m *ClusterMigrationController) handleStatusWithRollback(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 	condition *metav1.Condition,
 	nextPhase *string,
@@ -180,7 +180,7 @@ func (m *ClusterMigrationController) handleMigrationStatusWithRollback(ctx conte
 ) {
 	// Cleaning phase should use handleCleaningStatus instead
 	if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-		log.Errorf("handleMigrationStatusWithRollback should not be called for cleaning phase, use handleCleaningStatus instead")
+		log.Errorf("handleStatusWithRollback should not be called for cleaning phase, use handleCleaningStatus instead")
 		return
 	}
 
