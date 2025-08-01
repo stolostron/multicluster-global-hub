@@ -96,9 +96,9 @@ func TestDeploying(t *testing.T) {
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 		{
 			name: "Should wait for source hub to complete deploying",
@@ -214,9 +214,9 @@ func TestDeploying(t *testing.T) {
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 		{
 			name: "Should handle error from target hub",
@@ -244,9 +244,9 @@ func TestDeploying(t *testing.T) {
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 	}
 

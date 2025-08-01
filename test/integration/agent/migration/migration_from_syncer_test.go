@@ -29,6 +29,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// go test ./test/integration/agent/migration -v -ginkgo.focus "MigrationFromSyncer"
 var _ = Describe("MigrationFromSyncer", Ordered, func() {
 	var (
 		testCtx           context.Context
@@ -111,7 +112,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		It("should initialize migration successfully", func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationFromEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     testMigrationID,
 				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
@@ -176,7 +177,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		It("should deploy resources successfully", func() {
 			By("Creating migration event for deploying stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseDeploying, testFromHub, testToHub, []string{testClusterName})
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationFromEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     testMigrationID,
 				Stage:           migrationv1alpha1.PhaseDeploying,
 				ToHub:           testToHub,
@@ -196,7 +197,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		It("should registering: set HubAcceptsClient to false for clusters", func() {
 			By("Creating migration event for registering stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRegistering, testFromHub, testToHub, []string{testClusterName})
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationFromEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     testMigrationID,
 				Stage:           migrationv1alpha1.PhaseRegistering,
 				ToHub:           testToHub,
@@ -221,7 +222,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		It("should clean up resources successfully", func() {
 			By("Creating migration event for cleaning stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseCleaning, testFromHub, testToHub, []string{testClusterName})
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationFromEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     testMigrationID,
 				Stage:           migrationv1alpha1.PhaseCleaning,
 				ToHub:           testToHub,
@@ -279,11 +280,145 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		})
 	})
 
+	Context("Rollback scenarios", func() {
+		BeforeEach(func() {
+			cluster := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   testClusterName,
+					Labels: map[string]string{"test-label": "test-value"},
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+					ManagedClusterClientConfigs: []clusterv1.ClientConfig{{
+						URL: "https://test-cluster.example.com",
+					}},
+				},
+			}
+			err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
+			if apierrors.IsNotFound(err) {
+				Expect(runtimeClient.Create(testCtx, cluster)).Should(Succeed())
+			} else {
+				Expect(err).To(Succeed())
+			}
+
+			By("Adding migration annotations to test cluster")
+			err = runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			if cluster.Annotations == nil {
+				cluster.Annotations = make(map[string]string)
+			}
+			cluster.Annotations[constants.ManagedClusterMigrating] = "global-hub.open-cluster-management.io/migrating"
+			cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"] = "migration-" + testToHub
+
+			err = runtimeClient.Update(testCtx, cluster)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should rollback initializing stage successfully", func() {
+			By("Creating rollback event for initializing stage")
+			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
+				MigrationId:     testMigrationID,
+				Stage:           migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:   migrationv1alpha1.PhaseInitializing,
+				ToHub:           testToHub,
+				ManagedClusters: []string{testClusterName},
+			})
+
+			By("Processing the rollback event")
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying migration annotations were removed")
+			Eventually(func() bool {
+				cluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				if err != nil {
+					return false
+				}
+				_, hasMigrating := cluster.Annotations[constants.ManagedClusterMigrating]
+				_, hasKlusterletConfig := cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
+				return !hasMigrating && !hasKlusterletConfig
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			By("Verifying a status event was sent")
+			Eventually(func() int {
+				return len(receivedEvents)
+			}, 5*time.Second, 100*time.Millisecond).Should(BeNumerically(">", 0))
+
+			Eventually(func() bool {
+				for _, event := range receivedEvents {
+					if event.Type() == string(enum.ManagedClusterMigrationType) {
+						return true
+					}
+				}
+				return false
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+		})
+
+		It("should rollback deploying stage successfully", func() {
+			By("Creating rollback event for deploying stage")
+			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
+				MigrationId:     testMigrationID,
+				Stage:           migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:   migrationv1alpha1.PhaseDeploying,
+				ToHub:           testToHub,
+				ManagedClusters: []string{testClusterName},
+			})
+
+			By("Processing the rollback event")
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying migration annotations were removed")
+			Eventually(func() bool {
+				cluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				if err != nil {
+					return false
+				}
+				_, hasMigrating := cluster.Annotations[constants.ManagedClusterMigrating]
+				_, hasKlusterletConfig := cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
+				return !hasMigrating && !hasKlusterletConfig
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+		})
+
+		It("should rollback registering stage successfully", func() {
+			By("Creating rollback event for registering stage")
+			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
+				MigrationId:     testMigrationID,
+				Stage:           migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:   migrationv1alpha1.PhaseRegistering,
+				ToHub:           testToHub,
+				ManagedClusters: []string{testClusterName},
+			})
+
+			By("Processing the rollback event")
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying migration annotations were removed")
+			Eventually(func() bool {
+				cluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				if err != nil {
+					return false
+				}
+				_, hasMigrating := cluster.Annotations[constants.ManagedClusterMigrating]
+				_, hasKlusterletConfig := cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
+				return !hasMigrating && !hasKlusterletConfig
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+		})
+	})
+
 	Context("Error handling scenarios", func() {
 		It("should handle missing bootstrap secret during initialization", func() {
 			By("Creating migration event with missing bootstrap secret")
 			event := createMigrationFromEvent("error-test-1", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
-			event.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationFromEvent{
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     "error-test-1",
 				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
@@ -328,7 +463,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 				},
 			}
 
-			initEvent.DataEncoded, _ = json.Marshal(&migration.ManagedClusterMigrationFromEvent{
+			initEvent.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     "error-test-2",
 				Stage:           migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
@@ -360,7 +495,7 @@ func createMigrationFromEvent(migrationID, stage, fromHub, toHub string, cluster
 	event.SetSource(fromHub)
 	event.SetSubject(constants.CloudEventGlobalHubClusterName)
 
-	payload := &migration.ManagedClusterMigrationFromEvent{
+	payload := &migration.MigrationSourceBundle{
 		MigrationId:     migrationID,
 		Stage:           stage,
 		ToHub:           toHub,

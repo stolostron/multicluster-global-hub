@@ -134,6 +134,7 @@ spec:
                 - Initializing
                 - Deploying
                 - Registering
+                - Rollbacking
                 - Cleaning
                 - Completed
                 - Failed

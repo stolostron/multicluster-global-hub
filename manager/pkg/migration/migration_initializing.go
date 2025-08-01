@@ -64,7 +64,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseInitializing
 
-	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
@@ -111,7 +111,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
-		if err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil); err != nil {
+		if err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseInitializing, nil, ""); err != nil {
 			condition.Message = err.Error()
 			condition.Reason = ConditionReasonError
 			return false, err
@@ -124,7 +124,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	for fromHubName, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
 			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
-				nil, bootstrapSecret)
+				bootstrapSecret, "")
 			if err != nil {
 				condition.Message = err.Error()
 				condition.Reason = ConditionReasonError
@@ -170,30 +170,30 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	return false, nil
 }
 
-// handleMigrationStatus updates the migration's condition and phase, transitioning to Cleaning if not already Cleaning
-// and a timeout or "Error" condition occurs, or to Failed if in Cleaning with a timeout or "Error" condition.
-func (m *ClusterMigrationController) handleMigrationStatus(ctx context.Context,
+// handleStatusWithRollback updates the condition and phase, transitioning to Rollbacking for most phases
+// Note: Cleaning phase has its own handleCleaningStatus function and should not use this function
+func (m *ClusterMigrationController) handleStatusWithRollback(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 	condition *metav1.Condition,
 	nextPhase *string,
 	stageTimeout time.Duration,
 ) {
+	// Cleaning phase should use handleCleaningStatus instead
+	if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
+		log.Errorf("handleStatusWithRollback should not be called for cleaning phase, use handleCleaningStatus instead")
+		return
+	}
+
 	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
 		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
 		condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
-		*nextPhase = migrationv1alpha1.PhaseCleaning
-		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-			*nextPhase = migrationv1alpha1.PhaseFailed
-		}
+		*nextPhase = migrationv1alpha1.PhaseRollbacking
 	}
 
 	if condition.Reason == ConditionReasonError {
-		*nextPhase = migrationv1alpha1.PhaseCleaning
-		if condition.Type == migrationv1alpha1.ConditionTypeCleaned {
-			*nextPhase = migrationv1alpha1.PhaseFailed
-		}
+		*nextPhase = migrationv1alpha1.PhaseRollbacking
 	}
 
 	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
@@ -210,15 +210,15 @@ func (m *ClusterMigrationController) handleMigrationStatus(ctx context.Context,
 // 4. MigrationCompleted: delete the items from the database
 func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, fromHub string,
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
-	resources []string, bootstrapSecret *corev1.Secret,
+	bootstrapSecret *corev1.Secret, rollbackStage string,
 ) error {
-	managedClusterMigrationFromEvent := &migrationbundle.ManagedClusterMigrationFromEvent{
+	managedClusterMigrationFromEvent := &migrationbundle.MigrationSourceBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ToHub:           migration.Spec.To,
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
-		Resources:       resources,
+		RollbackStage:   rollbackStage,
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)

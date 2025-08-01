@@ -35,7 +35,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	scheme := configs.GetRuntimeScheme()
 	cases := []struct {
 		name                          string
-		migrationEvent                *migration.ManagedClusterMigrationToEvent
+		migrationEvent                *migration.MigrationTargetBundle
 		initObjects                   []client.Object
 		expectedClusterManager        *operatorv1.ClusterManager
 		expectedClusterRole           *rbacv1.ClusterRole
@@ -44,7 +44,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	}{
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -128,7 +128,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having empty registration configuration",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -170,7 +170,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -221,7 +221,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate disabled",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -268,7 +268,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate auto approve user",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -315,7 +315,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with existing clusterrole and clusterrolebinding",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -445,7 +445,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with changed clusterrole and clusterrolebinding",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -573,6 +573,134 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Rollback initializing: clean up RBAC resources on target hub",
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "ManagedClusterAutoApproval",
+									Mode:    operatorv1.FeatureGateModeTypeEnable,
+								},
+							},
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multicluster-global-hub-migration:test",
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"subjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "agent-registration-clusterrolebinding:test",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-subjectaccessreviews-clusterrolebinding",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "multicluster-global-hub-migration:test",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: nil, // No changes expected to cluster manager during rollback
+		},
+		{
+			name: "Rollback deploying: clean up deployed resources on target hub",
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseDeploying,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1", "cluster2"},
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster2",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster1",
+						Namespace: "cluster1",
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster2",
+						Namespace: "cluster2",
+					},
+				},
+			},
+			expectedClusterManager: nil, // No changes expected to cluster manager during rollback
+		},
 	}
 
 	for _, c := range cases {
@@ -642,13 +770,13 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	cases := []struct {
 		name                         string
-		receivedMigrationEventBundle migration.ManagedClusterMigrationToEvent
+		receivedMigrationEventBundle migration.MigrationTargetBundle
 		initObjects                  []client.Object
 		expectedError                error
 	}{
 		{
 			name: "Deploying resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+			receivedMigrationEventBundle: migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -669,7 +797,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		},
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+			receivedMigrationEventBundle: migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -777,7 +905,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 func TestDeploying(t *testing.T) {
 	migrationId := "123"
 
-	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.SourceClusterMigrationResources{
+	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.MigrationResourceBundle{
 		MigrationId: migrationId,
 		ManagedClusters: []clusterv1.ManagedCluster{
 			{
@@ -833,7 +961,7 @@ func TestRegistering(t *testing.T) {
 	cases := []struct {
 		name                 string
 		initObjects          []client.Object
-		migrationEvent       *migration.ManagedClusterMigrationToEvent
+		migrationEvent       *migration.MigrationTargetBundle
 		expectedError        string
 		expectedErrorMessage string
 	}{
@@ -887,7 +1015,7 @@ func TestRegistering(t *testing.T) {
 					},
 				},
 			},
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
 			expectedError: "",
@@ -942,10 +1070,10 @@ func TestRegistering(t *testing.T) {
 					},
 				},
 			},
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "waiting the manifestworks(*-klusterlet) to be applied in clusters: [cluster2]",
+			expectedError: "failed to wait for all managed clusters to be ready",
 		},
 	}
 

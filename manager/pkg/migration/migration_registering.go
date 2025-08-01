@@ -41,7 +41,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseRegistering
 
-	defer m.handleMigrationStatus(ctx, mcm, &condition, &nextPhase, registeringTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, registeringTimeout)
 
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubToClusters == nil {
@@ -55,13 +55,25 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			log.Infof("migration registering: %s", fromHub)
 			// notify the source hub to start registering
 			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRegistering,
-				sourceHubToClusters[fromHub], nil, nil)
+				sourceHubToClusters[fromHub], nil, "")
 			if err != nil {
 				condition.Message = err.Error()
 				condition.Reason = ConditionReasonError
 				return false, err
 			}
 			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
+		}
+
+		errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
+		if errMessage != "" {
+			condition.Message = fmt.Sprintf("registering to hub %s error: %s", fromHub, errMessage)
+			condition.Reason = ConditionReasonError
+			return false, nil
+		}
+
+		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
+			condition.Message = fmt.Sprintf("waiting for managed clusters to migrating from source hub %s", fromHub)
+			return true, nil
 		}
 	}
 
@@ -72,7 +84,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			allClusters = append(allClusters, clusters...)
 		}
 		// notify the target hub to start registering
-		err := m.sendEventToDestinationHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, allClusters)
+		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, allClusters, "")
 		if err != nil {
 			condition.Message = err.Error()
 			condition.Reason = ConditionReasonError

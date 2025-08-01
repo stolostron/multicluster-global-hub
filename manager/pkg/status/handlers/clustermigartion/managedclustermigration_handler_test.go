@@ -51,7 +51,7 @@ func TestHandleMigrationEvent(t *testing.T) {
 			event.SetSource("hub1")
 			event.SetType("com.example.migration")
 			event.SetExtension(constants.CloudEventExtensionKeyClusterName, constants.CloudEventGlobalHubClusterName)
-			require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.ManagedClusterMigrationBundle{
+			require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.MigrationStatusBundle{
 				Stage:       tc.stage,
 				MigrationId: migrationId,
 				ErrMessage:  tc.errorMessage,

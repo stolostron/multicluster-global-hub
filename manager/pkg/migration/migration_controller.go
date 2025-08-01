@@ -177,6 +177,15 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	// rollbacking
+	requeue, err = m.rollbacking(ctx, mcm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if requeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	// cleaning
 	requeue, err = m.cleaning(ctx, mcm)
 	if err != nil {
@@ -199,11 +208,12 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	return ctrl.Result{}, nil
 }
 
-// sendEventToDestinationHub:
+// sendEventToTargetHub:
 // 1. only send the msa info to allow auto approve if KlusterletAddonConfig is nil -> registering
 // 2. if KlusterletAddonConfig is not nil -> deploying
-func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Context,
+func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
+	rollbackStage string,
 ) error {
 	// if the target cluster is local cluster, then the msaNamespace is open-cluster-management-agent-addon
 	isLocalCluster := false
@@ -218,10 +228,11 @@ func (m *ClusterMigrationController) sendEventToDestinationHub(ctx context.Conte
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
-	managedClusterMigrationToEvent := &migrationbundle.ManagedClusterMigrationToEvent{
+	managedClusterMigrationToEvent := &migrationbundle.MigrationTargetBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ManagedClusters: managedClusters,
+		RollbackStage:   rollbackStage,
 	}
 
 	// require the msa info when initializing or cleaning

@@ -137,7 +137,7 @@ func verifyMigrationEvent(expectedSource, expectedType, expectedCluster, expecte
 			event.Type() == expectedType &&
 			event.Extensions()[constants.CloudEventExtensionKeyClusterName] == expectedCluster {
 
-			var migrationBundle migration.ManagedClusterMigrationBundle
+			var migrationBundle migration.MigrationStatusBundle
 			if err := json.Unmarshal(event.Data(), &migrationBundle); err != nil {
 				return err
 			}
@@ -157,7 +157,7 @@ func verifyDeployingEvent(expectedSource, expectedMigrationID string) error {
 		if event.Source() == expectedSource &&
 			event.Type() == constants.MigrationTargetMsgKey {
 
-			var migrationBundle migration.SourceClusterMigrationResources
+			var migrationBundle migration.MigrationResourceBundle
 			if err := json.Unmarshal(event.Data(), &migrationBundle); err != nil {
 				return err
 			}

@@ -43,13 +43,71 @@ Each migration goes through several phases, visible in the resource `status.phas
 | Phase        | Description                                                                 |
 |--------------|-----------------------------------------------------------------------------|
 | Pending      | Only one migration can be handled at a time; others will remain pending     |
-| Validating   | Verifies clusters and hubs are valid.                                       |
+| Validating   | Verifies clusters and hubs are valid. Failures go directly to Failed.      |
 | Initializing | Prepares target hub (kubeconfig, RBAC) and source hub (`KubeletConfig`).    |
 | Deploying    | Migrates selected clusters.                                                 |
 | Registering  | Re-registers the cluster to the target hub.                                 |
-| Cleaning     | Cleans up resources from both hubs. Also handles rollback if needed.                  |
+| Rollbacking  | Attempts to restore system to original state when migration fails. Always transitions to Failed. |
+| Cleaning     | Cleans up resources from both hubs. Always transitions to Completed, even if cleanup fails (with warnings). |
 | Completed    | Migration completed successfully.                                           |
 | Failed       | Migration failed; error message included in status.                         |
+
+### 🔄 Migration Flow Diagram
+
+#### Normal Flow
+```
+Pending → Validating → Initializing → Deploying → Registering → Cleaning → Completed
+```
+
+#### Failure Handling Flow
+```
+- Validating (failure) → Failed
+- Initializing/Deploying/Registering (failure) → Rollbacking → Failed  
+- Rollbacking (success/failure) → Failed
+- Cleaning (success/failure) → Completed (with warnings if failed)
+```
+
+### 🛠️ Error Handling & Rollback Mechanism
+
+The migration system implements sophisticated error handling with different strategies for each phase:
+
+#### Validation Phase Failures
+- **Behavior**: Direct transition to `Failed` state
+- **Rationale**: Early validation failures indicate fundamental issues that cannot be recovered
+- **Examples**: Hub not found, cluster name conflicts, invalid configurations
+
+#### Core Migration Phase Failures (Initializing/Deploying/Registering)
+- **Behavior**: Transition to `Rollbacking` phase, then to `Failed`
+- **Rationale**: These phases may have created resources that need cleanup
+- **Rollback Actions**:
+  - Restore original cluster configurations on source hubs
+  - Clean up partially created resources on target hubs  
+  - Remove migration-related configurations
+
+#### Rollback Phase
+- **Behavior**: Always transitions to `Failed` regardless of rollback success/failure
+- **Rationale**: 
+  - Rollback indicates original migration already failed
+  - Even successful rollback means the intended migration didn't complete
+  - Provides clear signal that manual intervention may be needed
+
+#### Cleaning Phase
+- **Behavior**: Always transitions to `Completed`, even if cleanup fails
+- **Rationale**:
+  - Core migration functionality is complete (clusters successfully migrated)
+  - Cleanup failures only affect resource cleanup, not migration success
+  - Warnings in conditions alert administrators to manual cleanup needs
+
+#### Condition Types and Messages
+
+| Condition Type | Success Reason | Failure Behavior |
+|----------------|----------------|------------------|
+| ResourceValidated | ResourceValidated | Direct to Failed |
+| ResourceInitialized | ResourceInitialized | Triggers Rollback |
+| ResourceDeployed | ResourcesDeployed | Triggers Rollback |
+| ClusterRegistered | ClusterRegistered | Triggers Rollback |
+| ResourceRolledBack | ResourceRolledBack | Always to Failed |
+| ResourceCleaned | ResourceCleaned | Always to Completed (with warnings) |
 
 ---
 
@@ -142,7 +200,7 @@ spec:
 
 ### Step 4 – Sample Migration Status
 
-
+#### Successful Migration
 ```yaml
 status:
   conditions:
@@ -161,6 +219,47 @@ status:
     - type: ResourceCleaned
       status: "True"
       message: Resources have been successfully cleaned up from the hub clusters
+  phase: Completed
+```
+
+#### Failed Migration with Successful Rollback
+```yaml
+status:
+  conditions:
+    - type: ResourceValidated
+      status: "True"
+      message: Migration resources have been validated
+    - type: ResourceInitialized
+      status: "True"
+      message: All source and target hubs have been initialized
+    - type: ResourceDeployed
+      status: "False"
+      message: Failed to deploy resources to target hub due to network timeout
+    - type: ResourceRolledBack
+      status: "True"
+      message: Migration rollback completed. Migration marked as failed due to original failure.
+  phase: Failed
+```
+
+#### Migration with Cleanup Warnings
+```yaml
+status:
+  conditions:
+    - type: ResourceValidated
+      status: "True"
+      message: Migration resources have been validated
+    - type: ResourceInitialized
+      status: "True"
+      message: All source and target hubs have been initialized
+    - type: ResourceDeployed
+      status: "True"
+      message: Resources have been successfully deployed to the target hub cluster
+    - type: ClusterRegistered
+      status: "True"
+      message: All migrated clusters have been successfully registered
+    - type: ResourceCleaned
+      status: "True"
+      message: "[Warning - Cleanup Issues] Failed to delete some temporary resources. Migration completed despite cleanup issues. Manual cleanup may be required."
   phase: Completed
 ```
 

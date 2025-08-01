@@ -27,6 +27,7 @@ const (
 	PhaseInitializing = "Initializing"
 	PhaseDeploying    = "Deploying"
 	PhaseRegistering  = "Registering"
+	PhaseRollbacking  = "Rollbacking"
 	PhaseCleaning     = "Cleaning"
 	PhaseCompleted    = "Completed"
 	PhaseFailed       = "Failed"
@@ -39,6 +40,7 @@ const (
 	ConditionTypeInitialized = "ResourceInitialized"
 	ConditionTypeRegistered  = "ClusterRegistered"
 	ConditionTypeDeployed    = "ResourceDeployed"
+	ConditionTypeRolledBack  = "ResourceRolledBack"
 	ConditionTypeCleaned     = "ResourceCleaned"
 )
 
@@ -77,7 +79,7 @@ type ManagedClusterMigrationSpec struct {
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
 	// Phase represents the current phase of the migration
-	// +kubebuilder:validation:Enum=Pending;Validating;Initializing;Deploying;Registering;Cleaning;Completed;Failed
+	// +kubebuilder:validation:Enum=Pending;Validating;Initializing;Deploying;Registering;Rollbacking;Cleaning;Completed;Failed
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Phase string `json:"phase,omitempty"`
 

@@ -186,15 +186,15 @@ var _ = Describe("Migration Phase Transitions - Simplified", func() {
 			return condition != nil && condition.Status == metav1.ConditionFalse && condition.Reason == migration.ConditionReasonError
 		}, "10s", "200ms").Should(BeTrue())
 
-		By("Verifying transition to Cleaning phase")
+		By("Verifying transition to Rollbacking phase")
 		Eventually(func() error {
 			if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 				return fmt.Errorf("failed to get the migration instance: %v", err)
 			}
-			if m.Status.Phase == migrationv1alpha1.PhaseCleaning {
+			if m.Status.Phase == migrationv1alpha1.PhaseRollbacking {
 				return nil
 			}
-			return fmt.Errorf("should get the Cleaning stage, but got: %s", m.Status.Phase)
+			return fmt.Errorf("should get the Rollbacking stage, but got: %s", m.Status.Phase)
 		}, "10s", "200ms").Should(Succeed())
 	})
 

@@ -47,7 +47,7 @@ func RegisterManagedClusterMigrationHandler(mgr ctrl.Manager, conflationManager 
 func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloudevents.Event) error {
 	log.Debugw("handle migrationBundle", "cloudevents", evt)
 
-	bundle := &migrationbundle.ManagedClusterMigrationBundle{}
+	bundle := &migrationbundle.MigrationStatusBundle{}
 	if err := evt.DataAs(bundle); err != nil {
 		log.Error("failed to parse migrationBundle", "error", err)
 		return err

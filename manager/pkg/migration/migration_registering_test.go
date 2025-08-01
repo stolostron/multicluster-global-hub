@@ -113,9 +113,9 @@ func TestRegistering(t *testing.T) {
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 		{
 			name: "Should wait for target hub to complete registering",
@@ -165,14 +165,17 @@ func TestRegistering(t *testing.T) {
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
 				SetSourceClusters(migrationID, "source-hub", []string{"cluster1"})
+				// Mark source hub as started and finished so function proceeds to check target hub
+				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
+				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 				SetErrorMessage(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering, "registration failed")
 			},
 			expectedRequeue:         false,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseCleaning, // Should move to cleaning phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,           // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,            // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
+			expectedConditionReason: ConditionReasonError,               // Should indicate error
 		},
 		{
 			name: "Should complete when target hub finishes registering",
@@ -192,6 +195,9 @@ func TestRegistering(t *testing.T) {
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
 				SetSourceClusters(migrationID, "source-hub", []string{"cluster1"})
+				// Mark source hub as started and finished so function proceeds to check target hub
+				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
+				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 				SetFinished(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 			},

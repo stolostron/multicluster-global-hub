@@ -109,6 +109,52 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 			expectedConditionStatus: metav1.ConditionFalse,
 			expectedConditionReason: ConditionReasonWaiting,
 		},
+		{
+			name: "Should update rollback condition successfully",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-rollback",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-rollback"),
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseRollbacking,
+				},
+			},
+			condition: metav1.Condition{
+				Type:    migrationv1alpha1.ConditionTypeRolledBack,
+				Status:  metav1.ConditionTrue,
+				Reason:  ConditionReasonResourceRolledBack,
+				Message: "Migration rollback completed successfully",
+			},
+			phase:                   migrationv1alpha1.PhaseFailed,
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionTrue,
+			expectedConditionReason: ConditionReasonResourceRolledBack,
+		},
+		{
+			name: "Should update rollback failure condition",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-rollback-fail",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-rollback-fail"),
+				},
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Phase: migrationv1alpha1.PhaseRollbacking,
+				},
+			},
+			condition: metav1.Condition{
+				Type:    migrationv1alpha1.ConditionTypeRolledBack,
+				Status:  metav1.ConditionFalse,
+				Reason:  ConditionReasonRollbackFailed,
+				Message: "Migration rollback failed due to timeout",
+			},
+			phase:                   migrationv1alpha1.PhaseFailed,
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: ConditionReasonRollbackFailed,
+		},
 	}
 
 	for _, tt := range tests {
