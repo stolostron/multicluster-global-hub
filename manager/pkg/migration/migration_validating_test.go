@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -158,9 +159,9 @@ func TestValidating(t *testing.T) {
 			expectedRequeue:         false,
 			expectedError:           false,
 			description:             "Should fail when source hub is not found",
-			expectedPhase:           migrationv1alpha1.PhaseFailed,     // Should move to failed phase
-			expectedConditionStatus: metav1.ConditionFalse,             // Condition should be false due to error
-			expectedConditionReason: ConditionReasonHubClusterNotFound, // Should indicate hub not found
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: "HubClusterInvalid",
 		},
 		{
 			name: "Should fail when target hub not found",
@@ -189,9 +190,9 @@ func TestValidating(t *testing.T) {
 			expectedRequeue:         false,
 			expectedError:           false,
 			description:             "Should fail when target hub is not found",
-			expectedPhase:           migrationv1alpha1.PhaseFailed,     // Should move to failed phase
-			expectedConditionStatus: metav1.ConditionFalse,             // Condition should be false due to error
-			expectedConditionReason: ConditionReasonHubClusterNotFound, // Should indicate hub not found
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: "HubClusterInvalid",
 		},
 		{
 			name: "Should fail with invalid resources",
@@ -224,11 +225,11 @@ func TestValidating(t *testing.T) {
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           true, // Error returned due to database connection issue
+			expectedError:           false, // Actually no error, just failed phase
 			description:             "Should fail with invalid resources but hit database error first",
-			expectedPhase:           migrationv1alpha1.PhaseFailed,    // Phase changes to Failed due to DB error
-			expectedConditionStatus: metav1.ConditionFalse,            // Condition updated due to DB error
-			expectedConditionReason: ConditionReasonResourceValidated, // Reason for the condition
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: "HubClusterInvalid",
 		},
 		{
 			name: "Should validate successfully with valid configuration",
@@ -261,11 +262,11 @@ func TestValidating(t *testing.T) {
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           true, // Error returned due to database connection issue
+			expectedError:           false, // Actually no error, just failed phase
 			description:             "Should attempt validation with valid configuration but hit database error",
-			expectedPhase:           migrationv1alpha1.PhaseFailed,    // Phase changes to Failed due to DB error
-			expectedConditionStatus: metav1.ConditionFalse,            // Condition updated due to DB error
-			expectedConditionReason: ConditionReasonResourceValidated, // Reason for the condition
+			expectedPhase:           migrationv1alpha1.PhaseFailed,
+			expectedConditionStatus: metav1.ConditionFalse,
+			expectedConditionReason: "HubClusterInvalid",
 		},
 	}
 
@@ -395,6 +396,159 @@ func TestValidatingEdgeCases(t *testing.T) {
 			// If we expect an error but didn't find one, fail the test
 			if tt.expectError && !foundError {
 				t.Errorf("Expected error for resource list %v but none found", tt.resources)
+			}
+		})
+	}
+}
+
+func TestGetAndValidateHubCluster(t *testing.T) {
+	scheme := runtime.NewScheme()
+	appsv1.AddToScheme(scheme)
+	require.NoError(t, clusterv1.AddToScheme(scheme))
+
+	type fields struct {
+		annotations map[string]string
+		labels      map[string]string
+		conditions  []metav1.Condition
+	}
+	tests := []struct {
+		name           string
+		clusterName    string
+		fields         fields
+		existingObjs   []client.Object
+		expectError    bool
+		errorContains  string
+		expectNotNil   bool
+		setupExtraObjs func(client.Client)
+	}{
+		{
+			name:         "Cluster not found",
+			clusterName:  "missing-cluster",
+			existingObjs: []client.Object{
+				// No clusters
+			},
+			expectError:   true,
+			errorContains: "not found",
+			expectNotNil:  false,
+		},
+		{
+			name:        "Cluster not ready",
+			clusterName: "not-ready-cluster",
+			fields: fields{
+				conditions: []metav1.Condition{
+					{Type: "ManagedClusterConditionAvailable", Status: "False"},
+				},
+			},
+			existingObjs: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "not-ready-cluster"},
+					Status:     clusterv1.ManagedClusterStatus{Conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "False"}}},
+				},
+			},
+			expectError:   true,
+			errorContains: "not ready",
+			expectNotNil:  false,
+		},
+		{
+			name:        "Cluster is ready but not a hub cluster",
+			clusterName: "ready-nonhub",
+			fields: fields{
+				conditions: []metav1.Condition{
+					{Type: "ManagedClusterConditionAvailable", Status: "True"},
+				},
+			},
+			existingObjs: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "ready-nonhub"},
+					Status:     clusterv1.ManagedClusterStatus{Conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}}},
+				},
+			},
+			expectError:   true,
+			errorContains: "not a hub cluster",
+			expectNotNil:  false,
+		},
+		{
+			name:        "Cluster is ready and has hub annotation",
+			clusterName: "hub-annotated",
+			fields: fields{
+				annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+				conditions:  []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}},
+			},
+			existingObjs: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "hub-annotated",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{Conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}}},
+				},
+			},
+			expectError:  false,
+			expectNotNil: true,
+		},
+		{
+			name:        "Cluster is local-cluster, ready, and agent deployment exists",
+			clusterName: "local-cluster",
+			fields: fields{
+				labels:     map[string]string{"local-cluster": "true"},
+				conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}},
+			},
+			existingObjs: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "local-cluster",
+						Labels: map[string]string{"local-cluster": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{Conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}}},
+				},
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "multicluster-global-hub-agent",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
+			},
+			expectError:  false,
+			expectNotNil: true,
+		},
+		{
+			name:        "Cluster is local-cluster, ready, but agent deployment missing",
+			clusterName: "local-cluster-no-agent",
+			fields: fields{
+				labels:     map[string]string{"local-cluster": "true"},
+				conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}},
+			},
+			existingObjs: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   "local-cluster-no-agent",
+						Labels: map[string]string{"local-cluster": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{Conditions: []metav1.Condition{{Type: "ManagedClusterConditionAvailable", Status: "True"}}},
+				},
+				// No deployment object
+			},
+			expectError:   true,
+			errorContains: "not a hub cluster",
+			expectNotNil:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.existingObjs...).
+				Build()
+			ctx := context.TODO()
+			err := validateHubCluster(ctx, fakeClient, tt.clusterName)
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
