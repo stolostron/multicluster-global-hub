@@ -31,7 +31,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -141,8 +140,8 @@ func (r *ManagedHubController) pruneManagedHubs(ctx context.Context, namespace s
 		annotations := make(map[string]string, len(orgAnnotations))
 		utils.CopyMap(annotations, managedHub.GetAnnotations())
 
-		delete(orgAnnotations, operatorconstants.AnnotationONMulticlusterHub)
-		delete(orgAnnotations, operatorconstants.AnnotationPolicyONMulticlusterHub)
+		delete(orgAnnotations, constants.AnnotationONMulticlusterHub)
+		delete(orgAnnotations, constants.AnnotationPolicyONMulticlusterHub)
 		_ = controllerutil.RemoveFinalizer(&clusters.Items[idx], constants.GlobalHubCleanupFinalizer)
 		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
 			if err := r.c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
