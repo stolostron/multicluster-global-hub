@@ -68,12 +68,11 @@ type ManagedClusterMigrationSpec struct {
 	IncludedManagedClusters []string `json:"includedManagedClusters,omitempty"`
 
 	// From defines which hub cluster the managed clusters are from
-	// +optional
-	From string `json:"from,omitempty"`
+	From string `json:"from"`
 
 	// To defines which hub cluster the managed clusters migrate to
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	To string `json:"to,omitempty"`
+	To string `json:"to"`
 }
 
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration

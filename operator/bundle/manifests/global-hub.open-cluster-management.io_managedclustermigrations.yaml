@@ -64,6 +64,9 @@ spec:
                 description: To defines which hub cluster the managed clusters migrate
                   to
                 type: string
+            required:
+            - from
+            - to
             type: object
           status:
             description: Status specifies the observed state of managedclustermigration
