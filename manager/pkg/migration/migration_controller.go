@@ -229,23 +229,19 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
 
 	managedClusterMigrationToEvent := &migrationbundle.MigrationTargetBundle{
-		MigrationId:     string(migration.GetUID()),
-		Stage:           stage,
-		ManagedClusters: managedClusters,
-		RollbackStage:   rollbackStage,
+		MigrationId:               string(migration.GetUID()),
+		Stage:                     stage,
+		ManagedClusters:           managedClusters,
+		RollbackStage:             rollbackStage,
+		ManagedServiceAccountName: migration.Name,
 	}
 
-	// require the msa info when initializing or cleaning
-	if stage == migrationv1alpha1.PhaseInitializing || stage == migrationv1alpha1.PhaseCleaning {
-
-		installNamespace, err := m.getManagedServiceAccountAddonInstallNamespace(ctx, migration)
-		if err != nil {
-			return fmt.Errorf("failed to get the managedserviceaccount addon installNamespace: %v", err)
-		}
-
-		managedClusterMigrationToEvent.ManagedServiceAccountName = migration.Name
-		managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = installNamespace
+	// namespace
+	installNamespace, err := m.getManagedServiceAccountAddonInstallNamespace(ctx, migration)
+	if err != nil {
+		return fmt.Errorf("failed to get the managedserviceaccount addon installNamespace: %v", err)
 	}
+	managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = installNamespace
 
 	payloadToBytes, err := json.Marshal(managedClusterMigrationToEvent)
 	if err != nil {
