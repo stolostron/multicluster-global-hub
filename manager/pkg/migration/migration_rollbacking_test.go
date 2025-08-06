@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	addonv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -21,6 +22,7 @@ func TestRollbacking(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = migrationv1alpha1.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
+	_ = addonv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {
 		name                    string
@@ -232,6 +234,23 @@ func TestRollbacking(t *testing.T) {
 					},
 				}
 				objects = append(objects, targetHubCluster)
+
+				// Add ManagedServiceAccount addon for the "should complete rollback successfully" test
+				if tt.name == "should complete rollback successfully" {
+					managedServiceAccountAddon := &addonv1alpha1.ManagedClusterAddOn{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "managed-serviceaccount",
+							Namespace: tt.migration.Spec.To,
+						},
+						Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+							InstallNamespace: "test-install-namespace",
+						},
+						Status: addonv1alpha1.ManagedClusterAddOnStatus{
+							Namespace: "test-status-namespace",
+						},
+					}
+					objects = append(objects, managedServiceAccountAddon)
+				}
 			}
 
 			fakeClient := fake.NewClientBuilder().

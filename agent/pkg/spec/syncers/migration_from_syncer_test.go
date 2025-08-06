@@ -261,6 +261,11 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				Stage:           migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:   migrationv1alpha1.PhaseInitializing,
 				ManagedClusters: []string{"cluster1"},
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
+					Type:       corev1.SecretTypeOpaque,
+					StringData: map[string]string{"test": "secret"},
+				},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
@@ -317,6 +322,11 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				Stage:           migrationv1alpha1.PhaseRollbacking,
 				RollbackStage:   migrationv1alpha1.PhaseDeploying,
 				ManagedClusters: []string{"cluster1"},
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
+					Type:       corev1.SecretTypeOpaque,
+					StringData: map[string]string{"test": "secret"},
+				},
 			},
 			expectedProduceEvent: func() *cloudevents.Event {
 				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
