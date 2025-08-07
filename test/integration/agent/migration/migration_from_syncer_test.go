@@ -302,6 +302,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			}
 
 			By("Adding migration annotations to test cluster")
+			time.Sleep(1 * time.Second)
 			err = runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -324,6 +325,12 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 				RollbackStage:   migrationv1alpha1.PhaseInitializing,
 				ToHub:           testToHub,
 				ManagedClusters: []string{testClusterName},
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+				},
 			})
 
 			By("Processing the rollback event")
