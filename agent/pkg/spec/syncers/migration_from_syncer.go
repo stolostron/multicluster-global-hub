@@ -336,19 +336,23 @@ func (m *MigrationSourceSyncer) registering(
 	managedClusters := migratingEvt.ManagedClusters
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
-		mc := &clusterv1.ManagedCluster{}
-		if err := m.client.Get(ctx, types.NamespacedName{
-			Name: managedCluster,
-		}, mc); err != nil {
-			return err
-		}
-		mc.Spec.HubAcceptsClient = false
-		log.Infof("updating managedcluster %s to set HubAcceptsClient as false", mc.Name)
+
+		log.Infof("updating managedcluster %s to set HubAcceptsClient as false", managedCluster)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			mc := &clusterv1.ManagedCluster{}
+			if err := m.client.Get(ctx, types.NamespacedName{
+				Name: managedCluster,
+			}, mc); err != nil {
+				return err
+			}
+			if !mc.Spec.HubAcceptsClient {
+				return nil
+			}
+			mc.Spec.HubAcceptsClient = false
 			return m.client.Update(ctx, mc)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to update managedcluster %s: %w", mc.Name, err)
+			return fmt.Errorf("failed to set HubAcceptsClient to false for managed cluster %s: %w", managedCluster, err)
 		}
 	}
 	return nil
@@ -584,13 +588,30 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 	// 1. Restore original cluster registration configuration
 	// 2. Remove bootstrap secrets
 	// 3. Clean up migration annotations
-
-	// For now, clean up annotations as the main rollback action
-	err := s.rollbackInitializing(ctx, spec)
-	if err != nil {
-		// Return error with registering stage context
-		return fmt.Errorf("registering stage rollback failed: %v", err)
+	// 4. Set HubAcceptsClient to true
+	if err := s.rollbackDeploying(ctx, spec); err != nil {
+		return fmt.Errorf("deploying stage rollback failed: %v", err)
 	}
+
+	for _, managedCluster := range spec.ManagedClusters {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			mc := &clusterv1.ManagedCluster{}
+			if err := s.client.Get(ctx, types.NamespacedName{
+				Name: managedCluster,
+			}, mc); err != nil {
+				return err
+			}
+			if mc.Spec.HubAcceptsClient {
+				return nil
+			}
+			mc.Spec.HubAcceptsClient = false
+			return s.client.Update(ctx, mc)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to set HubAcceptsClient to true for managed cluster %s: %w", managedCluster, err)
+		}
+	}
+
 	return nil
 }
 
