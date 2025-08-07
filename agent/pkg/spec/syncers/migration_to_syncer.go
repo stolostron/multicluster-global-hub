@@ -38,6 +38,7 @@ import (
 
 const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
+	ClusterManagerName           = "cluster-manager"
 )
 
 var (
@@ -314,7 +315,7 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 ) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
 	if err := s.client.Get(ctx,
-		types.NamespacedName{Name: "cluster-manager"}, foundClusterManager); err != nil {
+		types.NamespacedName{Name: ClusterManagerName}, foundClusterManager); err != nil {
 		return err
 	}
 
@@ -381,7 +382,7 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// Get the latest ClusterManager to avoid conflicts
 			latestClusterManager := &operatorv1.ClusterManager{}
-			if err := s.client.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, latestClusterManager); err != nil {
+			if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, latestClusterManager); err != nil {
 				return err
 			}
 			latestClusterManager.Spec.RegistrationConfiguration = clusterManager.Spec.RegistrationConfiguration
@@ -583,7 +584,7 @@ func GetAgentRegistrationClusterRoleBindingName(managedServiceAccountName string
 // removeAutoApproveUser removes the managed service account user from ClusterManager AutoApproveUsers list
 func (s *MigrationTargetSyncer) removeAutoApproveUser(ctx context.Context, saName, saNamespace string) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
-	if err := s.client.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, foundClusterManager); err != nil {
+	if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, foundClusterManager); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("cluster-manager not found, skipping auto approve user removal")
 			return nil
@@ -614,7 +615,7 @@ func (s *MigrationTargetSyncer) removeAutoApproveUser(ctx context.Context, saNam
 	if clusterManagerChanged {
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// Get the latest ClusterManager to avoid conflicts
-			if err := s.client.Get(ctx, types.NamespacedName{Name: "cluster-manager"}, clusterManager); err != nil {
+			if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, clusterManager); err != nil {
 				return err
 			}
 			clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = newAutoApproveUsers
