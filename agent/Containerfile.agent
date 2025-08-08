@@ -1,0 +1,53 @@
+# Copyright (c) 2024 Red Hat, Inc.
+# Copyright Contributors to the Open Cluster Management project
+
+# Stage 1: build the target binaries
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23 AS builder
+
+WORKDIR /workspace
+
+COPY ./librdkafka ./librdkafka
+RUN dnf -y install gcc-c++ --nobest
+RUN cd ./librdkafka && ./configure && make && make install
+
+COPY go.mod go.sum ./
+COPY ./agent/ ./agent/
+COPY ./pkg/ ./pkg/
+
+RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig CGO_ENABLED=1 GOFLAGS="-p=4" go build -mod=readonly -tags dynamic,strictfipsruntime -a -v -o bin/agent ./agent/cmd/agent/main.go
+
+# Stage 2: Copy the binaries from the image builder to the base image
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+# Red Hat annotations.
+LABEL com.redhat.component="multicluster-global-hub-agent"
+LABEL org.label-schema.vendor="Red Hat"
+LABEL org.label-schema.license="Red Hat Advanced Cluster Management for Kubernetes EULA"
+LABEL org.label-schema.schema-version="1.0"
+
+# Bundle metadata
+LABEL name="multicluster-global-hub/multicluster-global-hub-agent"
+LABEL version="release-1.3"
+LABEL summary="multicluster global hub agent"
+LABEL io.openshift.expose-services=""
+LABEL io.openshift.tags="data,images"
+LABEL io.k8s.display-name="multicluster global hub agent"
+LABEL io.k8s.description="This is the standard release image for the multicluster global hub agent"
+LABEL maintainer="['acm-component-maintainers@redhat.com']"
+LABEL description="multicluster global hub agent"
+
+ARG GIT_COMMIT
+ENV USER_UID=1001
+ENV USER_NAME=agent
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV LD_LIBRARY_PATH=/usr/local/lib/
+
+# install agent binary
+COPY --from=builder /workspace/bin/agent /usr/local/bin/agent
+COPY --from=builder /usr/local/lib/librdkafka.so.1 /usr/local/lib/librdkafka.so.1
+COPY ./agent/scripts/user_setup /usr/local/scripts/user_setup
+
+RUN /usr/local/scripts/user_setup
+
+USER ${USER_UID}
+ENTRYPOINT ["/usr/local/bin/agent"]
