@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 1.3.3
+VERSION ?= 1.3.4
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -226,7 +226,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 	# ignore relatedImages
-	$(SED_COMMAND) '/relatedImage/,+12d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
+	$(SED_COMMAND) '/relatedImage/,+10d' bundle/manifests/multicluster-global-hub-operator.clusterserviceversion.yaml
 	# remove bundle.Dockerfile
 	rm -rf bundle.Dockerfile
 	git diff -I 'createdAt' --exit-code
