@@ -119,7 +119,7 @@ var _ = BeforeSuite(func() {
 		nil,
 	)
 	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, managerConfig)
+	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, managerConfig, mgr.GetEventRecorderFor("migration-controller"))
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
 
 	go func() {
@@ -229,6 +229,17 @@ func createHubAndCluster(ctx context.Context, hubName, clusterName string) error
 		managedCluster := &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{Name: clusterName},
 			Spec:       clusterv1.ManagedClusterSpec{ManagedClusterClientConfigs: []clusterv1.ClientConfig{{URL: "https://cluster.example.com"}}},
+			Status: clusterv1.ManagedClusterStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:               "ManagedClusterConditionAvailable",
+						Status:             "True",
+						Reason:             "ManagedClusterAvailable",
+						Message:            "The managed cluster is available",
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+			},
 		}
 		payload, err := json.Marshal(managedCluster)
 		if err != nil {

@@ -60,10 +60,6 @@ const (
 	AnnotationStatisticInterval = "mgh-statistic-interval"
 	// AnnotationMetricsScrapeInterval to set the scrape interval for metrics
 	AnnotationMetricsScrapeInterval = "mgh-metrics-scrape-interval"
-	// AnnotationONMulticlusterHub indicates the addons are running on a hub cluster
-	AnnotationONMulticlusterHub = "addon.open-cluster-management.io/on-multicluster-hub"
-	// AnnotationPolicyONMulticlusterHub indicates the policy spec sync is running on a hub cluster
-	AnnotationPolicyONMulticlusterHub = "policy.open-cluster-management.io/sync-policies-on-multicluster-hub"
 	// AnnotationMGHWithInventory indicates the inventory is deployed
 	AnnotationMGHWithInventory = "global-hub.open-cluster-management.io/with-inventory"
 	// AnnotationMGHWithStackroxIntegration indicates that the integration with Stackrox is enabled.

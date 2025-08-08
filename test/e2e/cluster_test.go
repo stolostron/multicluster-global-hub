@@ -18,7 +18,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
@@ -135,11 +134,11 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 				if len(curMh.Annotations) == 0 {
 					return fmt.Errorf("failed to add annotation to managedhub")
 				}
-				_, ok := curMh.GetAnnotations()[operatorconstants.AnnotationONMulticlusterHub]
+				_, ok := curMh.GetAnnotations()[constants.AnnotationONMulticlusterHub]
 				if !ok {
 					return fmt.Errorf("failed to add annotation to managedhub, %v", curMh.GetAnnotations())
 				}
-				_, ok = curMh.GetAnnotations()[operatorconstants.AnnotationPolicyONMulticlusterHub]
+				_, ok = curMh.GetAnnotations()[constants.AnnotationPolicyONMulticlusterHub]
 				if !ok {
 					return fmt.Errorf("failed to add annotation to managedhub%v", curMh.GetAnnotations())
 				}
@@ -165,11 +164,11 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 				if len(curMh.Annotations) == 0 {
 					return fmt.Errorf("failed to add annotation to managedhub")
 				}
-				_, ok := curMh.GetAnnotations()[operatorconstants.AnnotationONMulticlusterHub]
+				_, ok := curMh.GetAnnotations()[constants.AnnotationONMulticlusterHub]
 				if !ok {
 					return fmt.Errorf("failed to add annotation to managedhub, %v", curMh.GetAnnotations())
 				}
-				_, ok = curMh.GetAnnotations()[operatorconstants.AnnotationPolicyONMulticlusterHub]
+				_, ok = curMh.GetAnnotations()[constants.AnnotationPolicyONMulticlusterHub]
 				if !ok {
 					return fmt.Errorf("failed to add annotation to managedhub%v", curMh.GetAnnotations())
 				}
