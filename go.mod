@@ -19,15 +19,15 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/go-co-op/gocron v1.37.0
 	github.com/go-kratos/kratos/v2 v2.8.4
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0
 	github.com/gonvenience/ytbx v1.4.7
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
-	github.com/homeport/dyff v1.10.1
+	github.com/homeport/dyff v1.10.2
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.23.4
-	github.com/onsi/gomega v1.37.0
+	github.com/onsi/gomega v1.38.0
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
 	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
 	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
@@ -35,7 +35,7 @@ require (
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.0
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20250429012240-363012f4f827
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
@@ -69,7 +69,7 @@ require (
 
 require (
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
-	github.com/gonvenience/idem v0.0.1 // indirect
+	github.com/gonvenience/idem v0.0.2 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	helm.sh/helm/v3 v3.17.3 // indirect
 )
@@ -120,10 +120,10 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/gonvenience/bunt v1.4.0 // indirect
-	github.com/gonvenience/neat v1.3.15 // indirect
-	github.com/gonvenience/term v1.0.3 // indirect
-	github.com/gonvenience/text v1.0.8 // indirect
+	github.com/gonvenience/bunt v1.4.2 // indirect
+	github.com/gonvenience/neat v1.3.16 // indirect
+	github.com/gonvenience/term v1.0.4 // indirect
+	github.com/gonvenience/text v1.0.9 // indirect
 	github.com/google/certificate-transparency-go v1.1.7 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -178,7 +178,7 @@ require (
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
-	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
+	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
@@ -201,16 +201,16 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.16.0 // indirect
-	golang.org/x/crypto v0.38.0 // indirect
+	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20250228200357-dead58393ab7
-	golang.org/x/net v0.40.0 // indirect
+	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/sync v0.15.0 // indirect
-	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/term v0.32.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/term v0.34.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
-	golang.org/x/tools v0.31.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
