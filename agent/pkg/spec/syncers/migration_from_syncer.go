@@ -604,7 +604,7 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 			if mc.Spec.HubAcceptsClient {
 				return nil
 			}
-			mc.Spec.HubAcceptsClient = false
+			mc.Spec.HubAcceptsClient = true
 			return s.client.Update(ctx, mc)
 		})
 		if err != nil {
