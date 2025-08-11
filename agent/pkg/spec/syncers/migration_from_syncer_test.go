@@ -291,6 +291,108 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			},
 		},
 		{
+			name: "Registering: cluster already has HubAcceptsClient false - should skip",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     false, // Already false
+						LeaseDurationSeconds: 60,
+					},
+				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
+					},
+				},
+			},
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
+				MigrationId:     currentSyncerMigrationId,
+				ToHub:           "hub2",
+				Stage:           migrationv1alpha1.PhaseRegistering,
+				ManagedClusters: []string{"cluster1"},
+			},
+			expectedProduceEvent: nil,
+			expectedObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     false, // Should remain false
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+		},
+		{
+			name: "Rollback registering: restore HubAcceptsClient to true and clean up",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						Annotations: map[string]string{
+							constants.ManagedClusterMigrating: "global-hub.open-cluster-management.io/migrating",
+							KlusterletConfigAnnotation:        "migration-hub2",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     false, // Set to false during registering
+						LeaseDurationSeconds: 60,
+					},
+				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
+					},
+				},
+			},
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
+				MigrationId:     currentSyncerMigrationId,
+				ToHub:           "hub2",
+				Stage:           migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:   migrationv1alpha1.PhaseRegistering,
+				ManagedClusters: []string{"cluster1"},
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
+					Type:       corev1.SecretTypeOpaque,
+					StringData: map[string]string{"test": "secret"},
+				},
+			},
+			expectedProduceEvent: func() *cloudevents.Event {
+				configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub1"})
+
+				evt := cloudevents.NewEvent()
+				evt.SetType(string(enum.ManagedClusterMigrationType))
+				evt.SetSource("hub1")
+				evt.SetExtension(constants.CloudEventExtensionKeyClusterName, "global-hub")
+				evt.SetExtension(eventversion.ExtVersion, "0.1")
+				return &evt
+			}(),
+			expectedObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "cluster1",
+						Annotations: map[string]string{}, // Annotations should be cleaned up
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true, // Should be set to true during rollback
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+		},
+		{
 			name: "Rollback deploying: rollback cluster1 migration after deploy failure",
 			initObjects: []client.Object{
 				&clusterv1.ManagedCluster{

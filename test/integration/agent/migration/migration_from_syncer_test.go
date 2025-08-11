@@ -393,6 +393,17 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		})
 
 		It("should rollback registering stage successfully", func() {
+			By("Setting up cluster with HubAcceptsClient false to simulate registering state")
+			cluster := &clusterv1.ManagedCluster{}
+			err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+			Expect(err).NotTo(HaveOccurred())
+
+			// use environtment to update the resource cluster.Spec.HubAcceptsClient = false
+			Eventually(func() error {
+				cluster.Spec.HubAcceptsClient = false
+				return runtimeClient.Update(testCtx, cluster)
+			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+
 			By("Creating rollback event for registering stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
@@ -404,7 +415,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			})
 
 			By("Processing the rollback event")
-			err := migrationSyncer.Sync(testCtx, event)
+			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Verifying migration annotations were removed")
@@ -417,6 +428,16 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 				_, hasMigrating := cluster.Annotations[constants.ManagedClusterMigrating]
 				_, hasKlusterletConfig := cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
 				return !hasMigrating && !hasKlusterletConfig
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			By("Verifying HubAcceptsClient was restored to true during rollback registering")
+			Eventually(func() bool {
+				cluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				if err != nil {
+					return false
+				}
+				return cluster.Spec.HubAcceptsClient == true
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 	})
