@@ -393,14 +393,19 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		})
 
 		It("should rollback registering stage successfully", func() {
-			By("Setting up cluster with HubAcceptsClient false to simulate registering state")
+			By("Setting up cluster with migration annotations and HubAcceptsClient false to simulate registering state")
 			cluster := &clusterv1.ManagedCluster{}
 			err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
 			Expect(err).NotTo(HaveOccurred())
 
-			// use environtment to update the resource cluster.Spec.HubAcceptsClient = false
+			// Set up migration annotations and HubAcceptsClient false to simulate registering state
 			Eventually(func() error {
 				cluster.Spec.HubAcceptsClient = false
+				if cluster.Annotations == nil {
+					cluster.Annotations = make(map[string]string)
+				}
+				cluster.Annotations[constants.ManagedClusterMigrating] = "global-hub.open-cluster-management.io/migrating"
+				cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"] = "migration-hub2"
 				return runtimeClient.Update(testCtx, cluster)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
