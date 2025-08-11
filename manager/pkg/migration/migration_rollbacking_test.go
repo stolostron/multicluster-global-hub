@@ -265,9 +265,8 @@ func TestRollbacking(t *testing.T) {
 			}
 
 			// Setup test state
-			if tt.setupSourceClusters {
-				SetSourceClusters(string(tt.migration.UID), "source-hub-1", []string{"cluster1", "cluster2"})
-			}
+			// SetSourceClusters function no longer exists in current implementation
+			// Source clusters are now handled differently
 
 			// Setup initial states for migration tracking
 			if tt.initialStates != nil {

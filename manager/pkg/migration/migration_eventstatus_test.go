@@ -86,17 +86,19 @@ func TestMigrationStatusHelpers(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				migrationID := "test-migration-456"
 				sourceHub := "source-hub"
-				clusters := []string{"cluster1", "cluster2"}
+				// clusters variable removed as it's no longer used
 
 				// Add migration status first
 				AddMigrationStatus(migrationID)
 
-				// Test SetSourceClusters and GetSourceClusters
-				assert.Nil(t, GetSourceClusters(migrationID))
-				SetSourceClusters(migrationID, sourceHub, clusters)
-				sourceClusters := GetSourceClusters(migrationID)
-				assert.NotNil(t, sourceClusters)
-				assert.Equal(t, clusters, sourceClusters[sourceHub])
+				// Test basic migration status functionality
+				// These functions no longer exist in the current implementation
+				// Testing the core status tracking functionality instead
+				SetStarted(migrationID, sourceHub, "testPhase")
+				assert.True(t, GetStarted(migrationID, sourceHub, "testPhase"))
+
+				SetFinished(migrationID, sourceHub, "testPhase")
+				assert.True(t, GetFinished(migrationID, sourceHub, "testPhase"))
 
 				// Clean up
 				RemoveMigrationStatus(migrationID)
@@ -125,13 +127,13 @@ func TestEventStatusEdgeCases(t *testing.T) {
 				assert.False(t, GetStarted(migrationID, hubName, phase), "GetStarted should return false for non-existent migration")
 				assert.False(t, GetFinished(migrationID, hubName, phase), "GetFinished should return false for non-existent migration")
 				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase), "GetErrorMessage should return empty for non-existent migration")
-				assert.Nil(t, GetSourceClusters(migrationID), "GetSourceClusters should return nil for non-existent migration")
+				// GetSourceClusters no longer exists in current implementation
 
 				// Setters should handle gracefully (not crash)
 				assert.NotPanics(t, func() { SetStarted(migrationID, hubName, phase) }, "SetStarted should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetFinished(migrationID, hubName, phase) }, "SetFinished should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetErrorMessage(migrationID, hubName, phase, "error") }, "SetErrorMessage should not panic for non-existent migration")
-				assert.NotPanics(t, func() { SetSourceClusters(migrationID, hubName, []string{"cluster"}) }, "SetSourceClusters should not panic for non-existent migration")
+				// SetSourceClusters no longer exists in current implementation
 			},
 		},
 		{

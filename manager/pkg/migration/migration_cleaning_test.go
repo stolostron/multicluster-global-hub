@@ -102,6 +102,11 @@ func TestCompleted(t *testing.T) {
 					Namespace:         utils.GetDefaultNamespace(),
 					CreationTimestamp: metav1.Time{Time: time.Now()},
 				},
+				Spec: v1alpha1.ManagedClusterMigrationSpec{
+					From:                    "", // No source hub specified
+					To:                      "dest-hub",
+					IncludedManagedClusters: []string{}, // No clusters specified
+				},
 				Status: v1alpha1.ManagedClusterMigrationStatus{
 					Phase: v1alpha1.PhaseCleaning,
 				},
@@ -109,9 +114,9 @@ func TestCompleted(t *testing.T) {
 			sourceClusters:          nil,
 			wantRequeue:             false,
 			wantErr:                 false,
-			expectedPhase:           v1alpha1.PhaseCompleted,        // Should complete when not initialized
-			expectedConditionStatus: metav1.ConditionTrue,           // Condition should be true
-			expectedConditionReason: ConditionReasonResourceCleaned, // Should indicate cleaned
+			expectedPhase:           v1alpha1.PhaseCompleted, // Should complete despite error (cleaning design)
+			expectedConditionStatus: metav1.ConditionFalse,   // Should be false due to error
+			expectedConditionReason: ConditionReasonError,    // Should indicate error
 		},
 		{
 			name: "cleaning in progress",
@@ -123,7 +128,9 @@ func TestCompleted(t *testing.T) {
 					UID:               types.UID("test-uid"),
 				},
 				Spec: v1alpha1.ManagedClusterMigrationSpec{
-					To: "destination-hub",
+					From:                    "source-hub",
+					To:                      "destination-hub",
+					IncludedManagedClusters: []string{"cluster1", "cluster2"},
 				},
 				Status: v1alpha1.ManagedClusterMigrationStatus{
 					Phase: v1alpha1.PhaseCleaning,
@@ -164,7 +171,9 @@ func TestCompleted(t *testing.T) {
 					UID:               types.UID("test-uid"),
 				},
 				Spec: v1alpha1.ManagedClusterMigrationSpec{
-					To: "destination-hub",
+					From:                    "source-hub",
+					To:                      "destination-hub",
+					IncludedManagedClusters: []string{"cluster1", "cluster2"},
 				},
 				Status: v1alpha1.ManagedClusterMigrationStatus{
 					Phase: v1alpha1.PhaseCleaning,
@@ -197,7 +206,9 @@ func TestCompleted(t *testing.T) {
 					UID:               types.UID("test-uid"),
 				},
 				Spec: v1alpha1.ManagedClusterMigrationSpec{
-					To: "destination-hub",
+					From:                    "source-hub",
+					To:                      "destination-hub",
+					IncludedManagedClusters: []string{"cluster1", "cluster2"},
 				},
 				Status: v1alpha1.ManagedClusterMigrationStatus{
 					Phase: v1alpha1.PhaseCleaning,
@@ -236,9 +247,8 @@ func TestCompleted(t *testing.T) {
 
 			// Setup test environment
 			AddMigrationStatus(string(tt.mcm.GetUID()))
-			if tt.sourceClusters != nil {
-				AddSourceClusters(string(tt.mcm.GetUID()), tt.sourceClusters)
-			}
+			// AddSourceClusters function no longer exists in current implementation
+			// Source clusters are now handled differently
 
 			if tt.started != nil {
 				for hub, started := range tt.started {

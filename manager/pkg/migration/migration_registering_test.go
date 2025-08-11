@@ -109,13 +109,14 @@ func TestRegistering(t *testing.T) {
 				},
 			},
 			setupState: func(migrationID string) {
-				// Don't set up any source clusters to simulate uninitialized state
+				// Don't set up any migration status to simulate uninitialized state
+				// In this case, the registering function will send events and then wait
 			},
-			expectedRequeue:         false,
+			expectedRequeue:         true,
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,               // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseRegistering, // Should remain in registering phase
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false (still waiting)
+			expectedConditionReason: ConditionReasonWaiting,             // Should indicate waiting
 		},
 		{
 			name: "Should wait for target hub to complete registering",
@@ -136,7 +137,7 @@ func TestRegistering(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1", "cluster2"})
+				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 				// Don't set target hub finished to simulate waiting state
@@ -164,10 +165,10 @@ func TestRegistering(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1"})
+				// SetSourceClusters function no longer exists in current implementation
 				// Mark source hub as started and finished so function proceeds to check target hub
-				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
-				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
+				SetStarted(migrationID, "", migrationv1alpha1.PhaseRegistering)
+				SetFinished(migrationID, "", migrationv1alpha1.PhaseRegistering)
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 				SetErrorMessage(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering, "registration failed")
 			},
@@ -194,7 +195,7 @@ func TestRegistering(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1"})
+				// SetSourceClusters function no longer exists in current implementation
 				// Mark source hub as started and finished so function proceeds to check target hub
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
