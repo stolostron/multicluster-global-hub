@@ -472,12 +472,33 @@ func (s *MigrationSourceSyncer) rollbacking(ctx context.Context, spec *migration
 }
 
 // rollbackInitializing removes migration-related annotations from managed clusters
-// This is used when initializing phase fails
+// and cleans up bootstrap secret and KlusterletConfig created during initializing phase
 func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 	migrationSourceHubEvent *migration.MigrationSourceBundle,
 ) error {
-	var errorMessages []string
+	// 1. Clean up bootstrap secret if it exists
+	if migrationSourceHubEvent.BootstrapSecret != nil {
+		log.Infof("cleaning up bootstrap secret: %s", migrationSourceHubEvent.BootstrapSecret.Name)
+		if err := deleteResourceIfExists(ctx, s.client, migrationSourceHubEvent.BootstrapSecret); err != nil {
+			return fmt.Errorf("failed to delete bootstrap secret %s: %v", migrationSourceHubEvent.BootstrapSecret.Name, err)
+		}
+		log.Infof("successfully deleted bootstrap secret: %s", migrationSourceHubEvent.BootstrapSecret.Name)
+	}
 
+	// 2. Clean up KlusterletConfig
+	klusterletConfig := &klusterletv1alpha1.KlusterletConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: klusterletConfigNamePrefix + migrationSourceHubEvent.ToHub,
+		},
+	}
+	log.Infof("cleaning up KlusterletConfig: %s", klusterletConfig.Name)
+	if err := deleteResourceIfExists(ctx, s.client, klusterletConfig); err != nil {
+		return fmt.Errorf("failed to delete KlusterletConfig %s: %v", klusterletConfig.Name, err)
+	}
+	log.Infof("successfully deleted KlusterletConfig: %s", klusterletConfig.Name)
+
+	// 3. Clean up managed cluster annotations
+	var errorMessages []string
 	for _, managedCluster := range migrationSourceHubEvent.ManagedClusters {
 		log.Infof("cleaning up annotations for managed cluster: %s", managedCluster)
 
@@ -509,10 +530,15 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 
 		// Remove migration-related annotations
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			lastestCluster := &clusterv1.ManagedCluster{}
+			err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, lastestCluster)
+			if err != nil {
+				return err
+			}
 			delete(annotations, constants.ManagedClusterMigrating)
 			delete(annotations, KlusterletConfigAnnotation)
-			mc.SetAnnotations(annotations)
-			return s.client.Update(ctx, mc)
+			lastestCluster.SetAnnotations(annotations)
+			return s.client.Update(ctx, lastestCluster)
 		})
 		if err != nil {
 			errorMessages = append(errorMessages, fmt.Sprintf("failed to remove annotations from cluster %s: %v",
@@ -541,11 +567,12 @@ func (s *MigrationSourceSyncer) rollbackDeploying(ctx context.Context, source *m
 	// 2. The target hub will handle removing the deployed addonConfig and clusters
 
 	// Clean up annotations on source hub - use the enhanced error handling
-	err := s.rollbackInitializing(ctx, source)
-	if err != nil {
+	if err := s.rollbackInitializing(ctx, source); err != nil {
 		// Return error with deploying stage context
 		return fmt.Errorf("deploying stage rollback failed: %v", err)
 	}
+
+	log.Info("completed deploying stage rollback")
 	return nil
 }
 

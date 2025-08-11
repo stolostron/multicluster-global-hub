@@ -159,7 +159,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() error {
 				clusterRole := &rbacv1.ClusterRole{}
 				return runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
@@ -167,14 +167,14 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() error {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				return runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 			Eventually(func() error {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				return runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("agent-registration-clusterrolebinding:%s", testMSAName),
+					Name: syncers.GetAgentRegistrationClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
@@ -362,7 +362,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRole := &rbacv1.ClusterRole{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -371,7 +371,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -379,7 +379,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("agent-registration-clusterrolebinding:%s", testMSAName),
+					Name: syncers.GetAgentRegistrationClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -398,7 +398,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			// Create resources that should be cleaned up during rollback
 			clusterRole := &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -413,7 +413,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 			clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("agent-registration-clusterrolebinding:%s", testMSAName),
+					Name: syncers.GetAgentRegistrationClusterRoleBindingName(testMSAName),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -451,7 +451,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRole := &rbacv1.ClusterRole{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -522,7 +522,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRole := &rbacv1.ClusterRole{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: fmt.Sprintf("multicluster-global-hub-migration:%s", testMSAName),
+					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())

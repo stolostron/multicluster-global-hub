@@ -64,7 +64,9 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	for fromHub, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 			log.Infof("sending rollback event to source hub: %s", fromHub)
-			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, clusters, nil, failedStage)
+
+			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, clusters,
+				getBootstrapSecret(fromHub, nil), failedStage)
 			if err != nil {
 				condition.Message = fmt.Sprintf("failed to send %s stage rollback event to source hub %s: %v",
 					failedStage, fromHub, err)

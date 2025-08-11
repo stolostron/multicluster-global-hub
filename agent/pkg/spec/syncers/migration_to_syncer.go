@@ -38,6 +38,7 @@ import (
 
 const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
+	ClusterManagerName           = "cluster-manager"
 )
 
 var (
@@ -175,6 +176,13 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	event *migration.MigrationTargetBundle,
 ) error {
 	msaName := event.ManagedServiceAccountName
+	msaNamespace := event.ManagedServiceAccountInstallNamespace
+
+	// Remove MSA user from ClusterManager AutoApproveUsers list
+	if err := s.removeAutoApproveUser(ctx, msaName, msaNamespace); err != nil {
+		log.Errorf("failed to remove auto approve user from ClusterManager: %v", err)
+		return err
+	}
 
 	// Clean up RBAC resources created for migration
 	if err := s.cleanupMigrationRBAC(ctx, msaName); err != nil {
@@ -307,7 +315,7 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 ) error {
 	foundClusterManager := &operatorv1.ClusterManager{}
 	if err := s.client.Get(ctx,
-		types.NamespacedName{Name: "cluster-manager"}, foundClusterManager); err != nil {
+		types.NamespacedName{Name: ClusterManagerName}, foundClusterManager); err != nil {
 		return err
 	}
 
@@ -315,14 +323,14 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 	// check if the ManagedClusterAutoApproval feature is enabled and
 	// the service account is added to the auto-approve list
 	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", saNamespace, saName)
-	autoApproveFeatureEnabled := false
+	autoApproveFeatureExists := false
 	autoApproveUserAdded := false
 	clusterManagerChanged := false
 	if clusterManager.Spec.RegistrationConfiguration != nil {
 		registrationConfiguration := clusterManager.Spec.RegistrationConfiguration
 		for i, featureGate := range registrationConfiguration.FeatureGates {
 			if featureGate.Feature == "ManagedClusterAutoApproval" {
-				autoApproveFeatureEnabled = true
+				autoApproveFeatureExists = true
 				if featureGate.Mode == operatorv1.FeatureGateModeTypeEnable {
 					break
 				} else {
@@ -332,7 +340,7 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 				}
 			}
 		}
-		if !autoApproveFeatureEnabled {
+		if !autoApproveFeatureExists {
 			registrationConfiguration.FeatureGates = append(
 				registrationConfiguration.FeatureGates,
 				operatorv1.FeatureGate{
@@ -341,6 +349,7 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 				})
 			clusterManagerChanged = true
 		}
+
 		for _, user := range registrationConfiguration.AutoApproveUsers {
 			if user == autoApproveUser {
 				autoApproveUserAdded = true
@@ -371,10 +380,12 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 	// patch cluster-manager only if it has changed
 	if clusterManagerChanged {
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := s.client.Update(ctx, clusterManager); err != nil {
+			// Get the latest ClusterManager to avoid conflicts
+			if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, foundClusterManager); err != nil {
 				return err
 			}
-			return nil
+			foundClusterManager.Spec.RegistrationConfiguration = clusterManager.Spec.RegistrationConfiguration
+			return s.client.Update(ctx, foundClusterManager)
 		}); err != nil {
 			log.Errorw("failed to update clusterManager", "error", err)
 		}
@@ -385,10 +396,10 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 
 func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Context, msaName string) error {
 	// create or update clusterrole for the migration service account
-	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
-	migrationClusterRole := &rbacv1.ClusterRole{
+	subjectAccessReviewClusterRoleName := GetSubjectAccessReviewClusterRoleName(msaName)
+	subjectAccessReview := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: migrationClusterRoleName,
+			Name: subjectAccessReviewClusterRoleName,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -402,26 +413,29 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRole(ctx context.Contex
 	foundMigrationClusterRole := &rbacv1.ClusterRole{}
 	if err := s.client.Get(ctx,
 		types.NamespacedName{
-			Name: migrationClusterRoleName,
+			Name: subjectAccessReviewClusterRoleName,
 		}, foundMigrationClusterRole); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Infof("creating migration clusterrole %s", foundMigrationClusterRole.GetName())
 			log.Debugf("creating migration clusterrole %v", foundMigrationClusterRole)
-			if err := s.client.Create(ctx, migrationClusterRole); err != nil {
+			if err := s.client.Create(ctx, subjectAccessReview); err != nil {
 				return err
 			}
 		} else {
 			return err
 		}
 	} else {
-		if !apiequality.Semantic.DeepDerivative(migrationClusterRole, foundMigrationClusterRole) {
-			log.Infof("updating migration clusterrole %s", migrationClusterRole.GetName())
-			log.Debugf("updating migration clusterrole %v", migrationClusterRole)
+		if !apiequality.Semantic.DeepDerivative(subjectAccessReview, foundMigrationClusterRole) {
+			log.Infof("updating migration clusterrole %s", subjectAccessReview.GetName())
+			log.Debugf("updating migration clusterrole %v", subjectAccessReview)
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := s.client.Update(ctx, migrationClusterRole); err != nil {
+				// Get the latest ClusterRole to avoid conflicts
+				latestClusterRole := &rbacv1.ClusterRole{}
+				if err := s.client.Get(ctx, client.ObjectKeyFromObject(subjectAccessReview), latestClusterRole); err != nil {
 					return err
 				}
-				return nil
+				latestClusterRole.Rules = subjectAccessReview.Rules
+				return s.client.Update(ctx, latestClusterRole)
 			}); err != nil {
 				log.Errorw("failed to update migration ClusterRole", "error", err)
 			}
@@ -435,7 +449,7 @@ func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context
 	msaName, msaNamespace string,
 ) error {
 	registrationClusterRoleName := "open-cluster-management:managedcluster:bootstrap:agent-registration"
-	registrationClusterRoleBindingName := getAgentRegistrationClusterRoleBindingName(msaName)
+	registrationClusterRoleBindingName := GetAgentRegistrationClusterRoleBindingName(msaName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: registrationClusterRoleBindingName,
@@ -473,10 +487,15 @@ func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context
 			log.Info("updating agent registration clusterrolebinding",
 				"clusterrolebinding", registrationClusterRoleBindingName)
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := s.client.Update(ctx, registrationClusterRoleBinding); err != nil {
+				// Get the latest ClusterRoleBinding to avoid conflicts
+				latestClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+				if err := s.client.Get(ctx, client.ObjectKeyFromObject(registrationClusterRoleBinding),
+					latestClusterRoleBinding); err != nil {
 					return err
 				}
-				return nil
+				latestClusterRoleBinding.Subjects = registrationClusterRoleBinding.Subjects
+				latestClusterRoleBinding.RoleRef = registrationClusterRoleBinding.RoleRef
+				return s.client.Update(ctx, latestClusterRoleBinding)
 			}); err != nil {
 				log.Errorw("failed to update migration ClusterRoleBinding", "error", err)
 			}
@@ -489,11 +508,11 @@ func (s *MigrationTargetSyncer) ensureRegistrationClusterRoleBinding(ctx context
 func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context.Context,
 	msaName, msaNamespace string,
 ) error {
-	migrationClusterRoleName := getMigrationClusterRoleName(msaName)
-	sarMigrationClusterRoleBindingName := getSubjectAccessReviewClusterRoleBindingName(msaName)
-	sarMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
+	accessReviewClusterRoleName := GetSubjectAccessReviewClusterRoleName(msaName)
+	accessReviewClusterRoleBindingName := GetSubjectAccessReviewClusterRoleBindingName(msaName)
+	accessReviewClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: sarMigrationClusterRoleBindingName,
+			Name: accessReviewClusterRoleBindingName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -504,38 +523,41 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind:     "ClusterRole",
-			Name:     migrationClusterRoleName,
+			Name:     accessReviewClusterRoleName,
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
 
-	foundSAMigrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-	if err := s.client.Get(ctx,
-		types.NamespacedName{
-			Name: sarMigrationClusterRoleBindingName,
-		}, foundSAMigrationClusterRoleBinding); err != nil {
+	foundAccessReviewClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	if err := s.client.Get(ctx, client.ObjectKeyFromObject(accessReviewClusterRoleBinding),
+		foundAccessReviewClusterRoleBinding); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Infof("creating subjectaccessreviews clusterrolebinding %s",
-				foundSAMigrationClusterRoleBinding.GetName())
+				foundAccessReviewClusterRoleBinding.GetName())
 			log.Debugf("creating subjectaccessreviews clusterrolebinding %v",
-				foundSAMigrationClusterRoleBinding)
-			if err := s.client.Create(ctx, sarMigrationClusterRoleBinding); err != nil {
+				foundAccessReviewClusterRoleBinding)
+			if err := s.client.Create(ctx, accessReviewClusterRoleBinding); err != nil {
 				return err
 			}
 		} else {
 			return err
 		}
 	} else {
-		if !apiequality.Semantic.DeepDerivative(sarMigrationClusterRoleBinding, foundSAMigrationClusterRoleBinding) {
+		if !apiequality.Semantic.DeepDerivative(accessReviewClusterRoleBinding, foundAccessReviewClusterRoleBinding) {
 			log.Infof("updating subjectaccessreviews clusterrolebinding %v",
-				sarMigrationClusterRoleBinding.GetName())
+				accessReviewClusterRoleBinding.GetName())
 			log.Debugf("updating subjectaccessreviews clusterrolebinding %v",
-				sarMigrationClusterRoleBinding)
+				accessReviewClusterRoleBinding)
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := s.client.Update(ctx, sarMigrationClusterRoleBinding); err != nil {
+				// Get the latest ClusterRoleBinding to avoid conflicts
+				latestClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+				if err := s.client.Get(ctx, client.ObjectKeyFromObject(accessReviewClusterRoleBinding),
+					latestClusterRoleBinding); err != nil {
 					return err
 				}
-				return nil
+				latestClusterRoleBinding.Subjects = accessReviewClusterRoleBinding.Subjects
+				latestClusterRoleBinding.RoleRef = accessReviewClusterRoleBinding.RoleRef
+				return s.client.Update(ctx, latestClusterRoleBinding)
 			}); err != nil {
 				log.Errorw("failed to update subjectaccessreviews ClusterRoleBinding", "error", err)
 			}
@@ -546,16 +568,66 @@ func (s *MigrationTargetSyncer) ensureSubjectAccessReviewRoleBinding(ctx context
 	return nil
 }
 
-func getMigrationClusterRoleName(managedServiceAccountName string) string {
-	return fmt.Sprintf("multicluster-global-hub-migration:%s", managedServiceAccountName)
+func GetSubjectAccessReviewClusterRoleName(managedServiceAccountName string) string {
+	return fmt.Sprintf("global-hub-migration-%s-sar", managedServiceAccountName)
 }
 
-func getSubjectAccessReviewClusterRoleBindingName(managedServiceAccountName string) string {
-	return fmt.Sprintf("%s-subjectaccessreviews-clusterrolebinding", managedServiceAccountName)
+func GetSubjectAccessReviewClusterRoleBindingName(managedServiceAccountName string) string {
+	return fmt.Sprintf("global-hub-migration-%s-sar", managedServiceAccountName)
 }
 
-func getAgentRegistrationClusterRoleBindingName(managedServiceAccountName string) string {
-	return fmt.Sprintf("agent-registration-clusterrolebinding:%s", managedServiceAccountName)
+func GetAgentRegistrationClusterRoleBindingName(managedServiceAccountName string) string {
+	return fmt.Sprintf("global-hub-migration-%s-registration", managedServiceAccountName)
+}
+
+// removeAutoApproveUser removes the managed service account user from ClusterManager AutoApproveUsers list
+func (s *MigrationTargetSyncer) removeAutoApproveUser(ctx context.Context, saName, saNamespace string) error {
+	foundClusterManager := &operatorv1.ClusterManager{}
+	if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, foundClusterManager); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Info("cluster-manager not found, skipping auto approve user removal")
+			return nil
+		}
+		return fmt.Errorf("failed to get cluster-manager: %w", err)
+	}
+
+	clusterManager := foundClusterManager.DeepCopy()
+	autoApproveUser := fmt.Sprintf("system:serviceaccount:%s:%s", saNamespace, saName)
+	clusterManagerChanged := false
+
+	// Remove the user from AutoApproveUsers list
+	newAutoApproveUsers := []string{}
+	if clusterManager.Spec.RegistrationConfiguration != nil {
+		registrationConfiguration := clusterManager.Spec.RegistrationConfiguration
+
+		for _, user := range registrationConfiguration.AutoApproveUsers {
+			if user != autoApproveUser {
+				newAutoApproveUsers = append(newAutoApproveUsers, user)
+			} else {
+				clusterManagerChanged = true
+				log.Infof("removing auto approve user: %s", autoApproveUser)
+			}
+		}
+	}
+
+	// Update cluster-manager only if it has changed
+	if clusterManagerChanged {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Get the latest ClusterManager to avoid conflicts
+			if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, clusterManager); err != nil {
+				return err
+			}
+			clusterManager.Spec.RegistrationConfiguration.AutoApproveUsers = newAutoApproveUsers
+			return s.client.Update(ctx, clusterManager)
+		}); err != nil {
+			return fmt.Errorf("failed to update ClusterManager to remove auto approve user: %w", err)
+		}
+		log.Infof("successfully removed auto approve user %s from ClusterManager", autoApproveUser)
+	} else {
+		log.Infof("auto approve user %s not found in ClusterManager, no removal needed", autoApproveUser)
+	}
+
+	return nil
 }
 
 // rollbacking handles rollback operations for different stages on the target hub
@@ -575,14 +647,25 @@ func (s *MigrationTargetSyncer) rollbacking(ctx context.Context, target *migrati
 
 // rollbackInitializing handles rollback of initializing phase on target hub
 func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *migration.MigrationTargetBundle) error {
-	// For initializing rollback on target hub, mainly clean up RBAC resources
-	// that were created for the managed service account
+	// For initializing rollback on target hub, we need to:
+	// 1. Remove the managed service account user from ClusterManager AutoApproveUsers list
+	// 2. Clean up RBAC resources created for the managed service account
 
 	if spec.ManagedServiceAccountName == "" {
-		log.Info("no managed service account name provided, skipping RBAC cleanup")
+		log.Info("no managed service account name provided, skipping rollback cleanup")
 		return nil
 	}
 
+	// Whether to set the autoapprove feature gate available?
+
+	// Remove MSA user from ClusterManager AutoApproveUsers list
+	if err := s.removeAutoApproveUser(ctx, spec.ManagedServiceAccountName,
+		spec.ManagedServiceAccountInstallNamespace); err != nil {
+		log.Errorf("failed to remove auto approve user from ClusterManager: %v", err)
+		return err
+	}
+
+	// Clean up RBAC resources
 	return s.cleanupMigrationRBAC(ctx, spec.ManagedServiceAccountName)
 }
 
@@ -595,7 +678,7 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 	for _, clusterName := range spec.ManagedClusters {
 		if err := s.removeManagedCluster(ctx, clusterName); err != nil {
 			log.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
-			// Continue with other clusters even if one fails
+			return fmt.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
 		}
 	}
 
@@ -603,15 +686,13 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 	for _, clusterName := range spec.ManagedClusters {
 		if err := s.removeKlusterletAddonConfig(ctx, clusterName); err != nil {
 			log.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
-			// Continue with other configs even if one fails
+			return fmt.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
 		}
 	}
 
-	// 3. Cleanup RBAC resources if managed service account name is provided
-	if spec.ManagedServiceAccountName != "" {
-		if err := s.cleanupMigrationRBAC(ctx, spec.ManagedServiceAccountName); err != nil {
-			log.Errorf("failed to cleanup migration RBAC: %v", err)
-		}
+	// roll back initializing
+	if err := s.rollbackInitializing(ctx, spec); err != nil {
+		return fmt.Errorf("failed to rollback initializing stage: %v", err)
 	}
 
 	log.Info("completed deploying stage rollback")
@@ -670,7 +751,7 @@ func (s *MigrationTargetSyncer) removeKlusterletAddonConfig(ctx context.Context,
 // cleanupMigrationRBAC removes RBAC resources created for the managed service account
 func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, managedServiceAccountName string) error {
 	// Remove ClusterRole for SubjectAccessReview
-	clusterRoleName := getMigrationClusterRoleName(managedServiceAccountName)
+	clusterRoleName := GetSubjectAccessReviewClusterRoleName(managedServiceAccountName)
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: clusterRoleName,
@@ -682,7 +763,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 	}
 
 	// Remove ClusterRoleBinding for SubjectAccessReview
-	sarClusterRoleBindingName := getSubjectAccessReviewClusterRoleBindingName(managedServiceAccountName)
+	sarClusterRoleBindingName := GetSubjectAccessReviewClusterRoleBindingName(managedServiceAccountName)
 	sarClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: sarClusterRoleBindingName,
@@ -694,7 +775,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 	}
 
 	// Remove ClusterRoleBinding for Agent Registration
-	registrationClusterRoleBindingName := getAgentRegistrationClusterRoleBindingName(managedServiceAccountName)
+	registrationClusterRoleBindingName := GetAgentRegistrationClusterRoleBindingName(managedServiceAccountName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: registrationClusterRoleBindingName,
