@@ -381,12 +381,11 @@ func (s *MigrationTargetSyncer) ensureClusterManagerAutoApproval(ctx context.Con
 	if clusterManagerChanged {
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			// Get the latest ClusterManager to avoid conflicts
-			latestClusterManager := &operatorv1.ClusterManager{}
-			if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, latestClusterManager); err != nil {
+			if err := s.client.Get(ctx, types.NamespacedName{Name: ClusterManagerName}, foundClusterManager); err != nil {
 				return err
 			}
-			latestClusterManager.Spec.RegistrationConfiguration = clusterManager.Spec.RegistrationConfiguration
-			return s.client.Update(ctx, latestClusterManager)
+			foundClusterManager.Spec.RegistrationConfiguration = clusterManager.Spec.RegistrationConfiguration
+			return s.client.Update(ctx, foundClusterManager)
 		}); err != nil {
 			log.Errorw("failed to update clusterManager", "error", err)
 		}
