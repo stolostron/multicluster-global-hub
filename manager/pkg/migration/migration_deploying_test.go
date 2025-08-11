@@ -94,11 +94,11 @@ func TestDeploying(t *testing.T) {
 			setupState: func(migrationID string) {
 				// Don't set up any source clusters to simulate uninitialized state
 			},
-			expectedRequeue:         false,
+			expectedRequeue:         true, // Should requeue to wait for initialization
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,               // Should indicate error
+			expectedPhase:           migrationv1alpha1.PhaseDeploying, // Should remain in deploying phase
+			expectedConditionStatus: metav1.ConditionFalse,            // Condition should be false (waiting)
+			expectedConditionReason: ConditionReasonWaiting,           // Should indicate waiting
 		},
 		{
 			name: "Should wait for source hub to complete deploying",

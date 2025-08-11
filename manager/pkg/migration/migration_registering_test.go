@@ -187,7 +187,8 @@ func TestRegistering(t *testing.T) {
 					UID:       types.UID("test-uid-7"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRegistering,

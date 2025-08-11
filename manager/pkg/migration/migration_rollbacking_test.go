@@ -114,7 +114,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -128,11 +129,11 @@ func TestRollbacking(t *testing.T) {
 				},
 			},
 			setupSourceClusters:     false,
-			expectedRequeue:         false,
+			expectedRequeue:         true, // Should requeue to wait for rollback completion
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
+			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should remain in rollbacking phase
+			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false (waiting)
+			expectedConditionReason: ConditionReasonWaiting,             // Should indicate waiting
 			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
 		},
 		{
@@ -144,7 +145,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -163,18 +165,18 @@ func TestRollbacking(t *testing.T) {
 			},
 			setupSourceClusters: true,
 			initialStates: map[string]map[string]bool{
-				"source-hub-1": {
+				"source-hub": {
 					migrationv1alpha1.PhaseRollbacking: true, // finished
 				},
 				"target-hub": {
 					migrationv1alpha1.PhaseRollbacking: true, // finished
 				},
 			},
-			expectedRequeue:         false,
+			expectedRequeue:         false, // Should not requeue when rollback completes
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
+			expectedPhase:           migrationv1alpha1.PhaseFailed,     // Should move to failed phase after rollback
+			expectedConditionStatus: metav1.ConditionTrue,              // Condition should be true (completed)
+			expectedConditionReason: ConditionReasonResourceRolledBack, // Should indicate rollback completed
 			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
 		},
 		{
