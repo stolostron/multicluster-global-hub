@@ -134,7 +134,6 @@ func TestInitializing(t *testing.T) {
 			existingObjects: []client.Object{},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				// SetSourceClusters function no longer exists in current implementation
 			},
 			expectedRequeue:         true,
 			expectedError:           false,
@@ -182,7 +181,6 @@ func TestInitializing(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseInitializing)
 				// Don't set target hub finished to simulate waiting state
 			},
@@ -232,7 +230,6 @@ func TestInitializing(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseInitializing)
 				SetFinished(migrationID, "target-hub", migrationv1alpha1.PhaseInitializing)
 				// Don't set source hub finished to simulate waiting state

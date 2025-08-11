@@ -92,33 +92,6 @@ func TestRegistering(t *testing.T) {
 			expectedConditionReason: "",
 		},
 		{
-			name: "Should handle uninitialized source clusters",
-			migration: &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-migration",
-					Namespace: utils.GetDefaultNamespace(),
-					UID:       types.UID("test-uid-4"),
-				},
-				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					From:                    "source-hub",
-					To:                      "target-hub",
-					IncludedManagedClusters: []string{"cluster1", "cluster2"},
-				},
-				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-					Phase: migrationv1alpha1.PhaseRegistering,
-				},
-			},
-			setupState: func(migrationID string) {
-				// Don't set up any migration status to simulate uninitialized state
-				// In this case, the registering function will send events and then wait
-			},
-			expectedRequeue:         true,
-			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseRegistering, // Should remain in registering phase
-			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false (still waiting)
-			expectedConditionReason: ConditionReasonWaiting,             // Should indicate waiting
-		},
-		{
 			name: "Should wait for target hub to complete registering",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -137,7 +110,6 @@ func TestRegistering(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 				// Don't set target hub finished to simulate waiting state
@@ -157,7 +129,8 @@ func TestRegistering(t *testing.T) {
 					UID:       types.UID("test-uid-6"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRegistering,
@@ -165,10 +138,8 @@ func TestRegistering(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				// SetSourceClusters function no longer exists in current implementation
-				// Mark source hub as started and finished so function proceeds to check target hub
-				SetStarted(migrationID, "", migrationv1alpha1.PhaseRegistering)
-				SetFinished(migrationID, "", migrationv1alpha1.PhaseRegistering)
+				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
+				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetStarted(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering)
 				SetErrorMessage(migrationID, "target-hub", migrationv1alpha1.PhaseRegistering, "registration failed")
 			},
@@ -196,7 +167,6 @@ func TestRegistering(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				// SetSourceClusters function no longer exists in current implementation
 				// Mark source hub as started and finished so function proceeds to check target hub
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseRegistering)

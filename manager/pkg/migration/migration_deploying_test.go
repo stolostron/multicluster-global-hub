@@ -75,32 +75,6 @@ func TestDeploying(t *testing.T) {
 			expectedConditionReason: "",                               // No reason change expected
 		},
 		{
-			name: "Should wait when source clusters not initialized",
-			migration: &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-migration",
-					Namespace: utils.GetDefaultNamespace(),
-					UID:       types.UID("test-uid-3"),
-				},
-				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					From:                    "source-hub",
-					To:                      "target-hub",
-					IncludedManagedClusters: []string{"cluster1", "cluster2"},
-				},
-				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-					Phase: migrationv1alpha1.PhaseDeploying,
-				},
-			},
-			setupState: func(migrationID string) {
-				// Don't set up any source clusters to simulate uninitialized state
-			},
-			expectedRequeue:         true, // Should requeue to wait for initialization
-			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseDeploying, // Should remain in deploying phase
-			expectedConditionStatus: metav1.ConditionFalse,            // Condition should be false (waiting)
-			expectedConditionReason: ConditionReasonWaiting,           // Should indicate waiting
-		},
-		{
 			name: "Should wait for source hub to complete deploying",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{

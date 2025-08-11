@@ -127,13 +127,11 @@ func TestEventStatusEdgeCases(t *testing.T) {
 				assert.False(t, GetStarted(migrationID, hubName, phase), "GetStarted should return false for non-existent migration")
 				assert.False(t, GetFinished(migrationID, hubName, phase), "GetFinished should return false for non-existent migration")
 				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase), "GetErrorMessage should return empty for non-existent migration")
-				// GetSourceClusters no longer exists in current implementation
 
 				// Setters should handle gracefully (not crash)
 				assert.NotPanics(t, func() { SetStarted(migrationID, hubName, phase) }, "SetStarted should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetFinished(migrationID, hubName, phase) }, "SetFinished should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetErrorMessage(migrationID, hubName, phase, "error") }, "SetErrorMessage should not panic for non-existent migration")
-				// SetSourceClusters no longer exists in current implementation
 			},
 		},
 		{

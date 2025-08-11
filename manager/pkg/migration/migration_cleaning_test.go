@@ -95,30 +95,6 @@ func TestCompleted(t *testing.T) {
 			expectedConditionReason: "",
 		},
 		{
-			name: "source clusters not initialized",
-			mcm: &v1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "test-migration",
-					Namespace:         utils.GetDefaultNamespace(),
-					CreationTimestamp: metav1.Time{Time: time.Now()},
-				},
-				Spec: v1alpha1.ManagedClusterMigrationSpec{
-					From:                    "", // No source hub specified
-					To:                      "dest-hub",
-					IncludedManagedClusters: []string{}, // No clusters specified
-				},
-				Status: v1alpha1.ManagedClusterMigrationStatus{
-					Phase: v1alpha1.PhaseCleaning,
-				},
-			},
-			sourceClusters:          nil,
-			wantRequeue:             false,
-			wantErr:                 false,
-			expectedPhase:           v1alpha1.PhaseCompleted, // Should complete despite error (cleaning design)
-			expectedConditionStatus: metav1.ConditionFalse,   // Should be false due to error
-			expectedConditionReason: ConditionReasonError,    // Should indicate error
-		},
-		{
 			name: "cleaning in progress",
 			mcm: &v1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -247,8 +223,6 @@ func TestCompleted(t *testing.T) {
 
 			// Setup test environment
 			AddMigrationStatus(string(tt.mcm.GetUID()))
-			// AddSourceClusters function no longer exists in current implementation
-			// Source clusters are now handled differently
 
 			if tt.started != nil {
 				for hub, started := range tt.started {
