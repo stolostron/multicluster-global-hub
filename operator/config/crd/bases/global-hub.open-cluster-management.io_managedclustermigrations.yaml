@@ -60,6 +60,15 @@ spec:
                 items:
                   type: string
                 type: array
+              supportedConfigs:
+                description: SupportedConfigs defines additional configuration options
+                  for the migration
+                properties:
+                  stageTimeout:
+                    description: StageTimeout defines the timeout duration for each
+                      migration stage
+                    type: string
+                type: object
               to:
                 description: To defines which hub cluster the managed clusters migrate
                   to

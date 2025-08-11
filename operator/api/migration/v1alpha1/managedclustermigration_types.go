@@ -61,6 +61,13 @@ type ManagedClusterMigration struct {
 	Status ManagedClusterMigrationStatus `json:"status,omitempty"`
 }
 
+type ConfigMeta struct {
+	// StageTimeout defines the timeout duration for each migration stage
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	StageTimeout *metav1.Duration `json:"stageTimeout,omitempty"`
+}
+
 // ManagedClusterMigrationSpec defines the desired state of managedclustermigration
 type ManagedClusterMigrationSpec struct {
 	// IncludedManagedClusters is a list of managed clusters that you want to migrate
@@ -73,6 +80,11 @@ type ManagedClusterMigrationSpec struct {
 	// To defines which hub cluster the managed clusters migrate to
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	To string `json:"to"`
+
+	// SupportedConfigs defines additional configuration options for the migration
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	SupportedConfigs *ConfigMeta `json:"supportedConfigs,omitempty"`
 }
 
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration

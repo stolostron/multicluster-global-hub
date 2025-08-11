@@ -34,11 +34,6 @@ const (
 	DefaultAddOnInstallationNamespace  = "open-cluster-management-agent-addon"
 )
 
-var (
-	migrationStageTimeout = 5 * time.Minute  // Default timeout for most migration stages
-	registeringTimeout    = 12 * time.Minute // Extended timeout for registering phase
-)
-
 // Initializing:
 //  1. Destination Hub: create managedserviceaccount, Set autoApprove for the SA by initializing event
 //  2. Source Hub: attach the klusterletconfig with bootstrapsecret for the migrating clusters by initializing event

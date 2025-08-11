@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-08-04T07:24:30Z"
+    createdAt: "2025-08-13T08:56:52Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -91,6 +91,14 @@ spec:
           want to migrate
         displayName: Included Managed Clusters
         path: includedManagedClusters
+      - description: SupportedConfigs defines additional configuration options for
+          the migration
+        displayName: Supported Configs
+        path: supportedConfigs
+      - description: StageTimeout defines the timeout duration for each migration
+          stage
+        displayName: Stage Timeout
+        path: supportedConfigs.stageTimeout
       - description: To defines which hub cluster the managed clusters migrate to
         displayName: To
         path: to
