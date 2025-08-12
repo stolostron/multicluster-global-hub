@@ -79,6 +79,10 @@ const (
 )
 
 const (
+	// AnnotationONMulticlusterHub indicates the addons are running on a hub cluster
+	AnnotationONMulticlusterHub = "addon.open-cluster-management.io/on-multicluster-hub"
+	// AnnotationPolicyONMulticlusterHub indicates the policy spec sync is running on a hub cluster
+	AnnotationPolicyONMulticlusterHub = "policy.open-cluster-management.io/sync-policies-on-multicluster-hub"
 	// AnnotationAddonHostingClusterName is the annotation for indicating the hosting cluster name in the addon
 	AnnotationAddonHostingClusterName = "addon.open-cluster-management.io/hosting-cluster-name"
 	// AnnotationClusterHostingClusterName is the annotation for indicating the hosting cluster name in the cluster

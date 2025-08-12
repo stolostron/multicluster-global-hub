@@ -403,7 +403,7 @@ func TestValidatingEdgeCases(t *testing.T) {
 
 func TestGetAndValidateHubCluster(t *testing.T) {
 	scheme := runtime.NewScheme()
-	_ = appsv1.AddToScheme(scheme)
+	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, clusterv1.AddToScheme(scheme))
 
 	type fields struct {
