@@ -433,6 +433,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 	globalHubKafkaUser := "global-hub-kafka-user"
 	clientCa := "kafka-clients-ca-cert"
 	clientCaCert := "kafka-clients-ca"
+	replicas := int32(1)
 
 	readyCondition := "Ready"
 	trueCondition := "True"
@@ -446,8 +447,8 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		},
 		Spec: &kafkav1beta2.KafkaSpec{
 			Kafka: kafkav1beta2.KafkaSpecKafka{
-				Replicas: 1,
-				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
+				Replicas: &replicas,
+				Storage: &kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: "ephemeral",
 				},
 				Listeners: []kafkav1beta2.KafkaSpecKafkaListenersElem{
@@ -462,7 +463,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 }`)},
 				Version: &kafkaVersion,
 			},
-			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
+			Zookeeper: &kafkav1beta2.KafkaSpecZookeeper{
 				Replicas: 1,
 				Storage: kafkav1beta2.KafkaSpecZookeeperStorage{
 					Type: "ephemeral",

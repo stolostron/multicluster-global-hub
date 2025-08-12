@@ -22,6 +22,11 @@ echo "export VERBOSE=6" >>${PROJECT_DIR}/test/script/env.list
 
 scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 
+# setup to use instance storageAdd commentMore actions
+ssh "${OPT[@]}" "$HOST" "sudo mkfs.ext4 /dev/nvme1n1 && sudo mkdir /data && sudo mount /dev/nvme1n1 /data"
+ssh "${OPT[@]}" "$HOST" 'echo "{ \"data-root\": \"/data/docker\" }" | sudo tee /etc/docker/daemon.json'
+ssh "${OPT[@]}" "$HOST" "sudo systemctl restart docker"
+
 ssh "${OPT[@]}" "$HOST" sudo yum install git wget jq librdkafka gcc -y
 # Insufficient resources creating kind clusters, modify parameters to expand
 ssh "${OPT[@]}" "$HOST" "sudo sh -c 'echo \"fs.inotify.max_user_watches=524288\" >> /etc/sysctl.conf && \
