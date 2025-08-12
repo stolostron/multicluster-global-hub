@@ -89,7 +89,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, err
 	}
 
-	// 2. Send event to destination hub, TODO: ensure the produce event 'exactly-once'
+	// 2. Send event to destination hub -> ensure the produce event 'exactly-once'
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
