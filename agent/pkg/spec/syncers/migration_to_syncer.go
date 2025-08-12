@@ -702,9 +702,6 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 // rollbackRegistering handles rollback of registering phase on target hub
 func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *migration.MigrationTargetBundle) error {
 	log.Infof("rollback registering stage for clusters: %v", spec.ManagedClusters)
-
-	// For registering rollback, we need to do similar cleanup as deploying
-	// since clusters might have been partially registered
 	return s.rollbackDeploying(ctx, spec)
 }
 

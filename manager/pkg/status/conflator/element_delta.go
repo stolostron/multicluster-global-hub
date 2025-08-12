@@ -51,7 +51,11 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 			"version", eventVersion)
 	}
 	if !eventVersion.NewerThan(e.lastProcessedVersion) {
-		log.Debugw("drop delta bundle: get version %s, current hold version%s", eventVersion, e.metadata.Version())
+		if e.metadata != nil {
+			log.Debugw("drop delta bundle: get version %s, current hold metadata %s", eventVersion, e.metadata.Version())
+		} else {
+			log.Debugw("drop delta bundle: get version %s, current hold metadata nil", eventVersion)
+		}
 		return false
 	}
 	log.Debugw("inserting event", "version", eventVersion)
