@@ -781,8 +781,8 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				Authorization: &kafkav1beta2.KafkaSpecKafkaAuthorization{
 					Type: kafkav1beta2.KafkaSpecKafkaAuthorizationTypeSimple,
 				},
-				Replicas: 3,
-				Storage: kafkav1beta2.KafkaSpecKafkaStorage{
+				Replicas: &DefaultPartitionReplicas,
+				Storage: &kafkav1beta2.KafkaSpecKafkaStorage{
 					Type: kafkav1beta2.KafkaSpecKafkaStorageTypeJbod,
 					Volumes: []kafkav1beta2.KafkaSpecKafkaStorageVolumesElem{
 						kafkaSpecKafkaStorageVolumesElem,
@@ -790,7 +790,7 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 				},
 				Version: &KafkaVersion,
 			},
-			Zookeeper: kafkav1beta2.KafkaSpecZookeeper{
+			Zookeeper: &kafkav1beta2.KafkaSpecZookeeper{
 				Replicas:  3,
 				Storage:   kafkaSpecZookeeperStorage,
 				Resources: k.getZookeeperResources(mgh),
