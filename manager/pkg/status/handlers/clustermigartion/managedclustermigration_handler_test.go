@@ -28,25 +28,20 @@ func TestHandleMigrationEvent(t *testing.T) {
 		errorMessage string
 	}{
 		{
-			name:  "Initialized stage",
-			stage: migrationv1alpha1.ConditionTypeInitialized,
+			name:  "Initialing stage",
+			stage: migrationv1alpha1.PhaseInitializing,
 		},
 		{
 			name:  "Deployed stage",
-			stage: migrationv1alpha1.ConditionTypeDeployed,
+			stage: migrationv1alpha1.PhaseDeploying,
 		},
 		{
 			name:  "Registered stage",
-			stage: migrationv1alpha1.ConditionTypeRegistered,
+			stage: migrationv1alpha1.PhaseRegistering,
 		},
 		{
 			name:  "Cleaned stage",
-			stage: migrationv1alpha1.ConditionTypeCleaned,
-		},
-		{
-			name:         "Invalid stage",
-			stage:        "hello-stage",
-			errorMessage: "don't support the migration stage: hello-stage",
+			stage: migrationv1alpha1.PhaseCleaning,
 		},
 	}
 
@@ -56,7 +51,7 @@ func TestHandleMigrationEvent(t *testing.T) {
 			event.SetSource("hub1")
 			event.SetType("com.example.migration")
 			event.SetExtension(constants.CloudEventExtensionKeyClusterName, constants.CloudEventGlobalHubClusterName)
-			require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.ManagedClusterMigrationBundle{
+			require.NoError(t, event.SetData(cloudevents.ApplicationJSON, migrationbundle.MigrationStatusBundle{
 				Stage:       tc.stage,
 				MigrationId: migrationId,
 				ErrMessage:  tc.errorMessage,

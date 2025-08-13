@@ -157,6 +157,7 @@ func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Requ
 		clusterName,
 		constants.GHTransportConfigSecret,
 		mgha, nil,
+		"standalone", // deploy mode is standalone
 	)
 }
 
@@ -166,6 +167,7 @@ func renderAgentManifests(
 	transportConfigSecretName string,
 	mgha *v1alpha1.MulticlusterGlobalHubAgent,
 	mgh *v1alpha4.MulticlusterGlobalHub,
+	deployMode string,
 ) (ctrl.Result, error) {
 	var namespace string
 	var agentImagePullPolicy corev1.PullPolicy
@@ -259,6 +261,7 @@ func renderAgentManifests(
 			TransportConfigSecretName string
 			EnableStackroxIntegration bool
 			StackroxPollInterval      time.Duration
+			DeployMode                string
 		}{
 			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
 			ImagePullSecret:           imagePullSecret,
@@ -277,6 +280,7 @@ func renderAgentManifests(
 			TransportConfigSecretName: transportConfigSecretName,
 			EnableStackroxIntegration: enableStackroxIntegration,
 			StackroxPollInterval:      stackroxPollInterval,
+			DeployMode:                deployMode,
 		}, nil
 	})
 	if err != nil {
