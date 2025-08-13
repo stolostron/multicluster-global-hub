@@ -11,7 +11,6 @@ import (
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,7 +35,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	scheme := configs.GetRuntimeScheme()
 	cases := []struct {
 		name                          string
-		migrationEvent                *migration.ManagedClusterMigrationToEvent
+		migrationEvent                *migration.MigrationTargetBundle
 		initObjects                   []client.Object
 		expectedClusterManager        *operatorv1.ClusterManager
 		expectedClusterRole           *rbacv1.ClusterRole
@@ -45,7 +44,7 @@ func TestMigrationToSyncer(t *testing.T) {
 	}{
 		{
 			name: "Initializing: migration with cluster manager having no registration configuration",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -82,7 +81,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedClusterRole: &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "multicluster-global-hub-migration:test",
+					Name: GetSubjectAccessReviewClusterRoleName("test"),
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -94,7 +93,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "agent-registration-clusterrolebinding:test",
+					Name: GetAgentRegistrationClusterRoleBindingName("test"),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -111,7 +110,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-subjectaccessreviews-clusterrolebinding",
+					Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -122,14 +121,14 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				RoleRef: rbacv1.RoleRef{
 					Kind:     "ClusterRole",
-					Name:     "multicluster-global-hub-migration:test",
+					Name:     GetSubjectAccessReviewClusterRoleName("test"),
 					APIGroup: "rbac.authorization.k8s.io",
 				},
 			},
 		},
 		{
 			name: "migration with cluster manager having empty registration configuration",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -171,7 +170,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with other feature gates and auto approve users",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -222,7 +221,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate disabled",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -269,7 +268,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with cluster manager having registration configuration with feature gate auto approve user",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -316,7 +315,7 @@ func TestMigrationToSyncer(t *testing.T) {
 		},
 		{
 			name: "migration with existing clusterrole and clusterrolebinding",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -334,7 +333,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "multicluster-global-hub-migration:test",
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
@@ -346,7 +345,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "agent-registration-clusterrolebinding:test",
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -363,7 +362,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-subjectaccessreviews-clusterrolebinding",
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -374,7 +373,7 @@ func TestMigrationToSyncer(t *testing.T) {
 					},
 					RoleRef: rbacv1.RoleRef{
 						Kind:     "ClusterRole",
-						Name:     "multicluster-global-hub-migration:test",
+						Name:     GetSubjectAccessReviewClusterRoleName("test"),
 						APIGroup: "rbac.authorization.k8s.io",
 					},
 				},
@@ -399,7 +398,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedClusterRole: &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "multicluster-global-hub-migration:test",
+					Name: GetSubjectAccessReviewClusterRoleName("test"),
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -411,7 +410,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "agent-registration-clusterrolebinding:test",
+					Name: GetAgentRegistrationClusterRoleBindingName("test"),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -428,7 +427,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-subjectaccessreviews-clusterrolebinding",
+					Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -439,14 +438,14 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				RoleRef: rbacv1.RoleRef{
 					Kind:     "ClusterRole",
-					Name:     "multicluster-global-hub-migration:test",
+					Name:     GetSubjectAccessReviewClusterRoleName("test"),
 					APIGroup: "rbac.authorization.k8s.io",
 				},
 			},
 		},
 		{
 			name: "migration with changed clusterrole and clusterrolebinding",
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseInitializing,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -464,7 +463,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "multicluster-global-hub-migration:test",
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
@@ -476,7 +475,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "agent-registration-clusterrolebinding:test",
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -493,7 +492,7 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-subjectaccessreviews-clusterrolebinding",
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -504,7 +503,7 @@ func TestMigrationToSyncer(t *testing.T) {
 					},
 					RoleRef: rbacv1.RoleRef{
 						Kind:     "ClusterRole",
-						Name:     "multicluster-global-hub-migration:test",
+						Name:     GetSubjectAccessReviewClusterRoleName("test"),
 						APIGroup: "rbac.authorization.k8s.io",
 					},
 				},
@@ -529,7 +528,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedClusterRole: &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "multicluster-global-hub-migration:test",
+					Name: GetSubjectAccessReviewClusterRoleName("test"),
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -541,7 +540,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "agent-registration-clusterrolebinding:test",
+					Name: GetAgentRegistrationClusterRoleBindingName("test"),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -558,7 +557,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			},
 			expectedSARClusterRoleBinding: &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-subjectaccessreviews-clusterrolebinding",
+					Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -569,10 +568,249 @@ func TestMigrationToSyncer(t *testing.T) {
 				},
 				RoleRef: rbacv1.RoleRef{
 					Kind:     "ClusterRole",
-					Name:     "multicluster-global-hub-migration:test",
+					Name:     GetSubjectAccessReviewClusterRoleName("test"),
 					APIGroup: "rbac.authorization.k8s.io",
 				},
 			},
+		},
+		{
+			name: "Rollback initializing: clean up RBAC resources and remove AutoApprove user from ClusterManager",
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "ManagedClusterAutoApproval",
+									Mode:    operatorv1.FeatureGateModeTypeEnable,
+								},
+							},
+							AutoApproveUsers: []string{"system:serviceaccount:test:test"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"subjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     GetSubjectAccessReviewClusterRoleName("test"),
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: nil, // User should be removed during rollback
+					},
+				},
+			},
+		},
+		{
+			name: "Rollback initializing: clean up user from AutoApproveUsers list with other users present",
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseInitializing,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+						RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+							FeatureGates: []operatorv1.FeatureGate{
+								{
+									Feature: "ManagedClusterAutoApproval",
+									Mode:    operatorv1.FeatureGateModeTypeEnable,
+								},
+							},
+							AutoApproveUsers: []string{"system:serviceaccount:other:user", "system:serviceaccount:test:test", "system:serviceaccount:another:user"},
+						},
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"subjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     GetSubjectAccessReviewClusterRoleName("test"),
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+			expectedClusterManager: &operatorv1.ClusterManager{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "cluster-manager",
+				},
+				Spec: operatorv1.ClusterManagerSpec{
+					RegistrationImagePullSpec: "test",
+					WorkImagePullSpec:         "test",
+					RegistrationConfiguration: &operatorv1.RegistrationHubConfiguration{
+						FeatureGates: []operatorv1.FeatureGate{
+							{
+								Feature: "ManagedClusterAutoApproval",
+								Mode:    operatorv1.FeatureGateModeTypeEnable,
+							},
+						},
+						AutoApproveUsers: []string{"system:serviceaccount:other:user", "system:serviceaccount:another:user"}, // Only migration user should be removed
+					},
+				},
+			},
+		},
+		{
+			name: "Rollback deploying: clean up deployed resources on target hub",
+			migrationEvent: &migration.MigrationTargetBundle{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:                         migrationv1alpha1.PhaseDeploying,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1", "cluster2"},
+			},
+			initObjects: []client.Object{
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster2",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster1",
+						Namespace: "cluster1",
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster2",
+						Namespace: "cluster2",
+					},
+				},
+			},
+			expectedClusterManager: nil, // No changes expected to cluster manager during rollback
 		},
 	}
 
@@ -593,6 +831,11 @@ func TestMigrationToSyncer(t *testing.T) {
 			}
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, transportConfig)
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+
+			// For rollback tests, set the current migration ID to match the event
+			if c.migrationEvent.Stage == migrationv1alpha1.PhaseRollbacking {
+				managedClusterMigrationSyncer.SetMigrationID(c.migrationEvent.MigrationId)
+			}
 
 			toEvent := c.migrationEvent
 			payload, err := json.Marshal(toEvent)
@@ -643,13 +886,13 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	cases := []struct {
 		name                         string
-		receivedMigrationEventBundle migration.ManagedClusterMigrationToEvent
+		receivedMigrationEventBundle migration.MigrationTargetBundle
 		initObjects                  []client.Object
 		expectedError                error
 	}{
 		{
 			name: "Deploying resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+			receivedMigrationEventBundle: migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -670,7 +913,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		},
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.ManagedClusterMigrationToEvent{
+			receivedMigrationEventBundle: migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
 				Stage:                                 migrationv1alpha1.PhaseCleaning,
 				ManagedServiceAccountName:             "test", // the migration cr name
@@ -689,7 +932,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRole{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "multicluster-global-hub-migration:test",
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
 					},
 					Rules: []rbacv1.PolicyRule{
 						{
@@ -701,7 +944,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "agent-registration-clusterrolebinding:test",
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -718,7 +961,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				},
 				&rbacv1.ClusterRoleBinding{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-subjectaccessreviews-clusterrolebinding",
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
 					},
 					Subjects: []rbacv1.Subject{
 						{
@@ -729,7 +972,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 					},
 					RoleRef: rbacv1.RoleRef{
 						Kind:     "ClusterRole",
-						Name:     "multicluster-global-hub-migration:test",
+						Name:     GetSubjectAccessReviewClusterRoleName("test"),
 						APIGroup: "rbac.authorization.k8s.io",
 					},
 				},
@@ -778,7 +1021,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 func TestDeploying(t *testing.T) {
 	migrationId := "123"
 
-	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.SourceClusterMigrationResources{
+	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.MigrationResourceBundle{
 		MigrationId: migrationId,
 		ManagedClusters: []clusterv1.ManagedCluster{
 			{
@@ -799,24 +1042,6 @@ func TestDeploying(t *testing.T) {
 				},
 			},
 		},
-		Secrets: []*corev1.Secret{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-secret",
-					Namespace: "cluster1",
-				},
-				StringData: map[string]string{"test": "secret"},
-			},
-		},
-		ConfigMaps: []*corev1.ConfigMap{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-configmap",
-					Namespace: "cluster1",
-				},
-				Data: map[string]string{"test": "configmap"},
-			},
-		},
 	})
 
 	scheme := configs.GetRuntimeScheme()
@@ -826,7 +1051,11 @@ func TestDeploying(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
 	transportConfig := &transport.TransportInternalConfig{KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"}}
-	syncer := NewMigrationTargetSyncer(fakeClient, nil, transportConfig)
+
+	producer := ProducerMock{}
+	transportClient := &controller.TransportClient{}
+	transportClient.SetProducer(&producer)
+	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
 	syncer.currentMigrationId = migrationId
 	err := syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
@@ -838,16 +1067,6 @@ func TestDeploying(t *testing.T) {
 	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 	assert.Nil(t, err)
 	assert.True(t, cluster.Spec.HubAcceptsClient)
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-secret",
-			Namespace: "cluster1",
-		},
-	}
-	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(secret), secret)
-	assert.Nil(t, err)
-	assert.Equal(t, "secret", secret.StringData["test"])
 }
 
 // go test -timeout 30s -run ^TestRegistering$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v
@@ -858,7 +1077,7 @@ func TestRegistering(t *testing.T) {
 	cases := []struct {
 		name                 string
 		initObjects          []client.Object
-		migrationEvent       *migration.ManagedClusterMigrationToEvent
+		migrationEvent       *migration.MigrationTargetBundle
 		expectedError        string
 		expectedErrorMessage string
 	}{
@@ -912,7 +1131,7 @@ func TestRegistering(t *testing.T) {
 					},
 				},
 			},
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
 			expectedError: "",
@@ -967,10 +1186,10 @@ func TestRegistering(t *testing.T) {
 					},
 				},
 			},
-			migrationEvent: &migration.ManagedClusterMigrationToEvent{
+			migrationEvent: &migration.MigrationTargetBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "manifestwork(*-klusterlet) are not applied in these clusters: [cluster2]",
+			expectedError: "failed to wait for all managed clusters to be ready",
 		},
 	}
 

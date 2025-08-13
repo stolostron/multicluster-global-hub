@@ -1,17 +1,17 @@
 module github.com/stolostron/multicluster-global-hub
 
-go 1.24.0
+go 1.24.4
 
 require (
 	github.com/IBM/sarama v1.45.2
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/authzed/spicedb-operator v1.20.1
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250630074109-a9ca6131519a
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250714100115-d6abf9d145ab
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
 	github.com/cloudevents/sdk-go/v2 v2.16.1
 	github.com/cloudflare/cfssl v1.6.5
-	github.com/confluentinc/confluent-kafka-go/v2 v2.10.1
+	github.com/confluentinc/confluent-kafka-go/v2 v2.11.0
 	github.com/crunchydata/postgres-operator v1.3.3-0.20230629151007-94ebcf2df74d
 	github.com/deckarep/golang-set v1.8.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
@@ -35,7 +35,7 @@ require (
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.76.0
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20250429012240-363012f4f827
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2

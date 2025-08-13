@@ -2,7 +2,7 @@
 
 ## What Is It?
 
-**Multicluster Global Hub** introduces **Managed Cluster Migration**, a feature that allows you to move managed clusters from one ACM hub cluster to another. In addition to clusters, it also supports migrating associated Kubernetes resources such as `ConfigMaps`, `Secrets`, and more.
+**Multicluster Global Hub** introduces **Managed Cluster Migration**, a feature that allows you to move managed clusters from one ACM hub cluster to another.
 
 This provides a unified way to reorganize or rebalance workloads across multiple hub clusters without manual reconfiguration.
 
@@ -14,7 +14,7 @@ This provides a unified way to reorganize or rebalance workloads across multiple
 
 Multicluster Global Hub is built to manage large-scale fleets of clusters using an event-driven architecture. Traditionally, the Global Hub acts as a bridge between itself and managed hubs. With Managed Cluster Migration, it can now also act as a communication and orchestration layer between multiple hub clusters.
 
-Because Global Hub is event-based, it can efficiently track, sync, and transfer resources and cluster state across hubs, making it an ideal tool for cross-hub migration.
+Because Global Hub is event-based, it can efficiently track, sync, and transfer cluster state across hubs, making it an ideal tool for cross-hub migration.
 
 ---
 
@@ -43,15 +43,71 @@ Each migration goes through several phases, visible in the resource `status.phas
 | Phase        | Description                                                                 |
 |--------------|-----------------------------------------------------------------------------|
 | Pending      | Only one migration can be handled at a time; others will remain pending     |
-| Validating   | Verifies clusters and hubs are valid.                                       |
+| Validating   | Verifies clusters and hubs are valid. Failures go directly to Failed.      |
 | Initializing | Prepares target hub (kubeconfig, RBAC) and source hub (`KubeletConfig`).    |
-| Deploying    | Migrates selected clusters and resources.                                   |
+| Deploying    | Migrates selected clusters.                                                 |
 | Registering  | Re-registers the cluster to the target hub.                                 |
-| Cleaning     | Cleans up resources from both hubs. Also handles rollback if needed.        |
+| Rollbacking  | Attempts to restore system to original state when migration fails. Always transitions to Failed. |
+| Cleaning     | Cleans up resources from both hubs. Always transitions to Completed, even if cleanup fails (with warnings). |
 | Completed    | Migration completed successfully.                                           |
 | Failed       | Migration failed; error message included in status.                         |
 
-Note: The Validating phase currently does not check resources such as `ConfigMap`, `Secret`, etc. So if you specify resources that do not exist in the source hub, the migration will fail in the `Deploying` phase.
+### 🔄 Migration Flow Diagram
+
+#### Normal Flow
+```
+Pending → Validating → Initializing → Deploying → Registering → Cleaning → Completed
+```
+
+#### Failure Handling Flow
+```
+- Validating (failure) → Failed
+- Initializing/Deploying/Registering (failure) → Rollbacking → Failed  
+- Rollbacking (success/failure) → Failed
+- Cleaning (success/failure) → Completed (with warnings if failed)
+```
+
+### 🛠️ Error Handling & Rollback Mechanism
+
+The migration system implements sophisticated error handling with different strategies for each phase:
+
+#### Validation Phase Failures
+- **Behavior**: Direct transition to `Failed` state
+- **Rationale**: Early validation failures indicate fundamental issues that cannot be recovered
+- **Examples**: Hub not found, cluster name conflicts, invalid configurations
+
+#### Core Migration Phase Failures (Initializing/Deploying/Registering)
+- **Behavior**: Transition to `Rollbacking` phase, then to `Failed`
+- **Rationale**: These phases may have created resources that need cleanup
+- **Rollback Actions**:
+  - Restore original cluster configurations on source hubs
+  - Clean up partially created resources on target hubs  
+  - Remove migration-related configurations
+
+#### Rollback Phase
+- **Behavior**: Always transitions to `Failed` regardless of rollback success/failure
+- **Rationale**: 
+  - Rollback indicates original migration already failed
+  - Even successful rollback means the intended migration didn't complete
+  - Provides clear signal that manual intervention may be needed
+
+#### Cleaning Phase
+- **Behavior**: Always transitions to `Completed`, even if cleanup fails
+- **Rationale**:
+  - Core migration functionality is complete (clusters successfully migrated)
+  - Cleanup failures only affect resource cleanup, not migration success
+  - Warnings in conditions alert administrators to manual cleanup needs
+
+#### Condition Types and Messages
+
+| Condition Type | Success Reason | Failure Behavior |
+|----------------|----------------|------------------|
+| ResourceValidated | ResourceValidated | Direct to Failed |
+| ResourceInitialized | ResourceInitialized | Triggers Rollback |
+| ResourceDeployed | ResourcesDeployed | Triggers Rollback |
+| ClusterRegistered | ClusterRegistered | Triggers Rollback |
+| ResourceRolledBack | ResourceRolledBack | Always to Failed |
+| ResourceCleaned | ResourceCleaned | Always to Completed (with warnings) |
 
 ---
 
@@ -120,7 +176,7 @@ global-hub.open-cluster-management.io/deploy-mode=hosted
 
 ### Step 3 – Create Migration Resource
 
-Define the `ManagedClusterMigration` resource to move the cluster and related resources:
+Define the `ManagedClusterMigration` resource to move the cluster:
 
 ```yaml
 apiVersion: global-hub.open-cluster-management.io/v1alpha1
@@ -131,9 +187,6 @@ spec:
   from: local-cluster
   includedManagedClusters:
     - cluster1
-  includedResources:
-    - configmap/default/foo
-    - secret/cluster1/bar
   to: hub2
 ```
 
@@ -142,13 +195,12 @@ spec:
 - `from`: The source hub (in this case, `local-cluster` = `hub1`)
 - `to`: Target hub (`hub2`)
 - `includedManagedClusters`: Lists the clusters to be migrated. All cluster names must be unique across hubs.
-- `includedResources`: Specifies the Kubernetes resources to migrate, using the format `kind/namespace/name`. 
 
 ---
 
 ### Step 4 – Sample Migration Status
 
-
+#### Successful Migration
 ```yaml
 status:
   conditions:
@@ -170,6 +222,47 @@ status:
   phase: Completed
 ```
 
+#### Failed Migration with Successful Rollback
+```yaml
+status:
+  conditions:
+    - type: ResourceValidated
+      status: "True"
+      message: Migration resources have been validated
+    - type: ResourceInitialized
+      status: "True"
+      message: All source and target hubs have been initialized
+    - type: ResourceDeployed
+      status: "False"
+      message: Failed to deploy resources to target hub due to network timeout
+    - type: ResourceRolledBack
+      status: "True"
+      message: Migration rollback completed. Migration marked as failed due to original failure.
+  phase: Failed
+```
+
+#### Migration with Cleanup Warnings
+```yaml
+status:
+  conditions:
+    - type: ResourceValidated
+      status: "True"
+      message: Migration resources have been validated
+    - type: ResourceInitialized
+      status: "True"
+      message: All source and target hubs have been initialized
+    - type: ResourceDeployed
+      status: "True"
+      message: Resources have been successfully deployed to the target hub cluster
+    - type: ClusterRegistered
+      status: "True"
+      message: All migrated clusters have been successfully registered
+    - type: ResourceCleaned
+      status: "True"
+      message: "[Warning - Cleanup Issues] Failed to delete some temporary resources. Migration completed despite cleanup issues. Manual cleanup may be required."
+  phase: Completed
+```
+
 ---
 
 ## ✅ Summary
@@ -177,7 +270,7 @@ status:
 Managed Cluster Migration helps you:
 
 - Reorganize cluster ownership between ACM hub clusters
-- Move clusters and resources together
+- Move clusters
 - Automate re-registration and cleanup
 - Track every step with detailed status updates
 

@@ -24,6 +24,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const BatchSize = 50
@@ -56,41 +57,45 @@ func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator
 func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
-
-	batchManagedClusters := []models.ManagedCluster{}
+	log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	var bundle generic.GenericBundle[clusterv1.ManagedCluster]
-	if err := evt.DataAs(&bundle); err != nil {
-		return err
+	err := evt.DataAs(&bundle)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal bundle - %v", err)
 	}
 
-	// update or create managed clusters in the database.
-	for _, obj := range append(append(bundle.Create, bundle.Update...), bundle.Resync...) {
-		payload, err := json.Marshal(obj)
-		if err != nil {
-			return err
+	// Handle insertOrUpdate operations for Resync, Create, and Update
+	operations := [][]clusterv1.ManagedCluster{
+		bundle.Resync,
+		bundle.Create,
+		bundle.Update,
+	}
+
+	for _, data := range operations {
+		if err := h.insertOrUpdate(data, leafHubName); err != nil {
+			return fmt.Errorf("failed to process managed clusters - %w", err)
 		}
-		batchManagedClusters = append(batchManagedClusters, models.ManagedCluster{
-			ClusterID:   string(obj.GetUID()),
-			LeafHubName: leafHubName,
-			Payload:     payload,
-			Error:       database.ErrorNone,
-		})
 	}
+
 	db := database.GetGorm()
-	err := db.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).CreateInBatches(batchManagedClusters, BatchSize).Error
-	if err != nil {
-		return err
-	}
 	if len(bundle.Delete) > 0 {
 		for _, deleted := range bundle.Delete {
-			err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id", deleted.ID).
-				Delete(&models.ManagedCluster{}).Error
-			if err != nil {
-				return fmt.Errorf("failed deleting managed clusters - %w", err)
+			if deleted.ID != "" {
+				err = db.Where("leaf_hub_name", leafHubName).Where("cluster_id", deleted.ID).
+					Delete(&models.ManagedCluster{}).Error
+				if err != nil {
+					return fmt.Errorf("failed deleting managed clusters - %w", err)
+				}
+			} else if deleted.Name != "" {
+				// if the cluster is deleted, we need to delete it by name and namespace
+				err = db.Where("leaf_hub_name = ?", leafHubName).Where("cluster_name = ?", deleted.Name).
+					Delete(&models.ManagedCluster{}).Error
+				if err != nil {
+					return fmt.Errorf("failed deleting managed clusters by name and namespace - %w", err)
+				}
+			} else {
+				log.Warnw("managed cluster delete event without ID or Name/Namespace", "LH", leafHubName)
 			}
 		}
 	}
@@ -137,7 +142,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
 	}
-	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 
@@ -215,7 +220,6 @@ func GetK8SCluster(ctx context.Context,
 		}
 	}
 
-	// TODO: remove this after the vendorVersion is optional
 	if vendorVersion == "" {
 		vendorVersion = kubeVersion
 	}
@@ -292,7 +296,6 @@ func GetK8SCluster(ctx context.Context,
 		}
 	}
 
-	// TODO: should get nodelist from clusterInfo.Status.NodeList
 	kesselNode := &kessel.K8SClusterDetailNodesInner{
 		Name: cluster.Name,
 	}
@@ -308,4 +311,42 @@ func GetK8SCluster(ctx context.Context,
 		kesselNode,
 	}
 	return k8sCluster
+}
+
+func (h *managedClusterHandler) insertOrUpdate(objs []clusterv1.ManagedCluster, leafHubName string) error {
+	if len(objs) == 0 {
+		return nil
+	}
+
+	batchClusters := []models.ManagedCluster{}
+	for _, obj := range objs {
+		id := utils.GetClusterClaimID(&obj)
+		if id == "" {
+			log.Warnf("managed cluster %s has no cluster claim id, skip", obj.Name)
+			continue
+		}
+
+		log.Debugf("inserting or updating cluster: name=%s, id=%s", obj.Name, id)
+
+		payload, err := json.Marshal(obj)
+		if err != nil {
+			return fmt.Errorf("failed to marshal cluster %s: %w", obj.Name, err)
+		}
+
+		batchClusters = append(batchClusters, models.ManagedCluster{
+			ClusterID:   id,
+			LeafHubName: leafHubName,
+			Payload:     payload,
+			Error:       database.ErrorNone,
+		})
+	}
+
+	db := database.GetGorm()
+	err := db.Clauses(clause.OnConflict{
+		UpdateAll: true,
+	}).CreateInBatches(batchClusters, BatchSize).Error
+	if err != nil {
+		return fmt.Errorf("failed to insert or update clusters: %w", err)
+	}
+	return nil
 }

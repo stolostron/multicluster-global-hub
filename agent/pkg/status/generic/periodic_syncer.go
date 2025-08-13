@@ -134,7 +134,7 @@ func (p *PeriodicSyncer) Start(ctx context.Context) error {
 
 				// delta sync if the next sync time has passed
 				if time.Now().After(state.NextSyncAt) {
-					log.Debugf("Syncing event type: %s", enum.ShortenEventType(eventType))
+					// log.Debugf("Syncing event type: %s", enum.ShortenEventType(eventType))
 					if err := state.Registration.Emitter.Send(); err != nil {
 						log.Errorf("failed to sync the event(%s): %v", enum.ShortenEventType(eventType), err)
 					}

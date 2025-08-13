@@ -41,3 +41,127 @@ func TestMigrationEventProgress(t *testing.T) {
 	SetErrorMessage(migrateId, "target-cluster", migrationv1alpha1.PhaseValidating, "failed to validate")
 	assert.NotEmpty(t, GetErrorMessage(migrateId, "target-cluster", migrationv1alpha1.PhaseValidating))
 }
+
+func TestMigrationStatusHelpers(t *testing.T) {
+	tests := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "Should add and remove migration status correctly",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-migration-123"
+				hubName := "test-hub"
+				phase := migrationv1alpha1.PhaseInitializing
+
+				// Test AddMigrationStatus
+				AddMigrationStatus(migrationID)
+				status := getMigrationStatus(migrationID)
+				assert.NotNil(t, status)
+
+				// Test SetStarted and GetStarted
+				assert.False(t, GetStarted(migrationID, hubName, phase))
+				SetStarted(migrationID, hubName, phase)
+				assert.True(t, GetStarted(migrationID, hubName, phase))
+
+				// Test SetFinished and GetFinished
+				assert.False(t, GetFinished(migrationID, hubName, phase))
+				SetFinished(migrationID, hubName, phase)
+				assert.True(t, GetFinished(migrationID, hubName, phase))
+
+				// Test SetErrorMessage and GetErrorMessage
+				errorMsg := "test error message"
+				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase))
+				SetErrorMessage(migrationID, hubName, phase, errorMsg)
+				assert.Equal(t, errorMsg, GetErrorMessage(migrationID, hubName, phase))
+
+				// Test RemoveMigrationStatus
+				RemoveMigrationStatus(migrationID)
+				status = getMigrationStatus(migrationID)
+				assert.Nil(t, status)
+			},
+		},
+		{
+			name: "Should handle source clusters correctly",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-migration-456"
+				sourceHub := "source-hub"
+				clusters := []string{"cluster1", "cluster2"}
+
+				// Add migration status first
+				AddMigrationStatus(migrationID)
+
+				// Test SetSourceClusters and GetSourceClusters
+				assert.Nil(t, GetSourceClusters(migrationID))
+				SetSourceClusters(migrationID, sourceHub, clusters)
+				sourceClusters := GetSourceClusters(migrationID)
+				assert.NotNil(t, sourceClusters)
+				assert.Equal(t, clusters, sourceClusters[sourceHub])
+
+				// Clean up
+				RemoveMigrationStatus(migrationID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, tt.testFunc)
+	}
+}
+
+func TestEventStatusEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		testFunc func(t *testing.T)
+	}{
+		{
+			name: "Should handle nil migration status gracefully",
+			testFunc: func(t *testing.T) {
+				migrationID := "non-existent-migration"
+				hubName := "test-hub"
+				phase := migrationv1alpha1.PhaseInitializing
+
+				// All getters should return default values for non-existent migration
+				assert.False(t, GetStarted(migrationID, hubName, phase), "GetStarted should return false for non-existent migration")
+				assert.False(t, GetFinished(migrationID, hubName, phase), "GetFinished should return false for non-existent migration")
+				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase), "GetErrorMessage should return empty for non-existent migration")
+				assert.Nil(t, GetSourceClusters(migrationID), "GetSourceClusters should return nil for non-existent migration")
+
+				// Setters should handle gracefully (not crash)
+				assert.NotPanics(t, func() { SetStarted(migrationID, hubName, phase) }, "SetStarted should not panic for non-existent migration")
+				assert.NotPanics(t, func() { SetFinished(migrationID, hubName, phase) }, "SetFinished should not panic for non-existent migration")
+				assert.NotPanics(t, func() { SetErrorMessage(migrationID, hubName, phase, "error") }, "SetErrorMessage should not panic for non-existent migration")
+				assert.NotPanics(t, func() { SetSourceClusters(migrationID, hubName, []string{"cluster"}) }, "SetSourceClusters should not panic for non-existent migration")
+			},
+		},
+		{
+			name: "Should handle empty strings and special characters",
+			testFunc: func(t *testing.T) {
+				migrationID := "test-special-chars"
+				specialHubName := "hub-with-dashes_and_underscores.dots"
+				phase := migrationv1alpha1.PhaseValidating
+
+				AddMigrationStatus(migrationID)
+
+				// Test with special characters in hub name
+				SetStarted(migrationID, specialHubName, phase)
+				assert.True(t, GetStarted(migrationID, specialHubName, phase), "Should handle special characters in hub name")
+
+				// Test with empty error message
+				SetErrorMessage(migrationID, specialHubName, phase, "")
+				assert.Empty(t, GetErrorMessage(migrationID, specialHubName, phase), "Should handle empty error message")
+
+				// Test with special characters in error message
+				specialErrorMsg := "Error with special chars: !@#$%^&*()_+-={}[]|\\:;\"'<>?,./ 中文"
+				SetErrorMessage(migrationID, specialHubName, phase, specialErrorMsg)
+				assert.Equal(t, specialErrorMsg, GetErrorMessage(migrationID, specialHubName, phase), "Should handle special characters in error message")
+
+				RemoveMigrationStatus(migrationID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, tt.testFunc)
+	}
+}

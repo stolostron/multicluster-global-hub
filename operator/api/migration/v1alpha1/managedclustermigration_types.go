@@ -27,6 +27,7 @@ const (
 	PhaseInitializing = "Initializing"
 	PhaseDeploying    = "Deploying"
 	PhaseRegistering  = "Registering"
+	PhaseRollbacking  = "Rollbacking"
 	PhaseCleaning     = "Cleaning"
 	PhaseCompleted    = "Completed"
 	PhaseFailed       = "Failed"
@@ -39,6 +40,7 @@ const (
 	ConditionTypeInitialized = "ResourceInitialized"
 	ConditionTypeRegistered  = "ClusterRegistered"
 	ConditionTypeDeployed    = "ResourceDeployed"
+	ConditionTypeRolledBack  = "ResourceRolledBack"
 	ConditionTypeCleaned     = "ResourceCleaned"
 )
 
@@ -65,27 +67,18 @@ type ManagedClusterMigrationSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	IncludedManagedClusters []string `json:"includedManagedClusters,omitempty"`
 
-	// IncludedResources is a list of resources that you want to migrate.
-	// the format is (g.v.r)|(kind)/namespace/name. i.e.:
-	// - configmap/multicluster-engine/cm1
-	// - hive.v1.clusterclaim/namespace1/name1
-	// - clusterrole/admin
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	IncludedResources []string `json:"includedResources,omitempty"`
-
 	// From defines which hub cluster the managed clusters are from
-	// +optional
-	From string `json:"from,omitempty"`
+	From string `json:"from"`
 
 	// To defines which hub cluster the managed clusters migrate to
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	To string `json:"to,omitempty"`
+	To string `json:"to"`
 }
 
 // ManagedClusterMigrationStatus defines the observed state of managedclustermigration
 type ManagedClusterMigrationStatus struct {
 	// Phase represents the current phase of the migration
-	// +kubebuilder:validation:Enum=Pending;Validating;Initializing;Deploying;Registering;Cleaning;Completed;Failed
+	// +kubebuilder:validation:Enum=Pending;Validating;Initializing;Deploying;Registering;Rollbacking;Cleaning;Completed;Failed
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Phase string `json:"phase,omitempty"`
 

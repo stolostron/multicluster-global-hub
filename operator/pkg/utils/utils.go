@@ -399,8 +399,8 @@ func AnnotateManagedHubCluster(ctx context.Context, c client.Client) error {
 		CopyMap(annotations, managedHub.GetAnnotations())
 
 		// set the annotations for the managed hub
-		orgAnnotations[operatorconstants.AnnotationONMulticlusterHub] = "true"
-		orgAnnotations[operatorconstants.AnnotationPolicyONMulticlusterHub] = "true"
+		orgAnnotations[constants.AnnotationONMulticlusterHub] = "true"
+		orgAnnotations[constants.AnnotationPolicyONMulticlusterHub] = "true"
 		if !equality.Semantic.DeepEqual(annotations, orgAnnotations) {
 			clusters.Items[idx].SetAnnotations(orgAnnotations)
 			if err := c.Update(ctx, &clusters.Items[idx], &client.UpdateOptions{}); err != nil {
@@ -535,5 +535,19 @@ func DeleteResourcesWithLabels(ctx context.Context,
 			return err
 		}
 	}
+	return nil
+}
+
+func HandleMghDelete(ctx context.Context, isResourceRemoved *bool, namespace string,
+	pruneResources func(context.Context, string) error,
+) error {
+	if *isResourceRemoved {
+		return nil
+	}
+	err := pruneResources(ctx, namespace)
+	if err != nil {
+		return err
+	}
+	*isResourceRemoved = true
 	return nil
 }

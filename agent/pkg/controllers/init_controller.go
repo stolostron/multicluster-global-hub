@@ -60,13 +60,18 @@ func (c *initController) addACMController(ctx context.Context, request ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("failed to add the syncer: %w", err)
 	}
 
+	// only enable the status controller in the standalone mode
+	if c.agentConfig.DeployMode == string(constants.StandaloneMode) {
+		return ctrl.Result{}, nil
+	}
+
 	// add spec controllers
 	if err := agentspec.AddToManager(ctx, c.mgr, c.transportClient, c.agentConfig); err != nil {
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("failed to add spec syncer: %w", err)
 	}
 
-	// only enable the status controller in the standalone mode
-	if c.agentConfig.Standalone {
+	// local agent should not start the claim and lease controller
+	if c.agentConfig.DeployMode == string(constants.LocalMode) {
 		return ctrl.Result{}, nil
 	}
 

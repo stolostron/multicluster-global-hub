@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 func TestManagedHubController_Reconcile(t *testing.T) {
@@ -147,8 +147,8 @@ func TestManagedHubController_pruneManagedHubs(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "mc1",
 						Annotations: map[string]string{
-							operatorconstants.AnnotationONMulticlusterHub:       "true",
-							operatorconstants.AnnotationPolicyONMulticlusterHub: "true",
+							constants.AnnotationONMulticlusterHub:       "true",
+							constants.AnnotationPolicyONMulticlusterHub: "true",
 						},
 					},
 				},
@@ -164,7 +164,7 @@ func TestManagedHubController_pruneManagedHubs(t *testing.T) {
 			r := &ManagedHubController{
 				c: fakeClient,
 			}
-			if err := r.pruneManagedHubs(context.Background()); (err != nil) != tt.wantErr {
+			if err := r.pruneManagedHubs(context.Background(), ""); (err != nil) != tt.wantErr {
 				t.Errorf("ManagedHubController.pruneManagedHubs() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
