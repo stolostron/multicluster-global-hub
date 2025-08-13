@@ -51,64 +51,51 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	defer m.handleRollbackStatus(ctx, mcm, &condition, &nextPhase)
 
-	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
-	if sourceHubToClusters == nil {
-		condition.Message = "No source clusters found to rollback. Migration marked as failed."
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = ConditionReasonResourceRolledBack
-		nextPhase = migrationv1alpha1.PhaseFailed
+	// 1. Send rollback events to source hubs to restore original configurations
+	fromHub := mcm.Spec.From
+	clusters := mcm.Spec.IncludedManagedClusters
+	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
+		log.Infof("sending rollback event to source hub: %s", fromHub)
+
+		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, clusters,
+			getBootstrapSecret(fromHub, nil), failedStage)
+		if err != nil {
+			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to source hub %s: %v",
+				failedStage, fromHub, err)
+			condition.Reason = ConditionReasonRollbackFailed
+			return false, err
+		}
+		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking)
+	}
+
+	// Check for rollback errors from source hubs
+	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
+		// Only add manual cleanup guidance for source hub rollback failures
+		condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
+		condition.Reason = ConditionReasonRollbackFailed
+		condition.Status = metav1.ConditionFalse
 		return false, nil
 	}
 
-	// 1. Send rollback events to source hubs to restore original configurations
-	for fromHub, clusters := range sourceHubToClusters {
-		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
-			log.Infof("sending rollback event to source hub: %s", fromHub)
+	// Wait for source hub rollback completion
+	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
+		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
 
-			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, clusters,
-				getBootstrapSecret(fromHub, nil), failedStage)
-			if err != nil {
-				condition.Message = fmt.Sprintf("failed to send %s stage rollback event to source hub %s: %v",
-					failedStage, fromHub, err)
-				condition.Reason = ConditionReasonRollbackFailed
-				return false, err
-			}
-			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking)
-		}
-
-		// Check for rollback errors from source hubs
-		if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
-			// Only add manual cleanup guidance for source hub rollback failures
+		startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
+		if startedCond != nil && time.Since(startedCond.LastTransitionTime.Time) > migrationStageTimeout {
+			condition.Reason = ConditionReasonTimeout
+			errMsg := fmt.Sprintf("Timeout during %s rollback", failedStage)
 			condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
-			condition.Reason = ConditionReasonRollbackFailed
 			condition.Status = metav1.ConditionFalse
-			return false, nil
+			nextPhase = migrationv1alpha1.PhaseFailed
 		}
-
-		// Wait for source hub rollback completion
-		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
-			condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
-
-			startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-			if startedCond != nil && time.Since(startedCond.LastTransitionTime.Time) > migrationStageTimeout {
-				condition.Reason = ConditionReasonTimeout
-				errMsg := fmt.Sprintf("Timeout during %s rollback", failedStage)
-				condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
-				condition.Status = metav1.ConditionFalse
-				nextPhase = migrationv1alpha1.PhaseFailed
-			}
-			return true, nil
-		}
+		return true, nil
 	}
 
 	// 2. Send rollback event to destination hub to clean up partial resources
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to destination hub: %s", mcm.Spec.To)
-		allClusters := []string{}
-		for _, clusters := range sourceHubToClusters {
-			allClusters = append(allClusters, clusters...)
-		}
-		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, allClusters, failedStage)
+		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, clusters, failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to target hub %s: %v", failedStage,
 				mcm.Spec.To, err)

@@ -106,36 +106,6 @@ func TestRollbacking(t *testing.T) {
 			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
 		},
 		{
-			name: "should handle no source clusters found",
-			migration: &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-migration",
-					Namespace: utils.GetDefaultNamespace(),
-					UID:       types.UID("test-uid"),
-				},
-				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
-				},
-				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
-							Type:               migrationv1alpha1.ConditionTypeStarted,
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: metav1.Time{Time: time.Now()},
-						},
-					},
-				},
-			},
-			setupSourceClusters:     false,
-			expectedRequeue:         false,
-			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
-			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
-		},
-		{
 			name: "should complete rollback successfully",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -144,7 +114,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -163,18 +134,18 @@ func TestRollbacking(t *testing.T) {
 			},
 			setupSourceClusters: true,
 			initialStates: map[string]map[string]bool{
-				"source-hub-1": {
+				"source-hub": {
 					migrationv1alpha1.PhaseRollbacking: true, // finished
 				},
 				"target-hub": {
 					migrationv1alpha1.PhaseRollbacking: true, // finished
 				},
 			},
-			expectedRequeue:         false,
+			expectedRequeue:         false, // Should not requeue when rollback completes
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
+			expectedPhase:           migrationv1alpha1.PhaseFailed,     // Should move to failed phase after rollback
+			expectedConditionStatus: metav1.ConditionTrue,              // Condition should be true (completed)
+			expectedConditionReason: ConditionReasonResourceRolledBack, // Should indicate rollback completed
 			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
 		},
 		{
@@ -262,11 +233,6 @@ func TestRollbacking(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
-			}
-
-			// Setup test state
-			if tt.setupSourceClusters {
-				SetSourceClusters(string(tt.migration.UID), "source-hub-1", []string{"cluster1", "cluster2"})
 			}
 
 			// Setup initial states for migration tracking
