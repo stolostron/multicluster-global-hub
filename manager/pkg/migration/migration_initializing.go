@@ -66,24 +66,6 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
-	// check the source hub to see is there any error message reported
-	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
-	if sourceHubToClusters == nil {
-		sourceHubToClustersFromDB, err := getSourceHubToClustersFromDB(mcm)
-		if err != nil {
-			condition.Message = err.Error()
-			condition.Reason = ConditionReasonError
-			return false, err
-		}
-		if len(sourceHubToClustersFromDB) == 0 {
-			condition.Message = fmt.Sprintf("not found the clusters %s", mcm.Spec.IncludedManagedClusters)
-			condition.Reason = ConditionReasonError
-			return false, nil
-		}
-		sourceHubToClusters = sourceHubToClustersFromDB
-		AddSourceClusters(string(mcm.GetUID()), sourceHubToClustersFromDB)
-	}
-
 	// 1. Create the managedserviceaccount -> generate bootstrap secret
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
 		return false, err
@@ -107,7 +89,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return false, err
 	}
 
-	// 2. Send event to destination hub, TODO: ensure the produce event 'exactly-once'
+	// 2. Send event to destination hub -> ensure the produce event 'exactly-once'
 	// Important: Registration must occur only after autoApprove is successfully set.
 	// Thinking - Ensure that autoApprove is properly configured before proceeding.
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
@@ -121,18 +103,18 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 
 	// 3. Send event to Source Hub
-	for fromHubName, clusters := range sourceHubToClusters {
-		if !GetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
-			err := m.sendEventToSourceHub(ctx, fromHubName, mcm, migrationv1alpha1.PhaseInitializing, clusters,
-				bootstrapSecret, "")
-			if err != nil {
-				condition.Message = err.Error()
-				condition.Reason = ConditionReasonError
-				return false, err
-			}
-			log.Infof("sent initialing events to source hubs: %s", fromHubName)
-			SetStarted(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing)
+	fromHub := mcm.Spec.From
+	clusters := mcm.Spec.IncludedManagedClusters
+	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing) {
+		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseInitializing, clusters,
+			bootstrapSecret, "")
+		if err != nil {
+			condition.Message = err.Error()
+			condition.Reason = ConditionReasonError
+			return false, err
 		}
+		log.Infof("sent initialing events to source hubs: %s", fromHub)
+		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing)
 	}
 
 	// 4. Check the status from hubs: if the source and target hub are initialized, if not, waiting for the initialization
@@ -141,12 +123,10 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
-	for fromHubName := range sourceHubToClusters {
-		if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing); errMsg != "" {
-			condition.Message = fmt.Sprintf("initializing source hub %s with err :%s", fromHubName, errMsg)
-			condition.Reason = ConditionReasonError
-			return false, nil
-		}
+	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing); errMsg != "" {
+		condition.Message = fmt.Sprintf("initializing source hub %s with err :%s", fromHub, errMsg)
+		condition.Reason = ConditionReasonError
+		return false, nil
 	}
 
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
@@ -154,11 +134,9 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		return true, nil
 	}
 
-	for fromHubName := range sourceHubToClusters {
-		if !GetFinished(string(mcm.GetUID()), fromHubName, migrationv1alpha1.PhaseInitializing) {
-			condition.Message = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHubName)
-			return true, nil
-		}
+	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing) {
+		condition.Message = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHub)
+		return true, nil
 	}
 
 	condition.Status = metav1.ConditionTrue

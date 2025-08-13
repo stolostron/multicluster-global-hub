@@ -12,7 +12,6 @@ var (
 
 type MigrationStatus struct {
 	HubState map[string]*StageState // key: hub-phase
-	Clusters map[string][]string    // source hub -> clusters: cache the migrating clusters with the source hub
 }
 
 type StageState struct {
@@ -37,42 +36,6 @@ func RemoveMigrationStatus(migrationId string) {
 	defer mu.Unlock()
 	delete(migrationStatuses, migrationId)
 	log.Infof("clean up migration status for migrationId: %s", migrationId)
-}
-
-func AddSourceClusters(migrationId string, clusters map[string][]string) {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	status := getMigrationStatus(migrationId)
-	if status == nil {
-		return
-	}
-	status.Clusters = clusters
-}
-
-func GetSourceClusters(migrationId string) map[string][]string {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	status := getMigrationStatus(migrationId)
-	if status == nil {
-		return nil
-	}
-	return status.Clusters
-}
-
-func SetSourceClusters(migrationId string, sourceHub string, clusters []string) {
-	mu.RLock()
-	defer mu.RUnlock()
-
-	status := getMigrationStatus(migrationId)
-	if status == nil {
-		return
-	}
-	if status.Clusters == nil {
-		status.Clusters = make(map[string][]string)
-	}
-	status.Clusters[sourceHub] = clusters
 }
 
 func hubPhaseKey(hub, phase string) string {
