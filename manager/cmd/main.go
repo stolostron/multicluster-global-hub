@@ -258,8 +258,9 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 		}
 
 		// start managedclustermigration controller
+		eventRecorder := mgr.GetEventRecorderFor("migration-controller")
 		if err := migration.NewMigrationController(mgr.GetClient(), producer,
-			managerConfig).SetupWithManager(mgr); err != nil {
+			managerConfig, eventRecorder).SetupWithManager(mgr); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
 

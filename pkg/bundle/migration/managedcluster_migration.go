@@ -15,37 +15,36 @@ import (
 // 2. Migration ID tagging: Include a unique migration ID with each event. This allows receivers to process only the
 // events relevant to their migration and ignore others.
 
-// ManagedClusterMigrationFromEvent defines the resources from migration controller to the source cluster
-type ManagedClusterMigrationFromEvent struct {
+// MigrationSourceBundle defines the resources from migration controller to the source cluster
+type MigrationSourceBundle struct {
 	MigrationId     string         `json:"migrationId"`
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
-	Resources       []string       `json:"resources,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
+	RollbackStage   string         `json:"rollbackStage,omitempty"` // Indicates which stage is being rolled back
 }
 
-// ManagedClusterMigrationToEvent defines the resources from migration controllers to the target cluster
-type ManagedClusterMigrationToEvent struct {
+// MigrationTargetBundle defines the resources from migration controllers to the target cluster
+type MigrationTargetBundle struct {
 	MigrationId                           string   `json:"migrationId"`
 	Stage                                 string   `json:"stage"`
 	ManagedServiceAccountName             string   `json:"managedServiceAccountName"`
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
+	RollbackStage                         string   `json:"rollbackStage,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub
-type ManagedClusterMigrationBundle struct {
+type MigrationStatusBundle struct {
 	MigrationId string `json:"migrationId"`
 	Stage       string `json:"stage"`
 	ErrMessage  string `json:"errMessage,omitempty"`
 	// ManagedClusters []string `json:"managedClusters,omitempty"`
 }
 
-type SourceClusterMigrationResources struct {
+type MigrationResourceBundle struct {
 	MigrationId           string                          `json:"migrationId"`
 	ManagedClusters       []clusterv1.ManagedCluster      `json:"managedClusters,omitempty"`
 	KlusterletAddonConfig []addonv1.KlusterletAddonConfig `json:"klusterletAddonConfigs,omitempty"`
-	Secrets               []*corev1.Secret                `json:"secrets,omitempty"`
-	ConfigMaps            []*corev1.ConfigMap             `json:"configmaps,omitempty"`
 }

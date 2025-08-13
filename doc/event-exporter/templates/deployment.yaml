@@ -28,7 +28,7 @@ spec:
             - --qps=150
             - --burst=300
             - --enable-pprof=false
-            - --standalone=true
+            - --deploy-mode=standalone
           env:
             - name: POD_NAMESPACE
               valueFrom:

@@ -63,7 +63,7 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	priority := cu.eventTypeToPriority[event.Type()]
 	conflationElement := cu.ElementPriorityQueue[priority]
 	if conflationElement == nil {
-		log.Infow("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
+		log.Debugw("the conflationElement hasn't been registered to conflation unit", "eventType", event.Type())
 		return
 	}
 

@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	conditionReasonResourcesNotDeployed = "ResourcesNotDeployed"
-	conditionReasonResourcesDeployed    = "ResourcesDeployed"
-	conditionReasonResourcesDeploying   = "ResourcesDeploying"
+	ConditionReasonResourcesDeployed = "ResourcesDeployed"
 )
 
 // Migrating - deploying:
@@ -24,7 +22,7 @@ const (
 func (m *ClusterMigrationController) deploying(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (bool, error) {
-	if !mcm.DeletionTimestamp.IsZero() {
+	if mcm.DeletionTimestamp != nil {
 		return false, nil
 	}
 
@@ -34,72 +32,68 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	}
 	log.Info("migration deploying")
 
-	condType := migrationv1alpha1.ConditionTypeDeployed
-	condStatus := metav1.ConditionTrue
-	condReason := conditionReasonResourcesDeployed
-	condMessage := "Resources have been successfully deployed to the target hub cluster"
-	var err error
+	condition := metav1.Condition{
+		Type:    migrationv1alpha1.ConditionTypeDeployed,
+		Status:  metav1.ConditionFalse,
+		Reason:  ConditionReasonWaiting,
+		Message: "Waiting for the resources to be deployed into the target hub cluster",
+	}
+	nextPhase := migrationv1alpha1.PhaseDeploying
 
-	defer func() {
-		if err != nil {
-			condMessage = err.Error()
-			condStatus = metav1.ConditionFalse
-			condReason = conditionReasonResourcesNotDeployed
-		}
-		log.Debugf("deploying condition %s(%s): %s", condType, condReason, condMessage)
-		err = m.UpdateConditionWithRetry(ctx, mcm, condType, condStatus, condReason, condMessage, migrationStageTimeout)
-		if err != nil {
-			log.Errorf("failed to update the condition %v", err)
-		}
-	}()
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	// check the source hub to see is there any error message reported
 	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
 	if sourceHubToClusters == nil {
-		return false, fmt.Errorf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		condition.Message = fmt.Sprintf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+		condition.Reason = ConditionReasonError
+		return false, nil
 	}
 
 	for fromHub, clusters := range sourceHubToClusters {
 		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
 			log.Infof("migration deploying to source hub: %s", fromHub)
-			err = m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters,
-				nil, nil)
+			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters, nil, "")
 			if err != nil {
+				condition.Message = err.Error()
+				condition.Reason = ConditionReasonError
 				return false, err
 			}
 			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
 		}
-	}
 
-	for fromHub := range sourceHubToClusters {
 		errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
 		if errMessage != "" {
-			err = fmt.Errorf("deploying source hub %s error: %s", fromHub, errMessage)
-			return false, err
+			condition.Message = fmt.Sprintf("deploying source hub %s error: %s", fromHub, errMessage)
+			condition.Reason = ConditionReasonError
+			return false, nil
 		}
 
 		// waiting the source hub confirmation
 		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
-			condMessage = fmt.Sprintf("The deploying resources are preparing in the source hub %s", fromHub)
-			condStatus = metav1.ConditionFalse
-			condReason = conditionReasonResourcesDeploying
+			condition.Message = fmt.Sprintf("waiting for resources to be prepared in the source hub %s", fromHub)
 			return true, nil
 		}
 	}
 
+	// check the target hub to see is there any error message reported
 	errMessage := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying)
 	if errMessage != "" {
-		err = fmt.Errorf("deploying to hub %s error: %s", mcm.Spec.To, errMessage)
-		return true, nil
+		condition.Message = fmt.Sprintf("deploying to hub %s error: %s", mcm.Spec.To, errMessage)
+		condition.Reason = ConditionReasonError
+		return false, nil
 	}
 
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying) {
-		condMessage = fmt.Sprintf("The resources is deploying into the target hub %s", mcm.Spec.To)
-		condStatus = metav1.ConditionFalse
-		condReason = conditionReasonResourcesDeploying
+		condition.Message = fmt.Sprintf("waiting for resources to be deployed into the target hub %s", mcm.Spec.To)
 		return true, nil
 	}
+
+	condition.Status = metav1.ConditionTrue
+	condition.Reason = ConditionReasonResourcesDeployed
+	condition.Message = "Resources have been successfully deployed to the target hub cluster"
+	nextPhase = migrationv1alpha1.PhaseRegistering
 
 	log.Info("migration deploying finished")
 	return false, nil

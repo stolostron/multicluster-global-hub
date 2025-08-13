@@ -81,7 +81,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		err := r.deleteLableOfAllResources(ctx)
 		if err != nil {
-			r.Log.Error(err, "Failed to delete backup labels")
+			log.Error("Failed to delete backup labels", "err", err)
 		}
 		return addDisableCondition(ctx, r.Client, mgh, err)
 	}
@@ -90,13 +90,13 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if !backuped {
 		err := r.addLableToAllResources(ctx)
 		if err != nil {
-			r.Log.Error(err, "Failed to add backup labels")
+			log.Errorw("Failed to add backup labels", "err", err)
 		}
 		return addBackupCondition(ctx, r.Client, mgh, err)
 	}
 
 	// Watch the changed resources, then update the backuplabel
-	r.Log.Info("backup reconcile:", "requestType", req.Namespace, "name", req.Name)
+	log.Debugw("backup reconcile:", "requestType", req.Namespace, "name", req.Name)
 	_, found := allResourcesBackup[req.Namespace]
 	if !found {
 		return ctrl.Result{}, nil
@@ -155,7 +155,7 @@ func (r *BackupReconciler) addLableToAllResources(ctx context.Context) error {
 	var errs []error
 	r.Log.Info("Add backup label to resources", "namespace", config.GetMGHNamespacedName().Namespace)
 	for k, v := range allResourcesBackup {
-		r.Log.V(2).Info("Add label to", "kind", k)
+		log.Info("Add label to", "kind", k)
 		err := v.AddLabelToAllObjs(ctx, r.Client, config.GetMGHNamespacedName().Namespace)
 		if err != nil {
 			r.Log.Error(err, "Failed to add backup label", "Type", k)
@@ -166,7 +166,7 @@ func (r *BackupReconciler) addLableToAllResources(ctx context.Context) error {
 }
 
 func (r *BackupReconciler) deleteLableOfAllResources(ctx context.Context) error {
-	r.Log.Info("Remove backup label of resources")
+	log.Info("Remove backup label of resources")
 	var errs []error
 	for k, v := range allResourcesBackup {
 		err := v.DeleteLabelOfAllObjs(ctx, r.Client, config.GetMGHNamespacedName().Namespace)
