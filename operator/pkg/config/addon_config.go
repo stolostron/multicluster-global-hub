@@ -25,9 +25,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const SignerName = "open-cluster-management.io/globalhub-signer"
@@ -65,6 +67,25 @@ var HostedAddonList = sets.NewString(
 	"cluster-proxy",
 	"managed-serviceaccount",
 )
+
+var GlobalHubHostedAddonPlacementStrategy = v1alpha1.PlacementStrategy{
+	PlacementRef: v1alpha1.PlacementRef{
+		Namespace: utils.GetDefaultNamespace(),
+		Name:      "non-default-cluster",
+	},
+	Configs: []v1alpha1.AddOnConfig{
+		{
+			ConfigReferent: v1alpha1.ConfigReferent{
+				Name:      "global-hub",
+				Namespace: utils.GetDefaultNamespace(),
+			},
+			ConfigGroupResource: v1alpha1.ConfigGroupResource{
+				Group:    "addon.open-cluster-management.io",
+				Resource: "addondeploymentconfigs",
+			},
+		},
+	},
+}
 
 type ManifestsConfig struct {
 	HoHAgentImage             string

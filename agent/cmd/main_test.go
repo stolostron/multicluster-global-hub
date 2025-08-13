@@ -13,6 +13,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	config "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
@@ -48,7 +49,7 @@ func TestCompleteConfig(t *testing.T) {
 			name: "Invalid leaf-hub-name without standalone mode",
 			agentConfig: &configs.AgentConfig{
 				LeafHubName: "",
-				Standalone:  false,
+				DeployMode:  string(constants.DefaultMode),
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(&configv1.ClusterVersion{
 				ObjectMeta: metav1.ObjectMeta{Name: "version"},
@@ -60,7 +61,7 @@ func TestCompleteConfig(t *testing.T) {
 			name: "Empty leaf-hub-name(clusterId) with standalone mode",
 			agentConfig: &configs.AgentConfig{
 				LeafHubName: "",
-				Standalone:  true,
+				DeployMode:  string(constants.StandaloneMode),
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(&configv1.ClusterVersion{
 				ObjectMeta: metav1.ObjectMeta{Name: "version"},
@@ -72,7 +73,7 @@ func TestCompleteConfig(t *testing.T) {
 			name: "Invalid leaf-hub-name(clusterId) under standalone mode",
 			agentConfig: &configs.AgentConfig{
 				LeafHubName: "",
-				Standalone:  true,
+				DeployMode:  string(constants.StandaloneMode),
 			},
 			fakeClient:     fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).Build(),
 			expectErrorMsg: "clusterversions.config.openshift.io \"version\" not found",
@@ -81,7 +82,7 @@ func TestCompleteConfig(t *testing.T) {
 			name: "Valid configuration under standalone mode",
 			agentConfig: &configs.AgentConfig{
 				LeafHubName:      "",
-				Standalone:       true,
+				DeployMode:       string(constants.StandaloneMode),
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
 					ConsumerGroupId: "test-hub",
@@ -94,7 +95,7 @@ func TestCompleteConfig(t *testing.T) {
 			}).Build(),
 			expectConfig: &configs.AgentConfig{
 				LeafHubName:      "123",
-				Standalone:       true,
+				DeployMode:       string(constants.StandaloneMode),
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
@@ -107,7 +108,7 @@ func TestCompleteConfig(t *testing.T) {
 			name: "Invalid work pool size",
 			agentConfig: &configs.AgentConfig{
 				LeafHubName: "hub1",
-				Standalone:  false,
+				DeployMode:  string(constants.DefaultMode),
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
 				},
@@ -119,7 +120,7 @@ func TestCompleteConfig(t *testing.T) {
 			name: "Valid configuration without standalone mode",
 			agentConfig: &configs.AgentConfig{
 				LeafHubName:      "hub1",
-				Standalone:       false,
+				DeployMode:       string(constants.DefaultMode),
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
@@ -128,7 +129,7 @@ func TestCompleteConfig(t *testing.T) {
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
 			expectConfig: &configs.AgentConfig{
 				LeafHubName:      "hub1",
-				Standalone:       false,
+				DeployMode:       string(constants.DefaultMode),
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
