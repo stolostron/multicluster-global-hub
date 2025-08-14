@@ -33,6 +33,7 @@ type MigrationTargetBundle struct {
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
 	RollbackStage                         string   `json:"rollbackStage,omitempty"`
+	RegisteringTimeoutMinutes             int      `json:"registeringTimeoutMinutes,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub
