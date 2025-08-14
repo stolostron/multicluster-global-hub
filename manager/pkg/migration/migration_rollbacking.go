@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -166,6 +167,9 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 
 	if condition.Reason != ConditionReasonWaiting {
 		*nextPhase = migrationv1alpha1.PhaseFailed
+		if m.EventRecorder != nil {
+			m.EventRecorder.Eventf(mcm, corev1.EventTypeWarning, condition.Reason, condition.Message)
+		}
 	}
 
 	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
