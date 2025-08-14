@@ -19,6 +19,7 @@ echo "export MULTICLUSTER_GLOBAL_HUB_MANAGER_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_
 echo "export MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF=$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" >>${PROJECT_DIR}/test/script/env.list
 echo "export OPENSHIFT_CI=$OPENSHIFT_CI" >>${PROJECT_DIR}/test/script/env.list
 echo "export VERBOSE=6" >>${PROJECT_DIR}/test/script/env.list
+echo "export PULL_BASE_REF=$PULL_BASE_REF" >>${PROJECT_DIR}/test/script/env.list
 
 scp "${OPT[@]}" -r ../multicluster-global-hub "$HOST:$HOST_DIR"
 
