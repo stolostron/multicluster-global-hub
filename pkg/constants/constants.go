@@ -58,6 +58,11 @@ const (
 	GHManagedClusterAddonName = "multicluster-global-hub-controller"
 )
 
+const (
+	// migration timeout for each stage
+	MigrationStageTimeout = "stageTimeout"
+)
+
 // const (
 // 	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
 // 	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"

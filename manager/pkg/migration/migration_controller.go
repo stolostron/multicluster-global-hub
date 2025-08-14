@@ -39,6 +39,12 @@ const (
 	bootstrapSecretNamePrefix  = "bootstrap-"
 )
 
+var (
+	cleaningTimeout       = 10 * time.Minute // Separate timeout for cleaning phase
+	migrationStageTimeout = 5 * time.Minute  // Default timeout for most migration stages
+	registeringTimeout    = 12 * time.Minute // Extended timeout for registering phase
+)
+
 var log = logger.DefaultZapLogger()
 
 // ClusterMigrationController reconciles a ManagedClusterMigration object
@@ -144,6 +150,12 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
+	// setup custom timeouts from config
+	if err := m.setupTimeoutsFromConfig(mcm); err != nil {
+		log.Errorf("failed to setup timeouts from config: %v", err)
+		return ctrl.Result{}, err
+	}
+
 	// validating
 	requeue, err := m.validating(ctx, mcm)
 	if err != nil {
@@ -237,6 +249,9 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 		ManagedClusters:           managedClusters,
 		RollbackStage:             rollbackStage,
 		ManagedServiceAccountName: migration.Name,
+		// the timeout in agent part should less than manager part,
+		// the event in agent need time to send event to manager
+		RegisteringTimeoutMinutes: int((registeringTimeout - 2*time.Minute).Minutes()),
 	}
 
 	// namespace
@@ -258,5 +273,22 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
 	}
+	return nil
+}
+
+// setupTimeoutsFromConfig reads the SupportedConfigs field and sets custom timeouts
+func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alpha1.ManagedClusterMigration) error {
+	// Check if StageTimeout is specified in SupportedConfigs
+	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
+		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
+
+		// Set the timeout value to all three timeout variables
+		cleaningTimeout = timeout
+		registeringTimeout = timeout
+		migrationStageTimeout = timeout
+
+		log.Infof("set all migration timeouts to %v", timeout)
+	}
+
 	return nil
 }

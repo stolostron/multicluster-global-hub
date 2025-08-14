@@ -56,6 +56,14 @@ spec:
           want to migrate
         displayName: Included Managed Clusters
         path: includedManagedClusters
+      - description: SupportedConfigs defines additional configuration options for
+          the migration
+        displayName: Supported Configs
+        path: supportedConfigs
+      - description: StageTimeout defines the timeout duration for each migration
+          stage
+        displayName: Stage Timeout
+        path: supportedConfigs.stageTimeout
       - description: To defines which hub cluster the managed clusters migrate to
         displayName: To
         path: to
