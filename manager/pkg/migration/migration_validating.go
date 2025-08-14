@@ -91,6 +91,9 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 			condition.Message = err.Error()
 			condition.Status = metav1.ConditionFalse
 			nextPhase = migrationv1alpha1.PhaseFailed
+			if m.EventRecorder != nil {
+				m.EventRecorder.Eventf(mcm, corev1.EventTypeWarning, "ValidationFailed", condition.Message)
+			}
 		}
 		err = m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
 		if err != nil {
