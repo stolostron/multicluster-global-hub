@@ -51,19 +51,16 @@ var log = logger.DefaultZapLogger()
 type ClusterMigrationController struct {
 	client.Client
 	transport.Producer
-	BootstrapSecret *corev1.Secret
-	managerConfigs  *configs.ManagerConfig
-	EventRecorder   record.EventRecorder
+	EventRecorder record.EventRecorder
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
 	managerConfig *configs.ManagerConfig, eventRecorder record.EventRecorder,
 ) *ClusterMigrationController {
 	return &ClusterMigrationController{
-		Client:         client,
-		Producer:       producer,
-		managerConfigs: managerConfig,
-		EventRecorder:  eventRecorder,
+		Client:        client,
+		Producer:      producer,
+		EventRecorder: eventRecorder,
 	}
 }
 

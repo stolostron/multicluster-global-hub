@@ -30,7 +30,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		mcm.Status.Phase != migrationv1alpha1.PhaseDeploying {
 		return false, nil
 	}
-	log.Info("migration deploying")
+	log.Infof("migration %v deploying", mcm.Name)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeDeployed,
@@ -43,7 +43,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
 
 	fromHub := mcm.Spec.From
-	clusters := mcm.Spec.IncludedManagedClusters
+	clusters := GetClusterList(string(mcm.UID))
 
 	// 1. source hub: start and wait the confirmation
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {

@@ -31,7 +31,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	log.Info("migration registering")
+	log.Info("migration %v registering", mcm.Name)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeRegistered,
@@ -44,7 +44,8 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, registeringTimeout)
 
 	fromHub := mcm.Spec.From
-	clusters := mcm.Spec.IncludedManagedClusters
+	clusters := GetClusterList(string(mcm.UID))
+
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
 		log.Infof("migration registering: %s", fromHub)
 		// notify the source hub to start registering
