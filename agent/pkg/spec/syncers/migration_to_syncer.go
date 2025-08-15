@@ -200,8 +200,14 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 		return fmt.Errorf("no managed clusters found in migration event: %s", event.MigrationId)
 	}
 
+	// Use the timeout from the manager if provided, otherwise fall back to the default
+	timeout := registeringTimeout
+	if event.RegisteringTimeoutMinutes > 0 {
+		timeout = time.Duration(event.RegisteringTimeoutMinutes) * time.Minute
+	}
+
 	errMessage := ""
-	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, registeringTimeout, true,
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
 			notReadyClusters := []string{}
 			for _, clusterName := range event.ManagedClusters {

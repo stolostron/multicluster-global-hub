@@ -51,23 +51,45 @@ spec:
             description: Spec specifies the desired state of managedclustermigration
             properties:
               from:
-                description: From defines which hub cluster the managed clusters are
-                  from
+                description: From specifies the source hub cluster from which the
+                  managed clusters originate.
                 type: string
               includedManagedClusters:
-                description: IncludedManagedClusters is a list of managed clusters
-                  that you want to migrate
+                description: |-
+                  IncludedManagedClusters is an explicit list of managed clusters to include in the migration operation.
+                  This field is mutually exclusive with IncludedManagedClustersPlacementRef.
                 items:
                   type: string
                 type: array
+              includedManagedClustersPlacementRef:
+                description: |-
+                  IncludedManagedClustersPlacementRef specifies the name of a Placement resource
+                  that determines which managed clusters are included in the migration operation.
+                  The referenced Placement must be defined in the global hub agent namespace of the source hub cluster,
+                  such as "multicluster-global-hub" or "multicluster-global-hub-agent".
+                  This field is mutually exclusive with IncludedManagedClusters.
+                type: string
+              supportedConfigs:
+                description: SupportedConfigs defines additional configuration options
+                  for the migration
+                properties:
+                  stageTimeout:
+                    description: StageTimeout defines the timeout duration for each
+                      migration stage
+                    type: string
+                type: object
               to:
-                description: To defines which hub cluster the managed clusters migrate
-                  to
+                description: To specifies the target hub cluster to which the managed
+                  clusters will be migrated.
                 type: string
             required:
             - from
             - to
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of includedManagedClustersPlacementRef or includedManagedClusters
+                must be specified
+              rule: has(self.includedManagedClustersPlacementRef) != has(self.includedManagedClusters)
           status:
             description: Status specifies the observed state of managedclustermigration
             properties:

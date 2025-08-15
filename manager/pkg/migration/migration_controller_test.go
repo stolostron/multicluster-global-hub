@@ -400,3 +400,198 @@ func TestSelectAndPrepareMigration(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
+
+func TestSetupTimeoutsFromConfig(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = migrationv1alpha1.AddToScheme(scheme)
+
+	// Store original timeout values to restore after tests
+	originalCleaningTimeout := cleaningTimeout
+	originalMigrationStageTimeout := migrationStageTimeout
+	originalRegisteringTimeout := registeringTimeout
+
+	tests := []struct {
+		name                       string
+		migration                  *migrationv1alpha1.ManagedClusterMigration
+		expectedCleaningTimeout    time.Duration
+		expectedMigrationTimeout   time.Duration
+		expectedRegisteringTimeout time.Duration
+		expectError                bool
+	}{
+		{
+			name: "Should set custom timeout from valid config",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{
+						StageTimeout: &metav1.Duration{Duration: 15 * time.Minute},
+					},
+				},
+			},
+			expectedCleaningTimeout:    15 * time.Minute,
+			expectedMigrationTimeout:   15 * time.Minute,
+			expectedRegisteringTimeout: 15 * time.Minute,
+			expectError:                false,
+		},
+		{
+			name: "Should set custom timeout in seconds",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-seconds",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{
+						StageTimeout: &metav1.Duration{Duration: 300 * time.Second},
+					},
+				},
+			},
+			expectedCleaningTimeout:    300 * time.Second,
+			expectedMigrationTimeout:   300 * time.Second,
+			expectedRegisteringTimeout: 300 * time.Second,
+			expectError:                false,
+		},
+		{
+			name: "Should set custom timeout in hours",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-hours",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{
+						StageTimeout: &metav1.Duration{Duration: 2 * time.Hour},
+					},
+				},
+			},
+			expectedCleaningTimeout:    2 * time.Hour,
+			expectedMigrationTimeout:   2 * time.Hour,
+			expectedRegisteringTimeout: 2 * time.Hour,
+			expectError:                false,
+		},
+		{
+			name: "Should set custom timeout from duration",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-whitespace",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{
+						StageTimeout: &metav1.Duration{Duration: 10 * time.Minute},
+					},
+				},
+			},
+			expectedCleaningTimeout:    10 * time.Minute,
+			expectedMigrationTimeout:   10 * time.Minute,
+			expectedRegisteringTimeout: 10 * time.Minute,
+			expectError:                false,
+		},
+		{
+			name: "Should keep defaults when no timeout specified",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-invalid",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{},
+				},
+			},
+			expectedCleaningTimeout:    originalCleaningTimeout,
+			expectedMigrationTimeout:   originalMigrationStageTimeout,
+			expectedRegisteringTimeout: originalRegisteringTimeout,
+			expectError:                false,
+		},
+		{
+			name: "Should handle empty configs",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-nil-configs",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{},
+				},
+			},
+			expectedCleaningTimeout:    originalCleaningTimeout,
+			expectedMigrationTimeout:   originalMigrationStageTimeout,
+			expectedRegisteringTimeout: originalRegisteringTimeout,
+			expectError:                false,
+		},
+		{
+			name: "Should handle empty timeout config",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-no-timeout",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: &migrationv1alpha1.ConfigMeta{},
+				},
+			},
+			expectedCleaningTimeout:    originalCleaningTimeout,
+			expectedMigrationTimeout:   originalMigrationStageTimeout,
+			expectedRegisteringTimeout: originalRegisteringTimeout,
+			expectError:                false,
+		},
+		{
+			name: "Should handle nil SupportedConfigs",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-nil-configs",
+					Namespace: utils.GetDefaultNamespace(),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					SupportedConfigs: nil,
+				},
+			},
+			expectedCleaningTimeout:    originalCleaningTimeout,
+			expectedMigrationTimeout:   originalMigrationStageTimeout,
+			expectedRegisteringTimeout: originalRegisteringTimeout,
+			expectError:                false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset timeout values before each test
+			cleaningTimeout = originalCleaningTimeout
+			migrationStageTimeout = originalMigrationStageTimeout
+			registeringTimeout = originalRegisteringTimeout
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.migration).
+				Build()
+
+			controller := &ClusterMigrationController{
+				Client:   fakeClient,
+				Producer: &MockProducer{},
+			}
+
+			err := controller.setupTimeoutsFromConfig(tt.migration)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify timeout values were set correctly
+			assert.Equal(t, tt.expectedCleaningTimeout, cleaningTimeout, "cleaningTimeout should match expected value")
+			assert.Equal(t, tt.expectedMigrationTimeout, migrationStageTimeout, "migrationStageTimeout should match expected value")
+			assert.Equal(t, tt.expectedRegisteringTimeout, registeringTimeout, "registeringTimeout should match expected value")
+		})
+	}
+
+	// Restore original timeout values after all tests
+	t.Cleanup(func() {
+		cleaningTimeout = originalCleaningTimeout
+		migrationStageTimeout = originalMigrationStageTimeout
+		registeringTimeout = originalRegisteringTimeout
+	})
+}

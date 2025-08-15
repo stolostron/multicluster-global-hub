@@ -75,32 +75,6 @@ func TestDeploying(t *testing.T) {
 			expectedConditionReason: "",                               // No reason change expected
 		},
 		{
-			name: "Should wait when source clusters not initialized",
-			migration: &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-migration",
-					Namespace: utils.GetDefaultNamespace(),
-					UID:       types.UID("test-uid-3"),
-				},
-				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					From:                    "source-hub",
-					To:                      "target-hub",
-					IncludedManagedClusters: []string{"cluster1", "cluster2"},
-				},
-				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-					Phase: migrationv1alpha1.PhaseDeploying,
-				},
-			},
-			setupState: func(migrationID string) {
-				// Don't set up any source clusters to simulate uninitialized state
-			},
-			expectedRequeue:         false,
-			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseRollbacking, // Should move to rollbacking phase due to error
-			expectedConditionStatus: metav1.ConditionFalse,              // Condition should be false due to error
-			expectedConditionReason: ConditionReasonError,               // Should indicate error
-		},
-		{
 			name: "Should wait for source hub to complete deploying",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -119,7 +93,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1", "cluster2"})
+				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				// Don't set finished to simulate waiting state
 			},
@@ -148,7 +122,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1", "cluster2"})
+				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				// Don't set target hub finished to simulate waiting state
@@ -178,7 +152,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1", "cluster2"})
+				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "target-hub", migrationv1alpha1.PhaseDeploying)
@@ -208,7 +182,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1", "cluster2"})
+				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetErrorMessage(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying, "deployment failed")
 			},
@@ -237,7 +211,7 @@ func TestDeploying(t *testing.T) {
 			},
 			setupState: func(migrationID string) {
 				AddMigrationStatus(migrationID)
-				SetSourceClusters(migrationID, "source-hub", []string{"cluster1", "cluster2"})
+				// SetSourceClusters function no longer exists in current implementation
 				SetStarted(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetFinished(migrationID, "source-hub", migrationv1alpha1.PhaseDeploying)
 				SetErrorMessage(migrationID, "target-hub", migrationv1alpha1.PhaseDeploying, "target deployment failed")
