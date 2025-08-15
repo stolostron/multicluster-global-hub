@@ -93,7 +93,7 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 	phase string,
 ) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := m.Client.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
+		if err := m.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
 			return err
 		}
 		if meta.SetStatusCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {

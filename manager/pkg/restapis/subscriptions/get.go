@@ -51,9 +51,9 @@ var subReportCustomResourceColumnDefinitions = util.GetCustomResourceColumnDefin
 func GetSubscriptionReport() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		subscriptionID := ginCtx.Param("subscriptionID")
-		fmt.Fprintf(gin.DefaultWriter, "getting subscription report for subscription: %s\n", subscriptionID)
-		fmt.Fprintf(gin.DefaultWriter, "subscription query with subscription ID: %s\n", subscriptionQuery)
-		fmt.Fprintf(gin.DefaultWriter, "subscription report query with subscription name and namespace: %v\n",
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "getting subscription report for subscription: %s\n", subscriptionID)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "subscription query with subscription ID: %s\n", subscriptionQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "subscription report query with subscription name and namespace: %v\n",
 			subscriptionReportQuery)
 
 		handleSubscriptionReport(ginCtx, subscriptionID,
@@ -72,17 +72,17 @@ func handleSubscriptionReport(ginCtx *gin.Context, subscriptionID, subscriptionQ
 	}
 
 	if util.ShouldReturnAsTable(ginCtx) {
-		fmt.Fprintf(gin.DefaultWriter, "returning subscription as table...\n")
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "returning subscription as table...\n")
 
 		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
 			return
 		}
 
 		table, err := tableConvertor.ConvertToTable(context.TODO(), subscriptionReport, nil)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
 			return
 		}
 
@@ -105,26 +105,26 @@ func getAggregatedSubscriptionReport(subscriptionID, subscriptionQuery,
 	db := database.GetGorm()
 	err := db.Raw(subscriptionQuery, subscriptionID).Row().Scan(&subName, &subNamespace)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in querying subscription with subscription ID(%s): %v\n", subscriptionID, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying subscription with subscription ID(%s): %v\n", subscriptionID, err)
 		return nil, err
 	}
 
 	rows, err := db.Raw(subscriptionReportQuery, subName, subNamespace).Rows()
 	if err != nil {
-		return nil, fmt.Errorf("error in querying subscription-report for subscription(%s/%s): %v\n",
+		return nil, fmt.Errorf("error in querying subscription-report for subscription(%s/%s): %v",
 			subNamespace, subName, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		leafHubSubscriptionReport := appsv1alpha1.SubscriptionReport{}
 		var payload []byte
 		if err := rows.Scan(&payload); err != nil {
-			return nil, fmt.Errorf("error getting subscription report payload for leaf hub: %v\n", err)
+			return nil, fmt.Errorf("error getting subscription report payload for leaf hub: %v", err)
 		}
 
 		if err = json.Unmarshal(payload, &leafHubSubscriptionReport); err != nil {
-			return nil, fmt.Errorf("error getting subscription report for leaf hub: %v\n", err)
+			return nil, fmt.Errorf("error getting subscription report for leaf hub: %v", err)
 		}
 
 		// if not updated yet, clone a report from DB and clean it

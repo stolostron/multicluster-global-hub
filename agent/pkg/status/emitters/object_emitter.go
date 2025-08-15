@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -123,7 +122,7 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 		}
 	}
 
-	metadata := &generic.ObjectMetadata{
+	metadata := &genericbundle.ObjectMetadata{
 		ID:        string(tweaked.GetUID()),
 		Namespace: tweaked.GetNamespace(),
 		Name:      tweaked.GetName(),

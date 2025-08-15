@@ -26,7 +26,7 @@ type securityAlertCountsHandler struct {
 
 func RegisterSecurityAlertCountsHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.SecurityAlertCountsType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &securityAlertCountsHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,

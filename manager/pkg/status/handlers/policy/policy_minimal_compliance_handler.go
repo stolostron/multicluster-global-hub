@@ -28,7 +28,7 @@ type policyMiniComplianceHandler struct {
 
 func RegisterPolicyMiniComplianceHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.MiniComplianceType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &policyMiniComplianceHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
@@ -65,7 +65,7 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 	if err != nil {
 		return fmt.Errorf("error reading from table %s - %w", table, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var policyID string
 		if err := rows.Scan(&policyID); err != nil {

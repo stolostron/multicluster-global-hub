@@ -41,10 +41,10 @@ import (
 func GetPolicyStatus() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		policyID := ginCtx.Param("policyID")
-		fmt.Fprintf(gin.DefaultWriter, "getting status for policy: %s\n", policyID)
-		fmt.Fprintf(gin.DefaultWriter, "policy query with policy ID: %s\n", policyQuery)
-		fmt.Fprintf(gin.DefaultWriter, "policy compliance query with policy ID: %v\n", policyComplianceQuery)
-		fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "getting status for policy: %s\n", policyID)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "policy query with policy ID: %s\n", policyQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "policy compliance query with policy ID: %v\n", policyComplianceQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
 			handlePolicyForWatch(ginCtx, policyID, policyQuery,
@@ -83,7 +83,7 @@ func handlePolicyForWatch(ginCtx *gin.Context, policyID, policyQuery, policyMapp
 		Type:   "UPDATED",
 		Object: runtime.RawExtension{Object: preUnstrPolicy},
 	}, writer); err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 	}
 
 	for {
@@ -112,7 +112,7 @@ func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, poli
 ) {
 	curUnstrPolicy, err := queryPolicyStatus(policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in getting policy status with policy ID(%s): %v", policyID, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in getting policy status with policy ID(%s): %v", policyID, err)
 	}
 
 	curPolicyStatusObj := curUnstrPolicy.Object["status"].(map[string]interface{})
@@ -125,7 +125,7 @@ func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, poli
 			Type:   "UPDATED",
 			Object: runtime.RawExtension{Object: curUnstrPolicy},
 		}, writer); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 
 		// set policy
@@ -148,17 +148,17 @@ func handlePolicy(ginCtx *gin.Context, policyID, policyQuery, policyMappingQuery
 	delete(unstrPolicy.Object, "spec")
 
 	if util.ShouldReturnAsTable(ginCtx) {
-		fmt.Fprintf(gin.DefaultWriter, "returning policy as table...\n")
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "returning policy as table...\n")
 
 		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
 			return
 		}
 
 		table, err := tableConvertor.ConvertToTable(context.TODO(), unstrPolicy, nil)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
 			return
 		}
 
@@ -180,7 +180,7 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 
 	policyMatches, err = getPolicyMatches(policyMappingQuery)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
 	}
 
@@ -188,7 +188,7 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 	var payload []byte
 	err = db.Raw(policyQuery, policyID).Row().Scan(&payload)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, QueryPolicyFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
 	}
 	err = json.Unmarshal(payload, policy)
@@ -199,7 +199,7 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(
 		policyComplianceQuery, policyID)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
 	}
 

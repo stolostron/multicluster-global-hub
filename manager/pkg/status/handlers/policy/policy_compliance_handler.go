@@ -29,7 +29,7 @@ type policyComplianceHandler struct {
 
 func RegisterPolicyComplianceHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.ComplianceType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &policyComplianceHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,

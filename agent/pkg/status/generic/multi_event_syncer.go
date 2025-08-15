@@ -157,7 +157,7 @@ func (c *multiEventSyncer) syncEvents() {
 		emitter := c.eventEmitters[i]
 
 		if emitter.ShouldSend() {
-			evt, err := emitter.ToCloudEvent(emitter.Handler.Get())
+			evt, err := emitter.ToCloudEvent(emitter.Get())
 			if err != nil {
 				c.log.Error(err, "failed to get CloudEvent instance", "evt", evt)
 			}
@@ -171,7 +171,7 @@ func (c *multiEventSyncer) syncEvents() {
 				c.log.Error(err, "failed to send event", "evt", evt)
 				continue
 			}
-			emitter.PostSend(emitter.Handler.Get())
+			emitter.PostSend(emitter.Get())
 		}
 	}
 }

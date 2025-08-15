@@ -67,17 +67,12 @@ func (h *complianceHandler) updatePayloadIfChanged(objectIndex int, policy *poli
 	allClusters := utils.Merge(newCompliantClusters, newNonCompliantClusters, newUnknownClusters, newPendingClusters)
 
 	cachedCompliance := (*h.eventData)[objectIndex]
-	clusterListChanged := false
-
-	// check if any cluster was added or removed
-	if len(cachedCompliance.CompliantClusters)+len(cachedCompliance.NonCompliantClusters)+
+	clusterListChanged := len(cachedCompliance.CompliantClusters)+len(cachedCompliance.NonCompliantClusters)+
 		len(cachedCompliance.UnknownComplianceClusters)+len(cachedCompliance.PendingComplianceClusters) != len(allClusters) ||
 		!utils.ContainSubStrings(allClusters, cachedCompliance.CompliantClusters) ||
 		!utils.ContainSubStrings(allClusters, cachedCompliance.NonCompliantClusters) ||
 		!utils.ContainSubStrings(allClusters, cachedCompliance.UnknownComplianceClusters) ||
-		!utils.ContainSubStrings(allClusters, cachedCompliance.PendingComplianceClusters) {
-		clusterListChanged = true // at least one cluster was added/removed
-	}
+		!utils.ContainSubStrings(allClusters, cachedCompliance.PendingComplianceClusters)
 
 	// in any case we want to update the internal bundle in case statuses changed
 	cachedCompliance.CompliantClusters = newCompliantClusters
@@ -159,13 +154,14 @@ func getClusterStatus(policy *policiesv1.Policy) ([]string, []string, []string, 
 	pendingComplianceClusters := make([]string, 0)
 
 	for _, clusterStatus := range policy.Status.Status {
-		if clusterStatus.ComplianceState == policiesv1.Compliant {
+		switch clusterStatus.ComplianceState {
+		case policiesv1.Compliant:
 			compliantClusters = append(compliantClusters, clusterStatus.ClusterName)
-		} else if clusterStatus.ComplianceState == policiesv1.NonCompliant {
+		case policiesv1.NonCompliant:
 			nonCompliantClusters = append(nonCompliantClusters, clusterStatus.ClusterName)
-		} else if clusterStatus.ComplianceState == policiesv1.Pending {
+		case policiesv1.Pending:
 			pendingComplianceClusters = append(pendingComplianceClusters, clusterStatus.ClusterName)
-		} else {
+		default:
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterStatus.ClusterName)
 		}
 	}

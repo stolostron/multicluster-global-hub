@@ -23,7 +23,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/security/clients"
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	zaplogger "github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -58,7 +57,7 @@ type StackRoxSyncer struct {
 	dataLock       *sync.Mutex
 	dataMap        map[types.NamespacedName]*stackRoxData
 	requests       []stackRoxRequest
-	currentVersion *version.Version
+	currentVersion *eventversion.Version
 	lastSentData   any
 }
 
@@ -153,7 +152,7 @@ func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 		dataLock:       &sync.Mutex{},
 		dataMap:        map[types.NamespacedName]*stackRoxData{},
 		requests:       stackRoxRequests,
-		currentVersion: version.NewVersion(),
+		currentVersion: eventversion.NewVersion(),
 	}
 	return
 }

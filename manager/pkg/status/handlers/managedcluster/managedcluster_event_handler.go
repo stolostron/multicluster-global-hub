@@ -26,7 +26,7 @@ type managedClusterEventHandler struct {
 
 func RegisterManagedClusterEventHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.ManagedClusterEventType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &managedClusterEventHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,

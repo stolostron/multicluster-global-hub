@@ -49,35 +49,35 @@ func PatchManagedCluster() gin.HandlerFunc {
 	return func(ginCtx *gin.Context) {
 		clusterID := ginCtx.Param("clusterID")
 
-		fmt.Fprintf(gin.DefaultWriter, "patch for cluster with ID: %s\n", clusterID)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "patch for cluster with ID: %s\n", clusterID)
 
 		db := database.GetGorm()
 		var leafHubName, managedClusterName string
 		if err := db.Raw(`SELECT leaf_hub_name, payload->'metadata'->>'name' FROM status.managed_clusters 
 			WHERE cluster_id = ?`, clusterID).Row().Scan(&leafHubName, &managedClusterName); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "failed to get leaf hub and manged cluster name: %s\n", err.Error())
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to get leaf hub and manged cluster name: %s\n", err.Error())
 			return
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "patch for managed cluster: %s -leaf hub: %s\n",
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "patch for managed cluster: %s -leaf hub: %s\n",
 			managedClusterName, leafHubName)
 
 		var patches []patch
 
 		err := ginCtx.BindJSON(&patches)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "failed to bind: %s\n", err.Error())
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to bind: %s\n", err.Error())
 			return
 		}
 
 		labelsToAdd, labelsToRemove, err := getLabels(ginCtx, patches)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "failed to get labels: %s\n", err.Error())
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to get labels: %s\n", err.Error())
 			return
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "labels to add: %v\n", labelsToAdd)
-		fmt.Fprintf(gin.DefaultWriter, "labels to remove: %v\n", labelsToRemove)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "labels to add: %v\n", labelsToAdd)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "labels to remove: %v\n", labelsToRemove)
 
 		retryAttempts := optimisticConcurrencyRetryAttempts
 
@@ -93,7 +93,7 @@ func PatchManagedCluster() gin.HandlerFunc {
 
 		if err != nil {
 			ginCtx.String(http.StatusInternalServerError, "internal error")
-			fmt.Fprintf(gin.DefaultWriter, "error in updating managed cluster labels: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in updating managed cluster labels: %v\n", err)
 		}
 
 		ginCtx.String(http.StatusOK, "managed cluster label patched")
@@ -162,7 +162,7 @@ func updateLabels(clusterID, leafHubName, managedClusterName string, labelsToAdd
 
 	// assuming there is a single row
 	if len(managedClusterLabels) > 1 {
-		fmt.Fprintf(gin.DefaultWriter, "Warning: more than one row for cluster with ID %s\n", clusterID)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "Warning: more than one row for cluster with ID %s\n", clusterID)
 	}
 
 	return nil
