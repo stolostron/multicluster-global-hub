@@ -69,15 +69,29 @@ type ConfigMeta struct {
 }
 
 // ManagedClusterMigrationSpec defines the desired state of managedclustermigration
+// +kubebuilder:validation:XValidation:rule="has(self.includedManagedClustersPlacementRef) != has(self.includedManagedClusters)",message="exactly one of includedManagedClustersPlacementRef or includedManagedClusters must be specified"
 type ManagedClusterMigrationSpec struct {
-	// IncludedManagedClusters is a list of managed clusters that you want to migrate
+	// IncludedManagedClusters is an explicit list of managed clusters to include in the migration operation.
+	// This field is mutually exclusive with IncludedManagedClustersPlacementRef.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +optional
 	IncludedManagedClusters []string `json:"includedManagedClusters,omitempty"`
 
-	// From defines which hub cluster the managed clusters are from
+	// IncludedManagedClustersPlacementRef specifies the name of a Placement resource
+	// that determines which managed clusters are included in the migration operation.
+	// The referenced Placement must be defined in the global hub agent namespace of the source hub cluster,
+	// such as "multicluster-global-hub" or "multicluster-global-hub-agent".
+	// This field is mutually exclusive with IncludedManagedClusters.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Included Managed Clusters Placement"
+	// +optional
+	IncludedManagedClustersPlacementRef string `json:"includedManagedClustersPlacementRef,omitempty"`
+
+	// From specifies the source hub cluster from which the managed clusters originate.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	From string `json:"from"`
 
-	// To defines which hub cluster the managed clusters migrate to
+	// To specifies the target hub cluster to which the managed clusters will be migrated.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	To string `json:"to"`
 
