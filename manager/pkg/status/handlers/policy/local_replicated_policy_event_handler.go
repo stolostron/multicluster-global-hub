@@ -29,7 +29,7 @@ type localReplicatedPolicyEventHandler struct {
 
 func RegisterLocalReplicatedPolicyEventHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.LocalReplicatedPolicyEventType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &localReplicatedPolicyEventHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,

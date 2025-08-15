@@ -39,7 +39,7 @@ func NewPolicyStatusEventHandler(
 	shouldUpdate func(client.Object) bool,
 	c client.Client,
 ) *policyStatusEventHandler {
-	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(eventType), enum.EventTypePrefix, "")
 	filter.RegisterTimeFilter(name)
 	return &policyStatusEventHandler{
 		ctx:           ctx,
@@ -118,7 +118,7 @@ func (*policyStatusEventHandler) Delete(client.Object) bool {
 }
 
 func NewPolicyStatusEventEmitter(eventType enum.EventType) interfaces.Emitter {
-	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(eventType), enum.EventTypePrefix, "")
 	return generic.NewGenericEmitter(eventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {

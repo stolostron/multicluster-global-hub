@@ -26,13 +26,13 @@ func GetCustomResourceColumnDefinitions(name, version string) []apiextensionsv1.
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "unable to get inCluster config %s\n", err.Error())
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "unable to get inCluster config %s\n", err.Error())
 		return defaultColumns
 	}
 
 	theClientSet, err := clientset.NewForConfig(config)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "unable to create new client set %s\n", err.Error())
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "unable to create new client set %s\n", err.Error())
 		return defaultColumns
 	}
 
@@ -42,20 +42,20 @@ func GetCustomResourceColumnDefinitions(name, version string) []apiextensionsv1.
 
 	crdv1, err := theClientSet.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "failed to get CustomResourceDefinition for %s: %v", name, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to get CustomResourceDefinition for %s: %v", name, err)
 		return defaultColumns
 	}
 
 	var crd apiextensions.CustomResourceDefinition
 	err = apiextensionsv1.Convert_v1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(crdv1, &crd, nil)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "failed to convert crd v1 to crd for %s: %v", name, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to convert crd v1 to crd for %s: %v", name, err)
 		return defaultColumns
 	}
 
 	columns, err := apiextensions.GetColumnsForVersion(&crd, version)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "failed to get columns for version for %s CRD: %s %v", name, version, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to get columns for version for %s CRD: %s %v", name, version, err)
 		return defaultColumns
 	}
 
@@ -65,7 +65,7 @@ func GetCustomResourceColumnDefinitions(name, version string) []apiextensionsv1.
 
 	columnsv1, err := convertColumnsToColumnsV1(columns)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter,
+		_, _ = fmt.Fprintf(gin.DefaultWriter,
 			"failed to convert columns (from apiextensions to apiextensions/v1) for %s CRD: %s %v", name, version, err)
 		return defaultColumns
 	}

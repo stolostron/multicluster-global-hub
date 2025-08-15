@@ -234,7 +234,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	// if the target cluster is local cluster, then the msaNamespace is open-cluster-management-agent-addon
 	isLocalCluster := false
 	managedCluster := &clusterv1.ManagedCluster{}
-	if err := m.Client.Get(ctx, types.NamespacedName{
+	if err := m.Get(ctx, types.NamespacedName{
 		Name: migration.Spec.To,
 	}, managedCluster); err != nil {
 		return err
@@ -270,7 +270,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 
 	eventType := constants.MigrationTargetMsgKey
 	evt := utils.ToCloudEvent(eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, payloadToBytes)
-	if err := m.Producer.SendEvent(ctx, evt); err != nil {
+	if err := m.SendEvent(ctx, evt); err != nil {
 		return fmt.Errorf("failed to sync managedclustermigration event(%s) from source(%s) to destination(%s) - %w",
 			eventType, constants.CloudEventGlobalHubClusterName, migration.Spec.To, err)
 	}

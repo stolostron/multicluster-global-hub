@@ -7,7 +7,6 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,7 +89,7 @@ func (c *hubOfHubsConfigController) Reconcile(ctx context.Context, request ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key string) {
+func (c *hubOfHubsConfigController) setSyncInterval(configMap *corev1.ConfigMap, key string) {
 	intervalStr, found := configMap.Data[string(key)]
 	if !found {
 		c.log.Infof("%s sync interval not defined in configmap, using default value", key)
@@ -106,7 +105,7 @@ func (c *hubOfHubsConfigController) setSyncInterval(configMap *v1.ConfigMap, key
 	SetInterval(key, interval)
 }
 
-func (c *hubOfHubsConfigController) setAgentConfig(configMap *v1.ConfigMap, configKey string) {
+func (c *hubOfHubsConfigController) setAgentConfig(configMap *corev1.ConfigMap, configKey string) {
 	val, found := configMap.Data[string(configKey)]
 	if !found {
 		c.log.Info(fmt.Sprintf("%s not defined in agentConfig, using default value", configKey))

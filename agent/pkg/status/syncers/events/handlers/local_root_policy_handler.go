@@ -28,7 +28,7 @@ var PolicyMessageStatusRe = regexp.
 	MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 
 func NewRootPolicyEventEmitter(eventType enum.EventType) interfaces.Emitter {
-	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(eventType), enum.EventTypePrefix, "")
 	return generic.NewGenericEmitter(eventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {
@@ -57,7 +57,7 @@ type localRootPolicyHandler struct {
 }
 
 func NewLocalRootPolicyEventHandler(ctx context.Context, c client.Client) *localRootPolicyHandler {
-	name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "")
 	filter.RegisterTimeFilter(name)
 	return &localRootPolicyHandler{
 		ctx:           ctx,
