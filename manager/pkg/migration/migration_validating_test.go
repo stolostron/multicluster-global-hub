@@ -152,12 +152,18 @@ func TestValidating(t *testing.T) {
 			existingObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "target-hub",
+						Name:        "target-hub",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{Type: "ManagedClusterConditionAvailable", Status: metav1.ConditionTrue},
+						},
 					},
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           false,
+			expectedError:           true,
 			description:             "Should fail when source hub is not found",
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
@@ -183,12 +189,18 @@ func TestValidating(t *testing.T) {
 			existingObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "source-hub",
+						Name:        "source-hub",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{Type: "ManagedClusterConditionAvailable", Status: metav1.ConditionTrue},
+						},
 					},
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           false,
+			expectedError:           true,
 			description:             "Should fail when target hub is not found",
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
@@ -215,21 +227,33 @@ func TestValidating(t *testing.T) {
 			existingObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "source-hub",
+						Name:        "source-hub",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{Type: "ManagedClusterConditionAvailable", Status: metav1.ConditionTrue},
+						},
 					},
 				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "target-hub",
+						Name:        "target-hub",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{Type: "ManagedClusterConditionAvailable", Status: metav1.ConditionTrue},
+						},
 					},
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           false, // Actually no error, just failed phase
+			expectedError:           true, // Now returns error due to database connection failure
 			description:             "Should fail with invalid resources but hit database error first",
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: "HubClusterInvalid",
+			expectedConditionReason: "ClusterNotFound",
 		},
 		{
 			name: "Should validate successfully with valid configuration",
@@ -252,21 +276,33 @@ func TestValidating(t *testing.T) {
 			existingObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "source-hub",
+						Name:        "source-hub",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{Type: "ManagedClusterConditionAvailable", Status: metav1.ConditionTrue},
+						},
 					},
 				},
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "target-hub",
+						Name:        "target-hub",
+						Annotations: map[string]string{"addon.open-cluster-management.io/on-multicluster-hub": "true"},
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{Type: "ManagedClusterConditionAvailable", Status: metav1.ConditionTrue},
+						},
 					},
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           false, // Actually no error, just failed phase
+			expectedError:           true, // Now returns error due to database connection failure
 			description:             "Should attempt validation with valid configuration but hit database error",
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: "HubClusterInvalid",
+			expectedConditionReason: "ClusterNotFound",
 		},
 	}
 
