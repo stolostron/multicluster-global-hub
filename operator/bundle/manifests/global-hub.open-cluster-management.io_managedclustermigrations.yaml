@@ -55,11 +55,18 @@ spec:
                   from
                 type: string
               includedManagedClusters:
-                description: IncludedManagedClusters is a list of managed clusters
-                  that you want to migrate
+                description: |-
+                  IncludedManagedClusters is a list of managed clusters that you want to migrate.
+                  It is mutually exclusive with IncludedManagedClustersPlacementRef.
                 items:
                   type: string
                 type: array
+              includedManagedClustersPlacementRef:
+                description: |-
+                  IncludedManagedClustersPlacementRef is used to point to a specific placement
+                  that determines which managed clusters are included in a migration operation.
+                  It is mutually exclusive with IncludedManagedClusters.
+                type: string
               supportedConfigs:
                 description: SupportedConfigs defines additional configuration options
                   for the migration
@@ -77,6 +84,10 @@ spec:
             - from
             - to
             type: object
+            x-kubernetes-validations:
+            - message: exactly one of includedManagedClustersPlacementRef or includedManagedClusters
+                must be specified
+              rule: has(self.includedManagedClustersPlacementRef) != has(self.includedManagedClusters)
           status:
             description: Status specifies the observed state of managedclustermigration
             properties:

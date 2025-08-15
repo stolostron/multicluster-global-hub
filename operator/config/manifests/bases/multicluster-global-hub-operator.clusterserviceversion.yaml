@@ -52,10 +52,18 @@ spec:
         name: multicluster-global-hub-manager
         version: v1
       specDescriptors:
+      - description: From defines which hub cluster the managed clusters are from
+        displayName: From
+        path: from
       - description: IncludedManagedClusters is a list of managed clusters that you
-          want to migrate
+          want to migrate. It is mutually exclusive with IncludedManagedClustersPlacementRef.
         displayName: Included Managed Clusters
         path: includedManagedClusters
+      - description: IncludedManagedClustersPlacementRef is used to point to a specific
+          placement that determines which managed clusters are included in a migration
+          operation. It is mutually exclusive with IncludedManagedClusters.
+        displayName: Included Managed Clusters Placement
+        path: includedManagedClustersPlacementRef
       - description: SupportedConfigs defines additional configuration options for
           the migration
         displayName: Supported Configs
