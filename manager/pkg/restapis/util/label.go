@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	invalidLabelSelectorFormatMsg = "invalid equality based label selector: %s\n"
+	invalidLabelSelectorFormatMsg = "invalid equality based label selector: %s"
 )
 
 func ParseLabelSelector(labelSelector string) (string, error) {

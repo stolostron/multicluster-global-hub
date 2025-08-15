@@ -32,7 +32,7 @@ type localPolicyCompleteHandler struct {
 
 func RegisterLocalPolicyCompleteHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.LocalCompleteComplianceType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &localPolicyCompleteHandler{
 		log:            logger.ZapLogger(logName),
 		eventType:      eventType,

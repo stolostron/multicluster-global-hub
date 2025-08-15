@@ -58,7 +58,7 @@ import (
 var log = logger.DefaultZapLogger()
 
 func NewReplicatedPolicyEventEmitter(eventType enum.EventType) interfaces.Emitter {
-	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(eventType), enum.EventTypePrefix, "")
 	return generic.NewGenericEmitter(eventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {
@@ -85,7 +85,7 @@ type localReplicatedPolicyEventHandler struct {
 }
 
 func NewLocalReplicatedPolicyEventHandler(ctx context.Context, c client.Client) interfaces.Handler {
-	name := strings.Replace(string(enum.LocalReplicatedPolicyEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.LocalReplicatedPolicyEventType), enum.EventTypePrefix, "")
 	filter.RegisterTimeFilter(name)
 	return &localReplicatedPolicyEventHandler{
 		ctx:           ctx,

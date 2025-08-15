@@ -101,7 +101,7 @@ func (s *multiObjectSyncer) syncEvent() {
 	// retrieve the bundle from one of the handlers, since they share the same one
 	var eventData interface{}
 	if len(s.objectControllers) > 0 {
-		eventData = s.objectControllers[0].Handler.Get()
+		eventData = s.objectControllers[0].Get()
 	}
 
 	if s.emitter.ShouldSend() {

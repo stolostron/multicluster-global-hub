@@ -37,7 +37,7 @@ type genericObjectHandler[T metav1.Object] struct {
 func RegisterGenericHandler[T metav1.Object](conflationManager *conflator.ConflationManager,
 	eventType string, priority conflator.ConflationPriority, syncMode enum.EventSyncMode, table string,
 ) {
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &genericObjectHandler[T]{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,

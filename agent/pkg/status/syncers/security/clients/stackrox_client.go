@@ -125,7 +125,7 @@ func (c *StackRoxClient) DoRequest(method, path string, body string) ([]byte, *i
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to make request (method: %s, path: %s, body: %s): %v", method, path, body, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
