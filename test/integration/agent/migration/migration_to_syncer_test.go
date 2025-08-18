@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
+	migrationsyncer "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -34,7 +34,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 	var (
 		testCtx          context.Context
 		testCtxCancel    context.CancelFunc
-		migrationSyncer  *syncers.MigrationTargetSyncer
+		migrationSyncer  *migrationsyncer.MigrationTargetSyncer
 		testMigrationID  = "test-migration-456"
 		testFromHub      = "hub1"
 		testToHub        = "hub2"
@@ -46,7 +46,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 	BeforeAll(func() {
 		testCtx, testCtxCancel = context.WithCancel(ctx)
 		receivedEvents = []*cloudevents.Event{}
-		migrationSyncer = syncers.NewMigrationTargetSyncer(
+		migrationSyncer = migrationsyncer.NewMigrationTargetSyncer(
 			runtimeClient,
 			transportClient,
 			transportConfig,
@@ -159,7 +159,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() error {
 				clusterRole := &rbacv1.ClusterRole{}
 				return runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
@@ -167,14 +167,14 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() error {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				return runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetSubjectAccessReviewClusterRoleBindingName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 			Eventually(func() error {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				return runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetAgentRegistrationClusterRoleBindingName(testMSAName),
+					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
@@ -189,7 +189,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating test manifest work for the cluster")
 			manifestWork := &workv1.ManifestWork{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s%s", testClusterName, syncers.KlusterletManifestWorkSuffix),
+					Name:      fmt.Sprintf("%s%s", testClusterName, migrationsyncer.KlusterletManifestWorkSuffix),
 					Namespace: testClusterName,
 				},
 				Spec: workv1.ManifestWorkSpec{
@@ -283,7 +283,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			// Ensure manifest work is created with applied status before each test
 			manifestWork := &workv1.ManifestWork{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf("%s%s", testClusterName, syncers.KlusterletManifestWorkSuffix),
+					Name:      fmt.Sprintf("%s%s", testClusterName, migrationsyncer.KlusterletManifestWorkSuffix),
 					Namespace: testClusterName,
 				},
 				Spec: workv1.ManifestWorkSpec{
@@ -364,7 +364,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRole := &rbacv1.ClusterRole{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -373,7 +373,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetSubjectAccessReviewClusterRoleBindingName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -381,7 +381,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetAgentRegistrationClusterRoleBindingName(testMSAName),
+					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
 				}, clusterRoleBinding)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -400,7 +400,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			// Create resources that should be cleaned up during rollback
 			clusterRole := &rbacv1.ClusterRole{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				},
 				Rules: []rbacv1.PolicyRule{
 					{
@@ -415,7 +415,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 			clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: syncers.GetAgentRegistrationClusterRoleBindingName(testMSAName),
+					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
 				},
 				Subjects: []rbacv1.Subject{
 					{
@@ -453,7 +453,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRole := &rbacv1.ClusterRole{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
@@ -524,7 +524,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				clusterRole := &rbacv1.ClusterRole{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{
-					Name: syncers.GetSubjectAccessReviewClusterRoleName(testMSAName),
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
 				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
