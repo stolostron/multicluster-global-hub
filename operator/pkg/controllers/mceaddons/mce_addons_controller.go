@@ -123,10 +123,7 @@ var mghPred = predicate.Funcs{
 		return true
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		if e.ObjectNew.GetDeletionTimestamp() != nil {
-			return true
-		}
-		return false
+		return e.ObjectNew.GetDeletionTimestamp() != nil
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return false
@@ -192,7 +189,7 @@ func addAddonConfig(cma *addonv1alpha1.ClusterManagementAddOn) bool {
 }
 
 func isGlobalhubPlaceStrategy(ps, globalPs addonv1alpha1.PlacementStrategy) bool {
-	if ps.PlacementRef.Name != globalPs.Name || ps.PlacementRef.Namespace != globalPs.PlacementRef.Namespace {
+	if ps.Name != globalPs.Name || ps.Namespace != globalPs.Namespace {
 		return false
 	}
 
@@ -200,7 +197,7 @@ func isGlobalhubPlaceStrategy(ps, globalPs addonv1alpha1.PlacementStrategy) bool
 		return false
 	}
 	log.Debugf("found placement, placement strategy %s/%s is globalhub placement strategy",
-		ps.PlacementRef.Namespace, ps.PlacementRef.Name)
+		ps.Namespace, ps.Name)
 	return true
 }
 

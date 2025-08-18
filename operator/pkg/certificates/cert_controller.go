@@ -178,12 +178,12 @@ func onUpdate(ctx context.Context, c client.Client, kubeClient kubernetes.Interf
 			if needsRenew(newS) {
 				var err error
 				var hosts []string
-				switch name := newS.Name; {
-				case name == InventoryServerCASecretName:
+				switch newS.Name {
+				case InventoryServerCASecretName:
 					err, _ = createCASecret(c, nil, nil, true, InventoryServerCASecretName, newS.Namespace, serverCACertificateCN)
-				case name == InventoryClientCASecretName:
+				case InventoryClientCASecretName:
 					err, _ = createCASecret(c, nil, nil, true, InventoryClientCASecretName, newS.Namespace, clientCACertificateCN)
-				case name == serverCerts:
+				case serverCerts:
 					hosts, err = getHosts(ctx, c, newS.Namespace)
 					if err == nil {
 						err = createCertSecret(c, nil, nil, true, serverCerts, newS.Namespace, true, serverCertificateCN, nil, hosts, nil)

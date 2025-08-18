@@ -59,7 +59,11 @@ var _ = Describe("subscriptions to database controller", func() {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					fmt.Printf("failed to close rows: %v\n", err)
+				}
+			}()
 			for rows.Next() {
 				syncedSubscription := &appsubv1.Subscription{}
 				var payload []byte

@@ -3,8 +3,6 @@ package generic
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 // MaxBundleBytes defines the maximum in-memory size (in bytes) of the JSON-encoded GenericBundle[T].
@@ -13,8 +11,6 @@ import (
 // default Kafka broker or client message size limits, potentially resulting in errors such as:
 // "produce message: Broker: Message size too large"
 const MaxBundleBytes = 800 * 1024 // 800 KiB
-
-var log = logger.DefaultZapLogger()
 
 type ObjectMetadata struct {
 	ID        string `json:"id,omitempty"`

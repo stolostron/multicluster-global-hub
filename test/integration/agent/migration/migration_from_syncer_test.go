@@ -536,6 +536,8 @@ func createMigrationFromEvent(migrationID, stage, fromHub, toHub string, cluster
 	}
 
 	data, _ := json.Marshal(payload)
-	event.SetData("application/json", data)
+	if err := event.SetData("application/json", data); err != nil {
+		panic(err)
+	}
 	return &event
 }

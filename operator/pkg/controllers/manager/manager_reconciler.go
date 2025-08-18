@@ -230,7 +230,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(r.GetClient())
 
 	// create discovery client
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr
@@ -351,11 +351,12 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string) error {
 	// Remove the migrations if exists
 	mcms := &migrationv1alpha1.ManagedClusterMigrationList{}
-	err := r.GetClient().List(ctx, mcms, client.InNamespace(namespace))
+	if err := r.GetClient().List(ctx, mcms, client.InNamespace(namespace)); err != nil {
+		return err
+	}
 	if len(mcms.Items) > 0 {
 		for _, mcm := range mcms.Items {
-			err = r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{})
-			if err != nil {
+			if err := r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{}); err != nil {
 				return err
 			}
 		}
@@ -443,7 +444,7 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 
 	if !equality.Semantic.DeepDerivative(expectedServiceMonitor.Spec, serviceMonitor.Spec) ||
 		!equality.Semantic.DeepDerivative(expectedServiceMonitor.GetLabels(), serviceMonitor.GetLabels()) {
-		expectedServiceMonitor.ObjectMeta.ResourceVersion = serviceMonitor.ObjectMeta.ResourceVersion
+		expectedServiceMonitor.ResourceVersion = serviceMonitor.ResourceVersion
 		return ctrl.Result{}, r.GetClient().Update(ctx, expectedServiceMonitor)
 	}
 
@@ -451,10 +452,7 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 }
 
 func isMiddlewareUpdated(transportConn *transport.KafkaConfig, storageConn *config.PostgresConnection) bool {
-	updated := false
-	if transportConnectionCache == nil || storageConnectionCache == nil {
-		updated = true
-	}
+	updated := transportConnectionCache == nil || storageConnectionCache == nil
 	if !reflect.DeepEqual(transportConn, transportConnectionCache) {
 		updated = true
 	}

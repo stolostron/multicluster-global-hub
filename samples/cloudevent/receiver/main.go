@@ -37,7 +37,11 @@ func main() {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
 
-	defer receiver.Close(context.Background())
+	defer func() {
+		if err := receiver.Close(context.Background()); err != nil {
+			log.Printf("failed to close receiver: %v", err)
+		}
+	}()
 
 	c, err := cloudevents.NewClient(receiver, client.WithPollGoroutines(1))
 	if err != nil {

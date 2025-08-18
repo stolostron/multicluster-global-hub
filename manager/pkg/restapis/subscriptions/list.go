@@ -63,31 +63,31 @@ func ListSubscriptions() gin.HandlerFunc {
 			var err error
 			selectorInSql, err = util.ParseLabelSelector(labelSelector)
 			if err != nil {
-				fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
+				_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
 				return
 			}
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
 
 		limit := ginCtx.Query("limit")
-		fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
 
 		lastSubscriptionName, lastSubscriptionUID := "", ""
 
 		continueToken := ginCtx.Query("continue")
 		if continueToken != "" {
-			fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
 
 			var err error
 			lastSubscriptionName, lastSubscriptionUID, err = util.DecodeContinue(continueToken)
 			if err != nil {
-				fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
+				_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
 				return
 			}
 		}
 
-		fmt.Fprintf(gin.DefaultWriter,
+		_, _ = fmt.Fprintf(gin.DefaultWriter,
 			"last returned subscription name: %s, last returned subscription UID: %s\n",
 			lastSubscriptionName,
 			lastSubscriptionUID)
@@ -113,7 +113,7 @@ func ListSubscriptions() gin.HandlerFunc {
 			subscriptionListQuery += fmt.Sprintf(" LIMIT %s", limit)
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "subscription list query: %v\n", subscriptionListQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "subscription list query: %v\n", subscriptionListQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
 			handleSubscriptionListForWatch(ginCtx, subscriptionListQuery)
@@ -165,7 +165,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, subscriptionLis
 	db := database.GetGorm()
 	rows, err := db.Raw(subscriptionListQuery).Rows()
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in quering subscription list: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in quering subscription list: %v\n", err)
 	}
 
 	addedSubscriptions := set.NewSet()
@@ -182,7 +182,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, subscriptionLis
 			Type:   "ADDED",
 			Object: runtime.RawExtension{Object: subscription},
 		}, writer); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 	}
 
@@ -207,7 +207,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, subscriptionLis
 			Type:   "DELETED",
 			Object: runtime.RawExtension{Object: subscriptionToDelete},
 		}, writer); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 	}
 
@@ -235,7 +235,7 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	err := db.Raw(lastSubscriptionQuery).Row().Scan(&payload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription: %v\n", err)
 		return
 	}
 
@@ -243,7 +243,7 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 		err = json.Unmarshal(payload, lastSubscription)
 		if err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-			fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription payload: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription payload: %v\n", err)
 			return
 		}
 	}
@@ -251,7 +251,7 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	rows, err := db.Raw(subscriptionListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in querying subscriptions: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying subscriptions: %v\n", err)
 	}
 
 	subscriptionList := &appsv1.SubscriptionList{
@@ -267,12 +267,12 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 		var payload []byte
 		err := rows.Scan(&payload)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription: %v\n", err)
 			continue
 		}
 		err = json.Unmarshal(payload, &subscription)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription payload: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in scanning a subscription payload: %v\n", err)
 			continue
 		}
 		subscriptionList.Items = append(subscriptionList.Items, subscription)
@@ -289,7 +289,7 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 		continueToken, err := util.EncodeContinue(lastSubscriptionName, lastSubscriptionUID)
 		if err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
 			return
 		}
 
@@ -297,23 +297,23 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	}
 
 	if util.ShouldReturnAsTable(ginCtx) {
-		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
 
 		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
 			return
 		}
 
 		subscriptionObjectList, err := wrapObjectsInList(subscriptionList.Items)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in wrapping subscriptions in a list: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in wrapping subscriptions in a list: %v\n", err)
 			return
 		}
 
 		table, err := tableConvertor.ConvertToTable(context.TODO(), subscriptionObjectList, nil)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
 			return
 		}
 

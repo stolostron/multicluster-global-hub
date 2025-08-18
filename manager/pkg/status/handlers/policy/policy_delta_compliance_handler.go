@@ -29,7 +29,7 @@ type policyDeltaComplianceHandler struct {
 
 func RegisterPolicyDeltaComplianceHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.DeltaComplianceType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &policyDeltaComplianceHandler{
 		log:            logger.ZapLogger(logName),
 		eventType:      eventType,

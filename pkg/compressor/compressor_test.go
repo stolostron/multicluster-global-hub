@@ -35,7 +35,9 @@ func TestTransportCompressor(t *testing.T) {
 	}
 
 	out := event.BaseEvent{}
-	json.Unmarshal(outPayload, &out)
+	if err := json.Unmarshal(outPayload, &out); err != nil {
+		t.Fatalf("Failed to unmarshal output payload: %v", err)
+	}
 
 	t.Log(prettyMessage(out))
 }

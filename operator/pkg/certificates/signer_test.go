@@ -17,7 +17,7 @@ import (
 )
 
 func init() {
-	os.Setenv("TEST", "true")
+	_ = os.Setenv("TEST", "true")
 }
 
 func createCSR() []byte {

@@ -89,9 +89,12 @@ var _ = Describe("standalone agent", func() {
 		By("By checking the GH agent clusterrolebinding is re-created in default namespace")
 		agentClusterRoleBinding = &rbacv1.ClusterRoleBinding{}
 		Eventually(func() bool {
-			runtimeClient.Get(ctx, types.NamespacedName{
+			err := runtimeClient.Get(ctx, types.NamespacedName{
 				Name: "multicluster-global-hub:multicluster-global-hub-agent",
 			}, agentClusterRoleBinding)
+			if err != nil {
+				return false
+			}
 			return agentClusterRoleBinding.GetUID() != originClusterRoleBindingId
 		}, time.Second*10, time.Second*1).Should(BeTrue())
 	})

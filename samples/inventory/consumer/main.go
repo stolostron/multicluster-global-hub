@@ -17,7 +17,7 @@ var topic = "kessel-inventory"
 
 func main() {
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	// kafkaConfigMap, err := config.GetConfluentConfigMap()
 	kafkaConfigMap, err := config.GetConfluentConfigMapFromGlobalHub("global-hub-kafka-user", false)

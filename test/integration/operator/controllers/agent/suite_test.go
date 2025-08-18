@@ -246,7 +246,8 @@ func prepareBeforeTest() {
 	})).Should(Succeed())
 
 	By("By creating secret transport")
-	CreateTestTransportSecret(runtimeClient, mgh.Namespace)
+	err = CreateTestTransportSecret(runtimeClient, mgh.Namespace)
+	Expect(err).ToNot(HaveOccurred())
 	transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,

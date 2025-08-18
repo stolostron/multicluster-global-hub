@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -294,8 +295,12 @@ func ensureManagedServiceAccount(migrationName, toHub string) error {
 // cleanupHubAndClusters removes all resources created for a test.
 func cleanupHubAndClusters(ctx context.Context, hubName, clusterName string) {
 	// Delete K8s resources
-	mgr.GetClient().Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: hubName}})
-	mgr.GetClient().Delete(ctx, &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: hubName}})
+	if err := mgr.GetClient().Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: hubName}}); err != nil {
+		log.Printf("failed to delete namespace: %v", err)
+	}
+	if err := mgr.GetClient().Delete(ctx, &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: hubName}}); err != nil {
+		log.Printf("failed to delete managed cluster: %v", err)
+	}
 	// mgr.GetClient().Delete(ctx, &addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{Name: "managed-serviceaccount", Namespace: hubName}})
 
 	// Delete DB entries

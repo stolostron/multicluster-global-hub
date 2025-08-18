@@ -97,7 +97,7 @@ func getUpdatedManagedClusterLabelsBundles(timestamp *time.Time,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return getManagedClusterLabelBundleByRows(db, rows)
 }

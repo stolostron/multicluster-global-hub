@@ -19,7 +19,7 @@ var (
 
 func main() {
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	if len(os.Args) < 2 {
 		fmt.Println("Please provide at least one topic command-line argument.")

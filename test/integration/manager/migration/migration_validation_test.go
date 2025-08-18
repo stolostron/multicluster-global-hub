@@ -2,6 +2,7 @@ package migration_test
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +30,9 @@ var _ = Describe("ManagedClusterMigration Validation", func() {
 	})
 
 	AfterEach(func() {
-		cleanupMigrationCR(context.Background(), testName, testNamespace)
+		if err := cleanupMigrationCR(context.Background(), testName, testNamespace); err != nil {
+			fmt.Printf("failed to cleanup migration CR: %v\n", err)
+		}
 	})
 
 	It("should reject migration with neither field specified", func() {

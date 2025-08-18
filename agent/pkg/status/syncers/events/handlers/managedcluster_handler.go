@@ -21,7 +21,7 @@ import (
 )
 
 func NewManagedClusterEventEmitter() interfaces.Emitter {
-	name := strings.Replace(string(enum.ManagedClusterEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.ManagedClusterEventType), enum.EventTypePrefix, "")
 	return generic.NewGenericEmitter(enum.ManagedClusterEventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {
@@ -48,7 +48,7 @@ type managedClusterEventHandler struct {
 }
 
 func NewManagedClusterEventHandler(ctx context.Context, c client.Client) *managedClusterEventHandler {
-	name := strings.Replace(string(enum.ManagedClusterEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.ManagedClusterEventType), enum.EventTypePrefix, "")
 	filter.RegisterTimeFilter(name)
 	return &managedClusterEventHandler{
 		ctx:           ctx,

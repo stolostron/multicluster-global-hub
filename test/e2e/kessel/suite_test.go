@@ -102,12 +102,20 @@ var _ = BeforeSuite(func() {
 	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(kafkaConfigMap),
 		kafka_confluent.WithReceiverTopics([]string{options.KafkaTopic}))
 	Expect(err).To(Succeed())
-	defer receiver.Close(ctx)
+	defer func() {
+		if err := receiver.Close(ctx); err != nil {
+			log.Errorf("failed to close receiver: %v", err)
+		}
+	}()
 
 	c, err := cloudevents.NewClient(receiver, cloudevents.WithTimeNow(), cloudevents.WithUUIDs(),
 		ceclient.WithPollGoroutines(1), ceclient.WithBlockingCallback())
 	Expect(err).To(Succeed())
-	defer receiver.Close(ctx)
+	defer func() {
+		if err := receiver.Close(ctx); err != nil {
+			log.Errorf("failed to close receiver: %v", err)
+		}
+	}()
 
 	var mutex sync.Mutex
 	go func() {

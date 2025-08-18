@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	fakekube "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -227,8 +227,8 @@ func TestGenerateAlertConfigMap(t *testing.T) {
 								APIVersion:         "operator.open-cluster-management.io/v1alpha4",
 								Kind:               "MulticlusterGlobalHub",
 								Name:               "test",
-								BlockOwnerDeletion: pointer.Bool(true),
-								Controller:         pointer.Bool(true),
+								BlockOwnerDeletion: ptr.To(true),
+								Controller:         ptr.To(true),
 							},
 						},
 					},
@@ -398,8 +398,8 @@ func TestGenerateGranafaIni(t *testing.T) {
 								APIVersion:         "operator.open-cluster-management.io/v1alpha4",
 								Kind:               "MulticlusterGlobalHub",
 								Name:               "test",
-								BlockOwnerDeletion: pointer.Bool(true),
-								Controller:         pointer.Bool(true),
+								BlockOwnerDeletion: ptr.To(true),
+								Controller:         ptr.To(true),
 							},
 						},
 					},
@@ -499,8 +499,8 @@ func TestGenerateGranafaIni(t *testing.T) {
 								APIVersion:         "operator.open-cluster-management.io/v1alpha4",
 								Kind:               "MulticlusterGlobalHub",
 								Name:               "test",
-								BlockOwnerDeletion: pointer.Bool(true),
-								Controller:         pointer.Bool(true),
+								BlockOwnerDeletion: ptr.To(true),
+								Controller:         ptr.To(true),
 							},
 						},
 					},

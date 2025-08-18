@@ -35,19 +35,33 @@ func main() {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
 	// exactly once - producer
-	configMap.SetKey("enable.idempotence", "true")
-	configMap.SetKey("acks", "all")
-	configMap.SetKey("retries", "3")
-	configMap.SetKey("max.in.flight.requests.per.connection", "5")
+	if err := configMap.SetKey("enable.idempotence", "true"); err != nil {
+		log.Fatalf("failed to set enable.idempotence: %v", err)
+	}
+	if err := configMap.SetKey("acks", "all"); err != nil {
+		log.Fatalf("failed to set acks: %v", err)
+	}
+	if err := configMap.SetKey("retries", "3"); err != nil {
+		log.Fatalf("failed to set retries: %v", err)
+	}
+	if err := configMap.SetKey("max.in.flight.requests.per.connection", "5"); err != nil {
+		log.Fatalf("failed to set max.in.flight.requests.per.connection: %v", err)
+	}
 	// Sends messages immediately, without waiting to batch them. This reduces latency but can reduce throughput.
-	configMap.SetKey("linger.ms", "0")
+	if err := configMap.SetKey("linger.ms", "0"); err != nil {
+		log.Fatalf("failed to set linger.ms: %v", err)
+	}
 
 	sender, err := kafka_confluent.New(kafka_confluent.WithConfigMap(configMap),
 		kafka_confluent.WithSenderTopic(fmt.Sprintf("gh-status.%s", hubName)))
 	if err != nil {
 		log.Fatalf("failed to create protocol, %v", err)
 	}
-	defer sender.Close(ctx)
+	defer func() {
+		if err := sender.Close(ctx); err != nil {
+			log.Printf("failed to close sender: %v", err)
+		}
+	}()
 	eventChan, _ := sender.Events()
 	handleProducerEvents(eventChan)
 

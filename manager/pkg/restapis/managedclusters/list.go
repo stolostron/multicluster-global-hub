@@ -68,15 +68,15 @@ func ListManagedClusters() gin.HandlerFunc {
 		if labelSelector != "" {
 			selectorInSql, err = util.ParseLabelSelector(labelSelector)
 			if err != nil {
-				fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
+				_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
 				return
 			}
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
 
 		limit := ginCtx.Query("limit")
-		fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
 
 		lastManagedClusterName := ""
 		lastManagedClusterUID := uuid.MustParse("00000000-0000-0000-0000-000000000000")
@@ -86,7 +86,7 @@ func ListManagedClusters() gin.HandlerFunc {
 			var lastManagedClusterUIDStr string
 			lastManagedClusterName, lastManagedClusterUIDStr, err = util.DecodeContinue(continueToken)
 			if err != nil {
-				fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
+				_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
 				return
 			}
 			lastManagedClusterUID, err = uuid.Parse(lastManagedClusterUIDStr)
@@ -96,7 +96,7 @@ func ListManagedClusters() gin.HandlerFunc {
 			}
 		}
 
-		fmt.Fprintf(gin.DefaultWriter,
+		_, _ = fmt.Fprintf(gin.DefaultWriter,
 			"last returned managed cluster name: %s, last returned managed cluster UID: %s\n",
 			lastManagedClusterName,
 			lastManagedClusterUID)
@@ -118,7 +118,7 @@ func ListManagedClusters() gin.HandlerFunc {
 			managedClusterListQuery += fmt.Sprintf(" LIMIT %s", limit)
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "managedcluster list query: %v\n", managedClusterListQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "managedcluster list query: %v\n", managedClusterListQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
 			handleRowsForWatch(ginCtx, managedClusterListQuery)
@@ -176,7 +176,7 @@ func doHandleRowsForWatch(writer io.Writer, managedClusterListQuery string,
 	db := database.GetGorm()
 	rows, err := db.Raw(managedClusterListQuery).Rows()
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, "error in quering managed cluster list: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in quering managed cluster list: %v\n", err)
 	}
 
 	addedManagedClusterNames := set.NewSet()
@@ -193,7 +193,7 @@ func doHandleRowsForWatch(writer io.Writer, managedClusterListQuery string,
 			Type:   "ADDED",
 			Object: runtime.RawExtension{Object: managedCluster},
 		}, writer); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 	}
 
@@ -219,7 +219,7 @@ func doHandleRowsForWatch(writer io.Writer, managedClusterListQuery string,
 			Type:   "DELETED",
 			Object: runtime.RawExtension{Object: managedClusterToDelete},
 		}, writer); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 	}
 
@@ -250,13 +250,13 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	err := db.Raw(lastManagedClusterQuery).Row().Scan(&payload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", err)
 		return
 	}
 	if err == nil {
 		if err := json.Unmarshal(payload, lastManagedCluster); err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-			fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to lastManagedCluster: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to lastManagedCluster: %v\n", err)
 			return
 		}
 	}
@@ -265,9 +265,9 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	rows, err := db.Raw(managedClusterListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in querying managed clusters: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying managed clusters: %v\n", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	managedClusterList := &clusterv1.ManagedClusterList{
 		TypeMeta: metav1.TypeMeta{
@@ -283,13 +283,13 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 		var payloadCluster []byte
 		err := rows.Scan(&payloadCluster)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in scanning a managed cluster: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in scanning a managed cluster: %v\n", err)
 			continue
 		}
 		err = json.Unmarshal(payloadCluster, &managedCluster)
 		if err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-			fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to managedCluster: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error to unmarshal payload to managedCluster: %v\n", err)
 			return
 		}
 
@@ -307,7 +307,7 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 		continueToken, err := util.EncodeContinue(lastManagedClusterName, lastManagedClusterUID)
 		if err != nil {
 			ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
-			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
 			return
 		}
 
@@ -315,23 +315,23 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	}
 
 	if util.ShouldReturnAsTable(ginCtx) {
-		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
 
 		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
 			return
 		}
 
 		managedClustersList, err := wrapObjectsInList(managedClusterList.Items)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in wrapping managed clusters in a list: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in wrapping managed clusters in a list: %v\n", err)
 			return
 		}
 
 		table, err := tableConvertor.ConvertToTable(context.TODO(), managedClustersList, nil)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
 			return
 		}
 

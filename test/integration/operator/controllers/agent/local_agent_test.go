@@ -82,16 +82,19 @@ var _ = Describe("local agent", func() {
 		By("By checking the GH agent clusterrolebinding is re-created")
 		agentClusterRoleBinding = &rbacv1.ClusterRoleBinding{}
 		Eventually(func() bool {
-			runtimeClient.Get(ctx, types.NamespacedName{
+			err := runtimeClient.Get(ctx, types.NamespacedName{
 				Name: "multicluster-global-hub:multicluster-global-hub-agent",
 			}, agentClusterRoleBinding)
+			if err != nil {
+				return false
+			}
 			return agentClusterRoleBinding.GetUID() != originClusterRoleBindingId
 		}, time.Second*10, time.Second*1).Should(BeTrue())
 	})
 
 	It("Should create local agent with new local-cluster name", func() {
 		newLocalClusterName := "local-cluster-new"
-		runtimeClient.Create(ctx, &clusterv1.ManagedCluster{
+		err := runtimeClient.Create(ctx, &clusterv1.ManagedCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: newLocalClusterName,
 				Labels: map[string]string{
@@ -103,6 +106,7 @@ var _ = Describe("local agent", func() {
 				LeaseDurationSeconds: 60,
 			},
 		})
+		Expect(err).ToNot(HaveOccurred())
 		By("By checking the GH agent is created")
 		agentDeployment := &appsv1.Deployment{}
 		Eventually(func() error {
@@ -113,7 +117,7 @@ var _ = Describe("local agent", func() {
 			if err != nil {
 				return err
 			}
-			err, name := agent.GetLocalClusterName(ctx, runtimeClient, controllerOption.MulticlusterGlobalHub.Namespace)
+			name, err := agent.GetLocalClusterName(ctx, runtimeClient, controllerOption.MulticlusterGlobalHub.Namespace)
 			if err != nil {
 				return err
 			}

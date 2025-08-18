@@ -110,14 +110,15 @@ var _ = Describe("Render", func() {
 			Expect(err).To(BeNil())
 
 			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
-			defer os.Remove(tempFile.Name())
+			Expect(err).To(BeNil())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			for _, unsObj := range nginxObjects {
 				unsObjYaml, err := yaml.Marshal(unsObj)
 				Expect(err).To(BeNil())
 				_, err = tempFile.Write(unsObjYaml)
 				Expect(err).To(BeNil())
-				_, err = tempFile.WriteString("\n---\n") // add yaml separator
+				_, _ = tempFile.WriteString("\n---\n") // add yaml separator
 			}
 
 			goldenFilePath := filepath.Join("testdata/output", fmt.Sprintf("%s.golden.yaml", profile))
@@ -150,14 +151,15 @@ var _ = Describe("Render", func() {
 			Expect(err).To(BeNil())
 
 			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
-			defer os.Remove(tempFile.Name())
+			Expect(err).To(BeNil())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			for _, unsObj := range nginxObjects {
 				unsObjYaml, err := yaml.Marshal(unsObj)
 				Expect(err).To(BeNil())
 				_, err = tempFile.Write(unsObjYaml)
 				Expect(err).To(BeNil())
-				_, err = tempFile.WriteString("\n---\n") // add yaml separator
+				_, _ = tempFile.WriteString("\n---\n") // add yaml separator
 			}
 
 			goldenFilePath := filepath.Join("testdata/output", fmt.Sprintf("%s.golden.yaml", profile))
@@ -190,14 +192,15 @@ var _ = Describe("Render", func() {
 			Expect(err).To(BeNil())
 
 			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
-			defer os.Remove(tempFile.Name())
+			Expect(err).To(BeNil())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			for _, unsObj := range nginxObjects {
 				unsObjYaml, err := yaml.Marshal(unsObj)
 				Expect(err).To(BeNil())
 				_, err = tempFile.Write(unsObjYaml)
 				Expect(err).To(BeNil())
-				_, err = tempFile.WriteString("\n---\n") // add yaml separator
+				_, _ = tempFile.WriteString("\n---\n") // add yaml separator
 			}
 
 			goldenFilePath := filepath.Join("testdata/output", fmt.Sprintf("%s.golden.yaml", profile))
@@ -230,14 +233,15 @@ var _ = Describe("Render", func() {
 			Expect(err).To(BeNil())
 
 			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-", profile))
-			defer os.Remove(tempFile.Name())
+			Expect(err).To(BeNil())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			for _, unsObj := range nginxObjects {
 				unsObjYaml, err := yaml.Marshal(unsObj)
 				Expect(err).To(BeNil())
 				_, err = tempFile.Write(unsObjYaml)
 				Expect(err).To(BeNil())
-				_, err = tempFile.WriteString("\n---\n") // add yaml separator
+				_, _ = tempFile.WriteString("\n---\n") // add yaml separator
 			}
 
 			goldenFilePath := filepath.Join("testdata/output", fmt.Sprintf("%s.golden.yaml", profile))
@@ -273,14 +277,15 @@ var _ = Describe("Render", func() {
 			Expect(err).To(BeNil())
 
 			tempFile, err := os.CreateTemp("", fmt.Sprintf("%s-%s-", profile, filter))
-			defer os.Remove(tempFile.Name())
+			Expect(err).To(BeNil())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			for _, unsObj := range nginxObjects {
 				unsObjYaml, err := yaml.Marshal(unsObj)
 				Expect(err).To(BeNil())
 				_, err = tempFile.Write(unsObjYaml)
 				Expect(err).To(BeNil())
-				_, err = tempFile.WriteString("\n---\n") // add yaml separator
+				_, _ = tempFile.WriteString("\n---\n") // add yaml separator
 			}
 
 			goldenFilePath := filepath.Join("testdata/output",

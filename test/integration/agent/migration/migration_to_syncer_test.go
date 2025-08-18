@@ -245,7 +245,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			}
 
 			data, _ := json.Marshal(migrationResources)
-			event.SetData("application/json", data)
+			if err := event.SetData("application/json", data); err != nil {
+				panic(err)
+			}
 
 			By("Processing the deployment event")
 			migrationSyncer.SetMigrationID(testMigrationID)
@@ -575,6 +577,8 @@ func createMigrationToEvent(migrationID, stage, fromHub, toHub string) *cloudeve
 	}
 
 	data, _ := json.Marshal(payload)
-	event.SetData("application/json", data)
+	if err := event.SetData("application/json", data); err != nil {
+		panic(err)
+	}
 	return &event
 }

@@ -239,7 +239,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: req.NamespacedName.Name,
+			Name: req.Name,
 		},
 	}
 	err = r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
@@ -281,7 +281,7 @@ func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Contex
 			Name: constants.GHClusterManagementAddonName,
 		},
 	}
-	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {
+	if err := r.Delete(ctx, clusterManagementAddOn); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -436,7 +436,7 @@ func (r *DefaultAgentController) allClusterRequests(
 	requests := []reconcile.Request{}
 
 	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := r.Client.List(ctx, managedClusterList)
+	err := r.List(ctx, managedClusterList)
 	if err != nil {
 		log.Errorf("failed to list managedClusters to trigger mca controller")
 		return requests

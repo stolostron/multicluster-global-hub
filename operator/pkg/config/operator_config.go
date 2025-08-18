@@ -28,7 +28,6 @@ type ControllerOption struct {
 }
 
 type ComponentStatus struct {
-	err    error
 	Ready  bool
 	Kind   string
 	Reason string

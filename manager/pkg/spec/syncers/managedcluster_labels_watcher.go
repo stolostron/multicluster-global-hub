@@ -200,7 +200,7 @@ func getLabelBundleWithDeletedKey() (
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return getManagedClusterLabelBundleByRows(db, rows)
 }
@@ -255,7 +255,7 @@ func getLabelsWithoutLeafHubName() ([]*spec.ManagedClusterLabelsSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read from spec.%s - %w", labelsTableName, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	managedClusterLabelsSpecSlice := make([]*spec.ManagedClusterLabelsSpec, 0)
 

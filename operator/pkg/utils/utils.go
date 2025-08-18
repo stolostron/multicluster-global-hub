@@ -226,7 +226,7 @@ func GetAlertGPCcount(a []byte) (int, int, int, error) {
 		return groupCount, policyCount, contactCount, err
 	}
 	for k, v := range o1 {
-		if !(k == "groups" || k == "policies" || k == "contactPoints") {
+		if k != "groups" && k != "policies" && k != "contactPoints" {
 			continue
 		}
 		vArray, _ := v.([]interface{})
