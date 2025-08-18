@@ -30,6 +30,11 @@ jobs:
       - name: Setup gofumpt
         run: go install mvdan.cc/gofumpt@latest
 
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
+
       - name: format
         run: make strict-fmt
   verify-bundle:
