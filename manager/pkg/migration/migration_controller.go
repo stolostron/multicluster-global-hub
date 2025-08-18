@@ -145,9 +145,9 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 				log.Errorf("failed to add finalizer: %v", err)
 				return ctrl.Result{}, err
 			}
-			// initializing the migration status for the instance
-			AddMigrationStatus(string(mcm.GetUID()))
 		}
+		// initializing the migration status for the instance
+		AddMigrationStatus(string(mcm.GetUID()))
 	}
 
 	// setup custom timeouts from config
@@ -216,8 +216,9 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 			if updateErr := m.Update(ctx, mcm); updateErr != nil {
 				log.Errorf("failed to remove finalizer: %v", updateErr)
 			}
-			RemoveMigrationStatus(string(mcm.GetUID()))
 		}
+		RemoveMigrationStatus(string(mcm.GetUID()))
+		log.Infof("clean up migration status for migrationId: %s", mcm.GetUID())
 	}
 
 	return ctrl.Result{}, nil

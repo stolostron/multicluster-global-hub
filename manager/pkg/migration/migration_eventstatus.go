@@ -24,6 +24,9 @@ type StageState struct {
 func AddMigrationStatus(migrationId string) {
 	mu.Lock()
 	defer mu.Unlock()
+	if _, ok := migrationStatuses[migrationId]; ok {
+		return
+	}
 	migrationStatuses[migrationId] = &MigrationStatus{
 		HubState: make(map[string]*StageState),
 	}
@@ -34,6 +37,9 @@ func AddMigrationStatus(migrationId string) {
 func RemoveMigrationStatus(migrationId string) {
 	mu.Lock()
 	defer mu.Unlock()
+	if _, ok := migrationStatuses[migrationId]; !ok {
+		return
+	}
 	delete(migrationStatuses, migrationId)
 	log.Infof("clean up migration status for migrationId: %s", migrationId)
 }
