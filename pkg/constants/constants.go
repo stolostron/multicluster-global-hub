@@ -133,8 +133,6 @@ const (
 	GHOperatorOwnerLabelVal     = "global-hub-operator"
 	// Deprecated identify the resource is a local-resource
 	// GlobalHubLocalResource = "global-hub.open-cluster-management.io/local-resource"
-	// if the resource with this label, it will be synced to database and then propagated to managed hub
-	GlobalHubGlobalResourceLabel = "global-hub.open-cluster-management.io/global-resource"
 	GlobalHubMetricsLabel        = "global-hub.open-cluster-management.io/metrics-resource"
 )
 
@@ -142,8 +140,6 @@ const (
 const (
 	// identify the managed cluster is managed by the specified managed hub cluster
 	ManagedClusterManagedByAnnotation = "global-hub.open-cluster-management.io/managed-by"
-	// identify the resource is from the global hub cluster
-	OriginOwnerReferenceAnnotation = "global-hub.open-cluster-management.io/origin-ownerreference-uid"
 	// identy the kafka is upgrade from zookeeper mode
 	UpgradeKafkaFromZookeeperAnnotation = "global-hub.open-cluster-management.io/upgrade-from-zookeeper"
 	// kafka-cluster-id save the current kafka cluster id
@@ -152,10 +148,6 @@ const (
 
 // store all the finalizers
 const (
-	// The finalizer is only for the global resource. The finalizer will be added if it has the
-	// GlobalHubGlobalResourceLabel or OriginOwnerReferenceAnnotation
-	GlobalHubCleanupFinalizer = "global-hub.open-cluster-management.io/resource-cleanup"
-
 	// indicate the removing the global hub finalizer, shouldn't add it back to the resource
 	// the value is a timestamp which is the expiration time of this label
 	GlobalHubFinalizerRemovingDeadline = "global-hub.open-cluster-management.io/finalizer-removing-deadline"

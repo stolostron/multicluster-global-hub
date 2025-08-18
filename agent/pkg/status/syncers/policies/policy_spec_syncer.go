@@ -27,7 +27,6 @@ func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Prod
 	// 1. emitter: define how to load the object into bundle and send the bundle
 	enableLocalPolicy := func(obj client.Object) bool {
 		return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
-			!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
 			!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 	}
 	localPolicySpecEmitter := emitters.NewObjectEmitter(

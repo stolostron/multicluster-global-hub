@@ -19,27 +19,6 @@ import (
 
 var _ = Describe("Multicluster hub manager webhook", func() {
 	Context("Test Placement and placementrule are handled by the global hub manager webhook", Ordered, func() {
-		It("Should add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
-			testPlacement := &clusterv1beta1.Placement{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-placement-",
-					Namespace:    utils.GetDefaultNamespace(),
-					Labels:       map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
-				},
-				Spec: clusterv1beta1.PlacementSpec{},
-			}
-
-			Eventually(func() bool {
-				if err := c.Create(ctx, testPlacement, &client.CreateOptions{}); err != nil {
-					return false
-				}
-				placement := &clusterv1beta1.Placement{}
-				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacement), placement); err != nil {
-					return false
-				}
-				return placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true"
-			}, 5*time.Second).Should(BeTrue())
-		})
 
 		It("Should not add cluster.open-cluster-management.io/experimental-scheduling-disable annotation to placement", func() {
 			testPlacement := &clusterv1beta1.Placement{
@@ -62,27 +41,6 @@ var _ = Describe("Multicluster hub manager webhook", func() {
 			}, 1*time.Second, 5*time.Second).Should(BeTrue())
 		})
 
-		It("Should set global-hub as scheduler name for the placementrule", func() {
-			testPlacementRule := &placementrulesv1.PlacementRule{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: "test-placementrule-",
-					Namespace:    utils.GetDefaultNamespace(),
-					Labels:       map[string]string{constants.GlobalHubGlobalResourceLabel: ""},
-				},
-				Spec: placementrulesv1.PlacementRuleSpec{},
-			}
-
-			Eventually(func() bool {
-				if err := c.Create(ctx, testPlacementRule, &client.CreateOptions{}); err != nil {
-					return false
-				}
-				placementrule := &placementrulesv1.PlacementRule{}
-				if err := c.Get(ctx, client.ObjectKeyFromObject(testPlacementRule), placementrule); err != nil {
-					return false
-				}
-				return placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName
-			}, 1*time.Second, 5*time.Second).Should(BeTrue())
-		})
 
 		It("Should not set global-hub as scheduler name for the placementrule", func() {
 			testPlacementRule := &placementrulesv1.PlacementRule{

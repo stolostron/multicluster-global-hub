@@ -31,7 +31,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -52,7 +51,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/webhook"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/jobs"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -151,7 +149,7 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		mgh.SetFinalizers(utils.Remove(mgh.GetFinalizers(), constants.GlobalHubCleanupFinalizer))
+		// No finalizer removal needed since global resources are removed
 		if err := utils.UpdateObject(ctx, r.client, mgh); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -178,7 +176,7 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, reconcileErr
 	}
 
-	if controllerutil.AddFinalizer(mgh, constants.GlobalHubCleanupFinalizer) {
+	if false { // No finalizer needed since global resources are removed
 		if reconcileErr := r.client.Update(ctx, mgh, &client.UpdateOptions{}); reconcileErr != nil {
 			if errors.IsConflict(reconcileErr) {
 				log.Errorf("conflict when adding finalizer to mgh instance, error: %v", reconcileErr)
@@ -359,7 +357,7 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
 	return desiredComponents
 }
 
-// pruneGlobalResources deletes the cluster scoped resources, clusterrole... And finalizers of policy, application,..
+// pruneGlobalHubResources deletes the cluster scoped resources during cleanup
 func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	// clean up the cluster resources, eg. clusterrole, clusterrolebinding, etc
 	if err := r.pruneGlobalResources(ctx); err != nil {
@@ -367,19 +365,13 @@ func (r *MetaController) pruneGlobalHubResources(ctx context.Context) error {
 	}
 
 	if config.IsACMResourceReady() {
-		// remove finalizer from app, policy and placement.
-		// the finalizer is added by the global hub manager. ideally, they should be pruned by manager
-		// But currently, we do not have a channel from operator to let manager knows when to start pruning.
-		if err := jobs.NewPruneFinalizer(ctx, r.client).Run(); err != nil {
-			return err
-		}
-		log.Info("removed finalizer from mgh, app, policy, placement and etc")
+		log.Info("ACM resources available")
 	}
 
 	return nil
 }
 
-// pruneGlobalResources deletes the cluster scoped resources created by the multicluster-global-hub-operator
+// pruneGlobalResources deletes cluster scoped resources created by the multicluster-global-hub-operator
 // cluster scoped resources need to be deleted manually because they don't have ownerrefenence set
 func (r *MetaController) pruneGlobalResources(ctx context.Context) error {
 	listOpts := []client.ListOption{

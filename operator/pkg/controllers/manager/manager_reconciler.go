@@ -329,7 +329,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			Tolerations:               mgh.Spec.Tolerations,
 			RetentionMonth:            months,
 			StatisticLogInterval:      config.GetStatisticLogInterval(),
-			EnableGlobalResource:      r.operatorConfig.GlobalResourceEnabled,
 			EnableInventoryAPI:        config.WithInventory(mgh),
 			EnablePprof:               r.operatorConfig.EnablePprof,
 			Resources:                 utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedSpec),
@@ -502,7 +501,6 @@ type ManagerVariables struct {
 	Tolerations               []corev1.Toleration
 	RetentionMonth            int
 	StatisticLogInterval      string
-	EnableGlobalResource      bool
 	EnableInventoryAPI        bool
 	EnablePprof               bool
 	Resources                 *corev1.ResourceRequirements

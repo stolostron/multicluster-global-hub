@@ -17,8 +17,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/authentication"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/managedclusters"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/policies"
-	"github.com/stolostron/multicluster-global-hub/manager/pkg/restapis/subscriptions"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -114,10 +112,6 @@ func SetupRouter(nonK8sAPIServerConfig *RestApiServerConfig) (*gin.Engine, error
 	routerGroup.GET("/managedclusters", managedclusters.ListManagedClusters())
 	routerGroup.PATCH("/managedcluster/:clusterID",
 		managedclusters.PatchManagedCluster())
-	routerGroup.GET("/policies", policies.ListPolicies())
-	routerGroup.GET("/policy/:policyID/status", policies.GetPolicyStatus())
-	routerGroup.GET("/subscriptions", subscriptions.ListSubscriptions())
-	routerGroup.GET("/subscriptionreport/:subscriptionID", subscriptions.GetSubscriptionReport())
 
 	return router, nil
 }

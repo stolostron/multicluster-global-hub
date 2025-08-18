@@ -5,7 +5,6 @@ List all of the labels that are used by the multicluster global hub.
 | Label                                                                                                | Description                                                                                                                                                                                                                                                  |
 | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | global-hub.open-cluster-management.io/managed-by=`global-hub-operator\|global-hub\|global-hub-agent` | If the value is `global-hub-operator`, the resources are created by the global hub operator. The global hub operator watches the resources based on this label.                                                                                     |
-| global-hub.open-cluster-management.io/global-resource=                                               | This label is added when creating the global resources. It is used to identify the resource that transport needs to propagate to the managed hub clusters.                                                                                               |
 | global-hub.open-cluster-management.io/hub-cluster-install=                                           | This label is used on ManagedCluster. If this label exists, the global hub operator installs Red Hat Advanced Cluster Management on a managed cluster. If the label is not included, Red Hat Advanced Cluster Management is not installed on the managed cluster by the global hub operator.                                          |
 | global-hub.open-cluster-management.io/metrics-resource=`strimzi\|postgres` | It's used to identify the resource owned by enableMetrics, if the enableMetrics is disabled, these resources should be removed. |
 | global-hub.open-cluster-management.io/deploy-mode = `hosted\| default`                  | This label is used on ManagedCluster.<br>`hosted` means the klusterlet and global hub agent is deployed on Hosting cluster.<br>`default` means the klusterlet and global hub agent is deployed on managed cluster.|
@@ -17,7 +16,6 @@ List all annotations are used by multicluster global hub.
 | Annotation                                                       | Description                                                                                                                                                        |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | global-hub.open-cluster-management.io/managed-by=                | This annotation is used to identify which managed cluster is managed by which managed hub cluster.                                                                  |
-| global-hub.open-cluster-management.io/origin-ownerreference-uid= | This annotation is used to identify that the resource is from the global hub cluster. The global hub agent is only handled with the resource which has this annotation. |
 | mgh-image-repository=                                            | This annotation is used on the MCGH/MGH custom resource to identify a custom image repository.                                                                                      |
 | global-hub.open-cluster-management.io/with-inventory                | This annotation is used to identify the common inventory is deployed.                                                                  |
 | global-hub.open-cluster-management.io/with-stackrox-integration | This annotation enables the experimental integration with [Stackrox](https://github.com/stackrox).|
@@ -32,7 +30,6 @@ List all of the finalizers that are used by the multicluster global hub.
 
 | Finalizer                                              | Description                                                         |
 | ------------------------------------------------------ | ------------------------------------------------------------------- |
-| global-hub.open-cluster-management.io/resource-cleanup | This is the finalizer that is used by the multicluster global hub. |
 
 # ClusterClaim 
 

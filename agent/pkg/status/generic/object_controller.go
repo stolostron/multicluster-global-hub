@@ -7,13 +7,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type syncController struct {
@@ -33,7 +30,7 @@ func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmit
 		emitter:       objectEmitter,
 		instance:      instanceFunc,
 		leafHubName:   configs.GetLeafHubName(),
-		finalizerName: constants.GlobalHubCleanupFinalizer,
+		finalizerName: "",
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).For(instanceFunc()).WithEventFilter(objectEmitter.EventFilter()).
@@ -60,12 +57,7 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 	// delete
 	if !object.GetDeletionTimestamp().IsZero() {
-		if IsGlobalResource(object) && controllerutil.RemoveFinalizer(object, c.finalizerName) {
-			if err := c.client.Update(ctx, object); err != nil {
-				log.Errorw("failed to remove finalizer", "error", err, "name", request.Name)
-				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
-			}
-		}
+		// Global resource finalizer management removed
 
 		if err := c.emitter.Delete(object); err != nil {
 			log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
@@ -75,12 +67,7 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	if IsGlobalResource(object) && controllerutil.AddFinalizer(object, c.finalizerName) {
-		if err := c.client.Update(ctx, object); err != nil {
-			log.Error(err, "failed to add fianlizer", "namespace", request.Namespace, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
-		}
-	}
+	// Global resource finalizer management removed
 
 	// update/insert
 	cleanObject(object)
@@ -92,7 +79,4 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func IsGlobalResource(obj client.Object) bool {
-	return utils.HasLabel(obj, constants.GlobalHubGlobalResourceLabel) ||
-		utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
-}
+// IsGlobalResource function removed - global resource functionality no longer supported

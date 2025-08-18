@@ -36,7 +36,6 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
-            - --enable-global-resource={{.EnableGlobalResource}}
             - --enable-inventory-api={{.EnableInventoryAPI}}
             - --with-acm={{.WithACM}}
             - --transport-failure-threshold={{.TransportFailureThreshold}}
@@ -76,60 +75,9 @@ spec:
             name: metrics
             protocol: TCP
           volumeMounts:
-         {{- if .EnableGlobalResource}}
-          - mountPath: /webhook-certs
-            name: webhook-certs
-            readOnly: true
-          {{- end }}
           - mountPath: /postgres-credential
             name: postgres-credential
             readOnly: true
-        {{- if .EnableGlobalResource}}
-        - name: oauth-proxy
-          image: {{.ProxyImage}}
-          imagePullPolicy: {{.ImagePullPolicy}}
-          args:
-            - --provider=openshift
-            - --https-address=:8443
-            - --http-address=
-            - --upstream=http://localhost:8080
-            - --skip-provider-button=true
-            # - '--client-id=/var/run/secrets/kubernetes.io/serviceaccount/namespace'
-            # - '--client-secret-file=/var/run/secrets/kubernetes.io/serviceaccount/token'
-            - '--pass-user-bearer-token=true'
-            - '--pass-access-token=true'
-            - --openshift-sar={"resource":"projects","verb":"list"}
-            - --openshift-delegate-urls={"/":{"resource":"projects","verb":"list"}}
-            - --tls-cert=/etc/tls/private/tls.crt
-            - --tls-key=/etc/tls/private/tls.key
-            - --openshift-service-account=multicluster-global-hub-manager
-            - --cookie-secret-file=/etc/proxy/secrets/session_secret
-            - --openshift-ca=/etc/pki/tls/cert.pem
-            - --openshift-ca=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-          ports:
-            - containerPort: 8443
-              name: oauth-proxy
-              protocol: TCP
-          resources:
-            requests:
-              cpu: 1m
-              memory: 20Mi
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /oauth/healthz
-              port: 8443
-              scheme: HTTPS
-            periodSeconds: 10
-            successThreshold: 1
-            timeoutSeconds: 1
-          volumeMounts:
-          - mountPath: /etc/tls/private
-            name: apiserver-certs
-            readOnly: true
-          - mountPath: /etc/proxy/secrets
-            name: cookie-secret
-        {{- end }}
       {{- if .ImagePullSecret }}
       imagePullSecrets:
         - name: {{.ImagePullSecret}}
@@ -158,14 +106,3 @@ spec:
       - name: postgres-credential
         secret:
           secretName: {{.StorageConfigSecret}}
-      {{- if .EnableGlobalResource }}
-      - name: apiserver-certs
-        secret:
-          secretName: multicluster-global-hub-manager-certs
-      - name: cookie-secret
-        secret:
-          secretName: nonk8s-apiserver-cookie-secret
-      - name: webhook-certs
-        secret:
-          secretName: multicluster-global-hub-manager-webhook-certs
-      {{- end }}

@@ -38,7 +38,6 @@ var _ = Describe("manager", Ordered, func() {
 		mghName := "test-mgh"
 		reconciler = manager.NewManagerReconciler(runtimeManager, kubeClient, &config.OperatorConfig{
 			EnablePprof:           false,
-			GlobalResourceEnabled: true,
 		})
 		// mgh
 		Expect(runtimeClient.Create(ctx, &corev1.Namespace{

@@ -36,7 +36,6 @@ spec:
             - --lease-duration={{.LeaseDuration}}
             - --renew-deadline={{.RenewDeadline}}
             - --retry-period={{.RetryPeriod}}
-            - --enable-global-resource={{.EnableGlobalResource}}
             - --qps={{.AgentQPS}}
             - --burst={{.AgentBurst}}
             - --enable-pprof={{.EnablePprof}}

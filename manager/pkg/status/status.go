@@ -34,7 +34,7 @@ func AddStatusSyncers(
 
 	// manage all Conflation Units and handlers
 	conflationManager := conflator.NewConflationManager(stats, requester)
-	handlers.RegisterHandlers(mgr, conflationManager, managerConfig.EnableGlobalResource)
+	handlers.RegisterHandlers(mgr, conflationManager)
 
 	// start consume message from transport to conflation manager
 	if err := dispatcher.AddTransportDispatcher(mgr, consumer, managerConfig, conflationManager, stats); err != nil {

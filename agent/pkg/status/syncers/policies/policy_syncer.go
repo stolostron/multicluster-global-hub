@@ -32,7 +32,6 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 	localComplianceShouldUpdate := func(obj client.Object) bool {
 		return configmap.GetAggregationLevel() == configmap.AggregationFull && // full level
 			configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
-			!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
 			!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
 	}
 	localComplianceHandler := handlers.NewComplianceHandler(&grc.ComplianceBundle{}, localComplianceShouldUpdate)
@@ -50,32 +49,18 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 		// should update
 		func(obj client.Object) bool {
 			return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue &&
-				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
 				utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // replicated policy
 		},
 		mgr.GetClient(),
 	)
 	localStatusEventEmitter := handlers.NewPolicyStatusEventEmitter(enum.LocalReplicatedPolicyEventType)
 
-	// 4. local policy spec
-	// localPolicySpecHandler := generic.NewGenericHandler(&genericpayload.GenericObjectBundle{},
-	// 	generic.WithShouldUpdate(
-	// 		func(obj client.Object) bool {
-	// 			return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
-	// 				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
-	// 				!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
-	// 		}),
-	// 	generic.WithSpec(true),
-	// 	generic.WithTweakFunc(cleanPolicy),
-	// )
-	// localPolicySpecEmitter := generic.NewGenericEmitter(enum.LocalPolicySpecType)
+	// 4. local policy spec - removed with global resource functionality
 
 	// 5. global policy compliance
 	complianceVersion := eventversion.NewVersion()
 	complianceShouldUpdate := func(obj client.Object) bool {
-		return configmap.GetAggregationLevel() == configmap.AggregationFull && // full level
-			utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // global resource
-			!utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // root policy
+		return false // global resources are removed
 	}
 	globalComplianceHandler := handlers.NewComplianceHandler(&grc.ComplianceBundle{}, complianceShouldUpdate)
 	globalComplianceEmitter := generic.NewGenericEmitter(enum.ComplianceType, generic.WithVersion(complianceVersion))

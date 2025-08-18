@@ -120,8 +120,7 @@ func (h *localRootPolicyHandler) shouldUpdate(obj client.Object) bool {
 
 	policy, ok := policyEventPredicate(h.ctx, h.name, obj, h.runtimeClient)
 
-	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
-		!utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
+	return ok && !utils.HasLabel(policy, constants.PolicyEventRootPolicyNameLabelKey)
 }
 
 func policyEventPredicate(ctx context.Context, name string, obj client.Object, c client.Client) (

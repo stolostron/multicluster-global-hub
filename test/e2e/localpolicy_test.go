@@ -13,7 +13,6 @@ import (
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 )
@@ -186,7 +185,7 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						return err
 					}
 					for _, finalizer := range policy.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
+						if finalizer == "global-hub.open-cluster-management.io/cleanup" {
 							return fmt.Errorf("the local policy(%s) has been added the cleanup finalizer", policy.GetName())
 						}
 					}
@@ -206,7 +205,7 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						return err
 					}
 					for _, finalizer := range placementbinding.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
+						if finalizer == "global-hub.open-cluster-management.io/cleanup" {
 							return fmt.Errorf("the local placementbinding(%s) has been added the cleanup finalizer",
 								placementbinding.GetName())
 						}
@@ -228,7 +227,7 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						return err
 					}
 					for _, finalizer := range placementrule.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
+						if finalizer == "global-hub.open-cluster-management.io/cleanup" {
 							return fmt.Errorf("the local placementrule(%s) has been added the cleanup finalizer", placementrule.GetName())
 						}
 					}

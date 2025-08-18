@@ -20,7 +20,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 type multiObjectSyncer struct {
@@ -144,7 +143,7 @@ func AddObjectController(mgr ctrl.Manager, objectCtrl ControllerHandler, emitter
 	controller := &objectController{
 		log:              logger.ZapLogger(fmt.Sprintf("status.%s", object.GetObjectKind())),
 		client:           mgr.GetClient(),
-		finalizerName:    constants.GlobalHubCleanupFinalizer,
+		finalizerName:    "",
 		emitter:          emitter,
 		objectController: objectCtrl,
 		lock:             lock,
@@ -222,8 +221,7 @@ func (c *objectController) deleteObjectAndFinalizer(ctx context.Context, object 
 }
 
 func enableCleanUpFinalizer(obj client.Object) bool {
-	return utils.HasLabel(obj, constants.GlobalHubGlobalResourceLabel) ||
-		utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation)
+	return false
 }
 
 func cleanObject(object client.Object) {

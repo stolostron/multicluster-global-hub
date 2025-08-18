@@ -97,7 +97,6 @@ type ManifestsConfig struct {
 	RetryPeriod               string
 	KlusterletNamespace       string
 	KlusterletWorkSA          string
-	EnableGlobalResource      bool
 	TransportFailureThreshold int
 	AgentQPS                  float32
 	AgentBurst                int

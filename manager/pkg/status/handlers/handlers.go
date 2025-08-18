@@ -3,9 +3,7 @@ package handlers
 import (
 	"fmt"
 
-	clustersv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
@@ -19,7 +17,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enableGlobalResource bool) {
+func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager) {
 	// managed hub
 	managedhub.RegisterHubClusterHeartbeatHandler(cmr)
 	managedhub.RegsiterHubClusterInfoHandler(cmr)
@@ -48,48 +46,4 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 
 	// security
 	security.RegisterSecurityAlertCountsHandler(cmr)
-
-	if enableGlobalResource {
-		// global policy
-		policy.RegisterPolicyComplianceHandler(cmr)
-		policy.RegisterPolicyCompleteHandler(cmr)
-		policy.RegisterPolicyDeltaComplianceHandler(cmr)
-		policy.RegisterPolicyMiniComplianceHandler(cmr)
-
-		// placementRule
-		generic.RegisterGenericHandler[*placementrulev1.PlacementRule](
-			cmr,
-			string(enum.PlacementRuleSpecType),
-			conflator.PlacementRulePriority,
-			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementRulesTableName))
-
-		generic.RegisterGenericHandler[*clustersv1beta1.Placement](
-			cmr,
-			string(enum.PlacementSpecType),
-			conflator.PlacementPriority,
-			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementsTableName))
-
-		generic.RegisterGenericHandler[*clustersv1beta1.PlacementDecision](
-			cmr,
-			string(enum.PlacementDecisionType),
-			conflator.PlacementDecisionPriority,
-			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.PlacementDecisionsTableName))
-
-		generic.RegisterGenericHandler[*appsv1alpha1.SubscriptionReport](
-			cmr,
-			string(enum.SubscriptionReportType),
-			conflator.SubscriptionReportPriority,
-			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionReportsTableName))
-
-		generic.RegisterGenericHandler[*appsv1alpha1.SubscriptionStatus](
-			cmr,
-			string(enum.SubscriptionStatusType),
-			conflator.SubscriptionStatusPriority,
-			enum.CompleteStateMode,
-			fmt.Sprintf("%s.%s", database.StatusSchema, database.SubscriptionStatusesTableName))
-	}
 }

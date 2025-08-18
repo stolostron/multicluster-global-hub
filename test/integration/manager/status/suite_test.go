@@ -100,7 +100,6 @@ var _ = BeforeSuite(func() {
 		StatisticsConfig: &statistics.StatisticsConfig{
 			LogInterval: "10s",
 		},
-		EnableGlobalResource: true,
 		EnableInventoryAPI:   true,
 	}
 

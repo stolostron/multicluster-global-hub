@@ -26,7 +26,7 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	}
 
 	// add worker pool to manager
-	workers, err := workers.AddWorkerPoolToMgr(mgr, agentConfig.SpecWorkPoolSize, mgr.GetConfig())
+	_, err := workers.AddWorkerPoolToMgr(mgr, agentConfig.SpecWorkPoolSize, mgr.GetConfig())
 	if err != nil {
 		return fmt.Errorf("failed to add k8s workers pool to runtime manager: %w", err)
 	}
@@ -38,12 +38,6 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	}
 
 	// register syncer to the dispatcher
-	if agentConfig.EnableGlobalResource {
-		dispatcher.RegisterSyncer(constants.GenericSpecMsgKey,
-			syncers.NewGenericSyncer(workers, agentConfig))
-		dispatcher.RegisterSyncer(constants.ManagedClustersLabelsMsgKey,
-			syncers.NewManagedClusterLabelSyncer(workers))
-	}
 
 	dispatcher.RegisterSyncer(constants.MigrationSourceMsgKey,
 		syncers.NewMigrationSourceSyncer(mgr.GetClient(), mgr.GetConfig(), transportClient, agentConfig.TransportConfig))

@@ -107,8 +107,7 @@ func (h *localReplicatedPolicyEventHandler) shouldUpdate(obj client.Object) bool
 	}
 	policy, ok := policyEventPredicate(h.ctx, h.name, obj, h.runtimeClient)
 
-	return ok && !utils.HasAnnotation(policy, constants.OriginOwnerReferenceAnnotation) &&
-		utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
+	return ok && utils.HasItemKey(policy.GetLabels(), constants.PolicyEventRootPolicyNameLabelKey)
 }
 
 func (h *localReplicatedPolicyEventHandler) Update(obj client.Object) bool {

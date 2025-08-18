@@ -22,7 +22,6 @@ type ManagerConfig struct {
 	StatisticsConfig     *statistics.StatisticsConfig
 	RestAPIServerConfig  *restapis.RestApiServerConfig
 	ElectionConfig       *commonobjects.LeaderElectionConfig
-	EnableGlobalResource bool
 	EnableInventoryAPI   bool
 	WithACM              bool
 	LaunchJobNames       string

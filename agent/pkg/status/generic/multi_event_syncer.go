@@ -14,7 +14,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -53,7 +52,7 @@ func LaunchMultiEventSyncer(name string, mgr ctrl.Manager, controller interfaces
 		controller:       controller,
 		eventEmitters:    eventEmitters,
 		leafHubName:      configs.GetLeafHubName(),
-		finalizerName:    constants.GlobalHubCleanupFinalizer,
+		finalizerName:    "",
 	}
 
 	// start the periodic syncer

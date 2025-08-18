@@ -9,7 +9,6 @@ metadata:
   name: policy-limitrange
   namespace: global-placement
   labels:
-    global-hub.open-cluster-management.io/global-resource: ""
   annotations:
     policy.open-cluster-management.io/standards: NIST-CSF
     policy.open-cluster-management.io/categories: PR.IP Information Protection Processes and Procedures
@@ -52,7 +51,6 @@ metadata:
   name: binding-policy-limitrange
   namespace: global-placement
   labels:
-    global-hub.open-cluster-management.io/global-resource: ""
 placementRef:
   name: placement-policy-limitrange
   kind: Placement
@@ -68,7 +66,6 @@ metadata:
   name: placement-policy-limitrange
   namespace: global-placement
   labels:
-    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   clusterSets:
     - clusterset1
@@ -79,7 +76,6 @@ metadata:
   name: clusterset1
   namespace: global-placement
   labels:
-    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   clusterSet: clusterset1
 ---
@@ -88,7 +84,6 @@ kind: ManagedClusterSet
 metadata:
   name: clusterset1
   labels:
-    global-hub.open-cluster-management.io/global-resource: ""
 spec:
   clusterSelector:
     selectorType: ExclusiveClusterSetLabel

@@ -10,38 +10,11 @@ metadata:
     service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-manager-certs
 spec:
   ports:
-  {{ if .EnableGlobalResource }}
-  - port: 8443
-    targetPort: oauth-proxy
-    name: api-server
-  {{ else }}
   - port: 8080
     targetPort: http-apiserver
-    name: api-server
-  {{ end }}  
+    name: api-server  
   - port: 8384
     name: metrics
     targetPort: metrics
   selector:
     name: multicluster-global-hub-manager
----
-{{- if .EnableGlobalResource}}
-apiVersion: v1
-kind: Service
-metadata:
-  name: multicluster-global-hub-global-webhook
-  namespace: {{.Namespace}}
-  labels:
-    name: multicluster-global-hub-global-webhook
-    service: multicluster-global-hub-global-webhook
-  annotations:
-    service.beta.openshift.io/serving-cert-secret-name: multicluster-global-hub-manager-webhook-certs
-spec:
-  ports:
-  - port: 443
-    protocol: TCP
-    targetPort: 9443
-    name: webhook-server
-  selector:
-    name: multicluster-global-hub-manager
-{{ end }}

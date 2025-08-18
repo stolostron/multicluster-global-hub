@@ -349,11 +349,7 @@ func RemoveManagedHubClusterFinalizer(ctx context.Context, c client.Client) erro
 			continue
 		}
 
-		if ok := controllerutil.RemoveFinalizer(managedHub, constants.GlobalHubCleanupFinalizer); ok {
-			if err := c.Update(ctx, managedHub, &client.UpdateOptions{}); err != nil {
-				return err
-			}
-		}
+		// No finalizer cleanup needed since global resources are removed
 	}
 	return nil
 }

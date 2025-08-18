@@ -5,7 +5,6 @@ package webhook
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -13,7 +12,6 @@ import (
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -41,22 +39,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
-		// don't schedule the policy/application for global hub resources
-		if _, found := placement.Labels[constants.GlobalHubGlobalResourceLabel]; found {
-			if placement.Annotations == nil {
-				placement.Annotations = map[string]string{}
-			}
-			if placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] == "true" {
-				return admission.Allowed("")
-			}
-
-			placement.Annotations[clusterv1beta1.PlacementDisableAnnotation] = "true"
-			marshaledPlacement, err := json.Marshal(placement)
-			if err != nil {
-				return admission.Errored(http.StatusInternalServerError, err)
-			}
-			return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPlacement)
-		}
+		// Global resource feature removed - no special processing needed
 		return admission.Allowed("")
 	case "PlacementRule":
 		placementrule := &placementrulesv1.PlacementRule{}
@@ -65,18 +48,7 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 
-		if _, found := placementrule.Labels[constants.GlobalHubGlobalResourceLabel]; found {
-			if placementrule.Spec.SchedulerName == constants.GlobalHubSchedulerName {
-				return admission.Allowed("")
-			}
-
-			placementrule.Spec.SchedulerName = constants.GlobalHubSchedulerName
-			marshaledPlacementRule, err := json.Marshal(placementrule)
-			if err != nil {
-				return admission.Errored(http.StatusInternalServerError, err)
-			}
-			return admission.PatchResponseFromRaw(req.Object.Raw, marshaledPlacementRule)
-		}
+		// Global resource feature removed - no special processing needed
 		return admission.Allowed("")
 	default:
 		return admission.Allowed("")

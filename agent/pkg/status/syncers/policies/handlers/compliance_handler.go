@@ -8,7 +8,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/interfaces"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/grc"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -122,12 +121,8 @@ func getCompliancesIndexByObj(obj client.Object, compliances []grc.Compliance) i
 }
 
 func extractPolicyIdentity(obj client.Object) string {
-	// if global policy id exist, then return the global policyID, else return local policyID
-	if utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) {
-		return obj.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]
-	} else {
-		return string(obj.GetUID())
-	}
+	// return local policyID since global resources are removed
+	return string(obj.GetUID())
 }
 
 func getIndexByPolicyID(uid string, compliances []grc.Compliance) int {

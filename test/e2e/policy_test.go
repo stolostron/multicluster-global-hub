@@ -15,8 +15,6 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
 const (
@@ -133,7 +131,6 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 
 	Context("Policy Finalizer", func() {
 		It("verify the policy resource has been added the global cleanup finalizer", func() {
-			By("Global Policy")
 			Eventually(func() error {
 				policy := &policiesv1.Policy{}
 				err := globalHubClient.Get(ctx, client.ObjectKey{
@@ -144,7 +141,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				for _, finalizer := range policy.Finalizers {
-					if finalizer == constants.GlobalHubCleanupFinalizer {
+					if finalizer == "global-hub.open-cluster-management.io/cleanup" {
 						return nil
 					}
 				}
@@ -162,7 +159,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				for _, finalizer := range placementbinding.Finalizers {
-					if finalizer == constants.GlobalHubCleanupFinalizer {
+					if finalizer == "global-hub.open-cluster-management.io/cleanup" {
 						return nil
 					}
 				}
@@ -180,7 +177,7 @@ var _ = Describe("Apply policy to the managed clusters", Ordered, Label("e2e-tes
 					return err
 				}
 				for _, finalizer := range placementrule.Finalizers {
-					if finalizer == constants.GlobalHubCleanupFinalizer {
+					if finalizer == "global-hub.open-cluster-management.io/cleanup" {
 						return nil
 					}
 				}

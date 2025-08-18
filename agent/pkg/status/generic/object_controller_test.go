@@ -18,7 +18,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
@@ -111,7 +110,7 @@ func TestSyncController_Reconcile_BasicOperations(t *testing.T) {
 				emitter:       emitter,
 				instance:      func() client.Object { return &appsv1.Deployment{} },
 				leafHubName:   "test-hub",
-				finalizerName: constants.GlobalHubCleanupFinalizer,
+				finalizerName: "test-finalizer",
 			}
 
 			_, namespacedName := tt.setup(fakeClient)
@@ -129,114 +128,6 @@ func TestSyncController_Reconcile_BasicOperations(t *testing.T) {
 	}
 }
 
-func TestSyncController_Reconcile_GlobalResources(t *testing.T) {
-	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "test-hub"})
-
-	tests := []struct {
-		name        string
-		labels      map[string]string
-		annotations map[string]string
-		isGlobal    bool
-	}{
-		{
-			name: "global resource with label",
-			labels: map[string]string{
-				constants.GlobalHubGlobalResourceLabel: "true",
-			},
-			isGlobal: true,
-		},
-		{
-			name: "global resource with annotation",
-			annotations: map[string]string{
-				constants.OriginOwnerReferenceAnnotation: "test",
-			},
-			isGlobal: true,
-		},
-		{
-			name:     "non-global resource",
-			isGlobal: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-			emitter := emitters.NewObjectEmitter(enum.EventType("deployments"), nil)
-
-			controller := &syncController{
-				client:        fakeClient,
-				emitter:       emitter,
-				instance:      func() client.Object { return &appsv1.Deployment{} },
-				leafHubName:   "test-hub",
-				finalizerName: constants.GlobalHubCleanupFinalizer,
-			}
-
-			// Test update scenario
-			deploy := createTestDeployment("test-deploy", "test-ns", tt.labels, tt.annotations, nil)
-			require.NoError(t, fakeClient.Create(context.Background(), deploy))
-
-			request := ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: "test-ns",
-					Name:      "test-deploy",
-				},
-			}
-
-			result, err := controller.Reconcile(context.Background(), request)
-			require.NoError(t, err)
-			require.Equal(t, ctrl.Result{}, result)
-
-			// Verify finalizer handling
-			updatedDeploy := &appsv1.Deployment{}
-			err = fakeClient.Get(context.Background(), request.NamespacedName, updatedDeploy)
-			require.NoError(t, err)
-
-			if tt.isGlobal {
-				require.Contains(t, updatedDeploy.Finalizers, constants.GlobalHubCleanupFinalizer)
-			} else {
-				require.NotContains(t, updatedDeploy.Finalizers, constants.GlobalHubCleanupFinalizer)
-			}
-
-			// Test delete scenario for global resources
-			if tt.isGlobal {
-				// Create a new deployment with finalizer for deletion test
-				deleteDeploy := createTestDeployment("test-deploy-del", "test-ns", tt.labels, tt.annotations, nil)
-				deleteDeploy.Finalizers = []string{constants.GlobalHubCleanupFinalizer}
-				require.NoError(t, fakeClient.Create(context.Background(), deleteDeploy))
-
-				// Simulate deletion by calling Delete (this will set DeletionTimestamp)
-				require.NoError(t, fakeClient.Delete(context.Background(), deleteDeploy))
-
-				// Verify object is in deletion state with finalizer
-				initialDeleteDeploy := &appsv1.Deployment{}
-				err = fakeClient.Get(context.Background(), types.NamespacedName{Name: "test-deploy-del", Namespace: "test-ns"}, initialDeleteDeploy)
-				require.NoError(t, err)
-				require.NotNil(t, initialDeleteDeploy.DeletionTimestamp)
-				require.Contains(t, initialDeleteDeploy.Finalizers, constants.GlobalHubCleanupFinalizer)
-
-				deleteRequest := ctrl.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: "test-ns",
-						Name:      "test-deploy-del",
-					},
-				}
-
-				result, err = controller.Reconcile(context.Background(), deleteRequest)
-				require.NoError(t, err)
-				require.Equal(t, ctrl.Result{}, result)
-
-				// After reconcile, the object should be completely deleted
-				// because the controller removed the finalizer
-				updatedDeleteDeploy := &appsv1.Deployment{}
-				err = fakeClient.Get(context.Background(), deleteRequest.NamespacedName, updatedDeleteDeploy)
-
-				// The object should be deleted (not found error is expected)
-				require.Error(t, err)
-				require.True(t, errors.IsNotFound(err), "Object should be deleted after finalizer removal")
-			}
-		})
-	}
-}
 
 func TestSyncController_Reconcile_EdgeCases(t *testing.T) {
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "test-hub"})
@@ -250,12 +141,12 @@ func TestSyncController_Reconcile_EdgeCases(t *testing.T) {
 			emitter:       emitter,
 			instance:      func() client.Object { return &appsv1.Deployment{} },
 			leafHubName:   "test-hub",
-			finalizerName: constants.GlobalHubCleanupFinalizer,
+			finalizerName: "test-finalizer",
 		}
 
 		// Create a non-global resource that already has a finalizer
 		deploy := createTestDeployment("test-deploy", "test-ns", nil, nil, nil)
-		deploy.Finalizers = []string{constants.GlobalHubCleanupFinalizer}
+		deploy.Finalizers = []string{"test-finalizer"}
 		require.NoError(t, fakeClient.Create(context.Background(), deploy))
 
 		request := ctrl.Request{
@@ -278,10 +169,10 @@ func TestSyncController_Reconcile_EdgeCases(t *testing.T) {
 		err = fakeClient.Get(context.Background(), request.NamespacedName, updatedDeploy)
 		require.NoError(t, err)
 		// The finalizer should still be there since it's not a global resource
-		require.Contains(t, updatedDeploy.Finalizers, constants.GlobalHubCleanupFinalizer)
+		require.Contains(t, updatedDeploy.Finalizers, "test-finalizer")
 	})
 
-	t.Run("global resource delete without finalizer", func(t *testing.T) {
+	t.Run("resource delete without finalizer", func(t *testing.T) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 		emitter := emitters.NewObjectEmitter(enum.EventType("deployments"), nil)
 
@@ -290,13 +181,11 @@ func TestSyncController_Reconcile_EdgeCases(t *testing.T) {
 			emitter:       emitter,
 			instance:      func() client.Object { return &appsv1.Deployment{} },
 			leafHubName:   "test-hub",
-			finalizerName: constants.GlobalHubCleanupFinalizer,
+			finalizerName: "test-finalizer",
 		}
 
-		// Create a global resource without finalizer
-		deploy := createTestDeployment("test-deploy", "test-ns",
-			map[string]string{constants.GlobalHubGlobalResourceLabel: "true"},
-			nil, nil)
+		// Create a test resource without finalizer
+		deploy := createTestDeployment("test-deploy", "test-ns", nil, nil, nil)
 		// No finalizers on this object
 		require.NoError(t, fakeClient.Create(context.Background(), deploy))
 
@@ -322,59 +211,6 @@ func TestSyncController_Reconcile_EdgeCases(t *testing.T) {
 	})
 }
 
-func TestIsGlobalResource(t *testing.T) {
-	tests := []struct {
-		name        string
-		labels      map[string]string
-		annotations map[string]string
-		expected    bool
-	}{
-		{
-			name: "with global resource label",
-			labels: map[string]string{
-				constants.GlobalHubGlobalResourceLabel: "true",
-			},
-			expected: true,
-		},
-		{
-			name: "with origin owner reference annotation",
-			annotations: map[string]string{
-				constants.OriginOwnerReferenceAnnotation: "test",
-			},
-			expected: true,
-		},
-		{
-			name: "with both label and annotation",
-			labels: map[string]string{
-				constants.GlobalHubGlobalResourceLabel: "true",
-			},
-			annotations: map[string]string{
-				constants.OriginOwnerReferenceAnnotation: "test",
-			},
-			expected: true,
-		},
-		{
-			name:     "without global resource markers",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			obj := &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-deploy",
-					Namespace:   "test-ns",
-					Labels:      tt.labels,
-					Annotations: tt.annotations,
-				},
-			}
-
-			result := IsGlobalResource(obj)
-			require.Equal(t, tt.expected, result)
-		})
-	}
-}
 
 func TestCleanObject(t *testing.T) {
 	obj := &appsv1.Deployment{

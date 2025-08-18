@@ -15,7 +15,7 @@ type genericHandler struct {
 	eventData *genericpayload.GenericObjectBundle
 	// isSpec is to let the handler only update the event when spec is changed.
 	// the current replicated policy event will also emit such message,it is true for policy,
-	// haven't handle the other object spec like placement, appsub...
+	// haven't handle the other object spec like placement...
 	isSpec bool
 
 	tweakFunc    func(client.Object)

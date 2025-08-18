@@ -26,7 +26,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -90,7 +89,6 @@ var _ = BeforeSuite(func() {
 				StatusTopic: "event",
 			},
 		},
-		EnableGlobalResource: true,
 	}
 	configs.SetAgentConfig(agentConfig)
 	configmap.SetInterval(configmap.GetSyncKey(enum.HubClusterHeartbeatType), 2*time.Second)
@@ -153,12 +151,6 @@ var _ = BeforeSuite(func() {
 	err = policies.AddPolicySpecSyncer(ctx, mgr, chanTransport.Producer(PolicyTopic), periodicSyncer)
 	Expect(err).To(Succeed())
 
-	// placement
-	Expect(err).To(Succeed())
-	err = placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, chanTransport.Producer(PlacementTopic))
-	Expect(err).To(Succeed())
-	err = placement.LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, chanTransport.Producer(PlacementTopic))
-	Expect(err).To(Succeed())
 
 	// hubcluster info
 	err = configmap.AddConfigMapController(mgr, agentConfig)

@@ -14,7 +14,6 @@ type OperatorConfig struct {
 	ProbeAddress              string
 	PodNamespace              string
 	LeaderElection            bool
-	GlobalResourceEnabled     bool
 	EnablePprof               bool
 	TransportFailureThreshold int
 }

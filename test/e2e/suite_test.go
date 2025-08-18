@@ -520,8 +520,7 @@ func patchGHDeployment(runtimeClient client.Client, namespace, name string) erro
 	if err != nil {
 		return err
 	}
-	args := deployment.Spec.Template.Spec.Containers[0].Args
-	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
+	_ = deployment.Spec.Template.Spec.Containers[0].Args
 	return runtimeClient.Update(ctx, deployment)
 }
 
