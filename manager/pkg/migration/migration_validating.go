@@ -30,9 +30,6 @@ const (
 	ConditionReasonResourceValidated = "ResourceValidated"
 	ConditionReasonResourceInvalid   = "ResourceInvalid"
 
-	// Validation constants
-	maxClusterMessagesDisplay = 3
-
 	// Managed cluster conditions
 	conditionTypeAvailable = "ManagedClusterConditionAvailable"
 )

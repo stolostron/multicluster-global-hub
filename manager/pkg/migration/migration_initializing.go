@@ -22,7 +22,6 @@ import (
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -207,36 +206,6 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 			eventType, constants.CloudEventGlobalHubClusterName, fromHub, err)
 	}
 	return nil
-}
-
-// getSourceHubToClustersFromDB return a map, key the is the from hub name, and value is the clusters of the hub
-func getSourceHubToClustersFromDB(mcm *migrationv1alpha1.ManagedClusterMigration) (map[string][]string, error) {
-	db := database.GetGorm()
-	managedClusterMap := make(map[string][]string)
-	if mcm.Spec.From != "" {
-		managedClusterMap[mcm.Spec.From] = mcm.Spec.IncludedManagedClusters
-		return managedClusterMap, nil
-	}
-
-	rows, err := db.Raw(`SELECT leaf_hub_name, cluster_name FROM status.managed_clusters
-			WHERE cluster_name IN (?)`,
-		mcm.Spec.IncludedManagedClusters).Rows()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get leaf hub name and managed clusters - %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var leafHubName, managedClusterName string
-		if err := rows.Scan(&leafHubName, &managedClusterName); err != nil {
-			return nil, fmt.Errorf("failed to scan leaf hub name and managed cluster name - %w", err)
-		}
-		// If the cluster is synced into the to hub, ignore it.
-		if leafHubName == mcm.Spec.To {
-			continue
-		}
-		managedClusterMap[leafHubName] = append(managedClusterMap[leafHubName], managedClusterName)
-	}
-	return managedClusterMap, nil
 }
 
 func (m *ClusterMigrationController) ensureManagedServiceAccount(ctx context.Context,
