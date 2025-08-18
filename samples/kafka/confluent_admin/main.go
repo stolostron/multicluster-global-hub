@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -38,9 +36,10 @@ func main() {
 
 	// listTopic(admin)
 	// err = describeACLs(admin, "managed-hub", topic)
-	err = grantWrite(admin, "managed-hub", topic)
-	err = grantRead(admin, "managed-hub", topic)
-	if err != nil {
+	if err := grantWrite(admin, "managed-hub", topic); err != nil {
+		panic(err)
+	}
+	if err := grantRead(admin, "managed-hub", topic); err != nil {
 		panic(err)
 	}
 
@@ -49,48 +48,6 @@ func main() {
 	fmt.Println("Done")
 }
 
-func listTopic(admin *kafka.AdminClient) {
-	// List topics
-	topics, err := admin.GetMetadata(nil, true, 5000)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get metadata: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("List of topics:")
-	for _, topic := range topics.Topics {
-		fmt.Println(topic.Topic, len(topic.Partitions))
-	}
-}
-
-func createTopic(admin *kafka.AdminClient, topic string) {
-	// Create topics on cluster.
-	// Set Admin options to wait for the operation to finish (or at most 60s)
-	maxDur, err := time.ParseDuration("60s")
-	if err != nil {
-		panic("ParseDuration(60s)")
-	}
-
-	results, err := admin.CreateTopics(
-		context.TODO(),
-		// Multiple topics can be created simultaneously
-		// by providing more TopicSpecification structs here.
-		[]kafka.TopicSpecification{{
-			Topic:             topic,
-			NumPartitions:     1,
-			ReplicationFactor: 1,
-		}},
-		// Admin options
-		kafka.SetAdminOperationTimeout(maxDur))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create topic: %v\n", err))
-	}
-
-	// Print results
-	for _, result := range results {
-		fmt.Printf("%s\n", result.Error.String())
-	}
-}
 
 func grantWrite(admin *kafka.AdminClient, clusterName, topicName string) error {
 	// grant the managed hub user permission with admin client and CommonName in cert
@@ -232,28 +189,6 @@ func grantRead(admin *kafka.AdminClient, clusterName, topicName string) error {
 	return nil
 }
 
-func describeACLs(admin *kafka.AdminClient, userName, topicName string) error {
-	// grant the managed hub user permission with admin client and CommonName in cert
-	expectedAcl := kafka.ACLBinding{
-		Type:                kafka.ResourceTopic,
-		Name:                topicName,
-		ResourcePatternType: kafka.ResourcePatternTypeLiteral,
-		Principal:           fmt.Sprintf("User:CN=%s", userName),
-		Operation:           kafka.ACLOperationWrite,
-		PermissionType:      kafka.ACLPermissionTypeAllow,
-	}
-	existACLs, err := admin.DescribeACLs(context.TODO(), expectedAcl)
-	if err != nil {
-		return fmt.Errorf("failed the describe ACLs: %v", err)
-	}
-
-	fmt.Println("the acls:", existACLs.ACLBindings.Len())
-	for _, acl := range existACLs.ACLBindings {
-		fmt.Println("--------------------------")
-		utils.PrettyPrint(acl)
-	}
-	return nil
-}
 
 func hasACL(acls *kafka.DescribeACLsResult, binding kafka.ACLBinding) bool {
 	if acls.Error.Code() == kafka.ErrNoError {

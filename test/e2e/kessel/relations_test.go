@@ -55,7 +55,11 @@ var _ = Describe("relations api", Ordered, func() {
 		req.Header.Add("Accept", "application/json")
 		res, err := client.Do(req)
 		Expect(err).ToNot(HaveOccurred())
-		defer res.Body.Close()
+		defer func() {
+			if err := res.Body.Close(); err != nil {
+				log.Errorf("failed to close response body: %v", err)
+			}
+		}()
 
 		body, err := io.ReadAll(res.Body)
 		Expect(err).ToNot(HaveOccurred())

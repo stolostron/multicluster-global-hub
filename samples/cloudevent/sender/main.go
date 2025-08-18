@@ -37,7 +37,11 @@ func main() {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
 
-	defer sender.Close(context.Background())
+	defer func() {
+		if err := sender.Close(context.Background()); err != nil {
+			log.Printf("failed to close sender: %v", err)
+		}
+	}()
 
 	c, err := cloudevents.NewClient(sender, cloudevents.WithTimeNow(), cloudevents.WithUUIDs())
 	if err != nil {

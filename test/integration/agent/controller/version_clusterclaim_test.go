@@ -163,8 +163,12 @@ var _ = Describe("claim controllers", Ordered, func() {
 			err := mgr.GetClient().Get(ctx, types.NamespacedName{
 				Name: constants.VersionClusterClaimName,
 			}, newClusterClaim)
-			fmt.Fprintf(GinkgoWriter, "the old ClusterClaim: %v\n", clusterClaim)
-			fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim)
+			if _, err := fmt.Fprintf(GinkgoWriter, "the old ClusterClaim: %v\n", clusterClaim); err != nil {
+				panic(err)
+			}
+			if _, err := fmt.Fprintf(GinkgoWriter, "the new ClusterClaim: %v\n", newClusterClaim); err != nil {
+				panic(err)
+			}
 			return err == nil && clusterClaim.GetResourceVersion() != newClusterClaim.GetResourceVersion()
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 

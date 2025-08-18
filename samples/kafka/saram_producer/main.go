@@ -27,7 +27,7 @@ func main() {
 	topic := os.Args[1]
 
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	// bootstrapSever, saramaConfig, err := config.GetSaramaConfig()
 	bootstrapServer, saramaConfig, err := config.GetSaramaConfigFromKafkaUser()

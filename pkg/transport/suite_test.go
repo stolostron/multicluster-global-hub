@@ -25,7 +25,9 @@ var _ = BeforeSuite(func() {
 	var err error
 	mockCluster, err = kafka.NewMockCluster(1)
 	Expect(err).NotTo(HaveOccurred())
-	fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers())
+	if _, err := fmt.Fprintf(GinkgoWriter, "mock kafka bootstrap server address: %s\n", mockCluster.BootstrapServers()); err != nil {
+		panic(err)
+	}
 })
 
 var _ = AfterSuite(func() {

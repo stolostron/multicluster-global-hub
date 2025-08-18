@@ -3,6 +3,7 @@ package spec
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,7 +59,11 @@ var _ = Describe("channels to database controller", func() {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					log.Printf("failed to close rows: %v", err)
+				}
+			}()
 			for rows.Next() {
 
 				var payload []byte

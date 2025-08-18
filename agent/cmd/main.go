@@ -196,7 +196,7 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 		if agentConfig.DeployMode != string(constants.StandaloneMode) {
 			return fmt.Errorf("the leaf-hub-name must not be empty")
 		}
-		err, clusterID := utils.GetClusterIdFromClusterVersion(c, ctx)
+		clusterID, err := utils.GetClusterIdFromClusterVersion(c, ctx)
 		if err != nil {
 			return err
 		}

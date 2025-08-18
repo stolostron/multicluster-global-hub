@@ -44,5 +44,5 @@ const (
 )
 
 func ShortenEventType(eventType string) string {
-	return strings.Replace(eventType, EventTypePrefix, "", -1)
+	return strings.ReplaceAll(eventType, EventTypePrefix, "")
 }

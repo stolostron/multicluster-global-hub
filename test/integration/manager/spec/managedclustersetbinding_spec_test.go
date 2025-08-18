@@ -42,7 +42,11 @@ var _ = Describe("managedclustersetbinding controller", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					fmt.Printf("failed to close rows: %v\n", err)
+				}
+			}()
 			for rows.Next() {
 				var payload []byte
 				err := rows.Scan(&payload)

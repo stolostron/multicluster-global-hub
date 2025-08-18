@@ -95,7 +95,11 @@ var _ = Describe("data retention job", Ordered, func() {
 				if err != nil {
 					return fmt.Errorf("error reading from table %s due to: %v", table, err)
 				}
-				defer rows.Close()
+				defer func() {
+					if err := rows.Close(); err != nil {
+						fmt.Printf("failed to close rows: %v\n", err)
+					}
+				}()
 
 				if !rows.Next() {
 					return fmt.Errorf("The record was not exists in table %s due to: %v", table, err)
@@ -145,7 +149,11 @@ var _ = Describe("data retention job", Ordered, func() {
 				if err != nil {
 					return fmt.Errorf("error reading from table %s due to: %v", table, err)
 				}
-				defer rows.Close()
+				defer func() {
+					if err := rows.Close(); err != nil {
+						fmt.Printf("failed to close rows: %v\n", err)
+					}
+				}()
 				if rows.Next() {
 					return fmt.Errorf("The record was not exists in table %s due to: %v", table, err)
 				}

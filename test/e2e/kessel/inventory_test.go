@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 	kesselrelationships "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
 	kesselresources "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/resources"
-	clusterinfov1beta1 "github.com/stolostron/cluster-lifecycle-api/clusterinfo/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -310,54 +309,6 @@ var _ = Describe("kafka-event: inventory API", Ordered, func() {
 		}, TIMEOUT, INTERVAL).Should(Succeed())
 	})
 })
-
-func mockManagedClusterInfo(name string, kubeVendor clusterinfov1beta1.KubeVendorType,
-	vendorVersion string, platform clusterinfov1beta1.CloudVendorType,
-) *clusterinfov1beta1.ManagedClusterInfo {
-	clusterInfo := &clusterinfov1beta1.ManagedClusterInfo{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: clusterinfov1beta1.ClusterInfoSpec{
-			MasterEndpoint: "https://api.test-cluster.example.com",
-		},
-		Status: clusterinfov1beta1.ClusterInfoStatus{
-			ClusterID:   "test-cluster-id",
-			Version:     "1.23.0",
-			ConsoleURL:  "https://console.test-cluster.example.com",
-			CloudVendor: platform,
-			KubeVendor:  kubeVendor,
-			Conditions: []metav1.Condition{
-				{
-					Type:   clusterv1.ManagedClusterConditionAvailable,
-					Status: metav1.ConditionTrue,
-				},
-			},
-			NodeList: []clusterinfov1beta1.NodeStatus{
-				{
-					Name: "ip-10-0-14-217.ec2.internal",
-					Capacity: clusterinfov1beta1.ResourceList{
-						clusterv1.ResourceCPU:    resource.MustParse("16"),
-						clusterv1.ResourceMemory: resource.MustParse("64453796Ki"),
-					},
-					Labels: map[string]string{
-						"node.kubernetes.io/instance-type": "m6a.4xlarge",
-					},
-				},
-			},
-		},
-	}
-
-	if kubeVendor == clusterinfov1beta1.KubeVendorOpenShift {
-		clusterInfo.Status.DistributionInfo = clusterinfov1beta1.DistributionInfo{
-			OCP: clusterinfov1beta1.OCPDistributionInfo{
-				Version: vendorVersion,
-			},
-		}
-	}
-
-	return clusterInfo
-}
 
 func createMockCluster(name, kubeVendor, vendorVersion, platform, kubeVersion string,
 ) *clusterv1.ManagedCluster {

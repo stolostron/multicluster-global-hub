@@ -110,7 +110,7 @@ var _ = Describe("LocalPolicyEventEmitter", Ordered, func() {
 		}
 
 		// update the cache with the expired event
-		name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
+		name := strings.ReplaceAll(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "")
 		filter.DeltaDuration = 0 // set the delta buffer into 0
 		filter.CacheSyncInterval = 1
 		now := time.Now().Add(2 * time.Second) // the next 2 seconds events will be considered as expired
