@@ -1,7 +1,7 @@
-// Copyright (c) 2024 Red Hat, Inc.
+// Copyright (c) 2025 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package syncers
+package migration
 
 import (
 	"context"
@@ -394,14 +394,12 @@ func SendEvent(
 	payloadBytes []byte,
 	version *eventversion.Version,
 ) error {
-	version.Incr()
 	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
 	e.SetExtension(eventversion.ExtVersion, version.String())
 	if transportClient != nil {
 		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
 			return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
 		}
-		version.Next()
 		return nil
 	}
 	return errors.New("transport client must not be nil")
@@ -679,4 +677,16 @@ func (s *MigrationSourceSyncer) cleanupSingleCluster(ctx context.Context, cluste
 		log.Infof("deleted managed cluster %s", clusterName)
 	}
 	return nil
+}
+
+func ResyncMigrationEvent(ctx context.Context, transportClient transport.TransportClient,
+	transportConfig *transport.TransportInternalConfig,
+) error {
+	return ReportMigrationStatus(
+		cecontext.WithTopic(ctx, transportConfig.KafkaCredential.StatusTopic),
+		transportClient,
+		&migration.MigrationStatusBundle{
+			Resync: true,
+		}, eventversion.NewVersion(),
+	)
 }

@@ -33,6 +33,22 @@ func AddMigrationStatus(migrationId string) {
 	log.Infof("initialize migration status for migrationId: %s", migrationId)
 }
 
+func ResetMigrationStatus(managedHubName string) {
+	mu.Lock()
+	defer mu.Unlock()
+	for migrationId, status := range migrationStatuses {
+		for hub, phase := range status.HubState {
+			if hub != managedHubName {
+				continue
+			}
+			phase.started = false
+			phase.finished = false
+			phase.error = ""
+			log.Infof("reset migration status for migrationId: %s, hub: %s, phase: %s", migrationId, hub, phase)
+		}
+	}
+}
+
 // AddMigrationStatus clean the migration status for the migrationId
 func RemoveMigrationStatus(migrationId string) {
 	mu.Lock()
