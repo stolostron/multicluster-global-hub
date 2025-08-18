@@ -130,7 +130,7 @@ func StartStandaloneAgentController(ctx context.Context, mgr ctrl.Manager) error
 // +kubebuilder:rbac:groups="coordination.k8s.io",resources=leases,verbs=create;get;list;watch;patch;update
 
 func (s *StandaloneAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	mgha, err := config.GetMulticlusterGlobalHubAgent(ctx, s.Manager.GetClient())
+	mgha, err := config.GetMulticlusterGlobalHubAgent(ctx, s.GetClient())
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return ctrl.Result{}, err

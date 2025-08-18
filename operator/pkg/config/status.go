@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 )
 
@@ -233,13 +232,13 @@ func NeedUpdateConditions(conditions []metav1.Condition,
 
 func UpdateMGHComponent(ctx context.Context,
 	c client.Client,
-	desiredComponent v1alpha4.StatusCondition,
+	desiredComponent globalhubv1alpha4.StatusCondition,
 	forceUpdate bool,
 ) error {
 	now := metav1.Time{Time: time.Now()}
 	desiredComponent.LastTransitionTime = now
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		curmgh := &v1alpha4.MulticlusterGlobalHub{}
+		curmgh := &globalhubv1alpha4.MulticlusterGlobalHub{}
 		err := c.Get(ctx, GetMGHNamespacedName(), curmgh)
 		if err != nil {
 			return err
@@ -263,7 +262,7 @@ func UpdateMGHComponent(ctx context.Context,
 
 func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 	namespace, name string,
-) v1alpha4.StatusCondition {
+) globalhubv1alpha4.StatusCondition {
 	statefulset := &appsv1.StatefulSet{}
 
 	err := c.Get(ctx, types.NamespacedName{
@@ -272,7 +271,7 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 	}, statefulset)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return v1alpha4.StatusCondition{
+			return globalhubv1alpha4.StatusCondition{
 				Kind:    "StatefulSet",
 				Name:    name,
 				Type:    COMPONENTS_AVAILABLE,
@@ -282,7 +281,7 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 			}
 		}
 		log.Errorf("failed to get statefulset, err: %v", err)
-		return v1alpha4.StatusCondition{
+		return globalhubv1alpha4.StatusCondition{
 			Kind:    "StatefulSet",
 			Name:    name,
 			Type:    COMPONENTS_AVAILABLE,
@@ -292,7 +291,7 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 		}
 	}
 	if statefulset.Status.AvailableReplicas == *statefulset.Spec.Replicas {
-		return v1alpha4.StatusCondition{
+		return globalhubv1alpha4.StatusCondition{
 			Kind:    "StatefulSet",
 			Name:    name,
 			Type:    COMPONENTS_AVAILABLE,
@@ -301,7 +300,7 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 			Message: fmt.Sprintf(COMPONENTS_DEPLOYED, name),
 		}
 	}
-	return v1alpha4.StatusCondition{
+	return globalhubv1alpha4.StatusCondition{
 		Kind:    "StatefulSet",
 		Name:    name,
 		Type:    COMPONENTS_AVAILABLE,
@@ -313,7 +312,7 @@ func GetStatefulSetComponentStatus(ctx context.Context, c client.Client,
 
 func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 	namespace, name string,
-) v1alpha4.StatusCondition {
+) globalhubv1alpha4.StatusCondition {
 	deployment := &appsv1.Deployment{}
 	err := c.Get(ctx, types.NamespacedName{
 		Name:      name,
@@ -321,7 +320,7 @@ func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 	}, deployment)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return v1alpha4.StatusCondition{
+			return globalhubv1alpha4.StatusCondition{
 				Kind:    "Deployment",
 				Name:    name,
 				Type:    COMPONENTS_AVAILABLE,
@@ -331,7 +330,7 @@ func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 			}
 		}
 		log.Errorf("failed to get deployment, err: %v", err)
-		return v1alpha4.StatusCondition{
+		return globalhubv1alpha4.StatusCondition{
 			Kind:    "Deployment",
 			Name:    name,
 			Type:    COMPONENTS_AVAILABLE,
@@ -341,7 +340,7 @@ func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 		}
 	}
 	if deployment.Status.AvailableReplicas == *deployment.Spec.Replicas {
-		return v1alpha4.StatusCondition{
+		return globalhubv1alpha4.StatusCondition{
 			Kind:    "Deployment",
 			Name:    name,
 			Type:    COMPONENTS_AVAILABLE,
@@ -350,7 +349,7 @@ func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 			Message: fmt.Sprintf(COMPONENTS_DEPLOYED, name),
 		}
 	}
-	return v1alpha4.StatusCondition{
+	return globalhubv1alpha4.StatusCondition{
 		Kind:    "Deployment",
 		Name:    name,
 		Type:    COMPONENTS_AVAILABLE,
@@ -362,10 +361,10 @@ func GetDeploymentComponentStatus(ctx context.Context, c client.Client,
 
 func GetComponentStatusWithReconcileError(ctx context.Context, c client.Client,
 	namespace, name string, reconcileErr error,
-) v1alpha4.StatusCondition {
+) globalhubv1alpha4.StatusCondition {
 	availableType := COMPONENTS_AVAILABLE
 	if reconcileErr != nil {
-		return v1alpha4.StatusCondition{
+		return globalhubv1alpha4.StatusCondition{
 			Kind:    "Deployment",
 			Name:    name,
 			Type:    availableType,

@@ -246,8 +246,8 @@ func (k *strimziTransporter) renderKafkaResources(mgh *operatorv1alpha4.Multiclu
 	statusPlaceholderTopic := config.GetRawStatusTopic()
 	topicPattern := kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypeLiteral
 	if strings.Contains(config.GetRawStatusTopic(), "*") {
-		statusTopic = strings.Replace(config.GetRawStatusTopic(), "*", "", -1)
-		statusPlaceholderTopic = strings.Replace(config.GetRawStatusTopic(), "*", "global-hub", -1)
+		statusTopic = strings.ReplaceAll(config.GetRawStatusTopic(), "*", "")
+		statusPlaceholderTopic = strings.ReplaceAll(config.GetRawStatusTopic(), "*", "global-hub")
 		topicPattern = kafkav1beta2.KafkaUserSpecAuthorizationAclsElemResourcePatternTypePrefix
 	}
 	topicReplicas := k.topicPartitionReplicas
@@ -832,9 +832,8 @@ func (k *strimziTransporter) newKafkaCluster(mgh *operatorv1alpha4.MulticlusterG
 func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	kafkaCluster *kafkav1beta2.Kafka,
 ) {
-	kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{}
 	if mgh.Spec.EnableMetrics {
-		kafkaMetricsConfig = &kafkav1beta2.KafkaSpecKafkaMetricsConfig{
+		kafkaMetricsConfig := &kafkav1beta2.KafkaSpecKafkaMetricsConfig{
 			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
 			ValueFrom: kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFrom{
 				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFromConfigMapKeyRef{

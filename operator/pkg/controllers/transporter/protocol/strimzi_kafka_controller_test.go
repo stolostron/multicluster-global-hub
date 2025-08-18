@@ -98,8 +98,8 @@ func TestMulticlusterGlobalHubReconcilerStrimziResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			kafkav1beta2.AddToScheme(scheme.Scheme)
-			subv1alpha1.AddToScheme(scheme.Scheme)
+			_ = kafkav1beta2.AddToScheme(scheme.Scheme)
+			_ = subv1alpha1.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			kc := KafkaController{
 				c: fakeClient,

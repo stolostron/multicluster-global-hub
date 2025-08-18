@@ -83,10 +83,8 @@ func NewGlobalHubAddonAgent(ctx context.Context, c client.Client, kubeConfig *re
 func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
 ) (addonfactory.Values, error) {
-	installNamespace := addon.Spec.InstallNamespace
-	if len(installNamespace) == 0 {
-		installNamespace = operatorconstants.GHAgentInstallNamespace
-	}
+	// installNamespace is managed by the addon framework, using the addon.Spec.InstallNamespace
+	// or falling back to the operatorconstants.GHAgentInstallNamespace
 	mgh, err := config.GetMulticlusterGlobalHub(a.ctx, a.client)
 	if err != nil {
 		log.Errorw("failed to get MulticlusterGlobalHub", "error", err)

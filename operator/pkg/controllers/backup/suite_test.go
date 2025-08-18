@@ -58,15 +58,13 @@ import (
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
-	cfg              *rest.Config
-	k8sClient        client.Client // You'll be using this client in your tests.
-	kubeClient       *kubernetes.Clientset
-	testEnv          *envtest.Environment
-	ctx              context.Context
-	cancel           context.CancelFunc
-	testNamespace    = "default"
-	backupReconciler *backup.BackupReconciler
-	log              = ctrl.Log.WithName("backup-reconciler")
+	cfg           *rest.Config
+	k8sClient     client.Client // You'll be using this client in your tests.
+	kubeClient    *kubernetes.Clientset
+	testEnv       *envtest.Environment
+	ctx           context.Context
+	cancel        context.CancelFunc
+	testNamespace = "default"
 )
 
 func TestControllers(t *testing.T) {

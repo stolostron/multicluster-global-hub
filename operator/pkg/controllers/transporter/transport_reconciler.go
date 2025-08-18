@@ -76,18 +76,6 @@ func (r *TransportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-var mghPred = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return false
-	},
-}
-
 var secretPred = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		return secretCond(e.Object)

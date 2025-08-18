@@ -76,8 +76,9 @@ ifeq ($(shell uname), Darwin)
   SED_COMMAND=sed -i '' -e
 endif
 
-.PHONY: all
-all: build
+
+.PHONY: all				##formats the code, runs liners, downloads vendor libs, and builds executable
+all: fmt lint build
 
 ##@ General
 
@@ -279,3 +280,8 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+.PHONY: lint				##runs code analysis tools
+lint:
+	go vet ./cmd/... ./pkg/...
+	golangci-lint run ./cmd/... ./pkg/...

@@ -113,7 +113,7 @@ var _ = Describe("local agent", func() {
 			if err != nil {
 				return err
 			}
-			err, name := agent.GetLocalClusterName(ctx, runtimeClient, controllerOption.MulticlusterGlobalHub.Namespace)
+			name, err := agent.GetLocalClusterName(ctx, runtimeClient, controllerOption.MulticlusterGlobalHub.Namespace)
 			if err != nil {
 				return err
 			}

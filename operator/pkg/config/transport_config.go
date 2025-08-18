@@ -39,7 +39,6 @@ var (
 	kafkaClientCACert     []byte
 	inventoryClientCAKey  []byte
 	inventoryClientCACert []byte
-	inventoryConn         *transport.RestfulConfig
 )
 
 func SetTransporterConn(conn *transport.KafkaConfig) bool {
@@ -160,7 +159,7 @@ func GetSpecTopic() string {
 
 // GetStatusTopic return the status topic with clusterName, like 'gh-status.<clusterName>'
 func GetStatusTopic(clusterName string) string {
-	return strings.Replace(statusTopic, "*", clusterName, -1)
+	return strings.ReplaceAll(statusTopic, "*", clusterName)
 }
 
 // GetRawStatusTopic return the validated statusTopic from mgh CR

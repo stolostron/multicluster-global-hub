@@ -130,7 +130,7 @@ var _ = Describe("Deployer", Ordered, func() {
 	AfterEach(func() {
 		By("delete typed objects")
 		for _, obj := range typedObjects {
-			k8sClient.Delete(ctx, obj)
+			_ = k8sClient.Delete(ctx, obj)
 			Expect(k8sClient.Delete(ctx, obj)).NotTo(HaveOccurred())
 		}
 
@@ -148,7 +148,7 @@ var _ = Describe("Deployer", Ordered, func() {
 
 		By("delete untyped objects")
 		for _, obj := range untypedObjects {
-			k8sClient.Delete(ctx, obj)
+			_ = k8sClient.Delete(ctx, obj)
 			Expect(k8sClient.Delete(ctx, obj)).NotTo(HaveOccurred())
 		}
 
