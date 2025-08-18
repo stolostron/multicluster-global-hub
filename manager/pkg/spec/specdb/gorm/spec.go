@@ -131,7 +131,7 @@ func (p *gormSpecDB) GetObjectsBundle(ctx context.Context, tableName string, cre
 		return nil, fmt.Errorf(errQueryTableFailedTemplate, tableName, err)
 	}
 
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var (

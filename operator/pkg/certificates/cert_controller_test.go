@@ -23,7 +23,7 @@ import (
 
 func init() {
 	s := scheme.Scheme
-	v1alpha4.SchemeBuilder.AddToScheme(s)
+	_ = v1alpha4.SchemeBuilder.AddToScheme(s)
 }
 
 func newDeployment(name string) *appv1.Deployment {
@@ -82,7 +82,7 @@ func TestOnDelete(t *testing.T) {
 	}
 	c := fake.NewClientBuilder().WithRuntimeObjects(caSecret, getMGH()).Build()
 	onDelete(c)(deletCaSecret)
-	c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, caSecret)
+	_ = c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, caSecret)
 	data := string(caSecret.Data["tls.crt"])
 	if data != "new cert-" {
 		t.Fatalf("deleted cert not added back: %s", data)
@@ -101,7 +101,7 @@ func TestOnUpdate(t *testing.T) {
 	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
 	certSecret.Name = serverCerts
 	onUpdate(context.TODO(), c, kubeClient)(certSecret, certSecret)
-	c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, certSecret)
+	_ = c.Get(context.TODO(), types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace}, certSecret)
 	if len(certSecret.Data["tls.crt"]) <= oldCertLength {
 		t.Fatal("certificate not renewed correctly")
 	}

@@ -325,7 +325,7 @@ func (r *GrafanaReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, reconcileErr
 	}
 	// create restmapper for deployer to find GVR
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr

@@ -78,7 +78,7 @@ func TestManagedHubController_Reconcile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v1alpha4.AddToScheme(scheme.Scheme)
+			_ = v1alpha4.AddToScheme(scheme.Scheme)
 			_ = clusterv1.AddToScheme(scheme.Scheme)
 			_ = addonapiv1alpha1.AddToScheme(scheme.Scheme)
 			var fakeClient client.WithWatch
@@ -101,10 +101,6 @@ func TestManagedHubController_Reconcile(t *testing.T) {
 }
 
 func TestManagedHubController_pruneManagedHubs(t *testing.T) {
-	type fields struct {
-		c client.Client
-	}
-
 	tests := []struct {
 		name        string
 		wantErr     bool
@@ -158,7 +154,7 @@ func TestManagedHubController_pruneManagedHubs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = clusterv1.AddToScheme(scheme.Scheme)
-			addonapiv1alpha1.AddToScheme(scheme.Scheme)
+			_ = addonapiv1alpha1.AddToScheme(scheme.Scheme)
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 
 			r := &ManagedHubController{

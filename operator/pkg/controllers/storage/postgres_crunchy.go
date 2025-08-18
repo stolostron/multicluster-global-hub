@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -50,7 +49,7 @@ var (
 )
 
 // EnsureCrunchyPostgresSub verifies resources needed for Crunchy Postgres are created
-func EnsureCrunchyPostgresSub(ctx context.Context, c client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
+func EnsureCrunchyPostgresSub(ctx context.Context, c client.Client, mgh *globalhubv1alpha4.MulticlusterGlobalHub) error {
 	// Generate sub config from mcgh CR
 	subConfig := &subv1alpha1.SubscriptionConfig{
 		NodeSelector: mgh.Spec.NodeSelector,

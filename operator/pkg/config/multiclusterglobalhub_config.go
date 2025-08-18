@@ -162,11 +162,8 @@ var GeneralPredicate = predicate.Funcs{
 		return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		if e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
-			constants.GHOperatorOwnerLabelVal {
-			return true
-		}
-		return false
+		return e.Object.GetLabels()[constants.GlobalHubOwnerLabelKey] ==
+			constants.GHOperatorOwnerLabelVal
 	},
 }
 
@@ -275,8 +272,8 @@ func SetImageOverrides(mgh *v1alpha4.MulticlusterGlobalHub) error {
 	for _, env := range os.Environ() {
 		envKeyVal := strings.SplitN(env, "=", 2)
 		if strings.HasPrefix(envKeyVal[0], operatorconstants.MGHOperandImagePrefix) {
-			key := strings.ToLower(strings.Replace(envKeyVal[0],
-				operatorconstants.MGHOperandImagePrefix, "", -1))
+			key := strings.ToLower(strings.ReplaceAll(envKeyVal[0],
+				operatorconstants.MGHOperandImagePrefix, ""))
 			imageOverrides[key] = envKeyVal[1]
 		}
 	}

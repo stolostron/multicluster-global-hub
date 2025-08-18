@@ -103,14 +103,14 @@ func newCompleteCompliance(originPolicyID string, policy *policiesv1.Policy) *gr
 	pendingComplianceClusters := make([]string, 0)
 
 	for _, clusterCompliance := range policy.Status.Status {
-		if clusterCompliance.ComplianceState == policiesv1.Compliant {
+		switch clusterCompliance.ComplianceState {
+		case policiesv1.Compliant:
 			continue
-		}
-		if clusterCompliance.ComplianceState == policiesv1.NonCompliant {
+		case policiesv1.NonCompliant:
 			nonCompliantClusters = append(nonCompliantClusters, clusterCompliance.ClusterName)
-		} else if clusterCompliance.ComplianceState == policiesv1.Pending {
+		case policiesv1.Pending:
 			pendingComplianceClusters = append(pendingComplianceClusters, clusterCompliance.ClusterName)
-		} else { // not compliant not non compliant -> means unknown
+		default: // not compliant not non compliant -> means unknown
 			unknownComplianceClusters = append(unknownComplianceClusters, clusterCompliance.ClusterName)
 		}
 	}

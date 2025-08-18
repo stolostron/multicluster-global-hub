@@ -87,7 +87,9 @@ func addToScheme(runtimeScheme *runtime.Scheme) error {
 			return fmt.Errorf("failed to add scheme: %w", err)
 		}
 	}
-	apiregistrationv1.AddToScheme(runtimeScheme)
+	if err := apiregistrationv1.AddToScheme(runtimeScheme); err != nil {
+		return err
+	}
 
 	return nil
 }

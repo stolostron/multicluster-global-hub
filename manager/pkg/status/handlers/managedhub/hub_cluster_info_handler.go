@@ -30,7 +30,7 @@ type hubClusterInfoHandler struct {
 
 func RegsiterHubClusterInfoHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.HubClusterInfoType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	hubClusterInfo := &hubClusterInfoHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,

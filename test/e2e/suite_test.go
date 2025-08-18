@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -162,7 +163,7 @@ var _ = BeforeSuite(func() {
 			Expect(err).Should(Succeed())
 
 			err = database.InitGormInstance(&database.DatabaseConfig{
-				URL:      strings.Replace(string(databaseBYOSecret.Data["database_uri"]), "sslmode=verify-ca", "sslmode=require", -1),
+				URL:      strings.ReplaceAll(string(databaseBYOSecret.Data["database_uri"]), "sslmode=verify-ca", "sslmode=require"),
 				Dialect:  database.PostgresDialect,
 				PoolSize: 5,
 			})
@@ -228,7 +229,9 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	utils.DeleteTestingRBAC(testOptions)
+	if err := utils.DeleteTestingRBAC(testOptions); err != nil {
+		log.Printf("failed to delete testing RBAC: %v", err)
+	}
 })
 
 func getIP(apiserver string) (string, error) {
@@ -407,6 +410,9 @@ func isLeaseUpdated(leaseName, namespace, deployName string, c client.Client) (b
 		Namespace: namespace,
 		Name:      leaseName,
 	}, lease)
+	if err != nil {
+		return false, err
+	}
 	if lease.Spec.HolderIdentity == nil {
 		return false, fmt.Errorf("lease not get")
 	}
@@ -531,7 +537,11 @@ func writeFile(bytes []byte, file string) error {
 		return err
 	}
 	// remember to close the file
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Printf("failed to close file: %v", err)
+		}
+	}()
 
 	// write bytes to the file
 	_, err = f.Write(bytes)

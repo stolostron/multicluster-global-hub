@@ -27,7 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var configmapList = sets.NewString(
+var configmapList = sets.New(
 	constants.CustomAlertName,
 )
 
@@ -35,7 +35,7 @@ type configmapBackup struct {
 	backupType string
 	labelKey   string
 	labelValue string
-	backupSets sets.String
+	backupSets sets.Set[string]
 }
 
 func NewConfigmapBackup() *configmapBackup {

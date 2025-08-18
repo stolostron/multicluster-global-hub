@@ -49,7 +49,11 @@ var _ = Describe("LocalComplianceHistory", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					fmt.Printf("failed to close rows: %v\n", err)
+				}
+			}()
 
 			syncCount := 0
 			fmt.Println("found the following compliance history:")
@@ -78,7 +82,11 @@ var _ = Describe("LocalComplianceHistory", Ordered, func() {
 			if err != nil {
 				return err
 			}
-			defer rows.Close()
+			defer func() {
+				if err := rows.Close(); err != nil {
+					fmt.Printf("failed to close rows: %v\n", err)
+				}
+			}()
 
 			logCount := 0
 			fmt.Println("found the following compliance history job log:")
@@ -203,7 +211,11 @@ func findHistory(policyId, clusterId string) (string, int, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			fmt.Printf("failed to close rows: %v\n", err)
+		}
+	}()
 
 	for rows.Next() {
 		var policy_id, cluster_id, compliance string

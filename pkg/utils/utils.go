@@ -143,20 +143,20 @@ func IsBackupEnabled(ctx context.Context, client client.Client) (bool, error) {
 	return false, nil
 }
 
-func GetClusterIdFromClusterVersion(c client.Client, ctx context.Context) (error, string) {
+func GetClusterIdFromClusterVersion(c client.Client, ctx context.Context) (string, error) {
 	clusterVersion := &configv1.ClusterVersion{
 		ObjectMeta: metav1.ObjectMeta{Name: "version"},
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(clusterVersion), clusterVersion)
 	if err != nil {
-		return fmt.Errorf("failed to get the ClusterVersion(version): %w", err), ""
+		return "", fmt.Errorf("failed to get the ClusterVersion(version): %w", err)
 	}
 
 	clusterID := string(clusterVersion.Spec.ClusterID)
 	if clusterID == "" {
-		return fmt.Errorf("the clusterId from ClusterVersion must not be empty"), ""
+		return "", fmt.Errorf("the clusterId from ClusterVersion must not be empty")
 	}
-	return nil, clusterID
+	return clusterID, nil
 }
 
 // GetTopicACL creates a KafkaUserSpecAuthorizationAclsElem for a given topic name

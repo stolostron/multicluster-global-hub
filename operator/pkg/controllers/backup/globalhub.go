@@ -19,7 +19,6 @@ package backup
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
@@ -31,7 +30,6 @@ type mghBackup struct {
 	backupType string
 	labelKey   string
 	labelValue string
-	backupSets sets.String
 }
 
 func NewMghBackup() *mghBackup {

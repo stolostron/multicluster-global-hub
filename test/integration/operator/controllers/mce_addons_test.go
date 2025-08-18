@@ -83,7 +83,8 @@ var _ = Describe("mceaddons", Ordered, func() {
 	BeforeAll(func() {
 		var err error
 		mceAddonsReconciler = mceaddons.NewMceAddonsController(runtimeManager)
-		mceAddonsReconciler.SetupWithManager(runtimeManager)
+		err = mceAddonsReconciler.SetupWithManager(runtimeManager)
+		Expect(err).ToNot(HaveOccurred())
 		Expect(runtimeManager.GetClient().Create(context.Background(), &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: mghNameSpace,
