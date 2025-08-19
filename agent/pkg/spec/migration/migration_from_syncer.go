@@ -385,26 +385,6 @@ func ReportMigrationStatus(
 	return errors.New("transport client must not be nil")
 }
 
-func SendEvent(
-	ctx context.Context,
-	transportClient transport.TransportClient,
-	eventType string,
-	source string,
-	clusterName string,
-	payloadBytes []byte,
-	version *eventversion.Version,
-) error {
-	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
-	e.SetExtension(eventversion.ExtVersion, version.String())
-	if transportClient != nil {
-		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
-		}
-		return nil
-	}
-	return errors.New("transport client must not be nil")
-}
-
 // prepareManagedClusterForMigration prepares a managed cluster for migration by cleaning metadata
 func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (
 	*clusterv1.ManagedCluster, error,

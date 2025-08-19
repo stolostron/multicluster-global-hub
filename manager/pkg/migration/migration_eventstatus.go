@@ -46,9 +46,6 @@ func ResetMigrationStatus(managedHubName string) {
 			hubState.error = ""
 			log.Infof("reset migration status for migrationId: %s, hub: %s", migrationId, hub)
 		}
-			phase.error = ""
-			log.Infof("reset migration status for migrationId: %s, hub: %s, phase: %s", migrationId, hub, phase)
-		}
 	}
 }
 
