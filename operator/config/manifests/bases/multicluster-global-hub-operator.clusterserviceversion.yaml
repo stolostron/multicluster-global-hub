@@ -18,7 +18,6 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    olm.skipRange: '>=1.4.0 <1.5.0'
     operatorframework.io/initialization-resource: '{"apiVersion":"operator.open-cluster-management.io/v1alpha4",
       "kind":"MulticlusterGlobalHub","metadata":{"name":"multiclusterglobalhub","namespace":"multicluster-global-hub"},
       "spec": {}}'
