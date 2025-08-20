@@ -40,9 +40,9 @@ const (
 )
 
 var (
-	cleaningTimeout       = 10 * time.Minute // Separate timeout for cleaning phase
-	migrationStageTimeout = 5 * time.Minute  // Default timeout for most migration stages
-	registeringTimeout    = 12 * time.Minute // Extended timeout for registering phase
+	cleaningTimeout       time.Duration
+	migrationStageTimeout time.Duration
+	registeringTimeout    time.Duration
 )
 
 var log = logger.DefaultZapLogger()
@@ -279,16 +279,19 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 
 // setupTimeoutsFromConfig reads the SupportedConfigs field and sets custom timeouts
 func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alpha1.ManagedClusterMigration) error {
+	cleaningTimeout = 10 * time.Minute      // Separate timeout for cleaning phase
+	migrationStageTimeout = 5 * time.Minute // Default timeout for most migration stages
+	registeringTimeout = 12 * time.Minute   // Extended timeout for registering phase
+
 	// Check if StageTimeout is specified in SupportedConfigs
 	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
 		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
-
 		// Set the timeout value to all three timeout variables
 		cleaningTimeout = timeout
 		registeringTimeout = timeout
 		migrationStageTimeout = timeout
 
-		log.Infof("set all migration timeouts to %v", timeout)
+		log.Infof("set migration: %v timeouts to %v", mcm.Name, timeout)
 	}
 
 	return nil

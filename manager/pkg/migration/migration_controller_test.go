@@ -406,9 +406,9 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	// Store original timeout values to restore after tests
-	originalCleaningTimeout := cleaningTimeout
-	originalMigrationStageTimeout := migrationStageTimeout
-	originalRegisteringTimeout := registeringTimeout
+	originalCleaningTimeout := 10 * time.Minute
+	originalMigrationStageTimeout := 5 * time.Minute
+	originalRegisteringTimeout := 12 * time.Minute
 
 	tests := []struct {
 		name                       string
