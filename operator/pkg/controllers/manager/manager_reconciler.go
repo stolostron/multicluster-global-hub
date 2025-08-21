@@ -286,7 +286,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	kafkaConfigYaml, err := kafkaConfig.ToYAML(true)
+	kafkaConfigYaml, err := kafkaConfig.YamlMarshal(true)
 	if err != nil {
 		reconcileErr = fmt.Errorf("failed to marshall kafka connetion for config: %w", err)
 		return ctrl.Result{}, reconcileErr

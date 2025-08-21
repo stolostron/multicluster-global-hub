@@ -68,7 +68,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		ClientKey:       base64.StdEncoding.EncodeToString([]byte("13")),
 	}
 
-	kafkaConnYaml, err := kafkaConn.ToYAML(false)
+	kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
 	assert.NoError(t, err)
 
 	secret := &corev1.Secret{
