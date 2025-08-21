@@ -21,7 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers"
+	migrationsyncer "github.com/stolostron/multicluster-global-hub/agent/pkg/spec/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -34,7 +34,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 	var (
 		testCtx           context.Context
 		testCtxCancel     context.CancelFunc
-		migrationSyncer   *syncers.MigrationSourceSyncer
+		migrationSyncer   *migrationsyncer.MigrationSourceSyncer
 		testMigrationID   = "test-migration-123"
 		testFromHub       = "hub1"
 		testToHub         = "hub2"
@@ -45,7 +45,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 	BeforeAll(func() {
 		receivedEvents = []*cloudevents.Event{}
 		testCtx, testCtxCancel = context.WithCancel(ctx)
-		migrationSyncer = syncers.NewMigrationSourceSyncer(
+		migrationSyncer = migrationsyncer.NewMigrationSourceSyncer(
 			runtimeClient,
 			testenv.Config,
 			transportClient,
