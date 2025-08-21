@@ -200,7 +200,6 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
-	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
 
 	if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")

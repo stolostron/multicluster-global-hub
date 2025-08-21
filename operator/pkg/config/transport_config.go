@@ -290,3 +290,11 @@ func GetTransportConfigClientName(clusterName string) string {
 func GetKafkaUserName(clusterName string) string {
 	return fmt.Sprintf("%s-kafka-user", clusterName)
 }
+
+func GetConsumerGroupID(prefix, clusterName string) string {
+	consumerGroupID := clusterName
+	if prefix != "" {
+		consumerGroupID = prefix + clusterName
+	}
+	return strings.ReplaceAll(consumerGroupID, "-", "_")
+}
