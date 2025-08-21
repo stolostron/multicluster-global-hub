@@ -3,6 +3,7 @@ package protocol
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"path/filepath"
 
 	"github.com/go-logr/logr"
@@ -73,9 +74,16 @@ func (s *BYOTransporter) GetConnCredential(clusterName string) (*transport.Kafka
 	if err != nil {
 		return nil, err
 	}
+
+	mgh, err := config.GetMulticlusterGlobalHub(context.Background(), s.runtimeClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mgh: %w", err)
+	}
+
 	return &transport.KafkaConfig{
 		ClusterID:       string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
 		BootstrapServer: string(kafkaSecret.Data[filepath.Join("bootstrap_server")]),
+		ConsumerGroupID: config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, clusterName),
 
 		// for the byo case, the status topic isn't change by the clusterName
 		StatusTopic: config.GetStatusTopic(""),

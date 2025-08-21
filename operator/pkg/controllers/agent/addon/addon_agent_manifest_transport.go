@@ -38,7 +38,8 @@ func setTransportConfigs(manifestsConfig *config.ManifestsConfig,
 	if err != nil {
 		return err
 	}
-	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(config.IsBYOKafka())
+
+	kafkaConfigYaml, err := kafkaConnection.ToYAML(config.IsBYOKafka())
 	if err != nil {
 		return fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
 	}

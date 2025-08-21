@@ -227,7 +227,7 @@ func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalCo
 	*kafka.Consumer, interface{}, error,
 ) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
-		transportConfig.ConsumerGroupId)
+		transportConfig.KafkaCredential.ConsumerGroupID)
 	if err != nil {
 		return nil, nil, err
 	}

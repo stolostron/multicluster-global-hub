@@ -22,11 +22,11 @@ func TestGenerateConsumer(t *testing.T) {
 		t.Errorf("failed to init mock kafka cluster - %v", err)
 	}
 	transportConfig := &transport.TransportInternalConfig{
-		TransportType:   "kafka",
-		ConsumerGroupId: "test-consumer",
+		TransportType: "kafka",
 		KafkaCredential: &transport.KafkaConfig{
 			BootstrapServer: mockKafkaCluster.BootstrapServers(),
 			SpecTopic:       "test-topic",
+			ConsumerGroupID: "test-consumer",
 		},
 	}
 	_, err = NewGenericConsumer(transportConfig, []string{transportConfig.KafkaCredential.SpecTopic})

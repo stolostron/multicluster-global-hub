@@ -1,23 +1,24 @@
 package transport
 
-import "sigs.k8s.io/kustomize/kyaml/yaml"
+import "sigs.k8s.io/yaml"
 
-// KafkaConfig is used to connect the transporter instance. The field is persisted to secret
-// need to be encode with base64.StdEncoding.EncodeToString
+// KafkaConfig is used to connect the transporter instance.
+// This struct can be marshalled into a single Secret entry like "kafka.yaml".
 type KafkaConfig struct {
-	BootstrapServer  string `yaml:"bootstrap.server"`
-	StatusTopic      string `yaml:"topic.status,omitempty"`
-	SpecTopic        string `yaml:"topic.spec,omitempty"`
-	ClusterID        string `yaml:"cluster.id,omitempty"`
-	CACert           string `yaml:"ca.crt,omitempty"`
-	ClientCert       string `yaml:"client.crt,omitempty"`
-	ClientKey        string `yaml:"client.key,omitempty"`
-	CASecretName     string `yaml:"ca.secret,omitempty"`
-	ClientSecretName string `yaml:"client.secret,omitempty"`
+	BootstrapServer  string `yaml:"bootstrapServer,omitempty"`
+	StatusTopic      string `yaml:"statusTopic,omitempty"`
+	SpecTopic        string `yaml:"specTopic,omitempty"`
+	ClusterID        string `yaml:"clusterID,omitempty"`
+	ConsumerGroupID  string `yaml:"consumerGroupID,omitempty"`
+	CACert           string `yaml:"caCert,omitempty"`
+	ClientCert       string `yaml:"clientCert,omitempty"`
+	ClientKey        string `yaml:"clientKey,omitempty"`
+	CASecretName     string `yaml:"caSecretName,omitempty"`
+	ClientSecretName string `yaml:"clientSecretName,omitempty"`
 }
 
-// YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
-func (k *KafkaConfig) YamlMarshal(rawCert bool) ([]byte, error) {
+// ToYAML marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
+func (k *KafkaConfig) ToYAML(rawCert bool) ([]byte, error) {
 	copy := k.DeepCopy()
 	if rawCert {
 		copy.CASecretName = ""
@@ -38,6 +39,7 @@ func (k *KafkaConfig) DeepCopy() *KafkaConfig {
 		StatusTopic:      k.StatusTopic,
 		SpecTopic:        k.SpecTopic,
 		ClusterID:        k.ClusterID,
+		ConsumerGroupID:  k.ConsumerGroupID,
 		CACert:           k.CACert,
 		ClientCert:       k.ClientCert,
 		ClientKey:        k.ClientKey,

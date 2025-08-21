@@ -259,11 +259,13 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		replicas = 2
 	}
 
-	transportConn := config.GetTransporterConn()
-	if transportConn == nil || transportConn.BootstrapServer == "" {
+	kafkaConfig := config.GetTransporterConn()
+	if kafkaConfig == nil || kafkaConfig.BootstrapServer == "" {
 		log.Debug("Wait kafka connection created")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
+	kafkaConfig.ConsumerGroupID = config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
+		constants.CloudEventGlobalHubClusterName)
 
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
@@ -271,7 +273,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	if isMiddlewareUpdated(transportConn, storageConn) {
+	if isMiddlewareUpdated(kafkaConfig, storageConn) {
 		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
 		if err != nil {
 			reconcileErr = fmt.Errorf("failed to restart manager pod: %w", err)
@@ -284,7 +286,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	kafkaConfigYaml, err := transportConn.YamlMarshal(true)
+	kafkaConfigYaml, err := kafkaConfig.ToYAML(true)
 	if err != nil {
 		reconcileErr = fmt.Errorf("failed to marshall kafka connetion for config: %w", err)
 		return ctrl.Result{}, reconcileErr
