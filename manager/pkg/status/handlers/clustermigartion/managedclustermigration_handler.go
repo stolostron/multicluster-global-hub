@@ -79,6 +79,11 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
 	}
 
+	// Store managed clusters if provided
+	if len(bundle.ManagedClusters) > 0 {
+		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
+	}
+
 	if bundle.ErrMessage != "" {
 		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
 	} else {

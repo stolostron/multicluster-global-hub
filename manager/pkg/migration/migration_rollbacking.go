@@ -37,7 +37,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		return false, nil
 	}
 
-	log.Info("migration rollbacking started")
+	log.Info("migration %v rollbacking started", mcm.Name)
 
 	// Determine the failed stage to provide context in messages
 	failedStage := m.determineFailedStage(ctx, mcm)
@@ -54,7 +54,8 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// 1. Send rollback events to source hubs to restore original configurations
 	fromHub := mcm.Spec.From
-	clusters := mcm.Spec.IncludedManagedClusters
+	clusters := m.currentClusterList.clusterList
+
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to source hub: %s", fromHub)
 

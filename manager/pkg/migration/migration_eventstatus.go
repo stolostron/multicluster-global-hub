@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	migrationStatuses = make(map[string]*MigrationStatus)
-	mu                sync.RWMutex // optional: for concurrent access
+	migrationStatuses           = make(map[string]*MigrationStatus)
+	mu                          sync.RWMutex // optional: for concurrent access
+	currentMigrationClusterList migrationClusterList
 )
 
 type MigrationStatus struct {
@@ -87,8 +88,8 @@ func getStageState(migrationId, hub, phase string) *StageState {
 
 // SetStarted sets the status of the given stage to started for the hub cluster
 func SetStarted(migrationId, hub, phase string) {
-	mu.RLock()
-	defer mu.RUnlock()
+	mu.Lock()
+	defer mu.Unlock()
 	if p := getStageState(migrationId, hub, phase); p != nil {
 		p.started = true
 	}
@@ -96,16 +97,24 @@ func SetStarted(migrationId, hub, phase string) {
 
 // SetFinished sets the status of the given stage to finished for the hub cluster
 func SetFinished(migrationId, hub, phase string) {
-	mu.RLock()
-	defer mu.RUnlock()
+	mu.Lock()
+	defer mu.Unlock()
 	if p := getStageState(migrationId, hub, phase); p != nil {
 		p.finished = true
 	}
 }
 
+// SetClusterList sets the managed clusters list for the given migration stage
+func SetClusterList(migrationId string, managedClusters []string) {
+	mu.Lock()
+	defer mu.Unlock()
+	currentMigrationClusterList.migrationUID = migrationId
+	currentMigrationClusterList.clusterList = managedClusters
+}
+
 func SetErrorMessage(migrationId, hub, phase, errMessage string) {
-	mu.RLock()
-	defer mu.RUnlock()
+	mu.Lock()
+	defer mu.Unlock()
 	if p := getStageState(migrationId, hub, phase); p != nil {
 		p.error = errMessage
 	}
@@ -138,4 +147,14 @@ func GetErrorMessage(migrationId, hub, phase string) string {
 		return p.error
 	}
 	return ""
+}
+
+// GetClusterList returns the managed clusters list for the given migration stage
+func GetClusterList(migrationId string) []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	if currentMigrationClusterList.migrationUID == migrationId {
+		return currentMigrationClusterList.clusterList
+	}
+	return nil
 }

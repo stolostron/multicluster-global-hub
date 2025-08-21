@@ -39,6 +39,11 @@ const (
 	bootstrapSecretNamePrefix  = "bootstrap-"
 )
 
+type migrationClusterList struct {
+	migrationUID string
+	clusterList  []string
+}
+
 var (
 	cleaningTimeout       time.Duration
 	migrationStageTimeout time.Duration
@@ -51,9 +56,10 @@ var log = logger.DefaultZapLogger()
 type ClusterMigrationController struct {
 	client.Client
 	transport.Producer
-	BootstrapSecret *corev1.Secret
-	managerConfigs  *configs.ManagerConfig
-	EventRecorder   record.EventRecorder
+	BootstrapSecret    *corev1.Secret
+	managerConfigs     *configs.ManagerConfig
+	EventRecorder      record.EventRecorder
+	currentClusterList migrationClusterList
 }
 
 func NewMigrationController(client client.Client, producer transport.Producer,
