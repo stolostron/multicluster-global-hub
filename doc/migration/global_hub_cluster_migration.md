@@ -6,7 +6,7 @@
 
 This provides a unified way to reorganize or rebalance workloads across multiple hub clusters without manual reconfiguration.
 
-![alt text](images/migration-overview.png)
+![alt text](../images/migration-overview.png)
 
 ---
 
@@ -31,7 +31,7 @@ The migration process involves coordination between a source hub and a target hu
 <details>
 <summary> Migration Workflow </summary>
 
->![arch](images/migration-workflow.jpg)
+>![arch](../images/migration-workflow.jpg)
 
 </details>
 
@@ -117,13 +117,13 @@ The migration system implements sophisticated error handling with different stra
 
 - 🟢 Greenfield Mode
 
-  ![alt text](images/migration-deployment-greenfield-mode.png)
+  ![alt text](../images/migration-deployment-greenfield-mode.png)
 
   - Deploy the **Global Hub** in a **separate ACM hub cluster**
 
 - 🟤 Brownfield Mode
 
-  ![alt text](images/migration-deployment-brownfield-mode.png)
+  ![alt text](../images/migration-deployment-brownfield-mode.png)
 
   - Deploy the Global Hub in **source** hub (hub1)
   - Deploy the Global Hub in the **target** hub (hub2)
@@ -147,7 +147,7 @@ Currently, the label supports two values: `default` and `hosted`. each suited fo
 
 **Recommended:** The preferred way to migrate is to install in a brownfield environment and import the cluster in hosted mode. The following example demonstrates this recommended approach.
 
-![arch](images/migration-sample.png)
+![arch](../images/migration-sample.png)
 
 ### Step 1 – Deploy the Global Hub in Brownfield Mode
 
