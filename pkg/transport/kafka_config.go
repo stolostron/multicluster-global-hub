@@ -17,8 +17,8 @@ type KafkaConfig struct {
 	ClientSecretName string `yaml:"clientSecretName,omitempty"`
 }
 
-// ToYAML marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
-func (k *KafkaConfig) ToYAML(rawCert bool) ([]byte, error) {
+// YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
+func (k *KafkaConfig) YamlMarshal(rawCert bool) ([]byte, error) {
 	copy := k.DeepCopy()
 	if rawCert {
 		copy.CASecretName = ""
