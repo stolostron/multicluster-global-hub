@@ -187,7 +187,8 @@ func (c *TransportCtrl) ReconcileProducer() error {
 // ReconcileConsumer, transport config is changed, then create/update the consumer
 func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	// if the consumer groupId is empty, then it's means the agent is in the standalone mode, don't create the consumer
-	if c.transportConfig.ConsumerGroupId == "" {
+	if c.transportConfig.KafkaCredential.ConsumerGroupID == "" {
+		log.Infof("skip initializing consumer, consumer group id is not set")
 		return nil
 	}
 	// set consumerTopics to status or spec topic based on running in manager or not
@@ -205,11 +206,11 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		}
 		c.transportClient.consumer = receiver
 		go func() {
-			log.Debug("start consumer")
+			log.Infof("start consumer: %s", c.transportConfig.KafkaCredential.ConsumerGroupID)
 			if err = receiver.Start(ctx); err != nil {
 				log.Errorf("failed to start the consumser: %v", err)
 			}
-			log.Infof("need reconcile transport ctrl")
+			log.Infof("consumer %s is stopped, requeue to reconcile", c.transportConfig.KafkaCredential.ConsumerGroupID)
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 			c.transportClient.consumer = nil
 		}()
