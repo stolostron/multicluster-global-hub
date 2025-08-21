@@ -194,8 +194,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 		updateConn = config.SetTransporterConn(conn)
 	}
-	// update the transporter
-	config.SetTransporter(r.transporter)
 	return ctrl.Result{}, nil
 }
 
