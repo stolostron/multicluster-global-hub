@@ -106,7 +106,7 @@ func (c *TransportCtrl) DisableConsumer() {
 func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	log.Debugf("reconcile transport ctrl:%v", request.NamespacedName)
+	log.Infof("reconcile transport(producer/consumer): %v", request.NamespacedName)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -129,14 +129,14 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		// the consumer should reconcile in either credential updated or consumer exit
-		if !c.disableConsumer {
-			if err := c.ReconcileConsumer(ctx); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
 
 		if updated {
+			// the consumer should reconcile when the credential is updated
+			if !c.disableConsumer {
+				if err := c.ReconcileConsumer(ctx); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -214,13 +214,13 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		}
 		c.transportClient.consumer = receiver
 		go func() {
-			log.Debug("start consumer")
+			log.Infof("start consumer: %v", c.transportConfig.ConsumerGroupId)
 			if err = receiver.Start(ctx); err != nil {
-				log.Errorf("failed to start the consumser: %v", err)
+				log.Errorf("failed to start the consumer: %v", err)
 			}
-			log.Infof("need reconcile transport ctrl")
-			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
+			log.Infof("consumer %v is stopped, need reconcile transport ctrl", c.transportConfig.ConsumerGroupId)
 			c.transportClient.consumer = nil
+			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}()
 	}
 	return nil
