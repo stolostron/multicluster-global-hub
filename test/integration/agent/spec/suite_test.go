@@ -58,6 +58,7 @@ var _ = BeforeSuite(func() {
 		SpecEnforceHohRbac:   true,
 		EnableGlobalResource: true,
 	}
+	configs.SetAgentConfig(agentConfig)
 
 	testenv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{
