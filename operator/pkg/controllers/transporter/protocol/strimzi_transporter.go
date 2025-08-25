@@ -524,6 +524,12 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 	// topics
 	credential.StatusTopic = config.GetStatusTopic(clusterName)
 	credential.SpecTopic = config.GetSpecTopic()
+
+	// consumer group id
+	credential.ConsumerGroupID = config.GetConsumerGroupID(k.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
+		clusterName)
+
+	// for the non local-cluster
 	if clusterName != config.GetLocalClusterName() && clusterName != constants.LocalClusterName {
 		return credential, nil
 	}

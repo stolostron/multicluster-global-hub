@@ -35,11 +35,11 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		secretNamespace: "default",
 		secretName:      "test-secret",
 		transportConfig: &transport.TransportInternalConfig{
-			TransportType:   string(transport.Chan),
-			ConsumerGroupId: "test",
+			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
-				SpecTopic:   "spec",
-				StatusTopic: "event",
+				SpecTopic:       "spec",
+				StatusTopic:     "event",
+				ConsumerGroupID: "test",
 			},
 			FailureThreshold: 100,
 		},
