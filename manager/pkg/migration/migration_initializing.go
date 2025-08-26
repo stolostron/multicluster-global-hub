@@ -251,6 +251,13 @@ func (m *ClusterMigrationController) ensureManagedServiceAccount(ctx context.Con
 func (m *ClusterMigrationController) getManagedServiceAccountAddonInstallNamespace(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (string, error) {
+	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
+	// if user specifies the managedserviceaccount addon namespace, then use it
+	if val, ok := mcm.Annotations[msaInstallNamespaceAnnotation]; ok {
+		return val, nil
+	}
+
+	installationNamespace := DefaultAddOnInstallationNamespace
 	addOn := addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{
 		Name:      "managed-serviceaccount",
 		Namespace: mcm.Spec.To, // target hub
@@ -260,20 +267,7 @@ func (m *ClusterMigrationController) getManagedServiceAccountAddonInstallNamespa
 		return "", err
 	}
 
-	installationNamespace := addOn.Status.Namespace
-	if installationNamespace == "" {
-		installationNamespace = addOn.Spec.InstallNamespace
-	}
-
-	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
-	// if user specifies the managedserviceaccount addon namespace, then use it
-	if val, ok := mcm.Annotations[msaInstallNamespaceAnnotation]; ok {
-		installationNamespace = val
-	}
-
-	if installationNamespace == "" {
-		installationNamespace = DefaultAddOnInstallationNamespace
-	}
+	installationNamespace = addOn.Status.Namespace
 	return installationNamespace, nil
 }
 

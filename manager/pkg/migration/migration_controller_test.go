@@ -573,7 +573,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 				Producer: &MockProducer{},
 			}
 
-			err := controller.setupTimeoutsFromConfig(tt.migration)
+			err := controller.SetupMigrationStageTimeout(tt.migration)
 
 			if tt.expectError {
 				assert.Error(t, err)

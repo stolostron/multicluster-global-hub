@@ -150,7 +150,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// setup custom timeouts from config
-	if err := m.setupTimeoutsFromConfig(mcm); err != nil {
+	if err := m.SetupMigrationStageTimeout(mcm); err != nil {
 		log.Errorf("failed to setup timeouts from config: %v", err)
 		return ctrl.Result{}, err
 	}
@@ -256,7 +256,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	// namespace
 	installNamespace, err := m.getManagedServiceAccountAddonInstallNamespace(ctx, migration)
 	if err != nil {
-		return fmt.Errorf("failed to get the managedserviceaccount addon installNamespace: %v", err)
+		return err
 	}
 	managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = installNamespace
 
@@ -275,8 +275,8 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	return nil
 }
 
-// setupTimeoutsFromConfig reads the SupportedConfigs field and sets custom timeouts
-func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alpha1.ManagedClusterMigration) error {
+// SetupMigrationStageTimeout reads the SupportedConfigs field and sets custom timeouts
+func (m *ClusterMigrationController) SetupMigrationStageTimeout(mcm *migrationv1alpha1.ManagedClusterMigration) error {
 	// Check if StageTimeout is specified in SupportedConfigs
 	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
 		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
