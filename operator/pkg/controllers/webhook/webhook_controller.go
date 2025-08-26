@@ -57,9 +57,6 @@ func StartController(opts config.ControllerOption) (config.ControllerInterface, 
 	if webhookReconciler != nil {
 		return webhookReconciler, nil
 	}
-	if !config.IsACMResourceReady() {
-		return nil, nil
-	}
 	log.Info("start webhook controller")
 
 	webhookReconciler = &WebhookReconciler{
