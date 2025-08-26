@@ -492,7 +492,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 
 			By("Verifying eventual transition to Failed phase despite rollback issues")
 			Eventually(func() error {
-				migration.RollbackTimeout = 7 * time.Second
+				// migration.RollbackTimeout = 7 * time.Second
 				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
@@ -511,7 +511,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 				if condition.Status != metav1.ConditionFalse {
 					return fmt.Errorf("ConditionTypeRolledBack status expected False, got %s", condition.Status)
 				}
-				migration.RollbackTimeout = 5 * time.Minute
+				// migration.RollbackTimeout = 5 * time.Minute
 				return nil
 			}, "15s", "200ms").Should(Succeed())
 		})

@@ -81,7 +81,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -191,6 +192,17 @@ func TestRollbacking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Set timeout values for tests to prevent immediate timeout, except for timeout tests
+			originalTimeout := rollbackingTimeout
+			if tt.name != "should handle timeout in rollback" {
+				rollbackingTimeout = 30 * time.Minute // Set a long timeout for non-timeout tests
+			} else {
+				rollbackingTimeout = 5 * time.Minute // Keep original timeout for timeout test
+			}
+			defer func() {
+				rollbackingTimeout = originalTimeout
+			}()
+
 			// Initialize migration status for this test
 			AddMigrationStatus(string(tt.migration.UID))
 
@@ -460,7 +472,9 @@ func TestHandleRollbackStatus(t *testing.T) {
 			}
 
 			ctx := context.TODO()
-			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase)
+			waitingHub := "test-hub"
+			failedStage := "Initializing"
+			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase, &waitingHub, failedStage)
 
 			// Verify the results
 			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase)
