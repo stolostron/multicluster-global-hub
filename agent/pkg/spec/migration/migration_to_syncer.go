@@ -70,9 +70,10 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	var err error
 	var stage string
+	var migrationId string
 
 	defer func() {
-		if stage == "" || s.currentMigrationId == "" {
+		if stage == "" || migrationId == "" {
 			log.Warnf("stage(%s) or migrationId(%s) is empty ", stage, s.currentMigrationId)
 			return
 		}
@@ -84,7 +85,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 			s.transportClient,
 			&migration.MigrationStatusBundle{
-				MigrationId: s.currentMigrationId,
+				MigrationId: migrationId,
 				Stage:       stage,
 				ErrMessage:  errMessage,
 			}, s.bundleVersion)
@@ -115,6 +116,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 
 	stage = event.Stage
+	migrationId = event.MigrationId
 
 	// Set current migration ID and reset bundle version for initializing stage
 	if event.Stage == migrationv1alpha1.PhaseInitializing {
@@ -122,9 +124,9 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		s.bundleVersion.Reset()
 	}
 
-	// Check if migration ID matches for all other stages
+	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
 	if s.currentMigrationId != event.MigrationId {
-		log.Infof("ignoring migration event %s, current migrationId is %s", event.MigrationId, s.currentMigrationId)
+		log.Infof("ignoring migration even handing %s, current migrationId is %s", event.MigrationId, s.currentMigrationId)
 		return nil
 	}
 

@@ -108,7 +108,7 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 
 	// Check if migration ID matches for all other stages
 	if s.currentMigrationId != event.MigrationId {
-		log.Infof("ignoring migration event %s, current migrationId is %s",
+		log.Infof("ignoring migration event handling %s, current migrationId is %s",
 			event.MigrationId, s.currentMigrationId)
 		return nil
 	}
@@ -603,8 +603,9 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 
 // reportStatus reports the migration status back to global hub
 func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migration.MigrationSourceBundle, err error) {
-	// Don't report if migration ID doesn't match current one
-	if s.currentMigrationId != spec.MigrationId {
+	// Don't report if migration ID doesn't match current one(expect the rollbacking status for the initilzing)
+	if s.currentMigrationId != spec.MigrationId &&
+		(spec.Stage != migrationv1alpha1.PhaseRollbacking && spec.RollbackStage != migrationv1alpha1.PhaseInitializing) {
 		return
 	}
 
