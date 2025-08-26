@@ -41,10 +41,10 @@ const (
 
 var (
 	// the following timeouts are accumulated from the start of the migration
-	migratingTimeout   time.Duration = 5 * time.Minute
-	cleaningTimeout    time.Duration = 2 * migratingTimeout
-	rollbackingTimeout time.Duration = 2 * migratingTimeout // it is the 2 times of defaultStageTimeout
-	registeringTimeout time.Duration = 12 * time.Minute
+	migratingTimeout   time.Duration
+	cleaningTimeout    time.Duration
+	rollbackingTimeout time.Duration
+	registeringTimeout time.Duration
 )
 
 var log = logger.DefaultZapLogger()
@@ -281,9 +281,10 @@ func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alp
 	// Check if StageTimeout is specified in SupportedConfigs
 	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
 		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
-		// Set the timeout value to all three timeout variables
+		// Set the timeout value to all timeout variables
 		migratingTimeout = timeout
 		registeringTimeout = timeout
+		cleaningTimeout = timeout
 		rollbackingTimeout = 2 * timeout
 
 		log.Infof("set migration: %v timeouts to %v", mcm.Name, timeout)
@@ -297,6 +298,6 @@ func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alp
 func resetTimeouts() {
 	migratingTimeout = 5 * time.Minute
 	cleaningTimeout = 2 * migratingTimeout
-	rollbackingTimeout = 2 * migratingTimeout
+	rollbackingTimeout = 2 * migratingTimeout // it is the 2 times of defaultStageTimeout
 	registeringTimeout = 12 * time.Minute
 }
