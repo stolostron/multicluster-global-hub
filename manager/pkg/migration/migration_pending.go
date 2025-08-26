@@ -97,10 +97,7 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 		if err := m.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
 			return err
 		}
-		// Ensure LastTransitionTime is set before calling SetStatusCondition
-		if condition.LastTransitionTime.IsZero() {
-			condition.LastTransitionTime = metav1.NewTime(time.Now())
-		}
+		condition.LastTransitionTime = metav1.NewTime(time.Now())
 
 		if meta.SetStatusCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {
 			mcm.Status.Phase = phase
