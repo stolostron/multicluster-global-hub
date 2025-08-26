@@ -1,7 +1,9 @@
 name: '🧐 Gemini Pull Request Review'
 
 on:
-  pull_request:
+  pull_request_target:
+    branches:
+      - main
     types:
       - 'opened'
       - 'reopened'
@@ -41,7 +43,7 @@ jobs:
     if: |-
       github.event_name == 'workflow_dispatch' ||
       (
-        github.event_name == 'pull_request' &&
+        github.event_name == 'pull_request_target' &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
       ) ||
       (
@@ -60,7 +62,7 @@ jobs:
         contains(github.event.review.body, '@gemini-cli /review') &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
       )
-    timeout-minutes: 5
+    timeout-minutes: 10
     runs-on: 'ubuntu-latest'
 
     steps:
