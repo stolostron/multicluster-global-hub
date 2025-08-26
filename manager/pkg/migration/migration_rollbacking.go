@@ -86,7 +86,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
 		if startedCond != nil && time.Since(startedCond.LastTransitionTime.Time) > rollbackingTimeout {
 			condition.Reason = ConditionReasonTimeout
-			errMsg := fmt.Sprintf("Timeout during %s rollback", failedStage)
+			errMsg := "Timeout"
 			condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
 			condition.Status = metav1.ConditionFalse
 			nextPhase = migrationv1alpha1.PhaseFailed
@@ -145,7 +145,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 func (m *ClusterMigrationController) manuallyRollbackMsg(failedStage, fromHub, errMsg string) string {
 	return fmt.Sprintf("%s stage rollback failed on source hub %s: %s. "+
-		"Please manually ensure migration annotations (%s and %s) are removed from the managed clusters",
+		"Manual intervention required: please remove migration annotations (%s and %s) from the managed clusters",
 		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating, "agent.open-cluster-management.io/klusterlet-config")
 }
 
