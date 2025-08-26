@@ -212,7 +212,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	// clean up the finalizer
 	if mcm.DeletionTimestamp != nil {
 		RemoveMigrationStatus(string(mcm.GetUID()))
-		resetTimeouts()
 		if controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 			if updateErr := m.Update(ctx, mcm); updateErr != nil {
 				log.Errorf("failed to remove finalizer: %v", updateErr)
@@ -288,6 +287,8 @@ func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alp
 		rollbackingTimeout = 2 * timeout
 
 		log.Infof("set migration: %v timeouts to %v", mcm.Name, timeout)
+	} else {
+		resetTimeouts()
 	}
 
 	return nil
