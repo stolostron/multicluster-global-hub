@@ -97,7 +97,17 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 		if err := m.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
 			return err
 		}
-		condition.LastTransitionTime = metav1.NewTime(time.Now())
+		// Check if the condition exists and has changed
+		existingCondition := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type)
+		conditionChanged := existingCondition == nil ||
+			existingCondition.Status != condition.Status ||
+			existingCondition.Reason != condition.Reason ||
+			existingCondition.Message != condition.Message
+
+		// Only set LastTransitionTime if condition has changed or doesn't exist
+		if conditionChanged && condition.LastTransitionTime.IsZero() {
+			condition.LastTransitionTime = metav1.NewTime(time.Now())
+		}
 
 		if meta.SetStatusCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {
 			mcm.Status.Phase = phase
