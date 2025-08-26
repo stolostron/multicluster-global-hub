@@ -276,7 +276,7 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	if err != nil {
 		return err
 	}
-	log.Debugf("kafkaConnection: %v", *kafkaConnection)
+	log.Debugf("kafkaConnection bootstrap server: %s, cluster ID: %s", kafkaConnection.BootstrapServer, kafkaConnection.ClusterID)
 	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(true)
 	if err != nil {
 		return fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
