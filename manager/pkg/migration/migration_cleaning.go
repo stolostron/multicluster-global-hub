@@ -45,7 +45,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	nextPhase := migrationv1alpha1.PhaseCleaning
 
-	defer m.handleCleaningStatus(ctx, mcm, &condition, &nextPhase, cleaningTimeout)
+	defer m.handleCleaningStatus(ctx, mcm, &condition, &nextPhase, migratingTimeout)
 
 	// Deleting the ManagedServiceAccount will revoke the bootstrap kubeconfig secret of the migrated cluster.
 	// Be cautious — this action may carry potential risks.

@@ -58,7 +58,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseInitializing
 
-	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migratingTimeout)
 
 	// 1. Create the managedserviceaccount -> generate bootstrap secret
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {

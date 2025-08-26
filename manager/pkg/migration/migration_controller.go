@@ -40,9 +40,11 @@ const (
 )
 
 var (
-	cleaningTimeout       time.Duration
-	migrationStageTimeout time.Duration
-	registeringTimeout    time.Duration
+	// the following timeouts are accumulated from the start of the migration
+	migratingTimeout   time.Duration = 5 * time.Minute
+	cleaningTimeout    time.Duration = 2 * migratingTimeout
+	rollbackingTimeout time.Duration = 2 * migratingTimeout // it is the 2 times of defaultStageTimeout
+	registeringTimeout time.Duration = 12 * time.Minute
 )
 
 var log = logger.DefaultZapLogger()
@@ -209,15 +211,15 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 
 	// clean up the finalizer
 	if mcm.DeletionTimestamp != nil {
+		RemoveMigrationStatus(string(mcm.GetUID()))
+		resetTimeouts()
 		if controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 			if updateErr := m.Update(ctx, mcm); updateErr != nil {
 				log.Errorf("failed to remove finalizer: %v", updateErr)
 			}
 		}
-		RemoveMigrationStatus(string(mcm.GetUID()))
 		log.Infof("clean up migration status for migrationId: %s", mcm.GetUID())
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -276,20 +278,25 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 
 // setupTimeoutsFromConfig reads the SupportedConfigs field and sets custom timeouts
 func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alpha1.ManagedClusterMigration) error {
-	cleaningTimeout = 10 * time.Minute      // Separate timeout for cleaning phase
-	migrationStageTimeout = 5 * time.Minute // Default timeout for most migration stages
-	registeringTimeout = 12 * time.Minute   // Extended timeout for registering phase
-
 	// Check if StageTimeout is specified in SupportedConfigs
 	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
 		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
 		// Set the timeout value to all three timeout variables
-		cleaningTimeout = timeout
+		migratingTimeout = timeout
 		registeringTimeout = timeout
-		migrationStageTimeout = timeout
+		rollbackingTimeout = 2 * timeout
 
 		log.Infof("set migration: %v timeouts to %v", mcm.Name, timeout)
 	}
 
 	return nil
+}
+
+// resetTimeouts resets the timeouts to the default values,
+// since the configuration of previous migration is not valid for the next migration
+func resetTimeouts() {
+	migratingTimeout = 5 * time.Minute
+	cleaningTimeout = 2 * migratingTimeout
+	rollbackingTimeout = 2 * migratingTimeout
+	registeringTimeout = 12 * time.Minute
 }

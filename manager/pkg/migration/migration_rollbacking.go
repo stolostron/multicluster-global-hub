@@ -84,7 +84,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
 
 		startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-		if startedCond != nil && time.Since(startedCond.LastTransitionTime.Time) > migrationStageTimeout {
+		if startedCond != nil && time.Since(startedCond.LastTransitionTime.Time) > rollbackingTimeout {
 			condition.Reason = ConditionReasonTimeout
 			errMsg := fmt.Sprintf("Timeout during %s rollback", failedStage)
 			condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
