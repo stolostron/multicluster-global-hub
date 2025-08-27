@@ -261,6 +261,8 @@ rules:
   - watch
   - list
   - delete
+  - patch
+  - update
 - apiGroups:
   - register.open-cluster-management.io
   resources:
