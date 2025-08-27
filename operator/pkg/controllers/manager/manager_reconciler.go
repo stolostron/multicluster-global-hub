@@ -290,11 +290,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	}
 
 	if isMiddlewareUpdated(kafkaConfig, storageConn) {
-		fmt.Println("kafkaConfig =====================")
-		commonutils.PrettyPrint(kafkaConfig)
-		fmt.Println("storageConfig =====================")
-		commonutils.PrettyPrint(storageConn)
-		log.Infof("restarting manager pod")
 		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
 		if err != nil {
 			reconcileErr = fmt.Errorf("failed to restart manager pod: %w", err)
@@ -460,10 +455,12 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 }
 
 func isMiddlewareUpdated(transportConn *transport.KafkaConfig, storageConn *config.PostgresConnection) bool {
-	updated := false
-	if transportConnectionCache == nil || storageConnectionCache == nil {
-		updated = true
-	}
+	fmt.Println("transportConn =====================")
+	commonutils.PrettyPrint(transportConn)
+	fmt.Println("transportConnectionCache =====================")
+	commonutils.PrettyPrint(transportConnectionCache)
+
+	updated := transportConnectionCache == nil || storageConnectionCache == nil
 	if !reflect.DeepEqual(transportConn, transportConnectionCache) {
 		updated = true
 	}
