@@ -1,4 +1,3 @@
-{{- if not .InstallHostedMode -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -14,4 +13,3 @@ data:
   aggregationLevel: {{ .AggregationLevel }}
   enableLocalPolicies: "{{ .EnableLocalPolicies }}"
   logLevel: {{.LogLevel}}
-{{- end -}}
