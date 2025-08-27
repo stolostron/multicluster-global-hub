@@ -84,8 +84,10 @@ func TestCompleteConfig(t *testing.T) {
 				DeployMode:       string(constants.StandaloneMode),
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "test-hub",
-					TransportType:   string(transport.Kafka),
+					TransportType: string(transport.Kafka),
+					KafkaCredential: &transport.KafkaConfig{
+						ConsumerGroupID: "test-hub",
+					},
 				},
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(&configv1.ClusterVersion{
@@ -98,8 +100,10 @@ func TestCompleteConfig(t *testing.T) {
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "123",
-					TransportType:   string(transport.Kafka),
+					TransportType: string(transport.Kafka),
+					KafkaCredential: &transport.KafkaConfig{
+						ConsumerGroupID: "test-hub",
+					},
 				},
 			},
 		},
@@ -132,8 +136,7 @@ func TestCompleteConfig(t *testing.T) {
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "hub1",
-					TransportType:   string(transport.Kafka),
+					TransportType: string(transport.Kafka),
 				},
 			},
 		},

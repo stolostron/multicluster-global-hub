@@ -540,6 +540,25 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			err := runtimeClient.Create(testCtx, testCluster)
 			Expect(err).NotTo(HaveOccurred())
 
+			testNamespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{Name: testClusterName},
+			}
+			err = runtimeClient.Create(testCtx, testNamespace)
+			Expect(err).NotTo(HaveOccurred())
+
+			testAddonConfig := &addonv1.KlusterletAddonConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testClusterName,
+					Namespace: testClusterName,
+				},
+				Spec: addonv1.KlusterletAddonConfigSpec{
+					ClusterName:      testClusterName,
+					ClusterNamespace: testClusterName,
+				},
+			}
+			err = runtimeClient.Create(testCtx, testAddonConfig)
+			Expect(err).NotTo(HaveOccurred())
+
 			By("Creating rollback event for registering stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseRollbacking, testFromHub, testToHub)
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
@@ -559,6 +578,25 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			Eventually(func() bool {
 				cluster := &clusterv1.ManagedCluster{}
 				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			By("Verifying addon config was deleted")
+			Eventually(func() bool {
+				addonConfig := &addonv1.KlusterletAddonConfig{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name:      testClusterName,
+					Namespace: testClusterName,
+				}, addonConfig)
+				return apierrors.IsNotFound(err)
+			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+
+			By("Verifying RBAC resources were cleaned up")
+			Eventually(func() bool {
+				clusterRole := &rbacv1.ClusterRole{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
+				}, clusterRole)
 				return apierrors.IsNotFound(err)
 			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})

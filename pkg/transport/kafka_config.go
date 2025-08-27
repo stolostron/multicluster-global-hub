@@ -2,8 +2,8 @@ package transport
 
 import "sigs.k8s.io/kustomize/kyaml/yaml"
 
-// KafkaConfig is used to connect the transporter instance. The field is persisted to secret
-// need to be encode with base64.StdEncoding.EncodeToString
+// KafkaConfig is used to connect the transporter instance.
+// This struct can be marshalled into a single Secret entry like "kafka.yaml".
 type KafkaConfig struct {
 	BootstrapServer  string `yaml:"bootstrap.server"`
 	StatusTopic      string `yaml:"topic.status,omitempty"`
@@ -14,6 +14,7 @@ type KafkaConfig struct {
 	ClientKey        string `yaml:"client.key,omitempty"`
 	CASecretName     string `yaml:"ca.secret,omitempty"`
 	ClientSecretName string `yaml:"client.secret,omitempty"`
+	ConsumerGroupID  string `yaml:"consumergroup.id,omitempty"`
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly
@@ -38,6 +39,7 @@ func (k *KafkaConfig) DeepCopy() *KafkaConfig {
 		StatusTopic:      k.StatusTopic,
 		SpecTopic:        k.SpecTopic,
 		ClusterID:        k.ClusterID,
+		ConsumerGroupID:  k.ConsumerGroupID,
 		CACert:           k.CACert,
 		ClientCert:       k.ClientCert,
 		ClientKey:        k.ClientKey,
