@@ -130,6 +130,7 @@ rules:
   - klusterletaddonconfigs
   verbs:
   - create
+  - delete
   - get
   - list
   - watch

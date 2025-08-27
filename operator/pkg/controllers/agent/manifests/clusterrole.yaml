@@ -272,6 +272,7 @@ rules:
   - create
   - watch
   - list
+  - delete
 - apiGroups:
   - work.open-cluster-management.io
   resources:

@@ -260,6 +260,7 @@ rules:
   - create
   - watch
   - list
+  - delete
 - apiGroups:
   - register.open-cluster-management.io
   resources:
