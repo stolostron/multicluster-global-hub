@@ -58,7 +58,8 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	// cleanup the source hub: cleaning or failed state
 	fromHub := mcm.Spec.From
-	clusters := mcm.Spec.IncludedManagedClusters
+	clusters := GetClusterList(string(mcm.UID))
+
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning) {
 		if err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseCleaning, clusters,

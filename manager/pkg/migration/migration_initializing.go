@@ -48,7 +48,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		mcm.Status.Phase != migrationv1alpha1.PhaseInitializing {
 		return false, nil
 	}
-	log.Info("migration initializing started")
+	log.Infof("migration %v initializing started", mcm.Name)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeInitialized,
@@ -98,7 +98,8 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	// 3. Send event to Source Hub
 	fromHub := mcm.Spec.From
-	clusters := mcm.Spec.IncludedManagedClusters
+	clusters := GetClusterList(string(mcm.UID))
+
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing) {
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseInitializing, clusters,
 			bootstrapSecret, "")
@@ -188,6 +189,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
 		ToHub:           migration.Spec.To,
+		PlacementName:   migration.Spec.IncludedManagedClustersPlacementRef,
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
 		RollbackStage:   rollbackStage,
