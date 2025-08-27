@@ -77,10 +77,6 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
 
-	if migrationEvent.MigrationId == "" {
-		return fmt.Errorf("migrationId is required but not provided in event")
-	}
-
 	var err error
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
@@ -95,6 +91,10 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 // handleStage processes different migration stages
 func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migration.MigrationSourceBundle) error {
+	if event.MigrationId == "" {
+		return fmt.Errorf("migrationId is required but not provided in stage %s", event.Stage)
+	}
+
 	// Set current migration ID for stages that need cluster identification:
 	// - Validating phase: always set (uses placement for cluster selection)
 	// - Initializing phase: only set when PlacementName is empty (uses individual cluster names)

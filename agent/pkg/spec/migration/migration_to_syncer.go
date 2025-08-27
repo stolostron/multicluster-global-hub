@@ -74,7 +74,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	defer func() {
 		if stage == "" || migrationId == "" {
-			log.Warnf("stage(%s) or migrationId(%s) is empty ", stage, s.currentMigrationId)
+			log.Warnf("stage(%s) or migrationId(%s) is empty ", stage, migrationId)
 			return
 		}
 		errMessage := ""
