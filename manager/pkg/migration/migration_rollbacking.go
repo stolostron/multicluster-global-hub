@@ -149,8 +149,9 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 ) {
 	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
 	// Handle timeout - still transition to Failed but with timeout message
+	timeout := getTimeout(failedStage) + getTimeout(migrationv1alpha1.PhaseRollbacking)
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > (getTimeout(failedStage)+getTimeout(migrationv1alpha1.PhaseRollbacking)) {
+		time.Since(startedCond.LastTransitionTime.Time) > timeout {
 		condition.Reason = ConditionReasonTimeout
 		condition.Message = m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout")
 	}
