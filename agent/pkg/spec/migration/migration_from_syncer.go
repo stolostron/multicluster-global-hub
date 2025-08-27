@@ -49,12 +49,12 @@ const (
 )
 
 type MigrationSourceSyncer struct {
-	client             client.Client
-	restConfig         *rest.Config // for init no-cached client of the runtime manager
-	transportClient    transport.TransportClient
-	transportConfig    *transport.TransportInternalConfig
-	bundleVersion      *eventversion.Version
-	currentMigrationId string
+	client                client.Client
+	restConfig            *rest.Config // for init no-cached client of the runtime manager
+	transportClient       transport.TransportClient
+	transportConfig       *transport.TransportInternalConfig
+	bundleVersion         *eventversion.Version
+	processingMigrationId string
 }
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
@@ -101,16 +101,16 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 	//   When PlacementName is provided in Initializing, clusters are selected via placement,
 	//   so we don't need to set the migration ID here
 	if event.Stage == migrationv1alpha1.PhaseValidating ||
+		event.RollbackStage == migrationv1alpha1.PhaseInitializing ||
 		(event.Stage == migrationv1alpha1.PhaseInitializing && event.PlacementName == "") {
-		s.currentMigrationId = event.MigrationId
+		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 	}
 
 	// Check if migration ID matches for all other stages
-	if s.currentMigrationId != event.MigrationId {
-		log.Infof("ignoring migration event handling %s, current migrationId is %s",
-			event.MigrationId, s.currentMigrationId)
-		return nil
+	if s.processingMigrationId != event.MigrationId {
+		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId,
+			event.MigrationId)
 	}
 
 	switch event.Stage {
@@ -604,7 +604,7 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 // reportStatus reports the migration status back to global hub
 func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migration.MigrationSourceBundle, err error) {
 	// Don't report if migration ID doesn't match current one(expect the rollbacking status for the initilzing)
-	if s.currentMigrationId != spec.MigrationId &&
+	if s.processingMigrationId != spec.MigrationId &&
 		(spec.Stage != migrationv1alpha1.PhaseRollbacking && spec.RollbackStage != migrationv1alpha1.PhaseInitializing) {
 		return
 	}

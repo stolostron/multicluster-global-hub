@@ -47,11 +47,13 @@ var (
 )
 
 type MigrationTargetSyncer struct {
-	client             client.Client
-	transportClient    transport.TransportClient
-	transportConfig    *transport.TransportInternalConfig
-	bundleVersion      *eventversion.Version
-	currentMigrationId string
+	client                client.Client
+	transportClient       transport.TransportClient
+	transportConfig       *transport.TransportInternalConfig
+	bundleVersion         *eventversion.Version
+	processingMigrationId string
+	receivedMigrationId   string
+	receivedStage         string
 }
 
 func NewMigrationTargetSyncer(client client.Client,
@@ -69,12 +71,10 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	log.Infof("received migration event from %s", evt.Source())
 
 	var err error
-	var stage string
-	var migrationId string
 
 	defer func() {
-		if stage == "" || migrationId == "" {
-			log.Warnf("stage(%s) or migrationId(%s) is empty ", stage, migrationId)
+		if s.receivedStage == "" || s.receivedMigrationId == "" {
+			log.Warnf("stage(%s) or migrationId(%s) is empty ", s.receivedStage, s.receivedMigrationId)
 			return
 		}
 		errMessage := ""
@@ -85,8 +85,8 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 			s.transportClient,
 			&migration.MigrationStatusBundle{
-				MigrationId: migrationId,
-				Stage:       stage,
+				MigrationId: s.receivedMigrationId,
+				Stage:       s.receivedStage,
 				ErrMessage:  errMessage,
 			}, s.bundleVersion)
 		if err != nil {
@@ -96,15 +96,8 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Handle direct deploying events from source hub (not from global hub)
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
-		stage = migrationv1alpha1.PhaseDeploying
-		// Extract migrationId from deploying event payload
-		resourceEvent := &migration.MigrationResourceBundle{}
-		if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr != nil {
-			return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
-		}
-		migrationId = resourceEvent.MigrationId
-
-		err = s.deploying(ctx, resourceEvent)
+		s.receivedStage = migrationv1alpha1.PhaseDeploying
+		err = s.deploying(ctx, evt)
 		if err != nil {
 			return fmt.Errorf("failed to handle deploying event: %w", err)
 		}
@@ -121,20 +114,18 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	if event.MigrationId == "" {
 		return fmt.Errorf("migrationId is required but not provided in event")
 	}
+	s.receivedMigrationId = event.MigrationId
+	s.receivedStage = event.Stage
 
-	stage = event.Stage
-	migrationId = event.MigrationId
-
-	// Set current migration ID and reset bundle version for initializing stage
-	if event.Stage == migrationv1alpha1.PhaseInitializing {
-		s.currentMigrationId = event.MigrationId
+	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
+	if event.Stage == migrationv1alpha1.PhaseInitializing || event.RollbackStage == migrationv1alpha1.PhaseInitializing {
+		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 	}
 
 	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
-	if s.currentMigrationId != event.MigrationId {
-		log.Infof("ignoring migration even handing %s, current migrationId is %s", event.MigrationId, s.currentMigrationId)
-		return nil
+	if s.processingMigrationId != event.MigrationId {
+		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId, event.MigrationId)
 	}
 
 	err = s.handleStage(ctx, event)
@@ -142,10 +133,6 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return fmt.Errorf("failed to handle migration stage: %w", err)
 	}
 	return nil
-}
-
-func (s *MigrationTargetSyncer) SetMigrationID(id string) {
-	s.currentMigrationId = id
 }
 
 // handleStage processes different migration stages using switch statement
@@ -264,14 +251,19 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 	return nil
 }
 
-func (s *MigrationTargetSyncer) deploying(ctx context.Context, resourceEvent *migration.MigrationResourceBundle) error {
+func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
+	// Extract migrationId from deploying event payload
+	resourceEvent := &migration.MigrationResourceBundle{}
+	if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr != nil {
+		return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
+	}
+	s.receivedMigrationId = resourceEvent.MigrationId
+
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: migrationId=%s", resourceEvent.MigrationId)
-
-	if s.currentMigrationId != resourceEvent.MigrationId {
-		log.Infof("ignore the deploying event: expected migrationId %s, but got  %s", s.currentMigrationId,
+	if s.processingMigrationId != resourceEvent.MigrationId {
+		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId,
 			resourceEvent.MigrationId)
-		return nil
 	}
 
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {

@@ -834,7 +834,7 @@ func TestMigrationToSyncer(t *testing.T) {
 
 			// For rollback tests, set the current migration ID to match the event
 			if c.migrationEvent.Stage == migrationv1alpha1.PhaseRollbacking {
-				managedClusterMigrationSyncer.SetMigrationID(c.migrationEvent.MigrationId)
+				managedClusterMigrationSyncer.processingMigrationId = c.migrationEvent.MigrationId
 			}
 
 			toEvent := c.migrationEvent
@@ -1056,7 +1056,7 @@ func TestDeploying(t *testing.T) {
 	transportClient := &controller.TransportClient{}
 	transportClient.SetProducer(&producer)
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
-	syncer.currentMigrationId = migrationId
+	syncer.processingMigrationId = migrationId
 	err := syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
 
