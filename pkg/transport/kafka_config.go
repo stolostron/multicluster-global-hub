@@ -1,20 +1,20 @@
 package transport
 
-import "sigs.k8s.io/yaml"
+import "sigs.k8s.io/kustomize/kyaml/yaml"
 
 // KafkaConfig is used to connect the transporter instance.
 // This struct can be marshalled into a single Secret entry like "kafka.yaml".
 type KafkaConfig struct {
-	BootstrapServer  string `json:"bootstrapServer,omitempty" yaml:"bootstrapServer,omitempty"`
-	StatusTopic      string `json:"statusTopic,omitempty" yaml:"statusTopic,omitempty"`
-	SpecTopic        string `json:"specTopic,omitempty" yaml:"specTopic,omitempty"`
-	ClusterID        string `json:"clusterID,omitempty" yaml:"clusterID,omitempty"`
-	ConsumerGroupID  string `json:"consumerGroupID,omitempty" yaml:"consumerGroupID,omitempty"`
-	CACert           string `json:"caCert,omitempty" yaml:"caCert,omitempty"`
-	ClientCert       string `json:"clientCert,omitempty" yaml:"clientCert,omitempty"`
-	ClientKey        string `json:"clientKey,omitempty" yaml:"clientKey,omitempty"`
-	CASecretName     string `json:"caSecretName,omitempty" yaml:"caSecretName,omitempty"`
-	ClientSecretName string `json:"clientSecretName,omitempty" yaml:"clientSecretName,omitempty"`
+	BootstrapServer  string `yaml:"bootstrap.server"`
+	StatusTopic      string `yaml:"topic.status,omitempty"`
+	SpecTopic        string `yaml:"topic.spec,omitempty"`
+	ClusterID        string `yaml:"cluster.id,omitempty"`
+	CACert           string `yaml:"ca.crt,omitempty"`
+	ClientCert       string `yaml:"client.crt,omitempty"`
+	ClientKey        string `yaml:"client.key,omitempty"`
+	CASecretName     string `yaml:"ca.secret,omitempty"`
+	ClientSecretName string `yaml:"client.secret,omitempty"`
+	ConsumerGroupID  string `yaml:"consumergroup.id,omitempty"`
 }
 
 // YamlMarshal marshal the connection credential object, rawCert specifies whether to keep the cert in the data directly

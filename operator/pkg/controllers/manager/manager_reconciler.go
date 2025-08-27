@@ -274,6 +274,11 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	}
 
 	if isMiddlewareUpdated(kafkaConfig, storageConn) {
+		fmt.Println("kafkaConfig =====================")
+		commonutils.PrettyPrint(kafkaConfig)
+		fmt.Println("storageConfig =====================")
+		commonutils.PrettyPrint(storageConn)
+		log.Infof("restarting manager pod")
 		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
 		if err != nil {
 			reconcileErr = fmt.Errorf("failed to restart manager pod: %w", err)
