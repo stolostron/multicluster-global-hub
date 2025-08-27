@@ -97,7 +97,14 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	// Handle direct deploying events from source hub (not from global hub)
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
 		stage = migrationv1alpha1.PhaseDeploying
-		err = s.deploying(ctx, evt)
+		// Extract migrationId from deploying event payload
+		resourceEvent := &migration.MigrationResourceBundle{}
+		if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr != nil {
+			return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
+		}
+		migrationId = resourceEvent.MigrationId
+
+		err = s.deploying(ctx, resourceEvent)
 		if err != nil {
 			return fmt.Errorf("failed to handle deploying event: %w", err)
 		}
@@ -257,16 +264,9 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 	return nil
 }
 
-func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
+func (s *MigrationTargetSyncer) deploying(ctx context.Context, resourceEvent *migration.MigrationResourceBundle) error {
 	// only the handle the current migration event, ignore the previous ones
-	log.Debugf("get migration event: %v", evt.Type())
-
-	payload := evt.Data()
-	resourceEvent := &migration.MigrationResourceBundle{}
-	if err := json.Unmarshal(payload, resourceEvent); err != nil {
-		log.Errorf("failed to unmarshal cluster migration resources %v", err)
-		return err
-	}
+	log.Debugf("get migration event: migrationId=%s", resourceEvent.MigrationId)
 
 	if s.currentMigrationId != resourceEvent.MigrationId {
 		log.Infof("ignore the deploying event: expected migrationId %s, but got  %s", s.currentMigrationId,
