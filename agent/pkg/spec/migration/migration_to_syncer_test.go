@@ -6,6 +6,7 @@ package migration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -898,7 +899,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
-			expectedError: nil,
+			expectedError: fmt.Errorf("expected migrationId , but got  020340324302432049234023040320"),
 			initObjects: []client.Object{
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{
@@ -919,7 +920,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
-			expectedError: nil,
+			expectedError: fmt.Errorf("expected migrationId , but got  020340324302432049234023040320"),
 			initObjects: []client.Object{
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{

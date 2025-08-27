@@ -829,3 +829,8 @@ func deleteResourceIfExists(ctx context.Context, c client.Client, obj client.Obj
 
 	return nil
 }
+
+// SetMigrationID sets the processing migration ID for testing purposes
+func (s *MigrationTargetSyncer) SetMigrationID(migrationID string) {
+	s.processingMigrationId = migrationID
+}
