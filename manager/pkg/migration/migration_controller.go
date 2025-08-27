@@ -279,26 +279,32 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 func (m *ClusterMigrationController) SetupMigrationStageTimeout(mcm *migrationv1alpha1.ManagedClusterMigration) error {
 	// Check if StageTimeout is specified in SupportedConfigs
 	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
-		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
 		// Set the timeout value to all timeout variables
-		migratingTimeout = timeout
-		registeringTimeout = timeout
-		cleaningTimeout = timeout
-		rollbackingTimeout = 2 * timeout
+		migratingTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
+		registeringTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
+		cleaningTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
+		rollbackingTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
 
-		log.Infof("set migration: %v timeouts to %v", mcm.Name, timeout)
+		log.Infof("set migration: %v timeouts to %v", mcm.Name, migratingTimeout)
 	} else {
-		resetTimeouts()
+		migratingTimeout = 5 * time.Minute
+		rollbackingTimeout = migratingTimeout
+		registeringTimeout = 12 * time.Minute
+		cleaningTimeout = registeringTimeout
 	}
 
 	return nil
 }
 
-// resetTimeouts resets the timeouts to the default values,
-// since the configuration of previous migration is not valid for the next migration
-func resetTimeouts() {
-	migratingTimeout = 5 * time.Minute
-	cleaningTimeout = 2 * migratingTimeout
-	rollbackingTimeout = 2 * migratingTimeout // it is the 2 times of defaultStageTimeout
-	registeringTimeout = 12 * time.Minute
+func getTimeout(stage string) time.Duration {
+	switch stage {
+	case migrationv1alpha1.PhaseRollbacking:
+		return rollbackingTimeout
+	case migrationv1alpha1.PhaseRegistering:
+		return registeringTimeout
+	case migrationv1alpha1.PhaseCleaning:
+		return cleaningTimeout
+	default:
+		return migratingTimeout
+	}
 }

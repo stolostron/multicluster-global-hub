@@ -406,7 +406,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	// Store original timeout values to restore after tests
-	originalCleaningTimeout := 10 * time.Minute
+	originalCleaningTimeout := 12 * time.Minute
 	originalMigrationStageTimeout := 5 * time.Minute
 	originalRegisteringTimeout := 12 * time.Minute
 
