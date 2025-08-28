@@ -211,6 +211,14 @@ type KafkaSpec struct {
 	// +kubebuilder:default={"specTopic": "gh-spec", "statusTopic": "gh-status.*"}
 	KafkaTopics KafkaTopics `json:"topics,omitempty"`
 
+	// ConsumerGroupPrefix specifies the prefix for Kafka consumer groups.
+	// The final consumer group ID is constructed as follows:
+	// - For Global Hub: <prefix> + "global_hub"
+	// - For Managed Hubs: <prefix> + <managed-hub-name> (hyphens replaced with underscores)
+	// If not specified, defaults to hub name only (hyphens replaced with underscores).
+	// +optional
+	ConsumerGroupPrefix string `json:"consumerGroupPrefix,omitempty"`
+
 	// StorageSize specifies the size for storage
 	// +optional
 	StorageSize string `json:"storageSize,omitempty"`
