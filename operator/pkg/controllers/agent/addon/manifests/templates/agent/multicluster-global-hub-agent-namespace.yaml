@@ -1,4 +1,3 @@
-{{ if not .InstallHostedMode }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -6,4 +5,3 @@ metadata:
   labels:
     addon.open-cluster-management.io/namespace: "true"
     addon.open-cluster-management.io/hosted-manifest-location: managed
-{{ end }}

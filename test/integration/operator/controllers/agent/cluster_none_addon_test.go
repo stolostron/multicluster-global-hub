@@ -93,12 +93,12 @@ var _ = Describe("none addon", func() {
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
 
-		By("By preparing an OCP with no condition Managed Clusters")
-		clusterName3 := fmt.Sprintf("hub-ocp-no-condtion-%s", rand.String(6))
+		By("By preparing an OCP with no deploy mode label")
+		clusterName3 := fmt.Sprintf("hub-ocp-no-deploy-mode-%s", rand.String(6))
 		prepareCluster(clusterName3,
 			map[string]string{
-				"vendor":                       "OpenShift",
-				constants.GHDeployModeLabelKey: constants.GHDeployModeDefault,
+				"vendor": "OpenShift",
+				// No deploy mode label - should NOT create addon
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
@@ -108,45 +108,66 @@ var _ = Describe("none addon", func() {
 		clusterName4 := constants.LocalClusterName
 		prepareCluster(clusterName4, map[string]string{
 			"vendor":                       "OpenShift",
+			"local-cluster":                "true", // This label makes it a local cluster
 			constants.GHDeployModeLabelKey: constants.GHDeployModeDefault,
 		},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
 
-		By("By preparing an OCP with deploy mode = Hosted without hosting cluster")
-		clusterName5 := fmt.Sprintf("hub-ocp-mode-none-%s", rand.String(6))
+		By("By preparing an OCP cluster without deploy mode label")
+		clusterName5 := fmt.Sprintf("hub-ocp-no-label-%s", rand.String(6))
 		prepareCluster(clusterName5,
 			map[string]string{
-				"vendor":                       "OpenShift",
-				constants.GHDeployModeLabelKey: constants.GHDeployModeHosted,
+				"vendor": "OpenShift",
+				// No deploy mode label - should NOT create addon
 			},
 			map[string]string{},
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
 
-		By("By checking the addon CR is is created in the cluster ns")
-		addonList := &addonv1alpha1.ManagedClusterAddOnList{}
-		checkCount := 0
-		Eventually(func() error {
-			err := runtimeClient.List(ctx, addonList, client.InNamespace(clusterName1),
-				client.InNamespace(clusterName2), client.InNamespace(clusterName3),
-				client.InNamespace(clusterName4), client.InNamespace(clusterName5))
-			if err != nil {
-				return err
+		By("By checking the addon CR is NOT created in the cluster ns")
+		clusterNames := []string{clusterName1, clusterName2, clusterName3, clusterName4, clusterName5}
+
+		Consistently(func() error {
+			totalAddons := 0
+
+			for _, clusterName := range clusterNames {
+				addonList := &addonv1alpha1.ManagedClusterAddOnList{}
+				err := runtimeClient.List(ctx, addonList, client.InNamespace(clusterName))
+				if err != nil {
+					return err
+				}
+
+				if len(addonList.Items) != 0 {
+					fmt.Printf("Found %d addons in namespace %s:\n", len(addonList.Items), clusterName)
+					for _, addon := range addonList.Items {
+						fmt.Printf("  - Addon: %s/%s\n", addon.Namespace, addon.Name)
+					}
+					utils.PrettyPrint(addonList.Items)
+				}
+				totalAddons += len(addonList.Items)
 			}
 
-			if len(addonList.Items) != 0 {
-				utils.PrettyPrint(addonList.Items)
-				return fmt.Errorf("expected there is no addon, but got %#v", addonList)
+			if totalAddons != 0 {
+				return fmt.Errorf("expected there is no addon, but got %d addons", totalAddons)
 			}
-			if checkCount == 5 {
-				return nil
+			return nil
+		}, 10*time.Second, interval).ShouldNot(HaveOccurred())
+
+		Eventually(func() error {
+			for _, clusterName := range clusterNames {
+				err := runtimeClient.Delete(ctx, &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: clusterName,
+					},
+				})
+				if err != nil {
+					return err
+				}
 			}
-			checkCount++
-			time.Sleep(1 * time.Second)
-			return fmt.Errorf("check again %v", checkCount)
-		}, timeout, interval).ShouldNot(HaveOccurred())
+			return nil
+		}, duration, interval).ShouldNot(HaveOccurred())
 	})
 
 	It("Should not create agent for the local-cluster", func() {
@@ -158,7 +179,7 @@ var _ = Describe("none addon", func() {
 			[]clusterv1.ManagedClusterClaim{},
 			clusterAvailableCondition)
 
-		By("By checking the addon CR is is created in the cluster ns")
+		By("By checking the addon CR is not created in the cluster ns")
 		addon := &addonv1alpha1.ManagedClusterAddOn{}
 		Eventually(func() error {
 			return runtimeClient.Get(ctx, types.NamespacedName{

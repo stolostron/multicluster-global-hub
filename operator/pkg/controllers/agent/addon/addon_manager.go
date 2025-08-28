@@ -23,7 +23,6 @@ import (
 
 //go:embed manifests/templates
 //go:embed manifests/templates/agent
-//go:embed manifests/templates/hostedagent
 //go:embed manifests/templates/hubcluster
 var FS embed.FS
 
@@ -91,7 +90,6 @@ func StartGlobalHubAddonManager(ctx context.Context, kubeConfig *rest.Config, cl
 
 	factory := addonfactory.NewAgentAddonFactory(
 		constants.GHManagedClusterAddonName, FS, "manifests").
-		WithAgentHostedModeEnabledOption().
 		WithScheme(addonAgentConfig.addonScheme).
 		WithAgentHealthProber(&addonframeworkagent.HealthProber{
 			Type: addonframeworkagent.HealthProberTypeLease,
