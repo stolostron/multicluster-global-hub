@@ -134,8 +134,9 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 func (m *ClusterMigrationController) manuallyRollbackMsg(failedStage, fromHub, errMsg string) string {
 	return fmt.Sprintf("%s stage rollback failed on source hub %s: %s. "+
-		"Manual intervention required: please remove migration annotations (%s and %s) from the managed clusters",
-		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating, "agent.open-cluster-management.io/klusterlet-config")
+		"Manual intervention required: please ensure annotations (%s and %s) are removed from the managed clusters",
+		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating,
+		"agent.open-cluster-management.io/klusterlet-config")
 }
 
 // handleRollbackStatus updates the migration status for rollback phase
