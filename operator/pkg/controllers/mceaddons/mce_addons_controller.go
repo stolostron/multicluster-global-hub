@@ -44,7 +44,7 @@ import (
 
 // MceAddonsController reconciles the MCE related addon(work-manager/managedservice-account/cluster-proxy) ClusterManagementAddOn resources
 // It will add the placement strategy to the ClusterManagementAddOn resources, and select hosted related clusters and
-// make sure the addon is installed on the <open-cluster-management-global-hub-agent-addon> namespace.
+// make sure the addon is installed on the <multicluster-global-hub-agent> namespace.
 type MceAddonsController struct {
 	c client.Client
 }

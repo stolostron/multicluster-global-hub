@@ -6,7 +6,7 @@ metadata:
   labels:
     cluster.open-cluster-management.io/backup: globalhub
 spec:
-  agentInstallNamespace: open-cluster-management-global-hub-agent-addon
+  agentInstallNamespace: multicluster-global-hub-agent
   customizedVariables:
   - name: enableSyncLabelsToClusterClaims
     value: "false"
