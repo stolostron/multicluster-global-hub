@@ -39,7 +39,20 @@ permissions:
   statuses: 'write'
 
 jobs:
+  debug-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug GitHub context
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR author association: ${{ github.event.pull_request.author_association }}"
+          echo "Comment author association: ${{ github.event.comment.author_association }}"
+          echo "Review author association: ${{ github.event.review.author_association }}"
+          echo "Allowed associations: $(echo '["OWNER", "MEMBER", "COLLABORATOR"]' | jq -r '.[]')"
+          echo "Contains check result: ${{ contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) }}"
+
   review-pr:
+    needs: debug-context
     if: |-
       github.event_name == 'workflow_dispatch' ||
       (
