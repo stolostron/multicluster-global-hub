@@ -58,7 +58,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseInitializing
 
-	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, getTimeout(migrationv1alpha1.PhaseInitializing))
 
 	// 1. Create the managedserviceaccount -> generate bootstrap secret
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
@@ -161,7 +161,7 @@ func (m *ClusterMigrationController) handleStatusWithRollback(ctx context.Contex
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
 		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
-		condition.Message = fmt.Sprintf("[Timeout] %s", condition.Message)
+		condition.Message = fmt.Sprintf("Timeout: %s", condition.Message)
 		*nextPhase = migrationv1alpha1.PhaseRollbacking
 	}
 
@@ -251,6 +251,13 @@ func (m *ClusterMigrationController) ensureManagedServiceAccount(ctx context.Con
 func (m *ClusterMigrationController) getManagedServiceAccountAddonInstallNamespace(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) (string, error) {
+	// if user specifies the managedserviceaccount addon namespace, then use it
+	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
+	if val, ok := mcm.Annotations[msaInstallNamespaceAnnotation]; ok {
+		return val, nil
+	}
+
+	// get it from the addon status
 	addOn := addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{
 		Name:      "managed-serviceaccount",
 		Namespace: mcm.Spec.To, // target hub
@@ -259,22 +266,11 @@ func (m *ClusterMigrationController) getManagedServiceAccountAddonInstallNamespa
 	if err != nil {
 		return "", err
 	}
-
-	installationNamespace := addOn.Status.Namespace
-	if installationNamespace == "" {
-		installationNamespace = addOn.Spec.InstallNamespace
+	if addOn.Status.Namespace != "" {
+		return addOn.Status.Namespace, nil
 	}
 
-	msaInstallNamespaceAnnotation := "global-hub.open-cluster-management.io/managed-serviceaccount-install-namespace"
-	// if user specifies the managedserviceaccount addon namespace, then use it
-	if val, ok := mcm.Annotations[msaInstallNamespaceAnnotation]; ok {
-		installationNamespace = val
-	}
-
-	if installationNamespace == "" {
-		installationNamespace = DefaultAddOnInstallationNamespace
-	}
-	return installationNamespace, nil
+	return DefaultAddOnInstallationNamespace, nil
 }
 
 func (m *ClusterMigrationController) generateBootstrapSecret(ctx context.Context,

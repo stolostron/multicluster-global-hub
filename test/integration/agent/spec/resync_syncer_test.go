@@ -38,7 +38,7 @@ var _ = Describe("ResyncBundle", func() {
 		Eventually(func() error {
 			hubInfoVersion = syncers.GetEventVersion(string(enum.HubClusterInfoType))
 			if hubInfoVersion.Value != uint64(1) {
-				return fmt.Errorf("the cluster info should be resynced by the version.Incr()")
+				return fmt.Errorf("expected version: %d, but got: %d", 1, hubInfoVersion.Value)
 			}
 			unKnownMessageVresion := syncers.GetEventVersion("unknownMsg")
 			if unKnownMessageVresion != nil {

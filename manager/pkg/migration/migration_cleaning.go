@@ -45,7 +45,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	nextPhase := migrationv1alpha1.PhaseCleaning
 
-	defer m.handleCleaningStatus(ctx, mcm, &condition, &nextPhase, cleaningTimeout)
+	defer m.handleCleaningStatus(ctx, mcm, &condition, &nextPhase, migratingTimeout)
 
 	// Deleting the ManagedServiceAccount will revoke the bootstrap kubeconfig secret of the migrated cluster.
 	// Be cautious — this action may carry potential risks.
@@ -144,7 +144,7 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
 		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
-		condition.Message = fmt.Sprintf("[Warning - Cleanup Timeout] %s.", condition.Message)
+		condition.Message = fmt.Sprintf("Cleanup timeout: %s", condition.Message)
 		condition.Status = metav1.ConditionFalse
 	}
 

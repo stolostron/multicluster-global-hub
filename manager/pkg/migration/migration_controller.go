@@ -40,9 +40,11 @@ const (
 )
 
 var (
-	cleaningTimeout       time.Duration
-	migrationStageTimeout time.Duration
-	registeringTimeout    time.Duration
+	// the following timeouts are accumulated from the start of the migration
+	migratingTimeout   time.Duration
+	cleaningTimeout    time.Duration
+	rollbackingTimeout time.Duration
+	registeringTimeout time.Duration
 )
 
 var log = logger.DefaultZapLogger()
@@ -148,7 +150,7 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// setup custom timeouts from config
-	if err := m.setupTimeoutsFromConfig(mcm); err != nil {
+	if err := m.SetupMigrationStageTimeout(mcm); err != nil {
 		log.Errorf("failed to setup timeouts from config: %v", err)
 		return ctrl.Result{}, err
 	}
@@ -209,15 +211,14 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 
 	// clean up the finalizer
 	if mcm.DeletionTimestamp != nil {
+		RemoveMigrationStatus(string(mcm.GetUID()))
 		if controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
 			if updateErr := m.Update(ctx, mcm); updateErr != nil {
 				log.Errorf("failed to remove finalizer: %v", updateErr)
 			}
 		}
-		RemoveMigrationStatus(string(mcm.GetUID()))
 		log.Infof("clean up migration status for migrationId: %s", mcm.GetUID())
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -255,7 +256,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	// namespace
 	installNamespace, err := m.getManagedServiceAccountAddonInstallNamespace(ctx, migration)
 	if err != nil {
-		return fmt.Errorf("failed to get the managedserviceaccount addon installNamespace: %v", err)
+		return err
 	}
 	managedClusterMigrationToEvent.ManagedServiceAccountInstallNamespace = installNamespace
 
@@ -274,22 +275,36 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 	return nil
 }
 
-// setupTimeoutsFromConfig reads the SupportedConfigs field and sets custom timeouts
-func (m *ClusterMigrationController) setupTimeoutsFromConfig(mcm *migrationv1alpha1.ManagedClusterMigration) error {
-	cleaningTimeout = 10 * time.Minute      // Separate timeout for cleaning phase
-	migrationStageTimeout = 5 * time.Minute // Default timeout for most migration stages
-	registeringTimeout = 12 * time.Minute   // Extended timeout for registering phase
-
+// SetupMigrationStageTimeout reads the SupportedConfigs field and sets custom timeouts
+func (m *ClusterMigrationController) SetupMigrationStageTimeout(mcm *migrationv1alpha1.ManagedClusterMigration) error {
 	// Check if StageTimeout is specified in SupportedConfigs
 	if mcm.Spec.SupportedConfigs != nil && mcm.Spec.SupportedConfigs.StageTimeout != nil {
-		timeout := mcm.Spec.SupportedConfigs.StageTimeout.Duration
-		// Set the timeout value to all three timeout variables
-		cleaningTimeout = timeout
-		registeringTimeout = timeout
-		migrationStageTimeout = timeout
+		// Set the timeout value to all timeout variables
+		migratingTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
+		registeringTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
+		cleaningTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
+		rollbackingTimeout = mcm.Spec.SupportedConfigs.StageTimeout.Duration
 
-		log.Infof("set migration: %v timeouts to %v", mcm.Name, timeout)
+		log.Infof("set migration: %v timeouts to %v", mcm.Name, migratingTimeout)
+	} else {
+		migratingTimeout = 5 * time.Minute
+		rollbackingTimeout = migratingTimeout
+		registeringTimeout = 12 * time.Minute
+		cleaningTimeout = registeringTimeout
 	}
 
 	return nil
+}
+
+func getTimeout(stage string) time.Duration {
+	switch stage {
+	case migrationv1alpha1.PhaseRollbacking:
+		return rollbackingTimeout
+	case migrationv1alpha1.PhaseRegistering:
+		return registeringTimeout
+	case migrationv1alpha1.PhaseCleaning:
+		return cleaningTimeout
+	default:
+		return migratingTimeout
+	}
 }

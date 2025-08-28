@@ -81,7 +81,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -233,6 +234,29 @@ func TestRollbacking(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+			}
+
+			// Set up timeout configuration for non-timeout tests
+			if tt.name != "should handle timeout in rollback" {
+				// Create a migration with long timeout for non-timeout tests
+				testMigration := tt.migration.DeepCopy()
+				testMigration.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 30 * time.Minute},
+				}
+				err := controller.SetupMigrationStageTimeout(testMigration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
+			} else {
+				// For timeout test, use a very short timeout to ensure timeout occurs
+				testMigration := tt.migration.DeepCopy()
+				testMigration.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 2 * time.Minute}, // 2 min stage = 4 min rollback timeout
+				}
+				err := controller.SetupMigrationStageTimeout(testMigration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
 			}
 
 			// Setup initial states for migration tracking
@@ -459,8 +483,29 @@ func TestHandleRollbackStatus(t *testing.T) {
 				Producer: &MockProducer{},
 			}
 
+			// Set up timeout configuration for timeout tests
+			if tt.simulateTimeout {
+				// Use short timeout for timeout test
+				testMigration := tt.migration.DeepCopy()
+				testMigration.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 2 * time.Minute}, // 2 min stage = 4 min rollback timeout
+				}
+				err := controller.SetupMigrationStageTimeout(testMigration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
+			} else {
+				// Use default timeouts for non-timeout tests
+				err := controller.SetupMigrationStageTimeout(tt.migration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
+			}
+
 			ctx := context.TODO()
-			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase)
+			waitingHub := "test-hub"
+			failedStage := "Initializing"
+			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase, &waitingHub, failedStage)
 
 			// Verify the results
 			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase)
@@ -470,7 +515,7 @@ func TestHandleRollbackStatus(t *testing.T) {
 			assert.Equal(t, tt.expectedConditionReason, condition.Reason)
 
 			if tt.simulateTimeout {
-				assert.Contains(t, condition.Message, "[Timeout]")
+				assert.Contains(t, condition.Message, "Timeout")
 			}
 		})
 	}

@@ -406,7 +406,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	// Store original timeout values to restore after tests
-	originalCleaningTimeout := 10 * time.Minute
+	originalCleaningTimeout := 12 * time.Minute
 	originalMigrationStageTimeout := 5 * time.Minute
 	originalRegisteringTimeout := 12 * time.Minute
 
@@ -560,7 +560,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset timeout values before each test
 			cleaningTimeout = originalCleaningTimeout
-			migrationStageTimeout = originalMigrationStageTimeout
+			migratingTimeout = originalMigrationStageTimeout
 			registeringTimeout = originalRegisteringTimeout
 
 			fakeClient := fake.NewClientBuilder().
@@ -573,7 +573,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 				Producer: &MockProducer{},
 			}
 
-			err := controller.setupTimeoutsFromConfig(tt.migration)
+			err := controller.SetupMigrationStageTimeout(tt.migration)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -583,7 +583,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 
 			// Verify timeout values were set correctly
 			assert.Equal(t, tt.expectedCleaningTimeout, cleaningTimeout, "cleaningTimeout should match expected value")
-			assert.Equal(t, tt.expectedMigrationTimeout, migrationStageTimeout, "migrationStageTimeout should match expected value")
+			assert.Equal(t, tt.expectedMigrationTimeout, migratingTimeout, "migrationStageTimeout should match expected value")
 			assert.Equal(t, tt.expectedRegisteringTimeout, registeringTimeout, "registeringTimeout should match expected value")
 		})
 	}
@@ -591,7 +591,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 	// Restore original timeout values after all tests
 	t.Cleanup(func() {
 		cleaningTimeout = originalCleaningTimeout
-		migrationStageTimeout = originalMigrationStageTimeout
+		migratingTimeout = originalMigrationStageTimeout
 		registeringTimeout = originalRegisteringTimeout
 	})
 }

@@ -18,8 +18,6 @@ const (
 	ConditionReasonRollbackFailed     = "RollbackFailed"
 )
 
-var RollbackTimeout = 5 * time.Minute
-
 // rollbacking handles the rollback process when migration fails during initializing, deploying, or registering phases
 // This phase attempts to restore the system to its previous state before the failed migration attempt
 // 1. Source Hub: restore original cluster configurations and remove migration-related changes
@@ -49,8 +47,9 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		Message: fmt.Sprintf("Attempting to rollback migration changes for failed %s stage", failedStage),
 	}
 	nextPhase := migrationv1alpha1.PhaseRollbacking
+	waitingHub := mcm.Spec.From
 
-	defer m.handleRollbackStatus(ctx, mcm, &condition, &nextPhase)
+	defer m.handleRollbackStatus(ctx, mcm, &condition, &nextPhase, &waitingHub, failedStage)
 
 	// 1. Send rollback events to source hubs to restore original configurations
 	fromHub := mcm.Spec.From
@@ -58,7 +57,6 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to source hub: %s", fromHub)
-
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, clusters,
 			getBootstrapSecret(fromHub, nil), failedStage)
 		if err != nil {
@@ -75,22 +73,13 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		// Only add manual cleanup guidance for source hub rollback failures
 		condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
 		condition.Reason = ConditionReasonRollbackFailed
-		condition.Status = metav1.ConditionFalse
 		return false, nil
 	}
 
 	// Wait for source hub rollback completion
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
-
-		startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-		if startedCond != nil && time.Since(startedCond.LastTransitionTime.Time) > migrationStageTimeout {
-			condition.Reason = ConditionReasonTimeout
-			errMsg := fmt.Sprintf("Timeout during %s rollback", failedStage)
-			condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
-			condition.Status = metav1.ConditionFalse
-			nextPhase = migrationv1alpha1.PhaseFailed
-		}
+		waitingHub = fromHub
 		return true, nil
 	}
 
@@ -119,6 +108,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	// Wait for destination hub rollback completion
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		condition.Message = fmt.Sprintf("waiting for target hub %s to complete %s stage rollback", mcm.Spec.To, failedStage)
+		waitingHub = mcm.Spec.To
 		return true, nil
 	}
 
@@ -126,7 +116,6 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	if err := m.cleanupManagedServiceAccount(ctx, mcm); err != nil {
 		condition.Message = fmt.Sprintf("failed to cleanup managed service account: %v", err)
 		condition.Reason = ConditionReasonRollbackFailed
-		condition.Status = metav1.ConditionFalse
 		return false, err
 	}
 
@@ -145,8 +134,9 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 func (m *ClusterMigrationController) manuallyRollbackMsg(failedStage, fromHub, errMsg string) string {
 	return fmt.Sprintf("%s stage rollback failed on source hub %s: %s. "+
-		"Please manually ensure migration annotations (%s and %s) are removed from the managed clusters",
-		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating, "agent.open-cluster-management.io/klusterlet-config")
+		"Manual intervention required: please ensure annotations (%s and %s) are removed from the managed clusters",
+		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating,
+		"agent.open-cluster-management.io/klusterlet-config")
 }
 
 // handleRollbackStatus updates the migration status for rollback phase
@@ -155,15 +145,16 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 	condition *metav1.Condition,
 	nextPhase *string,
+	waitingHub *string,
+	failedStage string,
 ) {
 	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-
 	// Handle timeout - still transition to Failed but with timeout message
+	timeout := getTimeout(failedStage) + getTimeout(migrationv1alpha1.PhaseRollbacking)
 	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > RollbackTimeout {
+		time.Since(startedCond.LastTransitionTime.Time) > timeout {
 		condition.Reason = ConditionReasonTimeout
-		condition.Message = fmt.Sprintf("[Timeout] %s.", condition.Message)
-		condition.Status = metav1.ConditionFalse
+		condition.Message = m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout")
 	}
 
 	if condition.Reason != ConditionReasonWaiting {
