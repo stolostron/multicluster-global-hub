@@ -175,6 +175,7 @@ func parseFlags() *configs.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
+	pflag.BoolVar(&agentConfig.Standalone, "standalone", false, "Whether to deploy the agent with standalone mode")
 	pflag.BoolVar(&agentConfig.EnableStackroxIntegration, "enable-stackrox-integration", false,
 		"Enable StackRox integration")
 	pflag.DurationVar(&agentConfig.StackroxPollInterval, "stackrox-poll-interval", 30*time.Minute,
