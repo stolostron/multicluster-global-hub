@@ -215,6 +215,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 			}
 			log.Infof("consumer %s is stopped, requeue to reconcile", c.transportConfig.KafkaCredential.ConsumerGroupID)
 			c.transportClient.consumer = nil
+			c.transportConfig.KafkaCredential = nil // clear the cached kafka credential, trigger updated reconcile
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}()
 		c.transportClient.consumer = receiver
