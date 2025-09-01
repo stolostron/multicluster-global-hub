@@ -50,7 +50,10 @@ type TransportCtrl struct {
 	mutex          sync.Mutex
 	// inManager is used to check if the controller is in the manager.
 	// if it's true, then the controller is in the manager, otherwise it's in the agent.
-	inManager bool
+	inManager           bool
+	disableConsumer     bool
+	kafkaConsumerCtx    context.Context
+	kafkaConsumerCancel context.CancelFunc
 }
 
 type TransportClient struct {
@@ -200,20 +203,26 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
+		c.kafkaConsumerCtx, c.kafkaConsumerCancel = context.WithCancel(ctx)
 		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
-		c.transportClient.consumer = receiver
 		go func() {
 			log.Infof("start consumer: %s", c.transportConfig.KafkaCredential.ConsumerGroupID)
-			if err = receiver.Start(ctx); err != nil {
+			if err = receiver.Start(c.kafkaConsumerCtx); err != nil {
 				log.Errorf("failed to start the consumer: %v", err)
 			}
 			log.Infof("consumer %s is stopped, requeue to reconcile", c.transportConfig.KafkaCredential.ConsumerGroupID)
 			c.transportClient.consumer = nil
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}()
+		c.transportClient.consumer = receiver
+	} else {
+		if c.kafkaConsumerCtx != nil {
+			log.Infof("cancel the previous consumer")
+			c.kafkaConsumerCancel()
+		}
 	}
 	return nil
 }
@@ -238,10 +247,10 @@ func (c *TransportCtrl) ReconcileRequester(ctx context.Context) error {
 	return nil
 }
 
-// ReconcileKafkaCredential update the kafka connection credentail based on the secret, return true if the kafka
-// credentail is updated, It also create/update the consumer if not in the standalone mode
+// ReconcileKafkaCredential update the kafka connection credential based on the secret, return true if the kafka
+// credential is updated, It also create/update the consumer if not in the standalone mode
 func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *corev1.Secret) (bool, error) {
-	// load the kafka connection credentail based on the transport type. kafka, multiple
+	// load the kafka connection credential based on the transport type. kafka, multiple
 	kafkaConn, err := config.GetKafkaCredentialBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return false, err
@@ -250,7 +259,7 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	if err != nil {
 		return false, err
 	}
-	// update the wathing secret lits
+	// update the watching secret lits
 	if kafkaConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.CASecretName)
 	}
@@ -321,7 +330,7 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 		return updated, err
 	}
 
-	// update the wathing secret lits
+	// update the watching secret lits
 	if restfulConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, restfulConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, restfulConn.CASecretName)
 	}
