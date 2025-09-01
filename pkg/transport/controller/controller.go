@@ -216,6 +216,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
+		c.transportClient.consumer = receiver
 		go func() {
 			log.Infof("start consumer: %s", c.transportConfig.KafkaCredential.ConsumerGroupID)
 			if err = receiver.Start(c.kafkaConsumerCtx); err != nil {
@@ -226,7 +227,6 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 			c.transportConfig.KafkaCredential = nil // clear the cached kafka credential, trigger updated reconcile
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}()
-		c.transportClient.consumer = receiver
 	} else {
 		if c.kafkaConsumerCtx != nil {
 			log.Infof("cancel the previous consumer")
