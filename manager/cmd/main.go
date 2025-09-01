@@ -248,6 +248,10 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 			}
 		}
 
+		if consumer == nil {
+			return fmt.Errorf("consumer is not initialized")
+		}
+
 		if err := status.AddStatusSyncers(mgr, consumer, requester, managerConfig); err != nil {
 			return fmt.Errorf("failed to add transport-to-db syncers: %w", err)
 		}
