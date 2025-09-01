@@ -2,13 +2,16 @@ package migration
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -55,6 +59,7 @@ func TestValidating(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = migrationv1alpha1.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
+	_ = corev1.AddToScheme(scheme)
 
 	tests := []struct {
 		name                    string
@@ -207,7 +212,7 @@ func TestValidating(t *testing.T) {
 			expectedConditionReason: "HubClusterInvalid",
 		},
 		{
-			name: "Should fail with invalid resources",
+			name: "Should fail validation due to database error",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-migration",
@@ -249,14 +254,14 @@ func TestValidating(t *testing.T) {
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           true, // Now returns error due to database connection failure
-			description:             "Should fail with invalid resources but hit database error first",
+			expectedError:           true, // Validation fails due to database connection error
+			description:             "Should fail validation due to database connection error",
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
 			expectedConditionReason: "ClusterNotFound",
 		},
 		{
-			name: "Should validate successfully with valid configuration",
+			name: "Should fail validation due to database error with valid config",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-migration",
@@ -298,8 +303,8 @@ func TestValidating(t *testing.T) {
 				},
 			},
 			expectedRequeue:         false,
-			expectedError:           true, // Now returns error due to database connection failure
-			description:             "Should attempt validation with valid configuration but hit database error",
+			expectedError:           true, // Validation fails due to database connection error
+			description:             "Should fail validation due to database connection error with valid config",
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
 			expectedConditionReason: "ClusterNotFound",
@@ -318,6 +323,7 @@ func TestValidating(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			requeue, err := controller.validating(context.TODO(), tt.migration)
@@ -586,6 +592,517 @@ func TestGetAndValidateHubCluster(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestGetClustersFromExistingConfigMap(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	namespace := utils.GetDefaultNamespace()
+	configMapName := "test-migration"
+
+	tests := []struct {
+		name              string
+		configMapName     string
+		namespace         string
+		existingConfigMap *corev1.ConfigMap
+		expectedClusters  []string
+		expectError       bool
+		errorContains     string
+	}{
+		{
+			name:             "ConfigMap does not exist",
+			configMapName:    "non-existent",
+			namespace:        namespace,
+			expectedClusters: nil,
+			expectError:      false,
+		},
+		{
+			name:          "ConfigMap exists with valid clusters data",
+			configMapName: configMapName,
+			namespace:     namespace,
+			existingConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: namespace,
+				},
+				Data: map[string]string{
+					"clusters": `["cluster1","cluster2","cluster3"]`,
+				},
+			},
+			expectedClusters: []string{"cluster1", "cluster2", "cluster3"},
+			expectError:      false,
+		},
+		{
+			name:          "ConfigMap exists but no clusters key",
+			configMapName: configMapName,
+			namespace:     namespace,
+			existingConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: namespace,
+				},
+				Data: map[string]string{
+					"other-key": "other-value",
+				},
+			},
+			expectedClusters: nil,
+			expectError:      false,
+		},
+		{
+			name:          "ConfigMap exists with empty clusters array",
+			configMapName: configMapName,
+			namespace:     namespace,
+			existingConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: namespace,
+				},
+				Data: map[string]string{
+					"clusters": `[]`,
+				},
+			},
+			expectedClusters: []string{},
+			expectError:      false,
+		},
+		{
+			name:          "ConfigMap exists with invalid JSON",
+			configMapName: configMapName,
+			namespace:     namespace,
+			existingConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: namespace,
+				},
+				Data: map[string]string{
+					"clusters": `invalid-json`,
+				},
+			},
+			expectedClusters: nil,
+			expectError:      true,
+			errorContains:    "failed to unmarshal clusters",
+		},
+		{
+			name:          "ConfigMap exists with single cluster",
+			configMapName: configMapName,
+			namespace:     namespace,
+			existingConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: namespace,
+				},
+				Data: map[string]string{
+					"clusters": `["single-cluster"]`,
+				},
+			},
+			expectedClusters: []string{"single-cluster"},
+			expectError:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var existingObjects []client.Object
+			if tt.existingConfigMap != nil {
+				existingObjects = append(existingObjects, tt.existingConfigMap)
+			}
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(existingObjects...).
+				Build()
+
+			controller := &ClusterMigrationController{
+				Client: fakeClient,
+			}
+
+			ctx := context.TODO()
+			clusters, err := controller.getClustersFromExistingConfigMap(ctx, tt.configMapName, tt.namespace)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedClusters, clusters)
+			}
+		})
+	}
+}
+
+// MockProducerWithError is a mock that always returns errors
+type MockProducerWithError struct{}
+
+func (m *MockProducerWithError) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	return errors.New("failed to send migration event")
+}
+
+func (m *MockProducerWithError) Reconnect(config *transport.TransportInternalConfig, topic string) error {
+	return nil
+}
+
+func TestGetMigrationClusters(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, migrationv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	// Mock producer for testing
+	mockProducer := &MockProducer{}
+
+	tests := []struct {
+		name                string
+		migration           *migrationv1alpha1.ManagedClusterMigration
+		existingObjects     []client.Object
+		setupCache          func()
+		setupController     func(*ClusterMigrationController)
+		expectedClusters    []string
+		expectedError       bool
+		expectedErrorMsg    string
+		shouldCallSendEvent bool
+		shouldSetStarted    bool
+		expectNilResult     bool // For scenarios where we need to reconcile
+		description         string
+	}{
+		{
+			name: "Should return spec clusters when provided in spec",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("spec-uid-1"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                    "source-hub",
+					IncludedManagedClusters: []string{"cluster-a", "cluster-b", "cluster-c"},
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+			},
+			expectedClusters: []string{"cluster-a", "cluster-b", "cluster-c"},
+			expectedError:    false,
+			description:      "Should return clusters from spec when provided",
+		},
+		{
+			name: "Should return error when no clusters are specified",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("no-clusters-uid"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From: "source-hub",
+					// No IncludedManagedClusters and no IncludedManagedClustersPlacementRef
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+			},
+			expectedError:    true,
+			expectedErrorMsg: "no clusters in migration cr",
+			description:      "Should return error when no clusters are specified",
+		},
+		{
+			name: "Should return error when error message is set in migration status",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("error-msg-uid"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+				// Set error message in migration status
+				AddMigrationStatus("error-msg-uid")
+				SetErrorMessage("error-msg-uid", "source-hub", migrationv1alpha1.PhaseValidating, "placement not found")
+			},
+			expectedError:    true,
+			expectedErrorMsg: "get IncludedManagedClusters from hub source-hub with err :placement not found",
+			description:      "Should return error when error message is set in migration status",
+		},
+		{
+			name: "Should return cached clusters when available in cluster list",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("cached-uid-1"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			setupCache: func() {
+				SetClusterList("cached-uid-1", []string{"cluster1", "cluster2"})
+			},
+			expectedClusters: []string{"cluster1", "cluster2"},
+			expectedError:    false,
+			description:      "Should return clusters from cache when available",
+		},
+		{
+			name: "Should return clusters from existing ConfigMap when cache is empty",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-cm",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("configmap-uid-1"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			existingObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-migration-cm",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+					Data: map[string]string{
+						"clusters": `["cm-cluster1","cm-cluster2","cm-cluster3"]`,
+					},
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+			},
+			expectedClusters: []string{"cm-cluster1", "cm-cluster2", "cm-cluster3"},
+			expectedError:    false,
+			description:      "Should return clusters from existing ConfigMap when cache is empty",
+		},
+		{
+			name: "Should handle error from ConfigMap retrieval",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-cm-error",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("configmap-error-uid"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			existingObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-migration-cm-error",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+					Data: map[string]string{
+						"clusters": `invalid-json`,
+					},
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+			},
+			expectedError:    true,
+			expectedErrorMsg: "failed to unmarshal clusters",
+			description:      "Should handle error from ConfigMap with invalid JSON",
+		},
+		{
+			name: "Should send event and return nil when placement ref provided but not started",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-event",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("placement-uid-1"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+				// Ensure not started - add migration status but don't set started
+				migrationStatuses = make(map[string]*MigrationStatus)
+				AddMigrationStatus("placement-uid-1")
+			},
+			setupController: func(controller *ClusterMigrationController) {
+				// Setup mock to return success for sendEventToSourceHub
+				controller.Producer = mockProducer
+			},
+			expectedError:       false,
+			shouldCallSendEvent: true,
+			shouldSetStarted:    true,
+			expectNilResult:     true,
+			description:         "Should send event to source hub when placement ref provided but not started",
+		},
+		{
+			name: "Should return error when event sending fails",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-send-error",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("send-error-uid"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+				migrationStatuses = make(map[string]*MigrationStatus)
+				AddMigrationStatus("send-error-uid")
+			},
+			setupController: func(controller *ClusterMigrationController) {
+				// Setup mock to return error for sendEventToSourceHub
+				controller.Producer = &MockProducerWithError{}
+			},
+			expectedError:    true,
+			expectedErrorMsg: "failed to send migration event",
+			description:      "Should return error when sending event to source hub fails",
+		},
+		{
+			name: "Should return nil when started but no clusters from any source",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-waiting",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("waiting-uid-1"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			setupCache: func() {
+				currentMigrationClusterList = make(map[string][]string)
+				// Set started status but no clusters yet
+				AddMigrationStatus("waiting-uid-1")
+				SetStarted("waiting-uid-1", "source-hub", migrationv1alpha1.PhaseValidating)
+			},
+			expectedError:   false,
+			expectNilResult: true,
+			description:     "Should return nil when started but waiting for clusters from any source",
+		},
+		{
+			name: "Should prioritize spec clusters over cache when both exist",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-priority",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("priority-uid-1"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClusters:             []string{"spec-cluster1", "spec-cluster2"},
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			setupCache: func() {
+				// Even though cache has clusters, spec should take priority
+				SetClusterList("priority-uid-1", []string{"cache-cluster1", "cache-cluster2"})
+			},
+			expectedClusters: []string{"spec-cluster1", "spec-cluster2"},
+			expectedError:    false,
+			description:      "Should prioritize spec clusters over cache when both exist",
+		},
+		{
+			name: "Should prioritize cache over ConfigMap when both exist",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration-cache-priority",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("cache-priority-uid"),
+				},
+				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
+					From:                                "source-hub",
+					IncludedManagedClustersPlacementRef: "test-placement",
+				},
+			},
+			existingObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-migration-cache-priority",
+						Namespace: utils.GetDefaultNamespace(),
+					},
+					Data: map[string]string{
+						"clusters": `["cm-cluster1","cm-cluster2"]`,
+					},
+				},
+			},
+			setupCache: func() {
+				// Cache should take priority over ConfigMap
+				SetClusterList("cache-priority-uid", []string{"cache-cluster1", "cache-cluster2"})
+			},
+			expectedClusters: []string{"cache-cluster1", "cache-cluster2"},
+			expectedError:    false,
+			description:      "Should prioritize cache over ConfigMap when both exist",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup cache for each test
+			if tt.setupCache != nil {
+				tt.setupCache()
+			}
+
+			// Build existing objects including the migration
+			var allObjects []client.Object
+			if tt.existingObjects != nil {
+				allObjects = append(allObjects, tt.existingObjects...)
+			}
+			allObjects = append(allObjects, tt.migration)
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(allObjects...).
+				Build()
+
+			controller := &ClusterMigrationController{
+				Client:   fakeClient,
+				Producer: mockProducer,
+				Scheme:   scheme,
+			}
+
+			// Additional setup for controller if needed
+			if tt.setupController != nil {
+				tt.setupController(controller)
+			}
+
+			result, err := controller.getMigrationClusters(context.TODO(), tt.migration)
+
+			// Verify error expectations
+			if tt.expectedError {
+				require.Error(t, err, tt.description)
+				if tt.expectedErrorMsg != "" {
+					assert.Contains(t, err.Error(), tt.expectedErrorMsg, tt.description)
+				}
+			} else {
+				require.NoError(t, err, tt.description)
+			}
+
+			// Verify result expectations
+			if tt.expectNilResult {
+				assert.Nil(t, result, "Expected nil result for: %s", tt.description)
+			} else if !tt.expectedError {
+				assert.Equal(t, tt.expectedClusters, result, tt.description)
+			}
+
+			// Verify started status if expected
+			if tt.shouldSetStarted {
+				started := GetStarted(string(tt.migration.UID), tt.migration.Spec.From, migrationv1alpha1.PhaseValidating)
+				assert.True(t, started, "Expected SetStarted to be called for: %s", tt.description)
+			}
+
+			// Cleanup migration statuses for next test
+			RemoveMigrationStatus(string(tt.migration.UID))
 		})
 	}
 }

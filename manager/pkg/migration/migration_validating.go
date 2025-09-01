@@ -9,11 +9,14 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -143,7 +146,10 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	}
 
 	SetClusterList(string(mcm.UID), clusters)
-
+	// Store clusters in ConfigMap
+	if err := m.storeClustersToConfigMap(ctx, mcm, clusters); err != nil {
+		return false, fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
+	}
 	// verify managedclusters
 	if err = m.validateClustersForMigration(mcm, &condition); err != nil {
 		return false, err
@@ -154,14 +160,6 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 func (m *ClusterMigrationController) getMigrationClusters(
 	ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
 ) ([]string, error) {
-	migrationUID := string(mcm.UID)
-
-	// Get cluster from cache
-	clusters := GetClusterList(migrationUID)
-	if len(clusters) > 0 {
-		return clusters, nil
-	}
-
 	// Fallback to spec if available
 	if len(mcm.Spec.IncludedManagedClusters) != 0 {
 		return mcm.Spec.IncludedManagedClusters, nil
@@ -171,7 +169,26 @@ func (m *ClusterMigrationController) getMigrationClusters(
 		return nil, fmt.Errorf("no clusters in migration cr")
 	}
 
-	// TODO: will load the cluster from configmap first
+	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseValidating); errMsg != "" {
+		return nil, fmt.Errorf("get IncludedManagedClusters from hub %s with err :%s", mcm.Spec.From, errMsg)
+	}
+
+	// get clusters from cache first
+	clusters := GetClusterList(string(mcm.GetUID()))
+
+	if len(clusters) > 0 {
+		log.Debugf("clusters: %v", clusters)
+		return clusters, nil
+	}
+
+	// get cluster from configmap first
+	clusters, err := m.getClustersFromExistingConfigMap(ctx, mcm.Name, mcm.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	if len(clusters) > 0 {
+		return clusters, nil
+	}
 
 	// send event to source hub and get placement name from bundle
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseValidating) {
@@ -186,18 +203,70 @@ func (m *ClusterMigrationController) getMigrationClusters(
 		SetStarted(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseValidating)
 	}
 
-	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseValidating); errMsg != "" {
-		return nil, fmt.Errorf("get IncludedManagedClusters from hub %s with err :%s", mcm.Spec.From, errMsg)
+	// need reconcile to wait clusterlist
+	return nil, nil
+}
+
+// storeClustersToConfigMap creates or updates a ConfigMap with the clusters data for the migration
+// The ConfigMap is named with the migration name and has owner reference to the migration object
+func (m *ClusterMigrationController) storeClustersToConfigMap(ctx context.Context,
+	migration *migrationv1alpha1.ManagedClusterMigration, clusters []string,
+) error {
+	clustersData, err := json.Marshal(clusters)
+	if err != nil {
+		return fmt.Errorf("failed to marshal clusters data: %w", err)
 	}
 
-	// try to get clusters from MigrationStatusBundle
-	clusters = GetClusterList(string(mcm.GetUID()))
-	if len(clusters) > 0 {
-		log.Debugf("clusters: %v", clusters)
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      migration.Name,
+			Namespace: migration.Namespace,
+		},
+		Data: map[string]string{
+			"clusters": string(clustersData),
+		},
+	}
+	err = controllerutil.SetOwnerReference(migration, configMap, m.Scheme)
+	if err != nil {
+		return fmt.Errorf("failed to set owner reference for configmap: %s", configMap.Name)
+	}
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		operation, err := controllerutil.CreateOrUpdate(ctx, m.Client, configMap, func() error {
+			return nil
+		})
+		log.Infof("save configmap for migration %s, operation: %v", configMap.Name, operation)
+		return err
+	})
+	return err
+}
+
+// getClustersFromExistingConfigMap attempts to retrieve clusters from an existing ConfigMap
+// Returns clusters slice, found boolean, and error
+func (m *ClusterMigrationController) getClustersFromExistingConfigMap(ctx context.Context,
+	configMapName, namespace string,
+) ([]string, error) {
+	existingConfigMap := &corev1.ConfigMap{}
+	err := m.Get(ctx, client.ObjectKey{
+		Name:      configMapName,
+		Namespace: namespace,
+	}, existingConfigMap)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// ConfigMap exists, get clusters from it
+	if clustersJSON, exists := existingConfigMap.Data["clusters"]; exists {
+		var clusters []string
+		if err := json.Unmarshal([]byte(clustersJSON), &clusters); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal clusters from ConfigMap: %w", err)
+		}
+		log.Infof("retrieved clusters from existing ConfigMap %s/%s for migration %s", namespace, configMapName, configMapName)
 		return clusters, nil
 	}
 
-	// need reconcile to wait clusterlist
 	return nil, nil
 }
 
