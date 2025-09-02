@@ -151,21 +151,21 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig, consume
 func GetKafkaCredentialBySecret(transportSecret *corev1.Secret, c client.Client) (
 	*transport.KafkaConfig, error,
 ) {
-	kafkaConfig, ok := transportSecret.Data["kafka.yaml"]
+	kafkaConfigBytes, ok := transportSecret.Data["kafka.yaml"]
 	if !ok {
 		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportSecret.Name)
 	}
 
-	conn := &transport.KafkaConfig{}
-	if err := yaml.Unmarshal(kafkaConfig, conn); err != nil {
+	kafkaConfig := &transport.KafkaConfig{}
+	if err := yaml.Unmarshal(kafkaConfigBytes, kafkaConfig); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
 	}
 
-	err := ParseCredentialConn(transportSecret.Namespace, c, conn)
+	err := ParseCredentialConn(transportSecret.Namespace, c, kafkaConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse the cert credentail: %w", err)
 	}
-	return conn, nil
+	return kafkaConfig, nil
 }
 
 func ParseCredentialConn(namespace string, c client.Client, conn transport.TransportCerticiate) error {
