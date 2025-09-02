@@ -55,12 +55,12 @@ for i in $(seq 1 "${MH_NUM}"); do
 done
 echo -e "${YELLOW} initializing hubs:${NC} $(($(date +%s) - start_time)) seconds"
 
-# async ocm, policy and app
+# async ocm, policy
 start_time=$(date +%s)
 
 # gobal-hub: hub1, hub2
 for i in $(seq 1 "${MH_NUM}"); do
-  bash "$CURRENT_DIR"/ocm.sh "$GH_NAME" "hub$i" HUB_INIT=false 2>&1 &
+  bash "$CURRENT_DIR"/ocm.sh "$GH_NAME" "hub$i" HUB_INIT=false POLICY_INIT=false 2>&1 &
   echo "$!" >>"$CONFIG_DIR/PID"
 done
 
@@ -79,7 +79,7 @@ bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
 echo "$!" >>"$CONFIG_DIR/PID"
 
 wait
-echo -e "${YELLOW} installing ocm, app and policy:${NC} $(($(date +%s) - start_time)) seconds"
+echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
 # apply standalone agent
 helm install event-exporter "$PROJECT_DIR"/doc/event-exporter -n open-cluster-management --set image="$MULTICLUSTER_GLOBAL_HUB_AGENT_IMAGE_REF" --set sourceName="event-exporter" --kubeconfig "$GH_KUBECONFIG"

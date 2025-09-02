@@ -40,7 +40,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/storage"
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
-	pkgutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/test/e2e/utils"
 )
 
@@ -200,31 +200,22 @@ var _ = BeforeSuite(func() {
 			}, 1*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
 		}
 		db = database.GetGorm()
-		By("Validate the clusters on database")
 	} else {
 		waitGlobalhubReadyAndLeaseUpdated()
 	}
-	Eventually(func() (err error) {
-		allManagedClusters, err := getManagedCluster(httpClient)
-		if err != nil {
+
+	By("Validate the clusters on database")
+	Eventually(func() error {
+		items := []models.ManagedCluster{}
+		if err := db.Find(&items).Error; err != nil {
 			return err
 		}
-		tmpManagedClusters := []clusterv1.ManagedCluster{}
-		for _, mc := range allManagedClusters {
-			// hub1 and hub2 write in db in local_agent_test.go
-			if mc.Name == "hub1" || mc.Name == "hub2" {
-				continue
-			}
-			tmpManagedClusters = append(tmpManagedClusters, mc)
+
+		if len(items) != 2 {
+			return fmt.Errorf("not found expected clusters on the table")
 		}
-		if len(tmpManagedClusters) != (ExpectedMH * ExpectedMC) {
-			return fmt.Errorf("managed cluster number: want %d, got %d", (ExpectedMH * ExpectedMC), len(tmpManagedClusters))
-		}
-		managedClusters = tmpManagedClusters
-		fmt.Println(">> managedClusters: ")
-		pkgutils.PrettyPrint(managedClusters)
 		return nil
-	}, 6*time.Minute, 10*time.Second).ShouldNot(HaveOccurred())
+	}, 3*time.Minute, 1*time.Second).ShouldNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
@@ -347,11 +338,6 @@ func deployGlobalHub() {
 
 	runtimeClient, err := testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).ShouldNot(HaveOccurred())
-
-	// patch global hub operator to enable global resources
-	Eventually(func() error {
-		return patchGHDeployment(runtimeClient, testOptions.GlobalHub.Namespace, "multicluster-global-hub-operator")
-	}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 	// make sure operator started and lease updated
 	Eventually(func() error {
@@ -515,20 +501,6 @@ func checkComponentsAvailableAndPhase(runtimeClient client.Client) error {
 		return fmt.Errorf("expected mgh status running, but got: %v", mgh.Status.Phase)
 	}
 	return nil
-}
-
-func patchGHDeployment(runtimeClient client.Client, namespace, name string) error {
-	deployment := &appsv1.Deployment{}
-	err := runtimeClient.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      name,
-	}, deployment)
-	if err != nil {
-		return err
-	}
-	args := deployment.Spec.Template.Spec.Containers[0].Args
-	deployment.Spec.Template.Spec.Containers[0].Args = append(args, "--global-resource-enabled=true")
-	return runtimeClient.Update(ctx, deployment)
 }
 
 func writeFile(bytes []byte, file string) error {

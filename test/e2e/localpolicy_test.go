@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -22,8 +23,7 @@ const (
 	LOCAL_INFORM_POLICY_YAML  = "./../manifest/policy/local-inform-limitrange-policy.yaml"
 	LOCAL_ENFORCE_POLICY_YAML = "./../manifest/policy/local-enforce-limitrange-policy.yaml"
 
-	LOCAL_POLICY_LABEL_KEY      = "local-policy"
-	LOCAL_POLICY_LABEL_VALUE    = "test"
+	LOCAL_POLICY_LABEL_STR      = "local-policy=test"
 	LOCAL_POLICY_NAME           = "policy-limitrange"
 	LOCAL_POLICY_NAMESPACE      = "local-policy-namespace"
 	LOCAL_PLACEMENTBINDING_NAME = "binding-policy-limitrange"
@@ -36,8 +36,9 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 
 	BeforeAll(func() {
 		By("Add local policy label to the managed cluster")
-		for _, managedCluster := range managedClusters {
-			assertAddLabel(managedCluster, LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
+
+		for _, cluster := range managedClusters {
+			Expect(updateClusterLabel(cluster.GetName(), LOCAL_POLICY_LABEL_STR)).Should(Succeed())
 		}
 
 		By("Deploy the policy to the leafhub")
@@ -303,3 +304,13 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 	})
 })
+
+func getHubPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+	policy := &policiesv1.Policy{}
+	err := client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &policy.Status, nil
+}

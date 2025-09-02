@@ -210,26 +210,6 @@ join_cluster() {
   fi
 }
 
-# init application-lifecycle
-init_app() {
-  echo -e "${CYAN} Init Application $1:$2 $NC"
-  local hub=$1
-  local cluster=$2
-
-  # Use other branch throw error: unable to read URL "https://raw.githubusercontent.com/kubernetes-sigs/application/v0.8.0/deploy/kube-app-manager-aio.yaml", server reported 404 Not Found, status code=404
-  app_path=https://raw.githubusercontent.com/kubernetes-sigs/application/master
-  kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$hub"
-  kubectl apply -f $app_path/deploy/kube-app-manager-aio.yaml --context "$cluster"
-
-  # deploy the subscription operators to the hub cluster
-  if ! kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context "$hub"; then
-    retry "clusteradm install hub-addon --names application-manager --context $hub && (kubectl get deploy/multicluster-operators-subscription -n open-cluster-management --context $hub)"
-  fi
-
-  # enable the addon on the managed clusters
-  retry "clusteradm addon enable --names application-manager --clusters $cluster --context $hub" 10
-}
-
 init_policy() {
   echo -e "${CYAN} Init Policy $1:$2 $NC"
   local hub=$1
