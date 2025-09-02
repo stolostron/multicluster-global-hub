@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -37,8 +36,6 @@ type GenericConsumer struct {
 	consumerCancel context.CancelFunc
 	client         cloudevents.Client
 	kafkaConsumer  *kafka.Consumer
-
-	mutex sync.Mutex
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
