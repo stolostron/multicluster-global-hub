@@ -116,31 +116,6 @@ func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
 	return nil
 }
 
-func (c *GenericConsumer) Reconnect(ctx context.Context,
-	tranConfig *transport.TransportInternalConfig, topics []string,
-) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	err := c.initClient(tranConfig, topics)
-	if err != nil {
-		return err
-	}
-
-	// close the previous consumer
-	if c.consumerCancel != nil {
-		c.consumerCancel()
-	}
-	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
-
-	go func() {
-		if err := c.Start(c.consumerCtx); err != nil {
-			log.Errorf("failed to reconnect(start) the consumer: %v", err)
-		}
-	}()
-	return nil
-}
-
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	receiveContext := cectx.WithLogger(ctx, logger.ZapLogger("cloudevents"))
 	if c.enableDatabaseOffset {
