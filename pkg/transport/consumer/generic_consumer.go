@@ -134,11 +134,13 @@ func (c *GenericConsumer) Reconnect(ctx context.Context,
 		c.consumerCancel()
 	}
 	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
-
+	consumerGroupId := tranConfig.KafkaCredential.ConsumerGroupID
 	go func() {
+		c.log.Infof("reconnect consumer: %s", consumerGroupId)
 		if err := c.Start(c.consumerCtx); err != nil {
-			c.log.Error(err, "failed to reconnect(start) the consumer")
+			c.log.Warnf("stop the consumer(%s): %v", consumerGroupId, err)
 		}
+		c.log.Infof("consumer stopped: %s", consumerGroupId)
 	}()
 	return nil
 }
@@ -150,7 +152,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		c.log.Info("init consumer", "offsets", offsets)
+		c.log.Infow("init consumer", "offsets", offsets)
 		if len(offsets) > 0 {
 			receiveContext = kafka_confluent.WithTopicPartitionOffsets(ctx, offsets)
 		}
@@ -167,7 +169,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		}
 		if payload := c.assembler.assemble(chunk); payload != nil {
 			if err := event.SetData(cloudevents.ApplicationJSON, payload); err != nil {
-				c.log.Error(err, "failed the set the assembled data to event")
+				c.log.Errorw("failed the set the assembled data to event", "error", err)
 			} else {
 				c.eventChan <- &event
 			}
@@ -175,9 +177,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		return ceprotocol.ResultACK
 	})
 	if err != nil {
-		return fmt.Errorf("failed to start Receiver: %w", err)
+		return fmt.Errorf("consumer receiver stopped with error: %w", err)
 	}
-	c.log.Info("receiver stopped\n")
 	return nil
 }
 
