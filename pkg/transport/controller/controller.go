@@ -50,10 +50,8 @@ type TransportCtrl struct {
 	mutex          sync.Mutex
 	// inManager is used to check if the controller is in the manager.
 	// if it's true, then the controller is in the manager, otherwise it's in the agent.
-	inManager           bool
-	disableConsumer     bool
-	kafkaConsumerCtx    context.Context
-	kafkaConsumerCancel context.CancelFunc
+	inManager       bool
+	disableConsumer bool
 }
 
 type TransportClient struct {
@@ -136,7 +134,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			// the consumer should reconcile when the credential is updated
 			if !c.disableConsumer {
 				if err := c.ReconcileConsumer(ctx); err != nil {
-					return ctrl.Result{}, err
+					log.Warnf("consumer error: %v", err)
+					return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
 				}
 			}
 			if err := c.ReconcileProducer(); err != nil {
@@ -209,28 +208,27 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
 	}
 
+	consumerGroupID := c.transportConfig.KafkaCredential.ConsumerGroupID
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
-		c.kafkaConsumerCtx, c.kafkaConsumerCancel = context.WithCancel(ctx)
 		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
 		c.transportClient.consumer = receiver
 		go func() {
-			log.Infof("start consumer: %s", c.transportConfig.KafkaCredential.ConsumerGroupID)
-			if err = receiver.Start(c.kafkaConsumerCtx); err != nil {
-				log.Errorf("failed to start the consumer: %v", err)
+			log.Infof("start consumer: %s", consumerGroupID)
+			if err = receiver.Start(ctx); err != nil {
+				log.Warnf("stop the consumer(%s): %v", consumerGroupID, err)
 			}
-			log.Infof("consumer %s is stopped, requeue to reconcile", c.transportConfig.KafkaCredential.ConsumerGroupID)
-			c.transportClient.consumer = nil
-			c.transportConfig.KafkaCredential = nil // clear the cached kafka credential, trigger updated reconcile
+			// request and reset state(credential) to start a new one, error when starting
+			log.Infof("consumer failed to start, requeue to start again: %s", consumerGroupID)
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}()
 	} else {
-		if c.kafkaConsumerCtx != nil {
-			log.Infof("cancel the previous consumer")
-			c.kafkaConsumerCancel()
+		err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig, c.consumerTopics)
+		if err != nil {
+			return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
 		}
 	}
 	return nil
