@@ -45,7 +45,7 @@ func containedNames(rendered []map[string]interface{}) (names []string) {
 		}
 		names = append(names, name)
 	}
-	return
+	return names
 }
 
 func rendered(t *testing.T, rendered []byte) (r []map[string]interface{}) {
@@ -62,5 +62,5 @@ func rendered(t *testing.T, rendered []byte) (r []map[string]interface{}) {
 	if err != io.EOF {
 		require.NoError(t, err)
 	}
-	return
+	return r
 }

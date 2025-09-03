@@ -106,22 +106,22 @@ func (c *initController) addStackRoxCentrals() (result ctrl.Result, err error) {
 		SetPollInterval(c.agentConfig.StackroxPollInterval).
 		Build()
 	if err != nil {
-		return
+		return result, err
 	}
 	err = c.mgr.Add(syncer)
 	if err != nil {
-		return
+		return result, err
 	}
 	log.Info("Added StackRox syncer")
 
 	// Create the controller that watches the StackRox instances and add it to the controller manager.
 	err = security.AddStacRoxController(c.mgr, syncer)
 	if err != nil {
-		return
+		return result, err
 	}
 	log.Info("Added StackRox controller")
 
-	return
+	return result, err
 }
 
 // this controller is used to watch the multiclusterhub crd or clustermanager crd
