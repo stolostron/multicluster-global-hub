@@ -325,8 +325,6 @@ func deployGlobalHub() {
 			// Disable metrics in e2e
 			EnableMetrics:   false,
 			ImagePullPolicy: corev1.PullIfNotPresent,
-			// the topic partition replicas(depend on the HA) should less than broker replicas
-			AvailabilityConfig: v1alpha4.HABasic,
 			DataLayerSpec: v1alpha4.DataLayerSpec{
 				Kafka: v1alpha4.KafkaSpec{},
 				Postgres: v1alpha4.PostgresSpec{
