@@ -36,7 +36,7 @@ type TransportInternalConfig struct {
 	CommitterInterval time.Duration
 	// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 	EnableDatabaseOffset bool
-	// set the kafka credentail in the transport controller
+	// set the kafka credential in the transport controller
 	KafkaCredential   *KafkaConfig
 	RestfulCredential *RestfulConfig
 	Extends           map[string]interface{}
