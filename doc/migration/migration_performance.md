@@ -126,6 +126,7 @@ spec:
 |-------|----------------|------------------|------------------|----------------|----------------|----------------|
 |       |                |                  |                  |                |                |                |
 
+
 #### Resource Usage Metrics
 - Node-level CPU & Memory usage
 - GlobalHub manager: CPU & Memory
@@ -165,8 +166,24 @@ The following scenarios are not covered in this test plan:
 
 ## 9. Timeline
 
-| Phase      | Description                                         | Duration   |
+| Phase      | Description                                         | Duration   |  
 |------------|-----------------------------------------------------|------------|
 | Round 1    | Initial validation, baseline performance collection | 1 week     |
 | Round 2    | Fix and retest for performance improvements         | 1 week     |
 | Round 3    | Final full-scale migration before ACM 2.15 GA       | 1 week     |
+
+## 10. Others
+Found 2 issues in Round 1
+1. Sometimes the klusterlet agent can not start when do cluster migration
+https://issues.redhat.com/browse/ACM-23842
+
+2. registration-controller always restart when do cluster migration
+https://issues.redhat.com/browse/ACM-23840
+
+3. When migrate 200 cluster, it failed with error:
+```
+- lastTransitionTime: "2025-09-04T06:10:42Z"
+    message: 'deploying source hub local-cluster error: failed to send event(MigrationTargetHubCluster)
+      from local-cluster to mh1: failed to send event to transport: produce message:
+      Broker: Message size too large'
+```

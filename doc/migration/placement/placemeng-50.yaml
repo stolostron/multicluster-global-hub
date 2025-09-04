@@ -1,0 +1,23 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: migration-50
+spec:
+  numberOfClusters: 50
+  clusterSets:
+  - global
+  tolerations:
+  - key: cluster.open-cluster-management.io/unreachable
+    operator: Exists
+  - key: cluster.open-cluster-management.io/unavailable
+    operator: Exists
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+          - key: local-cluster
+            operator: NotIn
+            values:
+              - "true"
+          - key: global-hub.open-cluster-management.io/deploy-mode
+            operator: DoesNotExist
