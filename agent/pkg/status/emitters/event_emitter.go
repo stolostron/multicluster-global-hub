@@ -38,6 +38,11 @@ func NewEventEmitter(
 	eventMode constants.EventSendMode,
 	opts ...EventEmitterOption,
 ) *EventEmitter {
+	if eventType == "" {
+		log.Errorw("EventEmitter created with empty event type")
+		return nil
+	}
+
 	e := &EventEmitter{
 		eventType:    eventType,
 		producer:     producer,
@@ -96,6 +101,7 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 
 	if len(e.events) > 0 {
 		if err := e.sendEvents(); err != nil {
+			log.Errorw("failed to send events after resync", "error", err)
 			return fmt.Errorf("failed to send events after resync: %w", err)
 		}
 		e.version.Next()
@@ -113,6 +119,7 @@ func (e *EventEmitter) Send() error {
 	}
 
 	if err := e.sendEvents(); err != nil {
+		log.Errorw("failed to send events", "error", err)
 		return err
 	}
 	e.version.Next()
@@ -129,22 +136,16 @@ func (e *EventEmitter) sendEvents() error {
 }
 
 func (e *EventEmitter) sendEventBundle() error {
-	evt := cloudevents.NewEvent()
-	evt.SetSource(configs.GetLeafHubName())
-	evt.SetType(string(e.eventType))
-	evt.SetExtension(eventversion.ExtVersion, e.version.String())
-	evt.SetExtension(constants.ExtEventSendMode, string(constants.EventSendModeBatch))
+	evt := e.createCloudEvent(constants.EventSendModeBatch)
 
 	if err := evt.SetData(cloudevents.ApplicationJSON, e.events); err != nil {
+		log.Errorw("failed to set event data for bundle", "error", err)
 		return fmt.Errorf("failed to set event data for bundle: %w", err)
 	}
 
-	ctx := context.Background()
-	if e.topic != "" {
-		ctx = cecontext.WithTopic(ctx, e.topic)
-	}
-
+	ctx := e.createContext()
 	if err := e.producer.SendEvent(ctx, evt); err != nil {
+		log.Errorw("failed to send event bundle", "error", err)
 		return fmt.Errorf("failed to send event bundle: %w", err)
 	}
 
@@ -157,24 +158,19 @@ func (e *EventEmitter) sendEventBundle() error {
 }
 
 func (e *EventEmitter) sendEventsIndividually() error {
-	ctx := context.Background()
-	if e.topic != "" {
-		ctx = cecontext.WithTopic(ctx, e.topic)
-	}
-
+	ctx := e.createContext()
 	sentCount := 0
+
 	for _, event := range e.events {
-		evt := cloudevents.NewEvent()
-		evt.SetSource(configs.GetLeafHubName())
-		evt.SetType(string(e.eventType))
-		evt.SetExtension(eventversion.ExtVersion, e.version.String())
-		evt.SetExtension(constants.ExtEventSendMode, string(constants.EventSendModeSingle))
+		evt := e.createCloudEvent(constants.EventSendModeSingle)
 
 		if err := evt.SetData(cloudevents.ApplicationJSON, event); err != nil {
+			log.Errorw("failed to set event data for individual event", "error", err)
 			return fmt.Errorf("failed to set event data for individual event: %w", err)
 		}
 
 		if err := e.producer.SendEvent(ctx, evt); err != nil {
+			log.Errorw("failed to send individual event", "error", err, "sent", sentCount, "total", len(e.events))
 			return fmt.Errorf("failed to send individual event (sent %d/%d): %w",
 				sentCount, len(e.events), err)
 		}
@@ -187,6 +183,25 @@ func (e *EventEmitter) sendEventsIndividually() error {
 
 	e.events = e.events[:0]
 	return nil
+}
+
+// createCloudEvent creates a new CloudEvent with common fields set
+func (e *EventEmitter) createCloudEvent(mode constants.EventSendMode) cloudevents.Event {
+	evt := cloudevents.NewEvent()
+	evt.SetSource(configs.GetLeafHubName())
+	evt.SetType(string(e.eventType))
+	evt.SetExtension(eventversion.ExtVersion, e.version.String())
+	evt.SetExtension(constants.ExtEventSendMode, string(mode))
+	return evt
+}
+
+// createContext creates a context with topic if configured
+func (e *EventEmitter) createContext() context.Context {
+	ctx := context.Background()
+	if e.topic != "" {
+		ctx = cecontext.WithTopic(ctx, e.topic)
+	}
+	return ctx
 }
 
 type EventEmitterOption func(*EventEmitter)
