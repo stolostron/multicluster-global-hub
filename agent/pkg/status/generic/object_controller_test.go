@@ -108,7 +108,7 @@ func TestSyncController_Reconcile_BasicOperations(t *testing.T) {
 
 			controller := &syncController{
 				client:        fakeClient,
-				emitter:       emitter,
+				emitters:      []emitters.Emitter{emitter},
 				instance:      func() client.Object { return &appsv1.Deployment{} },
 				leafHubName:   "test-hub",
 				finalizerName: constants.GlobalHubCleanupFinalizer,
@@ -165,7 +165,7 @@ func TestSyncController_Reconcile_GlobalResources(t *testing.T) {
 
 			controller := &syncController{
 				client:        fakeClient,
-				emitter:       emitter,
+				emitters:      []emitters.Emitter{emitter},
 				instance:      func() client.Object { return &appsv1.Deployment{} },
 				leafHubName:   "test-hub",
 				finalizerName: constants.GlobalHubCleanupFinalizer,
