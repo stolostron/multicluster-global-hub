@@ -230,7 +230,7 @@ var _ = Describe("StackRox client", func() {
 								p.Body = io.NopCloser(
 									iotest.ErrReader(errors.New("my-error")),
 								)
-								return
+								return p, err
 							},
 						)
 					},

@@ -120,26 +120,26 @@ func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 	// Check parameters:
 	if b.logger == nil {
 		err = errors.New("logger is mandatory")
-		return
+		return result, err
 	}
 	if b.topic == "" {
 		err = errors.New("topic is mandatory")
-		return
+		return result, err
 	}
 	if b.producer == nil {
 		err = errors.New("producer is mandatory")
-		return
+		return result, err
 	}
 	if b.kubeClient == nil {
 		err = errors.New("client is mandatory")
-		return
+		return result, err
 	}
 	if b.pollInterval <= 0 {
 		err = fmt.Errorf(
 			"poll interval must be greater than zero, but it is %s",
 			b.pollInterval,
 		)
-		return
+		return result, err
 	}
 
 	// Create and populate the object:
@@ -154,7 +154,7 @@ func (b *StackRoxSyncerBuilder) Build() (result *StackRoxSyncer, err error) {
 		requests:       stackRoxRequests,
 		currentVersion: eventversion.NewVersion(),
 	}
-	return
+	return result, err
 }
 
 // Register registers a new StackRox central instance, so that it will eventually be synchronized. If it is already
@@ -295,7 +295,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 	centralObject.SetGroupVersionKind(centralCRGVK)
 	err = s.kubeClient.Get(ctx, centralKey, centralObject)
 	if err != nil {
-		return
+		return result, err
 	}
 
 	// Get the location of the secret containing the connection details:
@@ -305,7 +305,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 			"central '%s/%s' doesn't have the '%s' annotation",
 			centralKey.Namespace, centralKey.Name, stacRoxDetailsAnnotation,
 		)
-		return
+		return result, err
 	}
 
 	// The value of the annotation should be a namespace followed by a forward slash and then a secret name:
@@ -316,7 +316,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 				"by a forward slash and a secret name, but it is '%s'",
 			stacRoxDetailsAnnotation, value,
 		)
-		return
+		return result, err
 	}
 
 	// Try to fetch the secret:
@@ -327,7 +327,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 	}
 	err = s.kubeClient.Get(ctx, secretKey, secretObject)
 	if err != nil {
-		return
+		return result, err
 	}
 
 	// Get the bytes of the keys that we need:
@@ -359,7 +359,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 				"'token' key",
 			secretKey.Namespace, secretKey.Name,
 		)
-		return
+		return result, err
 	}
 
 	// Get the CA:
@@ -372,7 +372,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 				"key 'ca' of connection details secret '%s/%s' doesn't contain any CA certificate",
 				secretKey.Namespace, secretKey.Name,
 			)
-			return
+			return result, err
 		}
 	}
 
@@ -382,7 +382,7 @@ func (s *StackRoxSyncer) fetchConnDetails(ctx context.Context, centralKey types.
 		apiToken: apiToken,
 		caPool:   caPool,
 	}
-	return
+	return result, err
 }
 
 // fetchConsoleURL fetches the conole URL of the given StackRox central. If the route doesn't exist, or the host hasn't
@@ -397,7 +397,7 @@ func (s *StackRoxSyncer) fetchConsoleURL(ctx context.Context, centralKey types.N
 	}
 	err = s.kubeClient.Get(ctx, routeKey, routeObject)
 	if err != nil {
-		return
+		return result, err
 	}
 
 	// Check if the host is already populated:
@@ -406,12 +406,12 @@ func (s *StackRoxSyncer) fetchConsoleURL(ctx context.Context, centralKey types.N
 			"route '%s/%s' doesn't have a host",
 			routeKey.Namespace, routeKey.Name,
 		)
-		return
+		return result, err
 	}
 
 	// Calculate the console URL from the host of the route:
 	result = fmt.Sprintf("https://%s", routeObject.Spec.Host)
-	return
+	return result, err
 }
 
 func (s *StackRoxSyncer) sync(ctx context.Context, data *stackRoxData) error {
