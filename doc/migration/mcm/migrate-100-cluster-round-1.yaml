@@ -1,0 +1,10 @@
+apiVersion: global-hub.open-cluster-management.io/v1alpha1
+kind: ManagedClusterMigration
+metadata:
+  name: migrate-100-cluster-round-1
+spec:
+  from: local-cluster
+  to: mh1
+  includedManagedClustersPlacementRef: migration-100
+  supportedConfigs:
+    stageTimeout: 60m
