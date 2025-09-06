@@ -2,12 +2,15 @@ package generic
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
@@ -18,26 +21,71 @@ import (
 
 type syncController struct {
 	client        client.Client
-	emitter       emitters.Emitter
+	emitters      []emitters.Emitter
 	instance      func() client.Object
 	leafHubName   string
 	finalizerName string
 }
 
 // AddSyncCtrl registers a controller that watch the specific client.Object,
-// and load the object into the bundle in the provided emitter.
-func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmitter emitters.Emitter) error {
-	controllerName := enum.ShortenEventType(objectEmitter.EventType())
+// and load the object into the bundle in the provided emitters.
+func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmitters ...emitters.Emitter) error {
+	if len(objectEmitters) == 0 {
+		return fmt.Errorf("at least one emitter is required")
+	}
+
+	controllerName := enum.ShortenEventType(objectEmitters[0].EventType())
 	syncer := &syncController{
 		client:        mgr.GetClient(),
-		emitter:       objectEmitter,
+		emitters:      objectEmitters,
 		instance:      instanceFunc,
 		leafHubName:   configs.GetLeafHubName(),
 		finalizerName: constants.GlobalHubCleanupFinalizer,
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).For(instanceFunc()).WithEventFilter(objectEmitter.EventFilter()).
+	// Create combined event filter using OR relationship for all methods
+	combinedFilter := createCombinedFilter(objectEmitters...)
+
+	return ctrl.NewControllerManagedBy(mgr).For(instanceFunc()).WithEventFilter(combinedFilter).
 		Named(controllerName).Complete(syncer)
+}
+
+// createCombinedFilter creates a combined filter using OR relationship for all event types
+func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			for _, emitter := range emitters {
+				if emitter.EventFilter().Create(e) {
+					return true
+				}
+			}
+			return false
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			for _, emitter := range emitters {
+				if emitter.EventFilter().Update(e) {
+					return true
+				}
+			}
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			for _, emitter := range emitters {
+				if emitter.EventFilter().Delete(e) {
+					return true
+				}
+			}
+			return false
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			for _, emitter := range emitters {
+				if emitter.EventFilter().Generic(e) {
+					return true
+				}
+			}
+			return false
+		},
+	}
 }
 
 func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -48,9 +96,11 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 		object.SetNamespace(request.Namespace)
 		object.SetName(request.Name)
 		log.Infof("Object %s/%s not found, deleting from bundle\n", request.Namespace, request.Name)
-		if err = c.emitter.Delete(object); err != nil {
-			log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		for _, emitter := range c.emitters {
+			if err = emitter.Delete(object); err != nil {
+				log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
+				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+			}
 		}
 		return ctrl.Result{}, nil
 	} else if err != nil {
@@ -67,9 +117,11 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 			}
 		}
 
-		if err := c.emitter.Delete(object); err != nil {
-			log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
-			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		for _, emitter := range c.emitters {
+			if err := emitter.Delete(object); err != nil {
+				log.Errorw("failed to add deleted object into bundle", "error", err, "name", request.Name)
+				return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+			}
 		}
 
 		return ctrl.Result{}, nil
@@ -84,9 +136,11 @@ func (c *syncController) Reconcile(ctx context.Context, request ctrl.Request) (c
 
 	// update/insert
 	cleanObject(object)
-	if err := c.emitter.Update(object); err != nil {
-		log.Errorw("failed to add updated object into bundle", "error", err, "name", request.Name)
-		return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+	for _, emitter := range c.emitters {
+		if err := emitter.Update(object); err != nil {
+			log.Errorw("failed to add updated object into bundle", "error", err, "name", request.Name)
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, err
+		}
 	}
 
 	return ctrl.Result{}, nil

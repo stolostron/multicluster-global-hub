@@ -27,6 +27,7 @@ type AgentConfig struct {
 	DeployMode                   string
 	EnableStackroxIntegration    bool
 	StackroxPollInterval         time.Duration
+	EventMode                    string
 }
 
 func SetAgentConfig(agentConfig *AgentConfig) {

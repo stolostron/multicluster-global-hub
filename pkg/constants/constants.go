@@ -256,3 +256,19 @@ const (
 	// StandaloneMode represents the standalone deploy mode.
 	StandaloneMode DeployMode = "standalone"
 )
+
+// EventSendMode defines the event sending mode
+type EventSendMode string
+
+const (
+	// EventSendModeBatch sends all events as a bundle in single CloudEvent
+	EventSendModeBatch EventSendMode = "batch"
+	// EventSendModeSingle sends each event as separate CloudEvent
+	EventSendModeSingle EventSendMode = "single"
+)
+
+// CloudEvent extensions for event mode identification
+const (
+	// ExtEventSendMode indicates whether this is a batch or single event
+	ExtEventSendMode = "event-send-mode"
+)

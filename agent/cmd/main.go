@@ -169,6 +169,8 @@ func parseFlags() *configs.AgentConfig {
 		"Enable StackRox integration")
 	pflag.DurationVar(&agentConfig.StackroxPollInterval, "stackrox-poll-interval", 30*time.Minute,
 		"The interval between each StackRox polling")
+	pflag.StringVar(&agentConfig.EventMode, "event-mode", string(constants.EventSendModeBatch),
+		"Event sending mode: batch or single")
 	pflag.Parse()
 
 	return agentConfig
