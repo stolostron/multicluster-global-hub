@@ -42,10 +42,11 @@ func TestEventEmitter_BatchMode(t *testing.T) {
 	emitter := NewEventEmitter(
 		enum.LocalRootPolicyEventType,
 		producer,
-		// targetFilter: accept all events
+		nil, // runtimeClient not needed for this test
+		// filter: accept all events
 		func(obj client.Object) bool { return true },
-		// transformer: convert to test event
-		func(obj client.Object) interface{} {
+		// transform: convert to test event
+		func(runtimeClient client.Client, obj client.Object) interface{} {
 			return event.RootPolicyEvent{
 				BaseEvent: event.BaseEvent{
 					EventName: "test-event",
@@ -92,10 +93,11 @@ func TestEventEmitter_SingleMode(t *testing.T) {
 	emitter := NewEventEmitter(
 		enum.LocalRootPolicyEventType,
 		producer,
-		// targetFilter: accept all events
+		nil, // runtimeClient not needed for this test
+		// filter: accept all events
 		func(obj client.Object) bool { return true },
-		// transformer: convert to test event
-		func(obj client.Object) interface{} {
+		// transform: convert to test event
+		func(runtimeClient client.Client, obj client.Object) interface{} {
 			return event.RootPolicyEvent{
 				BaseEvent: event.BaseEvent{
 					EventName: "test-event",

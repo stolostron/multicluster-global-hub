@@ -19,38 +19,43 @@ import (
 
 // EventEmitter manages event lists and supports batch/single sending modes
 type EventEmitter struct {
-	eventType    enum.EventType
-	topic        string
-	producer     transport.Producer
-	targetObject func(client.Object) bool
-	transformer  func(client.Object) interface{}
-	events       []interface{}
-	version      *eventversion.Version
-	mu           sync.Mutex
-	eventMode    constants.EventSendMode
+	eventType     enum.EventType
+	topic         string
+	producer      transport.Producer
+	runtimeClient client.Client
+	filter        func(client.Object) bool
+	transform     func(client.Client, client.Object) interface{}
+	postSend      func([]interface{}) error
+	events        []interface{}
+	version       *eventversion.Version
+	mu            sync.Mutex
+	eventMode     constants.EventSendMode
 }
 
 func NewEventEmitter(
 	eventType enum.EventType,
 	producer transport.Producer,
-	targetObject func(client.Object) bool,
-	transformer func(client.Object) interface{},
+	runtimeClient client.Client,
+	filter func(client.Object) bool,
+	transform func(client.Client, client.Object) interface{},
 	eventMode constants.EventSendMode,
 	opts ...EventEmitterOption,
 ) *EventEmitter {
 	if eventType == "" {
-		log.Errorw("EventEmitter created with empty event type")
+		log.Error("EventEmitter created with empty event type")
 		return nil
 	}
 
 	e := &EventEmitter{
-		eventType:    eventType,
-		producer:     producer,
-		targetObject: targetObject,
-		transformer:  transformer,
-		events:       make([]interface{}, 0),
-		version:      eventversion.NewVersion(),
-		eventMode:    eventMode,
+		eventType:     eventType,
+		producer:      producer,
+		runtimeClient: runtimeClient,
+		filter:        filter,
+		transform:     transform,
+		postSend:      nil, // Will be set by options if needed
+		events:        make([]interface{}, 0),
+		version:       eventversion.NewVersion(),
+		eventMode:     eventMode,
 	}
 
 	for _, opt := range opts {
@@ -65,18 +70,18 @@ func (e *EventEmitter) EventType() string {
 }
 
 func (e *EventEmitter) EventFilter() predicate.Predicate {
-	return predicate.NewPredicateFuncs(e.targetObject)
+	return predicate.NewPredicateFuncs(e.filter)
 }
 
 func (e *EventEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !e.targetObject(obj) {
+	if !e.filter(obj) {
 		return nil
 	}
 
-	event := e.transformer(obj)
+	event := e.transform(e.runtimeClient, obj)
 	e.events = append(e.events, event)
 	e.version.Incr()
 
@@ -93,20 +98,16 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 	defer e.mu.Unlock()
 
 	for _, obj := range objects {
-		if e.targetObject(obj) {
-			event := e.transformer(obj)
+		if e.filter(obj) {
+			event := e.transform(e.runtimeClient, obj)
 			e.events = append(e.events, event)
 		}
 	}
 
-	if len(e.events) > 0 {
-		if err := e.sendEvents(); err != nil {
-			log.Errorw("failed to send events after resync", "error", err)
-			return fmt.Errorf("failed to send events after resync: %w", err)
-		}
-		e.version.Next()
+	if err := e.sendEvents(); err != nil {
+		log.Errorw("failed to send events after resync", "error", err)
+		return fmt.Errorf("failed to send events after resync: %w", err)
 	}
-
 	return nil
 }
 
@@ -114,25 +115,41 @@ func (e *EventEmitter) Send() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if len(e.events) == 0 {
-		return nil
-	}
-
 	if err := e.sendEvents(); err != nil {
 		log.Errorw("failed to send events", "error", err)
 		return err
 	}
-	e.version.Next()
 	return nil
 }
 
 func (e *EventEmitter) sendEvents() error {
+	if len(e.events) == 0 {
+		return nil
+	}
+
+	var err error
 	switch e.eventMode {
 	case constants.EventSendModeSingle:
-		return e.sendEventsIndividually()
+		err = e.sendEventsIndividually()
 	default: // batch is default
-		return e.sendEventBundle()
+		err = e.sendEventBundle()
 	}
+
+	if err != nil {
+		return err
+	}
+
+	if e.postSend != nil {
+		if err := e.postSend(e.events); err != nil {
+			log.Errorw("postSend callback failed", "error", err)
+			// Don't return error as events were already sent successfully
+		}
+	}
+
+	// Clear events after successful send and postSend
+	e.events = e.events[:0]
+	e.version.Next()
+	return nil
 }
 
 func (e *EventEmitter) sendEventBundle() error {
@@ -153,7 +170,6 @@ func (e *EventEmitter) sendEventBundle() error {
 		"type", enum.ShortenEventType(string(e.eventType)),
 		"count", len(e.events))
 
-	e.events = e.events[:0]
 	return nil
 }
 
@@ -181,7 +197,6 @@ func (e *EventEmitter) sendEventsIndividually() error {
 		"type", enum.ShortenEventType(string(e.eventType)),
 		"count", sentCount)
 
-	e.events = e.events[:0]
 	return nil
 }
 
@@ -205,3 +220,10 @@ func (e *EventEmitter) createContext() context.Context {
 }
 
 type EventEmitterOption func(*EventEmitter)
+
+// WithPostSend adds a postSend callback that is called after events are successfully sent
+func WithPostSend(postSend func([]interface{}) error) EventEmitterOption {
+	return func(e *EventEmitter) {
+		e.postSend = postSend
+	}
+}
