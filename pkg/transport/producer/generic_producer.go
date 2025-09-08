@@ -21,12 +21,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
-const (
-	// Bytes => 10 MiB * 1024 * 1024 => Set it into the maximum size of a single message
-	// to avoid the message being truncated mid-transmission.
-	MaxSizeToChunk = 10 * 1024 * 1024
-)
-
 type GenericProducer struct {
 	log               *zap.SugaredLogger
 	ceProtocol        interface{}
@@ -41,7 +35,7 @@ func NewGenericProducer(transportConfig *transport.TransportInternalConfig, topi
 ) (*GenericProducer, error) {
 	genericProducer := &GenericProducer{
 		log:               logger.ZapLogger(fmt.Sprintf("%s-producer", transportConfig.TransportType)),
-		messageSizeLimit:  MaxSizeToChunk,
+		messageSizeLimit:  config.MaxSizeToChunk,
 		eventErrorHandler: eventErrorHandler,
 	}
 	err := genericProducer.initClient(transportConfig, topic)
