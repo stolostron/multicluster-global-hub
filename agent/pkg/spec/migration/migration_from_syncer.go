@@ -46,6 +46,7 @@ const (
 
 	// Annotations
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
+	kubectlConfigAnnotation    = "kubectl.kubernetes.io/last-applied-configuration"
 )
 
 type MigrationSourceSyncer struct {
@@ -412,6 +413,7 @@ func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Co
 	if annotations != nil {
 		delete(annotations, constants.ManagedClusterMigrating)
 		delete(annotations, KlusterletConfigAnnotation)
+		delete(annotations, kubectlConfigAnnotation)
 		cluster.SetAnnotations(annotations)
 	}
 
@@ -430,6 +432,11 @@ func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Conte
 	// Clean metadata for migration
 	s.cleanObjectMetadata(addonConfig)
 	addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
+	annotations := addonConfig.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, kubectlConfigAnnotation)
+		addonConfig.SetAnnotations(annotations)
+	}
 
 	return addonConfig, nil
 }
