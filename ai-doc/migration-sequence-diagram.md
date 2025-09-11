@@ -80,8 +80,7 @@ sequenceDiagram
     Note right of TargetCluster: Managed cluster now registered<br/>with target hub and operational
 
     Note over User, TargetCluster: Error Handling: Rollback Phases
-    rect rgb(120, 60, 60)
-        Note over GlobalHub, SourceHub: If error occurs during any phase:
+    Note over GlobalHub, SourceHub: ⚠️ ERROR HANDLING: If error occurs during any phase:
         GlobalHub->>GlobalHub: Update status to "Rollbacking"
         GlobalHub->>SourceHub: Send rollback event with RollbackStage
         
@@ -95,7 +94,6 @@ sequenceDiagram
         else Rollback Registering
             SourceHub->>SourceHub: Set HubAcceptsClient = true
             SourceHub->>SourceHub: Perform deploying rollback
-        end
         
         SourceHub->>GlobalHub: Report rollback complete
         GlobalHub->>GlobalHub: Update status to "Failed"
