@@ -94,10 +94,9 @@ sequenceDiagram
         else Rollback Registering
             SourceHub->>SourceHub: Set HubAcceptsClient = true
             SourceHub->>SourceHub: Perform deploying rollback
-        
+        end
         SourceHub->>GlobalHub: Report rollback complete
         GlobalHub->>GlobalHub: Update status to "Failed"
-    end
 ```
 
 ## Key Components
