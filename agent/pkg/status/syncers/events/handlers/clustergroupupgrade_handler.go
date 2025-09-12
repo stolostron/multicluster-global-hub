@@ -16,7 +16,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
+
+var log = logger.DefaultZapLogger()
 
 func NewClusterGroupUpgradeEventEmitter() interfaces.Emitter {
 	name := strings.ReplaceAll(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "")
@@ -104,7 +107,7 @@ func (h *clusterGroupUpgradeEventHandler) Update(obj client.Object) bool {
 		CreatedAt:           getEventLastTime(evt).Time,
 	}
 
-	*h.payload = append(*h.payload, clusterEvent)
+	*h.payload = append(*h.payload, &clusterEvent)
 	return true
 }
 

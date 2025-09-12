@@ -38,7 +38,7 @@ func NewRootPolicyEventEmitter(eventType enum.EventType) interfaces.Emitter {
 			}
 			// update the time filter: with latest event
 			for _, evt := range *events {
-				filter.CacheTime(name, evt.CreatedAt.Time)
+				filter.CacheTime(name, evt.CreatedAt)
 			}
 			// reset the payload
 			*events = (*events)[:0]
@@ -99,12 +99,12 @@ func (h *localRootPolicyHandler) Update(obj client.Object) bool {
 			Reason:         evt.Reason,
 			Count:          getEventCount(evt),
 			Source:         evt.Source,
-			CreatedAt:      getEventLastTime(evt),
+			CreatedAt:      getEventLastTime(evt).Time,
 		},
 		PolicyID:   string(policy.GetUID()),
 		Compliance: policyCompliance(policy, evt),
 	}
-	*h.payload = append(*h.payload, rootPolicyEvent)
+	*h.payload = append(*h.payload, &rootPolicyEvent)
 	return true
 }
 

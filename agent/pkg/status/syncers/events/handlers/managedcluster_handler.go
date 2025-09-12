@@ -118,7 +118,7 @@ func (h *managedClusterEventHandler) Update(obj client.Object) bool {
 		CreatedAt:           getEventLastTime(evt).Time,
 	}
 
-	*h.payload = append(*h.payload, clusterEvent)
+	*h.payload = append(*h.payload, &clusterEvent)
 	return true
 }
 

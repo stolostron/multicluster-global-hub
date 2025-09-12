@@ -73,7 +73,7 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 				Source:         sourceJSONB,
 				Count:          int(policyStatusEvent.Count),
 				Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance, h.log)),
-				CreatedAt:      policyStatusEvent.CreatedAt.Time,
+				CreatedAt:      policyStatusEvent.CreatedAt,
 			},
 			ClusterID:   policyStatusEvent.ClusterID,
 			ClusterName: policyStatusEvent.ClusterName,

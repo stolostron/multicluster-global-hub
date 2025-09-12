@@ -31,7 +31,7 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 		version := eventversion.NewVersion()
 		version.Incr()
 		data := event.ManagedClusterEventBundle{}
-		data = append(data, models.ManagedClusterEvent{
+		data = append(data, &models.ManagedClusterEvent{
 			EventNamespace:      "managed-cluster1",
 			EventName:           "managed-cluster1.17cd5c3642c43a8a",
 			ClusterID:           clusterUUID,

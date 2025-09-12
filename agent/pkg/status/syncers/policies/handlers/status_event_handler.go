@@ -55,7 +55,7 @@ func (h *policyStatusEventHandler) Get() interface{} {
 }
 
 // only for test
-func (h *policyStatusEventHandler) Append(evt event.ReplicatedPolicyEvent) {
+func (h *policyStatusEventHandler) Append(evt *event.ReplicatedPolicyEvent) {
 	*h.payload = append(*h.payload, evt)
 }
 
@@ -89,7 +89,7 @@ func (h *policyStatusEventHandler) Update(obj client.Object) bool {
 					continue
 				}
 
-				*h.payload = append(*h.payload, event.ReplicatedPolicyEvent{
+				*h.payload = append(*h.payload, &event.ReplicatedPolicyEvent{
 					BaseEvent: event.BaseEvent{
 						EventName:      evt.EventName,
 						EventNamespace: policy.Namespace,
@@ -99,7 +99,7 @@ func (h *policyStatusEventHandler) Update(obj client.Object) bool {
 						Source: corev1.EventSource{
 							Component: "policy-status-history-sync",
 						},
-						CreatedAt: evt.LastTimestamp,
+						CreatedAt: evt.LastTimestamp.Time,
 					},
 					PolicyID:    string(rootPolicy.GetUID()),
 					ClusterID:   clusterID,
@@ -129,7 +129,7 @@ func NewPolicyStatusEventEmitter(eventType enum.EventType) interfaces.Emitter {
 			// policyEvents, ok := data.([]event.ReplicatedPolicyEvent)
 			// update the time filter: with latest event
 			for _, evt := range *events {
-				filter.CacheTime(name, evt.CreatedAt.Time)
+				filter.CacheTime(name, evt.CreatedAt)
 			}
 			// reset the payload
 			*events = (*events)[:0]
