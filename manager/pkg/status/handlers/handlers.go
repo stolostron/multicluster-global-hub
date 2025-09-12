@@ -36,6 +36,7 @@ func RegisterHandlers(mgr ctrl.Manager, cmr *conflator.ConflationManager, enable
 	policy.RegisterLocalPolicyComplianceHandler(cmr)
 	policy.RegisterLocalPolicyCompleteHandler(cmr)
 	policy.RegisterLocalRootPolicyEventHandler(cmr)
+	policy.RegisterLocalReplicatedPolicyEventHandler(cmr)
 
 	// local placementrule
 	generic.RegisterGenericHandler[*placementrulev1.PlacementRule](
