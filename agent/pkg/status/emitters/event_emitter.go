@@ -24,7 +24,7 @@ type EventEmitter struct {
 	producer      transport.Producer
 	runtimeClient client.Client
 	predicate     func(client.Object) bool // filter events by the predicate
-	// transform converts a runtime object to an event object. It can return nil to indicate that the object should be skipped.
+	// transform converts a object to an event object. It can return nil to indicate that the object should be skipped.
 	transform func(client.Client, client.Object) interface{}
 	postSend  func([]interface{}) error
 	events    []interface{}
