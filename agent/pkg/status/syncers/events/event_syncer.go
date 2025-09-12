@@ -4,54 +4,102 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events/handlers"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-func LaunchEventSyncer(ctx context.Context, mgr ctrl.Manager,
+var (
+	log            = logger.DefaultZapLogger()
+	addEventSyncer = false
+	runtimeClient  client.Client
+)
+
+func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 	agentConfig *configs.AgentConfig, producer transport.Producer,
+	periodicSyncer *generic.PeriodicSyncer,
 ) error {
-	// controller
-	instance := func() client.Object { return &corev1.Event{} }
-	eventPredicate := predicate.NewPredicateFuncs(func(obj client.Object) bool {
-		event, ok := obj.(*corev1.Event)
-		if !ok {
-			return false
-		}
-		// only sync the policy event || extend other InvolvedObject kind
-		return event.InvolvedObject.Kind == policiesv1.Kind ||
-			event.InvolvedObject.Kind == constants.ManagedClusterKind ||
-			event.InvolvedObject.Kind == constants.ClusterGroupUpgradeKind
+	if addEventSyncer {
+		return nil
+	}
+
+	runtimeClient = mgr.GetClient()
+	eventMode := constants.EventSendMode(agentConfig.EventMode)
+
+	managedClusterEventEmitter := emitters.NewEventEmitter(
+		enum.ManagedClusterEventType,
+		producer,
+		runtimeClient,
+		managedClusterEventPredicate,
+		managedClusterEventTransform,
+		eventMode,
+		emitters.WithPostSend(managedClusterPostSend),
+	)
+
+	localRootPolicyEventEmitter := emitters.NewEventEmitter(
+		enum.LocalRootPolicyEventType,
+		producer,
+		runtimeClient,
+		localRootPolicyEventPredicate,
+		localRootPolicyEventTransform,
+		eventMode,
+		emitters.WithPostSend(localRootPolicyPostSend),
+	)
+
+	clusterGroupUpgradeEventEmitter := emitters.NewEventEmitter(
+		enum.ClusterGroupUpgradesEventType,
+		producer,
+		runtimeClient,
+		clusterGroupUpgradeEventPredicate,
+		clusterGroupUpgradeEventTransform,
+		eventMode,
+		emitters.WithPostSend(clusterGroupUpgradePostSend),
+	)
+
+	// 2. add the emitter to controller
+	if err := generic.AddSyncCtrl(
+		mgr,
+		func() client.Object { return &corev1.Event{} },
+		managedClusterEventEmitter, localRootPolicyEventEmitter, clusterGroupUpgradeEventEmitter,
+	); err != nil {
+		return err
+	}
+
+	// 3. register the emitter to periodic syncer
+	periodicSyncer.Register(&generic.EmitterRegistration{
+		ListFunc: func() ([]client.Object, error) { return listEvents(ctx, runtimeClient) },
+		Emitter:  managedClusterEventEmitter,
 	})
 
-	return generic.LaunchMultiEventSyncer(
-		"status.event",
-		mgr,
-		generic.NewGenericController(instance, eventPredicate),
-		producer,
-		configmap.GetEventDuration,
-		[]*generic.EmitterHandler{
-			{
-				Handler: handlers.NewLocalRootPolicyEventHandler(ctx, mgr.GetClient()),
-				Emitter: handlers.NewRootPolicyEventEmitter(enum.LocalRootPolicyEventType),
-			},
-			{
-				Handler: handlers.NewManagedClusterEventHandler(ctx, mgr.GetClient()),
-				Emitter: handlers.NewManagedClusterEventEmitter(),
-			},
-			{
-				Handler: handlers.NewClusterGroupUpgradeEventHandler(ctx, mgr.GetClient()),
-				Emitter: handlers.NewClusterGroupUpgradeEventEmitter(),
-			},
-		})
+	periodicSyncer.Register(&generic.EmitterRegistration{
+		ListFunc: func() ([]client.Object, error) { return listEvents(ctx, runtimeClient) },
+		Emitter:  localRootPolicyEventEmitter,
+	})
+
+	periodicSyncer.Register(&generic.EmitterRegistration{
+		ListFunc: func() ([]client.Object, error) { return listEvents(ctx, runtimeClient) },
+		Emitter:  clusterGroupUpgradeEventEmitter,
+	})
+
+	addEventSyncer = true
+	return nil
+}
+
+func listEvents(ctx context.Context, runtimeClient client.Client) ([]client.Object, error) {
+	var events corev1.EventList
+	if err := runtimeClient.List(ctx, &events); err != nil {
+		return nil, err
+	}
+	items := make([]client.Object, 0, len(events.Items))
+	for _, event := range events.Items {
+		items = append(items, &event)
+	}
+	return items, nil
 }

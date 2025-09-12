@@ -150,7 +150,7 @@ var _ = BeforeSuite(func() {
 	// policy
 	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, chanTransport.Producer(PolicyTopic))
 	Expect(err).To(Succeed())
-	err = policies.AddPolicySpecSyncer(ctx, mgr, chanTransport.Producer(PolicyTopic), periodicSyncer)
+	err = policies.AddPolicySyncer(ctx, mgr, chanTransport.Producer(PolicyTopic), periodicSyncer, agentConfig)
 	Expect(err).To(Succeed())
 
 	// placement
@@ -177,7 +177,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(Succeed())
 
 	// event
-	err = events.LaunchEventSyncer(ctx, mgr, agentConfig, chanTransport.Producer(EventTopic))
+	err = events.AddEventSyncer(ctx, mgr, agentConfig, chanTransport.Producer(EventTopic), periodicSyncer)
 	Expect(err).To(Succeed())
 	receivedEvents = make(map[string]*cloudevents.Event)
 	go func() {
