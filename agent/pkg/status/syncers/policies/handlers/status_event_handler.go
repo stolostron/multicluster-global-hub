@@ -55,7 +55,7 @@ func (h *policyStatusEventHandler) Get() interface{} {
 }
 
 // only for test
-func (h *policyStatusEventHandler) Append(evt event.ReplicatedPolicyEvent) {
+func (h *policyStatusEventHandler) Append(evt *event.ReplicatedPolicyEvent) {
 	*h.payload = append(*h.payload, evt)
 }
 
@@ -89,7 +89,7 @@ func (h *policyStatusEventHandler) Update(obj client.Object) bool {
 					continue
 				}
 
-				*h.payload = append(*h.payload, event.ReplicatedPolicyEvent{
+				*h.payload = append(*h.payload, &event.ReplicatedPolicyEvent{
 					BaseEvent: event.BaseEvent{
 						EventName:      evt.EventName,
 						EventNamespace: policy.Namespace,
