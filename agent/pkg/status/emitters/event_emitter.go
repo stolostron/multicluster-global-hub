@@ -87,7 +87,6 @@ func (e *EventEmitter) Update(obj client.Object) error {
 		e.events = append(e.events, event)
 		e.version.Incr()
 	}
-
 	return nil
 }
 
