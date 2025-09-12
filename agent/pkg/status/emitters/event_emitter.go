@@ -23,7 +23,7 @@ type EventEmitter struct {
 	topic         string
 	producer      transport.Producer
 	runtimeClient client.Client
-	filter        func(client.Object) bool
+	predicate     func(client.Object) bool // filter events by the predicate
 	transform     func(client.Client, client.Object) interface{}
 	postSend      func([]interface{}) error
 	events        []interface{}
@@ -36,7 +36,7 @@ func NewEventEmitter(
 	eventType enum.EventType,
 	producer transport.Producer,
 	runtimeClient client.Client,
-	filter func(client.Object) bool,
+	predicate func(client.Object) bool,
 	transform func(client.Client, client.Object) interface{},
 	eventMode constants.EventSendMode,
 	opts ...EventEmitterOption,
@@ -50,7 +50,7 @@ func NewEventEmitter(
 		eventType:     eventType,
 		producer:      producer,
 		runtimeClient: runtimeClient,
-		filter:        filter,
+		predicate:     predicate,
 		transform:     transform,
 		postSend:      nil, // Will be set by options if needed
 		events:        make([]interface{}, 0),
@@ -70,20 +70,22 @@ func (e *EventEmitter) EventType() string {
 }
 
 func (e *EventEmitter) EventFilter() predicate.Predicate {
-	return predicate.NewPredicateFuncs(e.filter)
+	return predicate.NewPredicateFuncs(e.predicate)
 }
 
 func (e *EventEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !e.filter(obj) {
+	if !e.predicate(obj) {
 		return nil
 	}
 
 	event := e.transform(e.runtimeClient, obj)
-	e.events = append(e.events, event)
-	e.version.Incr()
+	if event != nil {
+		e.events = append(e.events, event)
+		e.version.Incr()
+	}
 
 	return nil
 }
@@ -98,9 +100,11 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 	defer e.mu.Unlock()
 
 	for _, obj := range objects {
-		if e.filter(obj) {
+		if e.predicate(obj) {
 			event := e.transform(e.runtimeClient, obj)
-			e.events = append(e.events, event)
+			if event != nil {
+				e.events = append(e.events, event)
+			}
 		}
 	}
 
