@@ -131,6 +131,7 @@ func parseFlags() *configs.AgentConfig {
 			// EnableDatabaseOffset affects only the manager, deciding if consumption starts from a database-stored offset
 			EnableDatabaseOffset: false,
 		},
+		EventMode: string(constants.EventSendModeBatch),
 	}
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)

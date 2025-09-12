@@ -16,6 +16,10 @@ import (
 
 var TimeFilterKeyForClusterGroupUpgrade = enum.ShortenEventType(string(enum.ClusterGroupUpgradesEventType))
 
+func init() {
+	filter.RegisterTimeFilter(TimeFilterKeyForClusterGroupUpgrade)
+}
+
 func clusterGroupUpgradePostSend(events []interface{}) error {
 	for _, upgradeEvent := range events {
 		evt, ok := upgradeEvent.(*models.ClusterGroupUpgradeEvent)

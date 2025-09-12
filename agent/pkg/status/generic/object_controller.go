@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -29,14 +28,11 @@ type syncController struct {
 
 // AddSyncCtrl registers a controller that watch the specific client.Object,
 // and load the object into the bundle in the provided emitters.
-func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmitters ...emitters.Emitter) error {
+func AddSyncCtrl(mgr ctrl.Manager, ctrlName string, instanceFunc func() client.Object,
+	objectEmitters ...emitters.Emitter,
+) error {
 	if len(objectEmitters) == 0 {
 		return fmt.Errorf("at least one emitter is required")
-	}
-
-	controllerName := enum.ShortenEventType(objectEmitters[0].EventType())
-	if len(objectEmitters) > 1 {
-		controllerName = "multi-emitter-syncer"
 	}
 
 	syncer := &syncController{
@@ -51,7 +47,7 @@ func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmit
 	combinedFilter := createCombinedFilter(objectEmitters...)
 
 	return ctrl.NewControllerManagedBy(mgr).For(instanceFunc()).WithEventFilter(combinedFilter).
-		Named(controllerName).Complete(syncer)
+		Named(ctrlName).Complete(syncer)
 }
 
 // createCombinedFilter creates a combined filter using OR relationship for all event types

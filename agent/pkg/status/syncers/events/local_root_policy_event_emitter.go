@@ -28,6 +28,10 @@ var (
 	TimeFilterKeyForLocalRootPolicy = enum.ShortenEventType(string(enum.LocalRootPolicyEventType))
 )
 
+func init() {
+	filter.RegisterTimeFilter(TimeFilterKeyForLocalRootPolicy)
+}
+
 func localRootPolicyPostSend(events []interface{}) error {
 	for _, policyEvent := range events {
 		evt, ok := policyEvent.(*event.RootPolicyEvent)

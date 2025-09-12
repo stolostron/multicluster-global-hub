@@ -3,6 +3,7 @@ package emitters
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -25,6 +26,7 @@ type EventEmitter struct {
 	runtimeClient client.Client
 	predicate     func(client.Object) bool // filter events by the predicate
 	// transform converts a object to an event object. It can return nil to indicate that the object should be skipped.
+	// It can return a list of events(like replicated policy events) or a single event.
 	transform func(client.Client, client.Object) interface{}
 	postSend  func([]interface{}) error
 	events    []interface{}
@@ -79,14 +81,11 @@ func (e *EventEmitter) Update(obj client.Object) error {
 		return nil
 	}
 
-	log.Infow("update event", "event", obj.GetName())
 	event := e.transform(e.runtimeClient, obj)
 	if event != nil {
-		e.events = append(e.events, event)
+		e.events = append(e.events, toSlice(event)...)
 		e.version.Incr()
 	}
-	// events after update
-	log.Infow("events after update", "events", e.events, "version", e.version.String())
 	return nil
 }
 
@@ -103,13 +102,12 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 		if e.predicate(obj) {
 			event := e.transform(e.runtimeClient, obj)
 			if event != nil {
-				e.events = append(e.events, event)
+				e.events = append(e.events, toSlice(event)...)
 			}
 		}
 	}
 
 	if err := e.sendEvents(); err != nil {
-		log.Errorw("failed to send events after resync", "error", err)
 		return fmt.Errorf("failed to send events after resync: %w", err)
 	}
 	return nil
@@ -118,7 +116,6 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 func (e *EventEmitter) Send() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-
 	if err := e.sendEvents(); err != nil {
 		log.Errorw("failed to send events", "error", err)
 		return err
@@ -133,10 +130,11 @@ func (e *EventEmitter) sendEvents() error {
 	log.Debugw("before send events", "events", e.events, "version", e.version.String())
 
 	var err error
-	switch configs.GetAgentConfig().EventMode {
-	case string(constants.EventSendModeSingle):
+	// only enable the single mode for event type
+	if enum.IsEventType(string(e.eventType)) &&
+		configs.GetAgentConfig().EventMode == string(constants.EventSendModeSingle) {
 		err = e.sendEventsIndividually()
-	default: // batch is default
+	} else {
 		err = e.sendEventBundle()
 	}
 
@@ -233,4 +231,19 @@ func WithPostSend(postSend func([]interface{}) error) EventEmitterOption {
 	return func(e *EventEmitter) {
 		e.postSend = postSend
 	}
+}
+
+func toSlice(v interface{}) []interface{} {
+	if v == nil {
+		return nil
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+		result := make([]interface{}, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			result[i] = rv.Index(i).Interface()
+		}
+		return result
+	}
+	return []interface{}{v}
 }
