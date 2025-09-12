@@ -79,7 +79,7 @@ func GetClusterId(ctx context.Context, runtimeClient client.Client, clusterName 
 	if err := runtimeClient.Get(ctx, client.ObjectKey{Name: clusterName}, &cluster); err != nil {
 		return "", fmt.Errorf("failed to get cluster - %w", err)
 	}
-	clusterId := string(cluster.GetUID())
+	clusterId := ""
 	claimID := GetClusterClaimID(&cluster)
 	if claimID != "" {
 		clusterId = claimID

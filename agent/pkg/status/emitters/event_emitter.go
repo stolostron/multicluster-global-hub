@@ -25,6 +25,7 @@ type EventEmitter struct {
 	runtimeClient client.Client
 	predicate     func(client.Object) bool // filter events by the predicate
 	// transform converts a object to an event object. It can return nil to indicate that the object should be skipped.
+	// It can return a list of events(like replicated policy events) or a single event.
 	transform func(client.Client, client.Object) interface{}
 	postSend  func([]interface{}) error
 	events    []interface{}
@@ -84,7 +85,11 @@ func (e *EventEmitter) Update(obj client.Object) error {
 
 	event := e.transform(e.runtimeClient, obj)
 	if event != nil {
-		e.events = append(e.events, event)
+		if eventList, ok := event.([]interface{}); ok {
+			e.events = append(e.events, eventList...)
+		} else {
+			e.events = append(e.events, event)
+		}
 		e.version.Incr()
 	}
 	return nil
@@ -102,7 +107,9 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 	for _, obj := range objects {
 		if e.predicate(obj) {
 			event := e.transform(e.runtimeClient, obj)
-			if event != nil {
+			if eventList, ok := event.([]interface{}); ok {
+				e.events = append(e.events, eventList...)
+			} else {
 				e.events = append(e.events, event)
 			}
 		}
