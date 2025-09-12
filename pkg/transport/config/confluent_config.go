@@ -20,6 +20,17 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+const (
+	// Bytes => 10 MiB * 1024 * 1024 => Set it into the maximum size of a single message
+	// to avoid the message being truncated mid-transmission.
+	MaxSizeToChunk = 10 * 1024 * 1024
+
+	// message.max.bytes default value is 1000000
+	MaxSizeToSend = 10 * 1000 * 1000
+	// fetch.message.max.bytes default value is 1048576
+	MaxSizeToFetch = 10 * 1024 * 1024
+)
+
 var log = logger.DefaultZapLogger()
 
 func GetBasicConfigMap() *kafkav2.ConfigMap {
@@ -33,6 +44,7 @@ func GetBasicConfigMap() *kafkav2.ConfigMap {
 }
 
 func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
+	_ = kafkaConfigMap.SetKey("message.max.bytes", MaxSizeToSend)
 	_ = kafkaConfigMap.SetKey("acks", "1")
 	_ = kafkaConfigMap.SetKey("retries", "1")
 }
@@ -41,6 +53,8 @@ func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
 	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	_ = kafkaConfigMap.SetKey("group.id", groupId)
+	_ = kafkaConfigMap.SetKey("max.partition.fetch.bytes", MaxSizeToFetch)
+	_ = kafkaConfigMap.SetKey("fetch.message.max.bytes", MaxSizeToFetch)
 }
 
 func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {
