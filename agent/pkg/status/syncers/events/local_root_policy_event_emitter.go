@@ -23,8 +23,7 @@ const (
 )
 
 var (
-	PolicyMessageStatusRe = regexp.
-				MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
+	PolicyMessageStatusRe           = regexp.MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 	TimeFilterKeyForLocalRootPolicy = enum.ShortenEventType(string(enum.LocalRootPolicyEventType))
 )
 
@@ -60,7 +59,7 @@ func localRootPolicyEventPredicate(obj client.Object) bool {
 
 	policy, err := getInvolvePolicy(context.Background(), runtimeClient, evt)
 	if err != nil {
-		log.Debugf("failed to get involved policy event: %s/%s, error: %v", evt.Namespace, evt.Name, err)
+		log.Debugw("failed to get involved policy event", "event", evt.Namespace+"/"+evt.Name, "error", err)
 		return false
 	}
 
@@ -78,7 +77,7 @@ func localRootPolicyEventTransform(runtimeClient client.Client, obj client.Objec
 
 	policy, err := getInvolvePolicy(context.Background(), runtimeClient, evt)
 	if err != nil {
-		log.Warnf("failed to get involved policy event: %s/%s, error: %v", evt.Namespace, evt.Name, err)
+		log.Warnw("failed to get involved policy event", "event", evt.Namespace+"/"+evt.Name, "error", err)
 		return nil
 	}
 	// update
