@@ -35,6 +35,10 @@ func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmit
 	}
 
 	controllerName := enum.ShortenEventType(objectEmitters[0].EventType())
+	if len(objectEmitters) > 1 {
+		controllerName = "multi-emitter-syncer"
+	}
+
 	syncer := &syncController{
 		client:        mgr.GetClient(),
 		emitters:      objectEmitters,
