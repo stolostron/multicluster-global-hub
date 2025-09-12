@@ -49,7 +49,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := []event.RootPolicyEvent{}
+	data := event.RootPolicyEventBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
