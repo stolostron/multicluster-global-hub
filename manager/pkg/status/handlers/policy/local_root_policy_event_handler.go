@@ -78,7 +78,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 				Source:         sourceJSONB,
 				Count:          int(element.Count),
 				Compliance:     string(common.GetDatabaseCompliance(element.Compliance, h.log)),
-				CreatedAt:      element.CreatedAt.Time,
+				CreatedAt:      element.CreatedAt,
 			},
 		})
 	}

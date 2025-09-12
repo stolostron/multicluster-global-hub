@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -35,7 +34,7 @@ var _ = Describe("LocalEventPolicyHandler", Ordered, func() {
 				Source: v1.EventSource{
 					Component: "policy-propagator",
 				},
-				CreatedAt: metav1.NewTime(time.Now()),
+				CreatedAt: time.Now(),
 			},
 			PolicyID:   "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608d",
 			Compliance: "NonCompliant",
