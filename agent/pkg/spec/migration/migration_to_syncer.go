@@ -43,7 +43,7 @@ const (
 var (
 	log                = logger.DefaultZapLogger()
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
-	clusterErrorMap    = map[string]string{}
+	clusterErrors      = map[string]string{}
 )
 
 type MigrationTargetSyncer struct {
@@ -85,8 +85,8 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		if err != nil {
 			migrationStatus.ErrMessage = err.Error()
-			if s.receivedStage == migrationv1alpha1.PhaseRegistering && len(clusterErrorMap) > 0 {
-				migrationStatus.ClusterErrors = clusterErrorMap
+			if s.receivedStage == migrationv1alpha1.PhaseRegistering && len(clusterErrors) > 0 {
+				migrationStatus.ClusterErrors = clusterErrors
 			}
 		}
 
@@ -207,19 +207,19 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
-			clusterErrorMap = map[string]string{}
+			clusterErrors = map[string]string{}
 			for _, clusterName := range event.ManagedClusters {
 				if err := s.checkClusterManifestWork(ctx, clusterName); err != nil {
 					log.Debugf("cluster %s not ready: %v", clusterName, err)
-					clusterErrorMap[clusterName] = err.Error()
+					clusterErrors[clusterName] = err.Error()
 				}
 			}
 
-			if len(clusterErrorMap) > 0 {
+			if len(clusterErrors) > 0 {
 				return false, nil
 			}
 			// if all the clusters are ready, set the clusterErrorMap to empty
-			clusterErrorMap = map[string]string{}
+			clusterErrors = map[string]string{}
 			return true, nil
 		},
 	)
