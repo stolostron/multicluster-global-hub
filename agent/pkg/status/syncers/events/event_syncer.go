@@ -7,10 +7,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -23,15 +21,13 @@ var (
 )
 
 func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
-	agentConfig *configs.AgentConfig, producer transport.Producer,
-	periodicSyncer *generic.PeriodicSyncer,
+	producer transport.Producer, periodicSyncer *generic.PeriodicSyncer,
 ) error {
 	if addEventSyncer {
 		return nil
 	}
 
 	runtimeClient = mgr.GetClient()
-	eventMode := constants.EventSendMode(agentConfig.EventMode)
 
 	managedClusterEventEmitter := emitters.NewEventEmitter(
 		enum.ManagedClusterEventType,
@@ -39,7 +35,6 @@ func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 		runtimeClient,
 		managedClusterEventPredicate,
 		managedClusterEventTransform,
-		eventMode,
 		emitters.WithPostSend(managedClusterPostSend),
 	)
 
@@ -49,7 +44,6 @@ func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 		runtimeClient,
 		localRootPolicyEventPredicate,
 		localRootPolicyEventTransform,
-		eventMode,
 		emitters.WithPostSend(localRootPolicyPostSend),
 	)
 
@@ -59,7 +53,6 @@ func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 		runtimeClient,
 		clusterGroupUpgradeEventPredicate,
 		clusterGroupUpgradeEventTransform,
-		eventMode,
 		emitters.WithPostSend(clusterGroupUpgradePostSend),
 	)
 
