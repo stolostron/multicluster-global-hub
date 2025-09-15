@@ -218,7 +218,6 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 			if len(clusterErrors) > 0 {
 				return false, nil
 			}
-			// if all the clusters are ready, set the clusterErrorMap to empty
 			clusterErrors = map[string]string{}
 			return true, nil
 		},
