@@ -10,43 +10,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/filter"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedClusterEventType))
-
-// NewManagedClusterEventEmitter creates an EventEmitter for ManagedCluster events
-func NewManagedClusterEventEmitter(producer transport.Producer, runtimeClient client.Client,
-	eventMode constants.EventSendMode,
-) *emitters.EventEmitter {
-	return emitters.NewEventEmitter(
-		enum.ManagedClusterEventType,
-		producer,
-		runtimeClient,
-		managedClusterEventPredicate,
-		managedClusterEventTransform,
-		eventMode,
-		emitters.WithPostSend(
-			func(events []interface{}) error {
-				for _, clusterEvent := range events {
-					evt, ok := clusterEvent.(*models.ManagedClusterEvent)
-					if !ok {
-						return fmt.Errorf("failed to type assert to models.ManagedClusterEvent, event: %v", clusterEvent)
-					}
-					// To avoid duplicate events, apply a time filter in the predicate and prevent sending the same event
-					// multiple times.
-					filter.CacheTime(TimeFilterKeyForManagedCluster, evt.CreatedAt)
-				}
-				return nil
-			}),
-	)
-}
 
 func managedClusterPostSend(events []interface{}) error {
 	for _, clusterEvent := range events {

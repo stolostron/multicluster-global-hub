@@ -270,6 +270,6 @@ const (
 
 // CloudEvent extensions for event mode identification
 const (
-	// ExtEventSendMode indicates whether this is a batch or single event
-	ExtEventSendMode = "event-send-mode"
+	// CloudEventExtensionSendMode indicates whether this is a batch or single event
+	CloudEventExtensionSendMode = "sendmode"
 )

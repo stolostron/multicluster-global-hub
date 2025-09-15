@@ -34,6 +34,7 @@ func TestEventEmitter_BatchMode(t *testing.T) {
 	// Initialize agent config for testing
 	testConfig := &configs.AgentConfig{
 		LeafHubName: "test-hub",
+		EventMode:   string(constants.EventSendModeBatch),
 	}
 	configs.SetAgentConfig(testConfig)
 
@@ -54,7 +55,6 @@ func TestEventEmitter_BatchMode(t *testing.T) {
 				PolicyID: "test-policy",
 			}
 		},
-		constants.EventSendModeBatch,
 	)
 
 	// Test update
@@ -85,6 +85,7 @@ func TestEventEmitter_SingleMode(t *testing.T) {
 	// Initialize agent config for testing
 	testConfig := &configs.AgentConfig{
 		LeafHubName: "test-hub",
+		EventMode:   string(constants.EventSendModeSingle),
 	}
 	configs.SetAgentConfig(testConfig)
 
@@ -105,7 +106,6 @@ func TestEventEmitter_SingleMode(t *testing.T) {
 				PolicyID: "test-policy",
 			}
 		},
-		constants.EventSendModeSingle,
 	)
 
 	// Add multiple events
