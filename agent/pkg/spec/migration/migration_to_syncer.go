@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -44,6 +43,7 @@ const (
 var (
 	log                = logger.DefaultZapLogger()
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
+	clusterErrorMap    = map[string]string{}
 )
 
 type MigrationTargetSyncer struct {
@@ -77,18 +77,21 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			log.Warnf("stage(%s) or migrationId(%s) is empty ", s.receivedStage, s.receivedMigrationId)
 			return
 		}
-		errMessage := ""
-		if err != nil {
-			errMessage = err.Error()
+
+		migrationStatus := &migration.MigrationStatusBundle{
+			MigrationId: s.receivedMigrationId,
+			Stage:       s.receivedStage,
 		}
-		err = ReportMigrationStatus(
-			cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-			s.transportClient,
-			&migration.MigrationStatusBundle{
-				MigrationId: s.receivedMigrationId,
-				Stage:       s.receivedStage,
-				ErrMessage:  errMessage,
-			}, s.bundleVersion)
+
+		if err != nil {
+			migrationStatus.ErrMessage = err.Error()
+			if s.receivedStage == migrationv1alpha1.PhaseRegistering && len(clusterErrorMap) > 0 {
+				migrationStatus.ClusterErrors = clusterErrorMap
+			}
+		}
+
+		err = ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+			s.transportClient, migrationStatus, s.bundleVersion)
 		if err != nil {
 			log.Errorf("failed to report migration status: %v", err)
 		}
@@ -202,27 +205,26 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 		timeout = time.Duration(event.RegisteringTimeoutMinutes) * time.Minute
 	}
 
-	errMessage := ""
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
-			notReadyClusters := []string{}
+			clusterErrorMap = map[string]string{}
 			for _, clusterName := range event.ManagedClusters {
 				if err := s.checkClusterManifestWork(ctx, clusterName); err != nil {
 					log.Debugf("cluster %s not ready: %v", clusterName, err)
-					notReadyClusters = append(notReadyClusters, fmt.Sprintf("cluster(%s): %s", clusterName, err.Error()))
+					clusterErrorMap[clusterName] = err.Error()
 				}
 			}
 
-			if len(notReadyClusters) > 0 {
-				errMessage = strings.Join(notReadyClusters, ";")
+			if len(clusterErrorMap) > 0 {
 				return false, nil
 			}
-			errMessage = ""
+			// if all the clusters are ready, set the clusterErrorMap to empty
+			clusterErrorMap = map[string]string{}
 			return true, nil
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to wait for all managed clusters to be ready: %w - %s", err, errMessage)
+		return fmt.Errorf("failed to wait for the managed clusters to be ready: %w", err)
 	}
 	log.Infof("all %d managed clusters are ready for migration", len(event.ManagedClusters))
 	return nil
