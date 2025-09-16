@@ -31,7 +31,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	log.Info("migration %v registering", mcm.Name)
+	log.Infof("migration %v registering", mcm.Name)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeRegistered,
@@ -46,9 +46,9 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	fromHub := mcm.Spec.From
 	clusters := GetClusterList(string(mcm.UID))
 
+	log.Infof("migration registering from hub: %s, started: %v", fromHub, migrationv1alpha1.PhaseRegistering)
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
-		log.Infof("migration registering: %s", fromHub)
-		// notify the source hub to start registering
+		log.Infof("migration registering from hub: %s, sending event", fromHub)
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRegistering,
 			clusters, nil, "")
 		if err != nil {
@@ -66,14 +66,15 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
+	log.Infof("migration registering from hub: %s, finished: %v", fromHub, migrationv1alpha1.PhaseRegistering)
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
 		condition.Message = fmt.Sprintf("waiting for managed clusters to migrating from source hub %s", fromHub)
 		return true, nil
 	}
 
+	log.Infof("migration registering to hub: %s, started: %v", mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
-		log.Infof("migration registering: %s", mcm.Spec.To)
-		// notify the target hub to start registering
+		log.Infof("migration registering to hub: %s, sending event", mcm.Spec.To)
 		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, clusters, "")
 		if err != nil {
 			condition.Message = err.Error()
@@ -90,6 +91,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
+	log.Infof("migration registering to hub: %s, finished: %v", mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
 		condition.Message = fmt.Sprintf("waiting for managed clusters to register to the target hub %s", mcm.Spec.To)
