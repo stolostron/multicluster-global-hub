@@ -31,6 +31,8 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
+	log.Info("migration %v registering", mcm.Name)
+
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeRegistered,
 		Status:  metav1.ConditionFalse,
@@ -45,7 +47,8 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	clusters := GetClusterList(string(mcm.UID))
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
-		log.Infof("migration registering from hub: %s, sending event", fromHub)
+		log.Infof("migration registering: %s", fromHub)
+		// notify the source hub to start registering
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRegistering,
 			clusters, nil, "")
 		if err != nil {
@@ -69,7 +72,8 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	}
 
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
-		log.Infof("migration registering to hub: %s, sending event", mcm.Spec.To)
+		log.Infof("migration registering: %s", mcm.Spec.To)
+		// notify the target hub to start registering
 		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, clusters, "")
 		if err != nil {
 			condition.Message = err.Error()

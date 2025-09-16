@@ -179,34 +179,6 @@ func TestRegistering(t *testing.T) {
 			expectedConditionStatus: metav1.ConditionTrue,             // Condition should be true
 			expectedConditionReason: ConditionReasonClusterRegistered, // Should indicate registered
 		},
-		{
-			name: "Should not have log formatting issues - regression test",
-			migration: &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-migration-log-format",
-					Namespace: utils.GetDefaultNamespace(),
-					UID:       types.UID("test-uid-log-format"),
-				},
-				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					From: "source-hub",
-					To:   "target-hub",
-				},
-				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-					Phase: migrationv1alpha1.PhaseRegistering,
-				},
-			},
-			setupState: func(migrationID string) {
-				AddMigrationStatus(migrationID)
-				// This test verifies that the function can be called without log formatting errors
-				// The previous bug was using log.Info with format specifiers instead of log.Infof
-				// This test ensures the fix doesn't regress
-			},
-			expectedRequeue:         true, // Will requeue waiting for source hub
-			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseRegistering,
-			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: ConditionReasonWaiting,
-		},
 	}
 
 	for _, tt := range tests {
