@@ -1190,7 +1190,7 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.MigrationTargetBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "failed to wait for all managed clusters to be ready",
+			expectedError: "failed to wait for the managed clusters to be ready",
 		},
 	}
 

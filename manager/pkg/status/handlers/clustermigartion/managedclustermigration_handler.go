@@ -86,8 +86,10 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 
 	if bundle.ErrMessage != "" {
 		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
+		migration.SetClusterErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ClusterErrors)
 	} else {
 		migration.SetFinished(bundle.MigrationId, hubClusterName, bundle.Stage)
 	}
+
 	return nil
 }

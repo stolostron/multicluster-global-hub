@@ -16,9 +16,10 @@ type MigrationStatus struct {
 }
 
 type StageState struct {
-	started  bool
-	finished bool
-	error    string
+	started       bool
+	finished      bool
+	error         string
+	clusterErrors map[string]string // cluster name -> error message
 }
 
 // AddMigrationStatus init the migration status for the migrationId
@@ -112,6 +113,14 @@ func SetClusterList(migrationId string, managedClusters []string) {
 	currentMigrationClusterList[migrationId] = managedClusters
 }
 
+func SetClusterErrorMessage(migrationId string, hub, phase string, clusterErrors map[string]string) {
+	mu.Lock()
+	defer mu.Unlock()
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		p.clusterErrors = clusterErrors
+	}
+}
+
 func SetErrorMessage(migrationId, hub, phase, errMessage string) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -161,4 +170,40 @@ func GetClusterList(migrationId string) []string {
 		return clusters
 	}
 	return nil
+}
+
+func GetNotReadyClusters(migrationId, hub, phase string) []string {
+	mu.RLock()
+	defer mu.RUnlock()
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		clusters := []string{}
+		for cluster := range p.clusterErrors {
+			clusters = append(clusters, cluster)
+		}
+		return clusters
+	}
+	return nil
+}
+
+func GetReadyClusters(migrationId, hub, phase string) []string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	if currentMigrationClusterList == nil {
+		return nil
+	}
+	allClusters, ok := currentMigrationClusterList[migrationId]
+	if !ok {
+		return nil
+	}
+
+	clusters := []string{}
+	if p := getStageState(migrationId, hub, phase); p != nil {
+		for _, cluster := range allClusters {
+			if _, ok := p.clusterErrors[cluster]; !ok {
+				clusters = append(clusters, cluster)
+			}
+		}
+	}
+	return clusters
 }

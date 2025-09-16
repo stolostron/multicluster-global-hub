@@ -53,11 +53,17 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// 1. Send rollback events to source hubs to restore original configurations
 	fromHub := mcm.Spec.From
-	clusters := GetClusterList(string(mcm.UID))
+	rollbackClusters := GetClusterList(string(mcm.UID))
+	if failedStage == migrationv1alpha1.PhaseRegistering {
+		notReadyClusters := GetNotReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)
+		if len(notReadyClusters) > 0 {
+			rollbackClusters = notReadyClusters
+		}
+	}
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to source hub: %s", fromHub)
-		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, clusters,
+		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, rollbackClusters,
 			getBootstrapSecret(fromHub, nil), failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to source hub %s: %v",
@@ -86,7 +92,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	// 2. Send rollback event to destination hub to clean up partial resources
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to destination hub: %s", mcm.Spec.To)
-		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, clusters, failedStage)
+		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, rollbackClusters, failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to target hub %s: %v", failedStage,
 				mcm.Spec.To, err)

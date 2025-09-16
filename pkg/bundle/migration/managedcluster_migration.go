@@ -39,11 +39,12 @@ type MigrationTargetBundle struct {
 
 // The bundle sent from the managed hubs to the global hub
 type MigrationStatusBundle struct {
-	MigrationId     string   `json:"migrationId"`
-	Stage           string   `json:"stage"`
-	ErrMessage      string   `json:"errMessage,omitempty"`
-	Resync          bool     `json:"resync,omitempty"`
-	ManagedClusters []string `json:"managedClusters,omitempty"`
+	MigrationId     string            `json:"migrationId"`
+	Stage           string            `json:"stage"`
+	ErrMessage      string            `json:"errMessage,omitempty"`
+	Resync          bool              `json:"resync,omitempty"`
+	ManagedClusters []string          `json:"managedClusters,omitempty"`
+	ClusterErrors   map[string]string `json:"clusterErrors,omitempty"`
 }
 
 type MigrationResourceBundle struct {
