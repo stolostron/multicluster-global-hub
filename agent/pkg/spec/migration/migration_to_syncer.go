@@ -118,7 +118,9 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	s.receivedStage = event.Stage
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
-	if event.Stage == migrationv1alpha1.PhaseInitializing || event.RollbackStage == migrationv1alpha1.PhaseInitializing {
+	if s.processingMigrationId == "" ||
+		event.Stage == migrationv1alpha1.PhaseInitializing ||
+		event.RollbackStage == migrationv1alpha1.PhaseInitializing {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 	}
@@ -258,6 +260,10 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
 	}
 	s.receivedMigrationId = resourceEvent.MigrationId
+	if s.processingMigrationId == "" {
+		s.processingMigrationId = resourceEvent.MigrationId
+		s.bundleVersion.Reset()
+	}
 
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: migrationId=%s", resourceEvent.MigrationId)

@@ -97,11 +97,13 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 	}
 
 	// Set current migration ID for stages that need cluster identification:
+	// - processingMigrationId is empty: always set, to handle restart case
 	// - Validating phase: always set (uses placement for cluster selection)
 	// - Initializing phase: only set when PlacementName is empty (uses individual cluster names)
 	//   When PlacementName is provided in Initializing, clusters are selected via placement,
 	//   so we don't need to set the migration ID here
-	if event.Stage == migrationv1alpha1.PhaseValidating ||
+	if s.processingMigrationId == "" ||
+		event.Stage == migrationv1alpha1.PhaseValidating ||
 		event.RollbackStage == migrationv1alpha1.PhaseInitializing ||
 		(event.Stage == migrationv1alpha1.PhaseInitializing && event.PlacementName == "") {
 		s.processingMigrationId = event.MigrationId
