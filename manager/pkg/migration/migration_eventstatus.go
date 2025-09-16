@@ -43,14 +43,14 @@ func ResetMigrationStatus(managedHubName string) {
 	log.Infof("reset migration status before: %s", managedHubName)
 	utils.PrettyPrint(migrationStatuses)
 	for migrationId, status := range migrationStatuses {
-		for key, hubState := range status.HubState {
-			hub := strings.Split(key, "-")[0]
+		for hubPhaseKey, state := range status.HubState {
+			hub := strings.Split(hubPhaseKey, "-")[0]
 			if hub != managedHubName {
 				continue
 			}
-			hubState.started = false
-			hubState.finished = false
-			hubState.error = ""
+			state.started = false
+			state.finished = false
+			state.error = ""
 			log.Infof("reset migration status for migrationId: %s, hub: %s", migrationId, hub)
 		}
 	}
