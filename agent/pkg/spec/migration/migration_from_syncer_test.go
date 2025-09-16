@@ -476,7 +476,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			}
 
 			managedClusterMigrationSyncer := NewMigrationSourceSyncer(fakeClient, nil, transportClient,
-				transportConfig)
+				transportConfig, "hub1")
 			managedClusterMigrationSyncer.processingMigrationId = currentSyncerMigrationId
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
@@ -639,6 +639,9 @@ func TestValidating(t *testing.T) {
 	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
 	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
 
 	cases := []struct {
 		name                 string
@@ -681,6 +684,49 @@ func TestValidating(t *testing.T) {
 					Status: clusterv1beta1.PlacementDecisionStatus{
 						Decisions: []clusterv1beta1.ClusterDecision{
 							{ClusterName: "cluster3"},
+						},
+					},
+				},
+				// Add the ManagedCluster objects that the validation logic expects
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   "ManagedClusterConditionAvailable",
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   "ManagedClusterConditionAvailable",
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster3"},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   "ManagedClusterConditionAvailable",
+								Status: metav1.ConditionTrue,
+							},
 						},
 					},
 				},
@@ -731,6 +777,35 @@ func TestValidating(t *testing.T) {
 						},
 					},
 				},
+				// Add the ManagedCluster objects that the validation logic expects
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   "ManagedClusterConditionAvailable",
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{Name: "cluster2"},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   "ManagedClusterConditionAvailable",
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
 			},
 			expectedClusters: []string{"cluster1", "cluster2"},
 			expectedError:    false,
@@ -743,6 +818,7 @@ func TestValidating(t *testing.T) {
 
 			syncer := &MigrationSourceSyncer{
 				client: fakeClient,
+				errMap: make(map[string]string),
 			}
 
 			// Create a copy of the migration bundle to avoid modifying the original
@@ -862,6 +938,7 @@ func TestGetClustersFromPlacementDecisions(t *testing.T) {
 
 			syncer := &MigrationSourceSyncer{
 				client: fakeClient,
+				errMap: make(map[string]string),
 			}
 
 			clusters, err := syncer.getClustersFromPlacementDecisions(ctx, c.placementName)

@@ -53,16 +53,22 @@ type MigrationTargetSyncer struct {
 	processingMigrationId string
 	receivedMigrationId   string
 	receivedStage         string
+	errMap                map[string]string
+	leafHubName           string
 }
 
 func NewMigrationTargetSyncer(client client.Client,
-	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
+	transportClient transport.TransportClient,
+	transportConfig *transport.TransportInternalConfig,
+	leafHubName string,
 ) *MigrationTargetSyncer {
 	return &MigrationTargetSyncer{
 		client:          client,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
+		errMap:          make(map[string]string),
+		leafHubName:     leafHubName,
 	}
 }
 
@@ -122,10 +128,11 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
 	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseInitializing ||
+		event.Stage == migrationv1alpha1.PhaseValidating ||
 		event.RollbackStage == migrationv1alpha1.PhaseInitializing {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
+		s.errMap = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
@@ -145,6 +152,8 @@ func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migrati
 	clusterErrors map[string]string,
 ) error {
 	switch target.Stage {
+	case migrationv1alpha1.PhaseValidating:
+		return s.executeStage(ctx, target, s.validating)
 	case migrationv1alpha1.PhaseInitializing:
 		return s.executeStage(ctx, target, s.initializing, clusterErrors)
 	case migrationv1alpha1.PhaseRegistering:
@@ -196,6 +205,42 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		log.Errorf("failed to cleanup migration RBAC resources: %v", err)
 		return err
 	}
+	return nil
+}
+
+// validating handles the validating phase
+func (s *MigrationTargetSyncer) validating(ctx context.Context, source *migration.MigrationTargetBundle) error {
+	// Validate the clusters
+	if len(source.ManagedClusters) > 0 {
+		if err := s.validateManagedClusters(ctx, source.ManagedClusters); err != nil {
+			return err
+		}
+		log.Infof("validated %d clusters for migration %s", len(source.ManagedClusters), source.MigrationId)
+	} else {
+		log.Infof("no clusters to validate for migration %s", source.MigrationId)
+	}
+
+	return nil
+}
+
+// validateManagedClusters validates managed clusters for migration
+func (s *MigrationTargetSyncer) validateManagedClusters(ctx context.Context, clusterNames []string) error {
+	for _, clusterName := range clusterNames {
+		mc := &clusterv1.ManagedCluster{}
+		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			s.errMap[clusterName] = err.Error()
+			continue
+		}
+		s.errMap[clusterName] = fmt.Sprintf("managed cluster %v already exists in target hub", clusterName)
+	}
+
+	if len(s.errMap) > 0 {
+		return fmt.Errorf("%v clusters validation failed, get more details in events", len(s.errMap))
+	}
+
 	return nil
 }
 
