@@ -40,8 +40,12 @@ func ResetMigrationStatus(managedHubName string) {
 	defer mu.Unlock()
 	for migrationId, status := range migrationStatuses {
 		for hubPhaseKey, state := range status.HubState {
-			hub := strings.Split(hubPhaseKey, "-")[0]
-			phase := strings.Split(hubPhaseKey, "-")[1]
+			lastDashIndex := strings.LastIndex(hubPhaseKey, "-")
+			if lastDashIndex == -1 {
+				continue // Skip invalid keys without "-"
+			}
+			hub := hubPhaseKey[:lastDashIndex]
+			phase := hubPhaseKey[lastDashIndex+1:]
 			if hub != managedHubName {
 				continue
 			}
