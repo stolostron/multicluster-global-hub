@@ -3,6 +3,8 @@ package migration
 import (
 	"fmt"
 	"sync"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
@@ -37,6 +39,8 @@ func AddMigrationStatus(migrationId string) {
 func ResetMigrationStatus(managedHubName string) {
 	mu.Lock()
 	defer mu.Unlock()
+	log.Infof("reset migration status before: %s", managedHubName)
+	utils.PrettyPrint(migrationStatuses)
 	for migrationId, status := range migrationStatuses {
 		for hub, hubState := range status.HubState {
 			if hub != managedHubName {
@@ -48,6 +52,8 @@ func ResetMigrationStatus(managedHubName string) {
 			log.Infof("reset migration status for migrationId: %s, hub: %s", migrationId, hub)
 		}
 	}
+	log.Infof("reset migration status after: %s", managedHubName)
+	utils.PrettyPrint(migrationStatuses)
 }
 
 // AddMigrationStatus clean the migration status for the migrationId
