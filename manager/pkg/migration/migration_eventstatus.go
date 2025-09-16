@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 var (
@@ -40,22 +38,19 @@ func AddMigrationStatus(migrationId string) {
 func ResetMigrationStatus(managedHubName string) {
 	mu.Lock()
 	defer mu.Unlock()
-	log.Infof("reset migration status before: %s", managedHubName)
-	utils.PrettyPrint(migrationStatuses)
 	for migrationId, status := range migrationStatuses {
 		for hubPhaseKey, state := range status.HubState {
 			hub := strings.Split(hubPhaseKey, "-")[0]
+			phase := strings.Split(hubPhaseKey, "-")[1]
 			if hub != managedHubName {
 				continue
 			}
 			state.started = false
 			state.finished = false
 			state.error = ""
-			log.Infof("reset migration status for migrationId: %s, hub: %s", migrationId, hub)
+			log.Infof("reset migration status for migrationId: %s, hub: %s, phase: %s", migrationId, hub, phase)
 		}
 	}
-	log.Infof("reset migration status after: %s", managedHubName)
-	utils.PrettyPrint(migrationStatuses)
 }
 
 // AddMigrationStatus clean the migration status for the migrationId
