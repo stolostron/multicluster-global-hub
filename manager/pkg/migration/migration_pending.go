@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -25,7 +26,7 @@ func (m *ClusterMigrationController) selectAndPrepareMigration(ctx context.Conte
 	req ctrl.Request,
 ) (*migrationv1alpha1.ManagedClusterMigration, error) {
 	migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
-	if err := m.List(ctx, migrationList); err != nil {
+	if err := m.List(ctx, migrationList, &client.ListOptions{Namespace: utils.GetDefaultNamespace()}); err != nil {
 		return nil, err
 	}
 
