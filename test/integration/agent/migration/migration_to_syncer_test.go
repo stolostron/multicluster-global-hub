@@ -50,6 +50,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			runtimeClient,
 			transportClient,
 			transportConfig,
+			"hub1",
 		)
 
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testMSANamespace}}

@@ -57,10 +57,14 @@ type MigrationSourceSyncer struct {
 	transportConfig       *transport.TransportInternalConfig
 	bundleVersion         *eventversion.Version
 	processingMigrationId string
+	errMap                map[string]string
+	leafHubName           string
 }
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
-	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
+	transportClient transport.TransportClient,
+	transportConfig *transport.TransportInternalConfig,
+	leafHubName string,
 ) *MigrationSourceSyncer {
 	return &MigrationSourceSyncer{
 		client:          client,
@@ -68,6 +72,8 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
+		errMap:          make(map[string]string),
+		leafHubName:     leafHubName,
 	}
 }
 
@@ -109,6 +115,7 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 		(event.Stage == migrationv1alpha1.PhaseInitializing && event.PlacementName == "") {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
+		s.errMap = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages
@@ -633,6 +640,7 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			Stage:           spec.Stage,
 			ErrMessage:      errMessage,
 			ManagedClusters: spec.ManagedClusters,
+			ClusterErrors:   s.errMap,
 		},
 		s.bundleVersion)
 
@@ -692,22 +700,30 @@ func ResyncMigrationEvent(ctx context.Context, transportClient transport.Transpo
 	)
 }
 
-// validating handles the validating phase - get clusters from placement decisions and send to status bundle
+// validating handles the validating phase - get clusters from placement decisions and validate them
 func (s *MigrationSourceSyncer) validating(ctx context.Context, source *migration.MigrationSourceBundle) error {
 	// If placement name is provided, get clusters from placement decisions
 	if source.PlacementName != "" {
 		clusters, err := s.getClustersFromPlacementDecisions(ctx, source.PlacementName)
 		if err != nil {
-			return fmt.Errorf("failed to get clusters from placement decisions: %w", err)
+			return fmt.Errorf("failed to get managed clusters from placement decisions: %w", err)
 		}
 		if len(clusters) == 0 {
 			return fmt.Errorf("no managed clusters found in placement %q", source.PlacementName)
 		}
 		source.ManagedClusters = clusters
-		return nil
 	}
 
-	log.Infof("no placement name provided for migration %s", source.MigrationId)
+	// Validate the clusters
+	if len(source.ManagedClusters) > 0 {
+		if err := s.validateManagedClusters(ctx, source.ManagedClusters); err != nil {
+			return err
+		}
+		log.Infof("validated %d managed clusters for migration %s", len(source.ManagedClusters), source.MigrationId)
+	} else {
+		log.Infof("no managed clusters to validate for migration %s", source.MigrationId)
+	}
+
 	return nil
 }
 
@@ -733,6 +749,82 @@ func (s *MigrationSourceSyncer) getClustersFromPlacementDecisions(
 		}
 	}
 
-	log.Infof("found %d clusters from placement decisions for placement %s: %v", len(clusters), placementName, clusters)
+	log.Infof("found %d managed clusters from placement %s", len(clusters), placementName)
 	return clusters, nil
+}
+
+// validateManagedClusters validates managed clusters for migration
+func (s *MigrationSourceSyncer) validateManagedClusters(ctx context.Context, clusterNames []string) error {
+	for _, clusterName := range clusterNames {
+		if err := s.validateSingleCluster(ctx, clusterName); err != nil {
+			s.errMap[clusterName] = err.Error()
+		}
+	}
+
+	if len(s.errMap) > 0 {
+		return fmt.Errorf("%v managed clusters validation failed, get more details in events", len(s.errMap))
+	}
+
+	return nil
+}
+
+// validateSingleCluster validates a single managed cluster for migration
+func (s *MigrationSourceSyncer) validateSingleCluster(ctx context.Context, clusterName string) error {
+	mc := &clusterv1.ManagedCluster{}
+	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("managed cluster %v is not found in managed hub %v", clusterName, s.leafHubName)
+		}
+		return fmt.Errorf("failed to get managed cluster %v from managed hub %v: %w", clusterName, s.leafHubName, err)
+	}
+
+	// Check if cluster is hosted
+	if s.isHostedCluster(mc) {
+		return fmt.Errorf("managed cluster %v is imported as hosted mode in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+	}
+
+	// Check if cluster is local cluster
+	if mc.Labels != nil && mc.Labels[constants.LocalClusterName] == "true" {
+		return fmt.Errorf("managed cluster %v is local cluster in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+	}
+
+	// Check if cluster is available
+	if !s.isManagedClusterAvailable(mc) {
+		return fmt.Errorf("managed cluster %v is not available in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+	}
+
+	// Check if cluster is a managed hub
+	if s.isManagedHub(mc) {
+		return fmt.Errorf("managed cluster %v is a managed hub cluster in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+	}
+
+	return nil
+}
+
+// isManagedHub checks if the cluster is a managed hub cluster
+func (s *MigrationSourceSyncer) isManagedHub(cluster *clusterv1.ManagedCluster) bool {
+	if cluster.Annotations == nil {
+		return false
+	}
+	if cluster.Annotations[constants.AnnotationONMulticlusterHub] == "true" {
+		return true
+	}
+
+	return false
+}
+
+// isHostedCluster checks if a managed cluster is hosted
+func (s *MigrationSourceSyncer) isHostedCluster(mc *clusterv1.ManagedCluster) bool {
+	return mc.Annotations != nil &&
+		mc.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted
+}
+
+// isManagedClusterAvailable returns true if the ManagedCluster is available
+func (s *MigrationSourceSyncer) isManagedClusterAvailable(mc *clusterv1.ManagedCluster) bool {
+	for _, cond := range mc.Status.Conditions {
+		if cond.Type == clusterv1.ManagedClusterConditionAvailable && cond.Status == "True" {
+			return true
+		}
+	}
+	return false
 }

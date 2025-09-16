@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -161,9 +160,6 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 	if condition.Reason == ConditionReasonError {
 		condition.Message = fmt.Sprintf("[Warning - Cleanup Issues] %s.", condition.Message)
 		condition.Status = metav1.ConditionFalse
-		if m.EventRecorder != nil {
-			m.EventRecorder.Eventf(mcm, corev1.EventTypeWarning, ConditionReasonError, condition.Message)
-		}
 	}
 
 	if condition.Reason != ConditionReasonWaiting {
