@@ -475,8 +475,11 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				},
 			}
 
-			managedClusterMigrationSyncer := NewMigrationSourceSyncer(fakeClient, nil, transportClient,
-				transportConfig, "hub1")
+			agentConfig := &configs.AgentConfig{
+				TransportConfig: transportConfig,
+				LeafHubName:     "hub1",
+			}
+			managedClusterMigrationSyncer := NewMigrationSourceSyncer(fakeClient, nil, transportClient, agentConfig)
 			managedClusterMigrationSyncer.processingMigrationId = currentSyncerMigrationId
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
@@ -817,8 +820,8 @@ func TestValidating(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
 			syncer := &MigrationSourceSyncer{
-				client: fakeClient,
-				errMap: make(map[string]string),
+				client:        fakeClient,
+				clusterErrors: make(map[string]string),
 			}
 
 			// Create a copy of the migration bundle to avoid modifying the original
@@ -937,8 +940,8 @@ func TestGetClustersFromPlacementDecisions(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
 			syncer := &MigrationSourceSyncer{
-				client: fakeClient,
-				errMap: make(map[string]string),
+				client:        fakeClient,
+				clusterErrors: make(map[string]string),
 			}
 
 			clusters, err := syncer.getClustersFromPlacementDecisions(ctx, c.placementName)
@@ -951,6 +954,245 @@ func TestGetClustersFromPlacementDecisions(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 				assert.Equal(t, c.expectedClusters, clusters)
+			}
+		})
+	}
+}
+
+// TestValidateSingleCluster tests the validateSingleCluster function
+func TestValidateSingleCluster(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name                 string
+		clusterName          string
+		managedCluster       *clusterv1.ManagedCluster
+		expectedError        bool
+		expectedErrorMessage string
+		leafHubName          string
+	}{
+		{
+			name:        "Should pass validation for valid cluster",
+			clusterName: "valid-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "valid-cluster",
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedError: false,
+			leafHubName:   "test-hub",
+		},
+		{
+			name:                 "Should fail when cluster not found",
+			clusterName:          "nonexistent-cluster",
+			managedCluster:       nil,
+			expectedError:        true,
+			expectedErrorMessage: "managed cluster nonexistent-cluster is not found in managed hub test-hub",
+			leafHubName:          "test-hub",
+		},
+		{
+			name:        "Should fail for hosted cluster",
+			clusterName: "hosted-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hosted-cluster",
+					Annotations: map[string]string{
+						constants.AnnotationClusterDeployMode: constants.ClusterDeployModeHosted,
+					},
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedError:        true,
+			expectedErrorMessage: "managed cluster hosted-cluster is imported as hosted mode in managed hub test-hub, it cannot be migrated",
+			leafHubName:          "test-hub",
+		},
+		{
+			name:        "Should fail for local cluster",
+			clusterName: "local-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "local-cluster",
+					Labels: map[string]string{
+						constants.LocalClusterName: "true",
+					},
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedError:        true,
+			expectedErrorMessage: "managed cluster local-cluster is local cluster in managed hub test-hub, it cannot be migrated",
+			leafHubName:          "test-hub",
+		},
+		{
+			name:        "Should fail for unavailable cluster",
+			clusterName: "unavailable-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "unavailable-cluster",
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionFalse,
+						},
+					},
+				},
+			},
+			expectedError:        true,
+			expectedErrorMessage: "managed cluster unavailable-cluster is not available in managed hub test-hub, it cannot be migrated",
+			leafHubName:          "test-hub",
+		},
+		{
+			name:        "Should fail for managed hub cluster",
+			clusterName: "managed-hub-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "managed-hub-cluster",
+					Annotations: map[string]string{
+						constants.AnnotationONMulticlusterHub: "true",
+					},
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedError:        true,
+			expectedErrorMessage: "managed cluster managed-hub-cluster is a managed hub cluster in managed hub test-hub, it cannot be migrated",
+			leafHubName:          "test-hub",
+		},
+		{
+			name:        "Should fail for cluster with no conditions",
+			clusterName: "no-conditions-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "no-conditions-cluster",
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{},
+				},
+			},
+			expectedError:        true,
+			expectedErrorMessage: "managed cluster no-conditions-cluster is not available in managed hub test-hub, it cannot be migrated",
+			leafHubName:          "test-hub",
+		},
+		{
+			name:        "Should pass for cluster with no annotations",
+			clusterName: "no-annotations-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "no-annotations-cluster",
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedError: false,
+			leafHubName:   "test-hub",
+		},
+		{
+			name:        "Should pass for cluster with no labels",
+			clusterName: "no-labels-cluster",
+			managedCluster: &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "no-labels-cluster",
+				},
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: true,
+				},
+				Status: clusterv1.ManagedClusterStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   clusterv1.ManagedClusterConditionAvailable,
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			},
+			expectedError: false,
+			leafHubName:   "test-hub",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var initObjects []client.Object
+			if c.managedCluster != nil {
+				initObjects = append(initObjects, c.managedCluster)
+			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client:      fakeClient,
+				leafHubName: c.leafHubName,
+			}
+
+			err := syncer.validateSingleCluster(ctx, c.clusterName)
+
+			if c.expectedError {
+				assert.NotNil(t, err)
+				if c.expectedErrorMessage != "" {
+					assert.Contains(t, err.Error(), c.expectedErrorMessage)
+				}
+			} else {
+				assert.Nil(t, err)
 			}
 		})
 	}

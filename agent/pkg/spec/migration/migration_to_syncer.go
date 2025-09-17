@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -53,22 +54,19 @@ type MigrationTargetSyncer struct {
 	processingMigrationId string
 	receivedMigrationId   string
 	receivedStage         string
-	errMap                map[string]string
 	leafHubName           string
 }
 
 func NewMigrationTargetSyncer(client client.Client,
 	transportClient transport.TransportClient,
-	transportConfig *transport.TransportInternalConfig,
-	leafHubName string,
+	agentConfig *configs.AgentConfig,
 ) *MigrationTargetSyncer {
 	return &MigrationTargetSyncer{
 		client:          client,
 		transportClient: transportClient,
-		transportConfig: transportConfig,
+		transportConfig: agentConfig.TransportConfig,
 		bundleVersion:   eventversion.NewVersion(),
-		errMap:          make(map[string]string),
-		leafHubName:     leafHubName,
+		leafHubName:     agentConfig.LeafHubName,
 	}
 }
 
@@ -91,7 +89,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		if err != nil {
 			migrationStatus.ErrMessage = err.Error()
-			if s.receivedStage == migrationv1alpha1.PhaseRegistering && len(clusterErrors) > 0 {
+			if len(clusterErrors) > 0 {
 				migrationStatus.ClusterErrors = clusterErrors
 			}
 		}
@@ -128,11 +126,9 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
 	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseValidating ||
-		event.RollbackStage == migrationv1alpha1.PhaseInitializing {
+		event.Stage == migrationv1alpha1.PhaseValidating {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
-		s.errMap = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages, ignore the rollbacking status for the initializing
@@ -153,7 +149,7 @@ func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migrati
 ) error {
 	switch target.Stage {
 	case migrationv1alpha1.PhaseValidating:
-		return s.executeStage(ctx, target, s.validating)
+		return s.executeStage(ctx, target, s.validating, clusterErrors)
 	case migrationv1alpha1.PhaseInitializing:
 		return s.executeStage(ctx, target, s.initializing, clusterErrors)
 	case migrationv1alpha1.PhaseRegistering:
@@ -209,10 +205,13 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 }
 
 // validating handles the validating phase
-func (s *MigrationTargetSyncer) validating(ctx context.Context, source *migration.MigrationTargetBundle) error {
+func (s *MigrationTargetSyncer) validating(
+	ctx context.Context, source *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
 	// Validate the clusters
 	if len(source.ManagedClusters) > 0 {
-		if err := s.validateManagedClusters(ctx, source.ManagedClusters); err != nil {
+		if err := s.validateManagedClusters(ctx, source.ManagedClusters, clusterErrors); err != nil {
 			return err
 		}
 		log.Infof("validated %d clusters for migration %s", len(source.ManagedClusters), source.MigrationId)
@@ -224,21 +223,23 @@ func (s *MigrationTargetSyncer) validating(ctx context.Context, source *migratio
 }
 
 // validateManagedClusters validates managed clusters for migration
-func (s *MigrationTargetSyncer) validateManagedClusters(ctx context.Context, clusterNames []string) error {
+func (s *MigrationTargetSyncer) validateManagedClusters(
+	ctx context.Context, clusterNames []string, clusterErrors map[string]string,
+) error {
 	for _, clusterName := range clusterNames {
 		mc := &clusterv1.ManagedCluster{}
 		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
 			if apierrors.IsNotFound(err) {
 				continue
 			}
-			s.errMap[clusterName] = err.Error()
+			clusterErrors[clusterName] = err.Error()
 			continue
 		}
-		s.errMap[clusterName] = fmt.Sprintf("managed cluster %v already exists in target hub", clusterName)
+		clusterErrors[clusterName] = fmt.Sprintf("managed cluster %v already exists in target hub", clusterName)
 	}
 
-	if len(s.errMap) > 0 {
-		return fmt.Errorf("%v clusters validation failed, get more details in events", len(s.errMap))
+	if len(clusterErrors) > 0 {
+		return fmt.Errorf("%v clusters validation failed, get more details in events", len(clusterErrors))
 	}
 
 	return nil

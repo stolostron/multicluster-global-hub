@@ -742,3 +742,276 @@ func (m *MockProducerWithError) SendEvent(ctx context.Context, evt cloudevents.E
 func (m *MockProducerWithError) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	return nil
 }
+
+// TestGetMigrationClusters test removed - the getMigrationClusters method does not exist
+// The functionality for getting clusters is tested through the validation tests above
+
+// MockEventRecorder is a mock implementation of record.EventRecorder for testing
+type MockEventRecorder struct {
+	Events []MockEvent
+}
+
+type MockEvent struct {
+	Object      runtime.Object
+	EventType   string
+	Reason      string
+	MessageArgs []interface{}
+}
+
+func (m *MockEventRecorder) Eventf(object runtime.Object, eventType, reason, messageFmt string, args ...interface{}) {
+	m.Events = append(m.Events, MockEvent{
+		Object:      object,
+		EventType:   eventType,
+		Reason:      reason,
+		MessageArgs: append([]interface{}{messageFmt}, args...),
+	})
+}
+
+func (m *MockEventRecorder) Event(object runtime.Object, eventType, reason, message string) {
+	m.Events = append(m.Events, MockEvent{
+		Object:      object,
+		EventType:   eventType,
+		Reason:      reason,
+		MessageArgs: []interface{}{message},
+	})
+}
+
+func (m *MockEventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventType, reason, messageFmt string, args ...interface{}) {
+	m.Eventf(object, eventType, reason, messageFmt, args...)
+}
+
+// TestHandleErrorList tests the handleErrorList function
+func TestHandleErrorList(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = migrationv1alpha1.AddToScheme(scheme)
+
+	tests := []struct {
+		name                 string
+		migration            *migrationv1alpha1.ManagedClusterMigration
+		hub                  string
+		phase                string
+		clusterErrors        map[string]string
+		expectedEventCount   int
+		expectedEventType    string
+		expectedEventReason  string
+		setupClusterErrors   func(string, string, string, map[string]string)
+		cleanupClusterErrors func()
+	}{
+		{
+			name: "Should handle no cluster errors gracefully",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-1"),
+				},
+			},
+			hub:                "test-hub",
+			phase:              migrationv1alpha1.PhaseValidating,
+			clusterErrors:      nil,
+			expectedEventCount: 0,
+			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
+				// No setup needed for nil case
+			},
+			cleanupClusterErrors: func() {
+				// No cleanup needed for nil case
+			},
+		},
+		{
+			name: "Should handle empty cluster errors map",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-2"),
+				},
+			},
+			hub:                "test-hub",
+			phase:              migrationv1alpha1.PhaseValidating,
+			clusterErrors:      map[string]string{},
+			expectedEventCount: 0,
+			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
+				AddMigrationStatus(migrationId)
+				SetClusterErrorMessage(migrationId, hub, phase, errors)
+			},
+			cleanupClusterErrors: func() {
+				RemoveMigrationStatus("test-uid-2")
+			},
+		},
+		{
+			name: "Should create events for single cluster error",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-3"),
+				},
+			},
+			hub:   "test-hub",
+			phase: migrationv1alpha1.PhaseValidating,
+			clusterErrors: map[string]string{
+				"cluster1": "cluster validation failed: cluster not available",
+			},
+			expectedEventCount:  1,
+			expectedEventType:   corev1.EventTypeWarning,
+			expectedEventReason: "ValidationFailed",
+			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
+				AddMigrationStatus(migrationId)
+				SetClusterErrorMessage(migrationId, hub, phase, errors)
+			},
+			cleanupClusterErrors: func() {
+				RemoveMigrationStatus("test-uid-3")
+			},
+		},
+		{
+			name: "Should create events for multiple cluster errors",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-4"),
+				},
+			},
+			hub:   "source-hub",
+			phase: migrationv1alpha1.PhaseValidating,
+			clusterErrors: map[string]string{
+				"cluster1": "cluster validation failed: cluster not available",
+				"cluster2": "cluster validation failed: hosted mode not supported",
+				"cluster3": "cluster validation failed: local cluster cannot be migrated",
+			},
+			expectedEventCount:  3,
+			expectedEventType:   corev1.EventTypeWarning,
+			expectedEventReason: "ValidationFailed",
+			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
+				AddMigrationStatus(migrationId)
+				SetClusterErrorMessage(migrationId, hub, phase, errors)
+			},
+			cleanupClusterErrors: func() {
+				RemoveMigrationStatus("test-uid-4")
+			},
+		},
+		{
+			name: "Should handle cluster errors in different phase",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-5"),
+				},
+			},
+			hub:   "target-hub",
+			phase: migrationv1alpha1.PhaseInitializing,
+			clusterErrors: map[string]string{
+				"cluster1": "initialization failed: bootstrap secret creation failed",
+				"cluster2": "initialization failed: klusterlet config creation failed",
+			},
+			expectedEventCount:  2,
+			expectedEventType:   corev1.EventTypeWarning,
+			expectedEventReason: "ValidationFailed",
+			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
+				AddMigrationStatus(migrationId)
+				SetClusterErrorMessage(migrationId, hub, phase, errors)
+			},
+			cleanupClusterErrors: func() {
+				RemoveMigrationStatus("test-uid-5")
+			},
+		},
+		{
+			name: "Should handle special characters in error messages",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-migration",
+					Namespace: utils.GetDefaultNamespace(),
+					UID:       types.UID("test-uid-6"),
+				},
+			},
+			hub:   "test-hub",
+			phase: migrationv1alpha1.PhaseValidating,
+			clusterErrors: map[string]string{
+				"cluster-with-dash":       "validation failed: error with \"quotes\" and special chars: 100%",
+				"cluster_with_underscore": "failed: error with 'single quotes' and unicode: ñáéíóú",
+			},
+			expectedEventCount:  2,
+			expectedEventType:   corev1.EventTypeWarning,
+			expectedEventReason: "ValidationFailed",
+			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
+				AddMigrationStatus(migrationId)
+				SetClusterErrorMessage(migrationId, hub, phase, errors)
+			},
+			cleanupClusterErrors: func() {
+				RemoveMigrationStatus("test-uid-6")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockEventRecorder := &MockEventRecorder{
+				Events: []MockEvent{},
+			}
+
+			controller := &ClusterMigrationController{
+				EventRecorder: mockEventRecorder,
+			}
+
+			// Setup cluster errors using the test's setup function
+			if tt.setupClusterErrors != nil {
+				tt.setupClusterErrors(string(tt.migration.UID), tt.hub, tt.phase, tt.clusterErrors)
+			}
+
+			// Cleanup after test
+			defer func() {
+				if tt.cleanupClusterErrors != nil {
+					tt.cleanupClusterErrors()
+				}
+			}()
+
+			// Call the function under test
+			controller.handleErrorList(tt.migration, tt.hub, tt.phase)
+
+			// Verify the number of events generated
+			assert.Equal(t, tt.expectedEventCount, len(mockEventRecorder.Events),
+				"Expected %d events but got %d", tt.expectedEventCount, len(mockEventRecorder.Events))
+
+			// Verify event properties if events were expected
+			if tt.expectedEventCount > 0 {
+				for i, event := range mockEventRecorder.Events {
+					assert.Equal(t, tt.migration, event.Object,
+						"Event %d should reference the migration object", i)
+					assert.Equal(t, tt.expectedEventType, event.EventType,
+						"Event %d should have correct event type", i)
+					assert.Equal(t, tt.expectedEventReason, event.Reason,
+						"Event %d should have correct reason", i)
+
+					// Verify that the event message contains an error message from cluster errors
+					if len(event.MessageArgs) > 0 {
+						messageFormat := event.MessageArgs[0].(string)
+						if len(event.MessageArgs) > 1 {
+							// If there are args, it means Eventf was called, get the first arg as the actual message
+							actualMessage := event.MessageArgs[1].(string)
+							// Verify the actual message matches one of the expected cluster error messages
+							found := false
+							for _, expectedMsg := range tt.clusterErrors {
+								if actualMessage == expectedMsg {
+									found = true
+									break
+								}
+							}
+							assert.True(t, found, "Event message '%s' should match one of the cluster error messages", actualMessage)
+						} else {
+							// If no args, the message format itself should be in cluster errors
+							found := false
+							for _, expectedMsg := range tt.clusterErrors {
+								if messageFormat == expectedMsg {
+									found = true
+									break
+								}
+							}
+							assert.True(t, found, "Event message '%s' should match one of the cluster error messages", messageFormat)
+						}
+					}
+				}
+			}
+		})
+	}
+}
