@@ -344,5 +344,12 @@ func cleanupMigrationCR(ctx context.Context, name, namespace string) error {
 	if err := mgr.GetClient().Delete(ctx, migration); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete migration %s: %w", name, err)
 	}
+
+	// Verify migration is actually deleted
+	Eventually(func() bool {
+		err := mgr.GetClient().Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, migration)
+		return errors.IsNotFound(err)
+	}, "10s", "200ms").Should(BeTrue(), "migration should be deleted")
+
 	return nil
 }
