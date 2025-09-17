@@ -1207,7 +1207,7 @@ func TestRegistering(t *testing.T) {
 
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
 
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent)
+			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, map[string]string{})
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {
