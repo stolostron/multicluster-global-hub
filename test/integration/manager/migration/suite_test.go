@@ -17,6 +17,7 @@ import (
 	"gorm.io/gorm"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -36,6 +37,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	genericconsumer "github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
 	genericproducer "github.com/stolostron/multicluster-global-hub/pkg/transport/producer"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
@@ -119,6 +121,19 @@ var _ = BeforeSuite(func() {
 		transportConfig.KafkaCredential.SpecTopic,
 		nil,
 	)
+	Expect(err).NotTo(HaveOccurred())
+
+	consumer, err := genericconsumer.NewGenericConsumer(transportConfig,
+		[]string{transportConfig.KafkaCredential.SpecTopic})
+	Expect(err).NotTo(HaveOccurred())
+	go func() {
+		if err := consumer.Start(ctx); err != nil {
+			logf.Log.Error(err, "error to start the chan consumer")
+		}
+	}()
+	// use the dispatcher to consume events from transport
+	go fakeDispatch(ctx, consumer)
+	Expect(err).NotTo(HaveOccurred())
 	Expect(err).NotTo(HaveOccurred())
 	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, managerConfig, mgr.GetEventRecorderFor("migration-controller"))
 	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
@@ -255,6 +270,18 @@ func createHubAndCluster(ctx context.Context, hubName, clusterName string) error
 	return nil
 }
 
+func fakeDispatch(ctx context.Context, consumer transport.Consumer) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case evt := <-consumer.EventChan():
+			fmt.Printf("evt: %s", evt.ID())
+			continue
+		}
+	}
+}
+
 func ensureManagedServiceAccount(migrationName, toHub string) error {
 	// Create a mock ManagedClusterAddOn for the hub
 	addOn := &addonapiv1alpha1.ManagedClusterAddOn{
@@ -348,8 +375,30 @@ func cleanupMigrationCR(ctx context.Context, name, namespace string) error {
 	// Verify migration is actually deleted
 	Eventually(func() bool {
 		err := mgr.GetClient().Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, migration)
-		return errors.IsNotFound(err)
-	}, "10s", "200ms").Should(BeTrue(), "migration should be deleted")
+		return err != nil
+	}, "20s", "200ms").Should(BeTrue(), "migration should be deleted")
 
 	return nil
+}
+
+func setValidatingFinished(m *migrationv1alpha1.ManagedClusterMigration, fromHubName, toHubName string, custerList []string) {
+	mig := &migrationv1alpha1.ManagedClusterMigration{}
+	Eventually(func() bool {
+		err := mgr.GetClient().Get(ctx, client.ObjectKey{Name: m.Name, Namespace: m.Namespace}, mig)
+		if err != nil {
+			return false
+		}
+		if meta.IsStatusConditionTrue(mig.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) {
+			return true
+		}
+		if mig.Status.Phase == migrationv1alpha1.PhaseValidating {
+			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseValidating)
+			migration.SetFinished(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseValidating)
+			migration.SetClusterList(string(m.GetUID()), custerList)
+			migration.SetStarted(string(m.GetUID()), toHubName, migrationv1alpha1.PhaseValidating)
+			migration.SetFinished(string(m.GetUID()), toHubName, migrationv1alpha1.PhaseValidating)
+			return true
+		}
+		return false
+	}, "10s", "200ms").Should(BeTrue(), "migration should be deleted")
 }

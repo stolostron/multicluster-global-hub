@@ -198,7 +198,9 @@ func (m *ClusterMigrationController) validateClustersInHub(
 	return false, nil
 }
 
-func (m *ClusterMigrationController) handleErrorList(mcm *migrationv1alpha1.ManagedClusterMigration, hub, phase string) {
+func (m *ClusterMigrationController) handleErrorList(
+	mcm *migrationv1alpha1.ManagedClusterMigration, hub, phase string,
+) {
 	errList := GetClusterErrors(string(mcm.GetUID()), hub, phase)
 	if errList == nil {
 		return

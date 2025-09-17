@@ -57,7 +57,7 @@ type MigrationSourceSyncer struct {
 	transportConfig       *transport.TransportInternalConfig
 	bundleVersion         *eventversion.Version
 	processingMigrationId string
-	errMap                map[string]string
+	clusterErrors         map[string]string
 	leafHubName           string
 }
 
@@ -72,7 +72,6 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 		transportClient: transportClient,
 		transportConfig: transportConfig,
 		bundleVersion:   eventversion.NewVersion(),
-		errMap:          make(map[string]string),
 		leafHubName:     leafHubName,
 	}
 }
@@ -84,7 +83,6 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return fmt.Errorf("failed to unmarshal migration event: %w", err)
 	}
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
-
 	var err error
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
@@ -111,11 +109,10 @@ func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migratio
 	//   so we don't need to set the migration ID here
 	if s.processingMigrationId == "" ||
 		event.Stage == migrationv1alpha1.PhaseValidating ||
-		event.RollbackStage == migrationv1alpha1.PhaseInitializing ||
-		(event.Stage == migrationv1alpha1.PhaseInitializing && event.PlacementName == "") {
+		event.RollbackStage == migrationv1alpha1.PhaseInitializing {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
-		s.errMap = make(map[string]string)
+		s.clusterErrors = make(map[string]string)
 	}
 
 	// Check if migration ID matches for all other stages
@@ -506,7 +503,6 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 	log.Infof("successfully deleted KlusterletConfig: %s", klusterletConfig.Name)
 
 	// 3. Clean up managed cluster annotations
-	var errorMessages []string
 	for _, managedCluster := range migrationSourceHubEvent.ManagedClusters {
 		log.Infof("cleaning up annotations for managed cluster: %s", managedCluster)
 
@@ -517,7 +513,7 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 				log.Infof("managed cluster %s not found, skipping annotation cleanup", managedCluster)
 				continue
 			}
-			errorMessages = append(errorMessages, fmt.Sprintf("failed to get managed cluster %s: %v", managedCluster, err))
+			s.clusterErrors[managedCluster] = fmt.Sprintf("failed to get managed cluster %s: %v", managedCluster, err)
 			continue
 		}
 
@@ -549,8 +545,8 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 			return s.client.Update(ctx, lastestCluster)
 		})
 		if err != nil {
-			errorMessages = append(errorMessages, fmt.Sprintf("failed to remove annotations from cluster %s: %v",
-				managedCluster, err))
+			s.clusterErrors[managedCluster] = fmt.Sprintf("failed to remove annotations from cluster %s: %v",
+				managedCluster, err)
 			continue
 		}
 
@@ -558,10 +554,8 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 	}
 
 	// Prepare detailed result message
-	if len(errorMessages) > 0 {
-		var resultMessage strings.Builder
-		resultMessage.WriteString(strings.Join(errorMessages, "; "))
-		return errors.New(resultMessage.String())
+	if len(s.clusterErrors) > 0 {
+		return fmt.Errorf("failed to rollback %v managedclusters, get more details in events", len(s.clusterErrors))
 	}
 	return nil
 }
@@ -640,7 +634,7 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			Stage:           spec.Stage,
 			ErrMessage:      errMessage,
 			ManagedClusters: spec.ManagedClusters,
-			ClusterErrors:   s.errMap,
+			ClusterErrors:   s.clusterErrors,
 		},
 		s.bundleVersion)
 
@@ -754,12 +748,12 @@ func (s *MigrationSourceSyncer) getClustersFromPlacementDecisions(
 func (s *MigrationSourceSyncer) validateManagedClusters(ctx context.Context, clusterNames []string) error {
 	for _, clusterName := range clusterNames {
 		if err := s.validateSingleCluster(ctx, clusterName); err != nil {
-			s.errMap[clusterName] = err.Error()
+			s.clusterErrors[clusterName] = err.Error()
 		}
 	}
 
-	if len(s.errMap) > 0 {
-		return fmt.Errorf("%v managed clusters validation failed, get more details in events", len(s.errMap))
+	if len(s.clusterErrors) > 0 {
+		return fmt.Errorf("%v managed clusters validation failed, get more details in events", len(s.clusterErrors))
 	}
 
 	return nil
@@ -777,22 +771,30 @@ func (s *MigrationSourceSyncer) validateSingleCluster(ctx context.Context, clust
 
 	// Check if cluster is hosted
 	if s.isHostedCluster(mc) {
-		return fmt.Errorf("managed cluster %v is imported as hosted mode in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+		return fmt.Errorf(
+			"managed cluster %v is imported as hosted mode in managed hub %v, it cannot be migrated",
+			clusterName, s.leafHubName)
 	}
 
 	// Check if cluster is local cluster
 	if mc.Labels != nil && mc.Labels[constants.LocalClusterName] == "true" {
-		return fmt.Errorf("managed cluster %v is local cluster in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+		return fmt.Errorf(
+			"managed cluster %v is local cluster in managed hub %v, it cannot be migrated",
+			clusterName, s.leafHubName)
 	}
 
 	// Check if cluster is available
 	if !s.isManagedClusterAvailable(mc) {
-		return fmt.Errorf("managed cluster %v is not available in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+		return fmt.Errorf(
+			"managed cluster %v is not available in managed hub %v, it cannot be migrated",
+			clusterName, s.leafHubName)
 	}
 
 	// Check if cluster is a managed hub
 	if s.isManagedHub(mc) {
-		return fmt.Errorf("managed cluster %v is a managed hub cluster in managed hub %v, it cannot be migrated", clusterName, s.leafHubName)
+		return fmt.Errorf(
+			"managed cluster %v is a managed hub cluster in managed hub %v, it cannot be migrated",
+			clusterName, s.leafHubName)
 	}
 
 	return nil
