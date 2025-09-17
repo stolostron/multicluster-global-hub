@@ -265,19 +265,23 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 			},
 		}
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error {
-				// Update annotations within the CreateOrUpdate function
-				currentAnnotations := mc.GetAnnotations()
-				if currentAnnotations == nil {
-					currentAnnotations = make(map[string]string)
-				}
-				currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
-				currentAnnotations[constants.ManagedClusterMigrating] = ""
-				mc.SetAnnotations(currentAnnotations)
-				return nil
-			})
-			log.Infof("managed clusters %s is %s", mc.GetName(), operation)
-			return err
+			if err := m.client.Get(ctx, client.ObjectKeyFromObject(mc), mc); err != nil {
+				return err
+			}
+			currentAnnotations := mc.GetAnnotations()
+			if currentAnnotations == nil {
+				currentAnnotations = make(map[string]string)
+			}
+			currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
+			currentAnnotations[constants.ManagedClusterMigrating] = ""
+			mc.SetAnnotations(currentAnnotations)
+
+			err := m.client.Update(ctx, mc)
+			if err != nil {
+				return err
+			}
+			log.Infof("managed clusters %s is updated", mc.GetName())
+			return nil
 		}); err != nil {
 			return err
 		}

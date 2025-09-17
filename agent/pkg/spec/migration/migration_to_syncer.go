@@ -325,7 +325,9 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		}
 	}
 	for _, config := range migrationResources.KlusterletAddonConfig {
-		currentKlusterletAddonConfig := &addonv1.KlusterletAddonConfig{ObjectMeta: metav1.ObjectMeta{Name: config.Name}}
+		currentKlusterletAddonConfig := &addonv1.KlusterletAddonConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: config.Name, Namespace: config.Namespace},
+		}
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			operation, err := controllerutil.CreateOrUpdate(ctx, s.client, currentKlusterletAddonConfig,
 				func() error {
