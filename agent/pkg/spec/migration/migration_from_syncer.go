@@ -14,6 +14,7 @@ import (
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -224,8 +225,15 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 	}
 	bootstrapSecret := source.BootstrapSecret
 	// ensure secret
+	currentBootstrapSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+		Name:      bootstrapSecret.Name,
+		Namespace: bootstrapSecret.Namespace,
+	}}
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, bootstrapSecret, func() error { return nil })
+		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, currentBootstrapSecret, func() error {
+			currentBootstrapSecret.Data = bootstrapSecret.Data
+			return nil
+		})
 		log.Infof("bootstrap secret %s is %s", bootstrapSecret.GetName(), operation)
 		return err
 	})
@@ -251,20 +259,10 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 	// update managed cluster annotations to point to the new klusterletconfig
 	managedClusters := source.ManagedClusters
 	for _, managedCluster := range managedClusters {
-		mc := &clusterv1.ManagedCluster{}
-		if err := m.client.Get(ctx, types.NamespacedName{
-			Name: managedCluster,
-		}, mc); err != nil {
-			return err
-		}
-		annotations := mc.Annotations
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-
-		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.GetName() {
-			continue
+		mc := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: managedCluster,
+			},
 		}
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error {

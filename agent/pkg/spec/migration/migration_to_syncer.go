@@ -284,9 +284,15 @@ func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 			Name: namespace,
 		},
 	}
-	if _, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error { return nil }); err != nil {
-		log.Errorf("failed to create or update the namespace %s", ns.Name)
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error {
+			return nil
+		})
+		log.Infof("namespace %s is %s", ns.Name, operation)
 		return err
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update namespace %s: %w", ns.Name, err)
 	}
 	return nil
 }
@@ -301,15 +307,39 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		if err := s.ensureNamespace(ctx, mc.Name); err != nil {
 			return err
 		}
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &mc, func() error { return nil }); err != nil {
-			log.Errorf("failed to create or update the managed cluster %s: %v", mc.Name, err)
+		currentManagedCluster := &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: mc.Name}}
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			operation, err := controllerutil.CreateOrUpdate(ctx, s.client, currentManagedCluster,
+				func() error {
+					currentManagedCluster.Annotations = mc.Annotations
+					currentManagedCluster.Labels = mc.Labels
+					currentManagedCluster.Spec = mc.Spec
+					currentManagedCluster.Finalizers = mc.Finalizers
+					return nil
+				})
+			log.Infof("managed cluster %s is %s", mc.Name, operation)
 			return err
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create or update managed cluster %s: %w", mc.Name, err)
 		}
 	}
 	for _, config := range migrationResources.KlusterletAddonConfig {
-		if _, err := controllerutil.CreateOrUpdate(ctx, s.client, &config, func() error { return nil }); err != nil {
-			log.Errorf("failed to create or update the klusterlet addon config %s: %v", config.Name, err)
+		currentKlusterletAddonConfig := &addonv1.KlusterletAddonConfig{ObjectMeta: metav1.ObjectMeta{Name: config.Name}}
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			operation, err := controllerutil.CreateOrUpdate(ctx, s.client, currentKlusterletAddonConfig,
+				func() error {
+					currentKlusterletAddonConfig.Annotations = config.Annotations
+					currentKlusterletAddonConfig.Labels = config.Labels
+					currentKlusterletAddonConfig.Spec = config.Spec
+					currentKlusterletAddonConfig.Finalizers = config.Finalizers
+					return nil
+				})
+			log.Infof("klusterlet addon config %s is %s", config.Name, operation)
 			return err
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create or update klusterlet addon config %s: %w", config.Name, err)
 		}
 	}
 

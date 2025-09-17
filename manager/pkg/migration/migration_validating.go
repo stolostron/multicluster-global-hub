@@ -222,9 +222,6 @@ func (m *ClusterMigrationController) storeClustersToConfigMap(ctx context.Contex
 			Name:      migration.Name,
 			Namespace: migration.Namespace,
 		},
-		Data: map[string]string{
-			"clusters": string(clustersData),
-		},
 	}
 	err = controllerutil.SetOwnerReference(migration, configMap, m.Scheme)
 	if err != nil {
@@ -232,6 +229,9 @@ func (m *ClusterMigrationController) storeClustersToConfigMap(ctx context.Contex
 	}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		operation, err := controllerutil.CreateOrUpdate(ctx, m.Client, configMap, func() error {
+			configMap.Data = map[string]string{
+				"clusters": string(clustersData),
+			}
 			return nil
 		})
 		log.Infof("save configmap for migration %s, operation: %v", configMap.Name, operation)
