@@ -27,7 +27,8 @@ LABEL org.label-schema.license="Red Hat Advanced Cluster Management for Kubernet
 LABEL org.label-schema.schema-version="1.0"
 
 # Bundle metadata
-LABEL name="multicluster-global-hub/multicluster-global-hub-manager"
+LABEL name="multicluster-globalhub/multicluster-globalhub-manager-rhel9"
+LABEL cpe="cpe:/a:redhat:multicluster_globalhub:1.4::el9"
 LABEL version="release-1.6"
 LABEL summary="multicluster global hub manager"
 LABEL io.openshift.expose-services=""
