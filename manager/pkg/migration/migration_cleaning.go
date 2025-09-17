@@ -61,9 +61,12 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	cleaningClusters := GetClusterList(string(mcm.UID))
 
 	// only cleaning the ready clusters for registering phase
-	registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
-	if m.determineFailedStage(ctx, mcm) == migrationv1alpha1.PhaseRegistering && len(registeringReadyClusters) > 0 {
-		cleaningClusters = registeringReadyClusters
+	if m.determineFailedStage(ctx, mcm) == migrationv1alpha1.PhaseRegistering {
+		registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
+		if len(registeringReadyClusters) > 0 {
+			log.Infof("cleaning the registering ready clusters: %v", registeringReadyClusters)
+			cleaningClusters = registeringReadyClusters
+		}
 	}
 
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)

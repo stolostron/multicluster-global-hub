@@ -57,6 +57,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	if failedStage == migrationv1alpha1.PhaseRegistering {
 		notReadyClusters := GetNotReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)
 		if len(notReadyClusters) > 0 {
+			log.Infof("rollbacking the not ready clusters: %v", notReadyClusters)
 			rollbackClusters = notReadyClusters
 		}
 	}
