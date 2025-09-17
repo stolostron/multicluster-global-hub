@@ -121,7 +121,9 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	s.receivedStage = event.Stage
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
-	if event.Stage == migrationv1alpha1.PhaseInitializing || event.RollbackStage == migrationv1alpha1.PhaseInitializing {
+	if s.processingMigrationId == "" ||
+		event.Stage == migrationv1alpha1.PhaseInitializing ||
+		event.RollbackStage == migrationv1alpha1.PhaseInitializing {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 	}
@@ -259,6 +261,10 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
 	}
 	s.receivedMigrationId = resourceEvent.MigrationId
+	if s.processingMigrationId == "" {
+		s.processingMigrationId = resourceEvent.MigrationId
+		s.bundleVersion.Reset()
+	}
 
 	// only the handle the current migration event, ignore the previous ones
 	log.Debugf("get migration event: migrationId=%s", resourceEvent.MigrationId)
@@ -651,7 +657,7 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 	// For initializing rollback on target hub, we need to:
 	// 1. Remove the managed service account user from ClusterManager AutoApproveUsers list
 	// 2. Clean up RBAC resources created for the managed service account
-
+	log.Infof("rollback initializing stage for managed service account: %s", spec.ManagedServiceAccountName)
 	if spec.ManagedServiceAccountName == "" {
 		log.Info("no managed service account name provided, skipping rollback cleanup")
 		return nil
@@ -748,7 +754,7 @@ func (s *MigrationTargetSyncer) removeKlusterletAddonConfig(ctx context.Context,
 
 // cleanupMigrationRBAC removes RBAC resources created for the managed service account
 func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, managedServiceAccountName string) error {
-	// Remove ClusterRole for SubjectAccessReview
+	// Remove ClusterRole for SubjectAccessReview: global-hub-migration-<msa-name>-sar
 	clusterRoleName := GetSubjectAccessReviewClusterRoleName(managedServiceAccountName)
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -760,7 +766,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 		return err
 	}
 
-	// Remove ClusterRoleBinding for SubjectAccessReview
+	// Remove ClusterRoleBinding for SubjectAccessReview: global-hub-migration-<msa-name>-sar
 	sarClusterRoleBindingName := GetSubjectAccessReviewClusterRoleBindingName(managedServiceAccountName)
 	sarClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -772,7 +778,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 		return err
 	}
 
-	// Remove ClusterRoleBinding for Agent Registration
+	// Remove ClusterRoleBinding for Agent Registration: global-hub-migration-<msa-name>-registration
 	registrationClusterRoleBindingName := GetAgentRegistrationClusterRoleBindingName(managedServiceAccountName)
 	registrationClusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{

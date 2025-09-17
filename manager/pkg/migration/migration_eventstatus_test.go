@@ -166,6 +166,163 @@ func TestEventStatusEdgeCases(t *testing.T) {
 	}
 }
 
+// TestResetMigrationStatus tests the ResetMigrationStatus function - regression test for hub name parsing bug
+func TestResetMigrationStatus(t *testing.T) {
+	tests := []struct {
+		name             string
+		setupFunc        func() (migrationID string, hubName string, phase string)
+		resetHubName     string
+		expectedReset    bool
+		expectedNotReset string // hub that should NOT be reset
+	}{
+		{
+			name: "Should reset migration status for matching hub name",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-1"
+				hubName := "source-hub"
+				phase := migrationv1alpha1.PhaseValidating
+
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "test error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:  "source-hub",
+			expectedReset: true,
+		},
+		{
+			name: "Should not reset migration status for non-matching hub name",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-2"
+				hubName := "target-hub"
+				phase := migrationv1alpha1.PhaseRegistering
+
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "test error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:  "different-hub",
+			expectedReset: false,
+		},
+		{
+			name: "Should reset only matching hub and preserve other hubs",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-3"
+				hubName := "target-hub"
+				phase := migrationv1alpha1.PhaseDeploying
+
+				AddMigrationStatus(migrationID)
+				// Setup target hub state
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "target error")
+
+				// Setup different hub state that should NOT be reset
+				otherHub := "other-hub"
+				SetStarted(migrationID, otherHub, phase)
+				SetFinished(migrationID, otherHub, phase)
+				SetErrorMessage(migrationID, otherHub, phase, "other error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:     "target-hub",
+			expectedReset:    true,
+			expectedNotReset: "other-hub",
+		},
+		{
+			name: "Should handle hub names with dashes correctly - regression test",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-4"
+				hubName := "hub-with-dashes"
+				phase := migrationv1alpha1.PhaseInitializing
+
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "test error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:  "hub-with-dashes",
+			expectedReset: true,
+		},
+		{
+			name: "Should handle multiple phases for same hub",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-5"
+				hubName := "multi-phase-hub"
+				phase1 := migrationv1alpha1.PhaseValidating
+				phase2 := migrationv1alpha1.PhaseDeploying
+
+				AddMigrationStatus(migrationID)
+				// Setup phase 1
+				SetStarted(migrationID, hubName, phase1)
+				SetFinished(migrationID, hubName, phase1)
+				SetErrorMessage(migrationID, hubName, phase1, "phase1 error")
+
+				// Setup phase 2
+				SetStarted(migrationID, hubName, phase2)
+				SetFinished(migrationID, hubName, phase2)
+				SetErrorMessage(migrationID, hubName, phase2, "phase2 error")
+
+				return migrationID, hubName, phase1 // Return first phase for primary verification
+			},
+			resetHubName:  "multi-phase-hub",
+			expectedReset: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup test data
+			migrationID, hubName, phase := tt.setupFunc()
+
+			// Verify initial state - should be set
+			assert.True(t, GetStarted(migrationID, hubName, phase), "Initial started state should be true")
+			assert.True(t, GetFinished(migrationID, hubName, phase), "Initial finished state should be true")
+			assert.NotEmpty(t, GetErrorMessage(migrationID, hubName, phase), "Initial error message should not be empty")
+
+			// Call ResetMigrationStatus
+			t.Logf("Calling ResetMigrationStatus with hub name: %s", tt.resetHubName)
+			ResetMigrationStatus(tt.resetHubName)
+
+			// Verify the result
+			if tt.expectedReset {
+				assert.False(t, GetStarted(migrationID, hubName, phase), "Started state should be reset to false")
+				assert.False(t, GetFinished(migrationID, hubName, phase), "Finished state should be reset to false")
+				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase), "Error message should be reset to empty")
+
+				// If testing multiple phases, verify both phases are reset
+				if tt.name == "Should handle multiple phases for same hub" {
+					phase2 := migrationv1alpha1.PhaseDeploying
+					assert.False(t, GetStarted(migrationID, hubName, phase2), "Started state for phase2 should be reset to false")
+					assert.False(t, GetFinished(migrationID, hubName, phase2), "Finished state for phase2 should be reset to false")
+					assert.Empty(t, GetErrorMessage(migrationID, hubName, phase2), "Error message for phase2 should be reset to empty")
+				}
+			} else {
+				assert.True(t, GetStarted(migrationID, hubName, phase), "Started state should remain true for non-matching hub")
+				assert.True(t, GetFinished(migrationID, hubName, phase), "Finished state should remain true for non-matching hub")
+				assert.NotEmpty(t, GetErrorMessage(migrationID, hubName, phase), "Error message should remain for non-matching hub")
+			}
+
+			// If there's a hub that should NOT be reset, verify it's preserved
+			if tt.expectedNotReset != "" {
+				assert.True(t, GetStarted(migrationID, tt.expectedNotReset, phase), "Non-matching hub should not be reset")
+				assert.True(t, GetFinished(migrationID, tt.expectedNotReset, phase), "Non-matching hub should not be reset")
+				assert.NotEmpty(t, GetErrorMessage(migrationID, tt.expectedNotReset, phase), "Non-matching hub error should not be reset")
+			}
+
+			// Cleanup
+			RemoveMigrationStatus(migrationID)
+		})
+	}
+}
+
 // TestGetClusterList tests the GetClusterList function
 func TestGetClusterList(t *testing.T) {
 	tests := []struct {

@@ -2,6 +2,7 @@ package migration
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -39,14 +40,20 @@ func ResetMigrationStatus(managedHubName string) {
 	mu.Lock()
 	defer mu.Unlock()
 	for migrationId, status := range migrationStatuses {
-		for hub, hubState := range status.HubState {
+		for hubPhaseKey, state := range status.HubState {
+			lastDashIndex := strings.LastIndex(hubPhaseKey, "-")
+			if lastDashIndex == -1 {
+				continue // Skip invalid keys without "-"
+			}
+			hub := hubPhaseKey[:lastDashIndex]
+			phase := hubPhaseKey[lastDashIndex+1:]
 			if hub != managedHubName {
 				continue
 			}
-			hubState.started = false
-			hubState.finished = false
-			hubState.error = ""
-			log.Infof("reset migration status for migrationId: %s, hub: %s", migrationId, hub)
+			state.started = false
+			state.finished = false
+			state.error = ""
+			log.Infof("reset migration status for migrationId: %s, hub: %s, phase: %s", migrationId, hub, phase)
 		}
 	}
 }

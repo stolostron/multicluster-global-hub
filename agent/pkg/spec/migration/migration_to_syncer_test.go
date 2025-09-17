@@ -6,7 +6,6 @@ package migration
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -888,6 +887,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 	cases := []struct {
 		name                         string
 		receivedMigrationEventBundle migration.MigrationTargetBundle
+		eventSource                  string
 		initObjects                  []client.Object
 		expectedError                error
 	}{
@@ -895,11 +895,12 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			name: "Deploying resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
-				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
+				Stage:                                 migrationv1alpha1.PhaseDeploying,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
-			expectedError: fmt.Errorf("expected migrationId , but got  020340324302432049234023040320"),
+			eventSource:   "source-hub",
+			expectedError: nil,
 			initObjects: []client.Object{
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{
@@ -920,7 +921,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
-			expectedError: fmt.Errorf("expected migrationId , but got  020340324302432049234023040320"),
+			expectedError: nil,
 			initObjects: []client.Object{
 				&operatorv1.ClusterManager{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1005,9 +1006,13 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				t.Errorf("Failed to marshal payload of managed cluster migration: %v", err)
 			}
 
+			eventSource := constants.CloudEventGlobalHubClusterName
+			if c.eventSource != "" {
+				eventSource = c.eventSource
+			}
+
 			// sync managed cluster migration
-			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
-				"hub2", payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, eventSource, "hub2", payload)
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
 				assert.Nil(t, err)
