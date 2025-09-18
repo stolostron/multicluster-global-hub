@@ -58,11 +58,20 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	// cleanup the source hub: cleaning or failed state
 	fromHub := mcm.Spec.From
-	clusters := GetClusterList(string(mcm.UID))
+	cleaningClusters := GetClusterList(string(mcm.UID))
+
+	// only cleaning the ready clusters for registering phase
+	if m.determineFailedStage(ctx, mcm) == migrationv1alpha1.PhaseRegistering {
+		registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
+		if len(registeringReadyClusters) > 0 {
+			log.Infof("cleaning the registering ready clusters: %v", registeringReadyClusters)
+			cleaningClusters = registeringReadyClusters
+		}
+	}
 
 	bootstrapSecret := getBootstrapSecret(mcm.Spec.To, nil)
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning) {
-		if err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseCleaning, clusters,
+		if err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseCleaning, cleaningClusters,
 			bootstrapSecret, ""); err != nil {
 			condition.Message = fmt.Sprintf("failed to send cleanup event to source hub %s: %v", fromHub, err)
 			condition.Reason = ConditionReasonError
@@ -73,7 +82,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 
 	// cleanup the target hub: cleaning or failed state
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning) {
-		if err := m.sendEventToTargetHub(ctx, mcm, mcm.Status.Phase, clusters, ""); err != nil {
+		if err := m.sendEventToTargetHub(ctx, mcm, mcm.Status.Phase, cleaningClusters, ""); err != nil {
 			condition.Message = fmt.Sprintf("failed to send cleanup event to destination hub %s: %v", mcm.Spec.To, err)
 			condition.Reason = ConditionReasonError
 			return false, nil // Let defer handle the status update

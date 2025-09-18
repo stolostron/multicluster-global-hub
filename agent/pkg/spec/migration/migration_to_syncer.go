@@ -43,7 +43,6 @@ const (
 var (
 	log                = logger.DefaultZapLogger()
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
-	clusterErrors      = map[string]string{}
 )
 
 type MigrationTargetSyncer struct {
@@ -70,6 +69,7 @@ func NewMigrationTargetSyncer(client client.Client,
 func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("received migration event from %s", evt.Source())
 
+	clusterErrors := map[string]string{}
 	var err error
 
 	defer func() {
@@ -133,7 +133,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId, event.MigrationId)
 	}
 
-	err = s.handleStage(ctx, event)
+	err = s.handleStage(ctx, event, clusterErrors)
 	if err != nil {
 		return fmt.Errorf("failed to handle migration stage: %w", err)
 	}
@@ -141,16 +141,18 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 }
 
 // handleStage processes different migration stages using switch statement
-func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migration.MigrationTargetBundle) error {
+func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
 	switch target.Stage {
 	case migrationv1alpha1.PhaseInitializing:
-		return s.executeStage(ctx, target, s.initializing)
+		return s.executeStage(ctx, target, s.initializing, clusterErrors)
 	case migrationv1alpha1.PhaseRegistering:
-		return s.executeStage(ctx, target, s.registering)
+		return s.executeStage(ctx, target, s.registering, clusterErrors)
 	case migrationv1alpha1.PhaseCleaning:
-		return s.executeStage(ctx, target, s.cleaning)
+		return s.executeStage(ctx, target, s.cleaning, clusterErrors)
 	case migrationv1alpha1.PhaseRollbacking:
-		return s.executeStage(ctx, target, s.rollbacking)
+		return s.executeStage(ctx, target, s.rollbacking, clusterErrors)
 	default:
 		log.Warnf("unknown migration stage: %s", target.Stage)
 		return fmt.Errorf("unknown migration stage: %s", target.Stage)
@@ -158,12 +160,15 @@ func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migrati
 }
 
 // executeStage executes a migration stage with consistent logging
-func (s *MigrationTargetSyncer) executeStage(ctx context.Context, event *migration.MigrationTargetBundle,
-	stageFunc func(context.Context, *migration.MigrationTargetBundle) error,
+func (s *MigrationTargetSyncer) executeStage(
+	ctx context.Context,
+	event *migration.MigrationTargetBundle,
+	stageFunc func(context.Context, *migration.MigrationTargetBundle, map[string]string) error,
+	clusterErrors map[string]string,
 ) error {
 	log.Infof("migration %s started: migrationId=%s, clusters=%v", event.Stage, event.MigrationId, event.ManagedClusters)
 
-	if err := stageFunc(ctx, event); err != nil {
+	if err := stageFunc(ctx, event, clusterErrors); err != nil {
 		log.Errorf("migration %s failed: migrationId=%s, error=%v",
 			event.Stage, event.MigrationId, err)
 		return err
@@ -175,6 +180,7 @@ func (s *MigrationTargetSyncer) executeStage(ctx context.Context, event *migrati
 
 func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	event *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
 ) error {
 	msaName := event.ManagedServiceAccountName
 	msaNamespace := event.ManagedServiceAccountInstallNamespace
@@ -195,7 +201,7 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 
 // registering watches the migrated managed clusters
 func (s *MigrationTargetSyncer) registering(ctx context.Context,
-	event *migration.MigrationTargetBundle,
+	event *migration.MigrationTargetBundle, clusterErrors map[string]string,
 ) error {
 	if len(event.ManagedClusters) == 0 {
 		return fmt.Errorf("no managed clusters found in migration event: %s", event.MigrationId)
@@ -209,18 +215,17 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 
 	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
 		func(context.Context) (done bool, err error) {
-			clusterErrors = map[string]string{}
+			clear(clusterErrors)
 			for _, clusterName := range event.ManagedClusters {
 				if err := s.checkClusterManifestWork(ctx, clusterName); err != nil {
 					log.Debugf("cluster %s not ready: %v", clusterName, err)
 					clusterErrors[clusterName] = err.Error()
 				}
 			}
-
 			if len(clusterErrors) > 0 {
 				return false, nil
 			}
-			clusterErrors = map[string]string{}
+			clear(clusterErrors)
 			return true, nil
 		},
 	)
@@ -234,6 +239,7 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 // initializing create the permission for the migration service account, and enable auto-approval for registration
 func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 	event *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
 ) error {
 	msaName := event.ManagedServiceAccountName
 	msaNamespace := event.ManagedServiceAccountInstallNamespace
@@ -670,7 +676,10 @@ func (s *MigrationTargetSyncer) removeAutoApproveUser(ctx context.Context, saNam
 }
 
 // rollbacking handles rollback operations for different stages on the target hub
-func (s *MigrationTargetSyncer) rollbacking(ctx context.Context, target *migration.MigrationTargetBundle) error {
+func (s *MigrationTargetSyncer) rollbacking(ctx context.Context,
+	target *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
 	log.Infof("performing rollback for stage: %s", target.RollbackStage)
 	switch target.RollbackStage {
 	case migrationv1alpha1.PhaseInitializing:

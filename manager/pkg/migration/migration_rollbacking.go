@@ -57,6 +57,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	if failedStage == migrationv1alpha1.PhaseRegistering {
 		notReadyClusters := GetNotReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)
 		if len(notReadyClusters) > 0 {
+			log.Infof("rollbacking the not ready clusters: %v", notReadyClusters)
 			rollbackClusters = notReadyClusters
 		}
 	}
@@ -131,10 +132,18 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	condition.Status = metav1.ConditionTrue
 	condition.Reason = ConditionReasonResourceRolledBack
-	condition.Message = fmt.Sprintf("%s rollback completed successfully.", failedStage)
-	nextPhase = migrationv1alpha1.PhaseFailed
 
-	log.Info("migration rollbacking finished - transitioning to Failed")
+	// cleaning the ready clusters
+	if failedStage == migrationv1alpha1.PhaseRegistering &&
+		len(GetReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)) > 0 {
+		nextPhase = migrationv1alpha1.PhaseCleaning
+		condition.Message = fmt.Sprintf("%s rollback completed successfully. Cleaning the ready clusters", failedStage)
+		log.Infof("migration rollbacking finished - transitioning to Cleaning")
+	} else {
+		condition.Message = fmt.Sprintf("%s rollback completed successfully.", failedStage)
+		nextPhase = migrationv1alpha1.PhaseFailed
+		log.Infof("migration rollbacking finished - transitioning to Failed")
+	}
 	return false, nil
 }
 

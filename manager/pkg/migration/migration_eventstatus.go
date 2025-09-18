@@ -192,6 +192,7 @@ func GetNotReadyClusters(migrationId, hub, phase string) []string {
 	return nil
 }
 
+// GetReadyClusters returns the ready clusters list for the given migration stage, fullClusters - errorClusters
 func GetReadyClusters(migrationId, hub, phase string) []string {
 	mu.RLock()
 	defer mu.RUnlock()
