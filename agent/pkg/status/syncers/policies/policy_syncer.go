@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies/handlers"
@@ -16,10 +17,18 @@ import (
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+var (
+	log             = logger.DefaultZapLogger()
+	runtimeClient   client.Client
+	addPolicySyncer = false
+)
+
+// Deprecated: Use AddPolicySyncer instead.
 func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *configs.AgentConfig,
 	producer transport.Producer,
 ) error {
@@ -46,16 +55,16 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 		generic.WithDependencyVersion(localComplianceVersion))
 
 	// 3. local policy event
-	localStatusEventHandler := handlers.NewPolicyStatusEventHandler(ctx, enum.LocalReplicatedPolicyEventType,
-		// should update
-		func(obj client.Object) bool {
-			return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue &&
-				!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
-				utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // replicated policy
-		},
-		mgr.GetClient(),
-	)
-	localStatusEventEmitter := handlers.NewPolicyStatusEventEmitter(enum.LocalReplicatedPolicyEventType)
+	// localStatusEventHandler := handlers.NewPolicyStatusEventHandler(ctx, enum.LocalReplicatedPolicyEventType,
+	// 	// should update
+	// 	func(obj client.Object) bool {
+	// 		return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue &&
+	// 			!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
+	// 			utils.HasLabel(obj, constants.PolicyEventRootPolicyNameLabelKey) // replicated policy
+	// 	},
+	// 	mgr.GetClient(),
+	// )
+	// localStatusEventEmitter := handlers.NewPolicyStatusEventEmitter(enum.LocalReplicatedPolicyEventType)
 
 	// 4. local policy spec
 	// localPolicySpecHandler := generic.NewGenericHandler(&genericpayload.GenericObjectBundle{},
@@ -101,12 +110,6 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				Handler: localCompleteHandler,
 				Emitter: localCompleteEmitter,
 			},
-
-			{
-				Handler: localStatusEventHandler,
-				Emitter: localStatusEventEmitter,
-			},
-
 			// global
 			{
 				Handler: globalComplianceHandler,
@@ -117,4 +120,56 @@ func LaunchPolicySyncer(ctx context.Context, mgr ctrl.Manager, agentConfig *conf
 				Emitter: globalCompleteEmitter,
 			},
 		})
+}
+
+func AddPolicySyncer(ctx context.Context, mgr ctrl.Manager, p transport.Producer,
+	periodicSyncer *generic.PeriodicSyncer, agentConfig *configs.AgentConfig,
+) error {
+	runtimeClient = mgr.GetClient()
+	if addPolicySyncer {
+		return nil
+	}
+	// 1. emitter: define how to load the object into bundle and send the bundle
+	// 1.1 local policy spec
+	localPolicySpecEmitter := emitters.NewObjectEmitter(
+		enum.LocalPolicySpecType,
+		p,
+		emitters.WithEventFilterFunc(localPolicySpecPredicate),
+		emitters.WithTweakFunc(localPolicySpecTweakFunc),
+	)
+
+	// 1.2 local replicated policy status events
+	localReplicatedPolicyEventEmitter := emitters.NewEventEmitter(
+		enum.LocalReplicatedPolicyEventType,
+		p,
+		runtimeClient,
+		enableLocalReplicatedPolicy,
+		localReplicatedPolicyEventTransform,
+		constants.EventSendMode(agentConfig.EventMode),
+		emitters.WithPostSend(localReplicatedPolicyEventPostSend),
+	)
+
+	// 2. add the emitter to controller
+	if err := generic.AddSyncCtrl(
+		mgr,
+		func() client.Object { return &policiesv1.Policy{} },
+		localPolicySpecEmitter,
+		localReplicatedPolicyEventEmitter,
+	); err != nil {
+		return err
+	}
+
+	// 3. register the emitter to periodic syncer
+	periodicSyncer.Register(&generic.EmitterRegistration{
+		ListFunc: listTargetPolicies(enableLocalRootPolicy),
+		Emitter:  localPolicySpecEmitter,
+	})
+
+	periodicSyncer.Register(&generic.EmitterRegistration{
+		ListFunc: listTargetPolicies(enableLocalReplicatedPolicy),
+		Emitter:  localReplicatedPolicyEventEmitter,
+	})
+
+	addPolicySyncer = true
+	return nil
 }

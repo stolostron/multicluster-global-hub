@@ -55,13 +55,13 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	}
 
 	// event syncer
-	err = events.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
+	err = events.AddEventSyncer(ctx, mgr, agentConfig, producer, periodicSyncer)
 	if err != nil {
-		return fmt.Errorf("failed to launch event syncer: %w", err)
+		return fmt.Errorf("failed to add event syncer: %w", err)
 	}
 
-	// policy syncer(local and global)
-	if err = policies.AddPolicySpecSyncer(ctx, mgr, producer, periodicSyncer); err != nil {
+	// policy syncer: local policy spec and local replicated policy status events
+	if err = policies.AddPolicySyncer(ctx, mgr, producer, periodicSyncer, agentConfig); err != nil {
 		return fmt.Errorf("failed to add policy spec syncer: %w", err)
 	}
 	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, producer)
