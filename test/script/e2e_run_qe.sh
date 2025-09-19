@@ -23,5 +23,7 @@ docker pull quay.io/hchenxa/acmqe-hoh-e2e:$imageTag
 docker run --name qe-test -d quay.io/hchenxa/acmqe-hoh-e2e:$imageTag  tail -f /dev/null
 docker cp qe-test:/e2e.test ./
 
-# CGO_ENABLED=1: Go programs typically use dynamic linking for C libraries: confluent-kafka package is used in e2e test
-CGO_ENABLED=1 SERVICE_TYPE=NODE_PORT KUBECONFIG=$GH_KUBECONFIG SPOKE_KUBECONFIG=$MH1_KUBECONFIG ./e2e.test --ginkgo.fail-fast --ginkgo.vv --ginkgo.label-filter='e2e && !migration'
+# sleep 2 hours
+sleep 7200
+
+SERVICE_TYPE=NODE_PORT KUBECONFIG=$GH_KUBECONFIG SPOKE_KUBECONFIG=$MH1_KUBECONFIG ./e2e.test --ginkgo.fail-fast --ginkgo.vv --ginkgo.label-filter='e2e && !migration'
