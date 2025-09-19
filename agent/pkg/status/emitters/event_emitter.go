@@ -30,7 +30,6 @@ type EventEmitter struct {
 	events    []interface{}
 	version   *eventversion.Version
 	mu        sync.Mutex
-	eventMode constants.EventSendMode
 }
 
 func NewEventEmitter(
@@ -39,7 +38,6 @@ func NewEventEmitter(
 	runtimeClient client.Client,
 	predicate func(client.Object) bool,
 	transform func(client.Client, client.Object) interface{},
-	eventMode constants.EventSendMode,
 	opts ...EventEmitterOption,
 ) *EventEmitter {
 	if eventType == "" {
@@ -56,7 +54,6 @@ func NewEventEmitter(
 		postSend:      nil, // Will be set by options if needed
 		events:        make([]interface{}, 0),
 		version:       eventversion.NewVersion(),
-		eventMode:     eventMode,
 	}
 
 	for _, opt := range opts {
@@ -82,12 +79,14 @@ func (e *EventEmitter) Update(obj client.Object) error {
 		return nil
 	}
 
+	log.Infow("update event", "event", obj.GetName())
 	event := e.transform(e.runtimeClient, obj)
 	if event != nil {
 		e.events = append(e.events, event)
 		e.version.Incr()
 	}
-
+	// events after update
+	log.Infow("events after update", "events", e.events, "version", e.version.String())
 	return nil
 }
 
@@ -131,10 +130,11 @@ func (e *EventEmitter) sendEvents() error {
 	if len(e.events) == 0 {
 		return nil
 	}
+	log.Debugw("before send events", "events", e.events, "version", e.version.String())
 
 	var err error
-	switch e.eventMode {
-	case constants.EventSendModeSingle:
+	switch configs.GetAgentConfig().EventMode {
+	case string(constants.EventSendModeSingle):
 		err = e.sendEventsIndividually()
 	default: // batch is default
 		err = e.sendEventBundle()
@@ -154,6 +154,8 @@ func (e *EventEmitter) sendEvents() error {
 	// Clear events after successful send and postSend
 	e.events = e.events[:0]
 	e.version.Next()
+
+	log.Debugw("after send events", "events", e.events, "version", e.version.String())
 	return nil
 }
 
@@ -211,7 +213,7 @@ func (e *EventEmitter) createCloudEvent(mode constants.EventSendMode) cloudevent
 	evt.SetSource(configs.GetLeafHubName())
 	evt.SetType(string(e.eventType))
 	evt.SetExtension(eventversion.ExtVersion, e.version.String())
-	evt.SetExtension(constants.ExtEventSendMode, string(mode))
+	evt.SetExtension(constants.CloudEventExtensionSendMode, string(mode))
 	return evt
 }
 

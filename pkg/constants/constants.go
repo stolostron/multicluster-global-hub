@@ -167,6 +167,7 @@ const (
 	ManagedClusterKind          = "ManagedCluster"
 	ManagedClusterMigrationKind = "ManagedClusterMigration"
 	ClusterGroupUpgradeKind     = "ClusterGroupUpgrade"
+	PolicyKind                  = "Policy"
 
 	// VersionClusterClaimName is a claim to record the ACM version
 	VersionClusterClaimName = "version.open-cluster-management.io"
@@ -269,6 +270,6 @@ const (
 
 // CloudEvent extensions for event mode identification
 const (
-	// ExtEventSendMode indicates whether this is a batch or single event
-	ExtEventSendMode = "event-send-mode"
+	// CloudEventExtensionSendMode indicates whether this is a batch or single event
+	CloudEventExtensionSendMode = "sendmode"
 )
