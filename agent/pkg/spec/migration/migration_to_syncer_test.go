@@ -829,12 +829,15 @@ func TestMigrationToSyncer(t *testing.T) {
 					StatusTopic: "status",
 				},
 			}
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, transportConfig)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(client, transportClient, transportConfig, "hub1")
 			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 
 			// For rollback tests, set the current migration ID to match the event
 			if c.migrationEvent.Stage == migrationv1alpha1.PhaseRollbacking {
 				managedClusterMigrationSyncer.processingMigrationId = c.migrationEvent.MigrationId
+			} else {
+				// For non-rollback tests, set the migration ID to match the event
+				managedClusterMigrationSyncer.SetMigrationID(c.migrationEvent.MigrationId)
 			}
 
 			toEvent := c.migrationEvent
@@ -998,7 +1001,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				},
 			}
 
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig, "hub1")
 
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
@@ -1061,7 +1064,7 @@ func TestDeploying(t *testing.T) {
 	producer := ProducerMock{}
 	transportClient := &controller.TransportClient{}
 	transportClient.SetProducer(&producer)
-	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
+	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig, "hub1")
 	syncer.processingMigrationId = migrationId
 	err := syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
@@ -1205,7 +1208,7 @@ func TestRegistering(t *testing.T) {
 			registeringTimeout = 10 * time.Second
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
-			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
+			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil, "hub1")
 
 			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, map[string]string{})
 			if c.expectedError == "" {
