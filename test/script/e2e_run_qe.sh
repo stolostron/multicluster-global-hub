@@ -21,14 +21,9 @@ fi
 
 docker pull "quay.io/hchenxa/acmqe-hoh-e2e:$imageTag"
 
-echo "GH_KUBECONFIG: $GH_KUBECONFIG"
-echo "MH1_KUBECONFIG: $MH1_KUBECONFIG"
-
-# sleep 2 hours
-sleep 7200
-
 # Run e2e tests directly in container with mounted kubeconfig files
 docker run --rm \
+  --network="host" \
   -v "$GH_KUBECONFIG:/kubeconfig/global-hub:ro" \
   -v "$MH1_KUBECONFIG:/kubeconfig/hub1:ro" \
   -e SERVICE_TYPE=NODE_PORT \
