@@ -67,7 +67,7 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 		return nil
 	}
 
-	clusterId := utils.GetClusterClaimID(cluster)
+	clusterId := utils.GetClusterClaimID(cluster, string(cluster.GetUID()))
 	if clusterId == "" {
 		log.Errorw("failed to get clusterId", "cluster", clusterName, "event", evt.Namespace+"/"+evt.Name,
 			"cluster", cluster)
