@@ -300,7 +300,7 @@ func assertAddLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal string)
 
 	By("Check the label is added")
 	Eventually(func() error {
-		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster))
+		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster, string(cluster.GetUID())))
 		if err != nil {
 			return err
 		}
@@ -331,7 +331,7 @@ func assertRemoveLabel(cluster clusterv1.ManagedCluster, labelKey, labelVal stri
 	}
 
 	Eventually(func() error {
-		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster))
+		err := updateClusterLabelByAPI(httpClient, patches, utils.GetClusterClaimID(&cluster, string(cluster.GetUID())))
 		if err != nil {
 			return err
 		}
