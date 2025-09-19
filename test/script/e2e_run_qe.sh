@@ -19,11 +19,14 @@ else
   imageTag="latest"
 fi
 
-docker pull quay.io/hchenxa/acmqe-hoh-e2e:$imageTag
-docker run --name qe-test -d quay.io/hchenxa/acmqe-hoh-e2e:$imageTag  tail -f /dev/null
-docker cp qe-test:/e2e.test ./
+docker pull "quay.io/hchenxa/acmqe-hoh-e2e:$imageTag"
 
-# sleep 2 hours
-sleep 7200
-
-SERVICE_TYPE=NODE_PORT KUBECONFIG=$GH_KUBECONFIG SPOKE_KUBECONFIG=$MH1_KUBECONFIG ./e2e.test --ginkgo.fail-fast --ginkgo.vv --ginkgo.label-filter='e2e && !migration'
+# Run e2e tests directly in container with mounted kubeconfig files
+docker run --rm \
+  -v "$GH_KUBECONFIG:/kubeconfig/global-hub:ro" \
+  -v "$MH1_KUBECONFIG:/kubeconfig/hub1:ro" \
+  -e SERVICE_TYPE=NODE_PORT \
+  -e KUBECONFIG=/kubeconfig/global-hub \
+  -e SPOKE_KUBECONFIG=/kubeconfig/hub1 \
+  "quay.io/hchenxa/acmqe-hoh-e2e:$imageTag" \
+  /e2e.test --ginkgo.fail-fast --ginkgo.vv --ginkgo.label-filter='e2e && !migration'
