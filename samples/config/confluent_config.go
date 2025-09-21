@@ -175,7 +175,7 @@ func GetConfluentConfigMapFromGlobalHub(kafkaUser string, producer bool) (*kafka
 	if producer {
 		config.SetProducerConfig(kafkaConfigMap)
 	} else {
-		config.SetConsumerConfig(kafkaConfigMap, consumerGroupId)
+		config.SetConsumerConfig(kafkaConfigMap, consumerGroupId, 0)
 	}
 
 	return kafkaConfigMap, nil

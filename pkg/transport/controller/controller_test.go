@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"testing"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -255,4 +256,90 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Mock consumer for testing
+type mockConsumer struct {
+	reconnectCalled bool
+	reconnectErr    error
+}
+
+func (mc *mockConsumer) Start(ctx context.Context) error {
+	return nil
+}
+
+func (mc *mockConsumer) Reconnect(ctx context.Context, cfg *transport.TransportInternalConfig, topics []string) error {
+	mc.reconnectCalled = true
+	return mc.reconnectErr
+}
+
+func (mc *mockConsumer) EventChan() chan *cloudevents.Event {
+	return make(chan *cloudevents.Event)
+}
+
+func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
+	ctx := context.TODO()
+
+	// Test case 1: ConsumerGroupID is empty, should skip initializing consumer
+	t.Run("Skip when ConsumerGroupID is empty", func(t *testing.T) {
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{
+					ConsumerGroupID: "", // empty means standalone mode
+					SpecTopic:       "spec-topic",
+					StatusTopic:     "status-topic",
+				},
+			},
+			transportClient: &TransportClient{},
+			inManager:       false,
+		}
+
+		err := ctrl.ReconcileConsumer(ctx)
+		assert.NoError(t, err)
+		assert.Nil(t, ctrl.transportClient.consumer)
+	})
+
+	// Test case 2: Valid consumer group ID but no valid kafka config (should fail gracefully)
+	t.Run("Handle invalid kafka config", func(t *testing.T) {
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{
+					ConsumerGroupID: "test-group",
+					SpecTopic:       "spec-topic",
+					StatusTopic:     "status-topic",
+					// Missing bootstrap server and other required fields
+				},
+			},
+			transportClient: &TransportClient{},
+			inManager:       false,
+		}
+
+		err := ctrl.ReconcileConsumer(ctx)
+		// Should return an error because the kafka config is invalid
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create the consumer")
+	})
+
+	// Test case 3: Consumer already exists, should call Reconnect
+	t.Run("Reconnect existing consumer", func(t *testing.T) {
+		mock := &mockConsumer{}
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{
+					ConsumerGroupID: "test-group",
+					SpecTopic:       "spec-topic",
+					StatusTopic:     "status-topic",
+					BootstrapServer: "localhost:9092", // Add required field
+				},
+			},
+			transportClient: &TransportClient{
+				consumer: mock, // Existing consumer
+			},
+			inManager: true,
+		}
+
+		err := ctrl.ReconcileConsumer(ctx)
+		assert.NoError(t, err)
+		assert.True(t, mock.reconnectCalled)
+	})
 }

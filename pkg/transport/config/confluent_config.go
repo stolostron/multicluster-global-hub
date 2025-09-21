@@ -49,12 +49,16 @@ func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
 	_ = kafkaConfigMap.SetKey("retries", "1")
 }
 
-func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string) {
+func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string, topicMetadataRefreshInterval int) {
 	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
 	_ = kafkaConfigMap.SetKey("group.id", groupId)
 	_ = kafkaConfigMap.SetKey("max.partition.fetch.bytes", MaxSizeToFetch)
 	_ = kafkaConfigMap.SetKey("fetch.message.max.bytes", MaxSizeToFetch)
+	if topicMetadataRefreshInterval > 0 {
+		_ = kafkaConfigMap.SetKey("metadata.max.age.ms", fmt.Sprintf("%d", topicMetadataRefreshInterval))
+		_ = kafkaConfigMap.SetKey("topic.metadata.refresh.interval.ms", fmt.Sprintf("%d", topicMetadataRefreshInterval))
+	}
 }
 
 func SetTLSByLocation(kafkaConfigMap *kafkav2.ConfigMap, caCertPath, certPath, keyPath string) error {
@@ -104,7 +108,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaInternalConfig, producer 
 	if producer {
 		SetProducerConfig(kafkaConfigMap)
 	} else {
-		SetConsumerConfig(kafkaConfigMap, kafkaConfig.ConsumerConfig.ConsumerID)
+		SetConsumerConfig(kafkaConfigMap, kafkaConfig.ConsumerConfig.ConsumerID, 0)
 	}
 	if !kafkaConfig.EnableTLS {
 		return kafkaConfigMap, nil
@@ -124,15 +128,16 @@ func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Clie
 	if err != nil {
 		return nil, err
 	}
-	return GetConfluentConfigMapByKafkaCredential(conn, consumerGroupID)
+	return GetConfluentConfigMapByKafkaCredential(conn, consumerGroupID, 0)
 }
 
-func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig, consumerGroupID string) (
+func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig,
+	consumerGroupID string, topicMetadataRefreshInterval int) (
 	*kafkav2.ConfigMap, error,
 ) {
 	kafkaConfigMap := GetBasicConfigMap()
 	if consumerGroupID != "" {
-		SetConsumerConfig(kafkaConfigMap, consumerGroupID)
+		SetConsumerConfig(kafkaConfigMap, consumerGroupID, topicMetadataRefreshInterval)
 	} else {
 		SetProducerConfig(kafkaConfigMap)
 	}

@@ -201,9 +201,12 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		log.Infof("skip initializing consumer, consumer group id is not set")
 		return nil
 	}
+
+	options := []consumer.GenericConsumeOption{}
 	// set consumerTopics to status or spec topic based on running in manager or not
 	if c.inManager {
 		c.consumerTopics = []string{c.transportConfig.KafkaCredential.StatusTopic}
+		options = append(options, consumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval))
 	} else {
 		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
 	}
@@ -211,7 +214,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	consumerGroupID := c.transportConfig.KafkaCredential.ConsumerGroupID
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics)
+		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics, options...)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}

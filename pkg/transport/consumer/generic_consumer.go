@@ -39,6 +39,13 @@ type GenericConsumer struct {
 	kafkaConsumer  *kafka.Consumer
 
 	mutex sync.Mutex
+
+	// topicMetadataRefreshInterval reflects the topic.metadata.refresh.interval.ms and
+	// metadata.max.age.ms settings in the consumer config.
+	// the default value is 5 mins in Kafka, we set it to 1 min in order to quickly
+	// respond to topic changes for the global hub manager only.
+	// the global hub manager consumes from topics created dynamically when importing the managed cluster.
+	topicMetadataRefreshInterval int
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
@@ -46,6 +53,13 @@ type GenericConsumeOption func(*GenericConsumer) error
 func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 	return func(c *GenericConsumer) error {
 		c.enableDatabaseOffset = enableOffset
+		return nil
+	}
+}
+
+func SetTopicMetadataRefreshInterval(interval int) GenericConsumeOption {
+	return func(c *GenericConsumer) error {
+		c.topicMetadataRefreshInterval = interval
 		return nil
 	}
 }
@@ -81,7 +95,8 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
-		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig, topics)
+		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig,
+			topics, c.topicMetadataRefreshInterval)
 		if err != nil {
 			return err
 		}
@@ -224,11 +239,12 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 // 		transportConfig.KafkaConfig.ConsumerConfig.ConsumerTopic)
 // }
 
-func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig, topics []string) (
+func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalConfig,
+	topics []string, topicMetadataRefreshInterval int) (
 	*kafka.Consumer, interface{}, error,
 ) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
-		transportConfig.KafkaCredential.ConsumerGroupID)
+		transportConfig.KafkaCredential.ConsumerGroupID, topicMetadataRefreshInterval)
 	if err != nil {
 		return nil, nil, err
 	}
