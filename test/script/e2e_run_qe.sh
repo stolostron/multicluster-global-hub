@@ -23,12 +23,12 @@ docker pull "quay.io/hchenxa/acmqe-hoh-e2e:$imageTag"
 echo "GH_KUBECONFIG: $GH_KUBECONFIG"
 echo "MH1_KUBECONFIG: $MH1_KUBECONFIG"
 
-# 查找kind集群使用的Docker网络
+# Find the Docker network used by kind cluster
 KIND_NETWORK=$(docker network ls --format "{{.Name}}" | grep "kind" | head -1)
 
 if [[ -z "$KIND_NETWORK" ]]; then
   echo "Warning: No kind network found, trying to detect from running containers..."
-  # 尝试从kind容器获取网络名称
+  # Try to get network name from kind container
   KIND_CONTAINER=$(docker ps --format "{{.Names}}" | grep "kind.*control-plane" | head -1)
   if [[ -n "$KIND_CONTAINER" ]]; then
     KIND_NETWORK=$(docker inspect "$KIND_CONTAINER" --format '{{range $net, $conf := .NetworkSettings.Networks}}{{$net}}{{end}}' | head -1)
@@ -45,14 +45,14 @@ else
   echo "Found kind network: $KIND_NETWORK"
 fi
 
-# 显示kind网络中的容器信息
+# Show container information in kind network
 echo "=== Kind network containers ==="
 docker network inspect "$KIND_NETWORK" --format '{{range .Containers}}{{.Name}}: {{.IPv4Address}}{{println}}{{end}}'
 
-# 使用原始kubeconfig（无需修改）
+# Use original kubeconfig (no modification needed)
 echo "Using original kubeconfigs - no modification needed when on same network"
 
-# 运行e2e测试，加入kind网络
+# Run e2e tests, join kind network
 echo "Running Docker container on kind network: $KIND_NETWORK"
 docker run --rm \
   --network "$KIND_NETWORK" \
