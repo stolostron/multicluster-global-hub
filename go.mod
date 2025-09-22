@@ -7,7 +7,7 @@ require (
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/authzed/spicedb-operator v1.20.1
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250811193955-d8449ff1e35a
+	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250904143103-af3e8599b331
 	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
 	github.com/cloudevents/sdk-go/v2 v2.16.1
 	github.com/cloudflare/cfssl v1.6.5
@@ -40,7 +40,7 @@ require (
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20250224012200-769f091c0e95
 	github.com/stolostron/multicloud-operators-foundation v0.0.0-20241223014534-09421f48bba2
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20250415191038-1e368a726d8b
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	go.uber.org/zap v1.27.0
 	gopkg.in/ini.v1 v1.67.0
 	gopkg.in/yaml.v2 v2.4.0
