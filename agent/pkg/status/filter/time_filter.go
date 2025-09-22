@@ -69,7 +69,10 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 		return err
 	}
 
-	loadEventTimeCacheFromConfigMap(agentStateConfigMap)
+	err = loadEventTimeCacheFromConfigMap(agentStateConfigMap)
+	if err != nil {
+		return err
+	}
 
 	go func() {
 		ticker := time.NewTicker(CacheSyncInterval)

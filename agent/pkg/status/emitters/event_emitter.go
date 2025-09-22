@@ -131,8 +131,8 @@ func (e *EventEmitter) sendEvents() error {
 
 	var err error
 	// only enable the single mode for event type
-	if enum.IsEventType(string(e.eventType)) &&
-		configs.GetAgentConfig().EventMode == string(constants.EventSendModeSingle) {
+	if configs.GetAgentConfig().EventMode == string(constants.EventSendModeSingle) &&
+		enum.IsEventType(string(e.eventType)) {
 		err = e.sendEventsIndividually()
 	} else {
 		err = e.sendEventBundle()
