@@ -33,7 +33,7 @@ func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Prod
 	localPolicySpecEmitter := emitters.NewObjectEmitter(
 		enum.LocalPolicySpecType,
 		p,
-		emitters.WithEventFilterFunc(predicate.Funcs{
+		emitters.WithPredicateFunc(predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				return enableLocalPolicy(e.Object)
 			},
@@ -44,6 +44,7 @@ func AddPolicySpecSyncer(ctx context.Context, mgr ctrl.Manager, p transport.Prod
 				return enableLocalPolicy(e.Object)
 			},
 		}),
+		emitters.WithFilterFunc(enableLocalPolicy),
 		emitters.WithTweakFunc(func(object client.Object) {
 			policy, ok := object.(*policiesv1.Policy)
 			if !ok {

@@ -2,7 +2,7 @@ package filter
 
 import (
 	"context"
-	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -69,11 +69,9 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 		return err
 	}
 
-	for key := range lastEventTimeCache {
-		err = loadEventTimeCacheFromConfigMap(agentStateConfigMap, key)
-		if err != nil {
-			return err
-		}
+	err = loadEventTimeCacheFromConfigMap(agentStateConfigMap)
+	if err != nil {
+		return err
 	}
 
 	go func() {
@@ -124,7 +122,7 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 			cm.Data = map[string]string{}
 		}
 		for key, val := range lastEventTimeCache {
-			cm.Data[cacheKey(key)] = val.Format(CACHE_TIME_FORMAT)
+			cm.Data[getConfigMapKey(key)] = val.Format(CACHE_TIME_FORMAT)
 		}
 		err = c.Update(ctx, cm, &client.UpdateOptions{})
 		if err != nil {
@@ -140,22 +138,29 @@ func RegisterTimeFilter(key string) {
 	lastEventTimeCache[key] = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap, key string) error {
-	val, found := cm.Data[cacheKey(key)]
-	if !found {
-		log.Infow("the time cache isn't found in the ConfigMap", "key", key, "configMap", cm.Name)
-		return nil
-	}
+func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) error {
+	for configMapKey := range cm.Data {
+		val := cm.Data[configMapKey]
 
-	timeVal, err := time.Parse(CACHE_TIME_FORMAT, val)
-	if err != nil {
-		return err
+		timeVal, err := time.Parse(CACHE_TIME_FORMAT, val)
+		if err != nil {
+			return err
+		}
+		eventTimeCache[getKey(configMapKey)] = timeVal
+		lastEventTimeCache[getKey(configMapKey)] = timeVal
 	}
-	eventTimeCache[key] = timeVal
 	return nil
 }
 
-// cacheKey is to add the topic prefix for the origin key, so if the topic is changed, it won't filter the the event
-func cacheKey(key string) string {
-	return fmt.Sprintf("%s--%s", topicName, key)
+// getConfigMapKey is to add the topic prefix for the origin key, so if the topic is changed,
+// it won't filter the the event
+func getConfigMapKey(key string) string {
+	if strings.Contains(key, "--") {
+		return key
+	}
+	return topicName + "--" + key
+}
+
+func getKey(key string) string {
+	return strings.TrimPrefix(key, topicName+"--")
 }

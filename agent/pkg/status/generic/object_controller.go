@@ -59,7 +59,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Create(e) {
+				if emitter.Predicate().Create(e) {
 					return true
 				}
 			}
@@ -67,7 +67,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Update(e) {
+				if emitter.Predicate().Update(e) {
 					return true
 				}
 			}
@@ -75,7 +75,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Delete(e) {
+				if emitter.Predicate().Delete(e) {
 					return true
 				}
 			}
@@ -83,7 +83,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Generic(e) {
+				if emitter.Predicate().Generic(e) {
 					return true
 				}
 			}
