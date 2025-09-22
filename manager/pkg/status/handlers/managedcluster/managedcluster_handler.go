@@ -320,7 +320,7 @@ func (h *managedClusterHandler) insertOrUpdate(objs []clusterv1.ManagedCluster, 
 
 	batchClusters := []models.ManagedCluster{}
 	for _, obj := range objs {
-		id := utils.GetClusterClaimID(&obj)
+		id := utils.GetClusterClaimID(&obj, "")
 		if id == "" {
 			log.Warnf("managed cluster %s has no cluster claim id, skip", obj.Name)
 			continue

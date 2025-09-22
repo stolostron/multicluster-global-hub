@@ -55,9 +55,9 @@ func addKafkaSyncer(ctx context.Context, mgr ctrl.Manager, producer transport.Pr
 	}
 
 	// event syncer
-	err = events.LaunchEventSyncer(ctx, mgr, agentConfig, producer)
+	err = events.AddEventSyncer(ctx, mgr, producer, periodicSyncer)
 	if err != nil {
-		return fmt.Errorf("failed to launch event syncer: %w", err)
+		return fmt.Errorf("failed to add event syncer: %w", err)
 	}
 
 	// policy syncer(local and global)

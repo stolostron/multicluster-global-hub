@@ -177,7 +177,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).To(Succeed())
 
 	// event
-	err = events.LaunchEventSyncer(ctx, mgr, agentConfig, chanTransport.Producer(EventTopic))
+	err = events.AddEventSyncer(ctx, mgr, chanTransport.Producer(EventTopic), periodicSyncer)
 	Expect(err).To(Succeed())
 	receivedEvents = make(map[string]*cloudevents.Event)
 	go func() {
