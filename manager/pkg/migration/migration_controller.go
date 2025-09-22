@@ -11,7 +11,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -233,53 +232,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		log.Infof("clean up migration status for migrationId: %s", mcm.GetUID())
 	}
 	return ctrl.Result{}, nil
-}
-
-func (m *ClusterMigrationController) setClusterList(
-	ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
-) error {
-	if len(mcm.Spec.IncludedManagedClusters) != 0 {
-		SetClusterList(string(mcm.UID), mcm.Spec.IncludedManagedClusters)
-		return nil
-	}
-	clusters, err := m.getClustersFromExistingConfigMap(ctx, mcm.Name, mcm.Namespace)
-	if err != nil {
-		return err
-	}
-	if len(clusters) > 0 {
-		SetClusterList(string(mcm.UID), clusters)
-	}
-	return nil
-}
-
-// getClustersFromExistingConfigMap attempts to retrieve clusters from an existing ConfigMap
-// Returns clusters slice, found boolean, and error
-func (m *ClusterMigrationController) getClustersFromExistingConfigMap(ctx context.Context,
-	configMapName, namespace string,
-) ([]string, error) {
-	existingConfigMap := &corev1.ConfigMap{}
-	err := m.Get(ctx, client.ObjectKey{
-		Name:      configMapName,
-		Namespace: namespace,
-	}, existingConfigMap)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	// ConfigMap exists, get clusters from it
-	if clustersJSON, exists := existingConfigMap.Data["clusters"]; exists {
-		var clusters []string
-		if err := json.Unmarshal([]byte(clustersJSON), &clusters); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal clusters from ConfigMap: %w", err)
-		}
-		log.Infof("retrieved clusters from existing ConfigMap %s/%s for migration %s", namespace, configMapName, configMapName)
-		return clusters, nil
-	}
-
-	return nil, nil
 }
 
 // sendEventToTargetHub:

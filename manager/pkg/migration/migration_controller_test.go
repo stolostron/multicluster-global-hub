@@ -7,6 +7,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,6 +53,7 @@ func findControllerCondition(conditions []metav1.Condition, conditionType string
 
 func TestUpdateStatusWithRetry(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {
@@ -168,6 +170,7 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			ctx := context.TODO()
@@ -189,6 +192,7 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 
 func TestSelectAndPrepareMigration(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {
@@ -358,6 +362,7 @@ func TestSelectAndPrepareMigration(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			ctx := context.TODO()
@@ -403,6 +408,7 @@ func stringPtr(s string) *string {
 
 func TestSetupTimeoutsFromConfig(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	// Store original timeout values to restore after tests
@@ -571,6 +577,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			err := controller.SetupMigrationStageTimeout(tt.migration)

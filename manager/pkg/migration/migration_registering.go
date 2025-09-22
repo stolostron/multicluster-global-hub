@@ -88,6 +88,11 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		m.handleErrorList(mcm, mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 		condition.Message = fmt.Sprintf("registering to hub %s error: %s", mcm.Spec.To, errMessage)
 		condition.Reason = ConditionReasonError
+
+		registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
+		if err := m.UpdateSuccessClustersConfimap(ctx, mcm, registeringReadyClusters); err != nil {
+			log.Errorf("failed to store clusters to ConfigMap: %w", err)
+		}
 		return false, nil
 	}
 
@@ -95,6 +100,11 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
 		condition.Message = fmt.Sprintf("waiting for managed clusters to register to the target hub %s", mcm.Spec.To)
 		return true, nil
+	}
+
+	registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
+	if err := m.UpdateSuccessClustersConfimap(ctx, mcm, registeringReadyClusters); err != nil {
+		log.Errorf("failed to store clusters to ConfigMap: %w", err)
 	}
 
 	condition.Status = metav1.ConditionTrue

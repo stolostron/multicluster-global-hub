@@ -363,6 +363,7 @@ func TestInitializing(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			requeue, err := controller.initializing(context.TODO(), tt.migration)
