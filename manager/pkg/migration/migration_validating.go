@@ -9,7 +9,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -238,36 +237,6 @@ func (m *ClusterMigrationController) storeClustersToConfigMap(ctx context.Contex
 		return err
 	})
 	return err
-}
-
-// getClustersFromExistingConfigMap attempts to retrieve clusters from an existing ConfigMap
-// Returns clusters slice, found boolean, and error
-func (m *ClusterMigrationController) getClustersFromExistingConfigMap(ctx context.Context,
-	configMapName, namespace string,
-) ([]string, error) {
-	existingConfigMap := &corev1.ConfigMap{}
-	err := m.Get(ctx, client.ObjectKey{
-		Name:      configMapName,
-		Namespace: namespace,
-	}, existingConfigMap)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	// ConfigMap exists, get clusters from it
-	if clustersJSON, exists := existingConfigMap.Data["clusters"]; exists {
-		var clusters []string
-		if err := json.Unmarshal([]byte(clustersJSON), &clusters); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal clusters from ConfigMap: %w", err)
-		}
-		log.Infof("retrieved clusters from existing ConfigMap %s/%s for migration %s", namespace, configMapName, configMapName)
-		return clusters, nil
-	}
-
-	return nil, nil
 }
 
 // IsValidResource checks format kind/namespace/name
