@@ -19,10 +19,6 @@ import (
 
 var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedClusterEventType))
 
-func init() {
-	filter.RegisterTimeFilter(TimeFilterKeyForManagedCluster)
-}
-
 func managedClusterPostSend(events []interface{}) error {
 	for _, clusterEvent := range events {
 		evt, ok := clusterEvent.(*models.ManagedClusterEvent)

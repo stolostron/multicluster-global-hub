@@ -23,10 +23,6 @@ var (
 	TimeFilterKeyForLocalReplicatedPolicyEvent = enum.ShortenEventType(string(enum.LocalReplicatedPolicyEventType))
 )
 
-func init() {
-	filter.RegisterTimeFilter(TimeFilterKeyForLocalReplicatedPolicyEvent)
-}
-
 func enableLocalReplicatedPolicy(obj client.Object) bool {
 	return configmap.GetEnableLocalPolicy() == configmap.EnableLocalPolicyTrue && // enable local policy
 		!utils.HasAnnotation(obj, constants.OriginOwnerReferenceAnnotation) && // local resource
