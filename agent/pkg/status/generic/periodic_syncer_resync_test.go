@@ -26,7 +26,7 @@ func (m *ResyncMockEmitter) EventType() string {
 	return m.eventType
 }
 
-func (m *ResyncMockEmitter) EventFilter() predicate.Predicate {
+func (m *ResyncMockEmitter) Predicate() predicate.Predicate {
 	return predicate.Funcs{}
 }
 

@@ -24,7 +24,7 @@ type EventEmitter struct {
 	topic         string
 	producer      transport.Producer
 	runtimeClient client.Client
-	predicate     func(client.Object) bool // filter events by the predicate
+	filter        func(client.Object) bool // filter events by the predicate
 	// transform converts a object to an event object. It can return nil to indicate that the object should be skipped.
 	// It can return a list of events(like replicated policy events) or a single event.
 	transform func(client.Client, client.Object) interface{}
@@ -38,7 +38,7 @@ func NewEventEmitter(
 	eventType enum.EventType,
 	producer transport.Producer,
 	runtimeClient client.Client,
-	predicate func(client.Object) bool,
+	filter func(client.Object) bool,
 	transform func(client.Client, client.Object) interface{},
 	opts ...EventEmitterOption,
 ) *EventEmitter {
@@ -51,7 +51,7 @@ func NewEventEmitter(
 		eventType:     eventType,
 		producer:      producer,
 		runtimeClient: runtimeClient,
-		predicate:     predicate,
+		filter:        filter,
 		transform:     transform,
 		postSend:      nil, // Will be set by options if needed
 		events:        make([]interface{}, 0),
@@ -69,15 +69,15 @@ func (e *EventEmitter) EventType() string {
 	return string(e.eventType)
 }
 
-func (e *EventEmitter) EventFilter() predicate.Predicate {
-	return predicate.NewPredicateFuncs(e.predicate)
+func (e *EventEmitter) Predicate() predicate.Predicate {
+	return predicate.NewPredicateFuncs(e.filter)
 }
 
 func (e *EventEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !e.predicate(obj) {
+	if !e.filter(obj) {
 		return nil
 	}
 
@@ -99,7 +99,7 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 	defer e.mu.Unlock()
 
 	for _, obj := range objects {
-		if e.predicate(obj) {
+		if e.filter(obj) {
 			event := e.transform(e.runtimeClient, obj)
 			if event != nil {
 				e.events = append(e.events, toSlice(event)...)

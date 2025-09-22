@@ -29,9 +29,6 @@ var localPolicySpecPredicate = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return enableLocalRootPolicy(e.Object)
 	},
-	GenericFunc: func(e event.GenericEvent) bool {
-		return enableLocalRootPolicy(e.Object)
-	},
 }
 
 var localPolicySpecTweakFunc = func(object client.Object) {

@@ -23,16 +23,17 @@ import (
 var log = logger.DefaultZapLogger()
 
 type ObjectEmitter struct {
-	eventType    enum.EventType
-	topic        string
-	producer     transport.Producer
-	tweakFunc    func(client.Object)
-	eventFilter  predicate.Predicate
-	metadataFunc func(client.Object) *genericbundle.ObjectMetadata
-	bundle       *genericbundle.GenericBundle[client.Object]
-	version      *eventversion.Version
-	mu           sync.Mutex
-	keyFunc      func(client.Object) string
+	eventType       enum.EventType
+	topic           string
+	producer        transport.Producer
+	tweakFunc       func(client.Object)
+	objectPredicate predicate.Predicate
+	filter          func(client.Object) bool
+	metadataFunc    func(client.Object) *genericbundle.ObjectMetadata
+	bundle          *genericbundle.GenericBundle[client.Object]
+	version         *eventversion.Version
+	mu              sync.Mutex
+	keyFunc         func(client.Object) string
 }
 
 // NewObjectEmitter creates a new ObjectEmitter with the provided event type and producer.
@@ -49,6 +50,9 @@ func NewObjectEmitter(
 		keyFunc: func(obj client.Object) string {
 			return obj.GetNamespace() + "/" + obj.GetName()
 		},
+		filter: func(obj client.Object) bool {
+			return true
+		},
 	}
 	// apply the options
 	for _, fn := range opts {
@@ -61,8 +65,8 @@ func (e *ObjectEmitter) EventType() string {
 	return string(e.eventType)
 }
 
-func (e *ObjectEmitter) EventFilter() predicate.Predicate {
-	return e.eventFilter
+func (e *ObjectEmitter) Predicate() predicate.Predicate {
+	return e.objectPredicate
 }
 
 // Update modifies the bundle with the provided object.
@@ -77,6 +81,10 @@ func (e *ObjectEmitter) EventFilter() predicate.Predicate {
 func (e *ObjectEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if !e.filter(obj) {
+		return nil
+	}
 
 	// if the object is in update array, update it
 	for i, existingObj := range e.bundle.Update {
@@ -102,6 +110,11 @@ func (e *ObjectEmitter) Update(obj client.Object) error {
 func (e *ObjectEmitter) Delete(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if !e.filter(obj) {
+		return nil
+	}
+
 	tweaked, err := applyTweak(obj, e.tweakFunc)
 	if err != nil {
 		return err
@@ -174,6 +187,11 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 
 	metas := make([]genericbundle.ObjectMetadata, 0, len(objects))
 	for _, obj := range objects {
+
+		if !e.filter(obj) {
+			continue
+		}
+
 		tweaked, err := applyTweak(obj, e.tweakFunc)
 		if err != nil {
 			return err
@@ -311,9 +329,15 @@ func WithTweakFunc(tweakFunc func(client.Object)) EmitterOption {
 	}
 }
 
-func WithEventFilterFunc(eventFilter predicate.Predicate) EmitterOption {
+func WithPredicateFunc(eventFilter predicate.Predicate) EmitterOption {
 	return func(e *ObjectEmitter) {
-		e.eventFilter = eventFilter
+		e.objectPredicate = eventFilter
+	}
+}
+
+func WithFilterFunc(filter func(client.Object) bool) EmitterOption {
+	return func(e *ObjectEmitter) {
+		e.filter = filter
 	}
 }
 
