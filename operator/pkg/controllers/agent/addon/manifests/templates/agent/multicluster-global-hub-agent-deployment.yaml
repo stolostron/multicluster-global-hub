@@ -1,4 +1,3 @@
-{{ if not .InstallHostedMode }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -75,4 +74,3 @@ spec:
           tolerationSeconds: {{.TolerationSeconds}}
           {{- end}}
         {{- end}}
-{{ end }}

@@ -16,10 +16,13 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
+var log = logger.DefaultZapLogger()
+
 func NewClusterGroupUpgradeEventEmitter() interfaces.Emitter {
-	name := strings.Replace(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "")
 	return generic.NewGenericEmitter(enum.ClusterGroupUpgradesEventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {
@@ -46,7 +49,7 @@ type clusterGroupUpgradeEventHandler struct {
 }
 
 func NewClusterGroupUpgradeEventHandler(ctx context.Context, c client.Client) *clusterGroupUpgradeEventHandler {
-	name := strings.Replace(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.ClusterGroupUpgradesEventType), enum.EventTypePrefix, "")
 	filter.RegisterTimeFilter(name)
 	return &clusterGroupUpgradeEventHandler{
 		ctx:           ctx,
@@ -104,7 +107,7 @@ func (h *clusterGroupUpgradeEventHandler) Update(obj client.Object) bool {
 		CreatedAt:           getEventLastTime(evt).Time,
 	}
 
-	*h.payload = append(*h.payload, clusterEvent)
+	*h.payload = append(*h.payload, &clusterEvent)
 	return true
 }
 

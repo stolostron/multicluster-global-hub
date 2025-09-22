@@ -27,7 +27,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
-var secretList = sets.NewString(
+var secretList = sets.New(
 	constants.CustomGrafanaIniName,
 	constants.GHTransportSecretName,
 	constants.GHStorageSecretName,
@@ -37,7 +37,7 @@ type secretBackup struct {
 	backupType string
 	labelKey   string
 	labelValue string
-	backupSets sets.String
+	backupSets sets.Set[string]
 }
 
 func NewSecretBackup() *secretBackup {

@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -30,7 +29,7 @@ var _ = Describe("LocalReplicatedPolicyEventHandler", Ordered, func() {
 		clusterID := "f302ce61-98e7-4d63-8dd2-65951e32fd95"
 		clusterName := "cluster1"
 		compliance := "NonCompliant"
-		data = append(data, event.ReplicatedPolicyEvent{
+		data = append(data, &event.ReplicatedPolicyEvent{
 			BaseEvent: event.BaseEvent{
 				EventName:      eventName,
 				EventNamespace: "kind-hub1-cluster1",
@@ -41,7 +40,7 @@ var _ = Describe("LocalReplicatedPolicyEventHandler", Ordered, func() {
 				Source: v1.EventSource{
 					Component: "policy-status-history-sync",
 				},
-				CreatedAt: metav1.NewTime(time.Now()),
+				CreatedAt: time.Now(),
 			},
 			PolicyID:    policyID,
 			ClusterID:   clusterID,

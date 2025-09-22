@@ -28,7 +28,7 @@ func TestPostSendFunc(t *testing.T) {
 	assertBundle(t, obj, 0)
 
 	// mock the handler update
-	localStatusEventHandler.Append(event.ReplicatedPolicyEvent{
+	localStatusEventHandler.Append(&event.ReplicatedPolicyEvent{
 		BaseEvent: event.BaseEvent{
 			EventName: "name",
 			Reason:    "PolicyStatusSync",

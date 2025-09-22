@@ -1,4 +1,4 @@
-{{- if and (not .InstallHostedMode) .InventoryServerCACert -}}
+{{- if .InventoryServerCACert -}}
 apiVersion: v1
 kind: Secret
 metadata:

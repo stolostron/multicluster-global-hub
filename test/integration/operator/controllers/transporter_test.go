@@ -467,7 +467,7 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 		},
 	}
 
-	err := wait.PollImmediate(1*time.Second, 1*time.Minute, func() (bool, error) {
+	if err := wait.PollUntilContextTimeout(context.Background(), 1*time.Second, 1*time.Minute, true, func(ctx context.Context) (bool, error) {
 		existkafkaCluster := &kafkav1beta2.Kafka{}
 		err := c.Get(context.Background(), types.NamespacedName{
 			Name:      kafkaClusterName,
@@ -506,9 +506,11 @@ func UpdateKafkaClusterReady(c client.Client, ns string) error {
 			return false, nil
 		}
 		return true, nil
-	})
+	}); err != nil {
+		return err
+	}
 
-	err = createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
+	err := createSecret(c, ns, globalHubKafkaUser, map[string][]byte{
 		"user.crt": []byte("usercrt"),
 		"user.key": []byte("userkey"),
 	})

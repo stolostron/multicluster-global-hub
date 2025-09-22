@@ -91,7 +91,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	err = addonapi.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	clusterv1.AddToScheme(scheme.Scheme)
+	err = clusterv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 
 	m, err := manager.New(testEnv.Config, manager.Options{
 		WebhookServer: webhook.NewServer(webhook.Options{

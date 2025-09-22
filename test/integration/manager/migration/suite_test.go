@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -294,8 +295,12 @@ func ensureManagedServiceAccount(migrationName, toHub string) error {
 // cleanupHubAndClusters removes all resources created for a test.
 func cleanupHubAndClusters(ctx context.Context, hubName, clusterName string) {
 	// Delete K8s resources
-	mgr.GetClient().Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: hubName}})
-	mgr.GetClient().Delete(ctx, &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: hubName}})
+	if err := mgr.GetClient().Delete(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: hubName}}); err != nil {
+		log.Printf("failed to delete namespace: %v", err)
+	}
+	if err := mgr.GetClient().Delete(ctx, &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: hubName}}); err != nil {
+		log.Printf("failed to delete managed cluster: %v", err)
+	}
 	// mgr.GetClient().Delete(ctx, &addonapiv1alpha1.ManagedClusterAddOn{ObjectMeta: metav1.ObjectMeta{Name: "managed-serviceaccount", Namespace: hubName}})
 
 	// Delete DB entries
@@ -339,5 +344,12 @@ func cleanupMigrationCR(ctx context.Context, name, namespace string) error {
 	if err := mgr.GetClient().Delete(ctx, migration); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("failed to delete migration %s: %w", name, err)
 	}
+
+	// Verify migration is actually deleted
+	Eventually(func() bool {
+		err := mgr.GetClient().Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, migration)
+		return errors.IsNotFound(err)
+	}, "10s", "200ms").Should(BeTrue(), "migration should be deleted")
+
 	return nil
 }

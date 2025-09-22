@@ -223,7 +223,7 @@ func Test_updateMghStatus(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		v1alpha4.AddToScheme(scheme.Scheme)
+		_ = v1alpha4.AddToScheme(scheme.Scheme)
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.mgh).WithStatusSubresource(tt.mgh).Build()
 		ctx := context.Background()
 		config.SetACMResourceReady(true)
@@ -234,7 +234,7 @@ func Test_updateMghStatus(t *testing.T) {
 			}
 
 			curmgh := &v1alpha4.MulticlusterGlobalHub{}
-			fakeClient.Get(ctx, types.NamespacedName{
+			_ = fakeClient.Get(ctx, types.NamespacedName{
 				Namespace: tt.mgh.GetNamespace(),
 				Name:      tt.mgh.GetName(),
 			}, curmgh)

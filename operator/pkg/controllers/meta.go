@@ -343,8 +343,8 @@ func needUpdatePhase(mgh *v1alpha4.MulticlusterGlobalHub) (bool, v1alpha4.Global
 	return phase != mgh.Status.Phase, phase
 }
 
-func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.String {
-	desiredComponents := sets.NewString(
+func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.Set[string] {
+	desiredComponents := sets.New(
 		config.COMPONENTS_MANAGER_NAME,
 		config.COMPONENTS_POSTGRES_NAME,
 		config.COMPONENTS_KAFKA_NAME,

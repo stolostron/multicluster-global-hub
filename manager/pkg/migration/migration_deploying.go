@@ -30,7 +30,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		mcm.Status.Phase != migrationv1alpha1.PhaseDeploying {
 		return false, nil
 	}
-	log.Info("migration deploying")
+	log.Infof("migration %v deploying", mcm.Name)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeDeployed,
@@ -40,44 +40,38 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	}
 	nextPhase := migrationv1alpha1.PhaseDeploying
 
-	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, migrationStageTimeout)
+	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, getTimeout(migrationv1alpha1.PhaseDeploying))
 
-	// check the source hub to see is there any error message reported
-	sourceHubToClusters := GetSourceClusters(string(mcm.GetUID()))
-	if sourceHubToClusters == nil {
-		condition.Message = fmt.Sprintf("not initialized the source clusters for migrationId: %s", string(mcm.GetUID()))
+	fromHub := mcm.Spec.From
+	clusters := GetClusterList(string(mcm.UID))
+
+	// 1. source hub: start and wait the confirmation
+	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
+		log.Infof("migration deploying to source hub: %s", fromHub)
+		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters, nil, "")
+		if err != nil {
+			condition.Message = err.Error()
+			condition.Reason = ConditionReasonError
+			return false, err
+		}
+		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
+	}
+
+	errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
+	if errMessage != "" {
+		condition.Message = fmt.Sprintf("deploying source hub %s error: %s", fromHub, errMessage)
 		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 
-	for fromHub, clusters := range sourceHubToClusters {
-		if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
-			log.Infof("migration deploying to source hub: %s", fromHub)
-			err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters, nil, "")
-			if err != nil {
-				condition.Message = err.Error()
-				condition.Reason = ConditionReasonError
-				return false, err
-			}
-			SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
-		}
-
-		errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
-		if errMessage != "" {
-			condition.Message = fmt.Sprintf("deploying source hub %s error: %s", fromHub, errMessage)
-			condition.Reason = ConditionReasonError
-			return false, nil
-		}
-
-		// waiting the source hub confirmation
-		if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
-			condition.Message = fmt.Sprintf("waiting for resources to be prepared in the source hub %s", fromHub)
-			return true, nil
-		}
+	// waiting the source hub confirmation
+	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
+		condition.Message = fmt.Sprintf("waiting for resources to be prepared in the source hub %s", fromHub)
+		return true, nil
 	}
 
-	// check the target hub to see is there any error message reported
-	errMessage := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying)
+	// 2. target hub: check the confirmation and error message
+	errMessage = GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying)
 	if errMessage != "" {
 		condition.Message = fmt.Sprintf("deploying to hub %s error: %s", mcm.Spec.To, errMessage)
 		condition.Reason = ConditionReasonError

@@ -71,11 +71,11 @@ func TestParseDuration(t *testing.T) {
 
 func TestParseRetention(t *testing.T) {
 	s := "-1y4m"
-	m, e := ParseRetentionMonth(s)
+	_, e := ParseRetentionMonth(s)
 	assert.EqualError(t, e, fmt.Errorf("invalid retention %s", s).Error())
 
 	s = "2y"
-	m, e = ParseRetentionMonth(s)
+	m, e := ParseRetentionMonth(s)
 	assert.ErrorIs(t, e, nil)
 	assert.Equal(t, 24, m)
 
@@ -90,10 +90,10 @@ func TestParseRetention(t *testing.T) {
 	assert.Equal(t, 27, m)
 
 	s = "-y"
-	m, e = ParseRetentionMonth(s)
+	_, e = ParseRetentionMonth(s)
 	assert.EqualError(t, e, fmt.Errorf("invalid retention %s", s).Error())
 
 	s = "2+m"
-	m, e = ParseRetentionMonth(s)
+	_, e = ParseRetentionMonth(s)
 	assert.EqualError(t, e, fmt.Errorf("invalid retention %s", s).Error())
 }

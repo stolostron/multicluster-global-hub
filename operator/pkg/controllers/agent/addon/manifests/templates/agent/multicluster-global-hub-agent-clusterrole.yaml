@@ -1,4 +1,3 @@
-{{- if not .InstallHostedMode -}}
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -260,6 +259,9 @@ rules:
   - create
   - watch
   - list
+  - delete
+  - patch
+  - update
 - apiGroups:
   - register.open-cluster-management.io
   resources:
@@ -274,4 +276,3 @@ rules:
   - get
   - watch
   - list
-{{- end -}}

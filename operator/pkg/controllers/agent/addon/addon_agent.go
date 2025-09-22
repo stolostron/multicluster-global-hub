@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strconv"
 
 	addonoperatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -83,10 +82,8 @@ func NewGlobalHubAddonAgent(ctx context.Context, c client.Client, kubeConfig *re
 func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn,
 ) (addonfactory.Values, error) {
-	installNamespace := addon.Spec.InstallNamespace
-	if len(installNamespace) == 0 {
-		installNamespace = operatorconstants.GHAgentInstallNamespace
-	}
+	// installNamespace is managed by the addon framework, using the addon.Spec.InstallNamespace
+	// or falling back to the operatorconstants.GHAgentInstallNamespace
 	mgh, err := config.GetMulticlusterGlobalHub(a.ctx, a.client)
 	if err != nil {
 		log.Errorw("failed to get MulticlusterGlobalHub", "error", err)
@@ -167,8 +164,6 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 		return nil, err
 	}
 
-	a.setInstallHostedMode(cluster, &manifestsConfig)
-
 	return addonfactory.StructToValues(manifestsConfig), nil
 }
 
@@ -202,29 +197,4 @@ func (a *GlobalHubAddonAgent) setImagePullSecret(mgh *globalhubv1alpha4.Multiclu
 			imagePullSecret.Data[corev1.DockerConfigJsonKey])
 	}
 	return nil
-}
-
-func (a *GlobalHubAddonAgent) setInstallHostedMode(cluster *clusterv1.ManagedCluster,
-	manifestsConfig *config.ManifestsConfig,
-) {
-	// gh addon hosted: 'deploy-mode' = 'Hosted'
-	if cluster.Labels == nil {
-		return
-	}
-	deployMode, ok := cluster.Labels[constants.GHDeployModeLabelKey]
-	if !ok || deployMode != constants.GHDeployModeHosted {
-		return
-	}
-
-	// cluster hosted: the annotation 'klusterlet-deploy-mode' = hosted is added in the webhook by the gh hosted config
-	annotations := cluster.GetAnnotations()
-	if annotations[constants.AnnotationClusterDeployMode] != constants.ClusterDeployModeHosted {
-		return
-	}
-
-	manifestsConfig.InstallHostedMode = true
-	if annotations[constants.AnnotationClusterKlusterletDeployNamespace] != "" {
-		manifestsConfig.KlusterletNamespace = annotations[constants.AnnotationClusterKlusterletDeployNamespace]
-	}
-	manifestsConfig.KlusterletWorkSA = fmt.Sprintf("klusterlet-%s-work-sa", cluster.GetName())
 }

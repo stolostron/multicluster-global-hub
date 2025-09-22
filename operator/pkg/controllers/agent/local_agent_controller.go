@@ -124,7 +124,7 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;create;update;delete;watch;list
-// +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;create;watch;list
+// +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;create;watch;list;delete;patch;update
 // +kubebuilder:rbac:groups=register.open-cluster-management.io,resources=managedclusters/accept,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete;deletecollection
 
@@ -143,14 +143,14 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		log.Debugf("deleted local agent resources, isResourceRemoved:%v", isResourceRemoved)
 		return ctrl.Result{}, err
 	}
-	err, currentClusterName := getCurrentClusterName(ctx, s.GetClient(), mgh.Namespace)
+	currentClusterName, err := getCurrentClusterName(ctx, s.GetClient(), mgh.Namespace)
 	if err != nil {
 		log.Errorf("failed to get the current cluster name: %v", err)
 		return ctrl.Result{}, err
 	}
 	log.Debugf("current cluster name: %s", currentClusterName)
 
-	err, localClusterName := GetLocalClusterName(ctx, s.GetClient(), mgh.Namespace)
+	localClusterName, err := GetLocalClusterName(ctx, s.GetClient(), mgh.Namespace)
 	if err != nil {
 		log.Errorf("failed to get the current cluster name: %v", err)
 		return ctrl.Result{}, err
@@ -174,7 +174,7 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 		clusterName = localClusterName
 	}
 	log.Debugf("generate local agent credential")
-	err = GenerateLocalAgentCredential(ctx, s.Manager.GetClient(), mgh.Namespace)
+	err = GenerateLocalAgentCredential(ctx, s.GetClient(), mgh.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -190,7 +190,7 @@ func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) 
 }
 
 // getCurrentClusterName returns the current cluster name from the agent deployment
-func getCurrentClusterName(ctx context.Context, c client.Client, namespace string) (error, string) {
+func getCurrentClusterName(ctx context.Context, c client.Client, namespace string) (string, error) {
 	deploy := &appsv1.Deployment{}
 	err := c.Get(ctx, client.ObjectKey{
 		Name:      agentName,
@@ -198,21 +198,21 @@ func getCurrentClusterName(ctx context.Context, c client.Client, namespace strin
 	}, deploy)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, ""
+			return "", nil
 		}
-		return fmt.Errorf("failed to get the deployment: %v", err), ""
+		return "", fmt.Errorf("failed to get the deployment: %v", err)
 	}
 	for _, arg := range deploy.Spec.Template.Spec.Containers[0].Args {
 		if !strings.HasPrefix(arg, "--leaf-hub-name=") {
 			continue
 		}
-		return nil, strings.ReplaceAll(arg, "--leaf-hub-name=", "")
+		return strings.ReplaceAll(arg, "--leaf-hub-name=", ""), nil
 	}
-	return nil, ""
+	return "", nil
 }
 
 // getLocalClusterName returns the local cluster name from the managedcluster
-func GetLocalClusterName(ctx context.Context, c client.Client, namespace string) (error, string) {
+func GetLocalClusterName(ctx context.Context, c client.Client, namespace string) (string, error) {
 	mcList := &clusterv1.ManagedClusterList{}
 	listOptions := []client.ListOption{
 		client.MatchingLabels(map[string]string{
@@ -221,17 +221,17 @@ func GetLocalClusterName(ctx context.Context, c client.Client, namespace string)
 	}
 	err := c.List(ctx, mcList, listOptions...)
 	if err != nil {
-		return fmt.Errorf("failed to list managedclusters: %v", err), ""
+		return "", fmt.Errorf("failed to list managedclusters: %v", err)
 	}
 	if len(mcList.Items) == 0 {
 		config.SetLocalClusterName("")
-		return nil, ""
+		return "", nil
 	}
 	if len(mcList.Items) > 1 {
-		return fmt.Errorf("found more than one local cluster: %v", mcList.Items), ""
+		return "", fmt.Errorf("found more than one local cluster: %v", mcList.Items)
 	}
 	config.SetLocalClusterName(mcList.Items[0].Name)
-	return nil, mcList.Items[0].Name
+	return mcList.Items[0].Name, nil
 }
 
 func (s *LocalAgentController) pruneAgentResources(ctx context.Context, namespace string) error {
@@ -276,7 +276,7 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	if err != nil {
 		return err
 	}
-	log.Debugf("kafkaConnection: %v", *kafkaConnection)
+	log.Debugf("kafkaConnection bootstrap server: %s, cluster ID: %s", kafkaConnection.BootstrapServer, kafkaConnection.ClusterID)
 	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(true)
 	if err != nil {
 		return fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)

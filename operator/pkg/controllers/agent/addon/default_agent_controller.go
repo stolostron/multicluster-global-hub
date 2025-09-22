@@ -239,7 +239,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: req.NamespacedName.Name,
+			Name: req.Name,
 		},
 	}
 	err = r.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
@@ -281,7 +281,7 @@ func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Contex
 			Name: constants.GHClusterManagementAddonName,
 		},
 	}
-	if err := r.Client.Delete(ctx, clusterManagementAddOn); err != nil {
+	if err := r.Delete(ctx, clusterManagementAddOn); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -406,21 +406,6 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	}
 	expectedAddonAnnotations := map[string]string{}
 
-	// Change the add-on installation namespace in hosted mode must meet the following conditions:
-	//   1. The imported clustered must be hosted.
-	//   2. The deployMode label exist, the val is hosted or ""
-	deployMode, hasDeployLabel := cluster.GetLabels()[constants.GHDeployModeLabelKey]
-	if hasDeployLabel && (deployMode == constants.GHDeployModeHosted) {
-		annotations := cluster.GetAnnotations()
-		if hostingCluster := annotations[constants.AnnotationClusterHostingClusterName]; hostingCluster != "" {
-			expectedAddonAnnotations[constants.AnnotationAddonHostingClusterName] = hostingCluster
-			expectedAddon.Spec.InstallNamespace = fmt.Sprintf("klusterlet-%s", cluster.Name)
-		} else {
-			return nil, fmt.Errorf("failed to get %s when addon in %s is installed in hosted mode",
-				constants.AnnotationClusterHostingClusterName, cluster.Name)
-		}
-	}
-
 	if val, ok := cluster.Annotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation]; ok {
 		expectedAddonAnnotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation] = val
 	}
@@ -436,7 +421,7 @@ func (r *DefaultAgentController) allClusterRequests(
 	requests := []reconcile.Request{}
 
 	managedClusterList := &clusterv1.ManagedClusterList{}
-	err := r.Client.List(ctx, managedClusterList)
+	err := r.List(ctx, managedClusterList)
 	if err != nil {
 		log.Errorf("failed to list managedClusters to trigger mca controller")
 		return requests

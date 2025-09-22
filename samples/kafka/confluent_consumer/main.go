@@ -18,11 +18,10 @@ const (
 	consumerId   = "consumer-group-1"
 )
 
-var kafkaMessages = make([]*kafka.Message, 0)
 
 func main() {
 	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
 	if len(os.Args) < 2 {
 		fmt.Println("Please provide at least one topic command-line argument.")
@@ -114,9 +113,6 @@ func processEvent(c *kafka.Consumer, ev kafka.Event) error {
 	return nil
 }
 
-func getKafkaMessages() []*kafka.Message {
-	return kafkaMessages
-}
 
 // rebalanceCallback is called on each group rebalance to assign additional
 // partitions, or remove existing partitions, from the consumer's current

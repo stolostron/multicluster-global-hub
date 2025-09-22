@@ -45,14 +45,14 @@ func ShouldReturnAsTable(ginCtx *gin.Context) bool {
 		containeAcceptGroup = false
 		containAcceptVersion = false
 		for _, v := range acceptedList {
-			switch {
-			case v == acceptFormat:
+			switch v {
+			case acceptFormat:
 				containAcceptFormat = true
-			case v == acceptAs:
+			case acceptAs:
 				containeAcceptAs = true
-			case v == acceptGroup:
+			case acceptGroup:
 				containeAcceptGroup = true
-			case v == acceptVersion:
+			case acceptVersion:
 				containAcceptVersion = true
 			}
 		}

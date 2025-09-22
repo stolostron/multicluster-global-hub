@@ -25,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
@@ -92,25 +91,8 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		return fmt.Errorf("failed to create manager: %w", err)
 	}
 
-	hostingMgr := mgr
-	// If --kubeconfig is set, the agent is running in hosted mode.
-	// if run the agent in hosted mode, need to create a new manager in hosting cluster.
-	// the transport controller and configmap controller should be added to the hosting manager.
-	if f := pflag.CommandLine.Lookup(config.KubeconfigFlagName); f.Value.String() != "" {
-		hostingMgr, err = createHostingManager(agentConfig)
-		if err != nil {
-			return fmt.Errorf("failed to create hosting manager: %w", err)
-		}
-		go func() {
-			logger.DefaultZapLogger().Info("starting hosting manager")
-			if err := hostingMgr.Start(ctx); err != nil {
-				logger.DefaultZapLogger().Fatalf("failed to start the hosting manager: %w", err)
-			}
-		}()
-	}
-
 	// add configmap controller
-	if err := configmap.AddConfigMapController(hostingMgr, agentConfig); err != nil {
+	if err := configmap.AddConfigMapController(mgr, agentConfig); err != nil {
 		return fmt.Errorf("failed to add ConfigMap controller: %w", err)
 	}
 
@@ -131,7 +113,7 @@ func doMain(ctx context.Context, agentConfig *configs.AgentConfig, restConfig *r
 		transportCtrl.DisableConsumer()
 	}
 
-	err = transportCtrl.SetupWithManager(hostingMgr)
+	err = transportCtrl.SetupWithManager(mgr)
 	if err != nil {
 		return fmt.Errorf("failed to add transport to manager: %w", err)
 	}
@@ -181,11 +163,14 @@ func parseFlags() *configs.AgentConfig {
 	pflag.IntVar(&agentConfig.Burst, "burst", 300,
 		"Burst for the multicluster global hub agent")
 	pflag.BoolVar(&agentConfig.EnablePprof, "enable-pprof", false, "Enable the pprof tool.")
-	pflag.StringVar(&agentConfig.DeployMode, "deploy-mode", "default", "The deploy mode for the agent. support values: default, local, standalone")
+	pflag.StringVar(&agentConfig.DeployMode, "deploy-mode", "default",
+		"The deploy mode for the agent. support values: default, local, standalone")
 	pflag.BoolVar(&agentConfig.EnableStackroxIntegration, "enable-stackrox-integration", false,
 		"Enable StackRox integration")
 	pflag.DurationVar(&agentConfig.StackroxPollInterval, "stackrox-poll-interval", 30*time.Minute,
 		"The interval between each StackRox polling")
+	pflag.StringVar(&agentConfig.EventMode, "event-mode", string(constants.EventSendModeBatch),
+		"Event sending mode: batch or single")
 	pflag.Parse()
 
 	return agentConfig
@@ -196,7 +181,7 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 		if agentConfig.DeployMode != string(constants.StandaloneMode) {
 			return fmt.Errorf("the leaf-hub-name must not be empty")
 		}
-		err, clusterID := utils.GetClusterIdFromClusterVersion(c, ctx)
+		clusterID, err := utils.GetClusterIdFromClusterVersion(c, ctx)
 		if err != nil {
 			return err
 		}
@@ -206,7 +191,6 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 	if agentConfig.MetricsAddress == "" {
 		agentConfig.MetricsAddress = fmt.Sprintf("%s:%d", metricsHost, metricsPort)
 	}
-	agentConfig.TransportConfig.ConsumerGroupId = agentConfig.LeafHubName
 
 	if agentConfig.SpecWorkPoolSize < 1 || agentConfig.SpecWorkPoolSize > 100 {
 		return fmt.Errorf("flag consumer-worker-pool-size should be in the scope [1, 100]")
@@ -214,51 +198,6 @@ func completeConfig(ctx context.Context, c client.Client, agentConfig *configs.A
 
 	configs.SetAgentConfig(agentConfig)
 	return nil
-}
-
-func createHostingManager(agentConfig *configs.AgentConfig) (ctrl.Manager, error) {
-	leaseDuration := time.Duration(agentConfig.ElectionConfig.LeaseDuration) * time.Second
-	renewDeadline := time.Duration(agentConfig.ElectionConfig.RenewDeadline) * time.Second
-	retryPeriod := time.Duration(agentConfig.ElectionConfig.RetryPeriod) * time.Second
-
-	restConfig, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	options := ctrl.Options{
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-		LeaderElection:          true,
-		Scheme:                  configs.GetRuntimeScheme(),
-		LeaderElectionConfig:    restConfig,
-		LeaderElectionID:        hostingLeaderElectionLockID,
-		LeaderElectionNamespace: agentConfig.PodNamespace,
-		LeaseDuration:           &leaseDuration,
-		RenewDeadline:           &renewDeadline,
-		RetryPeriod:             &retryPeriod,
-		Cache: cache.Options{
-			ByObject: map[client.Object]cache.ByObject{
-				&corev1.ConfigMap{}: {
-					Namespaces: map[string]cache.Config{
-						agentConfig.PodNamespace: {},
-					},
-				},
-				&corev1.Secret{}: {
-					Namespaces: map[string]cache.Config{
-						agentConfig.PodNamespace: {},
-					},
-				},
-			},
-		},
-	}
-
-	mgr, err := ctrl.NewManager(restConfig, options)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new manager: %w", err)
-	}
-	return mgr, nil
 }
 
 func createManager(restConfig *rest.Config, agentConfig *configs.AgentConfig) (

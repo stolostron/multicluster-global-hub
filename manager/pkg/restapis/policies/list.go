@@ -76,31 +76,31 @@ func ListPolicies() gin.HandlerFunc {
 			var err error
 			selectorInSql, err = util.ParseLabelSelector(labelSelector)
 			if err != nil {
-				fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
+				_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to parse label selector: %s\n", err.Error())
 				return
 			}
 		}
 
-		fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "parsed selector: %s\n", selectorInSql)
 
 		limit := ginCtx.Query("limit")
-		fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "limit: %v\n", limit)
 
 		continueToken := ginCtx.Query("continue")
 
 		lastPolicyName, lastPolicyUID := "", ""
 		if continueToken != "" {
-			fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "continue: %v\n", continueToken)
 
 			var err error
 			lastPolicyName, lastPolicyUID, err = util.DecodeContinue(continueToken)
 			if err != nil {
-				fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
+				_, _ = fmt.Fprintf(gin.DefaultWriter, "failed to decode continue token: %s\n", err.Error())
 				return
 			}
 		}
 
-		fmt.Fprintf(gin.DefaultWriter,
+		_, _ = fmt.Fprintf(gin.DefaultWriter,
 			"last returned policy name: %s, last returned policy] UID: %s\n",
 			lastPolicyName,
 			lastPolicyUID)
@@ -126,10 +126,10 @@ func ListPolicies() gin.HandlerFunc {
 		lastPolicyQuery := "SELECT id, payload FROM spec.policies WHERE deleted = FALSE " +
 			"ORDER BY (payload -> 'metadata' ->> 'name', payload -> 'metadata' ->> 'uid') DESC LIMIT 1"
 
-		fmt.Fprintf(gin.DefaultWriter, "last policy query: %v\n", lastPolicyQuery)
-		fmt.Fprintf(gin.DefaultWriter, "policy list query: %v\n", policyListQuery)
-		fmt.Fprintf(gin.DefaultWriter, "policy compliance query with policy ID: %v\n", policyComplianceQuery)
-		fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "last policy query: %v\n", lastPolicyQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "policy list query: %v\n", policyListQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "policy compliance query with policy ID: %v\n", policyComplianceQuery)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "policy&placementbinding&placementrule mapping query: %v\n", policyMappingQuery)
 
 		if _, watch := ginCtx.GetQuery("watch"); watch {
 			handlePoliciesForWatch(ginCtx, policyListQuery, policyMappingQuery, policyComplianceQuery)
@@ -184,34 +184,34 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 	var err error
 	policyMatches, err = getPolicyMatches(policyMappingQuery)
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 	}
 	db := database.GetGorm()
 	policyRows, err := db.Raw(policyListQuery).Rows()
 	if err != nil {
-		fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
 	}
 
-	defer policyRows.Close()
+	defer func() { _ = policyRows.Close() }()
 
 	addedPolicies := set.NewSet()
 	for policyRows.Next() {
 		policyID, policy := "", &policyv1.Policy{}
 		var payload []byte
 		if err := policyRows.Scan(&policyID, &payload); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
 			continue
 		}
 
 		if err := json.Unmarshal(payload, policy); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policyPayload: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in scanning a policyPayload: %v\n", err)
 			continue
 		}
 
 		addedPolicies.Add(policyID + "/" + policy.GetName())
 		if err := sendPolicyWatchEvent(writer, policy, "ADDED",
 			policyComplianceQuery, policyID); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 	}
 
@@ -238,7 +238,7 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 		policyInstanceToDelete.SetName(policyNameName)
 		if err := sendPolicyWatchEvent(writer, policyInstanceToDelete, "DELETED",
 			policyComplianceQuery, policyID); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
 	}
 
@@ -303,13 +303,13 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	err := db.Raw(lastPolicyQuery).Row().Scan(&lastPolicyID, &lastPolicyPayload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, "error in querying last policy: %v\n", err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying last policy: %v\n", err)
 		return
 	}
 
 	if err == nil {
 		if e := json.Unmarshal(lastPolicyPayload, lastPolicy); e != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in querying last policy payload: %v\n", e)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying last policy payload: %v\n", e)
 			return
 		}
 	}
@@ -317,15 +317,15 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	policyMatches, err = getPolicyMatches(policyMappingQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 	}
 
 	policyRows, err := db.Raw(policyListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
-		fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
+		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
 	}
-	defer policyRows.Close()
+	defer func() { _ = policyRows.Close() }()
 
 	unstrPolicyList := &unstructured.UnstructuredList{
 		Object: map[string]interface{}{
@@ -338,25 +338,25 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	for policyRows.Next() {
 		var policyPayload []byte
 		if err := policyRows.Scan(&policyUID, &policyPayload); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in scanning a policy: %v\n", err)
 			continue
 		}
 		policy := &policyv1.Policy{}
 		if err := json.Unmarshal(policyPayload, policy); err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in Unmarshal a policyPayload : %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in Unmarshal a policyPayload : %v\n", err)
 			continue
 		}
 
 		compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(policyComplianceQuery, policyUID)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 			continue
 		}
 
 		unstrPolicy, err := assemblePolicyStatus(policy, policyMatches,
 			compliancePerClusterStatuses, hasNonCompliantClusters)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in assemble status: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in assemble status: %v\n", err)
 			continue
 		}
 
@@ -372,7 +372,7 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 		policyName != lastPolicy.GetName() {
 		continueToken, err := util.EncodeContinue(policyName, policyUID)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in encoding the continue token: %v\n", err)
 			return
 		}
 
@@ -380,23 +380,23 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	}
 
 	if util.ShouldReturnAsTable(ginCtx) {
-		fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
+		_, _ = fmt.Fprintf(gin.DefaultWriter, "Returning as table...\n")
 
 		tableConvertor, err := tableconvertor.New(customResourceColumnDefinitions)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in creating table convertor: %v\n", err)
 			return
 		}
 
 		policiesList, err := wrapObjectsInList(unstrPolicyList.Items)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in wrapping policies in a list: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in wrapping policies in a list: %v\n", err)
 			return
 		}
 
 		table, err := tableConvertor.ConvertToTable(context.TODO(), policiesList, nil)
 		if err != nil {
-			fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
+			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in converting to table: %v\n", err)
 			return
 		}
 
@@ -421,12 +421,12 @@ func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
 			fmt.Errorf("error in querying policy & placementbinding & placementrule mapping: - %w", err)
 	}
 
-	defer policyMatchRows.Close()
+	defer func() { _ = policyMatchRows.Close() }()
 
 	for policyMatchRows.Next() {
 		var policyName, placementbindingName, placementruleName string
 		if err := policyMatchRows.Scan(&policyName, &placementbindingName, &placementruleName); err != nil {
-			fmt.Fprintf(gin.DefaultWriter,
+			_, _ = fmt.Fprintf(gin.DefaultWriter,
 				"error in reading policy & placementbinding & placementrule match table rows: %v\n", err)
 			continue
 		}
@@ -459,7 +459,7 @@ func getComplianceStatus(policyComplianceQuery, policyID string,
 		return compliancePerClusterStatuses, hasNonCompliantClusters,
 			fmt.Errorf("error in querying policy compliances: - %w", err)
 	}
-	defer policyComplianceRows.Close()
+	defer func() { _ = policyComplianceRows.Close() }()
 
 	for policyComplianceRows.Next() {
 		var clusterName, leafHubName, complianceInDB string
@@ -517,9 +517,10 @@ func assemblePolicyStatus(policy *policyv1.Policy, policyMatches []*policyMatch,
 
 	var complianceClusterNumber, nonComplianceClusterNumber int32 = 0, 0
 	for _, compliancePerClusterStatus := range compliancePerClusterStatuses {
-		if compliancePerClusterStatus.ComplianceState == policyv1.Compliant {
+		switch compliancePerClusterStatus.ComplianceState {
+		case policyv1.Compliant:
 			complianceClusterNumber += 1
-		} else if compliancePerClusterStatus.ComplianceState == policyv1.NonCompliant {
+		case policyv1.NonCompliant:
 			nonComplianceClusterNumber += 1
 		}
 	}

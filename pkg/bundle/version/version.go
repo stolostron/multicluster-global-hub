@@ -50,79 +50,79 @@ type Version struct {
 
 // NewerThan returns whether the caller's version is newer than that received as argument.
 // If other = nil the result is true.
-func (this *Version) NewerThan(other *Version) bool {
+func (v *Version) NewerThan(other *Version) bool {
 	if other == nil {
 		return true
 	}
-	if this.Equals(other) {
+	if v.Equals(other) {
 		return false
 	}
-	if this.Generation > other.Generation {
+	if v.Generation > other.Generation {
 		return true
-	} else if this.Generation < other.Generation {
+	} else if v.Generation < other.Generation {
 		return false
 	} else {
-		return this.Value > other.Value
+		return v.Value > other.Value
 	}
 }
 
 // Equals returns whether the caller's version is equal to that received as argument.
-func (this *Version) Equals(other *Version) bool {
-	return this.Generation == other.Generation && this.Value == other.Value
+func (v *Version) Equals(other *Version) bool {
+	return v.Generation == other.Generation && v.Value == other.Value
 }
 
 // Equals returns whether the bundles are updated with the same value.
-func (this *Version) EqualValue(other *Version) bool {
+func (v *Version) EqualValue(other *Version) bool {
 	if other == nil {
 		return false
 	}
-	return this.Value == other.Value
+	return v.Value == other.Value
 }
 
 // NewerValueThan returns whether the caller's value is newer than that received as argument.
 // If other = nil the result is true.
-func (this *Version) NewerValueThan(other *Version) bool {
+func (v *Version) NewerValueThan(other *Version) bool {
 	if other == nil {
 		return true
 	}
-	return this.Value > other.Value
+	return v.Value > other.Value
 }
 
-func (this *Version) NewerGenerationThan(other *Version) bool {
+func (v *Version) NewerGenerationThan(other *Version) bool {
 	if other == nil {
 		return true
 	}
-	return this.Generation >= other.Generation
+	return v.Generation >= other.Generation
 }
 
 // String returns string representation of the bundle version.
-func (this *Version) String() string {
-	return fmt.Sprintf("%d.%d", this.Generation, this.Value)
+func (v *Version) String() string {
+	return fmt.Sprintf("%d.%d", v.Generation, v.Value)
 }
 
 // Incr increments the Value when bundle is updated.
-func (this *Version) Incr() {
-	this.Value++
-	if this.Value >= math.MaxUint64-100 {
-		this.Reset()
+func (v *Version) Incr() {
+	v.Value++
+	if v.Value >= math.MaxUint64-100 {
+		v.Reset()
 	}
 }
 
 // Next increments the Generation and resets the Value when bundle is sended to the hub.
-func (this *Version) Next() {
-	this.Generation++
-	if this.Generation >= math.MaxUint64-100 {
-		this.Reset()
+func (v *Version) Next() {
+	v.Generation++
+	if v.Generation >= math.MaxUint64-100 {
+		v.Reset()
 	}
 }
 
 // Reset resets the bundle version with minimal Generation and Value.
-func (this *Version) Reset() {
-	this.Generation = 0
-	this.Value = 0
+func (v *Version) Reset() {
+	v.Generation = 0
+	v.Value = 0
 }
 
 // InitGen returns whether the bundle version is first Generation.
-func (this *Version) InitGen() bool {
-	return this.Generation == 0
+func (v *Version) InitGen() bool {
+	return v.Generation == 0
 }

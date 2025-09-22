@@ -57,7 +57,7 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// mgh is used to update backup condition
 	mghList := &globalhubv1alpha4.MulticlusterGlobalHubList{}
-	err := r.Client.List(ctx, mghList)
+	err := r.List(ctx, mghList)
 	if err != nil {
 		log.Error(err)
 		return ctrl.Result{}, err

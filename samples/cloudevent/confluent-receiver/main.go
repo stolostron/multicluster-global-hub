@@ -20,10 +20,6 @@ import (
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
-const (
-	count = 10
-)
-
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Please provide at least one topic command-line argument.")
@@ -53,7 +49,11 @@ func main() {
 		log.Fatalf("failed to subscribe topic: %v", err)
 	}
 
-	defer receiver.Close(ctx)
+	defer func() {
+		if err := receiver.Close(ctx); err != nil {
+			log.Printf("failed to close receiver: %v", err)
+		}
+	}()
 
 	c, err := cloudevents.NewClient(receiver, cloudevents.WithTimeNow(), cloudevents.WithUUIDs(),
 		client.WithPollGoroutines(1), client.WithBlockingCallback())
@@ -85,6 +85,8 @@ func handleEvent(ctx context.Context, event cloudevents.Event) {
 		processBundle[clusterv1.ManagedCluster](event)
 	case string(enum.LocalPolicySpecType):
 		processBundle[policiesv1.Policy](event)
+	case string(enum.ManagedClusterMigrationType):
+		fmt.Println(event)
 	default:
 		// // unknown types
 		// payload, _ := json.MarshalIndent(event, "", "  ")

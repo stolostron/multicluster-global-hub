@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -40,10 +41,7 @@ func NewTestPostgres() (*TestPostgres, error) {
 
 	// generate random postgres port
 	postgresPort := uint32(rand.Intn(65535-1024) + 1024)
-	for {
-		if isPortAvailable(postgresPort) {
-			break
-		}
+	for !isPortAvailable(postgresPort) {
 		postgresPort = uint32(rand.Intn(65535-1024) + 1024)
 	}
 
@@ -220,6 +218,10 @@ func isPortAvailable(port uint32) bool {
 	if err != nil {
 		return false
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			log.Printf("failed to close listener: %v", err)
+		}
+	}()
 	return true
 }

@@ -58,6 +58,11 @@ const (
 	GHManagedClusterAddonName = "multicluster-global-hub-controller"
 )
 
+const (
+	// migration timeout for each stage
+	MigrationStageTimeout = "stageTimeout"
+)
+
 // const (
 // 	// GHAgentDeployModeLabelKey is to indicate which deploy mode the agent is installed.
 // 	GHAgentDeployModeLabelKey = "global-hub.open-cluster-management.io/agent-deploy-mode"
@@ -250,4 +255,20 @@ const (
 	LocalMode DeployMode = "local"
 	// StandaloneMode represents the standalone deploy mode.
 	StandaloneMode DeployMode = "standalone"
+)
+
+// EventSendMode defines the event sending mode
+type EventSendMode string
+
+const (
+	// EventSendModeBatch sends all events as a bundle in single CloudEvent
+	EventSendModeBatch EventSendMode = "batch"
+	// EventSendModeSingle sends each event as separate CloudEvent
+	EventSendModeSingle EventSendMode = "single"
+)
+
+// CloudEvent extensions for event mode identification
+const (
+	// ExtEventSendMode indicates whether this is a batch or single event
+	ExtEventSendMode = "event-send-mode"
 )

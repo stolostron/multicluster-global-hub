@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-08-04T07:24:30Z"
+    createdAt: "2025-08-27T07:10:21Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -87,11 +87,32 @@ spec:
         name: multicluster-global-hub-manager
         version: v1
       specDescriptors:
-      - description: IncludedManagedClusters is a list of managed clusters that you
-          want to migrate
+      - description: From specifies the source hub cluster from which the managed
+          clusters originate.
+        displayName: From
+        path: from
+      - description: IncludedManagedClusters is an explicit list of managed clusters
+          to include in the migration operation. This field is mutually exclusive
+          with IncludedManagedClustersPlacementRef.
         displayName: Included Managed Clusters
         path: includedManagedClusters
-      - description: To defines which hub cluster the managed clusters migrate to
+      - description: IncludedManagedClustersPlacementRef specifies the name of a Placement
+          resource that determines which managed clusters are included in the migration
+          operation. The referenced Placement must be defined in the global hub agent
+          namespace of the source hub cluster, such as "multicluster-global-hub" or
+          "multicluster-global-hub-agent". This field is mutually exclusive with IncludedManagedClusters.
+        displayName: Included Managed Clusters Placement
+        path: includedManagedClustersPlacementRef
+      - description: SupportedConfigs defines additional configuration options for
+          the migration
+        displayName: Supported Configs
+        path: supportedConfigs
+      - description: StageTimeout defines the timeout duration for each migration
+          stage
+        displayName: Stage Timeout
+        path: supportedConfigs.stageTimeout
+      - description: To specifies the target hub cluster to which the managed clusters
+          will be migrated.
         displayName: To
         path: to
       statusDescriptors:
@@ -506,8 +527,11 @@ spec:
           - klusterletaddonconfigs
           verbs:
           - create
+          - delete
           - get
           - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - apiextensions.k8s.io

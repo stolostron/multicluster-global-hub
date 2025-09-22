@@ -115,7 +115,7 @@ func (d *HoHDeployer) deployService(desiredObj, existingObj *unstructured.Unstru
 	if !apiequality.Semantic.DeepDerivative(desiredService.Spec, existingService.Spec) ||
 		!apiequality.Semantic.DeepDerivative(desiredService.GetLabels(), existingService.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredService.GetAnnotations(), existingService.GetAnnotations()) {
-		desiredService.ObjectMeta.ResourceVersion = existingService.ObjectMeta.ResourceVersion
+		desiredService.ResourceVersion = existingService.ResourceVersion
 		desiredService.Spec.ClusterIP = existingService.Spec.ClusterIP
 		return d.client.Update(context.TODO(), desiredService)
 	}
@@ -166,7 +166,7 @@ func (d *HoHDeployer) deployPodMonitor(desiredObj, existingObj *unstructured.Uns
 	if !apiequality.Semantic.DeepDerivative(desiredMonitor.Spec, existingMonitor.Spec) ||
 		!apiequality.Semantic.DeepDerivative(desiredMonitor.GetLabels(), existingMonitor.GetLabels()) ||
 		!apiequality.Semantic.DeepDerivative(desiredMonitor.GetAnnotations(), existingMonitor.GetAnnotations()) {
-		desiredMonitor.ObjectMeta.ResourceVersion = existingMonitor.ObjectMeta.ResourceVersion
+		desiredMonitor.ResourceVersion = existingMonitor.ResourceVersion
 		return d.client.Update(context.TODO(), desiredMonitor)
 	}
 

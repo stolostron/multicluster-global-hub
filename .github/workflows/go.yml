@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -29,6 +29,11 @@ jobs:
 
       - name: Setup gofumpt
         run: go install mvdan.cc/gofumpt@latest
+        
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.1
 
       - name: format
         run: make strict-fmt
@@ -37,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: bundle
         run: cd operator && make bundle
@@ -58,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create k8s Kind Cluster
         uses: helm/kind-action@v1

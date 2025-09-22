@@ -1,7 +1,7 @@
-// Copyright (c) 2024 Red Hat, Inc.
+// Copyright (c) 2025 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package syncers
+package migration
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -48,6 +49,9 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 	}
 	if err := clusterv1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
 	}
 	if err := operatorv1.AddToScheme(scheme); err != nil {
 		t.Fatalf("Failed to add operatorv1 to scheme: %v", err)
@@ -473,7 +477,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 
 			managedClusterMigrationSyncer := NewMigrationSourceSyncer(fakeClient, nil, transportClient,
 				transportConfig)
-			managedClusterMigrationSyncer.currentMigrationId = currentSyncerMigrationId
+			managedClusterMigrationSyncer.processingMigrationId = currentSyncerMigrationId
 			payload, err := json.Marshal(c.receivedMigrationEventBundle)
 			assert.Nil(t, err)
 			if err != nil {
@@ -626,4 +630,251 @@ func (m *ProducerMock) SendEvent(ctx context.Context, evt cloudevents.Event) err
 
 func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig, topic string) error {
 	return nil
+}
+
+// TestValidating tests the validating phase of migration
+func TestValidating(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name                 string
+		migrationBundle      *migration.MigrationSourceBundle
+		initObjects          []client.Object
+		expectedClusters     []string
+		expectedError        bool
+		expectedErrorMessage string
+	}{
+		{
+			name: "Should get clusters from placement decisions successfully",
+			migrationBundle: &migration.MigrationSourceBundle{
+				MigrationId:   "test-migration-123",
+				PlacementName: "test-placement",
+			},
+			initObjects: []client.Object{
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-placement-decision-1",
+						Namespace: "default",
+						Labels: map[string]string{
+							clusterv1beta1.PlacementLabel: "test-placement",
+						},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{
+							{ClusterName: "cluster1"},
+							{ClusterName: "cluster2"},
+						},
+					},
+				},
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-placement-decision-2",
+						Namespace: "default",
+						Labels: map[string]string{
+							clusterv1beta1.PlacementLabel: "test-placement",
+						},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{
+							{ClusterName: "cluster3"},
+						},
+					},
+				},
+			},
+			expectedClusters: []string{"cluster1", "cluster2", "cluster3"},
+			expectedError:    false,
+		},
+		{
+			name: "Should handle empty placement decisions",
+			migrationBundle: &migration.MigrationSourceBundle{
+				MigrationId:   "test-migration-456",
+				PlacementName: "empty-placement",
+			},
+			initObjects:      []client.Object{},
+			expectedClusters: nil, // Returns nil when no placement decisions found
+			expectedError:    false,
+		},
+		{
+			name: "Should handle no placement name provided",
+			migrationBundle: &migration.MigrationSourceBundle{
+				MigrationId:   "test-migration-789",
+				PlacementName: "",
+			},
+			initObjects:      []client.Object{},
+			expectedClusters: nil,
+			expectedError:    false,
+		},
+		{
+			name: "Should filter out empty cluster names",
+			migrationBundle: &migration.MigrationSourceBundle{
+				MigrationId:   "test-migration-filter",
+				PlacementName: "filter-placement",
+			},
+			initObjects: []client.Object{
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "filter-placement-decision",
+						Namespace: "default",
+						Labels: map[string]string{
+							clusterv1beta1.PlacementLabel: "filter-placement",
+						},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{
+							{ClusterName: "cluster1"},
+							{ClusterName: ""}, // Empty cluster name should be filtered out
+							{ClusterName: "cluster2"},
+						},
+					},
+				},
+			},
+			expectedClusters: []string{"cluster1", "cluster2"},
+			expectedError:    false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			// Create a copy of the migration bundle to avoid modifying the original
+			bundle := &migration.MigrationSourceBundle{
+				MigrationId:     c.migrationBundle.MigrationId,
+				PlacementName:   c.migrationBundle.PlacementName,
+				ManagedClusters: c.migrationBundle.ManagedClusters,
+			}
+
+			err := syncer.validating(ctx, bundle)
+
+			if c.expectedError {
+				assert.NotNil(t, err)
+				if c.expectedErrorMessage != "" {
+					assert.Contains(t, err.Error(), c.expectedErrorMessage)
+				}
+			} else {
+				assert.Nil(t, err)
+				if c.migrationBundle.PlacementName != "" {
+					// When placement name is provided, ManagedClusters should be set to whatever getClustersFromPlacementDecisions returns
+					assert.Equal(t, c.expectedClusters, bundle.ManagedClusters)
+				} else {
+					// When placement name is empty, ManagedClusters should remain unchanged
+					assert.Equal(t, c.migrationBundle.ManagedClusters, bundle.ManagedClusters)
+				}
+			}
+		})
+	}
+}
+
+// TestGetClustersFromPlacementDecisions tests the getClustersFromPlacementDecisions function
+func TestGetClustersFromPlacementDecisions(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+
+	if err := clusterv1beta1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1beta1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name                 string
+		placementName        string
+		initObjects          []client.Object
+		expectedClusters     []string
+		expectedError        bool
+		expectedErrorMessage string
+	}{
+		{
+			name:          "Should return clusters from multiple placement decisions",
+			placementName: "test-placement",
+			initObjects: []client.Object{
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-placement-decision-1",
+						Namespace: "default",
+						Labels: map[string]string{
+							clusterv1beta1.PlacementLabel: "test-placement",
+						},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{
+							{ClusterName: "cluster1"},
+							{ClusterName: "cluster2"},
+						},
+					},
+				},
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-placement-decision-2",
+						Namespace: "default",
+						Labels: map[string]string{
+							clusterv1beta1.PlacementLabel: "test-placement",
+						},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{
+							{ClusterName: "cluster3"},
+						},
+					},
+				},
+			},
+			expectedClusters: []string{"cluster1", "cluster2", "cluster3"},
+			expectedError:    false,
+		},
+		{
+			name:             "Should return empty list when no placement decisions found",
+			placementName:    "nonexistent-placement",
+			initObjects:      []client.Object{},
+			expectedClusters: nil, // Returns nil when no clusters found
+			expectedError:    false,
+		},
+		{
+			name:          "Should handle placement decisions with no clusters",
+			placementName: "empty-placement",
+			initObjects: []client.Object{
+				&clusterv1beta1.PlacementDecision{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "empty-placement-decision",
+						Namespace: "default",
+						Labels: map[string]string{
+							clusterv1beta1.PlacementLabel: "empty-placement",
+						},
+					},
+					Status: clusterv1beta1.PlacementDecisionStatus{
+						Decisions: []clusterv1beta1.ClusterDecision{},
+					},
+				},
+			},
+			expectedClusters: nil, // Returns nil when no clusters found
+			expectedError:    false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			clusters, err := syncer.getClustersFromPlacementDecisions(ctx, c.placementName)
+
+			if c.expectedError {
+				assert.NotNil(t, err)
+				if c.expectedErrorMessage != "" {
+					assert.Contains(t, err.Error(), c.expectedErrorMessage)
+				}
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, c.expectedClusters, clusters)
+			}
+		})
+	}
 }

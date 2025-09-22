@@ -150,18 +150,6 @@ func (r *PostgresConfigUserReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func configMapDataEqual(data1, data2 map[string]string) bool {
-	if len(data1) != len(data2) {
-		return false
-	}
-	for key, value := range data1 {
-		if data2[key] != value {
-			return false
-		}
-	}
-	return true
-}
-
 // postgres user configuration
 func (r *PostgresConfigUserReconciler) applyPostgresUsers(ctx context.Context, conn *pgx.Conn,
 	pgUsers map[string]string, mgh *v1alpha4.MulticlusterGlobalHub,

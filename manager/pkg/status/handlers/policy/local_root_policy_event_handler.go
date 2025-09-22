@@ -29,7 +29,7 @@ type localRootPolicyEventHandler struct {
 
 func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.LocalRootPolicyEventType)
-	logName := strings.Replace(eventType, enum.EventTypePrefix, "", -1)
+	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &localRootPolicyEventHandler{
 		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
@@ -49,7 +49,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
-	data := []event.RootPolicyEvent{}
+	data := event.RootPolicyEventBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 				Source:         sourceJSONB,
 				Count:          int(element.Count),
 				Compliance:     string(common.GetDatabaseCompliance(element.Compliance, h.log)),
-				CreatedAt:      element.CreatedAt.Time,
+				CreatedAt:      element.CreatedAt,
 			},
 		})
 	}

@@ -3,6 +3,7 @@ package migration
 import (
 	"context"
 	"sort"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -24,7 +26,7 @@ func (m *ClusterMigrationController) selectAndPrepareMigration(ctx context.Conte
 	req ctrl.Request,
 ) (*migrationv1alpha1.ManagedClusterMigration, error) {
 	migrationList := &migrationv1alpha1.ManagedClusterMigrationList{}
-	if err := m.List(ctx, migrationList); err != nil {
+	if err := m.List(ctx, migrationList, &client.ListOptions{Namespace: utils.GetDefaultNamespace()}); err != nil {
 		return nil, err
 	}
 
@@ -93,9 +95,21 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 	phase string,
 ) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := m.Client.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
+		if err := m.Get(ctx, client.ObjectKeyFromObject(mcm), mcm); err != nil {
 			return err
 		}
+		// Check if the condition exists and has changed
+		existingCondition := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type)
+		conditionChanged := existingCondition == nil ||
+			existingCondition.Status != condition.Status ||
+			existingCondition.Reason != condition.Reason ||
+			existingCondition.Message != condition.Message
+
+		// Only set LastTransitionTime if condition has changed or doesn't exist
+		if conditionChanged && condition.LastTransitionTime.IsZero() {
+			condition.LastTransitionTime = metav1.NewTime(time.Now())
+		}
+
 		if meta.SetStatusCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {
 			mcm.Status.Phase = phase
 			log.Infof("update condition %s(%s): %s, phase: %s", condition.Type, condition.Reason, condition.Message, phase)

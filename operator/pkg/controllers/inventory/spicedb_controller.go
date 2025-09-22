@@ -135,7 +135,7 @@ func (r *spiceDBClusterReconciler) reconcileRelationsAPI(ctx context.Context,
 	operandConfig := config.GetOperandConfig(mgh)
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(manifests.RelationsAPIFiles),
 		deployer.NewHoHDeployer(r.GetClient())
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		log.Errorf("failed to create discovery client: %v", err)
 		return err

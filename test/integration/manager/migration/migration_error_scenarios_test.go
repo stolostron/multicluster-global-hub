@@ -485,6 +485,13 @@ var _ = Describe("Migration Error Scenarios", func() {
 				return m.Status.Phase
 			}, "10s", "200ms").Should(Equal(migrationv1alpha1.PhaseRollbacking))
 
+			By("Setting up short timeout for rollback test")
+			// Configure the migration to use a very short timeout for rollback testing
+			m.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+				StageTimeout: &metav1.Duration{Duration: 3 * time.Second}, // 3 sec stage = 6 sec rollback timeout
+			}
+			Expect(mgr.GetClient().Update(ctx, m)).To(Succeed())
+
 			By("Simulating partial rollback success (only from hub)")
 			migration.SetStarted(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseRollbacking)
 			migration.SetFinished(string(m.GetUID()), fromHubName, migrationv1alpha1.PhaseRollbacking)
@@ -492,7 +499,6 @@ var _ = Describe("Migration Error Scenarios", func() {
 
 			By("Verifying eventual transition to Failed phase despite rollback issues")
 			Eventually(func() error {
-				migration.RollbackTimeout = 7 * time.Second
 				if err := mgr.GetClient().Get(ctx, client.ObjectKeyFromObject(m), m); err != nil {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
@@ -511,7 +517,6 @@ var _ = Describe("Migration Error Scenarios", func() {
 				if condition.Status != metav1.ConditionFalse {
 					return fmt.Errorf("ConditionTypeRolledBack status expected False, got %s", condition.Status)
 				}
-				migration.RollbackTimeout = 5 * time.Minute
 				return nil
 			}, "15s", "200ms").Should(Succeed())
 		})

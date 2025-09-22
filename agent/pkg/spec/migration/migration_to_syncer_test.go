@@ -1,7 +1,7 @@
-// Copyright (c) 2024 Red Hat, Inc.
+// Copyright (c) 2025 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package syncers
+package migration
 
 import (
 	"context"
@@ -834,7 +834,7 @@ func TestMigrationToSyncer(t *testing.T) {
 
 			// For rollback tests, set the current migration ID to match the event
 			if c.migrationEvent.Stage == migrationv1alpha1.PhaseRollbacking {
-				managedClusterMigrationSyncer.SetMigrationID(c.migrationEvent.MigrationId)
+				managedClusterMigrationSyncer.processingMigrationId = c.migrationEvent.MigrationId
 			}
 
 			toEvent := c.migrationEvent
@@ -887,6 +887,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 	cases := []struct {
 		name                         string
 		receivedMigrationEventBundle migration.MigrationTargetBundle
+		eventSource                  string
 		initObjects                  []client.Object
 		expectedError                error
 	}{
@@ -894,10 +895,11 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 			name: "Deploying resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.MigrationTargetBundle{
 				MigrationId:                           "020340324302432049234023040320",
-				Stage:                                 migrationv1alpha1.ConditionTypeDeployed,
+				Stage:                                 migrationv1alpha1.PhaseDeploying,
 				ManagedServiceAccountName:             "test", // the migration cr name
 				ManagedServiceAccountInstallNamespace: "test",
 			},
+			eventSource:   "source-hub",
 			expectedError: nil,
 			initObjects: []client.Object{
 				&operatorv1.ClusterManager{
@@ -1004,9 +1006,13 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				t.Errorf("Failed to marshal payload of managed cluster migration: %v", err)
 			}
 
+			eventSource := constants.CloudEventGlobalHubClusterName
+			if c.eventSource != "" {
+				eventSource = c.eventSource
+			}
+
 			// sync managed cluster migration
-			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
-				"hub2", payload)
+			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, eventSource, "hub2", payload)
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
 				assert.Nil(t, err)
@@ -1056,7 +1062,7 @@ func TestDeploying(t *testing.T) {
 	transportClient := &controller.TransportClient{}
 	transportClient.SetProducer(&producer)
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, transportConfig)
-	syncer.currentMigrationId = migrationId
+	syncer.processingMigrationId = migrationId
 	err := syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
 
@@ -1189,7 +1195,7 @@ func TestRegistering(t *testing.T) {
 			migrationEvent: &migration.MigrationTargetBundle{
 				ManagedClusters: []string{"cluster1", "cluster2"},
 			},
-			expectedError: "failed to wait for all managed clusters to be ready",
+			expectedError: "failed to wait for the managed clusters to be ready",
 		},
 	}
 
@@ -1201,7 +1207,7 @@ func TestRegistering(t *testing.T) {
 
 			managedClusterMigrationSyncer := NewMigrationTargetSyncer(fakeClient, nil, nil)
 
-			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent)
+			err := managedClusterMigrationSyncer.registering(ctx, c.migrationEvent, map[string]string{})
 			if c.expectedError == "" {
 				assert.Nil(t, err)
 			} else {

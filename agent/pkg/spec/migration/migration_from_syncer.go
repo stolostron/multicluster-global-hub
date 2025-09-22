@@ -1,7 +1,7 @@
-// Copyright (c) 2024 Red Hat, Inc.
+// Copyright (c) 2025 Red Hat, Inc.
 // Copyright Contributors to the Open Cluster Management project
 
-package syncers
+package migration
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -45,15 +47,16 @@ const (
 
 	// Annotations
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
+	kubectlConfigAnnotation    = "kubectl.kubernetes.io/last-applied-configuration"
 )
 
 type MigrationSourceSyncer struct {
-	client             client.Client
-	restConfig         *rest.Config // for init no-cached client of the runtime manager
-	transportClient    transport.TransportClient
-	transportConfig    *transport.TransportInternalConfig
-	bundleVersion      *eventversion.Version
-	currentMigrationId string
+	client                client.Client
+	restConfig            *rest.Config // for init no-cached client of the runtime manager
+	transportClient       transport.TransportClient
+	transportConfig       *transport.TransportInternalConfig
+	bundleVersion         *eventversion.Version
+	processingMigrationId string
 }
 
 func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
@@ -76,10 +79,6 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
 
-	if migrationEvent.MigrationId == "" {
-		return fmt.Errorf("migrationId is required but not provided in event")
-	}
-
 	var err error
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
@@ -94,20 +93,33 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 // handleStage processes different migration stages
 func (s *MigrationSourceSyncer) handleStage(ctx context.Context, event *migration.MigrationSourceBundle) error {
-	// Handle initializing stage first (sets current migration ID)
-	if event.Stage == migrationv1alpha1.PhaseInitializing {
-		s.currentMigrationId = event.MigrationId
+	if event.MigrationId == "" {
+		return fmt.Errorf("migrationId is required but not provided in stage %s", event.Stage)
+	}
+
+	// Set current migration ID for stages that need cluster identification:
+	// - processingMigrationId is empty: always set, to handle restart case
+	// - Validating phase: always set (uses placement for cluster selection)
+	// - Initializing phase: only set when PlacementName is empty (uses individual cluster names)
+	//   When PlacementName is provided in Initializing, clusters are selected via placement,
+	//   so we don't need to set the migration ID here
+	if s.processingMigrationId == "" ||
+		event.Stage == migrationv1alpha1.PhaseValidating ||
+		event.RollbackStage == migrationv1alpha1.PhaseInitializing ||
+		(event.Stage == migrationv1alpha1.PhaseInitializing && event.PlacementName == "") {
+		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 	}
 
 	// Check if migration ID matches for all other stages
-	if s.currentMigrationId != event.MigrationId {
-		log.Infof("ignoring migration event %s, current migrationId is %s",
-			event.MigrationId, s.currentMigrationId)
-		return nil
+	if s.processingMigrationId != event.MigrationId {
+		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId,
+			event.MigrationId)
 	}
 
 	switch event.Stage {
+	case migrationv1alpha1.PhaseValidating:
+		return s.executeStage(ctx, event, s.validating)
 	case migrationv1alpha1.PhaseInitializing:
 		return s.executeStage(ctx, event, s.initializing)
 	case migrationv1alpha1.PhaseDeploying:
@@ -213,8 +225,15 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 	}
 	bootstrapSecret := source.BootstrapSecret
 	// ensure secret
+	currentBootstrapSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+		Name:      bootstrapSecret.Name,
+		Namespace: bootstrapSecret.Namespace,
+	}}
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, bootstrapSecret, func() error { return nil })
+		operation, err := controllerutil.CreateOrUpdate(ctx, m.client, currentBootstrapSecret, func() error {
+			currentBootstrapSecret.Data = bootstrapSecret.Data
+			return nil
+		})
 		log.Infof("bootstrap secret %s is %s", bootstrapSecret.GetName(), operation)
 		return err
 	})
@@ -240,35 +259,29 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 	// update managed cluster annotations to point to the new klusterletconfig
 	managedClusters := source.ManagedClusters
 	for _, managedCluster := range managedClusters {
-		mc := &clusterv1.ManagedCluster{}
-		if err := m.client.Get(ctx, types.NamespacedName{
-			Name: managedCluster,
-		}, mc); err != nil {
-			return err
-		}
-		annotations := mc.Annotations
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-
-		_, migrating := annotations[constants.ManagedClusterMigrating]
-		if migrating && annotations[KlusterletConfigAnnotation] == klusterletConfig.GetName() {
-			continue
+		mc := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: managedCluster,
+			},
 		}
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operation, err := controllerutil.CreateOrUpdate(ctx, m.client, mc, func() error {
-				// Update annotations within the CreateOrUpdate function
-				currentAnnotations := mc.GetAnnotations()
-				if currentAnnotations == nil {
-					currentAnnotations = make(map[string]string)
-				}
-				currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
-				currentAnnotations[constants.ManagedClusterMigrating] = ""
-				mc.SetAnnotations(currentAnnotations)
-				return nil
-			})
-			log.Infof("managed clusters %s is %s", mc.GetName(), operation)
-			return err
+			if err := m.client.Get(ctx, client.ObjectKeyFromObject(mc), mc); err != nil {
+				return err
+			}
+			currentAnnotations := mc.GetAnnotations()
+			if currentAnnotations == nil {
+				currentAnnotations = make(map[string]string)
+			}
+			currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
+			currentAnnotations[constants.ManagedClusterMigrating] = ""
+			mc.SetAnnotations(currentAnnotations)
+
+			err := m.client.Update(ctx, mc)
+			if err != nil {
+				return err
+			}
+			log.Infof("managed clusters %s is updated", mc.GetName())
+			return nil
 		}); err != nil {
 			return err
 		}
@@ -385,28 +398,6 @@ func ReportMigrationStatus(
 	return errors.New("transport client must not be nil")
 }
 
-func SendEvent(
-	ctx context.Context,
-	transportClient transport.TransportClient,
-	eventType string,
-	source string,
-	clusterName string,
-	payloadBytes []byte,
-	version *eventversion.Version,
-) error {
-	version.Incr()
-	e := utils.ToCloudEvent(eventType, source, clusterName, payloadBytes)
-	e.SetExtension(eventversion.ExtVersion, version.String())
-	if transportClient != nil {
-		if err := transportClient.GetProducer().SendEvent(ctx, e); err != nil {
-			return fmt.Errorf(errFailedToSendEvent, eventType, source, clusterName, err)
-		}
-		version.Next()
-		return nil
-	}
-	return errors.New("transport client must not be nil")
-}
-
 // prepareManagedClusterForMigration prepares a managed cluster for migration by cleaning metadata
 func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (
 	*clusterv1.ManagedCluster, error,
@@ -426,6 +417,7 @@ func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Co
 	if annotations != nil {
 		delete(annotations, constants.ManagedClusterMigrating)
 		delete(annotations, KlusterletConfigAnnotation)
+		delete(annotations, kubectlConfigAnnotation)
 		cluster.SetAnnotations(annotations)
 	}
 
@@ -444,6 +436,11 @@ func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Conte
 	// Clean metadata for migration
 	s.cleanObjectMetadata(addonConfig)
 	addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
+	annotations := addonConfig.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, kubectlConfigAnnotation)
+		addonConfig.SetAnnotations(annotations)
+	}
 
 	return addonConfig, nil
 }
@@ -617,8 +614,9 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 
 // reportStatus reports the migration status back to global hub
 func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migration.MigrationSourceBundle, err error) {
-	// Don't report if migration ID doesn't match current one
-	if s.currentMigrationId != spec.MigrationId {
+	// Don't report if migration ID doesn't match current one(expect the rollbacking status for the initilzing)
+	if s.processingMigrationId != spec.MigrationId &&
+		(spec.Stage != migrationv1alpha1.PhaseRollbacking && spec.RollbackStage != migrationv1alpha1.PhaseInitializing) {
 		return
 	}
 
@@ -631,9 +629,10 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 		s.transportClient,
 		&migration.MigrationStatusBundle{
-			MigrationId: spec.MigrationId,
-			Stage:       spec.Stage,
-			ErrMessage:  errMessage,
+			MigrationId:     spec.MigrationId,
+			Stage:           spec.Stage,
+			ErrMessage:      errMessage,
+			ManagedClusters: spec.ManagedClusters,
 		},
 		s.bundleVersion)
 
@@ -679,4 +678,58 @@ func (s *MigrationSourceSyncer) cleanupSingleCluster(ctx context.Context, cluste
 		log.Infof("deleted managed cluster %s", clusterName)
 	}
 	return nil
+}
+
+func ResyncMigrationEvent(ctx context.Context, transportClient transport.TransportClient,
+	transportConfig *transport.TransportInternalConfig,
+) error {
+	return ReportMigrationStatus(
+		cecontext.WithTopic(ctx, transportConfig.KafkaCredential.StatusTopic),
+		transportClient,
+		&migration.MigrationStatusBundle{
+			Resync: true,
+		}, eventversion.NewVersion(),
+	)
+}
+
+// validating handles the validating phase - get clusters from placement decisions and send to status bundle
+func (s *MigrationSourceSyncer) validating(ctx context.Context, source *migration.MigrationSourceBundle) error {
+	// If placement name is provided, get clusters from placement decisions
+	if source.PlacementName != "" {
+		clusters, err := s.getClustersFromPlacementDecisions(ctx, source.PlacementName)
+		if err != nil {
+			return fmt.Errorf("failed to get clusters from placement decisions: %w", err)
+		}
+		source.ManagedClusters = clusters
+		return nil
+	}
+
+	log.Infof("no placement name provided for migration %s", source.MigrationId)
+	return nil
+}
+
+// getClustersFromPlacementDecisions retrieves cluster list from placement decisions
+func (s *MigrationSourceSyncer) getClustersFromPlacementDecisions(
+	ctx context.Context,
+	placementName string,
+) ([]string, error) {
+	// List placement decisions that match the placement name
+	placementDecisions := &clusterv1beta1.PlacementDecisionList{}
+	err := s.client.List(ctx, placementDecisions,
+		client.MatchingLabels{clusterv1beta1.PlacementLabel: placementName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list placement decisions for placement %s: %w", placementName, err)
+	}
+
+	var clusters []string
+	for _, decision := range placementDecisions.Items {
+		for _, clusterDecision := range decision.Status.Decisions {
+			if clusterDecision.ClusterName != "" {
+				clusters = append(clusters, clusterDecision.ClusterName)
+			}
+		}
+	}
+
+	log.Infof("found %d clusters from placement decisions for placement %s: %v", len(clusters), placementName, clusters)
+	return clusters, nil
 }

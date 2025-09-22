@@ -20,6 +20,7 @@ type MigrationSourceBundle struct {
 	MigrationId     string         `json:"migrationId"`
 	Stage           string         `json:"stage"`
 	ToHub           string         `json:"toHub"`
+	PlacementName   string         `json:"placementName"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
 	RollbackStage   string         `json:"rollbackStage,omitempty"` // Indicates which stage is being rolled back
@@ -33,14 +34,17 @@ type MigrationTargetBundle struct {
 	ManagedServiceAccountInstallNamespace string   `json:"installNamespace,omitempty"`
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
 	RollbackStage                         string   `json:"rollbackStage,omitempty"`
+	RegisteringTimeoutMinutes             int      `json:"registeringTimeoutMinutes,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub
 type MigrationStatusBundle struct {
-	MigrationId string `json:"migrationId"`
-	Stage       string `json:"stage"`
-	ErrMessage  string `json:"errMessage,omitempty"`
-	// ManagedClusters []string `json:"managedClusters,omitempty"`
+	MigrationId     string            `json:"migrationId"`
+	Stage           string            `json:"stage"`
+	ErrMessage      string            `json:"errMessage,omitempty"`
+	Resync          bool              `json:"resync,omitempty"`
+	ManagedClusters []string          `json:"managedClusters,omitempty"`
+	ClusterErrors   map[string]string `json:"clusterErrors,omitempty"`
 }
 
 type MigrationResourceBundle struct {

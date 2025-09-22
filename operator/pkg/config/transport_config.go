@@ -39,7 +39,6 @@ var (
 	kafkaClientCACert     []byte
 	inventoryClientCAKey  []byte
 	inventoryClientCACert []byte
-	inventoryConn         *transport.RestfulConfig
 )
 
 func SetTransporterConn(conn *transport.KafkaConfig) bool {
@@ -160,7 +159,7 @@ func GetSpecTopic() string {
 
 // GetStatusTopic return the status topic with clusterName, like 'gh-status.<clusterName>'
 func GetStatusTopic(clusterName string) string {
-	return strings.Replace(statusTopic, "*", clusterName, -1)
+	return strings.ReplaceAll(statusTopic, "*", clusterName)
 }
 
 // GetRawStatusTopic return the validated statusTopic from mgh CR
@@ -289,4 +288,12 @@ func GetTransportConfigClientName(clusterName string) string {
 // GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate
 func GetKafkaUserName(clusterName string) string {
 	return fmt.Sprintf("%s-kafka-user", clusterName)
+}
+
+func GetConsumerGroupID(prefix, clusterName string) string {
+	consumerGroupID := clusterName
+	if prefix != "" {
+		consumerGroupID = prefix + clusterName
+	}
+	return strings.ReplaceAll(consumerGroupID, "-", "_")
 }

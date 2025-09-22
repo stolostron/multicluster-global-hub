@@ -75,24 +75,6 @@ func fakeMGH(namespace, name string) *operatorv1alpha4.MulticlusterGlobalHub {
 	return mgh
 }
 
-func fakeHoHAddon(cluster, installNamespace, addonDeployMode string) *v1alpha1.ManagedClusterAddOn {
-	addon := &v1alpha1.ManagedClusterAddOn{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.GHManagedClusterAddonName,
-			Namespace: cluster,
-		},
-		Spec: v1alpha1.ManagedClusterAddOnSpec{
-			InstallNamespace: installNamespace,
-		},
-	}
-
-	if addonDeployMode == constants.ClusterDeployModeHosted {
-		addon.SetAnnotations(map[string]string{constants.AnnotationAddonHostingClusterName: "hostingcluster"})
-	}
-
-	return addon
-}
-
 // go test -run ^TestAddonInstaller$ github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon
 func TestAddonInstaller(t *testing.T) {
 	namespace := "multicluster-global-hub"
@@ -154,46 +136,6 @@ func TestAddonInstaller(t *testing.T) {
 				if addon.Spec.InstallNamespace != constants.GHAgentNamespace {
 					t.Errorf("expected install name %s, but got %s",
 						operatorconstants.GHAgentInstallNamespace, addon.Spec.InstallNamespace)
-				}
-			},
-		},
-		{
-			name:            "create addon in hosted mode",
-			cluster:         fakeCluster("cluster1", "cluster2", constants.GHDeployModeHosted),
-			managementAddon: fakeClusterManagementAddon(),
-			mgh:             fakeMGH(namespace, name),
-			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
-			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
-				if err != nil {
-					t.Errorf("failed to reconcile .%v", err)
-				}
-				if addon.Spec.InstallNamespace != "klusterlet-cluster1" {
-					t.Errorf("expected installname klusterlet-cluster1, but got %s", addon.Spec.InstallNamespace)
-				}
-				if addon.Annotations[constants.AnnotationAddonHostingClusterName] != "cluster2" {
-					t.Errorf("expected hosting cluster cluster2, but got %s",
-						addon.Annotations[constants.AnnotationAddonHostingClusterName])
-				}
-			},
-		},
-		{
-			name: "update addon in hosted mode",
-			cluster: fakeCluster("cluster1", "cluster2",
-				constants.GHDeployModeHosted),
-			managementAddon: fakeClusterManagementAddon(),
-			mgh:             fakeMGH(namespace, name),
-			addon:           fakeHoHAddon("cluster1", "test", ""),
-			req:             reconcile.Request{NamespacedName: types.NamespacedName{Name: "cluster1"}},
-			validateFunc: func(t *testing.T, addon *v1alpha1.ManagedClusterAddOn, err error) {
-				if err != nil {
-					t.Errorf("failed to reconcile: %v", err)
-				}
-				if addon.Spec.InstallNamespace != "klusterlet-cluster1" {
-					t.Errorf("expected installname klusterlet-cluster1, but got %s", addon.Spec.InstallNamespace)
-				}
-				if addon.Annotations[constants.AnnotationAddonHostingClusterName] != "cluster2" {
-					t.Errorf("expected hosting cluster cluster2, but got %s",
-						addon.Annotations[constants.AnnotationAddonHostingClusterName])
 				}
 			},
 		},

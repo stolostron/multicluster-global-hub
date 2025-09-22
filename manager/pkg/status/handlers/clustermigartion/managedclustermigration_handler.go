@@ -69,14 +69,27 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("failed to parse migrationBundle event source")
 	}
 
+	if bundle.Resync {
+		migration.ResetMigrationStatus(hubClusterName)
+		log.Infof("reset migration status for hub: %s", hubClusterName)
+		return nil
+	}
+
 	if bundle.MigrationId == "" {
 		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
 	}
 
+	// Store managed clusters if provided
+	if len(bundle.ManagedClusters) > 0 {
+		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
+	}
+
 	if bundle.ErrMessage != "" {
 		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
+		migration.SetClusterErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ClusterErrors)
 	} else {
 		migration.SetFinished(bundle.MigrationId, hubClusterName, bundle.Stage)
 	}
+
 	return nil
 }

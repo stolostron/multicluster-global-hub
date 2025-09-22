@@ -119,7 +119,7 @@ func (r *SpiceDBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		deployer.NewHoHDeployer(r.GetClient())
 
 	// create discovery client
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		log.Errorf("failed to create discovery client: %v", err)
 		return ctrl.Result{}, err

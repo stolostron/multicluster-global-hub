@@ -65,7 +65,6 @@ func parseFlags() *configs.ManagerConfig {
 		SyncerConfig:   &configs.SyncerConfig{},
 		DatabaseConfig: &configs.DatabaseConfig{},
 		TransportConfig: &transport.TransportInternalConfig{
-			ConsumerGroupId:      "global-hub-manager",
 			EnableDatabaseOffset: true,
 		},
 		StatisticsConfig:    &statistics.StatisticsConfig{},
@@ -246,6 +245,10 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 			if err := specsyncer.AddToManager(mgr, managerConfig, producer); err != nil {
 				return fmt.Errorf("failed to add global resource spec syncers: %w", err)
 			}
+		}
+
+		if consumer == nil {
+			return fmt.Errorf("consumer is not initialized")
 		}
 
 		if err := status.AddStatusSyncers(mgr, consumer, requester, managerConfig); err != nil {

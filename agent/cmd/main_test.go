@@ -11,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	config "github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -40,14 +39,14 @@ func TestParseFlags(t *testing.T) {
 func TestCompleteConfig(t *testing.T) {
 	testCases := []struct {
 		name           string
-		agentConfig    *configs.AgentConfig
+		agentConfig    *config.AgentConfig
 		fakeClient     client.Client
-		expectConfig   *configs.AgentConfig
+		expectConfig   *config.AgentConfig
 		expectErrorMsg string
 	}{
 		{
 			name: "Invalid leaf-hub-name without standalone mode",
-			agentConfig: &configs.AgentConfig{
+			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
 				DeployMode:  string(constants.DefaultMode),
 			},
@@ -59,7 +58,7 @@ func TestCompleteConfig(t *testing.T) {
 		},
 		{
 			name: "Empty leaf-hub-name(clusterId) with standalone mode",
-			agentConfig: &configs.AgentConfig{
+			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
 				DeployMode:  string(constants.StandaloneMode),
 			},
@@ -71,7 +70,7 @@ func TestCompleteConfig(t *testing.T) {
 		},
 		{
 			name: "Invalid leaf-hub-name(clusterId) under standalone mode",
-			agentConfig: &configs.AgentConfig{
+			agentConfig: &config.AgentConfig{
 				LeafHubName: "",
 				DeployMode:  string(constants.StandaloneMode),
 			},
@@ -80,45 +79,49 @@ func TestCompleteConfig(t *testing.T) {
 		},
 		{
 			name: "Valid configuration under standalone mode",
-			agentConfig: &configs.AgentConfig{
+			agentConfig: &config.AgentConfig{
 				LeafHubName:      "",
 				DeployMode:       string(constants.StandaloneMode),
 				SpecWorkPoolSize: 5,
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "test-hub",
-					TransportType:   string(transport.Kafka),
+					TransportType: string(transport.Kafka),
+					KafkaCredential: &transport.KafkaConfig{
+						ConsumerGroupID: "test-hub",
+					},
 				},
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(&configv1.ClusterVersion{
 				ObjectMeta: metav1.ObjectMeta{Name: "version"},
 				Spec:       configv1.ClusterVersionSpec{ClusterID: configv1.ClusterID("123")},
 			}).Build(),
-			expectConfig: &configs.AgentConfig{
+			expectConfig: &config.AgentConfig{
 				LeafHubName:      "123",
 				DeployMode:       string(constants.StandaloneMode),
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "123",
-					TransportType:   string(transport.Kafka),
+					TransportType: string(transport.Kafka),
+					KafkaCredential: &transport.KafkaConfig{
+						ConsumerGroupID: "test-hub",
+					},
 				},
 			},
 		},
 		{
 			name: "Invalid work pool size",
-			agentConfig: &configs.AgentConfig{
+			agentConfig: &config.AgentConfig{
 				LeafHubName: "hub1",
 				DeployMode:  string(constants.DefaultMode),
 				TransportConfig: &transport.TransportInternalConfig{
 					TransportType: string(transport.Kafka),
 				},
 			},
-			fakeClient:     fake.NewClientBuilder().WithScheme(configs.GetRuntimeScheme()).WithObjects().Build(),
+			fakeClient:     fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
 			expectErrorMsg: "flag consumer-worker-pool-size should be in the scope [1, 100]",
 		},
 		{
 			name: "Valid configuration without standalone mode",
-			agentConfig: &configs.AgentConfig{
+			agentConfig: &config.AgentConfig{
 				LeafHubName:      "hub1",
 				DeployMode:       string(constants.DefaultMode),
 				SpecWorkPoolSize: 5,
@@ -127,14 +130,13 @@ func TestCompleteConfig(t *testing.T) {
 				},
 			},
 			fakeClient: fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects().Build(),
-			expectConfig: &configs.AgentConfig{
+			expectConfig: &config.AgentConfig{
 				LeafHubName:      "hub1",
 				DeployMode:       string(constants.DefaultMode),
 				SpecWorkPoolSize: 5,
 				MetricsAddress:   "0.0.0.0:8384",
 				TransportConfig: &transport.TransportInternalConfig{
-					ConsumerGroupId: "hub1",
-					TransportType:   string(transport.Kafka),
+					TransportType: string(transport.Kafka),
 				},
 			},
 		},

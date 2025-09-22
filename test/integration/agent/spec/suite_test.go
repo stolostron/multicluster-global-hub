@@ -47,10 +47,10 @@ var _ = BeforeSuite(func() {
 	leafHubName = "spec-hub"
 	agentConfig = &configs.AgentConfig{
 		TransportConfig: &transport.TransportInternalConfig{
-			TransportType:   string(transport.Chan),
-			ConsumerGroupId: "agent",
+			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
-				StatusTopic: "status",
+				StatusTopic:     "status",
+				ConsumerGroupID: "agent",
 			},
 		},
 		SpecWorkPoolSize:     2,
@@ -58,6 +58,7 @@ var _ = BeforeSuite(func() {
 		SpecEnforceHohRbac:   true,
 		EnableGlobalResource: true,
 	}
+	configs.SetAgentConfig(agentConfig)
 
 	testenv = &envtest.Environment{
 		CRDInstallOptions: envtest.CRDInstallOptions{

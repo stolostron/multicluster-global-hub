@@ -132,11 +132,13 @@ func (c *GenericConsumer) Reconnect(ctx context.Context,
 		c.consumerCancel()
 	}
 	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
-
+	consumerGroupId := tranConfig.KafkaCredential.ConsumerGroupID
 	go func() {
+		log.Infof("reconnect consumer: %s", consumerGroupId)
 		if err := c.Start(c.consumerCtx); err != nil {
-			log.Errorf("failed to reconnect(start) the consumer: %v", err)
+			log.Warnf("stop the consumer(%s): %v", consumerGroupId, err)
 		}
+		log.Infof("consumer stopped: %s", consumerGroupId)
 	}()
 	return nil
 }
@@ -174,9 +176,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		return ceprotocol.ResultACK
 	})
 	if err != nil {
-		return fmt.Errorf("failed to start Receiver: %w", err)
+		return fmt.Errorf("consumer receiver stopped with error: %w", err)
 	}
-	log.Info("receiver stopped\n")
 	return nil
 }
 
@@ -227,7 +228,7 @@ func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalCo
 	*kafka.Consumer, interface{}, error,
 ) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(transportConfig.KafkaCredential,
-		transportConfig.ConsumerGroupId)
+		transportConfig.KafkaCredential.ConsumerGroupID)
 	if err != nil {
 		return nil, nil, err
 	}

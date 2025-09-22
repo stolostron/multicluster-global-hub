@@ -31,7 +31,7 @@ type completeElement struct {
 }
 
 func NewCompleteElement(leafHubName string, registration *ConflationRegistration) *completeElement {
-	elementName := strings.Replace(registration.eventType, enum.EventTypePrefix, "", -1)
+	elementName := strings.ReplaceAll(registration.eventType, enum.EventTypePrefix, "")
 	return &completeElement{
 		log: ctrl.Log.WithName(fmt.Sprintf("%s.complete.%s", leafHubName, elementName)),
 

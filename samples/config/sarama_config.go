@@ -71,7 +71,9 @@ func GetSaramaConfigFromKafkaUser() (string, *sarama.Config, error) {
 		return "", nil, fmt.Errorf("failed to get kubeconfig")
 	}
 
-	kafkav1beta2.AddToScheme(scheme.Scheme)
+	if err := kafkav1beta2.AddToScheme(scheme.Scheme); err != nil {
+		return "", nil, fmt.Errorf("failed to add kafka scheme: %w", err)
+	}
 	c, err := client.New(kubeconfig, client.Options{Scheme: scheme.Scheme})
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get runtime client")

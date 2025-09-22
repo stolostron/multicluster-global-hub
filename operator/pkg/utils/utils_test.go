@@ -39,8 +39,6 @@ import (
 	commonconstants "github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-var now = metav1.Now()
-
 func Test_getAlertGPCcount(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -408,8 +406,8 @@ func Test_GetResources(t *testing.T) {
 
 func TestAnnotateManagedHubCluster(t *testing.T) {
 	s := runtime.NewScheme()
-	corev1.AddToScheme(s)
-	clusterv1.AddToScheme(s)
+	_ = corev1.AddToScheme(s)
+	_ = clusterv1.AddToScheme(s)
 
 	ctx := context.TODO()
 	initRuntimeObjs := []runtime.Object{}
@@ -418,7 +416,7 @@ func TestAnnotateManagedHubCluster(t *testing.T) {
 		t.Error("should throw the error that no kind is registered for the type v1alpha1.ManagedClusterAddOnList")
 	}
 
-	addonapiv1alpha1.AddToScheme(s)
+	_ = addonapiv1alpha1.AddToScheme(s)
 
 	mh_name := "test-mc-annotation"
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
@@ -553,8 +551,8 @@ func TestPruneMetricsResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			corev1.AddToScheme(scheme.Scheme)
-			promv1.AddToScheme(scheme.Scheme)
+			_ = corev1.AddToScheme(scheme.Scheme)
+			_ = promv1.AddToScheme(scheme.Scheme)
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithRuntimeObjects(tt.initObjects...).Build()
 			err := PruneMetricsResources(ctx, fakeClient, map[string]string{

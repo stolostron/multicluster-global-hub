@@ -81,7 +81,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -106,36 +107,6 @@ func TestRollbacking(t *testing.T) {
 			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
 		},
 		{
-			name: "should handle no source clusters found",
-			migration: &migrationv1alpha1.ManagedClusterMigration{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-migration",
-					Namespace: utils.GetDefaultNamespace(),
-					UID:       types.UID("test-uid"),
-				},
-				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
-				},
-				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
-					Phase: migrationv1alpha1.PhaseRollbacking,
-					Conditions: []metav1.Condition{
-						{
-							Type:               migrationv1alpha1.ConditionTypeStarted,
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: metav1.Time{Time: time.Now()},
-						},
-					},
-				},
-			},
-			setupSourceClusters:     false,
-			expectedRequeue:         false,
-			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
-			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
-		},
-		{
 			name: "should complete rollback successfully",
 			migration: &migrationv1alpha1.ManagedClusterMigration{
 				ObjectMeta: metav1.ObjectMeta{
@@ -144,7 +115,8 @@ func TestRollbacking(t *testing.T) {
 					UID:       types.UID("test-uid"),
 				},
 				Spec: migrationv1alpha1.ManagedClusterMigrationSpec{
-					To: "target-hub",
+					From: "source-hub",
+					To:   "target-hub",
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
@@ -163,18 +135,18 @@ func TestRollbacking(t *testing.T) {
 			},
 			setupSourceClusters: true,
 			initialStates: map[string]map[string]bool{
-				"source-hub-1": {
+				"source-hub": {
 					migrationv1alpha1.PhaseRollbacking: true, // finished
 				},
 				"target-hub": {
 					migrationv1alpha1.PhaseRollbacking: true, // finished
 				},
 			},
-			expectedRequeue:         false,
+			expectedRequeue:         false, // Should not requeue when rollback completes
 			expectedError:           false,
-			expectedPhase:           migrationv1alpha1.PhaseFailed,
-			expectedConditionStatus: metav1.ConditionTrue,
-			expectedConditionReason: ConditionReasonResourceRolledBack,
+			expectedPhase:           migrationv1alpha1.PhaseFailed,     // Should move to failed phase after rollback
+			expectedConditionStatus: metav1.ConditionTrue,              // Condition should be true (completed)
+			expectedConditionReason: ConditionReasonResourceRolledBack, // Should indicate rollback completed
 			expectedConditionType:   migrationv1alpha1.ConditionTypeRolledBack,
 		},
 		{
@@ -264,9 +236,27 @@ func TestRollbacking(t *testing.T) {
 				Producer: &MockProducer{},
 			}
 
-			// Setup test state
-			if tt.setupSourceClusters {
-				SetSourceClusters(string(tt.migration.UID), "source-hub-1", []string{"cluster1", "cluster2"})
+			// Set up timeout configuration for non-timeout tests
+			if tt.name != "should handle timeout in rollback" {
+				// Create a migration with long timeout for non-timeout tests
+				testMigration := tt.migration.DeepCopy()
+				testMigration.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 30 * time.Minute},
+				}
+				err := controller.SetupMigrationStageTimeout(testMigration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
+			} else {
+				// For timeout test, use a very short timeout to ensure timeout occurs
+				testMigration := tt.migration.DeepCopy()
+				testMigration.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 2 * time.Minute}, // 2 min stage = 4 min rollback timeout
+				}
+				err := controller.SetupMigrationStageTimeout(testMigration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
 			}
 
 			// Setup initial states for migration tracking
@@ -493,8 +483,29 @@ func TestHandleRollbackStatus(t *testing.T) {
 				Producer: &MockProducer{},
 			}
 
+			// Set up timeout configuration for timeout tests
+			if tt.simulateTimeout {
+				// Use short timeout for timeout test
+				testMigration := tt.migration.DeepCopy()
+				testMigration.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
+					StageTimeout: &metav1.Duration{Duration: 2 * time.Minute}, // 2 min stage = 4 min rollback timeout
+				}
+				err := controller.SetupMigrationStageTimeout(testMigration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
+			} else {
+				// Use default timeouts for non-timeout tests
+				err := controller.SetupMigrationStageTimeout(tt.migration)
+				if err != nil {
+					t.Fatalf("Failed to setup timeouts: %v", err)
+				}
+			}
+
 			ctx := context.TODO()
-			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase)
+			waitingHub := "test-hub"
+			failedStage := "Initializing"
+			controller.handleRollbackStatus(ctx, tt.migration, tt.condition, tt.nextPhase, &waitingHub, failedStage)
 
 			// Verify the results
 			assert.Equal(t, tt.expectedPhase, tt.migration.Status.Phase)
@@ -504,7 +515,7 @@ func TestHandleRollbackStatus(t *testing.T) {
 			assert.Equal(t, tt.expectedConditionReason, condition.Reason)
 
 			if tt.simulateTimeout {
-				assert.Contains(t, condition.Message, "[Timeout]")
+				assert.Contains(t, condition.Message, "Timeout")
 			}
 		})
 	}

@@ -80,8 +80,8 @@ func TestCreateCertificates(t *testing.T) {
 	}
 	mgh := getMGH()
 	s := scheme.Scheme
-	v1alpha4.SchemeBuilder.AddToScheme(s)
-	routev1.AddToScheme(s)
+	_ = v1alpha4.SchemeBuilder.AddToScheme(s)
+	_ = routev1.AddToScheme(s)
 
 	c := fake.NewClientBuilder().WithRuntimeObjects(route).Build()
 
@@ -111,7 +111,7 @@ func TestRemoveExpiredCA(t *testing.T) {
 	oldCertLength := len(caSecret.Data["tls.crt"])
 	c := fake.NewClientBuilder().WithRuntimeObjects(caSecret).Build()
 	removeExpiredCA(c, InventoryServerCASecretName, namespace)
-	c.Get(context.TODO(),
+	_ = c.Get(context.TODO(),
 		types.NamespacedName{Name: InventoryServerCASecretName, Namespace: namespace},
 		caSecret)
 	if len(caSecret.Data["tls.crt"]) != oldCertLength/2 {
@@ -157,7 +157,7 @@ func TestGetInventoryCredential(t *testing.T) {
 	}
 
 	s := scheme.Scheme
-	routev1.AddToScheme(s)
+	_ = routev1.AddToScheme(s)
 	config.SetMGHNamespacedName(types.NamespacedName{
 		Name:      name,
 		Namespace: namespace,

@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	globalhubv1alpha4 "github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
@@ -93,7 +92,7 @@ func (r *InventoryReconciler) IsResourceRemoved() bool {
 // SetupWithManager sets up the controller with the Manager.
 func (r *InventoryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).Named("inventory").
-		For(&v1alpha4.MulticlusterGlobalHub{},
+		For(&globalhubv1alpha4.MulticlusterGlobalHub{},
 			builder.WithPredicates(config.MGHPred)).
 		Watches(&appsv1.Deployment{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(deploymentPred)).
@@ -176,7 +175,7 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		deployer.NewHoHDeployer(r.GetClient())
 
 	// create discovery client
-	dc, err := discovery.NewDiscoveryClientForConfig(r.Manager.GetConfig())
+	dc, err := discovery.NewDiscoveryClientForConfig(r.GetConfig())
 	if err != nil {
 		reconcileErr = err
 		return ctrl.Result{}, reconcileErr

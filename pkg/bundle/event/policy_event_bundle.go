@@ -14,6 +14,6 @@ type ReplicatedPolicyEvent struct {
 	Compliance  string `json:"compliance"`
 }
 
-type ReplicatedPolicyEventBundle []ReplicatedPolicyEvent
+type ReplicatedPolicyEventBundle []*ReplicatedPolicyEvent
 
-type RootPolicyEventBundle []RootPolicyEvent
+type RootPolicyEventBundle []*RootPolicyEvent

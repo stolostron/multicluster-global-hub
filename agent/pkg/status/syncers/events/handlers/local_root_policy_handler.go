@@ -28,7 +28,7 @@ var PolicyMessageStatusRe = regexp.
 	MustCompile(`Policy (.+) status was updated to (.+) in cluster namespace (.+)`)
 
 func NewRootPolicyEventEmitter(eventType enum.EventType) interfaces.Emitter {
-	name := strings.Replace(string(eventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(eventType), enum.EventTypePrefix, "")
 	return generic.NewGenericEmitter(eventType, generic.WithPostSend(
 		// After sending the event, update the filter cache and clear the bundle from the handler cache.
 		func(data interface{}) {
@@ -38,7 +38,7 @@ func NewRootPolicyEventEmitter(eventType enum.EventType) interfaces.Emitter {
 			}
 			// update the time filter: with latest event
 			for _, evt := range *events {
-				filter.CacheTime(name, evt.CreatedAt.Time)
+				filter.CacheTime(name, evt.CreatedAt)
 			}
 			// reset the payload
 			*events = (*events)[:0]
@@ -57,7 +57,7 @@ type localRootPolicyHandler struct {
 }
 
 func NewLocalRootPolicyEventHandler(ctx context.Context, c client.Client) *localRootPolicyHandler {
-	name := strings.Replace(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "", -1)
+	name := strings.ReplaceAll(string(enum.LocalRootPolicyEventType), enum.EventTypePrefix, "")
 	filter.RegisterTimeFilter(name)
 	return &localRootPolicyHandler{
 		ctx:           ctx,
@@ -99,12 +99,12 @@ func (h *localRootPolicyHandler) Update(obj client.Object) bool {
 			Reason:         evt.Reason,
 			Count:          getEventCount(evt),
 			Source:         evt.Source,
-			CreatedAt:      getEventLastTime(evt),
+			CreatedAt:      getEventLastTime(evt).Time,
 		},
 		PolicyID:   string(policy.GetUID()),
 		Compliance: policyCompliance(policy, evt),
 	}
-	*h.payload = append(*h.payload, rootPolicyEvent)
+	*h.payload = append(*h.payload, &rootPolicyEvent)
 	return true
 }
 

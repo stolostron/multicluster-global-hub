@@ -86,17 +86,19 @@ func TestMigrationStatusHelpers(t *testing.T) {
 			testFunc: func(t *testing.T) {
 				migrationID := "test-migration-456"
 				sourceHub := "source-hub"
-				clusters := []string{"cluster1", "cluster2"}
+				// clusters variable removed as it's no longer used
 
 				// Add migration status first
 				AddMigrationStatus(migrationID)
 
-				// Test SetSourceClusters and GetSourceClusters
-				assert.Nil(t, GetSourceClusters(migrationID))
-				SetSourceClusters(migrationID, sourceHub, clusters)
-				sourceClusters := GetSourceClusters(migrationID)
-				assert.NotNil(t, sourceClusters)
-				assert.Equal(t, clusters, sourceClusters[sourceHub])
+				// Test basic migration status functionality
+				// These functions no longer exist in the current implementation
+				// Testing the core status tracking functionality instead
+				SetStarted(migrationID, sourceHub, "testPhase")
+				assert.True(t, GetStarted(migrationID, sourceHub, "testPhase"))
+
+				SetFinished(migrationID, sourceHub, "testPhase")
+				assert.True(t, GetFinished(migrationID, sourceHub, "testPhase"))
 
 				// Clean up
 				RemoveMigrationStatus(migrationID)
@@ -125,13 +127,11 @@ func TestEventStatusEdgeCases(t *testing.T) {
 				assert.False(t, GetStarted(migrationID, hubName, phase), "GetStarted should return false for non-existent migration")
 				assert.False(t, GetFinished(migrationID, hubName, phase), "GetFinished should return false for non-existent migration")
 				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase), "GetErrorMessage should return empty for non-existent migration")
-				assert.Nil(t, GetSourceClusters(migrationID), "GetSourceClusters should return nil for non-existent migration")
 
 				// Setters should handle gracefully (not crash)
 				assert.NotPanics(t, func() { SetStarted(migrationID, hubName, phase) }, "SetStarted should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetFinished(migrationID, hubName, phase) }, "SetFinished should not panic for non-existent migration")
 				assert.NotPanics(t, func() { SetErrorMessage(migrationID, hubName, phase, "error") }, "SetErrorMessage should not panic for non-existent migration")
-				assert.NotPanics(t, func() { SetSourceClusters(migrationID, hubName, []string{"cluster"}) }, "SetSourceClusters should not panic for non-existent migration")
 			},
 		},
 		{
@@ -163,5 +163,418 @@ func TestEventStatusEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, tt.testFunc)
+	}
+}
+
+// TestResetMigrationStatus tests the ResetMigrationStatus function - regression test for hub name parsing bug
+func TestResetMigrationStatus(t *testing.T) {
+	tests := []struct {
+		name             string
+		setupFunc        func() (migrationID string, hubName string, phase string)
+		resetHubName     string
+		expectedReset    bool
+		expectedNotReset string // hub that should NOT be reset
+	}{
+		{
+			name: "Should reset migration status for matching hub name",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-1"
+				hubName := "source-hub"
+				phase := migrationv1alpha1.PhaseValidating
+
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "test error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:  "source-hub",
+			expectedReset: true,
+		},
+		{
+			name: "Should not reset migration status for non-matching hub name",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-2"
+				hubName := "target-hub"
+				phase := migrationv1alpha1.PhaseRegistering
+
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "test error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:  "different-hub",
+			expectedReset: false,
+		},
+		{
+			name: "Should reset only matching hub and preserve other hubs",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-3"
+				hubName := "target-hub"
+				phase := migrationv1alpha1.PhaseDeploying
+
+				AddMigrationStatus(migrationID)
+				// Setup target hub state
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "target error")
+
+				// Setup different hub state that should NOT be reset
+				otherHub := "other-hub"
+				SetStarted(migrationID, otherHub, phase)
+				SetFinished(migrationID, otherHub, phase)
+				SetErrorMessage(migrationID, otherHub, phase, "other error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:     "target-hub",
+			expectedReset:    true,
+			expectedNotReset: "other-hub",
+		},
+		{
+			name: "Should handle hub names with dashes correctly - regression test",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-4"
+				hubName := "hub-with-dashes"
+				phase := migrationv1alpha1.PhaseInitializing
+
+				AddMigrationStatus(migrationID)
+				SetStarted(migrationID, hubName, phase)
+				SetFinished(migrationID, hubName, phase)
+				SetErrorMessage(migrationID, hubName, phase, "test error")
+
+				return migrationID, hubName, phase
+			},
+			resetHubName:  "hub-with-dashes",
+			expectedReset: true,
+		},
+		{
+			name: "Should handle multiple phases for same hub",
+			setupFunc: func() (string, string, string) {
+				migrationID := "test-reset-migration-5"
+				hubName := "multi-phase-hub"
+				phase1 := migrationv1alpha1.PhaseValidating
+				phase2 := migrationv1alpha1.PhaseDeploying
+
+				AddMigrationStatus(migrationID)
+				// Setup phase 1
+				SetStarted(migrationID, hubName, phase1)
+				SetFinished(migrationID, hubName, phase1)
+				SetErrorMessage(migrationID, hubName, phase1, "phase1 error")
+
+				// Setup phase 2
+				SetStarted(migrationID, hubName, phase2)
+				SetFinished(migrationID, hubName, phase2)
+				SetErrorMessage(migrationID, hubName, phase2, "phase2 error")
+
+				return migrationID, hubName, phase1 // Return first phase for primary verification
+			},
+			resetHubName:  "multi-phase-hub",
+			expectedReset: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup test data
+			migrationID, hubName, phase := tt.setupFunc()
+
+			// Verify initial state - should be set
+			assert.True(t, GetStarted(migrationID, hubName, phase), "Initial started state should be true")
+			assert.True(t, GetFinished(migrationID, hubName, phase), "Initial finished state should be true")
+			assert.NotEmpty(t, GetErrorMessage(migrationID, hubName, phase), "Initial error message should not be empty")
+
+			// Call ResetMigrationStatus
+			t.Logf("Calling ResetMigrationStatus with hub name: %s", tt.resetHubName)
+			ResetMigrationStatus(tt.resetHubName)
+
+			// Verify the result
+			if tt.expectedReset {
+				assert.False(t, GetStarted(migrationID, hubName, phase), "Started state should be reset to false")
+				assert.False(t, GetFinished(migrationID, hubName, phase), "Finished state should be reset to false")
+				assert.Empty(t, GetErrorMessage(migrationID, hubName, phase), "Error message should be reset to empty")
+
+				// If testing multiple phases, verify both phases are reset
+				if tt.name == "Should handle multiple phases for same hub" {
+					phase2 := migrationv1alpha1.PhaseDeploying
+					assert.False(t, GetStarted(migrationID, hubName, phase2), "Started state for phase2 should be reset to false")
+					assert.False(t, GetFinished(migrationID, hubName, phase2), "Finished state for phase2 should be reset to false")
+					assert.Empty(t, GetErrorMessage(migrationID, hubName, phase2), "Error message for phase2 should be reset to empty")
+				}
+			} else {
+				assert.True(t, GetStarted(migrationID, hubName, phase), "Started state should remain true for non-matching hub")
+				assert.True(t, GetFinished(migrationID, hubName, phase), "Finished state should remain true for non-matching hub")
+				assert.NotEmpty(t, GetErrorMessage(migrationID, hubName, phase), "Error message should remain for non-matching hub")
+			}
+
+			// If there's a hub that should NOT be reset, verify it's preserved
+			if tt.expectedNotReset != "" {
+				assert.True(t, GetStarted(migrationID, tt.expectedNotReset, phase), "Non-matching hub should not be reset")
+				assert.True(t, GetFinished(migrationID, tt.expectedNotReset, phase), "Non-matching hub should not be reset")
+				assert.NotEmpty(t, GetErrorMessage(migrationID, tt.expectedNotReset, phase), "Non-matching hub error should not be reset")
+			}
+
+			// Cleanup
+			RemoveMigrationStatus(migrationID)
+		})
+	}
+}
+
+// TestGetClusterList tests the GetClusterList function
+func TestGetClusterList(t *testing.T) {
+	tests := []struct {
+		name           string
+		migrationID    string
+		hub            string
+		phase          string
+		setupClusters  []string
+		expectedResult []string
+		shouldSetup    bool
+	}{
+		{
+			name:           "valid migration with cluster list",
+			migrationID:    "test-migration-with-clusters",
+			hub:            "source-hub",
+			phase:          migrationv1alpha1.PhaseValidating,
+			setupClusters:  []string{"cluster1", "cluster2", "cluster3"},
+			expectedResult: []string{"cluster1", "cluster2", "cluster3"},
+			shouldSetup:    true,
+		},
+		{
+			name:           "valid migration with empty cluster list",
+			migrationID:    "test-migration-empty-clusters",
+			hub:            "source-hub",
+			phase:          migrationv1alpha1.PhaseInitializing,
+			setupClusters:  []string{},
+			expectedResult: []string{},
+			shouldSetup:    true,
+		},
+		{
+			name:           "valid migration with single cluster",
+			migrationID:    "test-migration-single-cluster",
+			hub:            "target-hub",
+			phase:          migrationv1alpha1.PhaseDeploying,
+			setupClusters:  []string{"single-cluster"},
+			expectedResult: []string{"single-cluster"},
+			shouldSetup:    true,
+		},
+		{
+			name:           "non-existent migration",
+			migrationID:    "non-existent-migration",
+			hub:            "any-hub",
+			phase:          migrationv1alpha1.PhaseValidating,
+			setupClusters:  nil,
+			expectedResult: nil,
+			shouldSetup:    false,
+		},
+		{
+			name:           "valid migration but non-existent hub-phase combination",
+			migrationID:    "test-migration-wrong-phase",
+			hub:            "wrong-hub",
+			phase:          "wrong-phase",
+			setupClusters:  nil,
+			expectedResult: nil,
+			shouldSetup:    true,
+		},
+		{
+			name:           "valid migration with nil cluster list initially",
+			migrationID:    "test-migration-nil-clusters",
+			hub:            "test-hub",
+			phase:          migrationv1alpha1.PhaseRegistering,
+			setupClusters:  nil,
+			expectedResult: nil,
+			shouldSetup:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Setup migration status if needed
+			if tt.shouldSetup {
+				AddMigrationStatus(tt.migrationID)
+				if tt.setupClusters != nil {
+					SetClusterList(tt.migrationID, tt.setupClusters)
+				}
+			}
+
+			// Test GetClusterList
+			result := GetClusterList(tt.migrationID)
+
+			// Verify result
+			if tt.expectedResult == nil {
+				assert.Nil(t, result, "Expected nil result for migration %s, hub %s, phase %s", tt.migrationID, tt.hub, tt.phase)
+			} else {
+				assert.Equal(t, tt.expectedResult, result, "Cluster list mismatch for migration %s, hub %s, phase %s", tt.migrationID, tt.hub, tt.phase)
+			}
+
+			// Cleanup if migration was created
+			if tt.shouldSetup {
+				RemoveMigrationStatus(tt.migrationID)
+			}
+		})
+	}
+}
+
+func TestGetReadyClusters(t *testing.T) {
+	tests := []struct {
+		name                  string
+		migrationId           string
+		hub                   string
+		phase                 string
+		setupFunc             func(string, string, string)
+		expectedReadyClusters []string
+	}{
+		{
+			name:        "No migration status exists",
+			migrationId: "migration-1",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				// Don't add migration status - testing nil case
+			},
+			expectedReadyClusters: nil,
+		},
+		{
+			name:        "Migration exists but no cluster list",
+			migrationId: "migration-2",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				// Don't set cluster list - testing nil case
+			},
+			expectedReadyClusters: nil,
+		},
+		{
+			name:        "Migration exists with clusters but no stage state",
+			migrationId: "migration-3",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				SetClusterList(migrationId, []string{"cluster1", "cluster2", "cluster3"})
+				// Don't set phase as started - testing stage state with no errors
+				// getStageState creates empty StageState{} automatically, so all clusters are ready
+			},
+			expectedReadyClusters: []string{"cluster1", "cluster2", "cluster3"},
+		},
+		{
+			name:        "All clusters are ready (no errors)",
+			migrationId: "migration-4",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				SetClusterList(migrationId, []string{"cluster1", "cluster2", "cluster3"})
+				SetStarted(migrationId, hub, phase)
+			},
+			expectedReadyClusters: []string{"cluster1", "cluster2", "cluster3"},
+		},
+		{
+			name:        "Some clusters have errors",
+			migrationId: "migration-5",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				SetClusterList(migrationId, []string{"cluster1", "cluster2", "cluster3", "cluster4"})
+				SetStarted(migrationId, hub, phase)
+				clusterErrors := map[string]string{
+					"cluster2": "connection failed",
+					"cluster4": "auth error",
+				}
+				SetClusterErrorMessage(migrationId, hub, phase, clusterErrors)
+			},
+			expectedReadyClusters: []string{"cluster1", "cluster3"},
+		},
+		{
+			name:        "All clusters have errors",
+			migrationId: "migration-6",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				SetClusterList(migrationId, []string{"cluster1", "cluster2"})
+				SetStarted(migrationId, hub, phase)
+				clusterErrors := map[string]string{
+					"cluster1": "connection failed",
+					"cluster2": "auth error",
+				}
+				SetClusterErrorMessage(migrationId, hub, phase, clusterErrors)
+			},
+			expectedReadyClusters: []string{},
+		},
+		{
+			name:        "Different hub/phase combination",
+			migrationId: "migration-7",
+			hub:         "hub2",
+			phase:       "deploying",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				SetClusterList(migrationId, []string{"cluster1", "cluster2", "cluster3"})
+				// Set different phase states
+				SetStarted(migrationId, "hub1", "initializing")
+				SetStarted(migrationId, "hub2", "deploying")
+				// Add errors for hub1-initializing
+				hub1Errors := map[string]string{
+					"cluster1": "connection failed",
+				}
+				SetClusterErrorMessage(migrationId, "hub1", "initializing", hub1Errors)
+				// Add errors for hub2-deploying
+				hub2Errors := map[string]string{
+					"cluster3": "deploy failed",
+				}
+				SetClusterErrorMessage(migrationId, "hub2", "deploying", hub2Errors)
+			},
+			expectedReadyClusters: []string{"cluster1", "cluster2"},
+		},
+		{
+			name:        "Non-existent migration ID",
+			migrationId: "non-existent",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				// Add a different migration, not the one we're testing
+				AddMigrationStatus("different-migration")
+				SetClusterList("different-migration", []string{"cluster1", "cluster2"})
+			},
+			expectedReadyClusters: nil,
+		},
+		{
+			name:        "Empty cluster list",
+			migrationId: "migration-8",
+			hub:         "hub1",
+			phase:       "initializing",
+			setupFunc: func(migrationId, hub, phase string) {
+				AddMigrationStatus(migrationId)
+				SetClusterList(migrationId, []string{})
+				SetStarted(migrationId, hub, phase)
+			},
+			expectedReadyClusters: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clean up before test
+			migrationStatuses = make(map[string]*MigrationStatus)
+			currentMigrationClusterList = make(map[string][]string)
+
+			// Setup test state
+			tt.setupFunc(tt.migrationId, tt.hub, tt.phase)
+
+			// Test GetReadyClusters
+			result := GetReadyClusters(tt.migrationId, tt.hub, tt.phase)
+
+			// Verify result
+			assert.Equal(t, tt.expectedReadyClusters, result, "Ready clusters mismatch for migration %s, hub %s, phase %s", tt.migrationId, tt.hub, tt.phase)
+
+			// Clean up after test
+			RemoveMigrationStatus(tt.migrationId)
+			RemoveMigrationStatus("different-migration")
+		})
 	}
 }
