@@ -12,8 +12,8 @@ type Emitter interface {
 	// EventType returns the type of event this emitter will handle.
 	EventType() string
 
-	// EventFilter returns the predicate used to filter events.
-	EventFilter() predicate.Predicate
+	// Predicate returns the predicate used to filter events.
+	Predicate() predicate.Predicate
 
 	// Update modifies the bundle with the provided object.
 	// Returns an error if the update fails.

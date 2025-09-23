@@ -15,7 +15,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/emitters"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -29,14 +28,11 @@ type syncController struct {
 
 // AddSyncCtrl registers a controller that watch the specific client.Object,
 // and load the object into the bundle in the provided emitters.
-func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmitters ...emitters.Emitter) error {
+func AddSyncCtrl(mgr ctrl.Manager, ctrlName string, instanceFunc func() client.Object,
+	objectEmitters ...emitters.Emitter,
+) error {
 	if len(objectEmitters) == 0 {
 		return fmt.Errorf("at least one emitter is required")
-	}
-
-	controllerName := enum.ShortenEventType(objectEmitters[0].EventType())
-	if len(objectEmitters) > 1 {
-		controllerName = "multi-emitter-syncer"
 	}
 
 	syncer := &syncController{
@@ -51,7 +47,7 @@ func AddSyncCtrl(mgr ctrl.Manager, instanceFunc func() client.Object, objectEmit
 	combinedFilter := createCombinedFilter(objectEmitters...)
 
 	return ctrl.NewControllerManagedBy(mgr).For(instanceFunc()).WithEventFilter(combinedFilter).
-		Named(controllerName).Complete(syncer)
+		Named(ctrlName).Complete(syncer)
 }
 
 // createCombinedFilter creates a combined filter using OR relationship for all event types
@@ -59,7 +55,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Create(e) {
+				if emitter.Predicate().Create(e) {
 					return true
 				}
 			}
@@ -67,7 +63,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Update(e) {
+				if emitter.Predicate().Update(e) {
 					return true
 				}
 			}
@@ -75,7 +71,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Delete(e) {
+				if emitter.Predicate().Delete(e) {
 					return true
 				}
 			}
@@ -83,7 +79,7 @@ func createCombinedFilter(emitters ...emitters.Emitter) predicate.Funcs {
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
 			for _, emitter := range emitters {
-				if emitter.EventFilter().Generic(e) {
+				if emitter.Predicate().Generic(e) {
 					return true
 				}
 			}

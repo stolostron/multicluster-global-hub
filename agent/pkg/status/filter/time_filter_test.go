@@ -92,7 +92,7 @@ func TestTimeFilter(t *testing.T) {
 	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
-	cachedTime, err := time.Parse(CACHE_TIME_FORMAT, cm.Data[cacheKey(eventType)])
+	cachedTime, err := time.Parse(CACHE_TIME_FORMAT, cm.Data[getConfigMapKey(eventType)])
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(cacheTime))
 	cancel()
@@ -115,7 +115,7 @@ func TestTimeFilter(t *testing.T) {
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
 
-	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[cacheKey(eventType)])
+	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[getConfigMapKey(eventType)])
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(cacheTime))
 	cancel()
@@ -137,7 +137,7 @@ func TestTimeFilter(t *testing.T) {
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
 
-	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[cacheKey(eventType)])
+	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[getConfigMapKey(eventType)])
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(expiredTime))
 	cancel()

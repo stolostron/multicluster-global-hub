@@ -59,6 +59,7 @@ func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 	// 2. add the emitter to controller
 	if err := generic.AddSyncCtrl(
 		mgr,
+		"event",
 		func() client.Object { return &corev1.Event{} },
 		managedClusterEventEmitter, localRootPolicyEventEmitter, clusterGroupUpgradeEventEmitter,
 	); err != nil {

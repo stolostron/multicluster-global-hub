@@ -46,3 +46,7 @@ const (
 func ShortenEventType(eventType string) string {
 	return strings.ReplaceAll(eventType, EventTypePrefix, "")
 }
+
+func IsEventType(eventType string) bool {
+	return strings.HasPrefix(eventType, EventTypePrefix+"event")
+}

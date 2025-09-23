@@ -3,6 +3,7 @@ package emitters
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -23,8 +24,9 @@ type EventEmitter struct {
 	topic         string
 	producer      transport.Producer
 	runtimeClient client.Client
-	predicate     func(client.Object) bool // filter events by the predicate
+	filter        func(client.Object) bool // filter events by the predicate
 	// transform converts a object to an event object. It can return nil to indicate that the object should be skipped.
+	// It can return a list of events(like replicated policy events) or a single event.
 	transform func(client.Client, client.Object) interface{}
 	postSend  func([]interface{}) error
 	events    []interface{}
@@ -36,7 +38,7 @@ func NewEventEmitter(
 	eventType enum.EventType,
 	producer transport.Producer,
 	runtimeClient client.Client,
-	predicate func(client.Object) bool,
+	filter func(client.Object) bool,
 	transform func(client.Client, client.Object) interface{},
 	opts ...EventEmitterOption,
 ) *EventEmitter {
@@ -49,7 +51,7 @@ func NewEventEmitter(
 		eventType:     eventType,
 		producer:      producer,
 		runtimeClient: runtimeClient,
-		predicate:     predicate,
+		filter:        filter,
 		transform:     transform,
 		postSend:      nil, // Will be set by options if needed
 		events:        make([]interface{}, 0),
@@ -67,26 +69,23 @@ func (e *EventEmitter) EventType() string {
 	return string(e.eventType)
 }
 
-func (e *EventEmitter) EventFilter() predicate.Predicate {
-	return predicate.NewPredicateFuncs(e.predicate)
+func (e *EventEmitter) Predicate() predicate.Predicate {
+	return predicate.NewPredicateFuncs(e.filter)
 }
 
 func (e *EventEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !e.predicate(obj) {
+	if !e.filter(obj) {
 		return nil
 	}
 
-	log.Infow("update event", "event", obj.GetName())
 	event := e.transform(e.runtimeClient, obj)
 	if event != nil {
-		e.events = append(e.events, event)
+		e.events = append(e.events, toSlice(event)...)
 		e.version.Incr()
 	}
-	// events after update
-	log.Infow("events after update", "events", e.events, "version", e.version.String())
 	return nil
 }
 
@@ -100,16 +99,15 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 	defer e.mu.Unlock()
 
 	for _, obj := range objects {
-		if e.predicate(obj) {
+		if e.filter(obj) {
 			event := e.transform(e.runtimeClient, obj)
 			if event != nil {
-				e.events = append(e.events, event)
+				e.events = append(e.events, toSlice(event)...)
 			}
 		}
 	}
 
 	if err := e.sendEvents(); err != nil {
-		log.Errorw("failed to send events after resync", "error", err)
 		return fmt.Errorf("failed to send events after resync: %w", err)
 	}
 	return nil
@@ -118,7 +116,6 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 func (e *EventEmitter) Send() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-
 	if err := e.sendEvents(); err != nil {
 		log.Errorw("failed to send events", "error", err)
 		return err
@@ -139,7 +136,6 @@ func (e *EventEmitter) sendEvents() error {
 	default: // batch is default
 		err = e.sendEventBundle()
 	}
-
 	if err != nil {
 		return err
 	}
@@ -233,4 +229,19 @@ func WithPostSend(postSend func([]interface{}) error) EventEmitterOption {
 	return func(e *EventEmitter) {
 		e.postSend = postSend
 	}
+}
+
+func toSlice(v interface{}) []interface{} {
+	if v == nil {
+		return nil
+	}
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+		result := make([]interface{}, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			result[i] = rv.Index(i).Interface()
+		}
+		return result
+	}
+	return []interface{}{v}
 }

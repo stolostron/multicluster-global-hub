@@ -11,13 +11,14 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	cectx "github.com/cloudevents/sdk-go/v2/context"
+	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
+
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 )
 
 func main() {
@@ -28,7 +29,7 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "test-consumer-Id")
+	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "test-consumer-id")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
@@ -87,10 +88,10 @@ func handleEvent(ctx context.Context, event cloudevents.Event) {
 		processBundle[policiesv1.Policy](event)
 	case string(enum.ManagedClusterMigrationType):
 		fmt.Println(event)
+	case string(enum.HubClusterHeartbeatType):
+		// do nothing
 	default:
-		// // unknown types
-		// payload, _ := json.MarshalIndent(event, "", "  ")
-		// fmt.Println(string(payload))
+		fmt.Println(event)
 	}
 }
 

@@ -33,7 +33,8 @@ func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.
 	clusterEmitter := emitters.NewObjectEmitter(
 		enum.ManagedClusterType,
 		p,
-		emitters.WithEventFilterFunc(predicate.NewPredicateFuncs(validCluster)),
+		emitters.WithPredicateFunc(predicate.NewPredicateFuncs(validCluster)),
+		emitters.WithFilterFunc(validCluster),
 		emitters.WithTweakFunc(clusterTweakFunc),     // clean unnecessary fields, like managedFields
 		emitters.WithMetadataFunc(clusterMedataFunc), // extract metadata from object, use clusterClaim id as the object id
 	)
@@ -41,6 +42,7 @@ func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.
 	// 2. add the emitter to controller
 	if err := generic.AddSyncCtrl(
 		mgr,
+		"managedcluster",
 		func() client.Object { return &clusterv1.ManagedCluster{} },
 		clusterEmitter,
 	); err != nil {
