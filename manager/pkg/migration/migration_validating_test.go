@@ -827,7 +827,7 @@ func TestGetMigrationClusters(t *testing.T) {
 				SetErrorMessage("error-msg-uid", "source-hub", migrationv1alpha1.PhaseValidating, "placement not found")
 			},
 			expectedError:    true,
-			expectedErrorMsg: "get IncludedManagedClusters from hub source-hub with err :placement not found",
+			expectedErrorMsg: "get IncludedManagedClusters from hub source-hub with err: placement not found",
 			description:      "Should return error when error message is set in migration status",
 		},
 		{
