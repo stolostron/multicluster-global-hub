@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -48,6 +49,29 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	db := database.GetGorm()
+
+	eventMode := evt.Extensions()[constants.CloudEventExtensionSendMode]
+	if eventMode == string(constants.EventSendModeSingle) {
+		h.log.Debugw("handling single root policy event", "type", evt.Type(), "LH", evt.Source(), "version", version)
+		rootPolicyEvent := &event.RootPolicyEvent{}
+		if err := evt.DataAs(rootPolicyEvent); err != nil {
+			return err
+		}
+
+		localRootPolicyEventModel, err := convertRootPolicyEventToModel(rootPolicyEvent, leafHubName)
+		if err != nil {
+			return fmt.Errorf("failed to convert root policy event to model: %w", err)
+		}
+		err = db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
+			UpdateAll: true,
+		}).Create(localRootPolicyEventModel).Error
+		if err != nil {
+			return fmt.Errorf("failed to handle the event to database %v", err)
+		}
+		return nil
+	}
 
 	data := event.RootPolicyEventBundle{}
 	if err := evt.DataAs(&data); err != nil {
@@ -58,32 +82,14 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	}
 
 	localRootPolicyEvents := []models.LocalRootPolicyEvent{}
-	for _, element := range data {
-		if element.PolicyID == "" {
-			continue
-		}
-
-		sourceJSONB, err := json.Marshal(element.Source)
+	for _, rootPolicyEvent := range data {
+		localRootPolicyEventModel, err := convertRootPolicyEventToModel(rootPolicyEvent, leafHubName)
 		if err != nil {
-			h.log.Error(err, "failed to parse the event source", "source", element.Source)
+			return fmt.Errorf("failed to convert root policy event to model: %w", err)
 		}
-		localRootPolicyEvents = append(localRootPolicyEvents, models.LocalRootPolicyEvent{
-			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-				LeafHubName:    leafHubName,
-				EventName:      element.EventName,
-				EventNamespace: element.EventNamespace,
-				PolicyID:       element.PolicyID,
-				Message:        element.Message,
-				Reason:         element.Reason,
-				Source:         sourceJSONB,
-				Count:          int(element.Count),
-				Compliance:     string(common.GetDatabaseCompliance(element.Compliance, h.log)),
-				CreatedAt:      element.CreatedAt,
-			},
-		})
+		localRootPolicyEvents = append(localRootPolicyEvents, *localRootPolicyEventModel)
 	}
 
-	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		UpdateAll: true,
@@ -93,4 +99,30 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	}
 	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
+}
+
+func convertRootPolicyEventToModel(rootPolicyEvent *event.RootPolicyEvent, leafHubName string) (
+	*models.LocalRootPolicyEvent, error,
+) {
+	if rootPolicyEvent.PolicyID == "" {
+		return nil, fmt.Errorf("root policy event without policy ID")
+	}
+	sourceJSONB, err := json.Marshal(rootPolicyEvent.Source)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the event source: %w", err)
+	}
+	return &models.LocalRootPolicyEvent{
+		BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+			LeafHubName:    leafHubName,
+			EventName:      rootPolicyEvent.EventName,
+			EventNamespace: rootPolicyEvent.EventNamespace,
+			PolicyID:       rootPolicyEvent.PolicyID,
+			Message:        rootPolicyEvent.Message,
+			Reason:         rootPolicyEvent.Reason,
+			Source:         sourceJSONB,
+			Count:          int(rootPolicyEvent.Count),
+			Compliance:     string(common.GetDatabaseCompliance(rootPolicyEvent.Compliance, log)),
+			CreatedAt:      rootPolicyEvent.CreatedAt,
+		},
+	}, nil
 }

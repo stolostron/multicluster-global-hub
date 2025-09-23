@@ -140,6 +140,7 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 		Resources:                 agentRes,
 		EnableStackroxIntegration: config.WithStackroxIntegration(mgh),
 		StackroxPollInterval:      config.GetStackroxPollInterval(mgh),
+		EventSendMode:             config.GetEventSendMode(mgh),
 	}
 
 	if err := setTransportConfigs(&manifestsConfig, cluster, a.client); err != nil {

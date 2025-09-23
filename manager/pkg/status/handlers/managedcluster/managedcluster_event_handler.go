@@ -12,7 +12,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -45,6 +47,25 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	db := database.GetGorm()
+
+	eventMode := evt.Extensions()[constants.CloudEventExtensionSendMode]
+	if eventMode == string(constants.EventSendModeSingle) {
+		h.log.Debugw("handling single managed cluster event", "type", evt.Type(), "LH", evt.Source(), "version", version)
+		clusterEvent := models.ManagedClusterEvent{}
+		if err := evt.DataAs(&clusterEvent); err != nil {
+			return err
+		}
+		clusterEvent.LeafHubName = leafHubName
+		err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
+			DoNothing: true,
+		}).Create(&clusterEvent).Error
+		if err != nil {
+			return fmt.Errorf("failed handling single managed cluster event - %w", err)
+		}
+		return nil
+	}
 
 	managedClusterEvents := event.ManagedClusterEventBundle{}
 	if err := evt.DataAs(&managedClusterEvents); err != nil {
@@ -60,13 +81,12 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 		return nil
 	}
 
-	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
 		DoNothing: true,
 	}).CreateInBatches(managedClusterEvents, BatchSize).Error
 	if err != nil {
-		return fmt.Errorf("failed handling leaf hub LocalPolicyStatusEvent event - %w", err)
+		return fmt.Errorf("failed handling batch managed cluster event - %w", err)
 	}
 
 	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)

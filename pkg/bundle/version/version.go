@@ -54,8 +54,9 @@ func (v *Version) NewerThan(other *Version) bool {
 	if other == nil {
 		return true
 	}
+	// for events with single mode, the version is the same for one generation
 	if v.Equals(other) {
-		return false
+		return true
 	}
 	if v.Generation > other.Generation {
 		return true

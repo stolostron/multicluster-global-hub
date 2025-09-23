@@ -178,6 +178,7 @@ func renderAgentManifests(
 	var owner metav1.Object
 	var enableStackroxIntegration bool
 	var stackroxPollInterval time.Duration
+	var eventSendMode string = string(constants.EventSendModeBatch)
 
 	if mgh != nil {
 		namespace = mgh.Namespace
@@ -193,6 +194,7 @@ func renderAgentManifests(
 		owner = mgh
 		enableStackroxIntegration = config.WithStackroxIntegration(mgh)
 		stackroxPollInterval = config.GetStackroxPollInterval(mgh)
+		eventSendMode = config.GetEventSendMode(mgh)
 	}
 	if mgha != nil {
 		namespace = mgha.Namespace
@@ -202,6 +204,7 @@ func renderAgentManifests(
 		nodeSelector = mgha.Spec.NodeSelector
 		tolerations = mgha.Spec.Tolerations
 		owner = mgha
+		eventSendMode = config.GetEventSendMode(mgha)
 	}
 	// create new HoHRenderer and HoHDeployer
 	hohRenderer, hohDeployer := renderer.NewHoHRenderer(fs), deployer.NewHoHDeployer(mgr.GetClient())
@@ -262,6 +265,7 @@ func renderAgentManifests(
 			EnableStackroxIntegration bool
 			StackroxPollInterval      time.Duration
 			DeployMode                string
+			EventSendMode             string
 		}{
 			Image:                     config.GetImage(config.GlobalHubAgentImageKey),
 			ImagePullSecret:           imagePullSecret,
@@ -281,6 +285,7 @@ func renderAgentManifests(
 			EnableStackroxIntegration: enableStackroxIntegration,
 			StackroxPollInterval:      stackroxPollInterval,
 			DeployMode:                deployMode,
+			EventSendMode:             eventSendMode,
 		}, nil
 	})
 	if err != nil {

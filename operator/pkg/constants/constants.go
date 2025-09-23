@@ -68,6 +68,9 @@ const (
 	// development environments, where is is convenient to reduce the poll interval. The value should be a string
 	// that can be parsed with the time.ParseDuration function.
 	AnnotationMGHWithStackroxPollInterval = "global-hub.open-cluster-management.io/with-stackrox-poll-interval"
+
+	// AnnotationMGHEventSendMode specifies the event send mode, support values: batch, single
+	AnnotationMGHEventSendMode = "global-hub.open-cluster-management.io/event-send-mode"
 )
 
 // hub installation constants
