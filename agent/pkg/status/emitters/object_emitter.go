@@ -23,17 +23,19 @@ import (
 var log = logger.DefaultZapLogger()
 
 type ObjectEmitter struct {
-	eventType       enum.EventType
-	topic           string
-	producer        transport.Producer
-	tweakFunc       func(client.Object)
+	eventType enum.EventType
+	topic     string
+	producer  transport.Producer
+	tweakFunc func(client.Object)
+	// Predicate used by the controller-runtime to select target objects for this emitter
 	objectPredicate predicate.Predicate
-	filter          func(client.Object) bool
-	metadataFunc    func(client.Object) *genericbundle.ObjectMetadata
-	bundle          *genericbundle.GenericBundle[client.Object]
-	version         *eventversion.Version
-	mu              sync.Mutex
-	keyFunc         func(client.Object) string
+	// Filter to process only objects matched by the predicate for this emitter
+	filter       func(client.Object) bool
+	metadataFunc func(client.Object) *genericbundle.ObjectMetadata
+	bundle       *genericbundle.GenericBundle[client.Object]
+	version      *eventversion.Version
+	mu           sync.Mutex
+	keyFunc      func(client.Object) string
 }
 
 // NewObjectEmitter creates a new ObjectEmitter with the provided event type and producer.

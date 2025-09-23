@@ -130,14 +130,12 @@ func (e *EventEmitter) sendEvents() error {
 	log.Debugw("before send events", "events", e.events, "version", e.version.String())
 
 	var err error
-	// only enable the single mode for event type
-	if configs.GetAgentConfig().EventMode == string(constants.EventSendModeSingle) &&
-		enum.IsEventType(string(e.eventType)) {
+	switch configs.GetAgentConfig().EventMode {
+	case string(constants.EventSendModeSingle):
 		err = e.sendEventsIndividually()
-	} else {
+	default: // batch is default
 		err = e.sendEventBundle()
 	}
-
 	if err != nil {
 		return err
 	}
