@@ -15,17 +15,11 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 // go test ./test/integration/agent/status -v -ginkgo.focus "LocalPolicyEmitters"
 var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 	var localRootPolicy *policyv1.Policy
-	var consumer transport.Consumer
-
-	BeforeAll(func() {
-		consumer = chanTransport.Consumer(PolicyTopic)
-	})
 
 	It("be able to sync policy spec", func() {
 		By("Create a root policy")
@@ -44,25 +38,24 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		Expect(runtimeClient.Create(ctx, localRootPolicy)).NotTo(HaveOccurred())
 
 		By("Check the local policy spec can be read from cloudevents consumer")
+		fmt.Println("============================ create policy -> policy spec event: disabled")
 		Eventually(func() error {
-			evt := <-consumer.EventChan()
-			fmt.Println("============================ create policy -> policy spec event: disabled")
+			evt := receivedEvents[string(enum.LocalPolicySpecType)]
+			if evt == nil {
+				return fmt.Errorf("not get the event: %s", string(enum.LocalPolicySpecType))
+			}
 			fmt.Println(evt)
-			if evt.Type() == string(enum.LocalPolicySpecType) {
-				bundle := &generic.GenericBundle[policyv1.Policy]{}
-				err := evt.DataAs(bundle)
-				if err != nil {
-					return err
-				}
-				for _, policy := range bundle.Update {
-					if policy.Name == "root-policy-test123" {
-						if policy.Spec.Disabled {
-							return nil
-						}
-						return fmt.Errorf("policy should be disabled")
+			bundle := &generic.GenericBundle[policyv1.Policy]{}
+			err := evt.DataAs(bundle)
+			if err != nil {
+				return err
+			}
+			for _, policy := range bundle.Update {
+				if policy.Name == "root-policy-test123" {
+					if policy.Spec.Disabled {
+						return nil
 					}
 				}
-				return fmt.Errorf("policy not found")
 			}
 			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -76,27 +69,25 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 		Expect(err).Should(Succeed())
 
 		By("Check the local policy spec can be read from cloudevents consumer")
+		fmt.Println("============================ update policy -> policy spec event: enabled")
 		Eventually(func() error {
-			evt := <-consumer.EventChan()
-			fmt.Println("============================ update policy -> policy spec event: enabled")
-			fmt.Println(evt)
-			if evt.Type() == string(enum.LocalPolicySpecType) {
-				bundle := generic.GenericBundle[policyv1.Policy]{}
-				err := evt.DataAs(&bundle)
-				if err != nil {
-					return err
-				}
-				for _, policy := range bundle.Update {
-					if policy.Name == "root-policy-test123" {
-						if !policy.Spec.Disabled {
-							return nil
-						}
-						return fmt.Errorf("policy should be enabled")
+			evt := receivedEvents[string(enum.LocalPolicySpecType)]
+			if evt == nil {
+				return fmt.Errorf("not get the event: %s", string(enum.LocalPolicySpecType))
+			}
+			bundle := generic.GenericBundle[policyv1.Policy]{}
+			err := evt.DataAs(&bundle)
+			if err != nil {
+				return err
+			}
+			for _, policy := range bundle.Update {
+				if policy.Name == "root-policy-test123" {
+					if !policy.Spec.Disabled {
+						return nil
 					}
 				}
-				return fmt.Errorf("policy not found")
 			}
-			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
+			return fmt.Errorf("policy should be enabled")
 		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
@@ -116,10 +107,9 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := <-consumer.EventChan()
-			fmt.Println(evt)
-			if evt.Type() != string(enum.LocalComplianceType) {
-				return fmt.Errorf("want %v, got %v", string(enum.LocalComplianceType), evt.Type())
+			evt := receivedEvents[string(enum.LocalComplianceType)]
+			if evt == nil {
+				return fmt.Errorf("not get the event: %s", string(enum.LocalComplianceType))
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -141,10 +131,9 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the complete compliance can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := <-consumer.EventChan()
-			fmt.Println(evt)
-			if evt.Type() != string(enum.LocalCompleteComplianceType) {
-				return fmt.Errorf("want %v, got %v", string(enum.LocalCompleteComplianceType), evt.Type())
+			evt := receivedEvents[string(enum.LocalCompleteComplianceType)]
+			if evt == nil {
+				return fmt.Errorf("not get the event: %s", string(enum.LocalCompleteComplianceType))
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
@@ -217,10 +206,9 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 
 		By("Check the local replicated policy event can be read from cloudevents consumer")
 		Eventually(func() error {
-			evt := <-consumer.EventChan()
-			fmt.Println(evt)
-			if evt.Type() != string(enum.LocalReplicatedPolicyEventType) {
-				return fmt.Errorf("want %v, got %v", string(enum.LocalReplicatedPolicyEventType), evt.Type())
+			evt := receivedEvents[string(enum.LocalReplicatedPolicyEventType)]
+			if evt == nil {
+				return fmt.Errorf("not get the event: %s", string(enum.LocalReplicatedPolicyEventType))
 			}
 			return nil
 		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
