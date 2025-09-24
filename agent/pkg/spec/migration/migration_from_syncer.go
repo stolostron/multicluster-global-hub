@@ -700,6 +700,9 @@ func (s *MigrationSourceSyncer) validating(ctx context.Context, source *migratio
 		if err != nil {
 			return fmt.Errorf("failed to get clusters from placement decisions: %w", err)
 		}
+		if len(clusters) == 0 {
+			return fmt.Errorf("no managed clusters found in placement %q", source.PlacementName)
+		}
 		source.ManagedClusters = clusters
 		return nil
 	}

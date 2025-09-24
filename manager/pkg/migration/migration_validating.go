@@ -169,7 +169,7 @@ func (m *ClusterMigrationController) getMigrationClusters(
 	}
 
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.From, migrationv1alpha1.PhaseValidating); errMsg != "" {
-		return nil, fmt.Errorf("get IncludedManagedClusters from hub %s with err :%s", mcm.Spec.From, errMsg)
+		return nil, fmt.Errorf("get IncludedManagedClusters from hub %s with err: %s", mcm.Spec.From, errMsg)
 	}
 
 	// get clusters from cache first

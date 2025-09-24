@@ -696,7 +696,7 @@ func TestValidating(t *testing.T) {
 			},
 			initObjects:      []client.Object{},
 			expectedClusters: nil, // Returns nil when no placement decisions found
-			expectedError:    false,
+			expectedError:    true,
 		},
 		{
 			name: "Should handle no placement name provided",
