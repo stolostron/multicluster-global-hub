@@ -51,7 +51,7 @@ The Manager uses **Conflator** components to handle version validation:
 2. **Agent Restart Detection**: When `Generation=0`, reset state for resync
 3. **Dependency Processing**: Ensure dependent events are processed in correct order
 
-**Race Condition Prevention**: The version check uses `NewerThanOrEqual()` instead of `NewerThan()` to handle single mode where multiple events may have the same version, preventing event loss due to race conditions.
+**Race Condition Prevention**: The version check uses `NewerThanOrEqual()` with simplified logic that compares both generation and value fields simultaneously (`v.Generation >= other.Generation && v.Value >= other.Value`), ensuring events with equal versions are processed and preventing event loss in single mode.
 
 ## Key Design Principles
 

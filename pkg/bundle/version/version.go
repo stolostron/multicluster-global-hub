@@ -48,22 +48,13 @@ type Version struct {
 	Value uint64 `json:"Value"`
 }
 
-// NewerThanOrEqual returns whether the caller's version is newer than that received as argument.
-// If other = nil the result is true.
+// NewerThanOrEqual returns whether the caller's version is newer than or equal to the version received as an argument.
+// If other is nil, the result is true.
 func (v *Version) NewerThanOrEqual(other *Version) bool {
 	if other == nil {
 		return true
 	}
-	if v.Equals(other) {
-		return true // Changed to return true for equal versions (single mode support)
-	}
-	if v.Generation > other.Generation {
-		return true
-	} else if v.Generation < other.Generation {
-		return false
-	} else {
-		return v.Value > other.Value
-	}
+	return v.Generation >= other.Generation && v.Value >= other.Value
 }
 
 // Equals returns whether the caller's version is equal to that received as argument.
