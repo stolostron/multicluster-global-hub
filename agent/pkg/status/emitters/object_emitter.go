@@ -88,6 +88,13 @@ func (e *ObjectEmitter) Update(obj client.Object) error {
 		return nil
 	}
 
+	// check if the object is in resync array
+	for _, existingObj := range e.bundle.Resync {
+		if e.keyFunc(existingObj) == e.keyFunc(obj) && existingObj.GetResourceVersion() == obj.GetResourceVersion() {
+			return nil
+		}
+	}
+
 	// if the object is in update array, update it
 	for i, existingObj := range e.bundle.Update {
 		if e.keyFunc(existingObj) == e.keyFunc(obj) {
@@ -187,7 +194,7 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	metas := make([]genericbundle.ObjectMetadata, 0, len(objects))
+	metadataList := make([]genericbundle.ObjectMetadata, 0, len(objects))
 	for _, obj := range objects {
 
 		if !e.filter(obj) {
@@ -225,14 +232,14 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 		if e.metadataFunc != nil {
 			tmp = *e.metadataFunc(tweaked)
 		}
-		metas = append(metas, tmp)
+		metadataList = append(metadataList, tmp)
 	}
 
 	if err := e.sendBundle(); err != nil {
 		return err
 	}
 
-	if err := e.bundle.AddResyncMetadata(metas); err != nil {
+	if err := e.bundle.AddResyncMetadata(metadataList); err != nil {
 		return err
 	}
 	return e.sendBundle()

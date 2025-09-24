@@ -66,7 +66,9 @@ func (p *PeriodicSyncer) Register(e *EmitterRegistration) {
 		NextSyncAt:   nextSyncAt,
 		NextResyncAt: nextResyncAt,
 	})
-	log.Infof("Registered emitter for event type: %s", e.Emitter.EventType())
+	// enable resync for the event type
+	configs.GlobalResyncQueue.Add(e.Emitter.EventType())
+	log.Infof("registered emitter for event type: %s", enum.ShortenEventType(e.Emitter.EventType()))
 }
 
 func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
@@ -93,7 +95,7 @@ func (p *PeriodicSyncer) Resync(ctx context.Context, eventType string) error {
 		resynced = true
 		// Update the next resync time for this emitter
 		state.NextResyncAt = time.Now().Add(configmap.GetResyncInterval(enum.EventType(registeredType)))
-		log.Infof("Successfully resynced %d objects for event type: %s", len(objects), registeredType)
+		log.Infof("resynced %d objects for event type: %s", len(objects), enum.ShortenEventType(registeredType))
 	}
 
 	if !resynced {
@@ -107,18 +109,13 @@ func (p *PeriodicSyncer) Start(ctx context.Context) error {
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	// start with an initial resync for all registered emitters
-	for _, state := range p.syncStates {
-		configs.GlobalResyncQueue.Add(state.Registration.Emitter.EventType())
-	}
-
 	for {
 		select {
 		case <-ticker.C:
 
 			// resync when the manager request, every tick to resync one
 			if eventType := configs.GlobalResyncQueue.Pop(); eventType != "" {
-				log.Infof("Resyncing event type: %s", eventType)
+				log.Infof("resyncing event type: %s", enum.ShortenEventType(eventType))
 				if err := p.Resync(ctx, eventType); err != nil {
 					log.Errorf("failed to resync the request event(%s): %v", eventType, err)
 				}
