@@ -50,7 +50,7 @@ func (e *deltaElement) Predicate(eventVersion *version.Version) bool {
 		log.Infow("resetting delta element version", "type", enum.ShortenEventType(e.eventType),
 			"version", eventVersion)
 	}
-	if !eventVersion.NewerThan(e.lastProcessedVersion) {
+	if !eventVersion.NewerThanOrEqual(e.lastProcessedVersion) {
 		if e.metadata != nil {
 			log.Debugw("drop delta bundle: get version %s, current hold metadata %s", eventVersion, e.metadata.Version())
 		} else {
@@ -75,7 +75,7 @@ func (e *deltaElement) PostProcess(metadata ConflationMetadata, err error) {
 	}
 
 	// update state: lastProcessedVersion
-	if metadata.Processed() && metadata.Version().NewerThan(e.lastProcessedVersion) {
+	if metadata.Processed() && metadata.Version().NewerThanOrEqual(e.lastProcessedVersion) {
 		e.lastProcessedVersion = metadata.Version()
 	}
 }
