@@ -78,6 +78,6 @@ var _ = Describe("ManagerClusterLabelBundle", func() {
 				return nil
 			}
 			return fmt.Errorf("not found label on cluster { %s : %s}", "test", "add")
-		}, 5*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

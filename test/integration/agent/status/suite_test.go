@@ -21,12 +21,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/generic"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/apps"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/configmap"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/events"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedcluster"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/managedhub"
-	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/placement"
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/status/syncers/policies"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -36,10 +34,7 @@ import (
 )
 
 const (
-	PolicyTopic         = "Policy"
-	PlacementTopic      = "Placement"
 	ManagedClusterTopic = "ManagedCluster"
-	ApplicationTopic    = "Application"
 	HeartBeatTopic      = "HeartBeat"
 	HubClusterInfoTopic = "HubCluster"
 	EventTopic          = "Event"
@@ -125,10 +120,7 @@ var _ = BeforeSuite(func() {
 
 	By("Create cloudevents transport")
 	chanTransport, err = NewChanTransport(mgr, agentConfig.TransportConfig, []string{
-		PolicyTopic,
-		PlacementTopic,
 		ManagedClusterTopic,
-		ApplicationTopic,
 		HeartBeatTopic,
 		HubClusterInfoTopic,
 		EventTopic,
@@ -148,16 +140,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).Should(Succeed())
 
 	// policy
-	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, chanTransport.Producer(PolicyTopic))
+	err = policies.LaunchPolicySyncer(ctx, mgr, agentConfig, chanTransport.Producer(EventTopic))
 	Expect(err).To(Succeed())
-	err = policies.AddPolicySyncer(ctx, mgr, chanTransport.Producer(PolicyTopic), periodicSyncer, agentConfig)
-	Expect(err).To(Succeed())
-
-	// placement
-	Expect(err).To(Succeed())
-	err = placement.LaunchPlacementSyncer(ctx, mgr, agentConfig, chanTransport.Producer(PlacementTopic))
-	Expect(err).To(Succeed())
-	err = placement.LaunchPlacementDecisionSyncer(ctx, mgr, agentConfig, chanTransport.Producer(PlacementTopic))
+	err = policies.AddPolicySyncer(ctx, mgr, chanTransport.Producer(EventTopic), periodicSyncer, agentConfig)
 	Expect(err).To(Succeed())
 
 	// hubcluster info
@@ -172,10 +157,6 @@ var _ = BeforeSuite(func() {
 	err = managedcluster.AddManagedClusterSyncer(ctx, mgr, chanTransport.Producer(ManagedClusterTopic), periodicSyncer)
 	Expect(err).To(Succeed())
 
-	// application
-	err = apps.LaunchSubscriptionReportSyncer(ctx, mgr, agentConfig, chanTransport.Producer(ApplicationTopic))
-	Expect(err).To(Succeed())
-
 	// event
 	err = events.AddEventSyncer(ctx, mgr, chanTransport.Producer(EventTopic), periodicSyncer)
 	Expect(err).To(Succeed())
@@ -188,6 +169,7 @@ var _ = BeforeSuite(func() {
 					fmt.Println("event channel closed, exiting...")
 					return
 				}
+				fmt.Println("========== received event: ", evt.Type())
 				receivedEvents[evt.Type()] = evt
 			case <-ctx.Done():
 				fmt.Println("context canceled, exiting...")
