@@ -70,13 +70,13 @@ func (e *completeElement) Predicate(eventVersion *version.Version) bool {
 
 	// version validation
 	// 1: the event.Version Vs lastProcessedVersion
-	if !eventVersion.NewerThan(e.lastProcessedVersion) {
+	if !eventVersion.NewerThanOrEqual(e.lastProcessedVersion) {
 		log.Infof("drop bundle: get version %s, lastProcessedVersion %s", eventVersion, e.lastProcessedVersion)
 		return false // we got old event, a newer (or equal) event was already processed.
 	}
 
 	// version validation 2: the insertBundle with the hold conflation bundle(memory)
-	if e.metadata != nil && !eventVersion.NewerThan(e.metadata.Version()) {
+	if e.metadata != nil && !eventVersion.NewerThanOrEqual(e.metadata.Version()) {
 		log.Infof("drop bundle: get version %s, current hold version%s", eventVersion, e.metadata.Version())
 		return false // insert event only if version we got is newer than what we have in memory, otherwise do nothing.
 	}
@@ -118,7 +118,7 @@ func (e *completeElement) PostProcess(metadata ConflationMetadata, err error) {
 	}
 
 	// update state: lastProcessedVersion
-	if metadata.Processed() && metadata.Version().NewerThan(e.lastProcessedVersion) {
+	if metadata.Processed() && metadata.Version().NewerThanOrEqual(e.lastProcessedVersion) {
 		e.lastProcessedVersion = metadata.Version()
 	}
 

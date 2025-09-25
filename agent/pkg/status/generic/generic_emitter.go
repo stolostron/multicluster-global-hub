@@ -46,7 +46,7 @@ func (e *genericEmitter) applyOptions(opts ...EmitterOption) {
 }
 
 func (h *genericEmitter) ShouldSend() bool {
-	return h.currentVersion.NewerThan(&h.lastSentVersion)
+	return h.currentVersion.NewerThanOrEqual(&h.lastSentVersion)
 }
 
 func (h *genericEmitter) PostSend(data interface{}) {

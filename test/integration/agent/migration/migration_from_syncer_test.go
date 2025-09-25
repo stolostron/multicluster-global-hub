@@ -414,11 +414,12 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		It("should rollback registering stage successfully", func() {
 			By("Setting up cluster with migration annotations and HubAcceptsClient false to simulate registering state")
 			cluster := &clusterv1.ManagedCluster{}
-			err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
-			Expect(err).NotTo(HaveOccurred())
-
 			// Set up migration annotations and HubAcceptsClient false to simulate registering state
 			Eventually(func() error {
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, cluster)
+				if err != nil {
+					return err
+				}
 				cluster.Spec.HubAcceptsClient = false
 				if cluster.Annotations == nil {
 					cluster.Annotations = make(map[string]string)
@@ -439,7 +440,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			})
 
 			By("Processing the rollback event")
-			err = migrationSyncer.Sync(testCtx, event)
+			err := migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Verifying migration annotations were removed")
