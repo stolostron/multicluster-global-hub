@@ -156,6 +156,7 @@ func (a *GlobalHubAddonAgent) GetValues(cluster *clusterv1.ManagedCluster,
 
 	manifestsConfig.AggregationLevel = config.AggregationLevel
 	manifestsConfig.EnableLocalPolicies = config.EnableLocalPolicies
+	manifestsConfig.EventSendMode = config.GetEventSendMode(mgh)
 	manifestsConfig.Tolerations = mgh.Spec.Tolerations
 	manifestsConfig.NodeSelector = mgh.Spec.NodeSelector
 
