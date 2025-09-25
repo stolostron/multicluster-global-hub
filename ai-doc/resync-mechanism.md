@@ -90,71 +90,33 @@ if time.Now().After(state.NextResyncAt) {
 
 ## Version Control in Resync Process
 
-The version mechanism is critical for maintaining data consistency and preventing conflicts during resync operations.
+The resync mechanism relies on the Global Hub version system to ensure data consistency and prevent duplicate processing. For comprehensive details on the version mechanism, see [`ai-doc/version-mechanism-guide.md`](version-mechanism-guide.md).
 
-### Version Structure
-```go
-type Version struct {
-    Generation uint64  // Incremented when bundle is sent to hub
-    Value      uint64  // Incremented when bundle content is updated
-}
-```
+### Key Resync-Specific Behaviors
 
-### Key Functions in Resync Context
+#### 1. Forced Version Increment
 
-#### 1. Change Detection
-```go
-func (h *genericEmitter) ShouldSend() bool {
-    return h.currentVersion.NewerThan(&h.lastSentVersion)
-}
-```
-This comparison determines whether data needs to be transmitted based on version differences.
-
-#### 2. Resync Triggering
 During resync operations, `version.Incr()` is called to force version increment:
+
 - Ensures data is marked as "changed" regardless of actual content changes
 - Guarantees retransmission of all data during resync cycles
 - Maintains consistency across distributed components
 
-#### 3. Version Lifecycle Management
-- **Value Increment**: Occurs on each data update (`PostUpdate()`)
-- **Generation Increment**: Happens when data is actually sent (`PostSend()`)
-- **Overflow Protection**: Automatic reset mechanisms prevent numeric overflow
+#### 2. Agent Restart Detection
 
-### Version Comparison Logic
-Based on [PR #1971](https://github.com/stolostron/multicluster-global-hub/pull/1971), the version system supports:
-- **Single Event Mode**: Individual event processing
-- **Batch Mode**: Bulk event processing
-- **Dependency Tracking**: Version dependencies between related resources
+- **Initial Version**: Agent starts with version `0.0`
+- **Manager Response**: When receiving `Generation=0`, Manager resets conflation state
+- **Resync Trigger**: Ensures complete state synchronization after agent restarts
 
-### Data Consistency Guarantees
+#### 3. Change Detection
 
-#### 1. Idempotency
-Version comparison prevents duplicate data transmission:
-```go
-func (v *Version) NewerThan(other *Version) bool {
-    if other == nil {
-        return true
-    }
-    if v.Generation > other.Generation {
-        return true
-    } else if v.Generation < other.Generation {
-        return false
-    } else {
-        return v.Value > other.Value
-    }
-}
-```
+Version comparison (`currentVersion.NewerThan(&lastSentVersion)`) determines whether data needs retransmission during periodic resync cycles.
 
-#### 2. Ordering
-Ensures newer versions override older ones, preventing data regression.
-
-#### 3. Forced Synchronization
-During resync operations, version increment guarantees all data will be retransmitted regardless of previous state.
+For detailed version structure, comparison logic, and race condition prevention mechanisms, refer to the [Version Mechanism Guide](version-mechanism-guide.md).
 
 ## Architecture Diagram
 
-```
+```text
 ┌─────────────────┐    Resync Request    ┌──────────────────┐
 │                 │ ─────────────────────> │                  │
 │     Manager     │                       │      Agent       │
