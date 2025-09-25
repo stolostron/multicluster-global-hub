@@ -11,7 +11,7 @@ The resync mechanism in Global Hub ensures data consistency across distributed m
 The **Manager** component is responsible for initiating resync operations to synchronize full data with connected hubs.
 
 ### Core Component
-- **HubManagement** (`manager/pkg/processes/hubmanagement/hub_management.go:43`)
+- **HubManagement** (`manager/pkg/processes/hubmanagement/hub_management.go:75`)
 
 ### Key Operations
 
@@ -45,7 +45,7 @@ Manager -> CloudEvent(ResyncMsgKey) -> Transport -> Agent
 The **Agent** component handles resync through two complementary approaches to ensure comprehensive data synchronization.
 
 ### Core Components
-- **ResyncSyncer** (`agent/pkg/spec/syncers/resync_syncer.go:18`) - Processes resync requests
+- **ResyncSyncer** (`agent/pkg/spec/syncers/resync_syncer.go:19`) - Processes resync requests
 - **PeriodicSyncer** (`agent/pkg/status/generic/periodic_syncer.go:33`) - Executes synchronization operations
 
 ### 1. GlobalResyncQueue-based Resync
@@ -116,22 +116,35 @@ For detailed version structure, comparison logic, and race condition prevention 
 
 ## Architecture Diagram
 
-```text
-┌─────────────────┐    Resync Request    ┌──────────────────┐
-│                 │ ─────────────────────> │                  │
-│     Manager     │                       │      Agent       │
-│   (HubManagement)│ <──────────────────── │  (ResyncSyncer)  │
-│                 │    Heartbeat/Status   │                  │
-└─────────────────┘                       └──────────────────┘
-         │                                          │
-         │ Monitors Hub Health                      │ Queues Resync
-         │ Triggers Reactivation                    │ Operations
-         ▼                                          ▼
-┌─────────────────┐                       ┌──────────────────┐
-│   Heartbeat     │                       │ GlobalResyncQueue│
-│   Monitoring    │                       │ + PeriodicSyncer │
-│   (2min probe)  │                       │                  │
-└─────────────────┘                       └──────────────────┘
+```mermaid
+sequenceDiagram
+    participant Manager as Manager<br/>(HubManagement)
+    participant Agent as Agent<br/>(ResyncSyncer)
+    participant Queue as GlobalResyncQueue
+    participant Periodic as PeriodicSyncer
+
+    Manager->>Agent: Resync Request (CloudEvent)
+    Agent->>Queue: Queue Resync Operations
+    Agent-->>Manager: Heartbeat/Status
+
+    loop Health Monitoring (2min probe, 5min timeout)
+        Manager->>Manager: Monitor Hub Health
+        alt Hub Reactivation
+            Manager->>Agent: Trigger Full Resync
+        end
+    end
+
+    loop Periodic Processing (1-second ticker)
+        Queue->>Periodic: Process Event Type (FIFO)
+        Periodic->>Periodic: Trigger Full Resync
+    end
+
+    loop Configurable Intervals
+        Periodic->>Periodic: Check NextResyncAt
+        alt Time for Resync
+            Periodic->>Periodic: Auto-trigger Resync
+        end
+    end
 ```
 
 ## Best Practices
