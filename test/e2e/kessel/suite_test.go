@@ -97,7 +97,7 @@ var _ = BeforeSuite(func() {
 		options.Namespace, options.KafkaCluster, options.KafkaUser)
 	Expect(err).To(Succeed())
 
-	transportconfig.SetConsumerConfig(kafkaConfigMap, fmt.Sprintf("%s-%d", options.KafkaUser, rand.Intn(1000000)))
+	transportconfig.SetConsumerConfig(kafkaConfigMap, fmt.Sprintf("%s-%d", options.KafkaUser, rand.Intn(1000000)), 0)
 
 	receiver, err := kafka_confluent.New(kafka_confluent.WithConfigMap(kafkaConfigMap),
 		kafka_confluent.WithReceiverTopics([]string{options.KafkaTopic}))

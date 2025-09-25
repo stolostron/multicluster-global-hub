@@ -273,3 +273,11 @@ const (
 	// CloudEventExtensionSendMode indicates whether this is a batch or single event
 	CloudEventExtensionSendMode = "sendmode"
 )
+
+// store kafka related constants
+const (
+	// TopicMetadataRefreshInterval is 1 min to quickly respond to topic changes for the global hub manager only.
+	// the default value is 5 mins in Kafka
+	// apply to the topic.metadata.refresh.interval.ms and metadata.max.age.ms settings in the consumer config.
+	TopicMetadataRefreshInterval = 1 * 60 * 1000 // 1 min
+)

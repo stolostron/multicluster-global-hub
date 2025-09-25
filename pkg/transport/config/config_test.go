@@ -59,6 +59,38 @@ func TestConfluentConfig(t *testing.T) {
 	}
 }
 
+func TestSetConsumerConfig(t *testing.T) {
+	kafkaConfigMap := GetBasicConfigMap()
+	SetConsumerConfig(kafkaConfigMap, "test-group", 100)
+	val, err := kafkaConfigMap.Get("group.id", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "test-group", val)
+
+	val, err = kafkaConfigMap.Get("auto.offset.reset", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "earliest", val)
+
+	val, err = kafkaConfigMap.Get("enable.auto.commit", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "true", val)
+
+	val, err = kafkaConfigMap.Get("max.partition.fetch.bytes", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, MaxSizeToFetch, val)
+
+	val, err = kafkaConfigMap.Get("fetch.message.max.bytes", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, MaxSizeToFetch, val)
+
+	val, err = kafkaConfigMap.Get("metadata.max.age.ms", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "100", val)
+
+	val, err = kafkaConfigMap.Get("topic.metadata.refresh.interval.ms", nil)
+	assert.Nil(t, err)
+	assert.Equal(t, "100", val)
+}
+
 func TestGetSaramaConfig(t *testing.T) {
 	kafkaConfig := &transport.KafkaInternalConfig{
 		EnableTLS:      false,

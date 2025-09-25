@@ -23,6 +23,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -110,7 +111,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
-		[]string{managerConfig.TransportConfig.KafkaCredential.StatusTopic})
+		[]string{managerConfig.TransportConfig.KafkaCredential.StatusTopic},
+		[]genericconsumer.GenericConsumeOption{genericconsumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval)}...,
+	)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(mgr.Add(consumer)).Should(Succeed())
 

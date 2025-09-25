@@ -158,7 +158,7 @@ func (p *GenericProducer) SetDataLimit(size int) {
 func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
 	defaultTopic string,
 ) (*kafka.Producer, *kafka_confluent.Protocol, error) {
-	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "")
+	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "", 0)
 	if err != nil {
 		return nil, nil, err
 	}
