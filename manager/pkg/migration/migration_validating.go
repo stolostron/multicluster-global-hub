@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -84,6 +85,14 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	defer func() {
 		if err != nil {
 			condition.Message = err.Error()
+			condition.Status = metav1.ConditionFalse
+			nextPhase = migrationv1alpha1.PhaseFailed
+		}
+
+		if condition.Reason == ConditionReasonWaiting &&
+			time.Since(getLastTransitionTime(mcm)) > getTimeout(migrationv1alpha1.PhaseValidating) {
+			condition.Reason = ConditionReasonTimeout
+			condition.Message = fmt.Sprintf("Timeout: %s", condition.Message)
 			condition.Status = metav1.ConditionFalse
 			nextPhase = migrationv1alpha1.PhaseFailed
 		}
