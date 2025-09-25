@@ -53,11 +53,11 @@ var (
 	testClients utils.TestClient
 	httpClient  *http.Client
 
-	globalHubClient client.Client
-	managedHubNames []string
-	hubClients      []client.Client
-	managedClusters []clusterv1.ManagedCluster
-	clusterClients  []client.Client
+	globalHubClient     client.Client
+	managedHubNames     []string
+	hubClients          []client.Client
+	managedClusterNames []string
+	clusterClients      []client.Client
 
 	operatorScheme        *runtime.Scheme
 	managerScheme         *runtime.Scheme
@@ -113,7 +113,6 @@ var _ = BeforeSuite(func() {
 	By("Validate the options")
 	globalHubClient, err = testClients.RuntimeClient(testOptions.GlobalHub.Name, operatorScheme)
 	Expect(err).To(Succeed())
-	var clusterNames []string
 	for _, hub := range testOptions.GlobalHub.ManagedHubs {
 		managedHubNames = append(managedHubNames, hub.Name)
 		// it will validate the kubeconfig
@@ -121,14 +120,14 @@ var _ = BeforeSuite(func() {
 		Expect(err).To(Succeed())
 		hubClients = append(hubClients, hubClient)
 		for _, cluster := range hub.ManagedClusters {
-			clusterNames = append(clusterNames, cluster.Name)
+			managedClusterNames = append(managedClusterNames, cluster.Name)
 			clusterClient, err := testClients.RuntimeClient(cluster.Name, operatorScheme)
 			Expect(err).To(Succeed())
 			clusterClients = append(clusterClients, clusterClient)
 		}
 	}
 	Expect(len(managedHubNames)).To(Equal(ExpectedMH))
-	Expect(len(clusterNames)).To(Equal(ExpectedMC * ExpectedMH))
+	Expect(len(managedClusterNames)).To(Equal(ExpectedMC * ExpectedMH))
 
 	By("Add deploy mode label to the managed hub")
 	clusters := &clusterv1.ManagedClusterList{}
@@ -220,9 +219,6 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	cancel()
-	if err := utils.DeleteTestingRBAC(testOptions); err != nil {
-		log.Printf("failed to delete testing RBAC: %v", err)
-	}
 })
 
 func getIP(apiserver string) (string, error) {

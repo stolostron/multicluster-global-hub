@@ -22,21 +22,21 @@ var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() 
 	Context("Cluster Events", func() {
 		It("sync the event to the global hub database", func() {
 			By("Create the cluster event")
-			cluster := managedClusters[0]
-			hubName, _ := strings.CutSuffix(cluster.Name, "-cluster1")
-			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdc", cluster.Name)
-			eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", cluster.Name)
+			clusterName := managedClusterNames[0]
+			hubName, _ := strings.CutSuffix(clusterName, "-cluster1")
+			eventName := fmt.Sprintf("%s.event.17cd34e8c8b27fdc", clusterName)
+			eventMessage := fmt.Sprintf("The managed cluster (%s) cannot connect to the hub cluster.", clusterName)
 			clusterEvent := &corev1.Event{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      eventName,
-					Namespace: cluster.Name,
+					Namespace: clusterName,
 				},
 				InvolvedObject: corev1.ObjectReference{
 					Kind: constants.ManagedClusterKind,
 					// TODO: the cluster namespace should be empty! but if not set the namespace,
 					// it will throw the error: involvedObject.namespace: Invalid value: "": does not match event.namespace
-					Namespace: cluster.Name,
-					Name:      cluster.Name,
+					Namespace: clusterName,
+					Name:      clusterName,
 				},
 				Reason:              "AvailableUnknown",
 				Message:             eventMessage,

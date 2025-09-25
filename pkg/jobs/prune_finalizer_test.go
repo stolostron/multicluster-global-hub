@@ -30,7 +30,6 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 	var clusterV1Beta2API bool
 
 	BeforeAll(func() {
-
 		By("Create placementrule instance with global hub finalizer")
 		placementRule = &placementrulesv1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{

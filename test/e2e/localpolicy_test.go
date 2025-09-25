@@ -37,8 +37,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 	BeforeAll(func() {
 		By("Add local policy label to the managed cluster")
 
-		for _, cluster := range managedClusters {
-			Expect(updateClusterLabel(cluster.GetName(), LOCAL_POLICY_LABEL_STR)).Should(Succeed())
+		for _, clusterName := range managedClusterNames {
+			Expect(updateClusterLabel(clusterName, LOCAL_POLICY_LABEL_STR)).Should(Succeed())
 		}
 
 		By("Deploy the policy to the leafhub")
@@ -88,8 +88,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						count++
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("compliance num want %d, but got %d", len(managedClusters), count)
+				if count != len(managedClusterNames) {
+					return fmt.Errorf("compliance num want %d, but got %d", len(managedClusterNames), count)
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
@@ -109,8 +109,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						count++
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("history compliance num want %d, but got %d", len(managedClusters), count)
+				if count != len(managedClusterNames) {
+					return fmt.Errorf("history compliance num want %d, but got %d", len(managedClusterNames), count)
 				}
 				return nil
 			}, 3*time.Minute, 10*time.Second).Should(Succeed())
@@ -134,8 +134,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						eventPolicyIds.Insert(e.PolicyID)
 					}
 				}
-				if count < len(managedClusters) {
-					return fmt.Errorf("replicated policy event num at least %d, but got %d", len(managedClusters), count)
+				if count < len(managedClusterNames) {
+					return fmt.Errorf("replicated policy event num at least %d, but got %d", len(managedClusterNames), count)
 				}
 				if eventPolicyIds.Len() < len(policyIds) {
 					return fmt.Errorf("policy num(policy event) at least %d, but got %d", len(policyIds), eventPolicyIds.Len())
@@ -162,8 +162,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						eventPolicyIds.Insert(e.PolicyID)
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("root policy event num want %d, but got %d", len(managedClusters), count)
+				if count != len(managedClusterNames) {
+					return fmt.Errorf("root policy event num want %d, but got %d", len(managedClusterNames), count)
 				}
 
 				if len(policyIds) != eventPolicyIds.Len() {
@@ -283,8 +283,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
 
 		By("Remove local policy test label")
-		for _, cluster := range managedClusters {
-			Expect(updateClusterLabel(cluster.GetName(), LOCAL_POLICY_LABEL_REMOVE_STR)).Should(Succeed())
+		for _, clusterName := range managedClusterNames {
+			Expect(updateClusterLabel(clusterName, LOCAL_POLICY_LABEL_REMOVE_STR)).Should(Succeed())
 		}
 	})
 })
