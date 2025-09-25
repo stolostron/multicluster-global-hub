@@ -322,7 +322,9 @@ func isHubCluster(ctx context.Context, c client.Client, mc *clusterv1.ManagedClu
 	return false
 }
 
-func updateConditionWithTimeout(ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration, condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string) bool {
+func updateConditionWithTimeout(ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
+	condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string,
+) bool {
 	if condition.Reason == ConditionReasonWaiting && time.Since(getLastTransitionTime(mcm)) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
 		if timeoutMessage != "" {
