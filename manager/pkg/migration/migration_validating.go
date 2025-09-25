@@ -89,13 +89,10 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 			nextPhase = migrationv1alpha1.PhaseFailed
 		}
 
-		if condition.Reason == ConditionReasonWaiting &&
-			time.Since(getLastTransitionTime(mcm)) > getTimeout(migrationv1alpha1.PhaseValidating) {
-			condition.Reason = ConditionReasonTimeout
-			condition.Message = fmt.Sprintf("Timeout: %s", condition.Message)
-			condition.Status = metav1.ConditionFalse
+		if updateConditionWithTimeout(ctx, mcm, &condition, getTimeout(migrationv1alpha1.PhaseValidating), "") {
 			nextPhase = migrationv1alpha1.PhaseFailed
 		}
+
 		err = m.UpdateStatusWithRetry(ctx, mcm, condition, nextPhase)
 		if err != nil {
 			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
@@ -321,6 +318,18 @@ func isHubCluster(ctx context.Context, c client.Client, mc *clusterv1.ManagedClu
 		if err == nil {
 			return true
 		}
+	}
+	return false
+}
+
+func updateConditionWithTimeout(ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration, condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string) bool {
+	if condition.Reason == ConditionReasonWaiting && time.Since(getLastTransitionTime(mcm)) > stageTimeout {
+		condition.Reason = ConditionReasonTimeout
+		if timeoutMessage != "" {
+			condition.Message = fmt.Sprintf("Timeout: %s", timeoutMessage)
+		}
+		condition.Status = metav1.ConditionFalse
+		return true
 	}
 	return false
 }
