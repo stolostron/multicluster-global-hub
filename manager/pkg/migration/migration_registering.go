@@ -85,6 +85,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	errMessage = GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 	if errMessage != "" {
+		m.handleErrorList(mcm, mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 		condition.Message = fmt.Sprintf("registering to hub %s error: %s", mcm.Spec.To, errMessage)
 		condition.Reason = ConditionReasonError
 		return false, nil

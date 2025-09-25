@@ -45,11 +45,17 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 	BeforeAll(func() {
 		receivedEvents = []*cloudevents.Event{}
 		testCtx, testCtxCancel = context.WithCancel(ctx)
+		agentConfig := &configs.AgentConfig{
+			TransportConfig: transportConfig,
+			LeafHubName:     "hub1",
+		}
+		configs.SetAgentConfig(agentConfig)
+
 		migrationSyncer = migrationsyncer.NewMigrationSourceSyncer(
 			runtimeClient,
 			testenv.Config,
 			transportClient,
-			transportConfig,
+			agentConfig,
 		)
 
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}}
@@ -89,8 +95,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			Spec:       addonv1.KlusterletAddonConfigSpec{ClusterName: testClusterName, ClusterNamespace: testClusterName},
 		}
 		Expect(runtimeClient.Create(testCtx, addonConfig)).Should(Succeed())
-
-		configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: testFromHub})
 	})
 
 	AfterAll(func() {
@@ -109,6 +113,21 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 	})
 
 	Context("when handling migration lifecycle in from hub", func() {
+		It("should fail validation for non-existent cluster", func() {
+			By("Creating migration event for validating stage with non-existent cluster")
+			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
+				MigrationId:     testMigrationID,
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ToHub:           testToHub,
+				ManagedClusters: []string{"non-existent-cluster"},
+			})
+
+			By("Processing the validation event and expecting error")
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("should initialize migration successfully", func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
@@ -450,7 +469,17 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 	Context("Error handling scenarios", func() {
 		It("should handle missing bootstrap secret during initialization", func() {
 			By("Creating migration event with missing bootstrap secret")
-			event := createMigrationFromEvent("error-test-1", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
+			event := createMigrationFromEvent("error-test-1", migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
+				MigrationId: "error-test-1",
+				Stage:       migrationv1alpha1.PhaseValidating,
+				ToHub:       testToHub,
+			})
+
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			event = createMigrationFromEvent("error-test-1", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{testClusterName})
 			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     "error-test-1",
 				Stage:           migrationv1alpha1.PhaseInitializing,
@@ -460,7 +489,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			})
 
 			By("Processing event and expecting error")
-			err := migrationSyncer.Sync(testCtx, event)
+			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("bootstrap secret is nil"))
 		})
@@ -496,6 +525,16 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 				},
 			}
 
+			event := createMigrationFromEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub, []string{"non-existent-cluster"})
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
+				MigrationId: "error-test-2",
+				Stage:       migrationv1alpha1.PhaseValidating,
+				ToHub:       testToHub,
+			})
+
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
 			initEvent.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     "error-test-2",
 				Stage:           migrationv1alpha1.PhaseInitializing,
@@ -505,7 +544,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			})
 
 			By("Processing event and expecting failure for non-existent cluster")
-			err := migrationSyncer.Sync(testCtx, initEvent)
+			err = migrationSyncer.Sync(testCtx, initEvent)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("\"non-existent-cluster\" not found"))
 		})

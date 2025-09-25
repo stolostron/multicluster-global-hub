@@ -84,6 +84,7 @@ var _ = BeforeSuite(func() {
 		SpecWorkPoolSize: 2,
 		LeafHubName:      "test-hub",
 	}
+	configs.SetAgentConfig(agentConfig)
 
 	genericProducer, err := producer.NewGenericProducer(
 		agentConfig.TransportConfig,

@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
@@ -53,16 +54,19 @@ type MigrationTargetSyncer struct {
 	processingMigrationId string
 	receivedMigrationId   string
 	receivedStage         string
+	leafHubName           string
 }
 
 func NewMigrationTargetSyncer(client client.Client,
-	transportClient transport.TransportClient, transportConfig *transport.TransportInternalConfig,
+	transportClient transport.TransportClient,
+	agentConfig *configs.AgentConfig,
 ) *MigrationTargetSyncer {
 	return &MigrationTargetSyncer{
 		client:          client,
 		transportClient: transportClient,
-		transportConfig: transportConfig,
+		transportConfig: agentConfig.TransportConfig,
 		bundleVersion:   eventversion.NewVersion(),
+		leafHubName:     agentConfig.LeafHubName,
 	}
 }
 
@@ -85,7 +89,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 		if err != nil {
 			migrationStatus.ErrMessage = err.Error()
-			if s.receivedStage == migrationv1alpha1.PhaseRegistering && len(clusterErrors) > 0 {
+			if len(clusterErrors) > 0 {
 				migrationStatus.ClusterErrors = clusterErrors
 			}
 		}
@@ -122,8 +126,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
 	if s.processingMigrationId == "" ||
-		event.Stage == migrationv1alpha1.PhaseInitializing ||
-		event.RollbackStage == migrationv1alpha1.PhaseInitializing {
+		event.Stage == migrationv1alpha1.PhaseValidating {
 		s.processingMigrationId = event.MigrationId
 		s.bundleVersion.Reset()
 	}
@@ -145,6 +148,8 @@ func (s *MigrationTargetSyncer) handleStage(ctx context.Context, target *migrati
 	clusterErrors map[string]string,
 ) error {
 	switch target.Stage {
+	case migrationv1alpha1.PhaseValidating:
+		return s.executeStage(ctx, target, s.validating, clusterErrors)
 	case migrationv1alpha1.PhaseInitializing:
 		return s.executeStage(ctx, target, s.initializing, clusterErrors)
 	case migrationv1alpha1.PhaseRegistering:
@@ -196,6 +201,47 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 		log.Errorf("failed to cleanup migration RBAC resources: %v", err)
 		return err
 	}
+	return nil
+}
+
+// validating handles the validating phase
+func (s *MigrationTargetSyncer) validating(
+	ctx context.Context, source *migration.MigrationTargetBundle,
+	clusterErrors map[string]string,
+) error {
+	// Validate the clusters
+	if len(source.ManagedClusters) > 0 {
+		if err := s.validateManagedClusters(ctx, source.ManagedClusters, clusterErrors); err != nil {
+			return err
+		}
+		log.Infof("validated %d clusters for migration %s", len(source.ManagedClusters), source.MigrationId)
+	} else {
+		log.Infof("no clusters to validate for migration %s", source.MigrationId)
+	}
+
+	return nil
+}
+
+// validateManagedClusters validates managed clusters for migration
+func (s *MigrationTargetSyncer) validateManagedClusters(
+	ctx context.Context, clusterNames []string, clusterErrors map[string]string,
+) error {
+	for _, clusterName := range clusterNames {
+		mc := &clusterv1.ManagedCluster{}
+		if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			clusterErrors[clusterName] = err.Error()
+			continue
+		}
+		clusterErrors[clusterName] = fmt.Sprintf("managed cluster %v already exists in target hub", clusterName)
+	}
+
+	if len(clusterErrors) > 0 {
+		return fmt.Errorf("%v clusters validation failed, get more details in events", len(clusterErrors))
+	}
+
 	return nil
 }
 

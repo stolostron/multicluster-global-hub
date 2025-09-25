@@ -46,10 +46,15 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 	BeforeAll(func() {
 		testCtx, testCtxCancel = context.WithCancel(ctx)
 		receivedEvents = []*cloudevents.Event{}
+		agentConfig := &configs.AgentConfig{
+			TransportConfig: transportConfig,
+			LeafHubName:     "hub1",
+		}
+		configs.SetAgentConfig(agentConfig)
 		migrationSyncer = migrationsyncer.NewMigrationTargetSyncer(
 			runtimeClient,
 			transportClient,
-			transportConfig,
+			agentConfig,
 		)
 
 		namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testMSANamespace}}
@@ -100,6 +105,38 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 	})
 
 	Context("when handling migration lifecycle for target hub", func() {
+		It("should validate cluster migration successfully", func() {
+			By("Creating migration event for validating stage with no existing clusters")
+			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
+				MigrationId:     testMigrationID,
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ManagedClusters: []string{"non-existing-cluster"},
+			})
+
+			By("Processing the validating event")
+			err := migrationSyncer.Sync(testCtx, event)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Verifying the validating event is sent to global hub")
+			Eventually(func() error {
+				return verifyMigrationEvent(testToHub, string(enum.ManagedClusterMigrationType),
+					constants.CloudEventGlobalHubClusterName, testMigrationID, migrationv1alpha1.PhaseValidating)
+			}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
+
+			By("Testing validation failure when cluster already exists")
+			event = createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseValidating, testFromHub, testToHub)
+			event.DataEncoded, _ = json.Marshal(&migration.MigrationTargetBundle{
+				MigrationId:     testMigrationID,
+				Stage:           migrationv1alpha1.PhaseValidating,
+				ManagedClusters: []string{testClusterName},
+			})
+
+			err = migrationSyncer.Sync(testCtx, event)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("clusters validation failed"))
+		})
+
 		It("should initialize migration permissions successfully", func() {
 			By("Creating migration event for initializing stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseInitializing, testFromHub, testToHub)

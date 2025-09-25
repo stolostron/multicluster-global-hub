@@ -47,9 +47,12 @@ func AddToManager(context context.Context, mgr ctrl.Manager, transportClient tra
 	}
 
 	dispatcher.RegisterSyncer(constants.MigrationSourceMsgKey,
-		migration.NewMigrationSourceSyncer(mgr.GetClient(), mgr.GetConfig(), transportClient, agentConfig.TransportConfig))
+		migration.NewMigrationSourceSyncer(mgr.GetClient(),
+			mgr.GetConfig(), transportClient, agentConfig))
+
 	dispatcher.RegisterSyncer(constants.MigrationTargetMsgKey,
-		migration.NewMigrationTargetSyncer(mgr.GetClient(), transportClient, agentConfig.TransportConfig))
+		migration.NewMigrationTargetSyncer(mgr.GetClient(),
+			transportClient, agentConfig))
 	if err := migration.ResyncMigrationEvent(context, transportClient, agentConfig.TransportConfig); err != nil {
 		return fmt.Errorf("failed to resync migration event: %w", err)
 	}
