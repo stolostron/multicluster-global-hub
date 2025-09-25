@@ -19,7 +19,6 @@ import (
 )
 
 var _ = Describe("Managed Clusters", Label("e2e-test-cluster"), Ordered, func() {
-
 	Context("Cluster Events", func() {
 		It("sync the event to the global hub database", func() {
 			By("Create the cluster event")

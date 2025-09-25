@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -23,11 +22,12 @@ const (
 	LOCAL_INFORM_POLICY_YAML  = "./../manifest/policy/local-inform-limitrange-policy.yaml"
 	LOCAL_ENFORCE_POLICY_YAML = "./../manifest/policy/local-enforce-limitrange-policy.yaml"
 
-	LOCAL_POLICY_LABEL_STR      = "local-policy=test"
-	LOCAL_POLICY_NAME           = "policy-limitrange"
-	LOCAL_POLICY_NAMESPACE      = "local-policy-namespace"
-	LOCAL_PLACEMENTBINDING_NAME = "binding-policy-limitrange"
-	LOCAL_PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
+	LOCAL_POLICY_LABEL_STR        = "local-policy=test"
+	LOCAL_POLICY_LABEL_REMOVE_STR = "local-policy-"
+	LOCAL_POLICY_NAME             = "policy-limitrange"
+	LOCAL_POLICY_NAMESPACE        = "local-policy-namespace"
+	LOCAL_PLACEMENT_NAME          = "placement-policy-limitrange"
+	LOCAL_PLACEMENTBINDING_NAME   = "binding-policy-limitrange"
 )
 
 var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() {
@@ -216,27 +216,6 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
 		})
-
-		It("check the placementrule", func() {
-			Eventually(func() error {
-				for _, hubClient := range hubClients {
-					placementrule := &placementrulev1.PlacementRule{}
-					err := hubClient.Get(ctx, client.ObjectKey{
-						Namespace: LOCAL_POLICY_NAMESPACE,
-						Name:      LOCAL_PLACEMENT_RULE_NAME,
-					}, placementrule)
-					if err != nil {
-						return err
-					}
-					for _, finalizer := range placementrule.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
-							return fmt.Errorf("the local placementrule(%s) has been added the cleanup finalizer", placementrule.GetName())
-						}
-					}
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
-		})
 	})
 
 	AfterAll(func() {
@@ -302,6 +281,11 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 			}
 			return nil
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Remove local policy test label")
+		for _, cluster := range managedClusters {
+			Expect(updateClusterLabel(cluster.GetName(), LOCAL_POLICY_LABEL_REMOVE_STR)).Should(Succeed())
+		}
 	})
 })
 

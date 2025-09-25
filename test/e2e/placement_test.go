@@ -23,7 +23,6 @@ const (
 )
 
 var _ = Describe("Apply policy with placement on the global hub", Ordered, Label("e2e-test-placement"), func() {
-
 	Context("Placement with Local Policy", func() {
 		localPolicyName := "policy-limitrange" // mclset/mclsetbinding: default
 		localPolicyNamespace := "local-placement"
