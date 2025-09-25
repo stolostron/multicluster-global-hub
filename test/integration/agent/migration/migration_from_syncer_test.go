@@ -440,7 +440,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			})
 
 			By("Processing the rollback event")
-			err = migrationSyncer.Sync(testCtx, event)
+			err := migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Verifying migration annotations were removed")
