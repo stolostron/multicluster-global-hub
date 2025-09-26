@@ -175,7 +175,7 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 			}
 
 			// Call the function under test
-			err := controller.UpdateFailedClustersConfimap(context.TODO(), tt.migration)
+			err := controller.UpdateFailureClustersToConfigMap(context.TODO(), tt.migration)
 
 			// Assertions
 			if tt.expectedError {
@@ -265,7 +265,7 @@ func TestUpdateFailedClustersConfimap_ErrorCases(t *testing.T) {
 		SetClusterList(string(migration.UID), []string{"cluster1", "cluster2"})
 
 		// Call the function under test
-		err := controller.UpdateFailedClustersConfimap(context.TODO(), migration)
+		err := controller.UpdateFailureClustersToConfigMap(context.TODO(), migration)
 
 		// Should get an error due to invalid JSON
 		assert.Error(t, err)

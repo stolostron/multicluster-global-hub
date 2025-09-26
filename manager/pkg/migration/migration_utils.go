@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ConfigMap keys used to store cluster migration results
@@ -100,7 +101,7 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 
 			if mcm.Status.Phase == migrationv1alpha1.PhaseFailed {
 				// save cluster list to configmap
-				err := m.UpdateFailedClustersConfimap(ctx, mcm)
+				err := m.UpdateFailureClustersToConfigMap(ctx, mcm)
 				if err != nil {
 					return err
 				}
@@ -111,48 +112,20 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 	})
 }
 
-// UpdateFailedClustersConfimap updates the ConfigMap with failed cluster information.
+// UpdateFailureClustersToConfigMap updates the ConfigMap with failed cluster information.
 // It calculates the failed clusters by subtracting successful clusters from all clusters
 // and stores both successful and failed clusters in the ConfigMap.
-func (m *ClusterMigrationController) UpdateFailedClustersConfimap(ctx context.Context,
+func (m *ClusterMigrationController) UpdateFailureClustersToConfigMap(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) error {
-	// Handle failed migration
-	successClusters, err := m.getClustersFromExistingConfigMap(ctx, mcm.Name, mcm.Namespace, successClustersConfigMapKey)
+	failedClusters, err := m.GetFailureClusters(ctx, mcm)
 	if err != nil {
 		return err
-	}
-	allClusters := GetClusterList(string(mcm.UID))
-	if len(successClusters) == 0 {
-		if err := m.storeClustersToConfigMap(ctx, mcm,
-			map[string][]string{
-				// Store all failed clusters
-				failedClustersConfigMapKey: allClusters,
-			}); err != nil {
-			return fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
-		}
-		return nil
-	}
-
-	// failedClusters = allClusters - successClusters
-	failedClusters := []string{}
-	for _, cluster := range allClusters {
-		exist := false
-		for _, successCluster := range successClusters {
-			if cluster == successCluster {
-				exist = true
-				break
-			}
-		}
-		if !exist {
-			failedClusters = append(failedClusters, cluster)
-		}
 	}
 
 	if err := m.storeClustersToConfigMap(ctx, mcm,
 		map[string][]string{
-			successClustersConfigMapKey: successClusters,
-			failedClustersConfigMapKey:  failedClusters,
+			failedClustersConfigMapKey: failedClusters,
 		}); err != nil {
 		return fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
 	}
@@ -160,9 +133,9 @@ func (m *ClusterMigrationController) UpdateFailedClustersConfimap(ctx context.Co
 	return nil
 }
 
-// UpdateSuccessClustersConfimap updates the ConfigMap with successful cluster information.
+// UpdateSuccessClustersToConfigMap updates the ConfigMap with successful cluster information.
 // It stores the provided list of successful clusters in the ConfigMap.
-func (m *ClusterMigrationController) UpdateSuccessClustersConfimap(ctx context.Context,
+func (m *ClusterMigrationController) UpdateSuccessClustersToConfigMap(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration, successClusters []string,
 ) error {
 	return m.storeClustersToConfigMap(ctx, mcm, map[string][]string{
@@ -170,10 +143,10 @@ func (m *ClusterMigrationController) UpdateSuccessClustersConfimap(ctx context.C
 	})
 }
 
-// UpdateAllClustersConfimap updates the ConfigMap with all cluster information.
+// UpdateAllClustersToConfigMap updates the ConfigMap with all cluster information.
 // Currently it only stores successful clusters, but the name suggests it should handle all clusters.
 // This function appears to be a duplicate of UpdateSuccessClustersConfimap.
-func (m *ClusterMigrationController) UpdateAllClustersConfimap(ctx context.Context,
+func (m *ClusterMigrationController) UpdateAllClustersToConfigMap(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration, successClusters []string,
 ) error {
 	return m.storeClustersToConfigMap(ctx, mcm, map[string][]string{
@@ -181,31 +154,73 @@ func (m *ClusterMigrationController) UpdateAllClustersConfimap(ctx context.Conte
 	})
 }
 
-func (m *ClusterMigrationController) setClusterList(
+// RestoreClusterList sets the cluster list to the memory cache, it invoked in the beginning of the reconciling process.
+// It has the following priority:
+// 1. IncludedManagedClusters from the migration spec
+// 2. AllClusters from the ConfigMap - it set in the validating phase from source hub
+func (m *ClusterMigrationController) RestoreClusterList(
 	ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
 ) error {
+	if len(GetClusterList(string(mcm.UID))) > 0 {
+		return nil
+	}
+
 	if len(mcm.Spec.IncludedManagedClusters) != 0 {
 		SetClusterList(string(mcm.UID), mcm.Spec.IncludedManagedClusters)
 		return nil
 	}
-	clusters, err := m.getClustersFromExistingConfigMap(ctx, mcm.Name, mcm.Namespace, allClustersConfigMapKey)
+	clusters, err := m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, allClustersConfigMapKey)
 	if err != nil {
 		return err
 	}
 	if len(clusters) > 0 {
 		SetClusterList(string(mcm.UID), clusters)
+		return nil
 	}
-	return nil
+	return fmt.Errorf("failed to restore cluster list into the memory cache")
 }
 
-// getClustersFromExistingConfigMap attempts to retrieve clusters from an existing ConfigMap
+func (m *ClusterMigrationController) GetSuccessClusters(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration,
+) ([]string, error) {
+	clusterList := GetClusterList(string(mcm.UID))
+	if len(clusterList) != 0 {
+		return clusterList, nil
+	}
+	return m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, successClustersConfigMapKey)
+}
+
+func (m *ClusterMigrationController) GetFailureClusters(ctx context.Context,
+	mcm *migrationv1alpha1.ManagedClusterMigration,
+) ([]string, error) {
+	// Handle failed migration
+	successClusters, err := m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, successClustersConfigMapKey)
+	if err != nil {
+		return nil, err
+	}
+	allClusters := GetClusterList(string(mcm.UID))
+	if len(successClusters) == 0 {
+		return allClusters, nil
+	}
+
+	// failedClusters = allClusters - successClusters
+	failedClusters := []string{}
+	for _, cluster := range allClusters {
+		if !utils.ContainsString(successClusters, cluster) {
+			failedClusters = append(failedClusters, cluster)
+		}
+	}
+	return failedClusters, nil
+}
+
+// getClusterFromConfigMap attempts to retrieve clusters from an existing ConfigMap
 // Returns clusters slice, found boolean, and error
-func (m *ClusterMigrationController) getClustersFromExistingConfigMap(ctx context.Context,
-	configMapName, namespace string, key string,
+func (m *ClusterMigrationController) getClusterFromConfigMap(ctx context.Context, name,
+	namespace string, key string,
 ) ([]string, error) {
 	existingConfigMap := &corev1.ConfigMap{}
 	err := m.Get(ctx, client.ObjectKey{
-		Name:      configMapName,
+		Name:      name,
 		Namespace: namespace,
 	}, existingConfigMap)
 	if err != nil {
@@ -222,7 +237,7 @@ func (m *ClusterMigrationController) getClustersFromExistingConfigMap(ctx contex
 			return nil, fmt.Errorf("failed to unmarshal clusters from ConfigMap: %w", err)
 		}
 		log.Infof("retrieved clusters from existing ConfigMap %s/%s for migration %s",
-			namespace, configMapName, configMapName)
+			namespace, name, name)
 		return clusters, nil
 	}
 

@@ -90,7 +90,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		condition.Reason = ConditionReasonError
 
 		registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
-		if err := m.UpdateSuccessClustersConfimap(ctx, mcm, registeringReadyClusters); err != nil {
+		if err := m.UpdateSuccessClustersToConfigMap(ctx, mcm, registeringReadyClusters); err != nil {
 			log.Errorf("failed to store clusters to ConfigMap: %w", err)
 		}
 		return false, nil
@@ -103,7 +103,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	}
 
 	registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
-	if err := m.UpdateSuccessClustersConfimap(ctx, mcm, registeringReadyClusters); err != nil {
+	if err := m.UpdateSuccessClustersToConfigMap(ctx, mcm, registeringReadyClusters); err != nil {
 		log.Errorf("failed to store clusters to ConfigMap: %w", err)
 	}
 
