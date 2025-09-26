@@ -73,10 +73,11 @@ func NewGenericConsumer(tranConfig *transport.TransportInternalConfig, topics []
 		assembler:            newMessageAssembler(),
 		enableDatabaseOffset: tranConfig.EnableDatabaseOffset,
 	}
-	if err := c.initClient(tranConfig, topics); err != nil {
+	// Apply options BEFORE initializing client
+	if err := c.applyOptions(opts...); err != nil {
 		return nil, err
 	}
-	if err := c.applyOptions(opts...); err != nil {
+	if err := c.initClient(tranConfig, topics); err != nil {
 		return nil, err
 	}
 	return c, nil
