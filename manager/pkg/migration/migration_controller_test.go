@@ -406,7 +406,7 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	// Store original timeout values to restore after tests
-	originalCleaningTimeout := 12 * time.Minute
+	originalCleaningTimeout := 5 * time.Minute
 	originalMigrationStageTimeout := 5 * time.Minute
 	originalRegisteringTimeout := 12 * time.Minute
 
@@ -594,4 +594,146 @@ func TestSetupTimeoutsFromConfig(t *testing.T) {
 		migratingTimeout = originalMigrationStageTimeout
 		registeringTimeout = originalRegisteringTimeout
 	})
+}
+
+func TestGetLastTransitionTime(t *testing.T) {
+	baseTime := time.Now()
+	older := baseTime.Add(-2 * time.Hour)
+	recent := baseTime.Add(-1 * time.Hour)
+	newest := baseTime
+
+	tests := []struct {
+		name                string
+		migration           *migrationv1alpha1.ManagedClusterMigration
+		expectedTimeCloseTo time.Time
+		expectCurrentTime   bool
+	}{
+		{
+			name: "Should return latest transition time from multiple conditions",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               migrationv1alpha1.ConditionTypeStarted,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: older},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeValidated,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: newest},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeInitialized,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: recent},
+						},
+					},
+				},
+			},
+			expectedTimeCloseTo: newest,
+			expectCurrentTime:   false,
+		},
+		{
+			name: "Should return single condition transition time",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               migrationv1alpha1.ConditionTypeStarted,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: recent},
+						},
+					},
+				},
+			},
+			expectedTimeCloseTo: recent,
+			expectCurrentTime:   false,
+		},
+		{
+			name: "Should return current time when no conditions exist",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Conditions: []metav1.Condition{},
+				},
+			},
+			expectCurrentTime: true,
+		},
+		{
+			name: "Should return current time when conditions is nil",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Conditions: nil,
+				},
+			},
+			expectCurrentTime: true,
+		},
+		{
+			name: "Should handle multiple conditions with same timestamp",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               migrationv1alpha1.ConditionTypeStarted,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: recent},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeValidated,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: recent},
+						},
+					},
+				},
+			},
+			expectedTimeCloseTo: recent,
+			expectCurrentTime:   false,
+		},
+		{
+			name: "Should correctly handle conditions in random order",
+			migration: &migrationv1alpha1.ManagedClusterMigration{
+				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               migrationv1alpha1.ConditionTypeValidated,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: recent},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeStarted,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: newest},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeInitialized,
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: older},
+						},
+					},
+				},
+			},
+			expectedTimeCloseTo: newest,
+			expectCurrentTime:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			beforeCall := time.Now()
+			result := getLastTransitionTime(tt.migration)
+			afterCall := time.Now()
+
+			if tt.expectCurrentTime {
+				// For cases where function should return time.Now(), verify it's between before and after call
+				assert.True(t, result.After(beforeCall) || result.Equal(beforeCall),
+					"Result should be after or equal to time before function call")
+				assert.True(t, result.Before(afterCall) || result.Equal(afterCall),
+					"Result should be before or equal to time after function call")
+			} else {
+				// For cases where function should return specific transition time
+				assert.True(t, result.Equal(tt.expectedTimeCloseTo),
+					"Expected time %v, got %v", tt.expectedTimeCloseTo, result)
+			}
+		})
+	}
 }

@@ -43,10 +43,10 @@ const (
 
 var (
 	// the following timeouts are accumulated from the start of the migration
-	migratingTimeout   time.Duration
-	cleaningTimeout    time.Duration
-	rollbackingTimeout time.Duration
-	registeringTimeout time.Duration
+	migratingTimeout   time.Duration = 5 * time.Minute
+	cleaningTimeout    time.Duration = 5 * time.Minute
+	rollbackingTimeout time.Duration = 5 * time.Minute
+	registeringTimeout time.Duration = 12 * time.Minute
 )
 
 var log = logger.DefaultZapLogger()
@@ -349,10 +349,9 @@ func (m *ClusterMigrationController) SetupMigrationStageTimeout(mcm *migrationv1
 	} else {
 		migratingTimeout = 5 * time.Minute
 		rollbackingTimeout = migratingTimeout
+		cleaningTimeout = migratingTimeout
 		registeringTimeout = 12 * time.Minute
-		cleaningTimeout = registeringTimeout
 	}
-
 	return nil
 }
 
@@ -367,4 +366,19 @@ func getTimeout(stage string) time.Duration {
 	default:
 		return migratingTimeout
 	}
+}
+
+func getLastTransitionTime(mcm *migrationv1alpha1.ManagedClusterMigration) time.Time {
+	lastTransitionTime := time.Time{}
+	updated := false
+	for _, cond := range mcm.Status.Conditions {
+		if lastTransitionTime.Before(cond.LastTransitionTime.Time) {
+			lastTransitionTime = cond.LastTransitionTime.Time
+			updated = true
+		}
+	}
+	if !updated {
+		lastTransitionTime = time.Now()
+	}
+	return lastTransitionTime
 }

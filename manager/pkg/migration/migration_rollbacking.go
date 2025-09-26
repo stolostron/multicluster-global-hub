@@ -3,7 +3,6 @@ package migration
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -162,14 +161,8 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 	waitingHub *string,
 	failedStage string,
 ) {
-	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-	// Handle timeout - still transition to Failed but with timeout message
-	timeout := getTimeout(failedStage) + getTimeout(migrationv1alpha1.PhaseRollbacking)
-	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > timeout {
-		condition.Reason = ConditionReasonTimeout
-		condition.Message = m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout")
-	}
+	_ = updateConditionWithTimeout(ctx, mcm, condition, getTimeout(migrationv1alpha1.PhaseRollbacking),
+		m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout"))
 
 	if condition.Reason != ConditionReasonWaiting {
 		*nextPhase = migrationv1alpha1.PhaseFailed

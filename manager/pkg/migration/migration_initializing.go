@@ -157,11 +157,7 @@ func (m *ClusterMigrationController) handleStatusWithRollback(ctx context.Contex
 		return
 	}
 
-	startedCond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeStarted)
-	if condition.Reason == ConditionReasonWaiting && startedCond != nil &&
-		time.Since(startedCond.LastTransitionTime.Time) > stageTimeout {
-		condition.Reason = ConditionReasonTimeout
-		condition.Message = fmt.Sprintf("Timeout: %s", condition.Message)
+	if updateConditionWithTimeout(ctx, mcm, condition, stageTimeout, "") {
 		*nextPhase = migrationv1alpha1.PhaseRollbacking
 	}
 
