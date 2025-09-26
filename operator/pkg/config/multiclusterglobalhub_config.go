@@ -168,8 +168,8 @@ var GeneralPredicate = predicate.Funcs{
 }
 
 // getAnnotation returns the annotation value for a given key, or an empty string if not set
-func getAnnotation(mgh *v1alpha4.MulticlusterGlobalHub, annotationKey string) string {
-	annotations := mgh.GetAnnotations()
+func getAnnotation(obj client.Object, annotationKey string) string {
+	annotations := obj.GetAnnotations()
 	if annotations == nil {
 		return ""
 	}
@@ -229,6 +229,15 @@ func GetStackroxPollInterval(mgh *v1alpha4.MulticlusterGlobalHub) time.Duration 
 		return 0
 	}
 	return value
+}
+
+// GetEventSendMode returns the event send mode from the annotations
+func GetEventSendMode(obj client.Object) string {
+	eventSendMode := getAnnotation(obj, operatorconstants.AnnotationMGHEventSendMode)
+	if eventSendMode == "" {
+		return string(constants.EventSendModeBatch) // default to batch mode
+	}
+	return eventSendMode
 }
 
 // GetSchedulerInterval returns the scheduler interval for moving policy compliance history

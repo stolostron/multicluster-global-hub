@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -44,11 +45,66 @@ func RegisterLocalReplicatedPolicyEventHandler(conflationManager *conflator.Conf
 	))
 }
 
+// convertEventToModel converts a single policy event to database model
+func (h *localReplicatedPolicyEventHandler) convertEventToModel(policyStatusEvent *event.ReplicatedPolicyEvent, leafHubName string) (*models.LocalReplicatedPolicyEvent, error) {
+	sourceJSONB, err := json.Marshal(policyStatusEvent.Source)
+	if err != nil {
+		h.log.Error(err, "failed to parse the event source", "source", policyStatusEvent.Source)
+		return nil, err
+	}
+
+	return &models.LocalReplicatedPolicyEvent{
+		BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+			EventName:      policyStatusEvent.EventName,
+			EventNamespace: policyStatusEvent.EventNamespace,
+			PolicyID:       policyStatusEvent.PolicyID,
+			Message:        policyStatusEvent.Message,
+			Reason:         policyStatusEvent.Reason,
+			LeafHubName:    leafHubName,
+			Source:         sourceJSONB,
+			Count:          int(policyStatusEvent.Count),
+			Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance, h.log)),
+			CreatedAt:      policyStatusEvent.CreatedAt,
+		},
+		ClusterID:   policyStatusEvent.ClusterID,
+		ClusterName: policyStatusEvent.ClusterName,
+	}, nil
+}
+
 func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
+	// Check if this is a single event mode
+	if eventMode, exists := evt.Extensions()[constants.CloudEventExtensionSendMode]; exists {
+		if eventMode == string(constants.EventSendModeSingle) {
+			// Handle single event
+			singleEvent := &event.ReplicatedPolicyEvent{}
+			if err := evt.DataAs(singleEvent); err != nil {
+				return err
+			}
+
+			localEvent, err := h.convertEventToModel(singleEvent, leafHubName)
+			if err != nil {
+				return err
+			}
+
+			db := database.GetGorm()
+			err = db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
+				UpdateAll: true,
+			}).Create(localEvent).Error
+			if err != nil {
+				return fmt.Errorf("failed handling single replicated policy event - %w", err)
+			}
+
+			h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+			return nil
+		}
+	}
+
+	// Handle batch events (existing logic)
 	data := event.ReplicatedPolicyEventBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
@@ -56,28 +112,12 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 
 	batchLocalPolicyEvents := []models.LocalReplicatedPolicyEvent{}
 	for _, policyStatusEvent := range data {
-
-		sourceJSONB, err := json.Marshal(policyStatusEvent.Source)
+		localEvent, err := h.convertEventToModel(policyStatusEvent, leafHubName)
 		if err != nil {
-			h.log.Error(err, "failed to parse the event source", "source", policyStatusEvent.Source)
+			h.log.Error(err, "failed to convert event to model")
+			continue
 		}
-
-		batchLocalPolicyEvents = append(batchLocalPolicyEvents, models.LocalReplicatedPolicyEvent{
-			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-				EventName:      policyStatusEvent.EventName,
-				EventNamespace: policyStatusEvent.EventNamespace,
-				PolicyID:       policyStatusEvent.PolicyID,
-				Message:        policyStatusEvent.Message,
-				Reason:         policyStatusEvent.Reason,
-				LeafHubName:    leafHubName,
-				Source:         sourceJSONB,
-				Count:          int(policyStatusEvent.Count),
-				Compliance:     string(common.GetDatabaseCompliance(policyStatusEvent.Compliance, h.log)),
-				CreatedAt:      policyStatusEvent.CreatedAt,
-			},
-			ClusterID:   policyStatusEvent.ClusterID,
-			ClusterName: policyStatusEvent.ClusterName,
-		})
+		batchLocalPolicyEvents = append(batchLocalPolicyEvents, *localEvent)
 	}
 
 	if len(batchLocalPolicyEvents) <= 0 {
