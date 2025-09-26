@@ -37,7 +37,8 @@ The manager requests resync for four critical resource types:
 
 ### Communication Flow
 ```
-Manager -> CloudEvent(ResyncMsgKey) -> Transport -> Agent
+Manager -> CloudEvent(ResyncMsgKey) -> Transport/Kafka -> Agent -> GlobalResyncQueue
+Agent -> ObjectEmitters -> CloudEvent(ResourceData) -> Transport/Kafka -> Manager
 ```
 
 ## Agent-side Resync Mechanism
@@ -51,7 +52,7 @@ The **Agent** component handles resync through two complementary approaches to e
 ### 1. GlobalResyncQueue-based Resync
 
 #### Queue Management
-The `GlobalResyncQueue` is a thread-safe queue that manages pending resync operations:
+The `GlobalResyncQueue` is a thread-safe, internal agent queue that manages pending resync operations:
 ```go
 type ResyncTypeQueue struct {
     mu    sync.Mutex
@@ -60,7 +61,7 @@ type ResyncTypeQueue struct {
 ```
 
 #### Request Sources
-- **Manager Requests**: Resync requests from the manager are processed by `ResyncSyncer.Sync()` and queued
+- **Manager Requests**: Resync requests from the manager are received via transport/Kafka, processed by `ResyncSyncer.Sync()`, and queued internally
 - **Agent Startup**: During agent initialization, all registered resource types are added to the queue
 - **Manual Triggers**: Additional resync requests can be programmatically queued
 
@@ -68,6 +69,8 @@ type ResyncTypeQueue struct {
 - `PeriodicSyncer` processes one event type from the queue every second using a 1-second ticker
 - Queue operates on a FIFO (First-In-First-Out) basis
 - Each processed item triggers a full resync for that specific resource type
+- **Resource Transmission**: When agent resyncs, `ObjectEmitters` send resource data as CloudEvent bundles via transport/Kafka to the manager
+- **Manager Consumption**: Manager consumes resource data from transport/Kafka for database updates
 
 ### 2. Periodic Resync
 
@@ -77,16 +80,23 @@ Each resource type maintains independent resync schedules:
 - Each emitter tracks its own `NextResyncAt` timestamp
 - Allows fine-tuning of synchronization frequency per resource type
 
-#### Automatic Triggering
+#### Automatic Triggering and Resource Transmission
 ```go
 if time.Now().After(state.NextResyncAt) {
-    // Trigger full resync
+    // Trigger full resync - this will send resources via transport/Kafka
     if err := p.Resync(ctx, eventType); err != nil {
         log.Errorf("failed to resync the event(%s): %v", eventType, err)
     }
     state.NextResyncAt = time.Now().Add(configmap.GetResyncInterval(enum.EventType(eventType)))
 }
 ```
+
+**Data Flow**: When `p.Resync()` is called:
+
+1. Agent lists all objects for the event type
+2. `ObjectEmitters` create CloudEvent bundles containing resource data
+3. Bundles are sent via transport/Kafka to the manager
+4. Manager consumes and processes the resource data for database updates
 
 ## Version Control in Resync Process
 
@@ -119,30 +129,53 @@ For detailed version structure, comparison logic, and race condition prevention 
 ```mermaid
 sequenceDiagram
     participant Manager as Manager<br/>(HubManagement)
-    participant Agent as Agent<br/>(ResyncSyncer)
-    participant Queue as GlobalResyncQueue
-    participant Periodic as PeriodicSyncer
+    participant Transport as Transport/Kafka<br/>(CloudEvents)
 
-    Manager->>Agent: Resync Request (CloudEvent)
-    Agent->>Queue: Queue Resync Operations
-    Agent-->>Manager: Heartbeat/Status
+    box Agent Internal Components
+        participant Queue as GlobalResyncQueue
+        participant Periodic as PeriodicSyncer
+        participant Emitters as ObjectEmitters
+    end
+
+    Note over Manager, Emitters: Manager-Agent Communication via Transport (Kafka)
+
+    Manager->>Transport: Resync Request (CloudEvent)
+    Transport->>Queue: ResyncSyncer processes and adds to Queue (FIFO)
+    Queue-->>Transport: Heartbeat/Status
+    Transport-->>Manager: Forward Heartbeat/Status
 
     loop Health Monitoring (2min probe, 5min timeout)
         Manager->>Manager: Monitor Hub Health
         alt Hub Reactivation
-            Manager->>Agent: Trigger Full Resync
+            Manager->>Transport: Trigger Full Resync (CloudEvent)
+            Transport->>Queue: ResyncSyncer adds all EventTypes to Queue
         end
     end
 
     loop Periodic Processing (1-second ticker)
-        Queue->>Periodic: Process Event Type (FIFO)
-        Periodic->>Periodic: Trigger Full Resync
+        Queue->>Periodic: Pop EventType (FIFO)
+        alt EventType found
+            Periodic->>Emitters: Call Resync
+            Emitters->>Transport: Send Full Resource List (CloudEvent Bundle)
+            Transport->>Manager: Forward Full Resource List
+            Note over Emitters, Manager: Agent sends resources via transport<br/>Manager consumes from transport
+        end
     end
 
     loop Configurable Intervals
         Periodic->>Periodic: Check NextResyncAt
         alt Time for Resync
-            Periodic->>Periodic: Auto-trigger Resync
+            Periodic->>Emitters: Call Resync
+            Emitters->>Transport: Send Full Resource List (CloudEvent Bundle)
+            Transport->>Manager: Forward Full Resource List
+        end
+    end
+
+    loop Delta Sync (Configurable Intervals)
+        Periodic->>Periodic: Check NextSyncAt
+        alt Time for Delta Sync
+            Emitters->>Transport: Send Changed Resources (CloudEvent Bundle)
+            Transport->>Manager: Forward Changed Resources
         end
     end
 ```
