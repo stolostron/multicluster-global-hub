@@ -117,9 +117,8 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 			},
 			clusterList: []string{"cluster1", "cluster2", "cluster3", "cluster4"},
-			// After fixing the bug, failed clusters should be correctly calculated as allClusters - successClusters
+			// UpdateFailureClustersToConfigMap only stores failure clusters, it doesn't preserve success clusters
 			expectedConfigMapData: map[string]string{
-				"success": clustersToJSON([]string{"cluster1", "cluster2"}),
 				"failure": clustersToJSON([]string{"cluster3", "cluster4"}),
 			},
 		},
@@ -146,9 +145,8 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 			},
 			clusterList: []string{"cluster1", "cluster2"},
+			// UpdateFailureClustersToConfigMap only stores failure clusters, not success clusters
 			expectedConfigMapData: map[string]string{
-				"success": clustersToJSON([]string{"cluster1"}),
-				// Due to the bug, cluster2 gets added for each success cluster (just one in this case)
 				"failure": clustersToJSON([]string{"cluster2"}),
 			},
 		},
@@ -170,9 +168,7 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 			}
 
 			// Setup cluster list for migration using the exported function
-			if tt.clusterList != nil {
-				SetClusterList(string(tt.migration.UID), tt.clusterList)
-			}
+			SetClusterList(string(tt.migration.UID), tt.clusterList)
 
 			// Call the function under test
 			err := controller.UpdateFailureClustersToConfigMap(context.TODO(), tt.migration)

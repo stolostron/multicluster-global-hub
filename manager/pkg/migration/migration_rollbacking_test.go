@@ -401,6 +401,7 @@ func TestDetermineFailedStage(t *testing.T) {
 
 func TestHandleRollbackStatus(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {

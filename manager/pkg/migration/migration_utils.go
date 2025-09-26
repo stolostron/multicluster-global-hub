@@ -171,7 +171,7 @@ func (m *ClusterMigrationController) RestoreClusterList(
 	}
 	clusters, err := m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, allClustersConfigMapKey)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to restore cluster list into the memory cache: %w", err)
 	}
 	if len(clusters) > 0 {
 		SetClusterList(string(mcm.UID), clusters)
