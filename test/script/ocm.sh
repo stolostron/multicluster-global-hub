@@ -9,6 +9,7 @@ source "$CURRENT_DIR/util.sh"
 # setup kubeconfig
 KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 HUB_INIT=${HUB_INIT:-true}
+POLICY_INIT=${POLICY_INIT:-true}
 
 hub="$1"
 spoken="$2"
@@ -27,13 +28,16 @@ install_crds "$spoken"
 retry "(join_cluster $hub $spoken) && kubectl get mcl $spoken --context $hub" 5
 
 # async
-init_app "$hub" "$spoken" 
-init_policy "$hub" "$spoken" 
+if [ "$POLICY_INIT" = true ]; then
+  # init policy for managed hub clusters only
+  init_policy "$hub" "$spoken"
+fi
 
 enable_cluster "$hub" "$spoken" 
 
 wait_ocm "$hub" "$spoken"
-wait_policy "$hub" "$spoken"
-wait_application "$hub" "$spoken"
+if [ "$POLICY_INIT" = true ]; then
+  wait_policy "$hub" "$spoken"
+fi
 
 echo -e "\r${BOLD_GREEN}[ END - $(date +"%T") ] $hub : $spoken ${NC} $(($(date +%s) - start_time)) seconds"

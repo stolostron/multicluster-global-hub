@@ -8,9 +8,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -22,12 +22,12 @@ const (
 	LOCAL_INFORM_POLICY_YAML  = "./../manifest/policy/local-inform-limitrange-policy.yaml"
 	LOCAL_ENFORCE_POLICY_YAML = "./../manifest/policy/local-enforce-limitrange-policy.yaml"
 
-	LOCAL_POLICY_LABEL_KEY      = "local-policy"
-	LOCAL_POLICY_LABEL_VALUE    = "test"
-	LOCAL_POLICY_NAME           = "policy-limitrange"
-	LOCAL_POLICY_NAMESPACE      = "local-policy-namespace"
-	LOCAL_PLACEMENTBINDING_NAME = "binding-policy-limitrange"
-	LOCAL_PLACEMENT_RULE_NAME   = "placementrule-policy-limitrange"
+	LOCAL_POLICY_LABEL_STR        = "local-policy=test"
+	LOCAL_POLICY_LABEL_REMOVE_STR = "local-policy-"
+	LOCAL_POLICY_NAME             = "policy-limitrange"
+	LOCAL_POLICY_NAMESPACE        = "local-policy-namespace"
+	LOCAL_PLACEMENT_NAME          = "placement-policy-limitrange"
+	LOCAL_PLACEMENTBINDING_NAME   = "binding-policy-limitrange"
 )
 
 var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() {
@@ -36,8 +36,9 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 
 	BeforeAll(func() {
 		By("Add local policy label to the managed cluster")
-		for _, managedCluster := range managedClusters {
-			assertAddLabel(managedCluster, LOCAL_POLICY_LABEL_KEY, LOCAL_POLICY_LABEL_VALUE)
+
+		for _, clusterName := range managedClusterNames {
+			Expect(updateClusterLabel(clusterName, LOCAL_POLICY_LABEL_STR)).Should(Succeed())
 		}
 
 		By("Deploy the policy to the leafhub")
@@ -87,8 +88,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						count++
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("compliance num want %d, but got %d", len(managedClusters), count)
+				if count != len(managedClusterNames) {
+					return fmt.Errorf("compliance num want %d, but got %d", len(managedClusterNames), count)
 				}
 				return nil
 			}, 1*time.Minute, 1*time.Second).Should(Succeed())
@@ -108,8 +109,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						count++
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("history compliance num want %d, but got %d", len(managedClusters), count)
+				if count != len(managedClusterNames) {
+					return fmt.Errorf("history compliance num want %d, but got %d", len(managedClusterNames), count)
 				}
 				return nil
 			}, 3*time.Minute, 10*time.Second).Should(Succeed())
@@ -133,8 +134,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						eventPolicyIds.Insert(e.PolicyID)
 					}
 				}
-				if count < len(managedClusters) {
-					return fmt.Errorf("replicated policy event num at least %d, but got %d", len(managedClusters), count)
+				if count < len(managedClusterNames) {
+					return fmt.Errorf("replicated policy event num at least %d, but got %d", len(managedClusterNames), count)
 				}
 				if eventPolicyIds.Len() < len(policyIds) {
 					return fmt.Errorf("policy num(policy event) at least %d, but got %d", len(policyIds), eventPolicyIds.Len())
@@ -161,8 +162,8 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						eventPolicyIds.Insert(e.PolicyID)
 					}
 				}
-				if count != len(managedClusters) {
-					return fmt.Errorf("root policy event num want %d, but got %d", len(managedClusters), count)
+				if count != len(managedClusterNames) {
+					return fmt.Errorf("root policy event num want %d, but got %d", len(managedClusterNames), count)
 				}
 
 				if len(policyIds) != eventPolicyIds.Len() {
@@ -209,27 +210,6 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 						if finalizer == constants.GlobalHubCleanupFinalizer {
 							return fmt.Errorf("the local placementbinding(%s) has been added the cleanup finalizer",
 								placementbinding.GetName())
-						}
-					}
-				}
-				return nil
-			}, 1*time.Minute, 1*time.Second).Should(Succeed())
-		})
-
-		It("check the placementrule", func() {
-			Eventually(func() error {
-				for _, hubClient := range hubClients {
-					placementrule := &placementrulev1.PlacementRule{}
-					err := hubClient.Get(ctx, client.ObjectKey{
-						Namespace: LOCAL_POLICY_NAMESPACE,
-						Name:      LOCAL_PLACEMENT_RULE_NAME,
-					}, placementrule)
-					if err != nil {
-						return err
-					}
-					for _, finalizer := range placementrule.Finalizers {
-						if finalizer == constants.GlobalHubCleanupFinalizer {
-							return fmt.Errorf("the local placementrule(%s) has been added the cleanup finalizer", placementrule.GetName())
 						}
 					}
 				}
@@ -301,5 +281,20 @@ var _ = Describe("Local Policy", Ordered, Label("e2e-test-localpolicy"), func() 
 			}
 			return nil
 		}, 1*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Remove local policy test label")
+		for _, clusterName := range managedClusterNames {
+			Expect(updateClusterLabel(clusterName, LOCAL_POLICY_LABEL_REMOVE_STR)).Should(Succeed())
+		}
 	})
 })
+
+func getHubPolicyStatus(client client.Client, name, namespace string) (*policiesv1.PolicyStatus, error) {
+	policy := &policiesv1.Policy{}
+	err := client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &policy.Status, nil
+}

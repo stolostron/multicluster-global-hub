@@ -33,15 +33,3 @@ func NewHoHConfigMapGVR() schema.GroupVersionResource {
 		Resource: "configmaps",
 	}
 }
-
-func NewPlacementRule() schema.GroupVersionResource {
-	return schema.GroupVersionResource{Group: "apps.open-cluster-management.io", Version: "v1", Resource: "placementrules"}
-}
-
-func NewSubscriptionreportsGVR() schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    "apps.open-cluster-management.io",
-		Version:  "v1alpha1",
-		Resource: "subscriptionreports",
-	}
-}

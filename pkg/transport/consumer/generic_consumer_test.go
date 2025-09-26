@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm/clause"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -29,10 +30,16 @@ func TestGenerateConsumer(t *testing.T) {
 			ConsumerGroupID: "test-consumer",
 		},
 	}
-	_, err = NewGenericConsumer(transportConfig, []string{transportConfig.KafkaCredential.SpecTopic})
+	options := []GenericConsumeOption{}
+	// set consumerTopics to status or spec topic based on running in manager or not
+	options = append(options, SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval))
+
+	_, err = NewGenericConsumer(transportConfig, []string{transportConfig.KafkaCredential.SpecTopic}, options...)
 	if err != nil && !strings.Contains(err.Error(), "client has run out of available brokers") {
 		t.Errorf("failed to generate consumer - %v", err)
 	}
+	// cannot get the kafka.ConfigMap from a Kafka consumer after it's created
+	// The confluent-kafka-go library doesn't expose the configuration used to create the consumer.
 }
 
 func TestGetInitOffset(t *testing.T) {

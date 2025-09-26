@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	configv1 "github.com/openshift/api/config/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
 	uberzap "go.uber.org/zap"
@@ -244,4 +245,20 @@ func GenerateACLKey(acl kafkav1beta2.KafkaUserSpecAuthorizationAclsElem) string 
 	}
 	sort.Strings(ops)
 	return fmt.Sprintf("%s|%s", *acl.Resource.Name, strings.Join(ops, ","))
+}
+
+// FilterSensitiveKafkaConfig filters out sensitive data from Kafka ConfigMap for safe logging.
+// It replaces SSL certificate and key values with "[REDACTED]" to prevent exposure of
+// sensitive credentials in logs.
+func FilterSensitiveKafkaConfig(configMap *kafka.ConfigMap) map[string]interface{} {
+	safeConfig := make(map[string]interface{})
+	for key, value := range *configMap {
+		// Exclude sensitive SSL/TLS certificate and key data
+		if key == "ssl.ca.pem" || key == "ssl.certificate.pem" || key == "ssl.key.pem" {
+			safeConfig[key] = "[REDACTED]"
+		} else {
+			safeConfig[key] = value
+		}
+	}
+	return safeConfig
 }
