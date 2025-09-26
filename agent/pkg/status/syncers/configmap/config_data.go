@@ -3,6 +3,7 @@ package configmap
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -33,6 +34,9 @@ var (
 		AgentAggregationKey:  AggregationFull,
 		EnableLocalPolicyKey: EnableLocalPolicyTrue,
 	}
+
+	// Mutex to protect concurrent access to the intervals maps
+	intervalsMutex sync.RWMutex
 )
 
 const (
@@ -55,24 +59,34 @@ type ResolveSyncIntervalFunc func() time.Duration
 
 // GetManagerClusterDuration returns managed clusters sync interval.
 func GetManagerClusterDuration() time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	return syncIntervals[enum.ShortenEventType(string(enum.ManagedClusterType))]
 }
 
 // GetPolicyDuration returns policies sync interval.
 func GetPolicyDuration() time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	return syncIntervals[enum.ShortenEventType(string(enum.LocalPolicySpecType))]
 }
 
 // GetHubClusterInfoDuration returns control info sync interval.
 func GetHubClusterInfoDuration() time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	return syncIntervals[enum.ShortenEventType(string(enum.HubClusterInfoType))]
 }
 
 func GetHeartbeatDuration() time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	return syncIntervals[enum.ShortenEventType(string(enum.HubClusterHeartbeatType))]
 }
 
 func GetEventDuration() time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	return syncIntervals[enum.ShortenEventType(string(enum.ManagedClusterEventType))]
 }
 
@@ -85,6 +99,8 @@ func GetEnableLocalPolicy() AgentConfigValue {
 }
 
 func GetResyncInterval(eventType enum.EventType) time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	interval, ok := reSyncIntervals[GetResyncKey(eventType)]
 	if !ok {
 		return defaultResyncInterval
@@ -93,6 +109,8 @@ func GetResyncInterval(eventType enum.EventType) time.Duration {
 }
 
 func GetSyncInterval(eventType enum.EventType) time.Duration {
+	intervalsMutex.RLock()
+	defer intervalsMutex.RUnlock()
 	interval, ok := syncIntervals[GetSyncKey(eventType)]
 	if !ok {
 		return defaultSyncInterval
@@ -103,6 +121,8 @@ func GetSyncInterval(eventType enum.EventType) time.Duration {
 // SetInterval sets the sync/resync interval for a specific bundle.
 // The key is derived from the EventType, e.g., GetSyncKey(enum.ManagedClusterEventType).
 func SetInterval(key string, val time.Duration) {
+	intervalsMutex.Lock()
+	defer intervalsMutex.Unlock()
 	if strings.HasPrefix(key, "resync.") {
 		reSyncIntervals[key] = val
 	} else {
