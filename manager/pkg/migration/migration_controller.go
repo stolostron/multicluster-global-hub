@@ -139,15 +139,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	log.Infof("processing migration instance: %s", mcm.Name)
-	// Need to cover manager restart case, we need to load cluster list from configmap
-	clusterList := GetClusterList(string(mcm.UID))
-	if len(clusterList) == 0 {
-		err := m.setClusterList(ctx, mcm)
-		if err != nil {
-			log.Errorf("failed to set clusterList %v", err)
-			return ctrl.Result{}, err
-		}
-	}
 
 	// add the finalizer if the migration is not being deleted
 	if mcm.DeletionTimestamp == nil {
@@ -174,6 +165,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	if requeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	// After validating, the cluster list is set in the memory cache(by migration status handler).
+	// while it may be lost after manager restart, we need to set the cluster list into the memory cache again.
+	if err := m.RestoreClusterList(ctx, mcm); err != nil {
+		log.Errorf("failed to set clusterList %v", err)
+		return ctrl.Result{}, err
 	}
 
 	// initializing

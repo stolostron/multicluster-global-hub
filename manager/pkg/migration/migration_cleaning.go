@@ -154,9 +154,14 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 		condition.Status = metav1.ConditionFalse
 	}
 
+	// finished cleaning
 	if condition.Reason != ConditionReasonWaiting {
-		// Ensure cleaning always ends in Completed phase, regardless of condition status
-		*nextPhase = migrationv1alpha1.PhaseCompleted
+		if meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack) != nil {
+			*nextPhase = migrationv1alpha1.PhaseFailed
+		} else {
+			// Ensure cleaning always ends in Completed phase, regardless of cleaning condition status
+			*nextPhase = migrationv1alpha1.PhaseCompleted
+		}
 	}
 
 	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)

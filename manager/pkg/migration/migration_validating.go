@@ -151,8 +151,9 @@ func (m *ClusterMigrationController) validateMigrationClusters(
 	}
 
 	// Update full clusterlist when source hub validating finished
-	if err := m.UpdateAllClustersConfimap(ctx, mcm, GetClusterList(string(mcm.UID))); err != nil {
+	if err := m.UpdateAllClustersToConfigMap(ctx, mcm, GetClusterList(string(mcm.UID))); err != nil {
 		log.Errorf("failed to store clusters to ConfigMap: %w", err)
+		return false, err
 	}
 
 	// validate clusters from target hub

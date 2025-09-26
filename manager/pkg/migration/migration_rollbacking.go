@@ -51,18 +51,15 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// 1. Send rollback events to source hubs to restore original configurations
 	fromHub := mcm.Spec.From
-	rollbackClusters := GetClusterList(string(mcm.UID))
-	if failedStage == migrationv1alpha1.PhaseRegistering {
-		notReadyClusters := GetNotReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)
-		if len(notReadyClusters) > 0 {
-			log.Infof("rollbacking the not ready clusters: %v", notReadyClusters)
-			rollbackClusters = notReadyClusters
-		}
+	failedClusters, err := m.GetFailureClusters(ctx, mcm)
+	if err != nil {
+		return false, err
 	}
+	log.Infof("rollbacking the failed clusters: %v", failedClusters)
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to source hub: %s", fromHub)
-		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, rollbackClusters,
+		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, failedClusters,
 			getBootstrapSecret(fromHub, nil), failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to source hub %s: %v",
@@ -91,7 +88,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	// 2. Send rollback event to destination hub to clean up partial resources
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to destination hub: %s", mcm.Spec.To)
-		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, rollbackClusters, failedStage)
+		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, failedClusters, failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to target hub %s: %v", failedStage,
 				mcm.Spec.To, err)
@@ -130,18 +127,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	condition.Status = metav1.ConditionTrue
 	condition.Reason = ConditionReasonResourceRolledBack
-
-	// cleaning the ready clusters
-	if failedStage == migrationv1alpha1.PhaseRegistering &&
-		len(GetReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)) > 0 {
-		nextPhase = migrationv1alpha1.PhaseCleaning
-		condition.Message = fmt.Sprintf("%s rollback completed successfully. Cleaning the ready clusters", failedStage)
-		log.Infof("migration rollbacking finished - transitioning to Cleaning")
-	} else {
-		condition.Message = fmt.Sprintf("%s rollback completed successfully.", failedStage)
-		nextPhase = migrationv1alpha1.PhaseFailed
-		log.Infof("migration rollbacking finished - transitioning to Failed")
-	}
+	condition.Message = fmt.Sprintf("%s rollback %d clusters completed successfully.", failedStage, len(failedClusters))
 	return false, nil
 }
 
@@ -164,8 +150,26 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 	_ = updateConditionWithTimeout(ctx, mcm, condition, getTimeout(migrationv1alpha1.PhaseRollbacking),
 		m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout"))
 
+	// means the rollback is finished whether it's successful or failed
 	if condition.Reason != ConditionReasonWaiting {
-		*nextPhase = migrationv1alpha1.PhaseFailed
+		successClusters, err := m.GetSuccessClusters(ctx, mcm)
+		if err != nil {
+			log.Errorf("failed to get success clusters: %v", err)
+			// if the condition if true, update the error message into the condition
+			if condition.Status == metav1.ConditionTrue {
+				condition.Message = fmt.Sprintf("Warning - Failed to get success clusters after %s rollback: %v",
+					failedStage, err)
+			}
+		}
+
+		// cleaning the ready clusters
+		if len(successClusters) > 0 {
+			*nextPhase = migrationv1alpha1.PhaseCleaning
+			log.Infof("migration rollbacking finished - transitioning to Cleaning")
+		} else {
+			*nextPhase = migrationv1alpha1.PhaseFailed
+			log.Infof("migration rollbacking finished - transitioning to Failed")
+		}
 	}
 
 	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
