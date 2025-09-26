@@ -2,7 +2,6 @@ package migration
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -14,10 +13,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -138,10 +135,6 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 	log.Debugf("migrate name:%v, clusters: %v", mcm.Name, GetClusterList(string(mcm.UID)))
 
-	// Store clusters in ConfigMap
-	if err := m.storeClustersToConfigMap(ctx, mcm, GetClusterList(string(mcm.UID))); err != nil {
-		return false, fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
-	}
 	return false, nil
 }
 
@@ -155,6 +148,11 @@ func (m *ClusterMigrationController) validateMigrationClusters(
 	}
 	if requeue {
 		return true, nil
+	}
+
+	// Update full clusterlist when source hub validating finished
+	if err := m.UpdateAllClustersConfimap(ctx, mcm, GetClusterList(string(mcm.UID))); err != nil {
+		log.Errorf("failed to store clusters to ConfigMap: %w", err)
 	}
 
 	// validate clusters from target hub
@@ -214,39 +212,6 @@ func (m *ClusterMigrationController) handleErrorList(
 	for _, errMsg := range errList {
 		m.EventRecorder.Eventf(mcm, corev1.EventTypeWarning, "ValidationFailed", errMsg)
 	}
-}
-
-// storeClustersToConfigMap creates or updates a ConfigMap with the clusters data for the migration
-// The ConfigMap is named with the migration name and has owner reference to the migration object
-func (m *ClusterMigrationController) storeClustersToConfigMap(ctx context.Context,
-	migration *migrationv1alpha1.ManagedClusterMigration, clusters []string,
-) error {
-	clustersData, err := json.Marshal(clusters)
-	if err != nil {
-		return fmt.Errorf("failed to marshal clusters data: %w", err)
-	}
-
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      migration.Name,
-			Namespace: migration.Namespace,
-		},
-	}
-	err = controllerutil.SetOwnerReference(migration, configMap, m.Scheme)
-	if err != nil {
-		return fmt.Errorf("failed to set owner reference for configmap: %s", configMap.Name)
-	}
-	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		operation, err := controllerutil.CreateOrUpdate(ctx, m.Client, configMap, func() error {
-			configMap.Data = map[string]string{
-				"clusters": string(clustersData),
-			}
-			return nil
-		})
-		log.Infof("save configmap for migration %s, operation: %v", configMap.Name, operation)
-		return err
-	})
-	return err
 }
 
 // IsValidResource checks format kind/namespace/name

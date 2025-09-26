@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -210,6 +211,7 @@ func TestCompleted(t *testing.T) {
 
 	for _, tt := range tests {
 		scheme := runtime.NewScheme()
+		_ = corev1.AddToScheme(scheme)
 
 		_ = v1beta1.AddToScheme(scheme)
 		_ = v1alpha1.AddToScheme(scheme)
@@ -218,6 +220,7 @@ func TestCompleted(t *testing.T) {
 			ctrl := &ClusterMigrationController{
 				Client:   fake.NewClientBuilder().WithScheme(scheme).WithObjects(allObjects...).WithStatusSubresource(&v1alpha1.ManagedClusterMigration{}).Build(),
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 			ctx := context.Background()
 

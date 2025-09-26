@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,6 +18,7 @@ import (
 
 func TestRegistering(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
 
 	tests := []struct {
@@ -200,6 +202,7 @@ func TestRegistering(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			requeue, err := controller.registering(context.TODO(), tt.migration)

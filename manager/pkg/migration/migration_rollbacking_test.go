@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,6 +21,7 @@ import (
 
 func TestRollbacking(t *testing.T) {
 	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
 	_ = migrationv1alpha1.AddToScheme(scheme)
 	_ = clusterv1.AddToScheme(scheme)
 	_ = addonv1alpha1.AddToScheme(scheme)
@@ -234,6 +236,7 @@ func TestRollbacking(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			// Set up timeout configuration for non-timeout tests
@@ -481,6 +484,7 @@ func TestHandleRollbackStatus(t *testing.T) {
 			controller := &ClusterMigrationController{
 				Client:   fakeClient,
 				Producer: &MockProducer{},
+				Scheme:   scheme,
 			}
 
 			// Set up timeout configuration for timeout tests
