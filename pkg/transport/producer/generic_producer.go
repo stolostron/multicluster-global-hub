@@ -163,7 +163,8 @@ func getConfluentSenderProtocol(logger *zap.SugaredLogger, kafkaCredentail *tran
 	if err != nil {
 		return nil, nil, err
 	}
-	logger.Debugw("the configurations applied to the Kafka producer", "configMap", utils.FilterSensitiveKafkaConfig(configMap))
+	logger.Debugw("the configurations applied to the Kafka producer", "configMap",
+		utils.FilterSensitiveKafkaConfig(configMap))
 
 	producer, err := kafka.NewProducer(configMap)
 	if err != nil {

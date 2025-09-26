@@ -250,7 +250,8 @@ func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalCo
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Debugw("the configurations applied to the Kafka consumer", "configMap", utils.FilterSensitiveKafkaConfig(configMap))
+	log.Debugw("the configurations applied to the Kafka consumer", "configMap",
+		utils.FilterSensitiveKafkaConfig(configMap))
 
 	consumer, err := kafka.NewConsumer(configMap)
 	if err != nil {
