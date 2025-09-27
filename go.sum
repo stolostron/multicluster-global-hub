@@ -1488,12 +1488,12 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/chzyer/test v0.0.0-20210722231415-061457976a23/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/chzyer/test v1.0.0/go.mod h1:2JlltgoNkt4TW/z9V/IzDdFaMTM2JPIi26O1pF38GC8=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250904143103-af3e8599b331 h1:+qFn30+lK3KFLVO6CorwEqhtVWmBNfI+jci3zHKF2hk=
-github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250904143103-af3e8599b331/go.mod h1:6Xu0KqRKZILCddPMs2Yis4tlRHL5qsZHh5W5hYaJYJw=
+github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250924120602-a2a2a4b2852e h1:YpGQQAaDV3DB85uFAP/iz+Ko1lqRxIU+HvnMbw0Bpzo=
+github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250924120602-a2a2a4b2852e/go.mod h1:VY9YoQIh0mn3I9opf8r4O0FvmiA4snptFpB4Wxd6Akk=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2 h1:dl2xbFLV2FGd3OBNC6ncSN9l+gPNEP0DYE+1yKVV5DQ=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2/go.mod h1:jXfl9I1Q78+4zdYGTjHNQcrbNtJL63jpzSgVE2rE79U=
-github.com/cloudevents/sdk-go/v2 v2.16.1 h1:G91iUdqvl88BZ1GYYr9vScTj5zzXSyEuqbfE63gbu9Q=
-github.com/cloudevents/sdk-go/v2 v2.16.1/go.mod h1:v/kVOaWjNfbvc6tkhhlkhvLapj8Aa8kvXiH5GiOHCKI=
+github.com/cloudevents/sdk-go/v2 v2.16.2 h1:ZYDFrYke4FD+jM8TZTJJO6JhKHzOQl2oqpFK1D+NnQM=
+github.com/cloudevents/sdk-go/v2 v2.16.2/go.mod h1:laOcGImm4nVJEU+PHnUrKL56CKmRL65RlQF0kRmW/kg=
 github.com/cloudflare/cfssl v1.6.5 h1:46zpNkm6dlNkMZH/wMW22ejih6gIaJbzL2du6vD7ZeI=
 github.com/cloudflare/cfssl v1.6.5/go.mod h1:Bk1si7sq8h2+yVEDrFJiz3d7Aw+pfjjJSZVaD+Taky4=
 github.com/cloudwego/base64x v0.1.5 h1:XPciSp1xaq2VCSt6lF0phncD4koWyULpl5bUxbfCyP4=
@@ -2590,8 +2590,8 @@ github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/stretchr/testify v1.11.0 h1:ib4sjIrwZKxE5u/Japgo/7SJV3PvgjGiRNAvTVGqQl8=
-github.com/stretchr/testify v1.11.0/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
+github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
+github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
 github.com/substrait-io/substrait-go v0.4.2/go.mod h1:qhpnLmrcvAnlZsUyPXZRqldiHapPTXC3t7xFgDi3aQg=
 github.com/testcontainers/testcontainers-go v0.33.0 h1:zJS9PfXYT5O0ZFXM2xxXfk4J5UMw/kRiISng037Gxdw=
