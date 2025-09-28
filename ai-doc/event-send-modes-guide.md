@@ -111,6 +111,9 @@ Each event sent separately (payload is a single object):
 - Debugging policy issues
 - Testing environments
 - Low policy volume (< 50 policies)
+- **Integrating with systems designed for individual event processing** (e.g., Ansible, event-driven automation tools)
+- **Working with legacy systems that cannot handle batch/array data structures**
+- **Building event-driven workflows that require atomic event processing**
 
 ### Use Batch Mode When:
 - Production environments
@@ -135,7 +138,7 @@ kubectl get deployment multicluster-global-hub-agent \
   -o jsonpath='{.spec.template.spec.containers[0].args}' | grep event-mode
 ```
 
-You should see: `--event-mode=single` or `--event-mode=batch`
+You should see: `--event-send-mode=single` or `--event-send-mode=batch`
 
 ## Important Notes
 
