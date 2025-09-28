@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# Set start date (YYYY-MM-DD format)
+START_DATE="2025-11-01"
+
+# Check if current date is before start date
+if [[ $(date +%s) -lt $(date -j -f "%Y-%m-%d" "$START_DATE" +%s) ]]; then
+    echo "⏰ Release checklist hook not active until $START_DATE. Skipping checks."
+    exit 0
+fi
+
+# Check if pushing to a release branch
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [[ "$remote_ref" == *"release-"* ]] || [[ "$remote_ref" == *"main"* ]]; then
+        # Check if checklist exists and items are checked
+        if [[ -f "RELEASE_CHECKLIST.md" ]]; then
+            checked_count=$(grep -c "- \[x\]" RELEASE_CHECKLIST.md)
+            if [[ $checked_count -ge 14 ]]; then
+                echo "✅ Release checklist appears complete. Proceeding with push."
+                continue
+            fi
+        fi
+        
+        if [[ "$remote_ref" == *"release-"* ]]; then
+            echo "🚨 RELEASE BRANCH DETECTED! 🚨"
+        else
+            echo "🚨 MAIN BRANCH DETECTED! 🚨"
+        fi
+        echo ""
+        echo "Don't forget to check RELEASE_CHECKLIST.md (14 items total):"
+        echo "- Release Branch Preparation (5 items)"
+        echo "- Catalog Update (5 items)"  
+        echo "- Bundle Update (3 items)"
+        echo "- Release Data Update (1 item)"
+        echo ""
+        echo "Continue with push? (y/n)"
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Push cancelled. Check your release checklist!"
+            exit 1
+        fi
+    fi
+done
+
+exit 0
