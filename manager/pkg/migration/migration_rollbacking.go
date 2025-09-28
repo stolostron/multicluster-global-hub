@@ -152,29 +152,31 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 
 	// means the rollback is finished whether it's successful or failed
 	if condition.Reason != ConditionReasonWaiting {
-		successClusters, err := m.GetSuccessClusters(ctx, mcm)
-		if err != nil {
-			log.Errorf("failed to get success clusters: %v", err)
-			// if the condition if true, update the error message into the condition
-			if condition.Status == metav1.ConditionTrue {
-				condition.Message = fmt.Sprintf("Warning - Failed to get success clusters after %s rollback: %v",
-					failedStage, err)
+		*nextPhase = migrationv1alpha1.PhaseFailed
+		log.Infof("migration rollbacking finished for failed %s stage", failedStage)
+
+		// if registering, cleaning the ready clusters
+		if failedStage == migrationv1alpha1.PhaseRegistering {
+			successClusters, err := m.GetSuccessClusters(ctx, mcm)
+			if err != nil {
+				log.Errorf("failed to get success clusters: %v", err)
+				// if the condition if true, update the error message into the condition
+				if condition.Status == metav1.ConditionTrue {
+					condition.Message = fmt.Sprintf("Warning - Failed to get success clusters after %s rollback: %v",
+						failedStage, err)
+				}
+			}
+
+			if len(successClusters) > 0 {
+				*nextPhase = migrationv1alpha1.PhaseCleaning
+				log.Infof("success clusters found %d, cleaning the ready clusters", len(successClusters))
 			}
 		}
 
-		// cleaning the ready clusters
-		if len(successClusters) > 0 {
-			*nextPhase = migrationv1alpha1.PhaseCleaning
-			log.Infof("migration rollbacking finished - transitioning to Cleaning")
-		} else {
-			*nextPhase = migrationv1alpha1.PhaseFailed
-			log.Infof("migration rollbacking finished - transitioning to Failed")
+		err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
+		if err != nil {
+			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
 		}
-	}
-
-	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
-	if err != nil {
-		log.Errorf("failed to update the %s condition: %v", condition.Type, err)
 	}
 }
 

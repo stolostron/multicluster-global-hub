@@ -169,6 +169,8 @@ func (m *ClusterMigrationController) RestoreClusterList(
 		SetClusterList(string(mcm.UID), mcm.Spec.IncludedManagedClusters)
 		return nil
 	}
+
+	// Get all clusters from the ConfigMap only can be invoked after the validating phase is executed.
 	clusters, err := m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, allClustersConfigMapKey)
 	if err != nil {
 		return fmt.Errorf("failed to restore cluster list into the memory cache: %w", err)
@@ -180,21 +182,25 @@ func (m *ClusterMigrationController) RestoreClusterList(
 	return fmt.Errorf("failed to restore cluster list into the memory cache")
 }
 
+// GetSuccessClusters retrieves the list of successful clusters from the memory cache or the ConfigMap.
+// It only can be invoked after the registering phase is executed.
 func (m *ClusterMigrationController) GetSuccessClusters(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) ([]string, error) {
-	clusterList := GetClusterList(string(mcm.UID))
-	if len(clusterList) != 0 {
-		return clusterList, nil
+	cond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
+	if cond == nil {
+		return nil, fmt.Errorf("the success clusters should be retrieved after the migration registering stage")
 	}
 	return m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, successClustersConfigMapKey)
 }
 
+// GetFailureClusters retrieves the list of failure clusters. It only can be invoked after the registering
+// phase is executed. And it infer the failure clusters from the all clusters and the success clusters.
+// Note: Not from the configmap directly. Cause the failed clusters only be updated after the failed stage!
 func (m *ClusterMigrationController) GetFailureClusters(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) ([]string, error) {
-	// Handle failed migration
-	successClusters, err := m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, successClustersConfigMapKey)
+	successClusters, err := m.GetSuccessClusters(ctx, mcm)
 	if err != nil {
 		return nil, err
 	}
