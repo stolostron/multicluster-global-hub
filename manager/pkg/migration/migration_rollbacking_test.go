@@ -2,6 +2,7 @@ package migration
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// go test -timeout 30s -run ^TestRollbacking$ ./manager/pkg/migration
 func TestRollbacking(t *testing.T) {
 	scheme := runtime.NewScheme()
 	_ = corev1.AddToScheme(scheme)
@@ -170,10 +172,6 @@ func TestRollbacking(t *testing.T) {
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
 						},
-						{
-							Type:   migrationv1alpha1.ConditionTypeDeployed,
-							Status: metav1.ConditionFalse,
-						},
 					},
 				},
 			},
@@ -194,8 +192,9 @@ func TestRollbacking(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Initialize migration status for this test
+			// Initialize migration status for this test, and simulate the rollbacking clusters
 			AddMigrationStatus(string(tt.migration.UID))
+			SetClusterList(string(tt.migration.UID), []string{"cluster1", "cluster2"})
 
 			// Create necessary objects for the test
 			objects := []client.Object{tt.migration}
@@ -280,6 +279,7 @@ func TestRollbacking(t *testing.T) {
 
 			// Verify results
 			if tt.expectedError {
+				fmt.Println("expected error", err)
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
@@ -293,12 +293,13 @@ func TestRollbacking(t *testing.T) {
 
 			if tt.expectedConditionType != "" {
 				condition := findControllerCondition(tt.migration.Status.Conditions, tt.expectedConditionType)
-				assert.NotNil(t, condition, "Expected condition should exist")
+				utils.PrettyPrint(tt.migration.Status)
+				assert.NotNil(t, condition, fmt.Sprintf("Expected condition should exist: %s", tt.expectedConditionType))
 				if tt.expectedConditionStatus != "" {
 					assert.Equal(t, tt.expectedConditionStatus, condition.Status)
 				}
 				if tt.expectedConditionReason != "" {
-					assert.Equal(t, tt.expectedConditionReason, condition.Reason)
+					assert.Equal(t, tt.expectedConditionReason, condition.Reason, condition.Message)
 				}
 			}
 

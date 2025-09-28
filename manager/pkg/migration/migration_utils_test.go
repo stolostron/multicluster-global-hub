@@ -60,6 +60,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			clusterList: []string{"cluster1", "cluster2", "cluster3"},
@@ -77,6 +84,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			existingConfigMap: &corev1.ConfigMap{
@@ -104,6 +118,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			existingConfigMap: &corev1.ConfigMap{
@@ -132,6 +153,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			existingConfigMap: &corev1.ConfigMap{
@@ -254,6 +282,13 @@ func TestUpdateFailedClustersConfimap_ErrorCases(t *testing.T) {
 			},
 			Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 				Phase: migrationv1alpha1.PhaseFailed,
+				Conditions: []metav1.Condition{
+					{
+						Type:   migrationv1alpha1.ConditionTypeRegistered,
+						Status: metav1.ConditionTrue,
+						Reason: "TestReason",
+					},
+				},
 			},
 		}
 
