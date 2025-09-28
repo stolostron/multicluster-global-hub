@@ -11,10 +11,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
-const (
-	ConditionReasonResourceRolledBack = "ResourceRolledBack"
-	ConditionReasonRollbackFailed     = "RollbackFailed"
-)
+const ConditionReasonResourceRolledBack = "ResourceRolledBack"
 
 // rollbacking handles the rollback process when migration fails during initializing, deploying, or registering phases
 // This phase attempts to restore the system to its previous state before the failed migration attempt
@@ -51,23 +48,32 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// 1. Send rollback events to source hubs to restore original configurations
 	fromHub := mcm.Spec.From
-	rollbackClusters := GetClusterList(string(mcm.UID))
-	if failedStage == migrationv1alpha1.PhaseRegistering {
-		notReadyClusters := GetNotReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)
-		if len(notReadyClusters) > 0 {
-			log.Infof("rollbacking the not ready clusters: %v", notReadyClusters)
-			rollbackClusters = notReadyClusters
+	rollbackingClusters := GetClusterList(string(mcm.UID))
+
+	if meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) != nil {
+		failureClusters, err := m.GetFailureClusters(ctx, mcm)
+		if err != nil {
+			return false, err
 		}
+		rollbackingClusters = failureClusters
 	}
+
+	if len(rollbackingClusters) == 0 {
+		condition.Message = fmt.Sprintf("no clusters to rollback for %s stage", failedStage)
+		condition.Reason = ConditionReasonError
+		return false, nil
+	}
+
+	log.Infof("rollbacking the failed clusters: %v", rollbackingClusters)
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to source hub: %s", fromHub)
-		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, rollbackClusters,
+		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, rollbackingClusters,
 			getBootstrapSecret(fromHub, nil), failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to source hub %s: %v",
 				failedStage, fromHub, err)
-			condition.Reason = ConditionReasonRollbackFailed
+			condition.Reason = ConditionReasonError
 			return false, err
 		}
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking)
@@ -77,7 +83,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
 		// Only add manual cleanup guidance for source hub rollback failures
 		condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
-		condition.Reason = ConditionReasonRollbackFailed
+		condition.Reason = ConditionReasonError
 		return false, nil
 	}
 
@@ -91,11 +97,11 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	// 2. Send rollback event to destination hub to clean up partial resources
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		log.Infof("sending rollback event to destination hub: %s", mcm.Spec.To)
-		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, rollbackClusters, failedStage)
+		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, rollbackingClusters, failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to target hub %s: %v", failedStage,
 				mcm.Spec.To, err)
-			condition.Reason = ConditionReasonRollbackFailed
+			condition.Reason = ConditionReasonError
 			condition.Status = metav1.ConditionFalse
 			return false, err
 		}
@@ -105,7 +111,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	// Check for rollback errors from destination hub
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
 		condition.Message = fmt.Sprintf("%s stage rollback failed on target hub %s: %s", failedStage, mcm.Spec.To, errMsg)
-		condition.Reason = ConditionReasonRollbackFailed
+		condition.Reason = ConditionReasonError
 		condition.Status = metav1.ConditionFalse
 		return false, nil
 	}
@@ -120,7 +126,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	// 3. Clean up managed service account and related resources created during initialization
 	if err := m.cleanupManagedServiceAccount(ctx, mcm); err != nil {
 		condition.Message = fmt.Sprintf("failed to cleanup managed service account: %v", err)
-		condition.Reason = ConditionReasonRollbackFailed
+		condition.Reason = ConditionReasonError
 		return false, err
 	}
 
@@ -130,18 +136,8 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	condition.Status = metav1.ConditionTrue
 	condition.Reason = ConditionReasonResourceRolledBack
-
-	// cleaning the ready clusters
-	if failedStage == migrationv1alpha1.PhaseRegistering &&
-		len(GetReadyClusters(string(mcm.UID), mcm.Spec.To, failedStage)) > 0 {
-		nextPhase = migrationv1alpha1.PhaseCleaning
-		condition.Message = fmt.Sprintf("%s rollback completed successfully. Cleaning the ready clusters", failedStage)
-		log.Infof("migration rollbacking finished - transitioning to Cleaning")
-	} else {
-		condition.Message = fmt.Sprintf("%s rollback completed successfully.", failedStage)
-		nextPhase = migrationv1alpha1.PhaseFailed
-		log.Infof("migration rollbacking finished - transitioning to Failed")
-	}
+	condition.Message = fmt.Sprintf("%s rollback %d clusters completed successfully.",
+		failedStage, len(rollbackingClusters))
 	return false, nil
 }
 
@@ -163,11 +159,29 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 ) {
 	_ = updateConditionWithTimeout(ctx, mcm, condition, getTimeout(migrationv1alpha1.PhaseRollbacking),
 		m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout"))
-
+	// means the rollback is finished whether it's successful or failed
 	if condition.Reason != ConditionReasonWaiting {
 		*nextPhase = migrationv1alpha1.PhaseFailed
-	}
+		log.Infof("migration rollbacking finished for failed %s stage", failedStage)
 
+		// if registering, cleaning the ready clusters
+		if failedStage == migrationv1alpha1.PhaseRegistering {
+			successClusters, err := m.GetSuccessClusters(ctx, mcm)
+			if err != nil {
+				log.Errorf("failed to get success clusters: %v", err)
+				// if the condition if true, update the error message into the condition
+				if condition.Status == metav1.ConditionTrue {
+					condition.Message = fmt.Sprintf("Warning - Failed to get success clusters after %s rollback: %v",
+						failedStage, err)
+				}
+			}
+
+			if len(successClusters) > 0 {
+				*nextPhase = migrationv1alpha1.PhaseCleaning
+				log.Infof("success clusters found %d, cleaning the ready clusters", len(successClusters))
+			}
+		}
+	}
 	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)
 	if err != nil {
 		log.Errorf("failed to update the %s condition: %v", condition.Type, err)

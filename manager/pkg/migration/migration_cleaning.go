@@ -55,16 +55,18 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 		return false, nil // Let defer handle the status update
 	}
 
-	// cleanup the source hub: cleaning or failed state
+	// cleanup the source hub: cleaning or failed state, if registering is executed, cleaning the ready clusters
 	fromHub := mcm.Spec.From
 	cleaningClusters := GetClusterList(string(mcm.UID))
-
-	// only cleaning the ready clusters for registering phase
-	if m.determineFailedStage(ctx, mcm) == migrationv1alpha1.PhaseRegistering {
-		registeringReadyClusters := GetReadyClusters(string(mcm.UID), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
-		if len(registeringReadyClusters) > 0 {
-			log.Infof("cleaning the registering ready clusters: %v", registeringReadyClusters)
-			cleaningClusters = registeringReadyClusters
+	if meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered) != nil {
+		successClusters, err := m.GetSuccessClusters(ctx, mcm)
+		if err != nil {
+			log.Errorf("failed to get success clusters: %v", err)
+			return false, err
+		}
+		if len(successClusters) > 0 {
+			log.Infof("cleaning the registering ready clusters: %v", successClusters)
+			cleaningClusters = successClusters
 		}
 	}
 
@@ -154,9 +156,14 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 		condition.Status = metav1.ConditionFalse
 	}
 
+	// finished cleaning - update phase
 	if condition.Reason != ConditionReasonWaiting {
-		// Ensure cleaning always ends in Completed phase, regardless of condition status
-		*nextPhase = migrationv1alpha1.PhaseCompleted
+		if meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRolledBack) != nil {
+			*nextPhase = migrationv1alpha1.PhaseFailed
+		} else {
+			// Ensure cleaning always ends in Completed phase, regardless of cleaning condition status
+			*nextPhase = migrationv1alpha1.PhaseCompleted
+		}
 	}
 
 	err := m.UpdateStatusWithRetry(ctx, mcm, *condition, *nextPhase)

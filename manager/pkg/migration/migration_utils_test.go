@@ -60,6 +60,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			clusterList: []string{"cluster1", "cluster2", "cluster3"},
@@ -77,6 +84,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			existingConfigMap: &corev1.ConfigMap{
@@ -104,6 +118,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			existingConfigMap: &corev1.ConfigMap{
@@ -117,9 +138,8 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 			},
 			clusterList: []string{"cluster1", "cluster2", "cluster3", "cluster4"},
-			// After fixing the bug, failed clusters should be correctly calculated as allClusters - successClusters
+			// UpdateFailureClustersToConfigMap only stores failure clusters, it doesn't preserve success clusters
 			expectedConfigMapData: map[string]string{
-				"success": clustersToJSON([]string{"cluster1", "cluster2"}),
 				"failure": clustersToJSON([]string{"cluster3", "cluster4"}),
 			},
 		},
@@ -133,6 +153,13 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseFailed,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			existingConfigMap: &corev1.ConfigMap{
@@ -146,9 +173,8 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 				},
 			},
 			clusterList: []string{"cluster1", "cluster2"},
+			// UpdateFailureClustersToConfigMap only stores failure clusters, not success clusters
 			expectedConfigMapData: map[string]string{
-				"success": clustersToJSON([]string{"cluster1"}),
-				// Due to the bug, cluster2 gets added for each success cluster (just one in this case)
 				"failure": clustersToJSON([]string{"cluster2"}),
 			},
 		},
@@ -170,12 +196,10 @@ func TestUpdateFailedClustersConfimap(t *testing.T) {
 			}
 
 			// Setup cluster list for migration using the exported function
-			if tt.clusterList != nil {
-				SetClusterList(string(tt.migration.UID), tt.clusterList)
-			}
+			SetClusterList(string(tt.migration.UID), tt.clusterList)
 
 			// Call the function under test
-			err := controller.UpdateFailedClustersConfimap(context.TODO(), tt.migration)
+			err := controller.UpdateFailureClustersToConfigMap(context.TODO(), tt.migration)
 
 			// Assertions
 			if tt.expectedError {
@@ -258,6 +282,13 @@ func TestUpdateFailedClustersConfimap_ErrorCases(t *testing.T) {
 			},
 			Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 				Phase: migrationv1alpha1.PhaseFailed,
+				Conditions: []metav1.Condition{
+					{
+						Type:   migrationv1alpha1.ConditionTypeRegistered,
+						Status: metav1.ConditionTrue,
+						Reason: "TestReason",
+					},
+				},
 			},
 		}
 
@@ -265,7 +296,7 @@ func TestUpdateFailedClustersConfimap_ErrorCases(t *testing.T) {
 		SetClusterList(string(migration.UID), []string{"cluster1", "cluster2"})
 
 		// Call the function under test
-		err := controller.UpdateFailedClustersConfimap(context.TODO(), migration)
+		err := controller.UpdateFailureClustersToConfigMap(context.TODO(), migration)
 
 		// Should get an error due to invalid JSON
 		assert.Error(t, err)

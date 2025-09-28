@@ -121,6 +121,13 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			condition: metav1.Condition{
@@ -144,18 +151,25 @@ func TestUpdateStatusWithRetry(t *testing.T) {
 				},
 				Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 					Phase: migrationv1alpha1.PhaseRollbacking,
+					Conditions: []metav1.Condition{
+						{
+							Type:   migrationv1alpha1.ConditionTypeRegistered,
+							Status: metav1.ConditionTrue,
+							Reason: "TestReason",
+						},
+					},
 				},
 			},
 			condition: metav1.Condition{
 				Type:    migrationv1alpha1.ConditionTypeRolledBack,
 				Status:  metav1.ConditionFalse,
-				Reason:  ConditionReasonRollbackFailed,
+				Reason:  ConditionReasonError,
 				Message: "Migration rollback failed due to timeout",
 			},
 			phase:                   migrationv1alpha1.PhaseFailed,
 			expectedPhase:           migrationv1alpha1.PhaseFailed,
 			expectedConditionStatus: metav1.ConditionFalse,
-			expectedConditionReason: ConditionReasonRollbackFailed,
+			expectedConditionReason: ConditionReasonError,
 		},
 	}
 

@@ -113,7 +113,7 @@ func SetFinished(migrationId, hub, phase string) {
 	}
 }
 
-// SetClusterList sets the managed clusters list for the given migration stage
+// SetClusterList sets the managed clusters list for the given migration stage, it invoked by the status handler
 func SetClusterList(migrationId string, managedClusters []string) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -174,19 +174,6 @@ func GetClusterList(migrationId string) []string {
 	}
 	clusters, ok := currentMigrationClusterList[migrationId]
 	if ok {
-		return clusters
-	}
-	return nil
-}
-
-func GetNotReadyClusters(migrationId, hub, phase string) []string {
-	mu.RLock()
-	defer mu.RUnlock()
-	if p := getStageState(migrationId, hub, phase); p != nil {
-		clusters := []string{}
-		for cluster := range p.clusterErrors {
-			clusters = append(clusters, cluster)
-		}
 		return clusters
 	}
 	return nil
