@@ -318,6 +318,8 @@ func deployGlobalHub() {
 			},
 		},
 		Spec: v1alpha4.MulticlusterGlobalHubSpec{
+			// Set to basic for e2e test
+			AvailabilityConfig: v1alpha4.HABasic,
 			// Disable metrics in e2e
 			EnableMetrics:   false,
 			ImagePullPolicy: corev1.PullIfNotPresent,

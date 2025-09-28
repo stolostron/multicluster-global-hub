@@ -19,7 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
 type GenericProducer struct {
