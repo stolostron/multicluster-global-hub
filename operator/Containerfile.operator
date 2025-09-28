@@ -17,12 +17,13 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 # Red Hat annotations.
 LABEL com.redhat.component="multicluster-global-hub-operator-container"
+LABEL cpe="cpe:/a:redhat:multicluster_globalhub:1.4::el9"
 LABEL org.label-schema.vendor="Red Hat"
 LABEL org.label-schema.license="Red Hat Advanced Cluster Management for Kubernetes EULA"
 LABEL org.label-schema.schema-version="1.0"
 
 # Bundle metadata
-LABEL name="multicluster-global-hub/multicluster-global-hub-operator"
+LABEL name="multicluster-globalhub/multicluster-global-hub-rhel9-operator"
 LABEL version="release-1.6"
 LABEL summary="multicluster global hub operator"
 LABEL io.openshift.expose-services=""
