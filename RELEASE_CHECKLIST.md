@@ -38,3 +38,5 @@
 ## Release Data Update
 - [ ] **Update konflux-release-data repo to add for new release**
   - Add new release configuration to konflux-release-data repository
+- [ ] **Update openshift/release repo for this new release**
+  - Add new release configuration to openshift/release repository
