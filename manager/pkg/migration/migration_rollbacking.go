@@ -136,7 +136,8 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	condition.Status = metav1.ConditionTrue
 	condition.Reason = ConditionReasonResourceRolledBack
-	condition.Message = fmt.Sprintf("%s rollback %d clusters completed successfully.", failedStage, len(rollbackingClusters))
+	condition.Message = fmt.Sprintf("%s rollback %d clusters completed successfully.",
+		failedStage, len(rollbackingClusters))
 	return false, nil
 }
 
