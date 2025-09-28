@@ -41,7 +41,7 @@ spec:
             {{- if .StackroxPollInterval}}
             - --stackrox-poll-interval={{.StackroxPollInterval}}
             {{- end}}
-            - --event-mode={{.EventSendMode}}
+            - --event-send-mode={{.EventSendMode}}
           env:
             - name: POD_NAMESPACE
               valueFrom:

@@ -135,7 +135,7 @@ After changing the mode, verify the agent deployment was updated:
 ```bash
 kubectl get deployment multicluster-global-hub-agent \
   -n multicluster-global-hub-agent \
-  -o jsonpath='{.spec.template.spec.containers[0].args}' | grep event-mode
+  -o jsonpath='{.spec.template.spec.containers[0].args}' | grep event-send-mode
 ```
 
 You should see: `--event-send-mode=single` or `--event-send-mode=batch`
