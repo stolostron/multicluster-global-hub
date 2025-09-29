@@ -24,7 +24,7 @@ var _ = Describe("LocalReplicatedPolicyEventHandler", Ordered, func() {
 		leafHubName = "hub1"
 		version = eventversion.NewVersion()
 	})
-	It("should handle the local replicated policy event", func() {
+	It("should handle the local replicated policy event in batch mode", func() {
 		By("Create Event")
 		version.Incr()
 

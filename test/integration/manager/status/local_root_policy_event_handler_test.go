@@ -25,7 +25,7 @@ var _ = Describe("LocalEventPolicyHandler", Ordered, func() {
 		version = eventversion.NewVersion()
 	})
 
-	It("should be able to sync root policy event", func() {
+	It("should be able to sync root policy event in batch mode", func() {
 		By("Create hubClusterInfo event")
 
 		version.Incr()

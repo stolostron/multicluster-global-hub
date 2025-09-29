@@ -26,7 +26,7 @@ var _ = Describe("ManagedClusterEventHandler", Ordered, func() {
 	clusterClaimID := "13b2e003-2bdf-4c82-9bdf-f1aa7ccf607c"
 	clusterName := "cluster-event-cluster1"
 
-	It("should be able to sync managed cluster event", func() {
+	It("should be able to sync managed cluster event in batch mode", func() {
 		By("Create cluster event")
 		version := eventversion.NewVersion()
 		version.Incr()
