@@ -13,8 +13,10 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
+// go test ./test/integration/manager/migration -ginkgo.focus "Migration Error Scenarios" -v
 var _ = Describe("Migration Error Scenarios", func() {
 	var ctx context.Context
 	var cancel context.CancelFunc
@@ -389,7 +391,7 @@ var _ = Describe("Migration Error Scenarios", func() {
 			By("Setting up short timeout for rollback test")
 			// Configure the migration to use a very short timeout for rollback testing
 			m.Spec.SupportedConfigs = &migrationv1alpha1.ConfigMeta{
-				StageTimeout: &metav1.Duration{Duration: 3 * time.Second}, // 3 sec stage = 6 sec rollback timeout
+				StageTimeout: &metav1.Duration{Duration: 1 * time.Second},
 			}
 			Expect(mgr.GetClient().Update(ctx, m)).To(Succeed())
 
@@ -404,6 +406,8 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
 				if m.Status.Phase != migrationv1alpha1.PhaseFailed {
+					fmt.Println("migration status:")
+					utils.PrettyPrint(m.Status)
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
 				}
 

@@ -298,10 +298,15 @@ func isHubCluster(ctx context.Context, c client.Client, mc *clusterv1.ManagedClu
 	return false
 }
 
+// updateConditionWithTimeout updates the condition with timeout, if the condition is not found, it will return false
 func updateConditionWithTimeout(ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
 	condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string,
 ) bool {
-	if condition.Reason == ConditionReasonWaiting && time.Since(getLastTransitionTime(mcm)) > stageTimeout {
+	foundCond := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type)
+	if foundCond != nil {
+		return false
+	}
+	if condition.Reason == ConditionReasonWaiting && time.Since(foundCond.LastTransitionTime.Time) > stageTimeout {
 		condition.Reason = ConditionReasonTimeout
 		if timeoutMessage != "" {
 			condition.Message = fmt.Sprintf("Timeout: %s", timeoutMessage)
