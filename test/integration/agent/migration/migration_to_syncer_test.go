@@ -14,6 +14,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -252,30 +253,50 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			event.SetSource(testFromHub)
 
 			// Create source cluster migration resources
-			migrationResources := &migration.MigrationResourceBundle{
-				MigrationId: testMigrationID,
-				ManagedClusters: []clusterv1.ManagedCluster{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: testClusterName,
-							Labels: map[string]string{
-								"test-label": "test-value",
-							},
-						},
-						Spec: clusterv1.ManagedClusterSpec{
-							HubAcceptsClient: false,
-						},
+			managedCluster := &clusterv1.ManagedCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: testClusterName,
+					Labels: map[string]string{
+						"test-label": "test-value",
 					},
 				},
-				KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{
+				Spec: clusterv1.ManagedClusterSpec{
+					HubAcceptsClient: false,
+				},
+			}
+
+			addonConfig := &addonv1.KlusterletAddonConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testClusterName,
+					Namespace: testClusterName,
+				},
+				Spec: addonv1.KlusterletAddonConfigSpec{
+					ClusterName:      testClusterName,
+					ClusterNamespace: testClusterName,
+				},
+			}
+
+			// Convert to unstructured
+			mcUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(managedCluster)
+			Expect(err).NotTo(HaveOccurred())
+			mcObj := &unstructured.Unstructured{Object: mcUnstructured}
+			mcObj.SetKind("ManagedCluster")
+			mcObj.SetAPIVersion("cluster.open-cluster-management.io/v1")
+
+			addonUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(addonConfig)
+			Expect(err).NotTo(HaveOccurred())
+			addonObj := &unstructured.Unstructured{Object: addonUnstructured}
+			addonObj.SetKind("KlusterletAddonConfig")
+			addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
+
+			migrationResources := &migration.MigrationResourceBundle{
+				MigrationId: testMigrationID,
+				MigrationClusterResources: []migration.MigrationClusterResource{
 					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      testClusterName,
-							Namespace: testClusterName,
-						},
-						Spec: addonv1.KlusterletAddonConfigSpec{
-							ClusterName:      testClusterName,
-							ClusterNamespace: testClusterName,
+						ClusterName: testClusterName,
+						ResouceList: []unstructured.Unstructured{
+							*mcObj,
+							*addonObj,
 						},
 					},
 				},
@@ -288,7 +309,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 
 			By("Processing the deployment event")
 			migrationSyncer.SetMigrationID(testMigrationID)
-			err := migrationSyncer.Sync(testCtx, event)
+			err = migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Verifying managed cluster was created/updated")

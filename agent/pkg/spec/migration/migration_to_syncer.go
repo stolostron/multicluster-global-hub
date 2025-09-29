@@ -18,6 +18,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -355,49 +356,41 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	log.Infof("started the deploying: %s", migrationResources.MigrationId)
 	log.Debugf("migration resources %v", migrationResources)
 
-	for _, mc := range migrationResources.ManagedClusters {
-		if err := s.ensureNamespace(ctx, mc.Name); err != nil {
+	// Process each cluster's resources
+	for _, clusterResource := range migrationResources.MigrationClusterResources {
+		clusterName := clusterResource.ClusterName
+		if err := s.ensureNamespace(ctx, clusterName); err != nil {
 			return err
 		}
-		currentManagedCluster := &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{Name: mc.Name}}
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operation, err := controllerutil.CreateOrUpdate(ctx, s.client, currentManagedCluster,
-				func() error {
-					currentManagedCluster.Annotations = mc.Annotations
-					currentManagedCluster.Labels = mc.Labels
-					currentManagedCluster.Spec = mc.Spec
-					currentManagedCluster.Finalizers = mc.Finalizers
-					return nil
-				})
-			log.Infof("managed cluster %s is %s", mc.Name, operation)
-			return err
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create or update managed cluster %s: %w", mc.Name, err)
-		}
-	}
-	for _, config := range migrationResources.KlusterletAddonConfig {
-		currentKlusterletAddonConfig := &addonv1.KlusterletAddonConfig{
-			ObjectMeta: metav1.ObjectMeta{Name: config.Name, Namespace: config.Namespace},
-		}
-		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			operation, err := controllerutil.CreateOrUpdate(ctx, s.client, currentKlusterletAddonConfig,
-				func() error {
-					currentKlusterletAddonConfig.Annotations = config.Annotations
-					currentKlusterletAddonConfig.Labels = config.Labels
-					currentKlusterletAddonConfig.Spec = config.Spec
-					currentKlusterletAddonConfig.Finalizers = config.Finalizers
-					return nil
-				})
-			log.Infof("klusterlet addon config %s is %s", config.Name, operation)
-			return err
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create or update klusterlet addon config %s: %w", config.Name, err)
+
+		// Process each resource in the cluster
+		for _, resource := range clusterResource.ResouceList {
+			if err := s.syncResource(ctx, &resource); err != nil {
+				return fmt.Errorf("failed to sync resource %s/%s for cluster %s: %w",
+					resource.GetKind(), resource.GetName(), clusterName, err)
+			}
 		}
 	}
 
 	log.Info("finished syncing migration resources")
+	return nil
+}
+
+// syncResource handles syncing individual resources from the migration bundle
+// Works directly with unstructured resources without type conversion
+func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unstructured.Unstructured) error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, resource,
+			func() error {
+				return nil
+			})
+		log.Infof("%s %s is %s", resource.GetKind(), resource.GetName(), operation)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create or update %s %s: %w", resource.GetKind(), resource.GetName(), err)
+	}
+
 	return nil
 }
 

@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
@@ -1038,24 +1040,45 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 func TestDeploying(t *testing.T) {
 	migrationId := "123"
 
+	// Prepare test resources
+	managedCluster := &clusterv1.ManagedCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster1",
+		},
+		Spec: clusterv1.ManagedClusterSpec{
+			HubAcceptsClient:     true,
+			LeaseDurationSeconds: 60,
+		},
+	}
+
+	addonConfig := &addonv1.KlusterletAddonConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster1",
+			Namespace: "cluster1",
+		},
+	}
+
+	// Convert to unstructured
+	mcUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(managedCluster)
+	assert.NoError(t, err)
+	mcObj := &unstructured.Unstructured{Object: mcUnstructured}
+	mcObj.SetKind("ManagedCluster")
+	mcObj.SetAPIVersion("cluster.open-cluster-management.io/v1")
+
+	addonUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(addonConfig)
+	assert.NoError(t, err)
+	addonObj := &unstructured.Unstructured{Object: addonUnstructured}
+	addonObj.SetKind("KlusterletAddonConfig")
+	addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
+
 	evt := utils.ToCloudEvent("test", "hub1", "hub2", migration.MigrationResourceBundle{
 		MigrationId: migrationId,
-		ManagedClusters: []clusterv1.ManagedCluster{
+		MigrationClusterResources: []migration.MigrationClusterResource{
 			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cluster1",
-				},
-				Spec: clusterv1.ManagedClusterSpec{
-					HubAcceptsClient:     true,
-					LeaseDurationSeconds: 60,
-				},
-			},
-		},
-		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cluster1",
-					Namespace: "cluster1",
+				ClusterName: "cluster1",
+				ResouceList: []unstructured.Unstructured{
+					*mcObj,
+					*addonObj,
 				},
 			},
 		},
@@ -1078,7 +1101,7 @@ func TestDeploying(t *testing.T) {
 	}
 	syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
 	syncer.processingMigrationId = migrationId
-	err := syncer.Sync(ctx, &evt)
+	err = syncer.Sync(ctx, &evt)
 	assert.Nil(t, err)
 
 	// verify the resources
