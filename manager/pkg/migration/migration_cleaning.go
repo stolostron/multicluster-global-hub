@@ -148,7 +148,7 @@ func (m *ClusterMigrationController) handleCleaningStatus(ctx context.Context,
 	nextPhase *string,
 	stageTimeout time.Duration,
 ) {
-	_ = updateConditionWithTimeout(ctx, mcm, condition, stageTimeout, "")
+	_ = updateConditionWithTimeout(mcm, condition, stageTimeout, "")
 
 	// Handle errors - convert to warning and set Completed status
 	if condition.Reason == ConditionReasonError {

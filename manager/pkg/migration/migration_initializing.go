@@ -157,7 +157,7 @@ func (m *ClusterMigrationController) handleStatusWithRollback(ctx context.Contex
 		return
 	}
 
-	if updateConditionWithTimeout(ctx, mcm, condition, stageTimeout, "") {
+	if updateConditionWithTimeout(mcm, condition, stageTimeout, "") {
 		*nextPhase = migrationv1alpha1.PhaseRollbacking
 	}
 

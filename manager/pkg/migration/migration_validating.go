@@ -86,7 +86,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 			nextPhase = migrationv1alpha1.PhaseFailed
 		}
 
-		if updateConditionWithTimeout(ctx, mcm, &condition, getTimeout(migrationv1alpha1.PhaseValidating), "") {
+		if updateConditionWithTimeout(mcm, &condition, getTimeout(migrationv1alpha1.PhaseValidating), "") {
 			nextPhase = migrationv1alpha1.PhaseFailed
 		}
 
@@ -299,7 +299,7 @@ func isHubCluster(ctx context.Context, c client.Client, mc *clusterv1.ManagedClu
 }
 
 // updateConditionWithTimeout updates the condition with timeout, if the condition is not found, it will return false
-func updateConditionWithTimeout(ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
+func updateConditionWithTimeout(mcm *migrationv1alpha1.ManagedClusterMigration,
 	condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string,
 ) bool {
 	foundCond := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type)

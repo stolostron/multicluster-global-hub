@@ -170,6 +170,13 @@ func TestRollbacking(t *testing.T) {
 						{
 							Type:               migrationv1alpha1.ConditionTypeStarted,
 							Status:             metav1.ConditionTrue,
+							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeRolledBack,
+							Status:             metav1.ConditionFalse,
+							Reason:             ConditionReasonWaiting,
+							Message:            "waiting for source hub  to complete Rollbacking stage rollback",
 							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
 						},
 					},
@@ -458,6 +465,13 @@ func TestHandleRollbackStatus(t *testing.T) {
 							Type:               migrationv1alpha1.ConditionTypeStarted,
 							Status:             metav1.ConditionTrue,
 							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)},
+						},
+						{
+							Type:               migrationv1alpha1.ConditionTypeRolledBack,
+							Status:             metav1.ConditionFalse,
+							Reason:             ConditionReasonWaiting,
+							Message:            "Waiting for rollback to complete",
+							LastTransitionTime: metav1.Time{Time: time.Now().Add(-6 * time.Minute)}, // Simulate timeout
 						},
 					},
 				},
