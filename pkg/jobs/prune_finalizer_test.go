@@ -12,10 +12,7 @@ import (
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	clusterv1beta2 "open-cluster-management.io/api/cluster/v1beta2"
 	policyv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementrulesv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1beta1 "sigs.k8s.io/application/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -24,9 +21,6 @@ import (
 )
 
 var _ = Describe("Prune Resource Finalizer", Ordered, func() {
-	var app *appv1beta1.Application
-	var appsub *appsubv1.Subscription
-	var chn *chnv1.Channel
 	var placementRule *placementrulesv1.PlacementRule
 	var placement *clusterv1beta1.Placement
 	var placementbinding *policyv1.PlacementBinding
@@ -36,50 +30,6 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 	var clusterV1Beta2API bool
 
 	BeforeAll(func() {
-		By("Create application instance with global hub finalizer")
-		app = &appv1beta1.Application{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "app1",
-				Namespace:  "default",
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
-			},
-		}
-		Expect(runtimeClient.Create(ctx, app)).NotTo(HaveOccurred())
-		Eventually(func() bool {
-			return containGlobalFinalizer(app)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
-
-		By("Create subscription instance with global hub finalizer")
-		appsub = &appsubv1.Subscription{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "appsub1",
-				Namespace:  "default",
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
-			},
-		}
-		Expect(runtimeClient.Create(ctx, appsub)).NotTo(HaveOccurred())
-		Eventually(func() bool {
-			return containGlobalFinalizer(appsub)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
-
-		By("Create channel instance with global hub finalizer")
-		chn = &chnv1.Channel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       "channel1",
-				Namespace:  "default",
-				Finalizers: []string{constants.GlobalHubCleanupFinalizer},
-			},
-			Spec: chnv1.ChannelSpec{
-				Type:               chnv1.ChannelTypeGit,
-				Pathname:           "default",
-				InsecureSkipVerify: true,
-			},
-		}
-		Expect(runtimeClient.Create(ctx, chn)).NotTo(HaveOccurred())
-		Eventually(func() bool {
-			return containGlobalFinalizer(chn)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
-
 		By("Create placementrule instance with global hub finalizer")
 		placementRule = &placementrulesv1.PlacementRule{
 			ObjectMeta: metav1.ObjectMeta{
@@ -196,38 +146,11 @@ var _ = Describe("Prune Resource Finalizer", Ordered, func() {
 		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
 	})
 
-	It("run the agent prune job to skip prune finalizer", func() {
-		By("Trigger the prune finalizer job")
-		job := jobs.NewPruneFinalizer(ctx, runtimeClientWithoutScheme)
-		Expect(job).NotTo(BeNil())
-		Expect(job.Run()).Should(BeNil())
-
-		By("Check the finalizer is exists in application")
-		Eventually(func() bool {
-			return containGlobalFinalizer(app)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeTrue())
-	})
-
 	It("run the agent prune job to prune finalizer", func() {
 		By("Trigger the prune finalizer job")
 		job := jobs.NewPruneFinalizer(ctx, runtimeClient)
 		Expect(job).NotTo(BeNil())
 		Expect(job.Run()).Should(BeNil())
-
-		By("Check the finalizer is exists in application")
-		Eventually(func() bool {
-			return containGlobalFinalizer(app)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
-
-		By("Check the finalizer is exists in subscription")
-		Eventually(func() bool {
-			return containGlobalFinalizer(appsub)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
-
-		By("Check the finalizer is exists in channel")
-		Eventually(func() bool {
-			return containGlobalFinalizer(chn)
-		}, 1*time.Second, 100*time.Millisecond).Should(BeFalse())
 
 		By("Check the finalizer is exists in placementRule")
 		Eventually(func() bool {

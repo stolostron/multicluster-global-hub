@@ -19,6 +19,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
 type GenericProducer struct {
@@ -103,7 +104,7 @@ func (p *GenericProducer) Reconnect(config *transport.TransportInternalConfig, t
 func (p *GenericProducer) initClient(transportConfig *transport.TransportInternalConfig, topic string) error {
 	switch transportConfig.TransportType {
 	case string(transport.Kafka):
-		producer, kafkaProtocol, err := getConfluentSenderProtocol(transportConfig.KafkaCredential, topic)
+		producer, kafkaProtocol, err := getConfluentSenderProtocol(p.log, transportConfig.KafkaCredential, topic)
 		if err != nil {
 			return err
 		}
@@ -155,13 +156,16 @@ func (p *GenericProducer) SetDataLimit(size int) {
 	p.messageSizeLimit = size
 }
 
-func getConfluentSenderProtocol(kafkaCredentail *transport.KafkaConfig,
+func getConfluentSenderProtocol(logger *zap.SugaredLogger, kafkaCredentail *transport.KafkaConfig,
 	defaultTopic string,
 ) (*kafka.Producer, *kafka_confluent.Protocol, error) {
 	configMap, err := config.GetConfluentConfigMapByKafkaCredential(kafkaCredentail, "", 0)
 	if err != nil {
 		return nil, nil, err
 	}
+	logger.Debugw("the configurations applied to the Kafka producer", "configMap",
+		utils.FilterSensitiveKafkaConfig(configMap))
+
 	producer, err := kafka.NewProducer(configMap)
 	if err != nil {
 		return nil, nil, err

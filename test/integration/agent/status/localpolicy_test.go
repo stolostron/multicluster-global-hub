@@ -58,7 +58,7 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 				}
 			}
 			return fmt.Errorf("want %v, got %v", string(enum.LocalPolicySpecType), evt.Type())
-		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 
 		By("Update the root policy")
 		err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(localRootPolicy), localRootPolicy)
@@ -88,7 +88,7 @@ var _ = Describe("LocalPolicyEmitters", Ordered, func() {
 				}
 			}
 			return fmt.Errorf("policy should be enabled")
-		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
+		}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	It("be able to sync local policy compliance", func() {

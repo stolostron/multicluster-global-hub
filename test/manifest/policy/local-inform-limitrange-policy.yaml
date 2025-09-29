@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: local-policy-namespace
---- 
+---
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
@@ -50,26 +50,32 @@ metadata:
   name: binding-policy-limitrange
   namespace: local-policy-namespace
 placementRef:
-  name: placementrule-policy-limitrange
-  kind: PlacementRule
-  apiGroup: apps.open-cluster-management.io
+  name: placement-policy-limitrange
+  kind: Placement
+  apiGroup: cluster.open-cluster-management.io
 subjects:
-  - name: policy-limitrange
-    kind: Policy
-    apiGroup: policy.open-cluster-management.io
+- name: policy-limitrange
+  kind: Policy
+  apiGroup: policy.open-cluster-management.io
 ---
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
 metadata:
-  name: placementrule-policy-limitrange
+  name: placement-policy-limitrange
   namespace: local-policy-namespace
 spec:
-  clusterConditions:
-    - status: 'True'
-      type: ManagedClusterConditionAvailable
-  clusterSelector:
-    matchExpressions:
-      - key: local-policy
-        operator: In
-        values:
-          - 'test'
+  clusterSets:
+    - global
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchLabels:
+          local-policy: test
+---
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: global
+  namespace: local-policy-namespace
+spec:
+  clusterSet: global

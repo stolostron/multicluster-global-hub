@@ -499,23 +499,10 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			By("Creating migration event for non-existent cluster")
 			initEvent := createMigrationFromEvent("error-test-2", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
 
-			By("Creating bootstrap secret for test")
+			By("Prepare bootstrap secret for test")
 			bootstrapSecretName := fmt.Sprintf("bootstrap-%s-test2", testToHub)
-			bootstrapSecret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      bootstrapSecretName,
-					Namespace: utils.GetDefaultNamespace(),
-				},
-				Data: map[string][]byte{
-					"kubeconfig": []byte("test-kubeconfig-data"),
-				},
-			}
-			Expect(runtimeClient.Create(testCtx, bootstrapSecret)).Should(Succeed())
-			defer func() {
-				_ = runtimeClient.Delete(testCtx, bootstrapSecret)
-			}()
 
-			By("Preparing clean bootstrap secret for event")
+			By("Preparing bootstrap secret for event (without creating it in cluster)")
 			cleanBootstrapSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      bootstrapSecretName,
@@ -548,6 +535,15 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			err = migrationSyncer.Sync(testCtx, initEvent)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("\"non-existent-cluster\" not found"))
+
+			By("Cleaning up created bootstrap secret")
+			createdSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      bootstrapSecretName,
+					Namespace: utils.GetDefaultNamespace(),
+				},
+			}
+			_ = runtimeClient.Delete(testCtx, createdSecret)
 		})
 
 		It("should handle empty migration ID", func() {
