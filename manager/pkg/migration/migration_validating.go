@@ -303,7 +303,7 @@ func updateConditionWithTimeout(ctx context.Context, mcm *migrationv1alpha1.Mana
 	condition *metav1.Condition, stageTimeout time.Duration, timeoutMessage string,
 ) bool {
 	foundCond := meta.FindStatusCondition(mcm.Status.Conditions, condition.Type)
-	if foundCond != nil {
+	if foundCond == nil {
 		return false
 	}
 	if condition.Reason == ConditionReasonWaiting && time.Since(foundCond.LastTransitionTime.Time) > stageTimeout {
