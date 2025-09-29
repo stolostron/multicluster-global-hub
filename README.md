@@ -49,7 +49,15 @@ git clone git@github.com:stolostron/multicluster-global-hub.git
 cd multicluster-global-hub/operator
 ```
 
-2. Build and push your image to the location specified by `IMG`:
+2. Install git hooks for release checklist (recommended for contributors)
+
+```bash
+cd ..
+./scripts/install-hooks.sh
+cd operator
+```
+
+3. Build and push your image to the location specified by `IMG`:
 
 ```bash
 make docker-build docker-push IMG=<some-registry>/multicluster-global-hub-operator:<tag>
