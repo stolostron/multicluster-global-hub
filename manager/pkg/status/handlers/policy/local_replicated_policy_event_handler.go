@@ -13,7 +13,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -77,14 +76,12 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
-	db := database.GetGorm()
 
-	// Check if this is a single event mode
-	if evt.Extensions()[constants.CloudEventExtensionSendMode] == string(constants.EventSendModeSingle) {
-		err := handleSingleEvent(evt, h.convertEventToModel)
-		if err != nil {
-			return fmt.Errorf("failed handling single replicated policy event - %w", err)
-		}
+	isSingleEvent, err := handleSingleEvent(evt, h.convertEventToModel)
+	if err != nil {
+		return fmt.Errorf("failed handling single replicated policy event - %w", err)
+	}
+	if isSingleEvent {
 		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 		return nil
 	}
@@ -109,7 +106,8 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 		return nil
 	}
 
-	err := db.Clauses(clause.OnConflict{
+	db := database.GetGorm()
+	err = db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		DoNothing: true,
 	}).CreateInBatches(batchLocalPolicyEvents, 100).Error

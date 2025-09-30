@@ -32,16 +32,21 @@ type localRootPolicyEventHandler struct {
 func handleSingleEvent[T any, M any](
 	evt *cloudevents.Event,
 	converter func(*T, string) (*M, error),
-) error {
+) (bool, error) {
+	// Check if this is a single event mode
+	if evt.Extensions()[constants.CloudEventExtensionSendMode] != string(constants.EventSendModeSingle) {
+		return false, nil
+	}
+
 	singleEvent := new(T)
 	if err := evt.DataAs(singleEvent); err != nil {
-		return err
+		return true, err
 	}
 
 	leafHubName := evt.Source()
 	localEvent, err := converter(singleEvent, leafHubName)
 	if err != nil {
-		return err
+		return true, err
 	}
 
 	db := database.GetGorm()
@@ -50,10 +55,10 @@ func handleSingleEvent[T any, M any](
 		DoNothing: true,
 	}).Create(localEvent).Error
 	if err != nil {
-		return err
+		return true, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.ConflationManager) {
@@ -107,14 +112,12 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
-	db := database.GetGorm()
 
-	// Check if this is a single event mode
-	if evt.Extensions()[constants.CloudEventExtensionSendMode] == string(constants.EventSendModeSingle) {
-		err := handleSingleEvent(evt, h.convertEventToModel)
-		if err != nil {
-			return fmt.Errorf("failed handling single root policy event - %w", err)
-		}
+	isSingleEvent, err := handleSingleEvent(evt, h.convertEventToModel)
+	if err != nil {
+		return fmt.Errorf("failed handling single root policy event - %w", err)
+	}
+	if isSingleEvent {
 		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 		return nil
 	}
@@ -138,7 +141,8 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 		localRootPolicyEvents = append(localRootPolicyEvents, *localEvent)
 	}
 
-	err := db.Clauses(clause.OnConflict{
+	db := database.GetGorm()
+	err = db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		UpdateAll: true,
 	}).CreateInBatches(localRootPolicyEvents, 100).Error
