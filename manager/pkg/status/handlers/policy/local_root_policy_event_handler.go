@@ -28,6 +28,34 @@ type localRootPolicyEventHandler struct {
 	eventPriority conflator.ConflationPriority
 }
 
+// handleSingleEvent is a generic helper function to handle single event mode
+func handleSingleEvent[T any, M any](
+	evt *cloudevents.Event,
+	converter func(*T, string) (*M, error),
+) error {
+	singleEvent := new(T)
+	if err := evt.DataAs(singleEvent); err != nil {
+		return err
+	}
+
+	leafHubName := evt.Source()
+	localEvent, err := converter(singleEvent, leafHubName)
+	if err != nil {
+		return err
+	}
+
+	db := database.GetGorm()
+	err = db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
+		DoNothing: true,
+	}).Create(localEvent).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.LocalRootPolicyEventType)
 	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
@@ -46,7 +74,9 @@ func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.Conflation
 }
 
 // convertEventToModel converts a single root policy event to database model
-func (h *localRootPolicyEventHandler) convertEventToModel(element *event.RootPolicyEvent, leafHubName string) (*models.LocalRootPolicyEvent, error) {
+func (h *localRootPolicyEventHandler) convertEventToModel(element *event.RootPolicyEvent, leafHubName string) (
+	*models.LocalRootPolicyEvent, error,
+) {
 	if element.PolicyID == "" {
 		return nil, fmt.Errorf("policy ID cannot be empty")
 	}
@@ -77,33 +107,16 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	db := database.GetGorm()
 
 	// Check if this is a single event mode
-	if eventMode, exists := evt.Extensions()[constants.CloudEventExtensionSendMode]; exists {
-		if eventMode == string(constants.EventSendModeSingle) {
-			// Handle single event
-			singleEvent := &event.RootPolicyEvent{}
-			if err := evt.DataAs(singleEvent); err != nil {
-				return err
-			}
-
-			localEvent, err := h.convertEventToModel(singleEvent, leafHubName)
-			if err != nil {
-				return err
-			}
-
-			db := database.GetGorm()
-			err = db.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
-				UpdateAll: true,
-			}).Create(localEvent).Error
-			if err != nil {
-				return fmt.Errorf("failed handling single root policy event - %w", err)
-			}
-
-			h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
-			return nil
+	if evt.Extensions()[constants.CloudEventExtensionSendMode] == string(constants.EventSendModeSingle) {
+		err := handleSingleEvent(evt, h.convertEventToModel)
+		if err != nil {
+			return fmt.Errorf("failed handling single root policy event - %w", err)
 		}
+		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+		return nil
 	}
 
 	// Handle batch events (existing logic)
@@ -125,7 +138,6 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 		localRootPolicyEvents = append(localRootPolicyEvents, *localEvent)
 	}
 
-	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		UpdateAll: true,

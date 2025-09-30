@@ -46,7 +46,9 @@ func RegisterLocalReplicatedPolicyEventHandler(conflationManager *conflator.Conf
 }
 
 // convertEventToModel converts a single policy event to database model
-func (h *localReplicatedPolicyEventHandler) convertEventToModel(policyStatusEvent *event.ReplicatedPolicyEvent, leafHubName string) (*models.LocalReplicatedPolicyEvent, error) {
+func (h *localReplicatedPolicyEventHandler) convertEventToModel(policyStatusEvent *event.ReplicatedPolicyEvent,
+	leafHubName string,
+) (*models.LocalReplicatedPolicyEvent, error) {
 	sourceJSONB, err := json.Marshal(policyStatusEvent.Source)
 	if err != nil {
 		h.log.Error(err, "failed to parse the event source", "source", policyStatusEvent.Source)
@@ -75,33 +77,16 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	db := database.GetGorm()
 
 	// Check if this is a single event mode
-	if eventMode, exists := evt.Extensions()[constants.CloudEventExtensionSendMode]; exists {
-		if eventMode == string(constants.EventSendModeSingle) {
-			// Handle single event
-			singleEvent := &event.ReplicatedPolicyEvent{}
-			if err := evt.DataAs(singleEvent); err != nil {
-				return err
-			}
-
-			localEvent, err := h.convertEventToModel(singleEvent, leafHubName)
-			if err != nil {
-				return err
-			}
-
-			db := database.GetGorm()
-			err = db.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
-				UpdateAll: true,
-			}).Create(localEvent).Error
-			if err != nil {
-				return fmt.Errorf("failed handling single replicated policy event - %w", err)
-			}
-
-			h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
-			return nil
+	if evt.Extensions()[constants.CloudEventExtensionSendMode] == string(constants.EventSendModeSingle) {
+		err := handleSingleEvent(evt, h.convertEventToModel)
+		if err != nil {
+			return fmt.Errorf("failed handling single replicated policy event - %w", err)
 		}
+		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+		return nil
 	}
 
 	// Handle batch events (existing logic)
@@ -124,7 +109,6 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 		return nil
 	}
 
-	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		DoNothing: true,

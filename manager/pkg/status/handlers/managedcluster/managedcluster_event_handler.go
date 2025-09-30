@@ -47,6 +47,7 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	db := database.GetGorm()
 
 	// Check if this is a single event mode
 	if eventMode, exists := evt.Extensions()[constants.CloudEventExtensionSendMode]; exists {
@@ -58,7 +59,6 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 			}
 			singleEvent.LeafHubName = leafHubName
 
-			db := database.GetGorm()
 			err := db.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
 				DoNothing: true,
@@ -87,7 +87,6 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 		return nil
 	}
 
-	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
 		DoNothing: true,
