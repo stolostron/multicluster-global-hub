@@ -157,7 +157,7 @@ func (m *ClusterMigrationController) handleRollbackStatus(ctx context.Context,
 	waitingHub *string,
 	failedStage string,
 ) {
-	_ = updateConditionWithTimeout(ctx, mcm, condition, getTimeout(migrationv1alpha1.PhaseRollbacking),
+	_ = updateConditionWithTimeout(mcm, condition, getTimeout(migrationv1alpha1.PhaseRollbacking),
 		m.manuallyRollbackMsg(failedStage, *waitingHub, "Timeout"))
 	// means the rollback is finished whether it's successful or failed
 	if condition.Reason != ConditionReasonWaiting {

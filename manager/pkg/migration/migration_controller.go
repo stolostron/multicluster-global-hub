@@ -317,18 +317,3 @@ func getTimeout(stage string) time.Duration {
 		return migratingTimeout
 	}
 }
-
-func getLastTransitionTime(mcm *migrationv1alpha1.ManagedClusterMigration) time.Time {
-	lastTransitionTime := time.Time{}
-	updated := false
-	for _, cond := range mcm.Status.Conditions {
-		if lastTransitionTime.Before(cond.LastTransitionTime.Time) {
-			lastTransitionTime = cond.LastTransitionTime.Time
-			updated = true
-		}
-	}
-	if !updated {
-		lastTransitionTime = time.Now()
-	}
-	return lastTransitionTime
-}
