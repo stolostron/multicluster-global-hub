@@ -87,7 +87,7 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 			existingCondition.Message != condition.Message
 
 		// Only set LastTransitionTime if condition has changed or doesn't exist
-		if conditionChanged && condition.LastTransitionTime.IsZero() {
+		if conditionChanged {
 			condition.LastTransitionTime = metav1.NewTime(time.Now())
 		}
 
