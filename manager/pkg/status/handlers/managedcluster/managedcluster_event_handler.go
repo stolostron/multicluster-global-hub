@@ -12,7 +12,9 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
@@ -45,7 +47,32 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
 	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	db := database.GetGorm()
 
+	// Check if this is a single event mode
+	if eventMode, exists := evt.Extensions()[constants.CloudEventExtensionSendMode]; exists {
+		if eventMode == string(constants.EventSendModeSingle) {
+			// Handle single event
+			singleEvent := &models.ManagedClusterEvent{}
+			if err := evt.DataAs(singleEvent); err != nil {
+				return err
+			}
+			singleEvent.LeafHubName = leafHubName
+
+			err := db.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
+				DoNothing: true,
+			}).Create(singleEvent).Error
+			if err != nil {
+				return fmt.Errorf("failed handling single managed cluster event - %w", err)
+			}
+
+			h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+			return nil
+		}
+	}
+
+	// Handle batch events (existing logic)
 	managedClusterEvents := event.ManagedClusterEventBundle{}
 	if err := evt.DataAs(&managedClusterEvents); err != nil {
 		return err
@@ -60,7 +87,6 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 		return nil
 	}
 
-	db := database.GetGorm()
 	err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "leaf_hub_name"}, {Name: "event_name"}, {Name: "created_at"}},
 		DoNothing: true,

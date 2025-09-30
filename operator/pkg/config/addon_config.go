@@ -126,6 +126,7 @@ type ManifestsConfig struct {
 	Tolerations             []corev1.Toleration
 	AggregationLevel        string
 	EnableLocalPolicies     string
+	EventSendMode           string
 }
 
 type Resources struct {

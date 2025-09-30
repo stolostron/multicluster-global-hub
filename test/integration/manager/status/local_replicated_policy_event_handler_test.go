@@ -10,17 +10,22 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 )
 
-// go test /test/integration/manager/status -v -ginkgo.focus "LocalPolicyEventHandler"
+// go test ./test/integration/manager/status -v -ginkgo.focus "LocalPolicyEventHandler"
 var _ = Describe("LocalReplicatedPolicyEventHandler", Ordered, func() {
+	var leafHubName string
+	var version *eventversion.Version
+	BeforeAll(func() {
+		leafHubName = "hub1"
+		version = eventversion.NewVersion()
+	})
 	It("should handle the local replicated policy event", func() {
 		By("Create Event")
-		leafHubName := "hub1"
-		version := eventversion.NewVersion()
 		version.Incr()
 
 		data := event.ReplicatedPolicyEventBundle{}
@@ -72,6 +77,59 @@ var _ = Describe("LocalReplicatedPolicyEventHandler", Ordered, func() {
 				}
 			}
 			return fmt.Errorf("failed to sync resource")
+		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+	})
+
+	It("should be able to sync replicated policy event in single mode", func() {
+		By("Create Event")
+		version.Incr()
+
+		data := event.ReplicatedPolicyEventBundle{}
+		replicatedPolicyEvent := &event.ReplicatedPolicyEvent{
+			BaseEvent: event.BaseEvent{
+				EventName:      "local-policy-namespace.policy-limitrange.17b0db242743213211",
+				EventNamespace: "kind-hub1-cluster1",
+				Message: `NonCompliant; violation - limitranges [container-mem-limit-range] not found
+				 in namespace default`,
+				Reason: "PolicyStatusSync",
+				Count:  1,
+				Source: v1.EventSource{
+					Component: "policy-status-history-sync",
+				},
+				CreatedAt: time.Now(),
+			},
+			PolicyID:    "13b2e003-2bdf-4c82-9bdf-f1aa7ccf608e",
+			ClusterID:   "f302ce61-98e7-4d63-8dd2-65951e32fd96",
+			ClusterName: "cluster2",
+			Compliance:  "NonCompliant",
+		}
+		data = append(data, replicatedPolicyEvent)
+		evt := ToCloudEvent(leafHubName, string(enum.LocalReplicatedPolicyEventType), version, data)
+		evt.Extensions()[constants.CloudEventExtensionSendMode] = string(constants.EventSendModeSingle)
+
+		By("Sync event with transport")
+		err := producer.SendEvent(ctx, *evt)
+		Expect(err).Should(Succeed())
+
+		By("Check event is created and expired policy is deleted from database")
+		Eventually(func() error {
+			db := database.GetGorm()
+			var replicatedPolicyEvents []models.LocalReplicatedPolicyEvent
+
+			err = db.Where("event_name = ?", replicatedPolicyEvent.EventName).Find(&replicatedPolicyEvents).Error
+			if err != nil {
+				return err
+			}
+			if len(replicatedPolicyEvents) != 1 {
+				return fmt.Errorf("expected 1 event, got %d", len(replicatedPolicyEvents))
+			}
+			if replicatedPolicyEvents[0].PolicyID != replicatedPolicyEvent.PolicyID {
+				return fmt.Errorf("expected policy ID %s, got %s", replicatedPolicyEvent.PolicyID, replicatedPolicyEvents[0].PolicyID)
+			}
+			if replicatedPolicyEvents[0].ClusterID != replicatedPolicyEvent.ClusterID {
+				return fmt.Errorf("expected cluster ID %s, got %s", replicatedPolicyEvent.ClusterID, replicatedPolicyEvents[0].ClusterID)
+			}
+			return nil
 		}, 30*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
 	})
 })

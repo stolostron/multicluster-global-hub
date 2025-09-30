@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/event"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/common"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
@@ -25,6 +26,39 @@ type localRootPolicyEventHandler struct {
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
+}
+
+// handleSingleEvent is a generic helper function to handle single event mode
+func handleSingleEvent[T any, M any](
+	evt *cloudevents.Event,
+	converter func(*T, string) (*M, error),
+) (bool, error) {
+	// Check if this is a single event mode
+	if evt.Extensions()[constants.CloudEventExtensionSendMode] != string(constants.EventSendModeSingle) {
+		return false, nil
+	}
+
+	singleEvent := new(T)
+	if err := evt.DataAs(singleEvent); err != nil {
+		return true, err
+	}
+
+	leafHubName := evt.Source()
+	localEvent, err := converter(singleEvent, leafHubName)
+	if err != nil {
+		return true, err
+	}
+
+	db := database.GetGorm()
+	err = db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
+		DoNothing: true,
+	}).Create(localEvent).Error
+	if err != nil {
+		return true, err
+	}
+
+	return true, nil
 }
 
 func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.ConflationManager) {
@@ -44,11 +78,50 @@ func RegisterLocalRootPolicyEventHandler(conflationManager *conflator.Conflation
 	))
 }
 
+// convertEventToModel converts a single root policy event to database model
+func (h *localRootPolicyEventHandler) convertEventToModel(element *event.RootPolicyEvent, leafHubName string) (
+	*models.LocalRootPolicyEvent, error,
+) {
+	if element.PolicyID == "" {
+		return nil, fmt.Errorf("policy ID cannot be empty")
+	}
+
+	sourceJSONB, err := json.Marshal(element.Source)
+	if err != nil {
+		h.log.Error(err, "failed to parse the event source", "source", element.Source)
+		return nil, err
+	}
+
+	return &models.LocalRootPolicyEvent{
+		BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
+			LeafHubName:    leafHubName,
+			EventName:      element.EventName,
+			EventNamespace: element.EventNamespace,
+			PolicyID:       element.PolicyID,
+			Message:        element.Message,
+			Reason:         element.Reason,
+			Source:         sourceJSONB,
+			Count:          int(element.Count),
+			Compliance:     string(common.GetDatabaseCompliance(element.Compliance, h.log)),
+			CreatedAt:      element.CreatedAt,
+		},
+	}, nil
+}
+
 func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
+	isSingleEvent, err := handleSingleEvent(evt, h.convertEventToModel)
+	if isSingleEvent {
+		if err != nil {
+			return fmt.Errorf("failed handling single root policy event - %w", err)
+		}
+		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+		return nil
+	}
+
+	// Handle batch events (existing logic)
 	data := event.RootPolicyEventBundle{}
 	if err := evt.DataAs(&data); err != nil {
 		return err
@@ -59,32 +132,16 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 
 	localRootPolicyEvents := []models.LocalRootPolicyEvent{}
 	for _, element := range data {
-		if element.PolicyID == "" {
+		localEvent, err := h.convertEventToModel(element, evt.Source())
+		if err != nil {
+			h.log.Error(err, "failed to convert event to model")
 			continue
 		}
-
-		sourceJSONB, err := json.Marshal(element.Source)
-		if err != nil {
-			h.log.Error(err, "failed to parse the event source", "source", element.Source)
-		}
-		localRootPolicyEvents = append(localRootPolicyEvents, models.LocalRootPolicyEvent{
-			BaseLocalPolicyEvent: models.BaseLocalPolicyEvent{
-				LeafHubName:    leafHubName,
-				EventName:      element.EventName,
-				EventNamespace: element.EventNamespace,
-				PolicyID:       element.PolicyID,
-				Message:        element.Message,
-				Reason:         element.Reason,
-				Source:         sourceJSONB,
-				Count:          int(element.Count),
-				Compliance:     string(common.GetDatabaseCompliance(element.Compliance, h.log)),
-				CreatedAt:      element.CreatedAt,
-			},
-		})
+		localRootPolicyEvents = append(localRootPolicyEvents, *localEvent)
 	}
 
 	db := database.GetGorm()
-	err := db.Clauses(clause.OnConflict{
+	err = db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "event_name"}, {Name: "count"}, {Name: "created_at"}},
 		UpdateAll: true,
 	}).CreateInBatches(localRootPolicyEvents, 100).Error

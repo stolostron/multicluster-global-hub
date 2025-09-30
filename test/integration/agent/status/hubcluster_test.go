@@ -32,7 +32,7 @@ var _ = Describe("HubClusterInfo", Ordered, func() {
 		By("Check the local hearbeat event can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := <-heartBeatConsumer.EventChan()
-			fmt.Println(evt)
+			// fmt.Println(evt)
 			if evt.Type() != string(enum.HubClusterHeartbeatType) {
 				return fmt.Errorf("want %v, got %v", string(enum.HubClusterHeartbeatType), evt.Type())
 			}
@@ -55,7 +55,7 @@ var _ = Describe("HubClusterInfo", Ordered, func() {
 		By("Check the hub cluster info bundle can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := <-hubInfoConsumer.EventChan()
-			fmt.Println(evt)
+			// fmt.Println(evt)
 			if evt.Type() != string(enum.HubClusterInfoType) {
 				return fmt.Errorf("want %v, got %v", string(enum.HubClusterHeartbeatType), evt.Type())
 			}
@@ -105,7 +105,7 @@ var _ = Describe("HubClusterInfo", Ordered, func() {
 		By("Check the hub cluster info bundle can be read from cloudevents consumer")
 		Eventually(func() error {
 			evt := <-hubInfoConsumer.EventChan()
-			fmt.Println(evt)
+			// fmt.Println(evt)
 			if evt.Type() != string(enum.HubClusterInfoType) {
 				return fmt.Errorf("want %v, got %v", string(enum.HubClusterHeartbeatType), evt.Type())
 			}
