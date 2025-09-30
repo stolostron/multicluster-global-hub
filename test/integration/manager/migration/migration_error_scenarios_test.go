@@ -13,7 +13,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // go test ./test/integration/manager/migration -ginkgo.focus "Migration Error Scenarios" -v
@@ -406,8 +405,6 @@ var _ = Describe("Migration Error Scenarios", func() {
 					return fmt.Errorf("failed to get migration: %v", err)
 				}
 				if m.Status.Phase != migrationv1alpha1.PhaseFailed {
-					fmt.Println("migration status:")
-					utils.PrettyPrint(m.Status)
 					return fmt.Errorf("expected phase %s, got %s", migrationv1alpha1.PhaseFailed, m.Status.Phase)
 				}
 
