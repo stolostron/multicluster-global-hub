@@ -13,11 +13,11 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -177,26 +177,38 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 // deploying: send clusters and addon config into target hub
 func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration.MigrationSourceBundle) error {
 	migrationResources := &migration.MigrationResourceBundle{
-		MigrationId:           source.MigrationId,
-		ManagedClusters:       []clusterv1.ManagedCluster{},
-		KlusterletAddonConfig: []addonv1.KlusterletAddonConfig{},
+		MigrationId:               source.MigrationId,
+		MigrationClusterResources: []migration.MigrationClusterResource{},
 	}
 
 	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range source.ManagedClusters {
+		// Prepare resources for this cluster
+		var resourcesList []unstructured.Unstructured
+
 		// add cluster
-		cluster, err := s.prepareManagedClusterForMigration(ctx, managedCluster)
+		clusterObj, err := s.prepareManagedClusterForMigration(ctx, managedCluster)
 		if err != nil {
 			return fmt.Errorf("failed to prepare managed cluster %s for migration: %w", managedCluster, err)
 		}
-		migrationResources.ManagedClusters = append(migrationResources.ManagedClusters, *cluster)
+		resourcesList = append(resourcesList, *clusterObj)
 
-		// add addonConfig
-		addonConfig, err := s.prepareAddonConfigForMigration(ctx, managedCluster)
-		if err != nil {
-			return fmt.Errorf("failed to prepare addon config %s for migration: %w", managedCluster, err)
+		// collect all defined migration resources
+		for _, migrateResource := range migrateResources {
+			resource, err := s.prepareUnstructuredResourceForMigration(ctx, managedCluster, migrateResource)
+			if err != nil {
+				return fmt.Errorf("failed to prepare %s %s for migration: %w", migrateResource.gvk.Kind, managedCluster, err)
+			} else if resource != nil {
+				resourcesList = append(resourcesList, *resource)
+			}
 		}
-		migrationResources.KlusterletAddonConfig = append(migrationResources.KlusterletAddonConfig, *addonConfig)
+
+		// Add cluster resources to migration bundle
+		migrationResources.MigrationClusterResources = append(migrationResources.MigrationClusterResources,
+			migration.MigrationClusterResource{
+				ClusterName:  managedCluster,
+				ResoucesList: resourcesList,
+			})
 	}
 	log.Info("deploying: attach clusters and addonConfigs into the event")
 
@@ -214,6 +226,53 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 		return fmt.Errorf(errFailedToSendEvent, constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
 	return nil
+}
+
+// prepareUnstructuredResourceForMigration prepares an unstructured resource for migration by cleaning metadata
+// The resource name and namespace should match the managed cluster name
+func (s *MigrationSourceSyncer) prepareUnstructuredResourceForMigration(
+	ctx context.Context,
+	clusterName string,
+	migrateResource MigrationResource,
+) (*unstructured.Unstructured, error) {
+	resource := &unstructured.Unstructured{}
+	resource.SetGroupVersionKind(migrateResource.gvk)
+	if migrateResource.name == "" {
+		migrateResource.name = clusterName
+	}
+	if migrateResource.namespace == "" {
+		migrateResource.namespace = clusterName
+	}
+	if err := s.client.Get(ctx, types.NamespacedName{
+		Name:      migrateResource.name,
+		Namespace: migrateResource.namespace,
+	}, resource); err != nil {
+		if apierrors.IsNotFound(err) && migrateResource.optional {
+			log.Warnf("optional resource not found: GVK=%s, Name=%s, Namespace=%s", migrateResource.gvk.String(),
+				migrateResource.name, migrateResource.namespace)
+			// Resource is optional, so return nil if not found
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get %v %s: %w", migrateResource.gvk, clusterName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(resource)
+
+	// Clean status field based on needStatus configuration
+	if !migrateResource.needStatus {
+		// Remove status field if not needed for migration
+		unstructured.RemoveNestedField(resource.Object, "status")
+	}
+
+	// Remove any kubectl last-applied-configuration annotations
+	annotations := resource.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, kubectlConfigAnnotation)
+		resource.SetAnnotations(annotations)
+	}
+
+	return resource, nil
 }
 
 // initializing: attach klusterletconfig(with bootstrap kubeconfig secret) to managed clusters
@@ -399,8 +458,9 @@ func ReportMigrationStatus(
 }
 
 // prepareManagedClusterForMigration prepares a managed cluster for migration by cleaning metadata
+// Returns an unstructured resource ready for migration
 func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Context, clusterName string) (
-	*clusterv1.ManagedCluster, error,
+	*unstructured.Unstructured, error,
 ) {
 	cluster := &clusterv1.ManagedCluster{}
 	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, cluster); err != nil {
@@ -421,28 +481,15 @@ func (s *MigrationSourceSyncer) prepareManagedClusterForMigration(ctx context.Co
 		cluster.SetAnnotations(annotations)
 	}
 
-	return cluster, nil
-}
-
-// prepareAddonConfigForMigration prepares addon config for migration by cleaning metadata
-func (s *MigrationSourceSyncer) prepareAddonConfigForMigration(ctx context.Context, clusterName string) (
-	*addonv1.KlusterletAddonConfig, error,
-) {
-	addonConfig := &addonv1.KlusterletAddonConfig{}
-	if err := s.client.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: clusterName}, addonConfig); err != nil {
-		return nil, fmt.Errorf("failed to get addon config %s: %w", clusterName, err)
+	// Convert to unstructured
+	clusterUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert managed cluster to unstructured: %w", err)
 	}
 
-	// Clean metadata for migration
-	s.cleanObjectMetadata(addonConfig)
-	addonConfig.Status = addonv1.KlusterletAddonConfigStatus{}
-	annotations := addonConfig.GetAnnotations()
-	if annotations != nil {
-		delete(annotations, kubectlConfigAnnotation)
-		addonConfig.SetAnnotations(annotations)
-	}
+	clusterObj := &unstructured.Unstructured{Object: clusterUnstructured}
 
-	return addonConfig, nil
+	return clusterObj, nil
 }
 
 // cleanObjectMetadata removes metadata fields that should not be migrated
