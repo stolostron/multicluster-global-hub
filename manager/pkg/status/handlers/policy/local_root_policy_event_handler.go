@@ -110,14 +110,13 @@ func (h *localRootPolicyEventHandler) convertEventToModel(element *event.RootPol
 
 func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	leafHubName := evt.Source()
 	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	isSingleEvent, err := handleSingleEvent(evt, h.convertEventToModel)
-	if err != nil {
-		return fmt.Errorf("failed handling single root policy event - %w", err)
-	}
 	if isSingleEvent {
+		if err != nil {
+			return fmt.Errorf("failed handling single root policy event - %w", err)
+		}
 		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 		return nil
 	}
@@ -133,7 +132,7 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 
 	localRootPolicyEvents := []models.LocalRootPolicyEvent{}
 	for _, element := range data {
-		localEvent, err := h.convertEventToModel(element, leafHubName)
+		localEvent, err := h.convertEventToModel(element, evt.Source())
 		if err != nil {
 			h.log.Error(err, "failed to convert event to model")
 			continue
