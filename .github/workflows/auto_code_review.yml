@@ -67,7 +67,7 @@ jobs:
         id: 'generate_token'
         if: |-
           ${{ vars.APP_ID }}
-        uses: 'actions/create-github-app-token@a8d616148505b5069dccd32f177bb87d7f39123b' # ratchet:actions/create-github-app-token@v2
+        uses: 'actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42' # ratchet:actions/create-github-app-token@v2
         with:
           app-id: '${{ vars.APP_ID }}'
           private-key: '${{ secrets.APP_PRIVATE_KEY }}'
@@ -440,7 +440,7 @@ jobs:
       - name: 'Post PR review failure comment'
         if: |-
           ${{ failure() && steps.gemini_pr_review.outcome == 'failure' }}
-        uses: 'actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea'
+        uses: 'actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd'
         with:
           github-token: '${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}'
           script: |-
