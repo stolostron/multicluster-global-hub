@@ -18,7 +18,7 @@ require (
 	github.com/go-co-op/gocron v1.23.0
 	github.com/go-kratos/kratos/v2 v2.8.0
 	github.com/go-logr/logr v1.4.2
-	github.com/gonvenience/ytbx v1.4.4
+	github.com/gonvenience/ytbx v1.4.7
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.5.5
 	github.com/jackc/pgx/v4 v4.18.2
