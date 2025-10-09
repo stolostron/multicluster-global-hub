@@ -276,7 +276,8 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to wait for the managed clusters to be ready: %w", err)
+		return fmt.Errorf("failed to wait for %d managed clusters to be ready, get more details in events: %w",
+			len(clusterErrors), err)
 	}
 	log.Infof("all %d managed clusters are ready for migration", len(event.ManagedClusters))
 	return nil
