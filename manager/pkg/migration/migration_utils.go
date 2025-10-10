@@ -118,14 +118,32 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 func (m *ClusterMigrationController) UpdateFailureClustersToConfigMap(ctx context.Context,
 	mcm *migrationv1alpha1.ManagedClusterMigration,
 ) error {
-	failedClusters, err := m.GetFailureClusters(ctx, mcm)
+	successClusters, err := m.GetSuccessClusters(ctx, mcm)
 	if err != nil {
 		return err
+	}
+	allClusters := GetClusterList(string(mcm.UID))
+	if len(successClusters) == 0 {
+		if err := m.storeClustersToConfigMap(ctx, mcm,
+			map[string][]string{
+				failedClustersConfigMapKey: allClusters,
+			}); err != nil {
+			return fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
+		}
+	}
+
+	// failedClusters = allClusters - successClusters
+	failedClusters := []string{}
+	for _, cluster := range allClusters {
+		if !utils.ContainsString(successClusters, cluster) {
+			failedClusters = append(failedClusters, cluster)
+		}
 	}
 
 	if err := m.storeClustersToConfigMap(ctx, mcm,
 		map[string][]string{
-			failedClustersConfigMapKey: failedClusters,
+			successClustersConfigMapKey: successClusters,
+			failedClustersConfigMapKey:  failedClusters,
 		}); err != nil {
 		return fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
 	}
@@ -147,10 +165,10 @@ func (m *ClusterMigrationController) UpdateSuccessClustersToConfigMap(ctx contex
 // Currently it only stores successful clusters, but the name suggests it should handle all clusters.
 // This function appears to be a duplicate of UpdateSuccessClustersConfimap.
 func (m *ClusterMigrationController) UpdateAllClustersToConfigMap(ctx context.Context,
-	mcm *migrationv1alpha1.ManagedClusterMigration, successClusters []string,
+	mcm *migrationv1alpha1.ManagedClusterMigration, clusters []string,
 ) error {
 	return m.storeClustersToConfigMap(ctx, mcm, map[string][]string{
-		allClustersConfigMapKey: successClusters,
+		allClustersConfigMapKey: clusters,
 	})
 }
 
