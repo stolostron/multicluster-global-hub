@@ -25,6 +25,9 @@ kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
 
 [ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
 
+echo ">>>> postgres log"
+kubectl logs  statefulset/multicluster-global-hub-postgresql -n "$NAMESPACE"
+
 echo ">>>> KafkaCluster"
 kubectl get kafka -n "$NAMESPACE" -oyaml
 
@@ -42,3 +45,12 @@ kubectl get deploy -n "$NAMESPACE"
 
 echo ">>>> mgh"
 kubectl get mgh -n "$NAMESPACE" -oyaml
+
+echo ">>>> postgres configmap"
+kubectl get configmap -n "$NAMESPACE" multicluster-global-hub-postgresql-config -oyaml
+
+echo ">>>> postgres description"
+kubectl describe po multicluster-global-hub-postgresql-0 -n "$NAMESPACE"
+
+echo ">>>> postgres logs"
+kubectl logs multicluster-global-hub-postgresql-0 -n "$NAMESPACE"
