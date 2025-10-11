@@ -206,6 +206,8 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		log.Debug("deleted mgh in manager reconciler, isResourceRemoved:%v", isResourceRemoved)
 		return ctrl.Result{}, err
 	}
+	log.Infof("#######:%v", mgh)
+
 	isResourceRemoved = false
 	var reconcileErr error
 	defer func() {
@@ -264,6 +266,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		log.Debug("Wait kafka connection created")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
+	log.Infof("#######:%v, %v", kafkaConfig.SpecTopic, kafkaConfig.StatusTopic)
 	kafkaConfig.ConsumerGroupID = config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
 		constants.CloudEventGlobalHubClusterName)
 
@@ -286,6 +289,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		reconcileErr = fmt.Errorf("failed to get the electionConfig %w", err)
 		return ctrl.Result{}, reconcileErr
 	}
+	log.Infof("#######:%v, %v", kafkaConfig.SpecTopic, kafkaConfig.StatusTopic)
 
 	kafkaConfigYaml, err := kafkaConfig.YamlMarshal(true)
 	if err != nil {
@@ -304,6 +308,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			return ctrl.Result{}, reconcileErr
 		}
 	}
+	log.Infof("#######:%v, %v", kafkaConfig.SpecTopic, kafkaConfig.StatusTopic)
 
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{

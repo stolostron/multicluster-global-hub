@@ -221,6 +221,18 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
+	// Ensure transport config is synchronized with MGH spec before rendering addons
+	// This prevents stale topic values in transport-config secrets
+	if config.GetSpecTopic() != mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic ||
+		config.GetRawStatusTopic() != mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic {
+		log.Infow("transport config topics out of sync with MGH, requeuing",
+			"current-spec", config.GetSpecTopic(),
+			"expected-spec", mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic,
+			"current-status", config.GetRawStatusTopic(),
+			"expected-status", mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic)
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
 	clusterManagementAddOn := &addonv1alpha1.ClusterManagementAddOn{}
 	err = r.Get(ctx, types.NamespacedName{
 		Name: constants.GHClusterManagementAddonName,
@@ -272,7 +284,7 @@ func (r *DefaultAgentController) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, cluster, clusterManagementAddOn)
+	return ctrl.Result{}, r.reconcileAddonAndResources(ctx, mgh, cluster, clusterManagementAddOn)
 }
 
 func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Context) error {
@@ -291,9 +303,9 @@ func (r *DefaultAgentController) deleteClusterManagementAddon(ctx context.Contex
 }
 
 func (r *DefaultAgentController) reconcileAddonAndResources(ctx context.Context,
-	cluster *clusterv1.ManagedCluster, cma *addonv1alpha1.ClusterManagementAddOn,
+	mgh *v1alpha4.MulticlusterGlobalHub, cluster *clusterv1.ManagedCluster, cma *addonv1alpha1.ClusterManagementAddOn,
 ) error {
-	expectedAddon, err := expectedManagedClusterAddon(cluster, cma)
+	expectedAddon, err := expectedManagedClusterAddon(mgh, cluster, cma)
 	if err != nil {
 		return err
 	}
@@ -380,7 +392,7 @@ func (r *DefaultAgentController) removeResourcesAndAddon(ctx context.Context, cl
 	return trans.Prune(cluster.Name)
 }
 
-func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1alpha1.ClusterManagementAddOn) (
+func expectedManagedClusterAddon(mgh *v1alpha4.MulticlusterGlobalHub, cluster *clusterv1.ManagedCluster, cma *addonv1alpha1.ClusterManagementAddOn) (
 	*addonv1alpha1.ManagedClusterAddOn, error,
 ) {
 	expectedAddon := &addonv1alpha1.ManagedClusterAddOn{
@@ -409,6 +421,12 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	if val, ok := cluster.Annotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation]; ok {
 		expectedAddonAnnotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation] = val
 	}
+
+	// Add topic configuration to annotations to force addon re-render when topics change
+	// This ensures the transport-config secret is updated with new topic values
+	expectedAddonAnnotations["global-hub.open-cluster-management.io/kafka-spec-topic"] = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
+	expectedAddonAnnotations["global-hub.open-cluster-management.io/kafka-status-topic"] = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
+
 	if len(expectedAddonAnnotations) > 0 {
 		expectedAddon.SetAnnotations(expectedAddonAnnotations)
 	}
