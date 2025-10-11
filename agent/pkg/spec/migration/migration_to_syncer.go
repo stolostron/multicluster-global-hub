@@ -46,6 +46,31 @@ var (
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
 )
 
+// shouldSkipMigrationEvent checks if a migration event should be skipped based on cached migration time
+// Returns true if the event should be skipped, false otherwise
+//
+// Skip conditions:
+//  1. If cached: skip if latestMigrationTime is after event time
+//  2. If not cached: skip if event is older than 10 minutes
+func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cloudevents.Event) (bool, error) {
+	cached, latestMigrationTime, err := configs.GetSyncTimeState(ctx, client, configs.LatestMigrationTimeKey)
+	if err != nil {
+		return false, fmt.Errorf("failed to get latest migration time from configmap: %w", err)
+	}
+	if cached {
+		if latestMigrationTime.After(evt.Time()) {
+			log.Infof("latest migration time %s is after event time %s, skip processing", latestMigrationTime, evt.Time())
+			return true, nil
+		}
+	} else {
+		if time.Since(evt.Time()) > 10*time.Minute {
+			log.Infof("latest migration time is not cached, and the event time is 10 minutes ago, skip processing")
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 type MigrationTargetSyncer struct {
 	client                client.Client
 	transportClient       transport.TransportClient
@@ -73,9 +98,16 @@ func NewMigrationTargetSyncer(client client.Client,
 func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
 	log.Infof("received migration event from %s", evt.Source())
 
-	clusterErrors := map[string]string{}
-	var err error
+	// Check if this migration event should be skipped
+	skip, err := shouldSkipMigrationEvent(ctx, s.client, evt)
+	if err != nil {
+		return err
+	}
+	if skip {
+		return nil
+	}
 
+	clusterErrors := map[string]string{}
 	defer func() {
 		if s.receivedStage == "" || s.receivedMigrationId == "" {
 			log.Warnf("stage(%s) or migrationId(%s) is empty ", s.receivedStage, s.receivedMigrationId)
@@ -139,6 +171,11 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	err = s.handleStage(ctx, event, clusterErrors)
 	if err != nil {
 		return fmt.Errorf("failed to handle migration stage: %w", err)
+	}
+
+	// update the latest migration time into configmap to avoid duplicate processing
+	if err := configs.SetSyncTimeState(ctx, s.client, configs.LatestMigrationTimeKey); err != nil {
+		return fmt.Errorf("failed to update latest migration time: %w", err)
 	}
 	return nil
 }

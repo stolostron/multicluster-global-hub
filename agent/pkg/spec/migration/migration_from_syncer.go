@@ -76,13 +76,21 @@ func NewMigrationSourceSyncer(client client.Client, restConfig *rest.Config,
 }
 
 func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event) error {
+	// Check if this migration event should be skipped
+	skip, err := shouldSkipMigrationEvent(ctx, s.client, evt)
+	if err != nil {
+		return err
+	}
+	if skip {
+		return nil
+	}
+
 	// Parse migration event
 	migrationEvent := &migration.MigrationSourceBundle{}
 	if err := json.Unmarshal(evt.Data(), migrationEvent); err != nil {
 		return fmt.Errorf("failed to unmarshal migration event: %w", err)
 	}
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
-	var err error
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
 	}()
@@ -90,6 +98,11 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	err = s.handleStage(ctx, migrationEvent)
 	if err != nil {
 		return fmt.Errorf("failed to handle migration stage: %w", err)
+	}
+
+	// update the latest migration time into configmap to avoid duplicate processing
+	if err := configs.SetSyncTimeState(ctx, s.client, configs.LatestMigrationTimeKey); err != nil {
+		return fmt.Errorf("failed to update latest migration time: %w", err)
 	}
 	return nil
 }
