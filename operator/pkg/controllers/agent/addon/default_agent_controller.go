@@ -409,6 +409,12 @@ func expectedManagedClusterAddon(cluster *clusterv1.ManagedCluster, cma *addonv1
 	if val, ok := cluster.Annotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation]; ok {
 		expectedAddonAnnotations[imageregistryv1alpha1.ClusterImageRegistriesAnnotation] = val
 	}
+
+	// Add topic configuration to annotations to force addon re-render when topics change
+	// This ensures the transport-config secret is updated with new topic values
+	expectedAddonAnnotations["global-hub.open-cluster-management.io/kafka-spec-topic"] = config.GetSpecTopic()
+	expectedAddonAnnotations["global-hub.open-cluster-management.io/kafka-status-topic"] = config.GetRawStatusTopic()
+
 	if len(expectedAddonAnnotations) > 0 {
 		expectedAddon.SetAnnotations(expectedAddonAnnotations)
 	}
