@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -383,8 +384,29 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 
 	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
 		log.Infof("update the kafkaUser: %s", userName)
-		if err = k.manager.GetClient().Update(k.ctx, updatedKafkaUser); err != nil {
-			return "", err
+		// Use retry logic to handle concurrent modifications by Strimzi operator
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			// Get the latest version before each retry
+			latestKafkaUser := &kafkav1beta2.KafkaUser{}
+			if err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+				Name:      userName,
+				Namespace: k.kafkaClusterNamespace,
+			}, latestKafkaUser); err != nil {
+				return err
+			}
+
+			// Re-merge with the latest version
+			updatedKafkaUser = &kafkav1beta2.KafkaUser{}
+			if err := operatorutils.MergeObjects(latestKafkaUser, desiredKafkaUser, updatedKafkaUser); err != nil {
+				return err
+			}
+			updatedKafkaUser.Spec.Authorization.Acls = combineACLs(latestKafkaUser.Spec.Authorization.Acls,
+				desiredKafkaUser.Spec.Authorization.Acls)
+
+			return k.manager.GetClient().Update(k.ctx, updatedKafkaUser)
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to update kafkaUser %s after retries: %w", userName, err)
 		}
 	}
 	return userName, nil
@@ -451,8 +473,29 @@ func (k *strimziTransporter) ensureTopic(topicName string, config *apiextensions
 	updatedTopic.Spec.Replicas = kafkaTopic.Spec.Replicas
 
 	if !equality.Semantic.DeepDerivative(updatedTopic.Spec, kafkaTopic.Spec) {
-		if err = k.manager.GetClient().Update(k.ctx, updatedTopic); err != nil {
-			return err
+		// Use retry logic to handle concurrent modifications by Strimzi operator
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			// Get the latest version before each retry
+			latestTopic := &kafkav1beta2.KafkaTopic{}
+			if err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+				Name:      topicName,
+				Namespace: k.kafkaClusterNamespace,
+			}, latestTopic); err != nil {
+				return err
+			}
+
+			// Re-merge with the latest version
+			updatedTopic = &kafkav1beta2.KafkaTopic{}
+			if err := operatorutils.MergeObjects(latestTopic, desiredTopic, updatedTopic); err != nil {
+				return err
+			}
+			// Kafka do not support change exitsting kafaka topic replica directly.
+			updatedTopic.Spec.Replicas = latestTopic.Spec.Replicas
+
+			return k.manager.GetClient().Update(k.ctx, updatedTopic)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to update kafkaTopic %s after retries: %w", topicName, err)
 		}
 	}
 	return nil

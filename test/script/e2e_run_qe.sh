@@ -51,7 +51,7 @@ docker network inspect "$KIND_NETWORK" --format '{{range .Containers}}{{.Name}}:
 
 # Use original kubeconfig (no modification needed)
 echo "Using original kubeconfigs - no modification needed when on same network"
-
+sleep 6000
 # Run e2e tests, join kind network
 echo "Running Docker container on kind network: $KIND_NETWORK"
 docker run --rm \
