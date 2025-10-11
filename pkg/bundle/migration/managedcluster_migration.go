@@ -23,6 +23,7 @@ type MigrationSourceBundle struct {
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
 	RollbackStage   string         `json:"rollbackStage,omitempty"` // Indicates which stage is being rolled back
+	MigrationMode   string         `json:"migrationMode,omitempty"`
 }
 
 // MigrationTargetBundle defines the resources from migration controllers to the target cluster
@@ -34,6 +35,7 @@ type MigrationTargetBundle struct {
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
 	RollbackStage                         string   `json:"rollbackStage,omitempty"`
 	RegisteringTimeoutMinutes             int      `json:"registeringTimeoutMinutes,omitempty"`
+	MigrationMode                         string   `json:"migrationMode,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub

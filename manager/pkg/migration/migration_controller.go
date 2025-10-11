@@ -251,7 +251,12 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 		isLocalCluster = true
 	}
 	log.Debugf("%s is %v", migration.Spec.To, isLocalCluster)
-
+	migrationMode := string(constants.DefaultMode)
+	if migration.Labels != nil {
+		if mode, ok := migration.Labels[constants.GHMigrationMode]; ok {
+			migrationMode = mode
+		}
+	}
 	managedClusterMigrationToEvent := &migrationbundle.MigrationTargetBundle{
 		MigrationId:               string(migration.GetUID()),
 		Stage:                     stage,
@@ -261,6 +266,7 @@ func (m *ClusterMigrationController) sendEventToTargetHub(ctx context.Context,
 		// the timeout in agent part should less than manager part,
 		// the event in agent need time to send event to manager
 		RegisteringTimeoutMinutes: int((registeringTimeout - 2*time.Minute).Minutes()),
+		MigrationMode:             migrationMode,
 	}
 
 	// namespace

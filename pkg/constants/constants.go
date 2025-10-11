@@ -84,6 +84,14 @@ const (
 )
 
 const (
+	// this lable identiy which kind of resources should be migrated
+	GHMigrationMode   = "global-hub.open-cluster-management.io/migration-mode"
+	GHMigrationDefaul = "default"
+	// migrate all ztp related resources
+	GHMigrationZTP = "ztp"
+)
+
+const (
 	// AnnotationONMulticlusterHub indicates the addons are running on a hub cluster
 	AnnotationONMulticlusterHub = "addon.open-cluster-management.io/on-multicluster-hub"
 	// AnnotationPolicyONMulticlusterHub indicates the policy spec sync is running on a hub cluster

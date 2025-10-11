@@ -17,6 +17,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -187,6 +188,9 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 
 		// collect all defined migration resources
 		for _, migrateResource := range migrateResources {
+			if migrateResource.isZtp && source.MigrationMode != constants.GHMigrationZTP {
+				continue
+			}
 			resource, err := s.prepareUnstructuredResourceForMigration(ctx, managedCluster, migrateResource)
 			if err != nil {
 				return fmt.Errorf("failed to prepare %s %s for migration: %w", migrateResource.gvk.Kind, managedCluster, err)
@@ -235,17 +239,20 @@ func (s *MigrationSourceSyncer) prepareUnstructuredResourceForMigration(
 	if migrateResource.namespace == "" {
 		migrateResource.namespace = clusterName
 	}
+	resourceName := strings.ReplaceAll(migrateResource.name, "<CLUSTER_NAME>", clusterName)
+	resourceNameSpace := strings.ReplaceAll(migrateResource.namespace, "<CLUSTER_NAME>", clusterName)
+
 	if err := s.client.Get(ctx, types.NamespacedName{
-		Name:      migrateResource.name,
-		Namespace: migrateResource.namespace,
+		Name:      resourceName,
+		Namespace: resourceNameSpace,
 	}, resource); err != nil {
 		if apierrors.IsNotFound(err) && migrateResource.optional {
 			log.Warnf("optional resource not found: GVK=%s, Name=%s, Namespace=%s", migrateResource.gvk.String(),
-				migrateResource.name, migrateResource.namespace)
+				resourceName, resourceNameSpace)
 			// Resource is optional, so return nil if not found
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to get %v %s: %w", migrateResource.gvk, clusterName, err)
+		return nil, fmt.Errorf("failed to get %v %s/%s: %w", migrateResource.gvk, resourceNameSpace, resourceName, err)
 	}
 
 	// Clean metadata for migration
@@ -284,6 +291,13 @@ func (s *MigrationSourceSyncer) processResourceByType(
 		if annotations != nil {
 			delete(annotations, constants.ManagedClusterMigrating)
 			delete(annotations, KlusterletConfigAnnotation)
+		}
+		resource.SetAnnotations(annotations)
+	case "ClusterDeployment":
+		// Remove pause annotation from ClusterDeployment
+		annotations := resource.GetAnnotations()
+		if annotations != nil {
+			delete(annotations, "hive.openshift.io/reconcile-pause")
 		}
 		resource.SetAnnotations(annotations)
 	}
@@ -358,8 +372,62 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		}); err != nil {
 			return err
 		}
+
+		// If migration mode is ZTP, pause ClusterDeployment reconciliation
+		if source.MigrationMode == constants.GHMigrationZTP {
+			if err := m.pauseClusterDeployment(ctx, managedCluster); err != nil {
+				log.Errorf("failed to pause ClusterDeployment for cluster %s: %v", managedCluster, err)
+				return err
+			}
+		}
 	}
+
 	return nil
+}
+
+// pauseClusterDeployment adds the hive.openshift.io/reconcile-pause annotation to pause ClusterDeployment reconciliation
+func (m *MigrationSourceSyncer) pauseClusterDeployment(ctx context.Context, clusterName string) error {
+	clusterDeployment := &unstructured.Unstructured{}
+	clusterDeployment.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "hive.openshift.io",
+		Version: "v1",
+		Kind:    "ClusterDeployment",
+	})
+
+	err := m.client.Get(ctx, types.NamespacedName{
+		Name:      clusterName,
+		Namespace: clusterName,
+	}, clusterDeployment)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Debugf("ClusterDeployment %s not found, skipping pause", clusterName)
+			return nil
+		}
+		return fmt.Errorf("failed to get ClusterDeployment %s: %w", clusterName, err)
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest version
+		if err := m.client.Get(ctx, types.NamespacedName{
+			Name:      clusterName,
+			Namespace: clusterName,
+		}, clusterDeployment); err != nil {
+			return err
+		}
+
+		annotations := clusterDeployment.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations["hive.openshift.io/reconcile-pause"] = "true"
+		clusterDeployment.SetAnnotations(annotations)
+
+		if err := m.client.Update(ctx, clusterDeployment); err != nil {
+			return err
+		}
+		log.Infof("paused ClusterDeployment reconciliation for cluster %s", clusterName)
+		return nil
+	})
 }
 
 // generateKlusterletConfig generate the klusterletconfig for migration
