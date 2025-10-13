@@ -18,8 +18,9 @@ spec:
          prefix: velero
        provider: aws
  configuration:
-   restic:
+   nodeAgent:
      enable: true
+     uploaderType: kopia
    velero:
      defaultPlugins:
        - openshift
