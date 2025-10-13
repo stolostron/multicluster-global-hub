@@ -126,7 +126,7 @@ func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) {
 		// if the time is invalid, skip it, otherwise it will cause the controller-runtime client failed to start
 		timeVal, err := time.Parse(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE, val)
 		if err != nil {
-			log.Warnf("failed to parse the time from the configmap: %v", err)
+			log.Infof("[Warning] failed to parse the time from the configmap: %v", err)
 			continue
 		}
 		eventTimeCache[getKey(configMapKey)] = timeVal
