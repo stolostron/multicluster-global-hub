@@ -29,7 +29,8 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "test-consumer-id")
+	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "transport-config-local-cluster",
+		"test-consumer-id")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}

@@ -53,10 +53,7 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 		return err
 	}
 
-	err = loadEventTimeCacheFromConfigMap(agentStateConfigMap)
-	if err != nil {
-		return err
-	}
+	loadEventTimeCacheFromConfigMap(agentStateConfigMap)
 
 	go func() {
 		ticker := time.NewTicker(CacheSyncInterval)
@@ -122,18 +119,19 @@ func RegisterTimeFilter(key string) {
 	lastEventTimeCache[key] = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) error {
+func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) {
 	for configMapKey := range cm.Data {
 		val := cm.Data[configMapKey]
 
+		// if the time is invalid, skip it, otherwise it will cause the controller-runtime client failed to start
 		timeVal, err := time.Parse(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE, val)
 		if err != nil {
-			return err
+			log.Warnf("failed to parse the time from the configmap: %v", err)
+			continue
 		}
 		eventTimeCache[getKey(configMapKey)] = timeVal
 		lastEventTimeCache[getKey(configMapKey)] = timeVal
 	}
-	return nil
 }
 
 // getConfigMapKey is to add the topic prefix for the origin key, so if the topic is changed,
