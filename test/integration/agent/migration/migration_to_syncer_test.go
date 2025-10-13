@@ -49,6 +49,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
 			LeafHubName:     "hub1",
+			PodNamespace:    testMSANamespace, // Set PodNamespace for configmap operations
 		}
 		configs.SetAgentConfig(agentConfig)
 		migrationSyncer = migrationsyncer.NewMigrationTargetSyncer(
@@ -88,7 +89,10 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 		clusterNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}}
 		Expect(runtimeClient.Create(testCtx, clusterNamespace)).Should(Succeed())
 
-		configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: testToHub})
+		configs.SetAgentConfig(&configs.AgentConfig{
+			LeafHubName:  testToHub,
+			PodNamespace: testMSANamespace, // Set PodNamespace for configmap operations
+		})
 	})
 
 	AfterAll(func() {
@@ -645,6 +649,7 @@ func createMigrationToEvent(migrationID, stage, fromHub, toHub string) *cloudeve
 	event.SetType(string(enum.ManagedClusterMigrationType))
 	event.SetSource(constants.CloudEventGlobalHubClusterName)
 	event.SetSubject(toHub)
+	event.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
 	payload := &migration.MigrationTargetBundle{
 		MigrationId: migrationID,

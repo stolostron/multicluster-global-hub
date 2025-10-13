@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
@@ -490,6 +491,7 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 			// sync managed cluster migration
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
+			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if err != nil {
 				t.Errorf("Failed to sync managed cluster migration: %v", err)

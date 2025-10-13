@@ -48,6 +48,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		agentConfig := &configs.AgentConfig{
 			TransportConfig: transportConfig,
 			LeafHubName:     "hub1",
+			PodNamespace:    utils.GetDefaultNamespace(), // Set PodNamespace for configmap operations
 		}
 		configs.SetAgentConfig(agentConfig)
 
@@ -496,9 +497,6 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 		})
 
 		It("should handle missing managed cluster during deployment", func() {
-			By("Creating migration event for non-existent cluster")
-			initEvent := createMigrationFromEvent("error-test-2", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
-
 			By("Prepare bootstrap secret for test")
 			bootstrapSecretName := fmt.Sprintf("bootstrap-%s-test2", testToHub)
 
@@ -523,6 +521,11 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			err := migrationSyncer.Sync(testCtx, event)
 			Expect(err).NotTo(HaveOccurred())
 
+			// Sleep briefly to ensure the next event has a later timestamp
+			time.Sleep(10 * time.Millisecond)
+
+			By("Creating migration event for non-existent cluster")
+			initEvent := createMigrationFromEvent("error-test-2", migrationv1alpha1.PhaseInitializing, testFromHub, testToHub, []string{"non-existent-cluster"})
 			initEvent.DataEncoded, _ = json.Marshal(&migration.MigrationSourceBundle{
 				MigrationId:     "error-test-2",
 				Stage:           migrationv1alpha1.PhaseInitializing,
@@ -563,6 +566,7 @@ func createMigrationFromEvent(migrationID, stage, fromHub, toHub string, cluster
 	event.SetType(string(enum.ManagedClusterMigrationType))
 	event.SetSource(fromHub)
 	event.SetSubject(constants.CloudEventGlobalHubClusterName)
+	event.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
 	payload := &migration.MigrationSourceBundle{
 		MigrationId:     migrationID,

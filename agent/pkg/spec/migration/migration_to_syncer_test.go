@@ -849,6 +849,7 @@ func TestMigrationToSyncer(t *testing.T) {
 			assert.Nil(t, err)
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, constants.CloudEventGlobalHubClusterName,
 				"hub2", payload)
+			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			assert.Nil(t, err)
 
@@ -1024,6 +1025,7 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 
 			// sync managed cluster migration
 			evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, eventSource, "hub2", payload)
+			evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 			err = managedClusterMigrationSyncer.Sync(ctx, &evt)
 			if c.expectedError == nil {
 				assert.Nil(t, err)
@@ -1060,6 +1062,7 @@ func TestDeploying(t *testing.T) {
 			},
 		},
 	})
+	evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
