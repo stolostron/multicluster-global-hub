@@ -25,7 +25,7 @@ func (ManagedCluster) TableName() string {
 }
 
 type LeafHub struct {
-	LeafHubName string         `gorm:"column:leaf_hub_name;not null"`
+	LeafHubName string         `gorm:"column:leaf_hub_name;primaryKey"`
 	ClusterID   string         `gorm:"column:cluster_id;primaryKey"`
 	Payload     datatypes.JSON `gorm:"column:payload;type:jsonb"`
 	CreatedAt   time.Time      `gorm:"column:created_at;autoCreateTime:true"`
