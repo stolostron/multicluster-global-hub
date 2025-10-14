@@ -46,13 +46,24 @@ spec:
     value: "true"
   - name: build-args
     value: ["GIT_COMMIT={{revision}}"]
+  - name: send-slack-notification
+    value: "true"
+  - name: konflux-application-name
+    value: "release-globalhub-1-6"
+  - name: slack-webhook-url-secret-name
+    # See details: https://konflux.pages.redhat.com/docs/users/patterns/slack-notifications.html
+    value: "slack-notify-webhook"
+  - name: slack-webhook-url-secret-key
+    value: "slack-webhook-url"
+  - name: slack-member-id
+    value: "UUEGAV6NM"
   pipelineRef:
     resolver: git
     params:
       - name: url
-        value: "https://github.com/stolostron/konflux-build-catalog.git"
+        value: "https://github.com/hchenxa/konflux-build-catalog.git"
       - name: revision
-        value: main
+        value: hchenxa-1014
       - name: pathInRepo
         value: pipelines/common.yaml
   taskRunTemplate:
