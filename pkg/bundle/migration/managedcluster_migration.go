@@ -1,9 +1,8 @@
 package migration
 
 import (
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // Since Kafka persists messages in a topic, multiple migration processes running in the system might all use the
@@ -24,6 +23,7 @@ type MigrationSourceBundle struct {
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
 	RollbackStage   string         `json:"rollbackStage,omitempty"` // Indicates which stage is being rolled back
+	MigrationMode   string         `json:"migrationMode,omitempty"`
 }
 
 // MigrationTargetBundle defines the resources from migration controllers to the target cluster
@@ -35,6 +35,7 @@ type MigrationTargetBundle struct {
 	ManagedClusters                       []string `json:"managedClusters,omitempty"`
 	RollbackStage                         string   `json:"rollbackStage,omitempty"`
 	RegisteringTimeoutMinutes             int      `json:"registeringTimeoutMinutes,omitempty"`
+	MigrationMode                         string   `json:"migrationMode,omitempty"`
 }
 
 // The bundle sent from the managed hubs to the global hub
@@ -48,7 +49,11 @@ type MigrationStatusBundle struct {
 }
 
 type MigrationResourceBundle struct {
-	MigrationId           string                          `json:"migrationId"`
-	ManagedClusters       []clusterv1.ManagedCluster      `json:"managedClusters,omitempty"`
-	KlusterletAddonConfig []addonv1.KlusterletAddonConfig `json:"klusterletAddonConfigs,omitempty"`
+	MigrationId               string                     `json:"migrationId"`
+	MigrationClusterResources []MigrationClusterResource `json:"migrationClusterResources"`
+}
+
+type MigrationClusterResource struct {
+	ClusterName string                      `json:"clusterName"`
+	ResouceList []unstructured.Unstructured `json:"resourcesList"`
 }

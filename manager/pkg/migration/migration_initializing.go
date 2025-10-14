@@ -181,6 +181,14 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 	migration *migrationv1alpha1.ManagedClusterMigration, stage string, managedClusters []string,
 	bootstrapSecret *corev1.Secret, rollbackStage string,
 ) error {
+	// Get migration mode from label
+	migrationMode := string(constants.DefaultMode)
+	if migration.Labels != nil {
+		if mode, ok := migration.Labels[constants.GHMigrationMode]; ok {
+			migrationMode = mode
+		}
+	}
+
 	managedClusterMigrationFromEvent := &migrationbundle.MigrationSourceBundle{
 		MigrationId:     string(migration.GetUID()),
 		Stage:           stage,
@@ -189,6 +197,7 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
 		RollbackStage:   rollbackStage,
+		MigrationMode:   migrationMode,
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)
