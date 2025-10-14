@@ -92,13 +92,22 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 	}
 
 	batchLocalPolicyEvents := []models.LocalReplicatedPolicyEvent{}
+	// Use a map to deduplicate events based on composite key (event_name, count, created_at)
+	eventMap := make(map[string]*models.LocalReplicatedPolicyEvent)
 	for _, policyStatusEvent := range data {
 		localEvent, err := h.convertEventToModel(policyStatusEvent, evt.Source())
 		if err != nil {
 			h.log.Error(err, "failed to convert event to model")
 			continue
 		}
-		batchLocalPolicyEvents = append(batchLocalPolicyEvents, *localEvent)
+		// Create a unique key based on the ON CONFLICT columns
+		key := fmt.Sprintf("%s-%d-%s", localEvent.EventName, localEvent.Count, localEvent.CreatedAt.Format("2006-01-02T15:04:05.999999999Z07:00"))
+		// Keep the last occurrence if there are duplicates
+		eventMap[key] = localEvent
+	}
+	// Convert map back to slice
+	for _, event := range eventMap {
+		batchLocalPolicyEvents = append(batchLocalPolicyEvents, *event)
 	}
 
 	if len(batchLocalPolicyEvents) <= 0 {

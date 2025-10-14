@@ -131,13 +131,22 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 	}
 
 	localRootPolicyEvents := []models.LocalRootPolicyEvent{}
+	// Use a map to deduplicate events based on composite key (event_name, count, created_at)
+	eventMap := make(map[string]*models.LocalRootPolicyEvent)
 	for _, element := range data {
 		localEvent, err := h.convertEventToModel(element, evt.Source())
 		if err != nil {
 			h.log.Error(err, "failed to convert event to model")
 			continue
 		}
-		localRootPolicyEvents = append(localRootPolicyEvents, *localEvent)
+		// Create a unique key based on the ON CONFLICT columns
+		key := fmt.Sprintf("%s-%d-%s", localEvent.EventName, localEvent.Count, localEvent.CreatedAt.Format("2006-01-02T15:04:05.999999999Z07:00"))
+		// Keep the last occurrence if there are duplicates
+		eventMap[key] = localEvent
+	}
+	// Convert map back to slice
+	for _, event := range eventMap {
+		localRootPolicyEvents = append(localRootPolicyEvents, *event)
 	}
 
 	db := database.GetGorm()
