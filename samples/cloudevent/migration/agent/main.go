@@ -30,7 +30,7 @@ func main() {
 	migrationId := os.Args[3]
 
 	ctx, cancel := context.WithCancel(context.Background())
-	configMap, err := config.GetConfluentConfigMapByTransportConfig("multicluster-global-hub-agent", "")
+	configMap, err := config.GetConfluentConfigMapByTransportConfig("multicluster-global-hub-agent", "transport-config", "")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}

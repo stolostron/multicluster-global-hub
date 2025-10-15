@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -73,14 +72,14 @@ func TestTimeFilter(t *testing.T) {
 	// init the time cancel to configMap
 	ctx, cancel := context.WithCancel(context.Background())
 	eventType := "event.managedcluster"
+	configs.SetAgentConfig(&configs.AgentConfig{PodNamespace: "default"})
 
 	CacheSyncInterval = 1 * time.Second
 	err := LaunchTimeFilter(ctx, runtimeClient, "default", "topic1")
 	assert.Nil(t, err)
 
 	fmt.Println(">> verify1: the filter create the configmap if it isn't exist")
-	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: CACHE_CONFIG_NAME, Namespace: "default"}}
-	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+	cm, err := configs.GetSyncStateConfigMap(ctx, runtimeClient)
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
 
@@ -92,7 +91,7 @@ func TestTimeFilter(t *testing.T) {
 	err = runtimeClient.Get(ctx, client.ObjectKeyFromObject(cm), cm)
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
-	cachedTime, err := time.Parse(CACHE_TIME_FORMAT, cm.Data[getConfigMapKey(eventType)])
+	cachedTime, err := time.Parse(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE, cm.Data[getConfigMapKey(eventType)])
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(cacheTime))
 	cancel()
@@ -115,7 +114,7 @@ func TestTimeFilter(t *testing.T) {
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
 
-	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[getConfigMapKey(eventType)])
+	cachedTime, err = time.Parse(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE, cm.Data[getConfigMapKey(eventType)])
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(cacheTime))
 	cancel()
@@ -137,7 +136,7 @@ func TestTimeFilter(t *testing.T) {
 	assert.Nil(t, err)
 	utils.PrettyPrint(cm)
 
-	cachedTime, err = time.Parse(CACHE_TIME_FORMAT, cm.Data[getConfigMapKey(eventType)])
+	cachedTime, err = time.Parse(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE, cm.Data[getConfigMapKey(eventType)])
 	assert.Nil(t, err)
 	assert.True(t, cachedTime.Equal(expiredTime))
 	cancel()

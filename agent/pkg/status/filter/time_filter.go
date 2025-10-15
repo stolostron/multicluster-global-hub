@@ -6,16 +6,10 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-)
-
-const (
-	CACHE_CONFIG_NAME = "multicluster-global-hub-agent-sync-state"
-	CACHE_TIME_FORMAT = "2006-01-02 15:04:05.000000 -0700 MST m=+0.000000000"
 )
 
 var (
@@ -54,25 +48,12 @@ func Newer(key string, val time.Time) bool {
 // and also init the event time cache with configmap
 func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, topic string) error {
 	topicName = topic
-	agentStateConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      CACHE_CONFIG_NAME,
-			Namespace: namespace,
-		},
-	}
-	err := c.Get(ctx, client.ObjectKeyFromObject(agentStateConfigMap), agentStateConfigMap)
-	if err != nil && errors.IsNotFound(err) {
-		if e := c.Create(ctx, agentStateConfigMap); e != nil {
-			return e
-		}
-	} else if err != nil {
-		return err
-	}
-
-	err = loadEventTimeCacheFromConfigMap(agentStateConfigMap)
+	agentStateConfigMap, err := configs.GetSyncStateConfigMap(ctx, c)
 	if err != nil {
 		return err
 	}
+
+	loadEventTimeCacheFromConfigMap(agentStateConfigMap)
 
 	go func() {
 		ticker := time.NewTicker(CacheSyncInterval)
@@ -113,8 +94,7 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 
 	// sync the lastSentCache to ConfigMap
 	if update {
-		cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: CACHE_CONFIG_NAME, Namespace: namespace}}
-		err := c.Get(ctx, client.ObjectKeyFromObject(cm), cm)
+		cm, err := configs.GetSyncStateConfigMap(ctx, c)
 		if err != nil {
 			return err
 		}
@@ -122,12 +102,13 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 			cm.Data = map[string]string{}
 		}
 		for key, val := range lastEventTimeCache {
-			cm.Data[getConfigMapKey(key)] = val.Format(CACHE_TIME_FORMAT)
+			cm.Data[getConfigMapKey(key)] = val.Format(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE)
 		}
 		err = c.Update(ctx, cm, &client.UpdateOptions{})
 		if err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
@@ -138,18 +119,19 @@ func RegisterTimeFilter(key string) {
 	lastEventTimeCache[key] = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) error {
+func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) {
 	for configMapKey := range cm.Data {
 		val := cm.Data[configMapKey]
 
-		timeVal, err := time.Parse(CACHE_TIME_FORMAT, val)
+		// if the time is invalid, skip it, otherwise it will cause the controller-runtime client failed to start
+		timeVal, err := time.Parse(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE, val)
 		if err != nil {
-			return err
+			log.Infof("[Warning] failed to parse the time from the configmap: %v", err)
+			continue
 		}
 		eventTimeCache[getKey(configMapKey)] = timeVal
 		lastEventTimeCache[getKey(configMapKey)] = timeVal
 	}
-	return nil
 }
 
 // getConfigMapKey is to add the topic prefix for the origin key, so if the topic is changed,

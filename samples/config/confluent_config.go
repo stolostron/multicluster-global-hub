@@ -8,15 +8,16 @@ import (
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 const (
@@ -234,7 +235,7 @@ func GetConfluentConfigMapByUser(c client.Client, namespace, clusterName, userNa
 	return nil, fmt.Errorf("kafka cluster %s/%s is not ready", namespace, clusterName)
 }
 
-func GetConfluentConfigMapByTransportConfig(namespace, consumerGroupID string) (*kafka.ConfigMap, error) {
+func GetConfluentConfigMapByTransportConfig(namespace, name, consumerGroupID string) (*kafka.ConfigMap, error) {
 	kubeconfig, err := DefaultKubeConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kubeconfig")
@@ -248,10 +249,14 @@ func GetConfluentConfigMapByTransportConfig(namespace, consumerGroupID string) (
 		namespace = KAFKA_NAMESPACE
 	}
 
+	if name == "" {
+		name = constants.GHTransportConfigSecret
+	}
+
 	transportConfig := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      constants.GHTransportConfigSecret,
+			Name:      name,
 		},
 	}
 	err = c.Get(context.Background(), client.ObjectKeyFromObject(transportConfig), transportConfig)
