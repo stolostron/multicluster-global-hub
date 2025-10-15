@@ -647,7 +647,11 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 	if err != nil {
 		errMessage = err.Error()
 	}
-
+	// Only report cluster list in validating phase
+	allManagedClusterList := []string{}
+	if spec.Stage == migrationv1alpha1.PhaseValidating {
+		allManagedClusterList = spec.ManagedClusters
+	}
 	reportErr := ReportMigrationStatus(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
 		s.transportClient,
@@ -655,7 +659,7 @@ func (s *MigrationSourceSyncer) reportStatus(ctx context.Context, spec *migratio
 			MigrationId:     spec.MigrationId,
 			Stage:           spec.Stage,
 			ErrMessage:      errMessage,
-			ManagedClusters: spec.ManagedClusters,
+			ManagedClusters: allManagedClusterList,
 			ClusterErrors:   s.clusterErrors,
 		},
 		s.bundleVersion)

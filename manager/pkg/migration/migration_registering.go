@@ -31,7 +31,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	log.Info("migration %v registering", mcm.Name)
+	log.Infof("migration %v registering", mcm.Name)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeRegistered,

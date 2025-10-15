@@ -14,6 +14,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/migration"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
+	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	migrationbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -79,8 +80,8 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
 	}
 
-	// Store managed clusters if provided
-	if len(bundle.ManagedClusters) > 0 {
+	// Store managed clusters in validating phase and it should not change
+	if bundle.Stage == migrationv1alpha1.PhaseValidating && len(bundle.ManagedClusters) > 0 {
 		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
 	}
 
