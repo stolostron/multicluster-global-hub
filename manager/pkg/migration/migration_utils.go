@@ -207,7 +207,7 @@ func (m *ClusterMigrationController) GetSuccessClusters(ctx context.Context,
 ) ([]string, error) {
 	cond := meta.FindStatusCondition(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeRegistered)
 	if cond == nil {
-		return nil, fmt.Errorf("the success clusters should be retrieved after the migration registering stage")
+		return nil, nil
 	}
 	return m.getClusterFromConfigMap(ctx, mcm.Name, mcm.Namespace, successClustersConfigMapKey)
 }
