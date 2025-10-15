@@ -78,10 +78,5 @@ func (m *ClusterMigrationController) selectAndPrepareMigration(ctx context.Conte
 		}
 	}
 
-	if nextMigration != nil {
-		log.Infof("selected migration: %s (phase: %s)", nextMigration.Name, nextMigration.Status.Phase)
-	} else {
-		log.Infof("no migration selected")
-	}
 	return nextMigration, nil
 }

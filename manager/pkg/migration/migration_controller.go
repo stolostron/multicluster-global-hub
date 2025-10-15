@@ -125,7 +125,7 @@ func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log.Infof("reconcile managed cluster migration %v", req)
+	log.Debugf("reconcile managed cluster migration %v", req)
 
 	// get the current migration
 	mcm, err := m.selectAndPrepareMigration(ctx, req)
@@ -134,7 +134,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 	if mcm == nil {
-		log.Info("no desired managedclustermigration found")
 		return ctrl.Result{}, nil
 	}
 
