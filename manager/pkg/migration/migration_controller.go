@@ -20,7 +20,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -149,16 +148,8 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 
 	log.Infof("processing migration instance: %s", mcm.Name)
 
-	// add the finalizer if the migration is not being deleted
-	if mcm.DeletionTimestamp == nil {
-		if controllerutil.AddFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-			if err := m.Update(ctx, mcm); err != nil {
-				log.Errorf("failed to add finalizer: %v", err)
-				return ctrl.Result{}, err
-			}
-		}
-		// initializing the migration status for the instance
-		AddMigrationStatus(string(mcm.GetUID()))
+	if mcm.DeletionTimestamp != nil {
+		return ctrl.Result{}, nil
 	}
 
 	// setup custom timeouts from config
@@ -228,16 +219,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	// clean up the finalizer
-	if mcm.DeletionTimestamp != nil {
-		RemoveMigrationStatus(string(mcm.GetUID()))
-		if controllerutil.RemoveFinalizer(mcm, constants.ManagedClusterMigrationFinalizer) {
-			if updateErr := m.Update(ctx, mcm); updateErr != nil {
-				log.Errorf("failed to remove finalizer: %v", updateErr)
-			}
-		}
-		log.Infof("clean up migration status for migrationId: %s", mcm.GetUID())
-	}
 	return ctrl.Result{}, nil
 }
 
