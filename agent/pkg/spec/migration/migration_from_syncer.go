@@ -191,12 +191,13 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 	return s.deleteClusterIfExists(ctx, source.ManagedClusters)
 }
 
-// deploying: send clusters and addon config into target hub
+// deploying: send clusters and addon config into target hub in batches
 func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration.MigrationSourceBundle) error {
-	migrationResources := &migration.MigrationResourceBundle{
-		MigrationId:               source.MigrationId,
-		MigrationClusterResources: []migration.MigrationClusterResource{},
-	}
+	fromHub := configs.GetLeafHubName()
+	toHub := source.ToHub
+	totalClusters := len(source.ManagedClusters)
+
+	migrationBundle := migration.NewMigrationResourceBundle(source.MigrationId)
 
 	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range source.ManagedClusters {
@@ -213,28 +214,79 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 			}
 		}
 
-		// Add cluster resources to migration bundle
-		migrationResources.MigrationClusterResources = append(migrationResources.MigrationClusterResources,
-			migration.MigrationClusterResource{
-				ClusterName: managedCluster,
-				ResouceList: resourcesList,
-			})
-	}
-	log.Info("deploying: attach clusters and addonConfigs into the event")
+		clusterResource := migration.MigrationClusterResource{
+			ClusterName:  managedCluster,
+			ResourceList: resourcesList,
+		}
 
-	payloadBytes, err := json.Marshal(migrationResources)
+		// Try to add cluster resource to bundle
+		added, err := migrationBundle.AddClusterResource(clusterResource)
+		if err != nil {
+			return fmt.Errorf("failed to add cluster resource to bundle: %w", err)
+		}
+
+		if !added {
+			// Bundle is full, send current bundle before adding new cluster
+			log.Infof("deploying: migration bundle size limit reached, sending batch with %d clusters to %s",
+				len(migrationBundle.MigrationClusterResources), toHub)
+			if err := s.sendMigrationBundle(ctx, migrationBundle, totalClusters, fromHub, toHub); err != nil {
+				return err
+			}
+
+			// Clean and re-add the cluster resource
+			migrationBundle.Clean()
+			added, err = migrationBundle.AddClusterResource(clusterResource)
+			if err != nil {
+				return fmt.Errorf("failed to re-add cluster resource to bundle: %w", err)
+			}
+			if !added {
+				return fmt.Errorf("failed to add cluster resource to bundle after resend: cluster %s", managedCluster)
+			}
+		}
+	}
+
+	// Send remaining resources in the bundle
+	if !migrationBundle.IsEmpty() {
+		log.Infof("deploying: sending final batch with %d clusters to %s",
+			len(migrationBundle.MigrationClusterResources), toHub)
+		if err := s.sendMigrationBundle(ctx, migrationBundle, totalClusters, fromHub, toHub); err != nil {
+			return err
+		}
+	}
+
+	log.Infof("deploying: successfully sent all migration resources for %d clusters in batches to %s",
+		totalClusters, toHub)
+	return nil
+}
+
+// sendMigrationBundle sends a migration bundle as a CloudEvent with batch tracking information
+func (s *MigrationSourceSyncer) sendMigrationBundle(
+	ctx context.Context,
+	bundle *migration.MigrationResourceBundle,
+	totalClusters int,
+	fromHub, toHub string,
+) error {
+	if bundle.IsEmpty() {
+		return nil
+	}
+
+	payloadBytes, err := json.Marshal(bundle)
 	if err != nil {
-		return fmt.Errorf("failed to marshal SourceClusterMigrationResources (%v) - %w", migrationResources, err)
+		return fmt.Errorf("failed to marshal MigrationResourceBundle (%v) - %w", bundle, err)
 	}
-
-	fromHub := configs.GetLeafHubName()
-	toHub := source.ToHub
 
 	e := utils.ToCloudEvent(constants.MigrationTargetMsgKey, fromHub, toHub, payloadBytes)
+	// Add total clusters count to CloudEvent extension for batch tracking
+	e.SetExtension(migration.ExtTotalClusters, totalClusters)
+
 	if err := s.transportClient.GetProducer().SendEvent(
 		cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.SpecTopic), e); err != nil {
 		return fmt.Errorf(errFailedToSendEvent, constants.MigrationTargetMsgKey, fromHub, toHub, err)
 	}
+
+	log.Infof("deploying: sent migration bundle from %s to %s: clusters=%d, totalClusters=%d, size=%d bytes",
+		fromHub, toHub, len(bundle.MigrationClusterResources), totalClusters, len(payloadBytes))
+
 	return nil
 }
 
