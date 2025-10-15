@@ -308,7 +308,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 				MigrationClusterResources: []migration.MigrationClusterResource{
 					{
 						ClusterName: testClusterName,
-						ResouceList: []unstructured.Unstructured{
+						ResourceList: []unstructured.Unstructured{
 							*mcObj,
 							*addonObj,
 						},
