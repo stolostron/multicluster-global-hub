@@ -260,7 +260,7 @@ func transportCallback(mgr ctrl.Manager, managerConfig *configs.ManagerConfig) c
 			return fmt.Errorf("failed to add hubmanagement to manager - %w", err)
 		}
 
-		// add managedclustermigration controller
+		// add managedClusterMigration controller
 		if err := migration.AddMigrationToManager(mgr, producer, managerConfig); err != nil {
 			return fmt.Errorf("failed to add migration controller to manager - %w", err)
 		}
