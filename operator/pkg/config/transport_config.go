@@ -44,7 +44,6 @@ var (
 
 func SetTransporterConn(conn *transport.KafkaConfig) bool {
 	log.Debug("set Transporter Conn")
-	log.Info("update the transporter conn")
 	utils.PrettyPrint(conn)
 	if conn == nil {
 		transporterConn = nil
@@ -299,4 +298,8 @@ func GetConsumerGroupID(prefix, clusterName string) string {
 		consumerGroupID = prefix + clusterName
 	}
 	return strings.ReplaceAll(consumerGroupID, "-", "_")
+}
+
+func GetManagerConsumerGroupID(mgh *v1alpha4.MulticlusterGlobalHub) string {
+	return GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, constants.CloudEventGlobalHubClusterName)
 }

@@ -66,8 +66,8 @@ var (
 	DefaultPartition         int32 = 1
 	DefaultPartitionReplicas int32 = 3
 	// kafka metrics constants
-	KakfaMetricsConfigmapName   = "kafka-metrics"
-	KafkaMetricsConfigmapKeyRef = "kafka-metrics-config.yml"
+	KafkaMetricsConfigMapName   = "kafka-metrics"
+	KafkaMetricsConfigMapKeyRef = "kafka-metrics-config.yml"
 )
 
 // install the strimzi kafka cluster by operator
@@ -670,7 +670,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 
 	kafkaStatus := KafkaStatus{
 		kafkaReady:   false,
-		kakfaReason:  "KafkaNotReady",
+		kafkaReason:  "KafkaNotReady",
 		kafkaMessage: "Wait kafka cluster ready",
 	}
 
@@ -708,7 +708,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 				return kafkaStatus, nil
 			}
 			kafkaStatus.kafkaMessage = *condition.Message
-			kafkaStatus.kakfaReason = *condition.Reason
+			kafkaStatus.kafkaReason = *condition.Reason
 			return kafkaStatus, nil
 		}
 	}
@@ -858,8 +858,8 @@ func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.Multicluster
 			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
 			ValueFrom: kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFrom{
 				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFromConfigMapKeyRef{
-					Name: &KakfaMetricsConfigmapName,
-					Key:  &KafkaMetricsConfigmapKeyRef,
+					Name: &KafkaMetricsConfigMapName,
+					Key:  &KafkaMetricsConfigMapKeyRef,
 				},
 			},
 		}
