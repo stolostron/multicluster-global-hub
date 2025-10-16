@@ -17,7 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 const (
@@ -44,7 +43,6 @@ var (
 
 func SetTransporterConn(conn *transport.KafkaConfig) bool {
 	log.Debug("set Transporter Conn")
-	utils.PrettyPrint(conn)
 	if conn == nil {
 		transporterConn = nil
 		return true
