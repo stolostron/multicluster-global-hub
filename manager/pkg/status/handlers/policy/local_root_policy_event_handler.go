@@ -140,7 +140,8 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 			continue
 		}
 		// Create a unique key based on the ON CONFLICT columns
-		key := fmt.Sprintf("%s-%d-%s", localEvent.EventName, localEvent.Count, localEvent.CreatedAt.Format("2006-01-02T15:04:05.999999999Z07:00"))
+		key := fmt.Sprintf("%s-%d-%s", localEvent.EventName, localEvent.Count,
+			localEvent.CreatedAt.Format("2006-01-02T15:04:05.999999999Z07:00"))
 		// Keep the last occurrence if there are duplicates
 		eventMap[key] = localEvent
 	}
