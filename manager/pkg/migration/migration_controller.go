@@ -73,7 +73,7 @@ func AddMigrationToManager(mgr ctrl.Manager, producer transport.Producer, manage
 
 	err := migrationController.SetupWithManager(mgr)
 	if err != nil {
-		return fmt.Errorf("failed to add migration controller to manager - %w", err)
+		return err
 	}
 	migrationCtrl = migrationController
 	return nil
