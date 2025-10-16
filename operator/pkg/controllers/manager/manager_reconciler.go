@@ -305,6 +305,9 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		}
 	}
 
+	log.Info("rednder kafka config yaml")
+	commonutils.PrettyPrint(kafkaConfigYaml)
+
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
