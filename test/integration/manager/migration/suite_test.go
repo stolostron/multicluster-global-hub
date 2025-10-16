@@ -135,8 +135,9 @@ var _ = BeforeSuite(func() {
 	go fakeDispatch(ctx, consumer)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(err).NotTo(HaveOccurred())
-	migrationReconciler = migration.NewMigrationController(mgr.GetClient(), genericProducer, managerConfig, mgr.GetEventRecorderFor("migration-controller"))
-	Expect(migrationReconciler.SetupWithManager(mgr)).To(Succeed())
+
+	err = migration.AddMigrationToManager(mgr, genericProducer, managerConfig)
+	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		Expect(mgr.Start(ctx)).NotTo(HaveOccurred())
