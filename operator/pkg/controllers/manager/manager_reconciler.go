@@ -77,10 +77,7 @@ var fs embed.FS
 
 var log = logger.DefaultZapLogger()
 
-var (
-	storageConnectionCache   *config.PostgresConnection
-	transportConnectionCache *transport.KafkaConfig
-)
+var storageConnectionCache *config.PostgresConnection
 
 type ManagerReconciler struct {
 	ctrl.Manager
@@ -264,8 +261,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		log.Debug("Wait kafka connection created")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	kafkaConfig.ConsumerGroupID = config.GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
-		constants.CloudEventGlobalHubClusterName)
+	kafkaConfig.ConsumerGroupID = config.GetManagerConsumerGroupID(mgh)
 
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
@@ -273,7 +269,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	if isMiddlewareUpdated(kafkaConfig, storageConn) {
+	if storageConnectionUpdated(storageConn) {
 		log.Infof("restarting manager pod")
 		err = commonutils.RestartPod(ctx, r.kubeClient, mgh.Namespace, constants.ManagerDeploymentName)
 		if err != nil {
@@ -304,9 +300,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			return ctrl.Result{}, reconcileErr
 		}
 	}
-
-	log.Info("rednder kafka config yaml")
-	commonutils.PrettyPrint(kafkaConfigYaml)
 
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
@@ -457,30 +450,13 @@ func (r *ManagerReconciler) setUpMetrics(ctx context.Context, mgh *v1alpha4.Mult
 	return ctrl.Result{}, nil
 }
 
-func isMiddlewareUpdated(transportConn *transport.KafkaConfig, storageConn *config.PostgresConnection) bool {
-	updated := transportConnectionCache == nil || storageConnectionCache == nil
-	if !reflect.DeepEqual(transportConn, transportConnectionCache) {
-		log.Infof("transportConn updated")
-		updated = true
-	}
+func storageConnectionUpdated(storageConn *config.PostgresConnection) bool {
+	updated := storageConnectionCache == nil
 	if !reflect.DeepEqual(storageConn, storageConnectionCache) {
-		log.Infof("storageConn updated")
 		updated = true
-	}
-	if updated {
-		setMiddlewareCache(transportConn, storageConn)
-	}
-	return updated
-}
-
-func setMiddlewareCache(transportConn *transport.KafkaConfig, storageConn *config.PostgresConnection) {
-	if transportConn != nil {
-		transportConnectionCache = transportConn
-	}
-
-	if storageConn != nil {
 		storageConnectionCache = storageConn
 	}
+	return updated
 }
 
 type ManagerVariables struct {
