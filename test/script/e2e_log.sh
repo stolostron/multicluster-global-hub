@@ -19,6 +19,7 @@ export NAMESPACE="${NAMESPACE:-multicluster-global-hub}"
 export KUBECONFIG="${CONFIG_DIR}/${CLUSTER_NAME}"
 
 echo ">> COMPONENT=$COMPONENT NAMESPACE=$NAMESPACE CLUSTER=$CLUSTER_NAME"
+echo ">> ISBYO= $ISBYO"
 
 kubectl describe deploy "$COMPONENT" -n "$NAMESPACE"
 kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true

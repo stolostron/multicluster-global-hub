@@ -35,7 +35,7 @@ kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/inst
 echo "postgres cluster is ready!"
 
 database_uri=$(kubectl get secrets -n "${pg_ns}" --kubeconfig "$POSTGRES_KUBECONFIG" "${ps_user}" -o go-template='{{index (.data) "uri" | base64decode}}')
-kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.ca\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
+kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.tls\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
 
 # covert the database uri into external uri
 external_host=$(kubectl config view --minify --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
@@ -44,7 +44,7 @@ database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_
 
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
 kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
-  --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
+  --from-literal=database_uri="${database_uri}?sslmode=require" \
   --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
 
 echo "storage secret is ready in $target_namespace namespace!"
