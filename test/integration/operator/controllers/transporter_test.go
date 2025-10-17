@@ -417,7 +417,7 @@ var _ = Describe("transporter", Ordered, func() {
 })
 
 func UpdateKafkaClusterReady(c client.Client, ns string) error {
-	kafkaVersion := "3.9.0"
+	kafkaVersion := "4.0.0"
 	kafkaClusterName := "kafka"
 	globalHubKafkaUser := "global-hub-kafka-user"
 	clientCa := "kafka-clients-ca-cert"
