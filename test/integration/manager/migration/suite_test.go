@@ -44,15 +44,14 @@ import (
 )
 
 var (
-	testenv             *envtest.Environment
-	transportConfig     *transport.TransportInternalConfig
-	cfg                 *rest.Config
-	ctx                 context.Context
-	cancel              context.CancelFunc
-	testPostgres        *testpostgres.TestPostgres
-	db                  *gorm.DB
-	mgr                 manager.Manager
-	migrationReconciler *migration.ClusterMigrationController
+	testenv         *envtest.Environment
+	transportConfig *transport.TransportInternalConfig
+	cfg             *rest.Config
+	ctx             context.Context
+	cancel          context.CancelFunc
+	testPostgres    *testpostgres.TestPostgres
+	db              *gorm.DB
+	mgr             manager.Manager
 )
 
 func TestController(t *testing.T) {
