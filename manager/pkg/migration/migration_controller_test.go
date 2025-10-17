@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -334,7 +333,7 @@ func TestSelectAndPrepareMigration(t *testing.T) {
 						UID:               types.UID("deleting-uid"),
 						CreationTimestamp: metav1.Time{Time: time.Now()},
 						DeletionTimestamp: &metav1.Time{Time: time.Now()},
-						Finalizers:        []string{constants.ManagedClusterMigrationFinalizer},
+						Finalizers:        []string{"test-finalizer"},
 					},
 					Status: migrationv1alpha1.ManagedClusterMigrationStatus{
 						Phase: migrationv1alpha1.PhaseInitializing,

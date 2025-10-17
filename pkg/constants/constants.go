@@ -219,8 +219,6 @@ const (
 )
 
 const (
-	// ManagedClusterMigrationFinalizer is the finalizer for managed cluster migration
-	ManagedClusterMigrationFinalizer = "global-hub.open-cluster-management.io/migration-cleanup"
 	// ManagedClusterMigrating is under migrating so the global hub agent ignore reporting the status for the cluster
 	ManagedClusterMigrating = "global-hub.open-cluster-management.io/migrating"
 	// KlusterletAddonConfigAnnotation is an annotation which contains klusterletAddonConfig object
