@@ -297,3 +297,7 @@ func GetConsumerGroupID(prefix, clusterName string) string {
 	}
 	return strings.ReplaceAll(consumerGroupID, "-", "_")
 }
+
+func GetManagerConsumerGroupID(mgh *v1alpha4.MulticlusterGlobalHub) string {
+	return GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, constants.CloudEventGlobalHubClusterName)
+}

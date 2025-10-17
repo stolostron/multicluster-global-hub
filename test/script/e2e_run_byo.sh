@@ -22,6 +22,7 @@ export NAMESPACE="$target_namespace"
 storage_secret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
 pg_ns="hoh-postgres"
 ps_user="hoh-pguser-postgres"
+# PGO auto-generated root CA secret name: <cluster-name>-cluster-cert
 pg_cert="hoh-cluster-cert"
 
 if kubectl get secret "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
@@ -35,7 +36,9 @@ kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/inst
 echo "postgres cluster is ready!"
 
 database_uri=$(kubectl get secrets -n "${pg_ns}" --kubeconfig "$POSTGRES_KUBECONFIG" "${ps_user}" -o go-template='{{index (.data) "uri" | base64decode}}')
-kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.ca\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
+# Get CA certificate from PGO auto-generated root CA secret
+# The secret contains tls.crt (CA cert), tls.key (CA key)
+kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.tls\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
 
 # covert the database uri into external uri
 external_host=$(kubectl config view --minify --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')

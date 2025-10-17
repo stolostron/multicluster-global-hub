@@ -58,19 +58,29 @@ type ClusterMigrationController struct {
 	Scheme        *runtime.Scheme
 }
 
-func NewMigrationController(client client.Client, producer transport.Producer,
-	managerConfig *configs.ManagerConfig, eventRecorder record.EventRecorder,
-) *ClusterMigrationController {
-	return &ClusterMigrationController{
-		Client:        client,
-		Producer:      producer,
-		EventRecorder: eventRecorder,
+var migrationCtrl *ClusterMigrationController
+
+func AddMigrationToManager(mgr ctrl.Manager, producer transport.Producer, managerConfig *configs.ManagerConfig) error {
+	if migrationCtrl != nil {
+		return nil
 	}
+	migrationController := &ClusterMigrationController{
+		Client:        mgr.GetClient(),
+		Producer:      producer,
+		EventRecorder: mgr.GetEventRecorderFor("migration-event-recorder"),
+		Scheme:        mgr.GetScheme(),
+	}
+
+	err := migrationController.SetupWithManager(mgr)
+	if err != nil {
+		return err
+	}
+	migrationCtrl = migrationController
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (m *ClusterMigrationController) SetupWithManager(mgr ctrl.Manager) error {
-	m.Scheme = mgr.GetScheme()
 	return ctrl.NewControllerManagedBy(mgr).Named("migration-ctrl").
 		For(&migrationv1alpha1.ManagedClusterMigration{}).
 		Watches(&v1beta1.ManagedServiceAccount{},
