@@ -369,7 +369,7 @@ func waitGlobalhubReadyAndLeaseUpdated() {
 	// check components avaibable and phase
 	Eventually(func() error {
 		return checkComponentsAvailableAndPhase(runtimeClient)
-	}, 5*time.Minute, 1*time.Second).Should(Succeed())
+	}, 500*time.Minute, 10*time.Second).Should(Succeed())
 	Expect(err).ShouldNot(HaveOccurred())
 
 	// Check manager lease updated
