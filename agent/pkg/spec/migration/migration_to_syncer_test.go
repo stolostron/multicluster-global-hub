@@ -1078,7 +1078,7 @@ func TestDeploying(t *testing.T) {
 		MigrationClusterResources: []migration.MigrationClusterResource{
 			{
 				ClusterName: "cluster1",
-				ResouceList: []unstructured.Unstructured{
+				ResourceList: []unstructured.Unstructured{
 					*mcObj,
 					*addonObj,
 				},

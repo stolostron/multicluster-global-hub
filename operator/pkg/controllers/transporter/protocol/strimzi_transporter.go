@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -372,20 +373,34 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		return "", err
 	}
 
-	updatedKafkaUser := &kafkav1beta2.KafkaUser{}
-	err = operatorutils.MergeObjects(kafkaUser, desiredKafkaUser, updatedKafkaUser)
-	if err != nil {
-		return "", err
-	}
-	// combine the acls of kafkaUser and the acls of desiredKafkaUser
-	updatedKafkaUser.Spec.Authorization.Acls = combineACLs(kafkaUser.Spec.Authorization.Acls,
-		desiredKafkaUser.Spec.Authorization.Acls)
-
-	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
-		log.Infof("update the kafkaUser: %s", userName)
-		if err = k.manager.GetClient().Update(k.ctx, updatedKafkaUser); err != nil {
-			return "", err
+	// Retry logic to handle concurrent updates with exponential backoff
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest version of the KafkaUser
+		latestKafkaUser := &kafkav1beta2.KafkaUser{}
+		if err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+			Name:      userName,
+			Namespace: k.kafkaClusterNamespace,
+		}, latestKafkaUser); err != nil {
+			return err
 		}
+
+		updatedKafkaUser := &kafkav1beta2.KafkaUser{}
+		if err := operatorutils.MergeObjects(latestKafkaUser, desiredKafkaUser, updatedKafkaUser); err != nil {
+			return err
+		}
+		// combine the acls of kafkaUser and the acls of desiredKafkaUser
+		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(latestKafkaUser.Spec.Authorization.Acls,
+			desiredKafkaUser.Spec.Authorization.Acls)
+
+		if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, latestKafkaUser.Spec) {
+			log.Infof("update the kafkaUser: %s", userName)
+			return k.manager.GetClient().Update(k.ctx, updatedKafkaUser)
+		}
+		return nil
+	})
+
+	if retryErr != nil {
+		return "", retryErr
 	}
 	return userName, nil
 }
