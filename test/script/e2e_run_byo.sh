@@ -44,7 +44,7 @@ database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_
 
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
 kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
-  --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
+  --from-literal=database_uri="${database_uri}?sslmode=require" \
   --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
 
 echo "storage secret is ready in $target_namespace namespace!"
