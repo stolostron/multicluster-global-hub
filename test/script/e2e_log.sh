@@ -20,25 +20,27 @@ export KUBECONFIG="${CONFIG_DIR}/${CLUSTER_NAME}"
 
 echo ">> COMPONENT=$COMPONENT NAMESPACE=$NAMESPACE CLUSTER=$CLUSTER_NAME"
 
+# If component is operator, print MGH and other resources first, then describe and logs
+if [ "$COMPONENT" = "multicluster-global-hub-operator" ]; then
+  echo ">>>> multiclusterglobalhub"
+  kubectl get multiclusterglobalhub -n "$NAMESPACE" -oyaml
+
+  echo ">>>> deploy"
+  kubectl get deploy -n "$NAMESPACE"
+
+  echo ">>>> pod"
+  kubectl get pod -n "$NAMESPACE"
+
+  echo ">>>> KafkaCluster"
+  kubectl get kafka -n "$NAMESPACE" -oyaml
+
+  echo ">>>> KafkaUsers"
+  kubectl get kafkauser -n "$NAMESPACE" -oyaml
+
+  echo ">>>> KafkaTopics"
+  kubectl get kafkatopics -n "$NAMESPACE" -oyaml
+fi
+
+# Print describe and logs at the end
 kubectl describe deploy "$COMPONENT" -n "$NAMESPACE"
 kubectl logs deployment/"$COMPONENT" -n "$NAMESPACE" --all-containers=true
-
-[ "$COMPONENT" != "multicluster-global-hub-operator" ] && exit 0
-
-echo ">>>> KafkaCluster"
-kubectl get kafka -n "$NAMESPACE" -oyaml
-
-echo ">>>> KafkaUsers"
-kubectl get kafkauser -n "$NAMESPACE" -oyaml
-
-echo ">>>> KafkaTopics"
-kubectl get kafkatopics -n "$NAMESPACE" -oyaml
-
-echo ">>>> pod"
-kubectl get pod -n "$NAMESPACE"
-
-echo ">>>> deploy"
-kubectl get deploy -n "$NAMESPACE"
-
-echo ">>>> mgh"
-kubectl get mgh -n "$NAMESPACE" -oyaml
