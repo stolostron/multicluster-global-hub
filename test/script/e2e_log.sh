@@ -40,13 +40,13 @@ if [ "$COMPONENT" = "multicluster-global-hub-operator" ]; then
   kubectl get pod -n "$NAMESPACE"
 
   echo ">>>> KafkaCluster"
-  kubectl get kafka -n "$NAMESPACE" -oyaml
+  kubectl get kafka -n "$NAMESPACE" -oyaml 2>/dev/null || echo "Kafka CRD not found or no resources, skipping..."
 
   echo ">>>> KafkaUsers"
-  kubectl get kafkauser -n "$NAMESPACE" -oyaml
+  kubectl get kafkauser -n "$NAMESPACE" -oyaml 2>/dev/null || echo "KafkaUser CRD not found or no resources, skipping..."
 
   echo ">>>> KafkaTopics"
-  kubectl get kafkatopics -n "$NAMESPACE" -oyaml
+  kubectl get kafkatopics -n "$NAMESPACE" -oyaml 2>/dev/null || echo "KafkaTopic CRD not found or no resources, skipping..."
 fi
 
 # Print describe and logs at the end
