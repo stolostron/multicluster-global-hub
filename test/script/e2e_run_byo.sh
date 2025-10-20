@@ -36,9 +36,7 @@ kubectl wait --for=condition=ready pod -l postgres-operator.crunchydata.com/inst
 echo "postgres cluster is ready!"
 
 database_uri=$(kubectl get secrets -n "${pg_ns}" --kubeconfig "$POSTGRES_KUBECONFIG" "${ps_user}" -o go-template='{{index (.data) "uri" | base64decode}}')
-# Get CA certificate from PGO auto-generated root CA secret
-# The secret contains tls.crt (CA cert), tls.key (CA key)
-kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.tls\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
+kubectl get secret $pg_cert -n $pg_ns --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.data.ca\.crt}' | base64 -d >"$CONFIG_DIR/postgres-cluster-ca.crt"
 
 # covert the database uri into external uri
 external_host=$(kubectl config view --minify --kubeconfig "$POSTGRES_KUBECONFIG" -o jsonpath='{.clusters[0].cluster.server}' | sed -e 's#^https\?://##' -e 's/:.*//')
@@ -46,8 +44,11 @@ external_port=32432
 database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_port|")
 
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
+
+# The certificate verification, change verify-ca to disable. It dues to the following issue:
+# https://github.com/CrunchyData/postgres-operator/issues/4316 -> go issue: https://github.com/golang/go/issues/75828
 kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
-  --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
+  --from-literal=database_uri="${database_uri}?sslmode=disable" \
   --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
 
 echo "storage secret is ready in $target_namespace namespace!"
