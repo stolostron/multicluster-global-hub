@@ -901,28 +901,9 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 		initObjects                  []client.Object
 		expectedError                error
 	}{
-		{
-			name: "Deploying resources: migrate cluster from hub1 to hub2",
-			receivedMigrationEventBundle: migration.MigrationTargetBundle{
-				MigrationId:                           "020340324302432049234023040320",
-				Stage:                                 migrationv1alpha1.PhaseDeploying,
-				ManagedServiceAccountName:             "test", // the migration cr name
-				ManagedServiceAccountInstallNamespace: "test",
-			},
-			eventSource:   "source-hub",
-			expectedError: nil,
-			initObjects: []client.Object{
-				&operatorv1.ClusterManager{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "cluster-manager",
-					},
-					Spec: operatorv1.ClusterManagerSpec{
-						RegistrationImagePullSpec: "test",
-						WorkImagePullSpec:         "test",
-					},
-				},
-			},
-		},
+		// NOTE: Deploying test case removed because deploying stage now receives MigrationResourceBundle
+		// (sent from source hub) instead of MigrationTargetBundle. The deploying functionality is
+		// thoroughly tested in TestDeployingBatchReceiving tests.
 		{
 			name: "Cleaning up resources: migrate cluster from hub1 to hub2",
 			receivedMigrationEventBundle: migration.MigrationTargetBundle{
@@ -1085,7 +1066,8 @@ func TestDeploying(t *testing.T) {
 			},
 		},
 	})
-	evt.SetTime(time.Now()) // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
+	evt.SetExtension(migration.ExtTotalClusters, 1) // Set totalclusters for batch tracking
+	evt.SetTime(time.Now())                         // Set event time to avoid time-based skipping in shouldSkipMigrationEvent
 
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
@@ -1261,4 +1243,174 @@ func TestRegistering(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDeployingBatchReceiving tests receiving multiple batches of resources during deploying stage
+func TestDeployingBatchReceiving(t *testing.T) {
+	migrationId := "test-migration-batch-456"
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name                  string
+		bundleCount           int
+		clustersPerBundle     int
+		expectedTotalClusters int
+	}{
+		{
+			name:                  "Single bundle with one cluster",
+			bundleCount:           1,
+			clustersPerBundle:     1,
+			expectedTotalClusters: 1,
+		},
+		{
+			name:                  "Single bundle with multiple clusters",
+			bundleCount:           1,
+			clustersPerBundle:     3,
+			expectedTotalClusters: 3,
+		},
+		{
+			name:                  "Multiple bundles with multiple clusters each",
+			bundleCount:           3,
+			clustersPerBundle:     2,
+			expectedTotalClusters: 6,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+
+			transportConfig := &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"},
+			}
+
+			producer := ProducerMock{}
+			transportClient := &controller.TransportClient{}
+			transportClient.SetProducer(&producer)
+			agentConfig := &configs.AgentConfig{
+				TransportConfig: transportConfig,
+				LeafHubName:     "hub1",
+			}
+
+			syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
+			syncer.processingMigrationId = migrationId
+
+			// Send multiple bundles
+			totalClusters := 0
+			for bundleIdx := 0; bundleIdx < c.bundleCount; bundleIdx++ {
+				// Create bundle with clusters
+				var clusterResources []migration.MigrationClusterResource
+				for clusterIdx := 0; clusterIdx < c.clustersPerBundle; clusterIdx++ {
+					clusterName := "cluster-" + string(rune('a'+totalClusters))
+					totalClusters++
+
+					// Prepare cluster resources
+					managedCluster := &clusterv1.ManagedCluster{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: clusterName,
+						},
+						Spec: clusterv1.ManagedClusterSpec{
+							HubAcceptsClient:     true,
+							LeaseDurationSeconds: 60,
+						},
+					}
+
+					addonConfig := &addonv1.KlusterletAddonConfig{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      clusterName,
+							Namespace: clusterName,
+						},
+					}
+
+					// Convert to unstructured
+					mcUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(managedCluster)
+					assert.NoError(t, err)
+					mcObj := &unstructured.Unstructured{Object: mcUnstructured}
+					mcObj.SetKind("ManagedCluster")
+					mcObj.SetAPIVersion("cluster.open-cluster-management.io/v1")
+
+					addonUnstructured, err := runtime.DefaultUnstructuredConverter.ToUnstructured(addonConfig)
+					assert.NoError(t, err)
+					addonObj := &unstructured.Unstructured{Object: addonUnstructured}
+					addonObj.SetKind("KlusterletAddonConfig")
+					addonObj.SetAPIVersion("agent.open-cluster-management.io/v1")
+
+					clusterResources = append(clusterResources, migration.MigrationClusterResource{
+						ClusterName: clusterName,
+						ResourceList: []unstructured.Unstructured{
+							*mcObj,
+							*addonObj,
+						},
+					})
+				}
+
+				// Create and send bundle event
+				bundle := migration.MigrationResourceBundle{
+					MigrationId:               migrationId,
+					MigrationClusterResources: clusterResources,
+				}
+
+				evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", bundle)
+				evt.SetExtension(migration.ExtTotalClusters, c.expectedTotalClusters)
+				evt.SetTime(time.Now())
+
+				err := syncer.Sync(ctx, &evt)
+				assert.NoError(t, err)
+			}
+
+			// Verify all clusters were created
+			for i := 0; i < c.expectedTotalClusters; i++ {
+				clusterName := "cluster-" + string(rune('a'+i))
+				cluster := &clusterv1.ManagedCluster{ObjectMeta: metav1.ObjectMeta{
+					Name: clusterName,
+				}}
+				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
+				assert.NoError(t, err, "Cluster %s should exist", clusterName)
+				assert.True(t, cluster.Spec.HubAcceptsClient)
+			}
+		})
+	}
+}
+
+// TestDeployingBatchReceivingError tests error handling during batch receiving
+func TestDeployingBatchReceivingError(t *testing.T) {
+	migrationId := "test-migration-error-789"
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	t.Run("Receive bundle with mismatched migration ID", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+		configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
+
+		transportConfig := &transport.TransportInternalConfig{
+			KafkaCredential: &transport.KafkaConfig{StatusTopic: "status"},
+		}
+
+		producer := ProducerMock{}
+		transportClient := &controller.TransportClient{}
+		transportClient.SetProducer(&producer)
+		agentConfig := &configs.AgentConfig{
+			TransportConfig: transportConfig,
+			LeafHubName:     "hub1",
+		}
+
+		syncer := NewMigrationTargetSyncer(fakeClient, transportClient, agentConfig)
+		syncer.processingMigrationId = migrationId
+
+		// Send bundle with different migration ID
+		bundle := migration.MigrationResourceBundle{
+			MigrationId:               "different-migration-id",
+			MigrationClusterResources: []migration.MigrationClusterResource{},
+		}
+
+		evt := utils.ToCloudEvent(constants.MigrationTargetMsgKey, "hub1", "hub2", bundle)
+		evt.SetTime(time.Now())
+
+		// Should return error due to migration ID mismatch
+		err := syncer.Sync(ctx, &evt)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "expected migrationId")
+	})
 }
