@@ -126,17 +126,32 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			Stage:       s.receivedStage,
 		}
 
+		reportStatus := true
 		if err != nil {
 			migrationStatus.ErrMessage = err.Error()
 			if len(clusterErrors) > 0 {
 				migrationStatus.ClusterErrors = clusterErrors
 			}
+		} else {
+			if s.receivedStage == migrationv1alpha1.PhaseDeploying {
+				if s.deployingTotalClusters > 0 && len(s.deployingProcessedClusters) == s.deployingTotalClusters {
+					log.Infof("deploying: all %d clusters have been processed successfully", s.deployingTotalClusters)
+					// Reset batch tracking for next migration
+					s.deployingTotalClusters = 0
+					s.deployingProcessedClusters = nil
+				} else {
+					log.Infof("deploying: not finished, skip reporting status")
+					reportStatus = false
+				}
+			}
 		}
 
-		err = ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-			s.transportClient, migrationStatus, s.bundleVersion)
-		if err != nil {
-			log.Errorf("failed to report migration status: %v", err)
+		if reportStatus {
+			err = ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+				s.transportClient, migrationStatus, s.bundleVersion)
+			if err != nil {
+				log.Errorf("failed to report migration status: %v", err)
+			}
 		}
 	}()
 
@@ -411,18 +426,8 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		s.deployingProcessedClusters[clusterResource.ClusterName] = true
 	}
 
-	processedCount := len(s.deployingProcessedClusters)
 	log.Infof("deploying: processed batch with %d clusters, total processed: %d/%d",
-		len(resourceEvent.MigrationClusterResources), processedCount, s.deployingTotalClusters)
-
-	// Check if all clusters have been processed
-	if s.deployingTotalClusters > 0 && processedCount >= s.deployingTotalClusters {
-		log.Infof("deploying: all %d clusters have been processed successfully", s.deployingTotalClusters)
-		// Reset batch tracking for next migration
-		s.deployingTotalClusters = 0
-		s.deployingProcessedClusters = nil
-	}
-
+		len(resourceEvent.MigrationClusterResources), len(s.deployingProcessedClusters), s.deployingTotalClusters)
 	return nil
 }
 
