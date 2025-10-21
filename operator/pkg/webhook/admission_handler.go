@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,43 +47,16 @@ func (a *admissionHandler) Handle(ctx context.Context, req admission.Request) ad
 	case "ManagedCluster":
 		return a.handleManagedCluster(ctx, req)
 	case "KlusterletAddonConfig":
-		klusterletaddonconfig := &addonv1.KlusterletAddonConfig{}
-		err := a.decoder.Decode(req, klusterletaddonconfig)
-		if err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-
-		// only handle hosted clusters
-		isHosted, err := a.isInHostedCluster(ctx, a.client, klusterletaddonconfig.Namespace)
-		if err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		if !isHosted {
-			return admission.Allowed("")
-		}
-
-		log.Infof("handling klusterletaddonconfig for hosted cluster: %s", klusterletaddonconfig.Name)
-		a.localClusterName, err = getLocalClusterName(ctx, a.client)
-		if err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-
-		changed := disableAddons(klusterletaddonconfig)
-		if !changed {
-			return admission.Allowed("")
-		}
-		log.Infof("Disable addons in cluster :%v", klusterletaddonconfig.Namespace)
-
-		marshaledKlusterletAddon, err := json.Marshal(klusterletaddonconfig)
-		if err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledKlusterletAddon)
+		return a.handleKlusterletAddonConfig(ctx, req)
 	default:
 		return admission.Allowed("")
 	}
 }
 
+// handleManagedCluster handles the admission request for ManagedCluster
+// It checks if the cluster is labeled for hosted mode, and if so, adds the necessary annotations.
+// If not labeled, it allows the request to proceed as normal.
+// If the KlusterletAddonConfig exists, should disable the addons for hosted mode.
 func (a *admissionHandler) handleManagedCluster(ctx context.Context, req admission.Request) admission.Response {
 	cluster := &clusterv1.ManagedCluster{}
 	err := a.decoder.Decode(req, cluster)
@@ -129,6 +103,24 @@ func (a *admissionHandler) handleManagedCluster(ctx context.Context, req admissi
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 
+		// get klusterletaddonconfig, and disable addons if exists
+		kac := &addonv1.KlusterletAddonConfig{}
+		err = a.client.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.Name}, kac)
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				log.Errorf("failed to get klusterletaddonconfig, err:%v", err)
+			}
+		} else {
+			if disableAddons(kac) {
+				if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					return a.client.Update(ctx, kac)
+				}); err != nil {
+					log.Errorf("failed to update klusterletaddonconfig, err:%v", err)
+				}
+			}
+		}
+
+		// set hosted annotations
 		changed := a.setHostedAnnotations(cluster)
 		if !changed {
 			return admission.Allowed("")
@@ -144,50 +136,65 @@ func (a *admissionHandler) handleManagedCluster(ctx context.Context, req admissi
 	return admission.Allowed("")
 }
 
+// handleKlusterletAddonConfig handles the admission request for KlusterletAddonConfig
+// It checks if the corresponding ManagedCluster exists and is in hosted mode.
+// If so, it disables the addons in the KlusterletAddonConfig.
+func (a *admissionHandler) handleKlusterletAddonConfig(ctx context.Context, req admission.Request) admission.Response {
+	klusterletaddonconfig := &addonv1.KlusterletAddonConfig{}
+	err := a.decoder.Decode(req, klusterletaddonconfig)
+	if err != nil {
+		return admission.Errored(http.StatusBadRequest, err)
+	}
+
+	// Check if the corresponding ManagedCluster exists
+	mc := &clusterv1.ManagedCluster{}
+	err = a.client.Get(ctx, types.NamespacedName{Name: klusterletaddonconfig.Namespace}, mc)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return admission.Allowed("")
+		}
+		// do not block the request if error occurs
+		log.Errorf("failed to get managedcluster, err:%v", err)
+	}
+
+	// only handle hosted clusters
+	if (mc.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted) &&
+		(mc.Annotations[constants.AnnotationClusterHostingClusterName] == a.localClusterName) {
+
+		log.Infof("handling klusterletaddonconfig for hosted cluster: %s", klusterletaddonconfig.Name)
+		a.localClusterName, err = getLocalClusterName(ctx, a.client)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+
+		changed := disableAddons(klusterletaddonconfig)
+		if !changed {
+			return admission.Allowed("")
+		}
+		log.Infof("Disable addons in cluster :%v", klusterletaddonconfig.Namespace)
+
+		marshaledKlusterletAddon, err := json.Marshal(klusterletaddonconfig)
+		if err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+		return admission.PatchResponseFromRaw(req.Object.Raw, marshaledKlusterletAddon)
+	}
+	return admission.Allowed("")
+}
+
 // getLocalClusterName gets the local cluster name of the current cluster,
 func getLocalClusterName(ctx context.Context, client client.Client) (string, error) {
 	mcList := &clusterv1.ManagedClusterList{}
 	err := client.List(ctx, mcList)
 	if err != nil {
-		return "", fmt.Errorf("the local clusters must be enabled, err: %v", err.Error())
+		return "", fmt.Errorf("the local cluster must be enabled, err: %v", err.Error())
 	}
 	for _, mc := range mcList.Items {
 		if mc.Labels[constants.LocalClusterName] == "true" {
 			return mc.Name, nil
 		}
 	}
-	return "", fmt.Errorf("the local clusters must be enabled")
-}
-
-// isInHostedCluster check if the cluster has hosted annotations
-func (a *admissionHandler) isInHostedCluster(ctx context.Context, client client.Client, mcName string) (bool, error) {
-	mc := &clusterv1.ManagedCluster{}
-
-	// Retry to get the managed cluster, since it may not be created yet
-	err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		if err != nil {
-			log.Warnf("failed to get managedcluster, err:%v", err)
-			return true
-		}
-		return false
-	},
-		func() error {
-			err := client.Get(ctx, types.NamespacedName{Name: mcName}, mc)
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	)
-	if err != nil {
-		return false, fmt.Errorf("failed to get managedcluster %s, err: %v", mcName, err)
-	}
-
-	if (mc.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted) &&
-		(mc.Annotations[constants.AnnotationClusterHostingClusterName] == a.localClusterName) {
-		return true, nil
-	}
-	return false, nil
+	return "", fmt.Errorf("the local cluster must be enabled")
 }
 
 // disableAddons disable addons in klusterletaddonconfig, return true if changed
