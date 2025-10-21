@@ -8,7 +8,7 @@ require (
 	github.com/authzed/spicedb-operator v1.20.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20250924120602-a2a2a4b2852e
-	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2
+	github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.16.2
 	github.com/cloudevents/sdk-go/v2 v2.16.2
 	github.com/cloudflare/cfssl v1.6.5
 	github.com/confluentinc/confluent-kafka-go/v2 v2.11.1
@@ -122,7 +122,7 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/gonvenience/bunt v1.4.2 // indirect
 	github.com/gonvenience/neat v1.3.16 // indirect
 	github.com/gonvenience/term v1.0.4 // indirect
@@ -175,7 +175,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
