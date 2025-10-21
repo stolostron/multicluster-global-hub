@@ -100,6 +100,9 @@ var _ = BeforeSuite(func() {
 	Expect(mgr.Add(specConsumer)).To(Succeed())
 	Expect(err).NotTo(HaveOccurred())
 
+	_, err = configs.GetSyncStateConfigMap(ctx, runtimeClient)
+	Expect(err).Should(Succeed())
+
 	transportClient = &controller.TransportClient{}
 	// transportClient.SetConsumer(genericConsumer)
 	transportClient.SetProducer(genericProducer)
