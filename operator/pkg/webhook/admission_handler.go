@@ -140,7 +140,6 @@ func (a *admissionHandler) handleManagedCluster(ctx context.Context, req admissi
 // It checks if the corresponding ManagedCluster exists and is in hosted mode.
 // If so, it disables the addons in the KlusterletAddonConfig.
 func (a *admissionHandler) handleKlusterletAddonConfig(ctx context.Context, req admission.Request) admission.Response {
-
 	klusterletaddonconfig := &addonv1.KlusterletAddonConfig{}
 	err := a.decoder.Decode(req, klusterletaddonconfig)
 	if err != nil {

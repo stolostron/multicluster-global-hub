@@ -172,10 +172,10 @@ func Test_disableAddons(t *testing.T) {
 
 func TestAdmissionHandler_handleManagedCluster(t *testing.T) {
 	scheme := config.GetRuntimeScheme()
-	
+
 	tests := []struct {
-		name                  string
-		cluster               *clusterv1.ManagedCluster
+		name                 string
+		cluster              *clusterv1.ManagedCluster
 		existingKAC          *addonv1.KlusterletAddonConfig
 		localCluster         *clusterv1.ManagedCluster
 		expectedResponseType string
@@ -534,7 +534,7 @@ func TestAdmissionHandler_handleManagedCluster_KACUpdate(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			
+
 			// Get initial KAC state
 			initialKAC := &addonv1.KlusterletAddonConfig{}
 			err := client.Get(ctx, types.NamespacedName{Name: tt.initialKAC.Name, Namespace: tt.initialKAC.Namespace}, initialKAC)
@@ -571,15 +571,15 @@ func TestAdmissionHandler_handleManagedCluster_KACUpdate(t *testing.T) {
 			if tt.expectKACUnchanged {
 				// Verify KAC state is unchanged
 				if updatedKAC.Spec.ApplicationManagerConfig.Enabled != initialKAC.Spec.ApplicationManagerConfig.Enabled {
-					t.Errorf("ApplicationManagerConfig state changed unexpectedly: initial=%v, updated=%v", 
+					t.Errorf("ApplicationManagerConfig state changed unexpectedly: initial=%v, updated=%v",
 						initialKAC.Spec.ApplicationManagerConfig.Enabled, updatedKAC.Spec.ApplicationManagerConfig.Enabled)
 				}
 				if updatedKAC.Spec.PolicyController.Enabled != initialKAC.Spec.PolicyController.Enabled {
-					t.Errorf("PolicyController state changed unexpectedly: initial=%v, updated=%v", 
+					t.Errorf("PolicyController state changed unexpectedly: initial=%v, updated=%v",
 						initialKAC.Spec.PolicyController.Enabled, updatedKAC.Spec.PolicyController.Enabled)
 				}
 				if updatedKAC.Spec.CertPolicyControllerConfig.Enabled != initialKAC.Spec.CertPolicyControllerConfig.Enabled {
-					t.Errorf("CertPolicyControllerConfig state changed unexpectedly: initial=%v, updated=%v", 
+					t.Errorf("CertPolicyControllerConfig state changed unexpectedly: initial=%v, updated=%v",
 						initialKAC.Spec.CertPolicyControllerConfig.Enabled, updatedKAC.Spec.CertPolicyControllerConfig.Enabled)
 				}
 			}
@@ -591,8 +591,8 @@ func TestAdmissionHandler_handleKlusterletAddonConfig(t *testing.T) {
 	scheme := config.GetRuntimeScheme()
 
 	tests := []struct {
-		name                  string
-		kac                   *addonv1.KlusterletAddonConfig
+		name                 string
+		kac                  *addonv1.KlusterletAddonConfig
 		existingMC           *clusterv1.ManagedCluster
 		localCluster         *clusterv1.ManagedCluster
 		expectedResponseType string
@@ -851,7 +851,7 @@ func TestAdmissionHandler_Handle_CrossCheck(t *testing.T) {
 			objJSON, _ := json.Marshal(tt.object)
 			req := admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{
-					Kind: metav1.GroupVersionKind{Kind: tt.kind},
+					Kind:   metav1.GroupVersionKind{Kind: tt.kind},
 					Object: runtime.RawExtension{Raw: objJSON},
 				},
 			}
