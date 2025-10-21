@@ -2,6 +2,7 @@ package workerpool
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -83,11 +84,17 @@ func (worker *Worker) handleJob(ctx context.Context, job *conflator.ConflationJo
 
 	// based on the handle result, update the element state
 	startTime := time.Now()
-	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 5*time.Minute, true,
+	err = wait.PollUntilContextTimeout(ctx, 5*time.Second, 1*time.Minute, true,
 		func(ctx context.Context) (bool, error) {
 			err := job.Handle(ctx, job.Event)
 			if err != nil {
-				log.Warnf("retrying to handle failed event (%s): %v", job.Event.Type(), err)
+				// TODO: This is to handle the expired array bundles from 1.5 to 1.6 upgrade.
+				// It will be removed after the upgrade.
+				if !strings.Contains(err.Error(), "cannot unmarshal array into Go value of") {
+					log.Warnf("received the expired event array bundle %, skipping the event", job.Event.Type())
+					return true, nil
+				}
+				log.Errorf("retrying to handle failed event (%s): %v", job.Event.Type(), err)
 				return false, nil
 			}
 
