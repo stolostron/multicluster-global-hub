@@ -22,7 +22,6 @@ export NAMESPACE="$target_namespace"
 storage_secret=${STORAGE_SECRET_NAME:-"multicluster-global-hub-storage"}
 pg_ns="hoh-postgres"
 ps_user="hoh-pguser-postgres"
-# PGO auto-generated root CA secret name: <cluster-name>-cluster-cert
 pg_cert="hoh-cluster-cert"
 
 if kubectl get secret "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" >/dev/null 2>&1; then
@@ -45,10 +44,8 @@ database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_
 
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
 
-# The certificate verification, change verify-ca to disable. It dues to the following issue:
-# https://github.com/CrunchyData/postgres-operator/issues/4316 -> go issue: https://github.com/golang/go/issues/75828
 kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
-  --from-literal=database_uri="${database_uri}?sslmode=disable" \
+  --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
   --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"
 
 echo "storage secret is ready in $target_namespace namespace!"
