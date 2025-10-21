@@ -15,9 +15,12 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
+
+var log = logger.ZapLogger("managedhub")
 
 func LaunchHubClusterInfoSyncer(mgr ctrl.Manager, producer transport.Producer) error {
 	mch, err := utils.ListMCH(context.Background(), mgr.GetClient())
@@ -114,6 +117,14 @@ func (p *infoRouteHandler) Update(obj client.Object) bool {
 
 	var newURL string
 	updated := false
+
+	// If no ClusterId, do not send the bundle
+	// Fix bug: https://issues.redhat.com/browse/ACM-25312
+	if p.evtData.ClusterId == "" {
+		log.Infof("no clusterid found, ignore the bundle: %v", obj.GetName())
+		return false
+	}
+
 	if len(route.Spec.Host) != 0 {
 		newURL = "https://" + route.Spec.Host
 	}
