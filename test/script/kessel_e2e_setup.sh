@@ -58,6 +58,7 @@ metadata:
   namespace: multicluster-global-hub
 spec:
   availabilityConfig: Basic
+  installAgentOnLocal: false
   dataLayer:
     kafka:
       topics:

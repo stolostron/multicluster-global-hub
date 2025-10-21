@@ -25,6 +25,12 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: install ginkgo
         run: go install github.com/onsi/ginkgo/v2/ginkgo@v2.15.0
+      - name: Setup tmate debug session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ failure() || github.event_inputs.debug == 'true' }}
+        timeout-minutes: 30
+        with:
+          limit-access-to-actor: true
       - name: SET E2E
         run: |
           make kessel-e2e-setup
