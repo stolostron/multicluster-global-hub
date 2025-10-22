@@ -134,6 +134,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
 	if updateConn {
+		log.Infof("========================================== kafka controller update the transport component to trigger the mgh controller to reconcile the transportConfig secret ==========================================")
 		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
 		err := config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
 		if err != nil {

@@ -301,6 +301,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		}
 	}
 
+	log.Infof("========================================== manager controller reconcile the transportConfig secret ==========================================")
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
