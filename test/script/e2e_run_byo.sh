@@ -43,6 +43,7 @@ external_port=32432
 database_uri=$(echo "${database_uri}" | sed "s|@[^/]*|@$external_host:$external_port|")
 
 kubectl create namespace "$target_namespace" --dry-run=client -o yaml | kubectl --kubeconfig "$GH_KUBECONFIG" apply -f -
+
 kubectl create secret generic "$storage_secret" -n "$target_namespace" --kubeconfig "$GH_KUBECONFIG" \
   --from-literal=database_uri="${database_uri}?sslmode=verify-ca" \
   --from-file=ca.crt="$CONFIG_DIR/postgres-cluster-ca.crt"

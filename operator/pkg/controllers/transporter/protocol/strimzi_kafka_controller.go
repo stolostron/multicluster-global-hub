@@ -42,7 +42,7 @@ var (
 var log = logger.DefaultZapLogger()
 
 type KafkaStatus struct {
-	kakfaReason  string
+	kafkaReason  string
 	kafkaMessage string
 	kafkaReady   bool
 }
@@ -122,17 +122,24 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 	}
 	// update the transporter
 	config.SetTransporter(r.trans)
-
-	// update the transport connection
-	conn, needRequeue, err := getManagerTransportConn(r.trans, DefaultGlobalHubKafkaUserName)
+	// update the transport connection, if conn is nil, requeue to let it ready
+	conn, err := getManagerTransportConn(r.trans)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if needRequeue {
+	if conn == nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	updateConn = config.SetTransporterConn(conn)
 
+	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
+	if updateConn {
+		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
+		err := config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
+		if err != nil {
+			log.Errorf("failed to update mgh status, err:%v", err)
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -195,28 +202,25 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	return nil
 }
 
-func getManagerTransportConn(trans *strimziTransporter, kafkaUserSecret string) (
-	*transport.KafkaConfig, bool, error,
+func getManagerTransportConn(trans *strimziTransporter) (
+	*transport.KafkaConfig, error,
 ) {
-	// set transporter connection
-	var conn *transport.KafkaConfig
-	var err error
-
 	// bootstrapServer, clusterId, clusterCA
-	conn, err = trans.getConnCredentialByCluster()
+	conn, err := trans.getConnCredentialByCluster()
 	if err != nil {
 		log.Infow("waiting the kafka cluster credential to be ready...", "message", err.Error())
-		return conn, true, err
+		return conn, err
 	}
+
 	// topics
 	conn.SpecTopic = config.GetSpecTopic()
 	conn.StatusTopic = config.ManagerStatusTopic()
 	// clientCert and clientCA
-	if err := trans.loadUserCredential(kafkaUserSecret, conn); err != nil {
+	if err := trans.loadUserCredential(DefaultGlobalHubKafkaUserName, conn); err != nil {
 		log.Infow("waiting the kafka user credential to be ready...", "message", err.Error())
-		return conn, true, err
+		return nil, nil
 	}
-	return conn, false, nil
+	return conn, nil
 }
 
 func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClusterStatus KafkaStatus,
@@ -237,7 +241,7 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 			Name:    config.COMPONENTS_KAFKA_NAME,
 			Type:    config.COMPONENTS_AVAILABLE,
 			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  kafkaClusterStatus.kakfaReason,
+			Reason:  kafkaClusterStatus.kafkaReason,
 			Message: kafkaClusterStatus.kafkaMessage,
 		}
 	}

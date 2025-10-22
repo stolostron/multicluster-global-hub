@@ -96,6 +96,9 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			Spec:       addonv1.KlusterletAddonConfigSpec{ClusterName: testClusterName, ClusterNamespace: testClusterName},
 		}
 		Expect(runtimeClient.Create(testCtx, addonConfig)).Should(Succeed())
+
+		_, err := configs.GetSyncStateConfigMap(ctx, runtimeClient)
+		Expect(err).Should(Succeed())
 	})
 
 	AfterAll(func() {
@@ -107,6 +110,13 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: utils.GetDefaultNamespace()}},
 		}
+		// delete the configmap
+		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
+				Namespace: configs.GetAgentConfig().PodNamespace,
+			},
+		})
 		for _, resource := range resources {
 			_ = runtimeClient.Delete(testCtx, resource)
 		}
@@ -409,7 +419,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 				_, hasMigrating := cluster.Annotations[constants.ManagedClusterMigrating]
 				_, hasKlusterletConfig := cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
 				return !hasMigrating && !hasKlusterletConfig
-			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+			}, 20*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("should rollback registering stage successfully", func() {

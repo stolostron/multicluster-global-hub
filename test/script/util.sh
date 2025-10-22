@@ -224,12 +224,42 @@ init_policy() {
   # Reference: https://open-cluster-management.io/getting-started/integration/policy-framework/
   PROPAGATOR_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-propagator.git"
   propagator="governance-policy-propagator"
+
+  # Clone repository if it doesn't exist
   if [ ! -d $propagator ]; then
-    git clone $PROPAGATOR_GIT_HTTP_PATH
-    cd $propagator
-    git checkout $GRC_VERSION
-    cd ../
+    echo "Cloning $propagator repository..."
+    if ! git clone $PROPAGATOR_GIT_HTTP_PATH; then
+      echo -e "${RED}Failed to clone $propagator repository${NC}"
+      exit 1
+    fi
   fi
+
+  # Always ensure we're on the correct version
+  cd $propagator || exit 1
+  if ! git checkout $GRC_VERSION 2>/dev/null; then
+    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
+    if ! git fetch origin && git checkout $GRC_VERSION; then
+      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
+      exit 1
+    fi
+  fi
+  cd ../ || exit 1
+
+  # Verify required CRD files exist
+  required_crds=(
+    "$propagator/deploy/crds/policy.open-cluster-management.io_policies.yaml"
+    "$propagator/deploy/crds/policy.open-cluster-management.io_placementbindings.yaml"
+    "$propagator/deploy/crds/policy.open-cluster-management.io_policyautomations.yaml"
+    "$propagator/deploy/crds/policy.open-cluster-management.io_policysets.yaml"
+  )
+
+  for crd_file in "${required_crds[@]}"; do
+    if [ ! -f "$crd_file" ]; then
+      echo -e "${RED}Required CRD file not found: $crd_file${NC}"
+      echo -e "${RED}The repository may be corrupted. Please remove the $propagator directory and try again.${NC}"
+      exit 1
+    fi
+  done
 
   # On hub
   if ! kubectl --context $hub get deploy -n "$HUB_NAMESPACE" | grep -q $propagator | grep -q Running; then
@@ -272,12 +302,25 @@ init_policy() {
 
   POLICY_ADDON_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/governance-policy-framework-addon.git"
   policy_addon=governance-policy-framework-addon
+
+  # Clone repository if it doesn't exist
   if [ ! -d $policy_addon ]; then
-    git clone $POLICY_ADDON_GIT_HTTP_PATH
-    cd $policy_addon
-    git checkout $GRC_VERSION
-    cd ../
+    if ! git clone $POLICY_ADDON_GIT_HTTP_PATH; then
+      echo -e "${RED}Failed to clone $policy_addon repository${NC}"
+      exit 1
+    fi
   fi
+
+  # Always ensure we're on the correct version
+  cd $policy_addon || exit 1
+  if ! git checkout $GRC_VERSION 2>/dev/null; then
+    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
+    if ! git fetch origin && git checkout $GRC_VERSION; then
+      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
+      exit 1
+    fi
+  fi
+  cd ../ || exit 1
 
   retry "(kubectl --context $cluster apply -f $policy_addon/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$policy_addon -n $MANAGED_NAMESPACE)" 10
 
@@ -289,12 +332,26 @@ init_policy() {
   ## https://open-cluster-management.io/getting-started/integration/policy-controllers/configuration-policy/
   config_policy="config-policy-controller"
   CONFIG_POLICY_GIT_HTTP_PATH="https://github.com/open-cluster-management-io/config-policy-controller.git"
+
+  # Clone repository if it doesn't exist
   if [ ! -d $config_policy ]; then
-    git clone $CONFIG_POLICY_GIT_HTTP_PATH
-    cd $config_policy
-    git checkout $GRC_VERSION
-    cd ../
+    if ! git clone $CONFIG_POLICY_GIT_HTTP_PATH; then
+      echo -e "${RED}Failed to clone $config_policy repository${NC}"
+      exit 1
+    fi
   fi
+
+  # Always ensure we're on the correct version
+  cd $config_policy || exit 1
+  if ! git checkout $GRC_VERSION 2>/dev/null; then
+    echo -e "${RED}Failed to checkout $GRC_VERSION, fetching updates...${NC}"
+    if ! git fetch origin && git checkout $GRC_VERSION; then
+      echo -e "${RED}Failed to checkout $GRC_VERSION after fetch${NC}"
+      exit 1
+    fi
+  fi
+  cd ../ || exit 1
+
   kubectl --context "$cluster" apply -f ${config_policy}/deploy/crds/policy.open-cluster-management.io_configurationpolicies.yaml
   # kubectl --context "$cluster" apply -f ${GIT_PATH}/crds/policy.open-cluster-management.io_operatorpolicies.yaml
   retry "(kubectl --context $cluster apply -f ${config_policy}/deploy/operator.yaml -n $MANAGED_NAMESPACE) && (kubectl --context $cluster get deploy/$config_policy -n $MANAGED_NAMESPACE)"

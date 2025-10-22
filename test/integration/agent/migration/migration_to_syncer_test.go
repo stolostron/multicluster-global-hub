@@ -94,6 +94,9 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			LeafHubName:  testToHub,
 			PodNamespace: testMSANamespace, // Set PodNamespace for configmap operations
 		})
+
+		_, err := configs.GetSyncStateConfigMap(ctx, runtimeClient)
+		Expect(err).Should(Succeed())
 	})
 
 	AfterAll(func() {
@@ -103,6 +106,13 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			&operatorv1.ClusterManager{ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
 		}
+		// delete the configmap
+		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
+				Namespace: configs.GetAgentConfig().PodNamespace,
+			},
+		})
 		for _, resource := range resources {
 			_ = runtimeClient.Delete(testCtx, resource)
 		}

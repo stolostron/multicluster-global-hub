@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -20,6 +21,7 @@ import (
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -65,8 +67,8 @@ var (
 	DefaultPartition         int32 = 1
 	DefaultPartitionReplicas int32 = 3
 	// kafka metrics constants
-	KakfaMetricsConfigmapName   = "kafka-metrics"
-	KafkaMetricsConfigmapKeyRef = "kafka-metrics-config.yml"
+	KafkaMetricsConfigMapName   = "kafka-metrics"
+	KafkaMetricsConfigMapKeyRef = "kafka-metrics-config.yml"
 )
 
 // install the strimzi kafka cluster by operator
@@ -372,20 +374,34 @@ func (k *strimziTransporter) EnsureUser(clusterName string) (string, error) {
 		return "", err
 	}
 
-	updatedKafkaUser := &kafkav1beta2.KafkaUser{}
-	err = operatorutils.MergeObjects(kafkaUser, desiredKafkaUser, updatedKafkaUser)
-	if err != nil {
-		return "", err
-	}
-	// combine the acls of kafkaUser and the acls of desiredKafkaUser
-	updatedKafkaUser.Spec.Authorization.Acls = combineACLs(kafkaUser.Spec.Authorization.Acls,
-		desiredKafkaUser.Spec.Authorization.Acls)
-
-	if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, kafkaUser.Spec) {
-		log.Infof("update the kafkaUser: %s", userName)
-		if err = k.manager.GetClient().Update(k.ctx, updatedKafkaUser); err != nil {
-			return "", err
+	// Retry logic to handle concurrent updates with exponential backoff
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest version of the KafkaUser
+		latestKafkaUser := &kafkav1beta2.KafkaUser{}
+		if err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
+			Name:      userName,
+			Namespace: k.kafkaClusterNamespace,
+		}, latestKafkaUser); err != nil {
+			return err
 		}
+
+		updatedKafkaUser := &kafkav1beta2.KafkaUser{}
+		if err := operatorutils.MergeObjects(latestKafkaUser, desiredKafkaUser, updatedKafkaUser); err != nil {
+			return err
+		}
+		// combine the acls of kafkaUser and the acls of desiredKafkaUser
+		updatedKafkaUser.Spec.Authorization.Acls = combineACLs(latestKafkaUser.Spec.Authorization.Acls,
+			desiredKafkaUser.Spec.Authorization.Acls)
+
+		if !equality.Semantic.DeepDerivative(updatedKafkaUser.Spec, latestKafkaUser.Spec) {
+			log.Infof("update the kafkaUser: %s", userName)
+			return k.manager.GetClient().Update(k.ctx, updatedKafkaUser)
+		}
+		return nil
+	})
+
+	if retryErr != nil {
+		return "", retryErr
 	}
 	return userName, nil
 }
@@ -410,6 +426,13 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 	for _, acl := range aclMap {
 		mergedAcls = append(mergedAcls, acl)
 	}
+
+	// Sort ACLs to ensure consistent ordering for comparison
+	// This prevents unnecessary updates when ACLs are functionally identical but ordered differently
+	sort.Slice(mergedAcls, func(i, j int) bool {
+		return utils.GenerateACLKey(mergedAcls[i]) < utils.GenerateACLKey(mergedAcls[j])
+	})
+
 	return mergedAcls
 }
 
@@ -655,7 +678,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 
 	kafkaStatus := KafkaStatus{
 		kafkaReady:   false,
-		kakfaReason:  "KafkaNotReady",
+		kafkaReason:  "KafkaNotReady",
 		kafkaMessage: "Wait kafka cluster ready",
 	}
 
@@ -693,7 +716,7 @@ func (k *strimziTransporter) kafkaClusterReady() (KafkaStatus, error) {
 				return kafkaStatus, nil
 			}
 			kafkaStatus.kafkaMessage = *condition.Message
-			kafkaStatus.kakfaReason = *condition.Reason
+			kafkaStatus.kafkaReason = *condition.Reason
 			return kafkaStatus, nil
 		}
 	}
@@ -843,8 +866,8 @@ func (k *strimziTransporter) setMetricsConfig(mgh *operatorv1alpha4.Multicluster
 			Type: kafkav1beta2.KafkaSpecKafkaMetricsConfigTypeJmxPrometheusExporter,
 			ValueFrom: kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFrom{
 				ConfigMapKeyRef: &kafkav1beta2.KafkaSpecKafkaMetricsConfigValueFromConfigMapKeyRef{
-					Name: &KakfaMetricsConfigmapName,
-					Key:  &KafkaMetricsConfigmapKeyRef,
+					Name: &KafkaMetricsConfigMapName,
+					Key:  &KafkaMetricsConfigMapKeyRef,
 				},
 			},
 		}
