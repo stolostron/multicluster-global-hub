@@ -6,7 +6,6 @@ package protocol
 import (
 	"context"
 	"embed"
-	"fmt"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -15,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -133,17 +131,15 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	updateConn = config.SetTransporterConn(conn)
-	// The kafka controller is separated from the main mgh controller, so we to update the transport secret
-	// TODO: require to update the local agent transport secret as well, in the builtin kafka case.
+
+	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
 	if updateConn {
-		conn.ConsumerGroupID = config.GetManagerConsumerGroupID(mgh) // update the consumer group id
-		err := UpdateTransportSecret(ctx, r.c, utils.GetDefaultNamespace(), constants.GHTransportConfigSecret, conn)
+		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
+		err := config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
 		if err != nil {
-			log.Errorf("failed to update transport secret, err:%v", err)
-			return ctrl.Result{}, err
+			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -175,35 +171,6 @@ var kafkaUserPred = predicate.Funcs{
 		}
 		return e.Object.GetNamespace() == utils.GetDefaultNamespace()
 	},
-}
-
-// UpdateTransportSecret updates the transport secret with the kafka config yaml,
-func UpdateTransportSecret(ctx context.Context, c client.Client, namespace, name string,
-	conn *transport.KafkaConfig,
-) error {
-	transportSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
-	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := c.Get(ctx, client.ObjectKeyFromObject(transportSecret), transportSecret); err != nil {
-			return err
-		}
-		kafkaConfigYaml, err := conn.YamlMarshal(true)
-		if err != nil {
-			return fmt.Errorf("failed to marshall kafka config yaml: %w", err)
-		}
-		transportSecret.Data = map[string][]byte{
-			"kafka.yaml": kafkaConfigYaml,
-		}
-		return c.Update(ctx, transportSecret)
-	})
-	if retryErr != nil {
-		return retryErr
-	}
-	return nil
 }
 
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
