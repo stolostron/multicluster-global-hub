@@ -17,6 +17,14 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     steps:
+      - name: Check initial disk usage
+        run: df -h /
+      - name: Free disk space (optional cleanup)
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/hostedtoolcache
+          docker system prune -af
+          df -h /
       - name: Checkout
         uses: actions/checkout@v5
       - name: Setup Go
