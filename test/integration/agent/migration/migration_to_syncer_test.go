@@ -265,6 +265,7 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			By("Creating migration event for deploying stage")
 			event := createMigrationToEvent(testMigrationID, migrationv1alpha1.PhaseDeploying, testFromHub, testToHub)
 			event.SetSource(testFromHub)
+			event.SetExtension(migration.ExtTotalClusters, 1)
 
 			// Create source cluster migration resources
 			managedCluster := &clusterv1.ManagedCluster{
