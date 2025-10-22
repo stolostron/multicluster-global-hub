@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -425,6 +426,13 @@ func combineACLs(kafkaUserAcls []kafkav1beta2.KafkaUserSpecAuthorizationAclsElem
 	for _, acl := range aclMap {
 		mergedAcls = append(mergedAcls, acl)
 	}
+
+	// Sort ACLs to ensure consistent ordering for comparison
+	// This prevents unnecessary updates when ACLs are functionally identical but ordered differently
+	sort.Slice(mergedAcls, func(i, j int) bool {
+		return utils.GenerateACLKey(mergedAcls[i]) < utils.GenerateACLKey(mergedAcls[j])
+	})
+
 	return mergedAcls
 }
 
