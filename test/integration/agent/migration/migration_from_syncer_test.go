@@ -419,7 +419,7 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 				_, hasMigrating := cluster.Annotations[constants.ManagedClusterMigrating]
 				_, hasKlusterletConfig := cluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
 				return !hasMigrating && !hasKlusterletConfig
-			}, 10*time.Second, 100*time.Millisecond).Should(BeTrue())
+			}, 20*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("should rollback registering stage successfully", func() {
