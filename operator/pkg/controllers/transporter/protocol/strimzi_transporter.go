@@ -167,15 +167,13 @@ func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
 		Name:      "kraft",
 		Namespace: k.mgh.Namespace,
 	}, existingKafkaNodepool)
-	log.Debugf("existing kafkaNodepool: %v, err:%v", existingKafkaNodepool, err)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return k.topicPartitionReplicas, nil
 		}
 		return k.topicPartitionReplicas, err
 	}
-
-	log.Debugf("existing kafkaNodepool: %v", existingKafkaNodepool.Spec.Replicas)
+	log.Debugf("existing kafkaNodepool replicas: %s", existingKafkaNodepool.Spec.Replicas)
 	return existingKafkaNodepool.Spec.Replicas, nil
 }
 
