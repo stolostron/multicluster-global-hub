@@ -6,6 +6,7 @@ package protocol
 import (
 	"context"
 	"embed"
+	"fmt"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -144,17 +145,15 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 			mgh.Annotations = make(map[string]string)
 		}
 		mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339)
-
 		if err := r.c.Update(ctx, mgh); err != nil {
-			log.Errorf("failed to update mgh annotation to trigger reconciliation, err:%v", err)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, fmt.Errorf("failed to update mgh annotation to trigger reconciliation, err:%v", err)
 		}
 
 		// Also update the component status for consistency
 		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
 		err := config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
 		if err != nil {
-			log.Errorf("failed to update mgh status, err:%v", err)
+			return ctrl.Result{}, fmt.Errorf("failed to update mgh transport connection status, err:%v", err)
 		}
 	}
 	return ctrl.Result{}, nil
