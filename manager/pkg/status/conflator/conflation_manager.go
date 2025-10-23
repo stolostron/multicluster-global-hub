@@ -47,6 +47,7 @@ func NewConflationManager(statistics *statistics.Statistics,
 // Register registers bundle type with priority and handler function within the conflation manager.
 func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 	cm.registrations[registration.eventType] = registration
+	cm.log.Infow("registered event type", "type", registration.eventType)
 	cm.statistics.Register(registration.eventType)
 }
 
@@ -54,7 +55,7 @@ func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 func (cm *ConflationManager) Insert(evt *cloudevents.Event) {
 	// validate the event
 	if _, ok := cm.registrations[evt.Type()]; !ok {
-		cm.log.Infow("event type hasn't been registered", "type", evt.Type())
+		cm.log.Infow("unregistered event type", "type", evt.Type())
 		return
 	}
 	// metadata
