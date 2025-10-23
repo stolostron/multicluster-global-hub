@@ -195,7 +195,6 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 			r.startedControllerMap[controllerName] = startedController
 		}
 	}
-	log.Debugf("started controller:%v", r.startedControllerMap)
 
 	if reconcileErr != nil {
 		return ctrl.Result{}, err
