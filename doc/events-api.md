@@ -364,64 +364,211 @@ The event is from the replicated policy history status. The event is Kubernetes 
 
 ### Events related to Cluster
 The events are Kubernetes events. We collect the cluster life cycle events, including import and detach.
+
+#### Send Modes
+The events support two send modes which are indicated by the `sendmode` extension in CloudEvents:
+- **batch**: Multiple related events are grouped into an array in the `data` field. This is useful for sending several events that occur in quick succession together.
+- **single**: Each event is sent individually with the `data` field containing a single event object instead of an array.
 #### Import
-The events are related to cluster import. The data is an array that can include multiple events together. Once the cluster is successfully imported, it is managed by ACM.
+The events are related to cluster import. The cluster import lifecycle includes the following stages:
+1. **WaitForImporting**: The cluster is waiting to be imported
+2. **Importing**: The cluster is being imported (may have multiple events during this stage)
+3. **Available**: The cluster's apiserver is available
+4. **Imported**: The cluster has been successfully imported and is now managed by ACM
+
+Below is an example showing the initial waiting state (batch mode):
 ```
-{
-    "specversion": "1.0",
-    "id": "c006d9b2-bc2d-11ee-90e9-8feab4dd9214",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T04:06:16.542703828Z",
-    "data": [
-        {
-          "leafHubName": "managed_hub1",
-          "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-          "clusterName": "cluster1",
-          "eventName": "kube-system.import.17ad7b80d4e6f6a4",
-          "message": "The cluster is being imported now",
-          "reason": "Importing",
-          "count": 1,
-          "source": "import-controller",
-          "createdAt": "2024-01-25T05:08:07Z"
-        },
-        {
-          "leafHubName": "managed_hub1",
-          "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-          "clusterName": "cluster1",
-          "eventName": "kube-system.import.17ad7b80d4ade6a4",
-          "message": "The cluster is imported successfully",
-          "reason": "Imported",
-          "count": 1,
-          "source": "import-controller",
-          "createdAt": "2024-01-25T05:08:17Z"
-        }
-    ]
-}
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: b15a7593-1437-4b8c-8d74-5c972cf94f59
+  time: 2025-10-23T02:32:06.944668082Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 1.2
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 1686
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: batch
+Data,
+  [
+    {
+      "eventNamespace": "cluster1",
+      "eventName": "cluster1.1870fdff35b3d4bc",
+      "clusterName": "cluster1",
+      "clusterId": "e3bb27fc-b510-4844-95db-5fce88548363",
+      "leafHubName": "hub1",
+      "message": "The cluster1 is waiting for importing",
+      "reason": "WaitForImporting",
+      "reportingController": "managedcluster-import-controller",
+      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+      "type": "Normal",
+      "createdAt": "2025-10-23T02:32:06Z"
+    }
+  ]
 ```
+
+During the import process, multiple events may be batched together:
+```
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: 7e0ea824-659d-48c4-af0e-f56d787c0d10
+  time: 2025-10-23T02:32:12.944261438Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 2.5
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 1693
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: batch
+Data,
+  [
+    {
+      "eventNamespace": "cluster1",
+      "eventName": "cluster1.1870fdff5a401195",
+      "clusterName": "cluster1",
+      "clusterId": "e3bb27fc-b510-4844-95db-5fce88548363",
+      "leafHubName": "hub1",
+      "message": "The cluster1 is currently being imported. Start to import managed cluster",
+      "reason": "Importing",
+      "reportingController": "managedcluster-import-controller",
+      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+      "type": "Normal",
+      "createdAt": "2025-10-23T02:32:07Z"
+    },
+    {
+      "eventNamespace": "cluster1",
+      "eventName": "cluster1.1870fdff69fa6d36",
+      "clusterName": "cluster1",
+      "clusterId": "f642f37e-6788-4ce7-b7e7-76e689079df7",
+      "leafHubName": "hub1",
+      "message": "The cluster1 is currently being imported. Importing resources are applied, wait for resources be available",
+      "reason": "Importing",
+      "reportingController": "managedcluster-import-controller",
+      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+      "type": "Normal",
+      "createdAt": "2025-10-23T02:32:07Z"
+    },
+    {
+      "eventNamespace": "cluster1",
+      "eventName": "cluster1.1870fdff5e6f0287",
+      "clusterName": "cluster1",
+      "clusterId": "f642f37e-6788-4ce7-b7e7-76e689079df7",
+      "leafHubName": "hub1",
+      "message": "The cluster1 is successfully imported, and it is managed by the hub cluster. Its apieserver is available",
+      "reason": "Available",
+      "reportingController": "klusterlet-agent",
+      "reportingInstance": "klusterlet-agent-klusterlet-agent-5f5d8d58dd-snnm4",
+      "type": "Normal",
+      "createdAt": "2025-10-23T02:32:07Z"
+    }
+  ]
+```
+
+Finally, the import completion event:
+```
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: 47cda25c-a1d3-41b0-832f-ad505e19a6cb
+  time: 2025-10-23T02:33:11.943209596Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 3.6
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 1748
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: batch
+Data,
+  [
+    {
+      "eventNamespace": "cluster1",
+      "eventName": "cluster1.1870fe0d86cefa0b",
+      "clusterName": "cluster1",
+      "clusterId": "bfca8e6a-cfce-4860-85b9-3aab253d4ce8",
+      "leafHubName": "hub1",
+      "message": "The cluster1 has successfully imported",
+      "reason": "Imported",
+      "reportingController": "managedcluster-import-controller",
+      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+      "type": "Normal",
+      "createdAt": "2025-10-23T02:33:08Z"
+    }
+  ]
+```
+
 #### Detach
-The events are related to cluster detach. We do not have `Detached` event. However, we can always treat the detaching process as successful anyway.
+The events are related to cluster detach. We do not have a `Detached` event. However, we can always treat the detaching process as successful anyway.
+
+Example with batch mode (data is an array):
 ```
-{
-    "specversion": "1.0",
-    "id": "a59375e4-bc2e-11ee-98bb-035b5cb373d3",
-    "source": "managed_hub1",
-    "type": "io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster",
-    "datacontenttype": "application/json",
-    "time": "2024-01-25T04:06:16.542703828Z",
-    "data": [
-        {
-          "leafHubName": "managed_hub1",
-          "clusterId": "6b9b8545-1a84-4b55-8423-a9b28a1a4967",
-          "clusterName": "cluster1",
-          "eventName": "kube-system.status.17ad7b80d4e6f6a4",
-          "message": "The cluster (cluster1) is being detached now",
-          "reason": "Detaching",
-          "count": 1,
-          "source": "import-controller",
-          "createdAt": "2024-01-25T05:08:07Z"
-        } 
-    ]
-}
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: 49aa624c-c3d9-4016-9c7d-23c5825a4fef
+  time: 2025-10-23T02:34:36.943743765Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 4.7
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 1828
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: batch
+Data,
+  [
+    {
+      "eventNamespace": "cluster1",
+      "eventName": "cluster1.1870fe215eb1712a",
+      "clusterName": "cluster1",
+      "clusterId": "bfca8e6a-cfce-4860-85b9-3aab253d4ce8",
+      "leafHubName": "hub1",
+      "message": "The cluster1 is currently becoming detached",
+      "reason": "Detaching",
+      "reportingController": "managedcluster-import-controller",
+      "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+      "type": "Normal",
+      "createdAt": "2025-10-23T02:34:33Z"
+    }
+  ]
+```
+
+Example with single mode (data is an object):
+```
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: 49aa624c-c3d9-4016-9c7d-23c5825a4fef
+  time: 2025-10-23T02:34:36.943743765Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 4.7
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 1828
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: single
+Data,
+  {
+    "eventNamespace": "cluster1",
+    "eventName": "cluster1.1870fe215eb1712a",
+    "clusterName": "cluster1",
+    "clusterId": "bfca8e6a-cfce-4860-85b9-3aab253d4ce8",
+    "leafHubName": "hub1",
+    "message": "The cluster1 is currently becoming detached",
+    "reason": "Detaching",
+    "reportingController": "managedcluster-import-controller",
+    "reportingInstance": "managedcluster-import-controller-managedcluster-import-controller-v2-b6cbc7658-dvp9t",
+    "type": "Normal",
+    "createdAt": "2025-10-23T02:34:33Z"
+  }
 ```
