@@ -188,7 +188,7 @@ join_cluster() {
     else
       sed -e "s;<cluster_name>;$cluster --context $cluster --wait;" "$join_file" | bash
     fi
-    timeout 5m clusteradm accept --clusters "$2" --context "${hub}" --wait
+    timeout 1m clusteradm accept --clusters "$2" --context "${hub}" --wait
   fi
 }
 
@@ -209,7 +209,7 @@ init_app() {
   fi
 
   # enable the addon on the managed clusters
-  clusteradm addon enable --names application-manager --clusters "$cluster" --context "$hub"
+  retry "clusteradm addon enable --names application-manager --clusters $cluster --context $hub" 10
 }
 
 init_policy() {
