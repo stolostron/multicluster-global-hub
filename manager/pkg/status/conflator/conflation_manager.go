@@ -1,6 +1,7 @@
 package conflator
 
 import (
+	"fmt"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -57,6 +58,7 @@ func (cm *ConflationManager) Insert(evt *cloudevents.Event) {
 	// validate the event
 	if _, ok := cm.registrations[evt.Type()]; !ok {
 		cm.log.Infow("unregistered event type", "type", enum.ShortenEventType(evt.Type()))
+		fmt.Print(evt)
 		return
 	}
 	// metadata
