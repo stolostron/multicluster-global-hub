@@ -376,7 +376,7 @@ The events are related to cluster import. The cluster import lifecycle includes 
 3. **Available**: The cluster's apiserver is available
 4. **Imported**: The cluster has been successfully imported and is now managed by ACM
 
-Below is an example showing the initial waiting state (batch mode):
+Below is an example showing the initial waiting state in batch mode:
 ```
 Context Attributes,
   specversion: 1.0
@@ -410,7 +410,7 @@ Data,
   ]
 ```
 
-During the import process, multiple events may be batched together:
+When batch mode is enabled, multiple events occurring in quick succession are grouped together:
 ```
 Context Attributes,
   specversion: 1.0
