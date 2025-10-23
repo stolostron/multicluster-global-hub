@@ -107,9 +107,8 @@ func isInHostedCluster(ctx context.Context, client client.Client, mcName string)
 		if errors.IsNotFound(err) {
 			return true, nil
 		}
-		errMsg := fmt.Errorf("failed to get managedcluster, err:%v", err)
-		klog.Errorf(errMsg.Error())
-		return false, errMsg
+		klog.Errorf("failed to get managedcluster, err:%v", err)
+		return false, fmt.Errorf("failed to get managedcluster, err:%v", err)
 	}
 
 	if (mc.Annotations[constants.AnnotationClusterDeployMode] == constants.ClusterDeployModeHosted) &&
