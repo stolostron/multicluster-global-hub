@@ -70,6 +70,12 @@ const (
 	AnnotationMGHWithStackroxPollInterval = "global-hub.open-cluster-management.io/with-stackrox-poll-interval"
 	// AnnotationMGHEventSendMode specifies the event send mode for policy events (batch or single)
 	AnnotationMGHEventSendMode = "global-hub.open-cluster-management.io/event-send-mode"
+	// AnnotationMGHTransportUpdate is used to trigger MetaController reconciliation when transport connection changes.
+	// This annotation is updated whenever the transport connection (e.g., Kafka) is established or reconfigured
+	// to ensure that the MetaController gets triggered to reconcile the transportConfig secret, since
+	// controller-runtime's For() method does not trigger reconciliation for status-only updates.
+	// The value is a timestamp in RFC3339 format indicating when the transport connection was last updated.
+	AnnotationMGHTransportUpdate = "global-hub.open-cluster-management.io/transport-update"
 )
 
 // hub installation constants

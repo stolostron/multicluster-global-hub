@@ -23,6 +23,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -134,7 +135,22 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
 	if updateConn {
-		log.Infof("========================================== kafka controller update the transport component to trigger the mgh controller to reconcile the transportConfig secret ==========================================")
+		log.Infof("transport-config updating: update mgh annotation to trigger MetaController reconciliation")
+		// Update MGH annotation to trigger MetaController reconciliation
+		// Note: controller-runtime's For() method does not trigger reconciliation for status-only updates,
+		// even with custom predicates. Therefore, we update an annotation (metadata change) to ensure
+		// the MetaController gets notified and can reconcile the transportConfig secret.
+		if mgh.Annotations == nil {
+			mgh.Annotations = make(map[string]string)
+		}
+		mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339)
+
+		if err := r.c.Update(ctx, mgh); err != nil {
+			log.Errorf("failed to update mgh annotation to trigger reconciliation, err:%v", err)
+			return ctrl.Result{}, err
+		}
+
+		// Also update the component status for consistency
 		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
 		err := config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
 		if err != nil {
