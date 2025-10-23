@@ -46,6 +46,9 @@ func (e *genericEmitter) applyOptions(opts ...EmitterOption) {
 }
 
 func (h *genericEmitter) ShouldSend() bool {
+	if h.eventType == enum.ComplianceType || h.eventType == enum.CompleteComplianceType {
+		log.Infof("lastSentVersion: %v, currentVersion: %v", h.lastSentVersion, h.currentVersion)
+	}
 	return h.currentVersion.NewerThan(&h.lastSentVersion)
 }
 
