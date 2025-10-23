@@ -146,8 +146,6 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	log.Infof("processing migration instance: %s", mcm.Name)
-
 	if mcm.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}

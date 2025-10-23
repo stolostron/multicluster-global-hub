@@ -94,7 +94,8 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 		if meta.SetStatusCondition(&mcm.Status.Conditions, condition) || mcm.Status.Phase != phase {
 			mcm.Status.Phase = phase
 
-			log.Infof("update condition %s(%s): %s, phase: %s", condition.Type, condition.Reason, condition.Message, phase)
+			// reason and status
+			log.Infof("updating phase(%s), condition(%s): %s - %s", phase, condition.Type, condition.Reason, condition.Status)
 			if err := m.Status().Update(ctx, mcm); err != nil {
 				return err
 			}

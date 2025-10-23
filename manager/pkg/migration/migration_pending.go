@@ -76,6 +76,7 @@ func (m *ClusterMigrationController) selectAndPrepareMigration(ctx context.Conte
 			log.Errorf("failed to update migration to started: %v", err)
 			return nil, err
 		}
+		log.Infof("starting migration: %s (uid: %s)", nextMigration.Name, nextMigration.UID)
 	}
 
 	return nextMigration, nil

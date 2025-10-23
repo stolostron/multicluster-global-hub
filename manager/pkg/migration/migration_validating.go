@@ -62,15 +62,14 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 	if mcm.DeletionTimestamp != nil {
 		return false, nil
 	}
-	log.Infof("migration: %v validating", mcm.Name)
 
 	if meta.IsStatusConditionTrue(mcm.Status.Conditions, migrationv1alpha1.ConditionTypeValidated) ||
 		mcm.Status.Phase != migrationv1alpha1.PhaseValidating {
 		return false, nil
 	}
-	log.Info("migration validating")
-	nextPhase := migrationv1alpha1.PhaseInitializing
+	log.Infof("start validating: %s (uid: %s)", mcm.Name, mcm.UID)
 
+	nextPhase := migrationv1alpha1.PhaseInitializing
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeValidated,
 		Status:  metav1.ConditionTrue,
@@ -95,9 +94,9 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
 		}
 	}()
-	log.Info("migration validating from hub")
 
 	// verify fromHub
+	log.Infof("validating from hub: %s", mcm.Spec.From)
 	if mcm.Spec.From == "" {
 		err = fmt.Errorf("source hub is not specified")
 		return false, err
@@ -106,9 +105,9 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		condition.Reason = ConditionReasonHubClusterInvalid
 		return false, err
 	}
-	log.Info("migration validating to hub")
 
 	// verify toHub
+	log.Infof("validating to hub: %s", mcm.Spec.To)
 	if mcm.Spec.To == "" {
 		err = fmt.Errorf("target hub is not specified")
 		return false, err
@@ -118,9 +117,8 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return false, err
 	}
 
-	log.Info("migration validating clusters")
-
 	// Get migrate clusters
+	log.Infof("validating clusters: %v", GetClusterList(string(mcm.UID)))
 	requeue, err := m.validateMigrationClusters(ctx, mcm)
 	if err != nil {
 		return false, err
@@ -133,8 +131,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return true, nil
 	}
 
-	log.Debugf("migrate name:%v, clusters: %v", mcm.Name, GetClusterList(string(mcm.UID)))
-
+	log.Infof("finish validating: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }
 

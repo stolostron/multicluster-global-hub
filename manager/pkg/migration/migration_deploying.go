@@ -30,7 +30,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		mcm.Status.Phase != migrationv1alpha1.PhaseDeploying {
 		return false, nil
 	}
-	log.Infof("migration %v deploying", mcm.Name)
+	log.Infof("start deploying: %s (uid: %s)", mcm.Name, mcm.UID)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeDeployed,
@@ -47,13 +47,13 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 
 	// 1. source hub: start and wait the confirmation
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
-		log.Infof("migration deploying to source hub: %s", fromHub)
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters, nil, "")
 		if err != nil {
 			condition.Message = err.Error()
 			condition.Reason = ConditionReasonError
 			return false, err
 		}
+		log.Infof("deploying to source hub(%s): %s (uid: %s)", fromHub, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
 	}
 
@@ -89,6 +89,6 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	condition.Message = "Resources have been successfully deployed to the target hub cluster"
 	nextPhase = migrationv1alpha1.PhaseRegistering
 
-	log.Info("migration deploying finished")
+	log.Infof("finish deploying: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }
