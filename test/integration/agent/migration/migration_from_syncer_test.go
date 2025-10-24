@@ -327,6 +327,25 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 			err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
 			if apierrors.IsNotFound(err) {
 				Expect(runtimeClient.Create(testCtx, cluster)).Should(Succeed())
+				// Update status separately as it's a subresource
+				Eventually(func() error {
+					err := runtimeClient.Get(testCtx, client.ObjectKeyFromObject(cluster), cluster)
+					if err != nil {
+						return err
+					}
+					cluster.Status = clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:               clusterv1.ManagedClusterConditionAvailable,
+								Status:             metav1.ConditionTrue,
+								LastTransitionTime: metav1.Now(),
+								Reason:             "ManagedClusterAvailable",
+								Message:            "Managed cluster is available",
+							},
+						},
+					}
+					return runtimeClient.Status().Update(testCtx, cluster)
+				}, 10*time.Second, 100*time.Millisecond).Should(Succeed())
 			} else {
 				Expect(err).To(Succeed())
 			}

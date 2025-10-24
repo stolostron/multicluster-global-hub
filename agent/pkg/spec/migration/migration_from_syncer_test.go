@@ -351,6 +351,14 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 						HubAcceptsClient:     false, // Set to false during registering
 						LeaseDurationSeconds: 60,
 					},
+					Status: clusterv1.ManagedClusterStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   clusterv1.ManagedClusterConditionAvailable,
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
 				},
 				&mchv1.MultiClusterHub{
 					ObjectMeta: metav1.ObjectMeta{
