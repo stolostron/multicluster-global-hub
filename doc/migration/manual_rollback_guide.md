@@ -298,7 +298,7 @@ After completing manual rollback, verify the following:
 
 ### Global Hub
 - [ ] ManagedServiceAccount deleted
-- [ ] ManagedClusterMigration CR shows phase as "Failed" (for rollback) or "Completed" (for cleaning)
+- [ ] ManagedClusterMigration CR shows phase as "Failed" or "Completed"
 
 ---
 
