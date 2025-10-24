@@ -27,6 +27,10 @@ export MC_NUM=${MC_NUM:-1}
 export KinD=true
 export CONFIG_DIR=$CURRENT_DIR/config
 export GH_KUBECONFIG=$CONFIG_DIR/$GH_NAME
+export AGGREGATED_KUBECONFIG=${CONFIG_DIR}/clusters
+export KUBECONFIG=${KUBECONFIG:-$AGGREGATED_KUBECONFIG}
+export KUBECONFIG_CMD_RETRIES=${KUBECONFIG_CMD_RETRIES:-10}
+export KUBECONFIG_CMD_SLEEP_SECONDS=${KUBECONFIG_CMD_SLEEP_SECONDS:-2}
 
 check_dir() {
   if [ ! -d "$1" ]; then
@@ -51,6 +55,107 @@ hover() {
     fi
   done
   printf "%s\n" "[$(date '+%H:%M:%S')]  ✅  ${message}"
+}
+
+acquire_kubeconfig_lock() {
+  local lock_dir="${CONFIG_DIR}/.kubeconfig-lock"
+  local timeout=${1:-120}
+  local waited=0
+
+  while true; do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      if [ "$KUBECONFIG" = "$AGGREGATED_KUBECONFIG" ]; then
+        rm -f "${KUBECONFIG}.lock"
+        [ -f "$KUBECONFIG" ] || touch "$KUBECONFIG"
+      fi
+      echo "$lock_dir"
+      return 0
+    fi
+
+    if [ -d "$lock_dir" ]; then
+      if find "$lock_dir" -maxdepth 0 -mmin +5 >/dev/null 2>&1; then
+        echo "Detected stale kubeconfig lock at $lock_dir, removing..." >&2
+        rmdir "$lock_dir" 2>/dev/null || true
+        continue
+      fi
+    fi
+
+    if [ $waited -ge $timeout ]; then
+      echo "Timeout acquiring kubeconfig lock: $lock_dir" >&2
+      return 1
+    fi
+
+    sleep 1
+    waited=$((waited + 1))
+  done
+}
+
+release_kubeconfig_lock() {
+  local lock_dir=$1
+  if [ -n "$lock_dir" ] && [ -d "$lock_dir" ]; then
+    rmdir "$lock_dir" 2>/dev/null || true
+  fi
+}
+
+kubectl_config_command() {
+  local ignore_missing_context=false
+  local args=()
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+    --ignore-missing-context)
+      ignore_missing_context=true
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      break
+      ;;
+    esac
+  done
+
+  args=("$@")
+
+  local attempts=0
+  local max_attempts=$KUBECONFIG_CMD_RETRIES
+  local sleep_seconds=$KUBECONFIG_CMD_SLEEP_SECONDS
+  local output
+  local status
+
+  while [ $attempts -lt $max_attempts ]; do
+    output=$(kubectl --kubeconfig "$KUBECONFIG" "${args[@]}" 2>&1)
+    status=$?
+    if [ $status -eq 0 ]; then
+      if [ -n "$output" ]; then
+        printf '%s\n' "$output"
+      fi
+      return 0
+    fi
+
+    if [ "$ignore_missing_context" = true ] && [[ "$output" == *"no context exists with the name"* ]]; then
+      return 0
+    fi
+
+    if [[ "$output" == *"${KUBECONFIG}.lock: file exists"* ]] || [[ "$output" == *"clusters.lock: file exists"* ]]; then
+      attempts=$((attempts + 1))
+      if [ $attempts -ge $max_attempts ]; then
+        printf '%s\n' "$output" >&2
+        return $status
+      fi
+      echo "kubectl ${args[*]} is waiting for kubeconfig lock (attempt $attempts/$max_attempts)..." >&2
+      sleep "$sleep_seconds"
+      continue
+    fi
+
+    printf '%s\n' "$output" >&2
+    return $status
+  done
+
+  echo "kubectl ${args[*]} exceeded retry limit ($max_attempts attempts)" >&2
+  return 1
 }
 
 check_kubectl() {
@@ -134,94 +239,38 @@ ensure_cluster() {
   local cluster_name="$1"
   local kubeconfig="$2"
   local kind_image="$3"
+  (
+    set -e
+    local lock_dir
+    lock_dir=$(acquire_kubeconfig_lock) || exit 1
+    trap 'release_kubeconfig_lock "$lock_dir"' EXIT
 
-  if kind get clusters 2>/dev/null | grep -xq "$cluster_name"; then
-    kind delete cluster --name="$cluster_name"
-  fi
-
-  if [ -n "$kind_image" ]; then
-    kind create cluster --name "$cluster_name" --image "$kind_image" --wait 5m
-  else
-    kind create cluster --name "$cluster_name" --wait 5m
-  fi
-
-  if [ $? -ne 0 ]; then
-    echo -e "${RED}Failed to create kind cluster: $cluster_name${NC}"
-    exit 1
-  fi
-
-  # modify the context = KinD cluster name = kubeconfig name
-  # Retry kubectl config commands to handle KUBECONFIG lock conflicts
-  local max_retries=10
-  local retry_count=0
-  local success=false
-
-  while [ $retry_count -lt $max_retries ]; do
-    if kubectl config delete-context "$cluster_name" 2>/dev/null || true; then
-      if kubectl config rename-context "kind-$cluster_name" "$cluster_name" 2>/dev/null; then
-        success=true
-        break
-      fi
+    if kind get clusters 2>/dev/null | grep -xq "$cluster_name"; then
+      kind delete cluster --name="$cluster_name"
     fi
 
-    # Check if the error is due to lock file
-    if [ $? -ne 0 ]; then
-      echo -e "${YELLOW}Retrying kubectl config operations due to lock conflict (attempt $((retry_count + 1))/$max_retries)...${NC}"
-      sleep 1
-      retry_count=$((retry_count + 1))
+    if [ -n "$kind_image" ]; then
+      kind create cluster --name "$cluster_name" --image "$kind_image" --wait 5m
+    else
+      kind create cluster --name "$cluster_name" --wait 5m
     fi
-  done
 
-  if [ "$success" = false ]; then
-    echo -e "${RED}Failed to configure context for cluster $cluster_name after $max_retries attempts${NC}"
-    echo -e "${RED}This is usually caused by KUBECONFIG lock conflicts${NC}"
-    exit 1
-  fi
+    # modify the context = KinD cluster name = kubeconfig name
+    kubectl_config_command --ignore-missing-context config delete-context "$cluster_name"
+    kubectl_config_command config rename-context "kind-$cluster_name" "$cluster_name"
 
-  # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
-  local node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
+    # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
+    local node_ip
+    node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
 
-  if [ -z "$node_ip" ]; then
-    echo -e "${RED}Failed to get node IP for cluster $cluster_name${NC}"
-    exit 1
-  fi
-
-  retry_count=0
-  success=false
-  while [ $retry_count -lt $max_retries ]; do
-    if kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443" 2>/dev/null; then
-      success=true
-      break
+    kubectl_config_command config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443"
+    kubectl_config_command config view --context="$cluster_name" --minify --flatten >"$kubeconfig"
+    if [ ! -s "$kubeconfig" ]; then
+      echo "Failed to write kubeconfig for $cluster_name to $kubeconfig" >&2
+      exit 1
     fi
-    echo -e "${YELLOW}Retrying kubectl config set-cluster (attempt $((retry_count + 1))/$max_retries)...${NC}"
-    sleep 1
-    retry_count=$((retry_count + 1))
-  done
-
-  if [ "$success" = false ]; then
-    echo -e "${RED}Failed to set cluster server for $cluster_name after $max_retries attempts${NC}"
-    exit 1
-  fi
-
-  # Verify context exists before writing kubeconfig
-  retry_count=0
-  success=false
-  while [ $retry_count -lt $max_retries ]; do
-    if kubectl config view --context="$cluster_name" --minify --flatten >"$kubeconfig" 2>/dev/null; then
-      if [ -f "$kubeconfig" ] && [ -s "$kubeconfig" ]; then
-        success=true
-        break
-      fi
-    fi
-    echo -e "${YELLOW}Retrying kubectl config view (attempt $((retry_count + 1))/$max_retries)...${NC}"
-    sleep 1
-    retry_count=$((retry_count + 1))
-  done
-
-  if [ "$success" = false ]; then
-    echo -e "${RED}Failed to write kubeconfig for context $cluster_name after $max_retries attempts${NC}"
-    exit 1
-  fi
+    kubectl_config_command config get-contexts "$cluster_name" >/dev/null
+  )
 }
 
 init_hub() {
@@ -880,8 +929,10 @@ retry() {
 
   if [ "$success" = true ]; then
     echo -e "${GREEN}$1: Success. $NC "
+    return 0
   else
     echo -e "${RED}$1: Failed after $retries attempts. $NC "
+    return 1
   fi
 }
 
