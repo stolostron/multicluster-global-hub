@@ -21,16 +21,10 @@ The Global Hub cluster migration process consists of the following phases:
 
 #### 1.1 Global Hub
 
-**Step 1: Delete the ManagedServiceAccount** created for the migration
+Delete the ManagedServiceAccount created for the migration:
 
 ```bash
 kubectl delete managedserviceaccount <migration-name> -n <target-hub-name>
-```
-
-**Step 2: Delete the migration status ConfigMap** (if exists)
-
-```bash
-kubectl delete configmap <migration-name> -n multicluster-global-hub --ignore-not-found=true
 ```
 
 #### 1.2 Source Hub
@@ -157,22 +151,13 @@ done
 
 **Failure Scenario**: Network issues preventing cluster re-registration, cluster connection failures to target hub, or ManifestWork application timeout.
 
-> **Important**: Some clusters may have successfully registered to the target hub while others failed. The migration controller tracks cluster migration status in a ConfigMap.
->
-> **Get failed clusters list** (clusters that need rollback):
+> **Important**: Some clusters may have successfully registered to the target hub while others failed. The migration controller tracks cluster migration status in a ConfigMap. You need to get the list of failed clusters for rollback:
 >
 > ```bash
 > # ConfigMap name: <migration-name> (same as ManagedClusterMigration CR name)
 > # Namespace: multicluster-global-hub
 > # Key: "failure" - contains comma-separated list of failed cluster names
 > kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.failure}'
-> ```
->
-> **Get successful clusters list**:
->
-> ```bash
-> # Key: "success" - contains comma-separated list of successfully migrated cluster names
-> kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}'
 > ```
 
 #### 3.1 Global Hub
@@ -230,25 +215,21 @@ Same as [Deploying Phase - Target Hub](#23-target-hub):
 
 **Scenario**: Migration completed successfully, but the cleaning phase failed to remove residual resources.
 
-> **Note**: The cleaning phase removes resources from the source hub for clusters that successfully migrated to the target hub. You can get the list of successfully migrated clusters from the ConfigMap:
+> **Note**: The cleaning phase removes resources from the source hub for clusters that successfully migrated to the target hub. You need to get the list of successfully migrated clusters from the ConfigMap:
 >
 > ```bash
-> # Get the list of successfully migrated clusters
+> # ConfigMap name: <migration-name> (same as ManagedClusterMigration CR name)
+> # Namespace: multicluster-global-hub
+> # Key: "success" - contains comma-separated list of successfully migrated cluster names
 > kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}'
 > ```
 
 #### 4.1 Global Hub
 
-**Step 1: Delete the ManagedServiceAccount**
+Delete the ManagedServiceAccount:
 
 ```bash
 kubectl delete managedserviceaccount <migration-name> -n <target-hub-name>
-```
-
-**Step 2: Delete the migration status ConfigMap**
-
-```bash
-kubectl delete configmap <migration-name> -n multicluster-global-hub
 ```
 
 #### 4.2 Source Hub
@@ -312,7 +293,6 @@ After completing manual rollback, verify the following:
 
 ### Global Hub
 - [ ] ManagedServiceAccount deleted
-- [ ] Migration status ConfigMap deleted (if applicable)
 - [ ] ManagedClusterMigration CR shows phase as "Failed" (for rollback) or "Completed" (for cleaning)
 
 ---
