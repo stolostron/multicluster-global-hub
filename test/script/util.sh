@@ -145,15 +145,83 @@ ensure_cluster() {
     kind create cluster --name "$cluster_name" --wait 5m
   fi
 
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to create kind cluster: $cluster_name${NC}"
+    exit 1
+  fi
+
   # modify the context = KinD cluster name = kubeconfig name
-  kubectl config delete-context "$cluster_name" 2>/dev/null || true
-  kubectl config rename-context "kind-$cluster_name" "$cluster_name"
+  # Retry kubectl config commands to handle KUBECONFIG lock conflicts
+  local max_retries=10
+  local retry_count=0
+  local success=false
+
+  while [ $retry_count -lt $max_retries ]; do
+    if kubectl config delete-context "$cluster_name" 2>/dev/null || true; then
+      if kubectl config rename-context "kind-$cluster_name" "$cluster_name" 2>/dev/null; then
+        success=true
+        break
+      fi
+    fi
+
+    # Check if the error is due to lock file
+    if [ $? -ne 0 ]; then
+      echo -e "${YELLOW}Retrying kubectl config operations due to lock conflict (attempt $((retry_count + 1))/$max_retries)...${NC}"
+      sleep 1
+      retry_count=$((retry_count + 1))
+    fi
+  done
+
+  if [ "$success" = false ]; then
+    echo -e "${RED}Failed to configure context for cluster $cluster_name after $max_retries attempts${NC}"
+    echo -e "${RED}This is usually caused by KUBECONFIG lock conflicts${NC}"
+    exit 1
+  fi
 
   # modify the apiserver, so that the spoken cluster can use the kubeconfig to connect it:  governance-policy-framework-addon
   local node_ip=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$1-control-plane")
 
-  kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443"
-  kubectl config view --context="$cluster_name" --minify --flatten >"$kubeconfig"
+  if [ -z "$node_ip" ]; then
+    echo -e "${RED}Failed to get node IP for cluster $cluster_name${NC}"
+    exit 1
+  fi
+
+  retry_count=0
+  success=false
+  while [ $retry_count -lt $max_retries ]; do
+    if kubectl config set-cluster "kind-$cluster_name" --server="https://$node_ip:6443" 2>/dev/null; then
+      success=true
+      break
+    fi
+    echo -e "${YELLOW}Retrying kubectl config set-cluster (attempt $((retry_count + 1))/$max_retries)...${NC}"
+    sleep 1
+    retry_count=$((retry_count + 1))
+  done
+
+  if [ "$success" = false ]; then
+    echo -e "${RED}Failed to set cluster server for $cluster_name after $max_retries attempts${NC}"
+    exit 1
+  fi
+
+  # Verify context exists before writing kubeconfig
+  retry_count=0
+  success=false
+  while [ $retry_count -lt $max_retries ]; do
+    if kubectl config view --context="$cluster_name" --minify --flatten >"$kubeconfig" 2>/dev/null; then
+      if [ -f "$kubeconfig" ] && [ -s "$kubeconfig" ]; then
+        success=true
+        break
+      fi
+    fi
+    echo -e "${YELLOW}Retrying kubectl config view (attempt $((retry_count + 1))/$max_retries)...${NC}"
+    sleep 1
+    retry_count=$((retry_count + 1))
+  done
+
+  if [ "$success" = false ]; then
+    echo -e "${RED}Failed to write kubeconfig for context $cluster_name after $max_retries attempts${NC}"
+    exit 1
+  fi
 }
 
 init_hub() {
