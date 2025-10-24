@@ -178,9 +178,11 @@ kubectl patch managedcluster <cluster-name> --type=json \
 <summary>Batch processing script using ConfigMap</summary>
 
 ```bash
-# Get failed clusters from ConfigMap
-FAILED_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.failure}')
+# Step 1: Get failed clusters list from Global Hub (run this on Global Hub kubeconfig)
+# The ConfigMap only exists on Global Hub
+FAILED_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.failure}' --kubeconfig=<global-hub-kubeconfig>)
 
+# Step 2: Run on Source Hub to restore connectivity (switch to Source Hub kubeconfig)
 # Convert comma-separated list to array
 IFS=',' read -ra CLUSTERS <<< "$FAILED_CLUSTERS"
 
@@ -188,7 +190,8 @@ IFS=',' read -ra CLUSTERS <<< "$FAILED_CLUSTERS"
 for CLUSTER in "${CLUSTERS[@]}"; do
   echo "Restoring connectivity for cluster: $CLUSTER"
   kubectl patch managedcluster ${CLUSTER} --type=json \
-    -p='[{"op": "replace", "path": "/spec/hubAcceptsClient", "value": true}]'
+    -p='[{"op": "replace", "path": "/spec/hubAcceptsClient", "value": true}]' \
+    --kubeconfig=<source-hub-kubeconfig>
 done
 ```
 </details>
@@ -252,16 +255,18 @@ kubectl delete managedcluster <cluster-name>
 <summary>Batch processing script using ConfigMap</summary>
 
 ```bash
-# Get successfully migrated clusters from ConfigMap
-SUCCESS_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}')
+# Step 1: Get successfully migrated clusters list from Global Hub (run this on Global Hub kubeconfig)
+# The ConfigMap only exists on Global Hub
+SUCCESS_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}' --kubeconfig=<global-hub-kubeconfig>)
 
+# Step 2: Run on Source Hub to delete migrated clusters (switch to Source Hub kubeconfig)
 # Convert comma-separated list to array
 IFS=',' read -ra CLUSTERS <<< "$SUCCESS_CLUSTERS"
 
 # Delete each successfully migrated cluster from source hub
 for CLUSTER in "${CLUSTERS[@]}"; do
   echo "Deleting migrated cluster: $CLUSTER"
-  kubectl delete managedcluster ${CLUSTER}
+  kubectl delete managedcluster ${CLUSTER} --kubeconfig=<source-hub-kubeconfig>
 done
 ```
 </details>
