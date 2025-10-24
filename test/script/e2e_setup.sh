@@ -13,6 +13,12 @@ export KUBECONFIG=${KUBECONFIG:-${CONFIG_DIR}/clusters}
 
 [ -d "$CONFIG_DIR" ] || (mkdir -p "$CONFIG_DIR")
 
+# Clean up any stale KUBECONFIG lock files from previous failed runs
+if [ -f "${KUBECONFIG}.lock" ]; then
+  echo -e "${YELLOW}Removing stale KUBECONFIG lock file: ${KUBECONFIG}.lock${NC}"
+  rm -f "${KUBECONFIG}.lock"
+fi
+
 start=$(date +%s)
 
 # Init clusters
@@ -59,26 +65,48 @@ echo -e "${YELLOW} initializing hubs:${NC} $(($(date +%s) - start_time)) seconds
 start_time=$(date +%s)
 
 # gobal-hub: hub1, hub2
+pids=()
 for i in $(seq 1 "${MH_NUM}"); do
   bash "$CURRENT_DIR"/ocm.sh "$GH_NAME" "hub$i" HUB_INIT=false POLICY_INIT=false 2>&1 &
-  echo "$!" >>"$CONFIG_DIR/PID"
+  pid=$!
+  pids+=($pid)
+  echo "$pid" >>"$CONFIG_DIR/PID"
 done
 
 # hub1: cluster1 | hub2: cluster1
 for i in $(seq 1 "${MH_NUM}"); do
   for j in $(seq 1 "${MC_NUM}"); do
     bash "$CURRENT_DIR"/ocm.sh "hub$i" "hub$i-cluster$j" HUB_INIT=false 2>&1 &
-    echo "$!" >>"$CONFIG_DIR/PID"
+    pid=$!
+    pids+=($pid)
+    echo "$pid" >>"$CONFIG_DIR/PID"
   done
 done
 
 # install the BYO (Bring Your Own) PostgreSQL and Kafka asynchronously during the OCMS installation
 bash "$CURRENT_DIR/e2e_postgres.sh" "$CONFIG_DIR/hub1" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >"$CONFIG_DIR/PID"
+pid=$!
+pids+=($pid)
+echo "$pid" >"$CONFIG_DIR/PID"
 bash "$CURRENT_DIR/e2e_kafka.sh" "$CONFIG_DIR/hub2" "$GH_KUBECONFIG" 2>&1 &
-echo "$!" >>"$CONFIG_DIR/PID"
+pid=$!
+pids+=($pid)
+echo "$pid" >>"$CONFIG_DIR/PID"
 
-wait
+# Wait for all background processes and check for failures
+failed=0
+for pid in "${pids[@]}"; do
+  if ! wait "$pid"; then
+    echo -e "${RED}Process $pid failed${NC}"
+    failed=1
+  fi
+done
+
+if [ $failed -eq 1 ]; then
+  echo -e "${RED}One or more setup processes failed. Exiting...${NC}"
+  exit 1
+fi
+
 echo -e "${YELLOW} installing ocm and policy:${NC} $(($(date +%s) - start_time)) seconds"
 
 # apply standalone agent
