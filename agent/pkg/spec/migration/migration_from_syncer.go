@@ -645,6 +645,18 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		}
 	}
 
+	// awit all the cluster is available in the sources hub
+	for _, managedCluster := range spec.ManagedClusters {
+		mc := &clusterv1.ManagedCluster{}
+		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, mc)
+		if err != nil {
+			return fmt.Errorf("failed to get managed cluster %s: %w", managedCluster, err)
+		}
+		if !s.isManagedClusterAvailable(mc) {
+			return fmt.Errorf("managed cluster %s is not available in the source hub", managedCluster)
+		}
+	}
+
 	return nil
 }
 

@@ -123,6 +123,13 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		return true, nil
 	}
 
+	// wait until the cluster is available in the source hub
+	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
+		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
+		waitingHub = fromHub
+		return true, nil
+	}
+
 	// 3. Clean up managed service account and related resources created during initialization
 	if err := m.cleanupManagedServiceAccount(ctx, mcm); err != nil {
 		condition.Message = fmt.Sprintf("failed to cleanup managed service account: %v", err)
@@ -142,7 +149,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 }
 
 func (m *ClusterMigrationController) manuallyRollbackMsg(failedStage, fromHub, errMsg string) string {
-	return fmt.Sprintf("%s stage rollback failed on source hub %s: %s. "+
+	return fmt.Sprintf("%s stage rollback failed on hub %s: %s. "+
 		"Manual intervention required: please ensure annotations (%s and %s) are removed from the managed clusters",
 		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating,
 		"agent.open-cluster-management.io/klusterlet-config")
