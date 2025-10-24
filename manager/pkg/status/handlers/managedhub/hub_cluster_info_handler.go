@@ -12,7 +12,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/cluster"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -54,10 +53,13 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 	}
 
 	leafHubName := evt.Source()
-	clusterId := constants.DefaultClusterId
-	if len(hubInfoData.ClusterId) != 0 {
-		clusterId = hubInfoData.ClusterId
+
+	// Ignore data which do not have clusterid
+	if len(hubInfoData.ClusterId) == 0 {
+		log.Infof("no cluster id for hub info, hubInfo: %v", hubInfoData)
+		return nil
 	}
+	clusterId := hubInfoData.ClusterId
 	payload, err := json.Marshal(hubInfoData)
 	if err != nil {
 		return err
