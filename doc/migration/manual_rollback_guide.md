@@ -30,7 +30,7 @@ kubectl delete managedserviceaccount <migration-name> -n <target-hub-name>
 **Step 2: Delete the migration status ConfigMap** (if exists)
 
 ```bash
-kubectl delete configmap <migration-name>-clusters -n multicluster-global-hub-system --ignore-not-found=true
+kubectl delete configmap <migration-name> -n multicluster-global-hub --ignore-not-found=true
 ```
 
 #### 1.2 Source Hub
@@ -162,17 +162,17 @@ done
 > **Get failed clusters list** (clusters that need rollback):
 >
 > ```bash
-> # ConfigMap name format: <migration-name>-clusters
-> # Namespace: multicluster-global-hub-system
+> # ConfigMap name: <migration-name> (same as ManagedClusterMigration CR name)
+> # Namespace: multicluster-global-hub
 > # Key: "failure" - contains comma-separated list of failed cluster names
-> kubectl get configmap <migration-name>-clusters -n multicluster-global-hub-system -o jsonpath='{.data.failure}'
+> kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.failure}'
 > ```
 >
 > **Get successful clusters list**:
 >
 > ```bash
 > # Key: "success" - contains comma-separated list of successfully migrated cluster names
-> kubectl get configmap <migration-name>-clusters -n multicluster-global-hub-system -o jsonpath='{.data.success}'
+> kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}'
 > ```
 
 #### 3.1 Global Hub
@@ -194,7 +194,7 @@ kubectl patch managedcluster <cluster-name> --type=json \
 
 ```bash
 # Get failed clusters from ConfigMap
-FAILED_CLUSTERS=$(kubectl get configmap <migration-name>-clusters -n multicluster-global-hub-system -o jsonpath='{.data.failure}')
+FAILED_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.failure}')
 
 # Convert comma-separated list to array
 IFS=',' read -ra CLUSTERS <<< "$FAILED_CLUSTERS"
@@ -234,7 +234,7 @@ Same as [Deploying Phase - Target Hub](#23-target-hub):
 >
 > ```bash
 > # Get the list of successfully migrated clusters
-> kubectl get configmap <migration-name>-clusters -n multicluster-global-hub-system -o jsonpath='{.data.success}'
+> kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}'
 > ```
 
 #### 4.1 Global Hub
@@ -248,7 +248,7 @@ kubectl delete managedserviceaccount <migration-name> -n <target-hub-name>
 **Step 2: Delete the migration status ConfigMap**
 
 ```bash
-kubectl delete configmap <migration-name>-clusters -n multicluster-global-hub-system
+kubectl delete configmap <migration-name> -n multicluster-global-hub
 ```
 
 #### 4.2 Source Hub
@@ -272,7 +272,7 @@ kubectl delete managedcluster <cluster-name>
 
 ```bash
 # Get successfully migrated clusters from ConfigMap
-SUCCESS_CLUSTERS=$(kubectl get configmap <migration-name>-clusters -n multicluster-global-hub-system -o jsonpath='{.data.success}')
+SUCCESS_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}')
 
 # Convert comma-separated list to array
 IFS=',' read -ra CLUSTERS <<< "$SUCCESS_CLUSTERS"
@@ -384,7 +384,7 @@ kubectl patch clustermanager cluster-manager --type=merge -p '{
 | ManagedServiceAccount | `<migration-name>` | Global Hub, namespace: `<target-hub-name>` |
 | Bootstrap Secret | `bootstrap-<target-hub-name>` | Source Hub, namespace: `multicluster-engine` |
 | KlusterletConfig | `migration-<target-hub-name>` | Source Hub |
-| ConfigMap (Migration Status) | `<migration-name>-clusters` | Global Hub, namespace: `multicluster-global-hub-system` |
+| ConfigMap (Migration Status) | `<migration-name>` | Global Hub, namespace: `multicluster-global-hub` |
 | ClusterRole (SubjectAccessReview) | `global-hub-migration-<migration-name>-sar` | Target Hub |
 | ClusterRoleBinding (SubjectAccessReview) | `global-hub-migration-<migration-name>-sar` | Target Hub |
 | ClusterRoleBinding (Registration) | `global-hub-migration-<migration-name>-registration` | Target Hub |
@@ -398,7 +398,7 @@ kubectl patch clustermanager cluster-manager --type=merge -p '{
 
 ### ConfigMap Data Keys
 
-The migration status ConfigMap (`<migration-name>-clusters`) contains two keys that track cluster migration status:
+The migration status ConfigMap (`<migration-name>`) contains two keys that track cluster migration status:
 
 | Key | Purpose | Value Format |
 |-----|---------|--------------|
@@ -410,8 +410,8 @@ The migration status ConfigMap (`<migration-name>-clusters`) contains two keys t
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: migration-example-clusters
-  namespace: multicluster-global-hub-system
+  name: migration-example  # Same as ManagedClusterMigration CR name
+  namespace: multicluster-global-hub
 data:
   success: "cluster1,cluster2,cluster3"
   failure: "cluster4,cluster5"
