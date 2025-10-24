@@ -46,7 +46,10 @@ for i in $(seq 1 "${MH_NUM}"); do
   pids+=($!)
 done
 for pid in "${pids[@]}"; do
-  wait "$pid" || true
+  if ! wait "$pid"; then
+    echo "Background initialization task $pid failed. See logs above for details." >&2
+    exit 1
+  fi
 done
 
 # service-ca
