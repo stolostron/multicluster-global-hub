@@ -33,7 +33,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 		return false, nil
 	}
 
-	log.Info("migration start cleaning")
+	log.Infof("start cleaning: %s (uid: %s)", mcm.Name, mcm.UID)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeCleaned,
@@ -78,6 +78,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 			condition.Reason = ConditionReasonError
 			return false, nil // Let defer handle the status update
 		}
+		log.Infof("cleaning source hub(%s): %s (uid: %s)", fromHub, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseCleaning)
 	}
 
@@ -88,6 +89,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 			condition.Reason = ConditionReasonError
 			return false, nil // Let defer handle the status update
 		}
+		log.Infof("cleaning target hub(%s): %s (uid: %s)", mcm.Spec.To, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseCleaning)
 	}
 
@@ -120,7 +122,7 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	condition.Message = "Resources have been successfully cleaned up from the hub clusters"
 	nextPhase = migrationv1alpha1.PhaseCompleted
 
-	log.Info("migration cleaning finished")
+	log.Infof("finish cleaning: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }
 

@@ -48,7 +48,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		mcm.Status.Phase != migrationv1alpha1.PhaseInitializing {
 		return false, nil
 	}
-	log.Infof("migration %v initializing started", mcm.Name)
+	log.Infof("start initializing: %s (uid: %s)", mcm.Name, mcm.UID)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeInitialized,
@@ -61,6 +61,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	defer m.handleStatusWithRollback(ctx, mcm, &condition, &nextPhase, getTimeout(migrationv1alpha1.PhaseInitializing))
 
 	// 1. Create the managedserviceaccount -> generate bootstrap secret
+	log.Infof("creating managedserviceaccount: %s (uid: %s)", mcm.Name, mcm.UID)
 	if err := m.ensureManagedServiceAccount(ctx, mcm); err != nil {
 		return false, err
 	}
@@ -82,6 +83,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 		condition.Reason = ConditionReasonError
 		return false, err
 	}
+	log.Infof("generated bootstrap secret: %s (uid: %s)", mcm.Name, mcm.UID)
 
 	// 2. Send event to destination hub -> ensure the produce event 'exactly-once'
 	// Important: Registration must occur only after autoApprove is successfully set.
@@ -92,7 +94,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			condition.Reason = ConditionReasonError
 			return false, err
 		}
-		log.Infof("sent initializing event to target hub %s", mcm.Spec.To)
+		log.Infof("initializing target hub: %s (uid: %s)", mcm.Spec.To, mcm.UID)
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing)
 	}
 
@@ -108,7 +110,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 			condition.Reason = ConditionReasonError
 			return false, err
 		}
-		log.Infof("sent initialing events to source hubs: %s", fromHub)
+		log.Infof("initializing source hub: %s (uid: %s)", fromHub, mcm.UID)
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing)
 	}
 
@@ -139,7 +141,7 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 	condition.Message = "All source and target hubs have been successfully initialized"
 	nextPhase = migrationv1alpha1.PhaseDeploying
 
-	log.Info("migration initializing finished")
+	log.Infof("finish initializing: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }
 

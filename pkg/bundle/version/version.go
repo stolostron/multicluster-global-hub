@@ -57,6 +57,19 @@ func (v *Version) NewerThanOrEqual(other *Version) bool {
 	return v.Generation >= other.Generation && v.Value >= other.Value
 }
 
+func (v *Version) NewerThan(other *Version) bool {
+	if other == nil {
+		return true
+	}
+	if v.Equals(other) {
+		return false
+	}
+	if v.Generation != other.Generation {
+		return v.Generation > other.Generation
+	}
+	return v.Value > other.Value
+}
+
 // Equals returns whether the caller's version is equal to that received as argument.
 func (v *Version) Equals(other *Version) bool {
 	return v.Generation == other.Generation && v.Value == other.Value

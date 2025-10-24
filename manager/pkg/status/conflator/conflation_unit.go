@@ -33,22 +33,21 @@ func newConflationUnit(name string, readyQueue *ConflationReadyQueue,
 		lock:           sync.Mutex{},
 		statistics:     statistics,
 	}
-
+	log.Infof("registering %d elements into conflation unit", "count", len(registrations))
 	for _, registration := range registrations {
 		if registration.syncMode == enum.CompleteStateMode {
-			log.Infow("registering complete element", "eventType", registration.eventType)
+			log.Infow("registering complete element", "type", enum.ShortenEventType(registration.eventType))
 			conflationUnit.ElementPriorityQueue[registration.priority] = NewCompleteElement(name, registration)
 		}
 		if registration.syncMode == enum.DeltaStateMode {
-			log.Infow("registering delta element", "eventType", registration.eventType)
+			log.Infow("registering delta element", "type", enum.ShortenEventType(registration.eventType))
 			conflationUnit.ElementPriorityQueue[registration.priority] = NewDeltaElement(name, registration)
 		}
 
 		if registration.syncMode == enum.HybridStateMode {
-			log.Infow("registering hybrid element", "eventType", registration.eventType)
+			log.Infow("registering hybrid element", "type", enum.ShortenEventType(registration.eventType))
 			conflationUnit.ElementPriorityQueue[registration.priority] = NewHybridElement(registration)
 		}
-
 		conflationUnit.eventTypeToPriority[registration.eventType] = registration.priority
 	}
 

@@ -31,7 +31,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 		return false, nil
 	}
 
-	log.Infof("migration %v registering", mcm.Name)
+	log.Infof("start registering: %s (uid: %s)", mcm.Name, mcm.UID)
 
 	condition := metav1.Condition{
 		Type:    migrationv1alpha1.ConditionTypeRegistered,
@@ -48,7 +48,6 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
 		// notify the source hub to start registering
-		log.Infof("sending registering event to source hub: %s, clusters: %v", fromHub, clusters)
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRegistering,
 			clusters, nil, "")
 		if err != nil {
@@ -56,6 +55,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 			condition.Reason = ConditionReasonError
 			return false, err
 		}
+		log.Infof("registering to source hub(%s): %s (uid: %s)", fromHub, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering)
 	}
 
@@ -73,13 +73,13 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
 		// notify the target hub to start registering
-		log.Infof("sending registering event to target hub: %s, clusters: %v", mcm.Spec.To, clusters)
 		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRegistering, clusters, "")
 		if err != nil {
 			condition.Message = err.Error()
 			condition.Reason = ConditionReasonError
 			return false, err
 		}
+		log.Infof("registering to target hub: %s (uid: %s)", mcm.Spec.To, mcm.UID)
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering)
 	}
 
@@ -114,5 +114,6 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	condition.Message = "All migrated clusters have been successfully registered"
 	nextPhase = migrationv1alpha1.PhaseCleaning
 
+	log.Infof("finish registering: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }

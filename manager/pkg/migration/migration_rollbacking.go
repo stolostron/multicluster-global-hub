@@ -30,7 +30,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		return false, nil
 	}
 
-	log.Infof("migration %s rollbacking started", mcm.Name)
+	log.Infof("start rollbacking: %s (uid: %s)", mcm.Name, mcm.UID)
 
 	// Determine the failed stage to provide context in messages
 	failedStage := m.determineFailedStage(ctx, mcm)
@@ -67,7 +67,6 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	log.Infof("rollbacking the failed clusters: %v", rollbackingClusters)
 
 	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
-		log.Infof("sending rollback event to source hub: %s", fromHub)
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseRollbacking, rollbackingClusters,
 			getBootstrapSecret(fromHub, nil), failedStage)
 		if err != nil {
@@ -76,6 +75,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 			condition.Reason = ConditionReasonError
 			return false, err
 		}
+		log.Infof("rollbacking to source hub(%s): %s (uid: %s)", fromHub, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking)
 	}
 
@@ -96,7 +96,6 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// 2. Send rollback event to destination hub to clean up partial resources
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
-		log.Infof("sending rollback event to destination hub: %s", mcm.Spec.To)
 		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, rollbackingClusters, failedStage)
 		if err != nil {
 			condition.Message = fmt.Sprintf("failed to send %s stage rollback event to target hub %s: %v", failedStage,
@@ -105,6 +104,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 			condition.Status = metav1.ConditionFalse
 			return false, err
 		}
+		log.Infof("rollbacking to target hub(%s): %s (uid: %s)", mcm.Spec.To, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking)
 	}
 
@@ -132,12 +132,12 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// 4. Clean up migration annotations from managed clusters on source hubs
 	// Note: This is handled by the rollback events sent to source hubs above
-	log.Info("managed cluster annotation cleanup will be handled by source hub agents")
-
 	condition.Status = metav1.ConditionTrue
 	condition.Reason = ConditionReasonResourceRolledBack
 	condition.Message = fmt.Sprintf("%s rollback %d clusters completed successfully.",
 		failedStage, len(rollbackingClusters))
+
+	log.Infof("finish rollbacking: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }
 

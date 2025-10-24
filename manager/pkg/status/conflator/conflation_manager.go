@@ -1,12 +1,14 @@
 package conflator
 
 import (
+	"fmt"
 	"sync"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator/metadata"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -47,6 +49,7 @@ func NewConflationManager(statistics *statistics.Statistics,
 // Register registers bundle type with priority and handler function within the conflation manager.
 func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 	cm.registrations[registration.eventType] = registration
+	cm.log.Infow("registered event type", "type", enum.ShortenEventType(registration.eventType))
 	cm.statistics.Register(registration.eventType)
 }
 
@@ -54,7 +57,8 @@ func (cm *ConflationManager) Register(registration *ConflationRegistration) {
 func (cm *ConflationManager) Insert(evt *cloudevents.Event) {
 	// validate the event
 	if _, ok := cm.registrations[evt.Type()]; !ok {
-		cm.log.Infow("event type hasn't been registered", "type", evt.Type())
+		cm.log.Infow("unregistered event type", "type", enum.ShortenEventType(evt.Type()))
+		fmt.Print(evt)
 		return
 	}
 	// metadata
