@@ -50,6 +50,8 @@ func (m *ClusterMigrationController) cleaning(ctx context.Context,
 	// Be cautious — this action may carry potential risks.
 	if err := m.deleteManagedServiceAccount(ctx, mcm); err != nil {
 		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
+		log.Errorf("failed to delete the managedServiceAccount: %s/%s", mcm.Spec.To, mcm.Name)
+
 		condition.Message = fmt.Sprintf("failed to delete managedServiceAccount: %v", err)
 		condition.Reason = ConditionReasonError
 		return false, nil // Let defer handle the status update
