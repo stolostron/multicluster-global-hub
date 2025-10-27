@@ -348,7 +348,8 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 			continue
 		}
 
-		compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(ctx, policyComplianceQuery, policyUID)
+		compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(ctx,
+			policyComplianceQuery, policyUID)
 		if err != nil {
 			_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 			continue
