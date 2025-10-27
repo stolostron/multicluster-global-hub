@@ -143,7 +143,7 @@ func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string) {
 
 	ticker := time.NewTicker(syncIntervalInSeconds * time.Second)
 
-	_, cancelContext := context.WithCancel(context.Background())
+	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
 	// instead of holding the previously added managed clusters by memory
@@ -165,16 +165,16 @@ func handleRowsForWatch(ginCtx *gin.Context, managedClusterListQuery string) {
 				return
 			}
 
-			doHandleRowsForWatch(writer, managedClusterListQuery, preAddedManagedClusterNames)
+			doHandleRowsForWatch(ctx, writer, managedClusterListQuery, preAddedManagedClusterNames)
 		}
 	}
 }
 
-func doHandleRowsForWatch(writer io.Writer, managedClusterListQuery string,
+func doHandleRowsForWatch(ctx context.Context, writer io.Writer, managedClusterListQuery string,
 	preAddedManagedClusterNames set.Set,
 ) {
 	db := database.GetGorm()
-	rows, err := db.Raw(managedClusterListQuery).Rows()
+	rows, err := db.WithContext(ctx).Raw(managedClusterListQuery).Rows()
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in quering managed cluster list: %v\n", err)
 	}
@@ -242,12 +242,13 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	db := database.GetGorm()
+	ctx := ginCtx.Request.Context()
 
 	// load the lastManaged cluster
 	lastManagedCluster := &clusterv1.ManagedCluster{}
 
 	var payload []byte
-	err := db.Raw(lastManagedClusterQuery).Row().Scan(&payload)
+	err := db.WithContext(ctx).Raw(lastManagedClusterQuery).Row().Scan(&payload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying row: %v\n", err)
@@ -262,7 +263,7 @@ func handleRows(ginCtx *gin.Context, managedClusterListQuery, lastManagedCluster
 	}
 
 	// get hte managed cluster list
-	rows, err := db.Raw(managedClusterListQuery).Rows()
+	rows, err := db.WithContext(ctx).Raw(managedClusterListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying managed clusters: %v\n", err)

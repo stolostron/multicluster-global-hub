@@ -182,12 +182,12 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 	policyListQuery, policyMappingQuery, policyComplianceQuery string, preAddedPolicies set.Set,
 ) {
 	var err error
-	policyMatches, err = getPolicyMatches(policyMappingQuery)
+	policyMatches, err = getPolicyMatches(ctx, policyMappingQuery)
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 	}
 	db := database.GetGorm()
-	policyRows, err := db.Raw(policyListQuery).Rows()
+	policyRows, err := db.WithContext(ctx).Raw(policyListQuery).Rows()
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
 	}
@@ -209,7 +209,7 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 		}
 
 		addedPolicies.Add(policyID + "/" + policy.GetName())
-		if err := sendPolicyWatchEvent(writer, policy, "ADDED",
+		if err := sendPolicyWatchEvent(ctx, writer, policy, "ADDED",
 			policyComplianceQuery, policyID); err != nil {
 			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
@@ -236,7 +236,7 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 			Kind:    "Policy",
 		})
 		policyInstanceToDelete.SetName(policyNameName)
-		if err := sendPolicyWatchEvent(writer, policyInstanceToDelete, "DELETED",
+		if err := sendPolicyWatchEvent(ctx, writer, policyInstanceToDelete, "DELETED",
 			policyComplianceQuery, policyID); err != nil {
 			_, _ = fmt.Fprintf(gin.DefaultWriter, "error in sending watch event: %v\n", err)
 		}
@@ -257,7 +257,7 @@ func doHandlePoliciesForWatch(ctx context.Context, writer gin.ResponseWriter,
 	writer.(http.Flusher).Flush()
 }
 
-func sendPolicyWatchEvent(writer io.Writer, policy *policyv1.Policy, eventType,
+func sendPolicyWatchEvent(ctx context.Context, writer io.Writer, policy *policyv1.Policy, eventType,
 	policyComplianceQuery, policyID string,
 ) error {
 	// add policy placement
@@ -272,7 +272,7 @@ func sendPolicyWatchEvent(writer io.Writer, policy *policyv1.Policy, eventType,
 	}
 
 	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(
-		policyComplianceQuery, policyID)
+		ctx, policyComplianceQuery, policyID)
 	if err != nil {
 		return fmt.Errorf("error in querying compliance status of a policy with UID: %s - %w", policyID, err)
 	}
@@ -297,10 +297,11 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	db := database.GetGorm()
+	ctx := ginCtx.Request.Context()
 	lastPolicy := &policyv1.Policy{}
 	lastPolicyID := ""
 	var lastPolicyPayload []byte
-	err := db.Raw(lastPolicyQuery).Row().Scan(&lastPolicyID, &lastPolicyPayload)
+	err := db.WithContext(ctx).Raw(lastPolicyQuery).Row().Scan(&lastPolicyID, &lastPolicyPayload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying last policy: %v\n", err)
@@ -314,13 +315,13 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 		}
 	}
 
-	policyMatches, err = getPolicyMatches(policyMappingQuery)
+	policyMatches, err = getPolicyMatches(ctx, policyMappingQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 	}
 
-	policyRows, err := db.Raw(policyListQuery).Rows()
+	policyRows, err := db.WithContext(ctx).Raw(policyListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPoliciesFailureFormatMsg, err)
@@ -347,7 +348,7 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 			continue
 		}
 
-		compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(policyComplianceQuery, policyUID)
+		compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(ctx, policyComplianceQuery, policyUID)
 		if err != nil {
 			_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 			continue
@@ -411,11 +412,11 @@ func handlePolicies(ginCtx *gin.Context, policyListQuery, lastPolicyQuery,
 }
 
 // getPolicyMatches returns array of policy & placementbinding & placementrule mapping and error.
-func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
+func getPolicyMatches(ctx context.Context, policyMappingQuery string) ([]*policyMatch, error) {
 	policyMatches := []*policyMatch{}
 
 	db := database.GetGorm()
-	policyMatchRows, err := db.Raw(policyMappingQuery).Rows()
+	policyMatchRows, err := db.WithContext(ctx).Raw(policyMappingQuery).Rows()
 	if err != nil {
 		return policyMatches,
 			fmt.Errorf("error in querying policy & placementbinding & placementrule mapping: - %w", err)
@@ -439,14 +440,14 @@ func getPolicyMatches(policyMappingQuery string) ([]*policyMatch, error) {
 
 // getComplianceStatus returns array of CompliancePerClusterStatus,
 // whether the policy has any NonCompliant cluster, and error.
-func getComplianceStatus(policyComplianceQuery, policyID string,
+func getComplianceStatus(ctx context.Context, policyComplianceQuery, policyID string,
 ) ([]*policyv1.CompliancePerClusterStatus, bool, error) {
 	compliancePerClusterStatuses := []*policyv1.CompliancePerClusterStatus{}
 	hasNonCompliantClusters := false
 
 	db := database.GetGorm()
 	var statusCompliances []models.StatusCompliance
-	err := db.Where(&models.StatusCompliance{
+	err := db.WithContext(ctx).Where(&models.StatusCompliance{
 		PolicyID: policyID,
 	}).Order("leaf_hub_name asc").Order("cluster_name").Find(&statusCompliances).Error
 	if err != nil {
@@ -454,7 +455,7 @@ func getComplianceStatus(policyComplianceQuery, policyID string,
 			fmt.Errorf("error in querying policy  status compliance: - %w", err)
 	}
 
-	policyComplianceRows, err := db.Raw(policyComplianceQuery, policyID).Rows()
+	policyComplianceRows, err := db.WithContext(ctx).Raw(policyComplianceQuery, policyID).Rows()
 	if err != nil {
 		return compliancePerClusterStatuses, hasNonCompliantClusters,
 			fmt.Errorf("error in querying policy compliances: - %w", err)
