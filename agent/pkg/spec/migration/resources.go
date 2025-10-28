@@ -38,6 +38,26 @@ var migrateResources = []MigrationResource{
 			Version: "v1",
 			Kind:    "Secret",
 		},
+		name:       "<CLUSTER_NAME>-bmc-secret",
+		needStatus: false,
+		isZtp:      true,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
+		name:       "assisted-deployment-pull-secret",
+		needStatus: false,
+		isZtp:      true,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
 		name:       "<CLUSTER_NAME>-admin-kubeconfig",
 		needStatus: false,
 		isZtp:      true,
@@ -50,6 +70,7 @@ var migrateResources = []MigrationResource{
 		},
 		needStatus: false,
 		isZtp:      true,
+		optional:   true,
 	},
 	// managedclusters and addons
 	{
@@ -86,6 +107,7 @@ var migrateResources = []MigrationResource{
 		},
 		needStatus: true,
 		isZtp:      true,
+		optional:   true,
 	},
 	{
 		gvk: schema.GroupVersionKind{
@@ -104,15 +126,17 @@ var migrateResources = []MigrationResource{
 		},
 		needStatus: false,
 		isZtp:      true,
+		optional:   true,
 	},
 	{
 		gvk: schema.GroupVersionKind{
 			Group:   "extensions.hive.openshift.io",
-			Version: "v1beta1",
-			Kind:    "AgentClusterInstall",
+			Version: "v1alpha1",
+			Kind:    "ImageClusterInstall",
 		},
 		needStatus: true,
 		isZtp:      true,
+		optional:   true,
 	},
 	{
 		gvk: schema.GroupVersionKind{
@@ -122,5 +146,15 @@ var migrateResources = []MigrationResource{
 		},
 		needStatus: true,
 		isZtp:      true,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "siteconfig.open-cluster-management.io",
+			Version: "v1alpha1",
+			Kind:    "ClusterInstance",
+		},
+		needStatus: true,
+		isZtp:      true,
+		name:       "<CLUSTER_NAME>-clusterinstance",
 	},
 }

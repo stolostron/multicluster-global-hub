@@ -301,7 +301,7 @@ rules:
 - apiGroups:
   - extensions.hive.openshift.io
   resources:
-  - agentclusterinstalls
+  - imageclusterinstalls
   verbs:
   - create
   - delete
@@ -313,7 +313,7 @@ rules:
 - apiGroups:
   - extensions.hive.openshift.io
   resources:
-  - agentclusterinstalls/status
+  - imageclusterinstalls/status
   verbs:
   - get
   - list
@@ -360,6 +360,28 @@ rules:
   resources:
   - baremetalhosts/status
   - hostfirmwaresettings/status
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - siteconfig.open-cluster-management.io
+  resources:
+  - clusterinstances
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - siteconfig.open-cluster-management.io
+  resources:
+  - clusterinstances/status
   verbs:
   - get
   - list

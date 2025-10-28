@@ -403,21 +403,49 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 						return err
 					}
 				}
-
-				if status, found, err := unstructured.NestedMap(resource.Object, "status"); err == nil && found {
-					err := unstructured.SetNestedMap(currentResource.Object, status, "status")
+				// Copy data from source (for ConfigMaps, Secrets, etc.)
+				if data, found, err := unstructured.NestedMap(resource.Object, "data"); err == nil && found {
+					err := unstructured.SetNestedMap(currentResource.Object, data, "data")
 					if err != nil {
 						return err
 					}
 				}
-
+				// Note: status is updated separately via status subresource after this operation
+				log.Infof("#########resource detail: %v", currentResource)
 				return nil
 			})
+
 		log.Infof("%s %s is %s", kind, name, operation)
 		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create or update %s %s: %w", kind, name, err)
+	}
+
+	// Update status separately if it exists in the source resource
+	if status, found, err := unstructured.NestedMap(resource.Object, "status"); err == nil && found && len(status) > 0 {
+		// Retry status update to handle conflicts
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			// Get the latest resource to ensure we have the correct resourceVersion
+			latestResource := &unstructured.Unstructured{}
+			latestResource.SetGroupVersionKind(gvk)
+			if err := s.client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, latestResource); err != nil {
+				return fmt.Errorf("failed to get latest %s %s for status update: %w", kind, name, err)
+			}
+
+			// Set the status on the latest resource
+			if err := unstructured.SetNestedMap(latestResource.Object, status, "status"); err != nil {
+				return fmt.Errorf("failed to set status for %s %s: %w", kind, name, err)
+			}
+
+			// Update the status subresource
+			return s.client.Status().Update(ctx, latestResource)
+		})
+		if err != nil {
+			log.Warnf("failed to update status for %s %s after retries: %v", kind, name, err)
+		} else {
+			log.Infof("updated status for %s %s", kind, name)
+		}
 	}
 
 	return nil

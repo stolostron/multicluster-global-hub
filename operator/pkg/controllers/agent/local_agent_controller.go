@@ -129,12 +129,14 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete;deletecollection
 // +kubebuilder:rbac:groups=agent-install.openshift.io,resources=infraenvs;nmstateconfigs,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=agent-install.openshift.io,resources=infraenvs/status,verbs=get;list;patch;update;watch
-// +kubebuilder:rbac:groups=extensions.hive.openshift.io,resources=agentclusterinstalls,verbs=create;delete;get;list;patch;update;watch
-// +kubebuilder:rbac:groups=extensions.hive.openshift.io,resources=agentclusterinstalls/status,verbs=get;list;patch;update;watch
+// +kubebuilder:rbac:groups=extensions.hive.openshift.io,resources=imageclusterinstalls,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=extensions.hive.openshift.io,resources=imageclusterinstalls/status,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=hive.openshift.io,resources=clusterdeployments,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=hive.openshift.io,resources=clusterdeployments/status,verbs=get;list;patch;update;watch
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts;hostfirmwaresettings,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts/status;hostfirmwaresettings/status,verbs=get;list;patch;update;watch
+// +kubebuilder:rbac:groups=siteconfig.open-cluster-management.io,resources=clusterinstances,verbs=create;delete;get;list;patch;update;watch
+// +kubebuilder:rbac:groups=siteconfig.open-cluster-management.io,resources=clusterinstances/status,verbs=get;list;patch;update;watch
 
 func (s *LocalAgentController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile local agent controller: %v", req)
