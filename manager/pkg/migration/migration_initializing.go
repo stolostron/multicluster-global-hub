@@ -191,6 +191,9 @@ func (m *ClusterMigrationController) sendEventToSourceHub(ctx context.Context, f
 		ManagedClusters: managedClusters,
 		BootstrapSecret: bootstrapSecret,
 		RollbackStage:   rollbackStage,
+		// the timeout in agent part should less than manager part,
+		// the event in agent need time to send event to manager
+		RollbackingTimeoutMinutes: int((rollbackingTimeout - 2*time.Minute).Minutes()),
 	}
 
 	payloadBytes, err := json.Marshal(managedClusterMigrationFromEvent)

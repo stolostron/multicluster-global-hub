@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -48,6 +50,8 @@ const (
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 	kubectlConfigAnnotation    = "kubectl.kubernetes.io/last-applied-configuration"
 )
+
+var rollbackingTimeout = 10 * time.Minute // the rollbacking stage timeout should less than migration timeout
 
 type MigrationSourceSyncer struct {
 	client                client.Client
@@ -645,18 +649,43 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		}
 	}
 
-	// awit all the cluster is available in the sources hub
-	for _, managedCluster := range spec.ManagedClusters {
-		mc := &clusterv1.ManagedCluster{}
-		err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, mc)
-		if err != nil {
-			return fmt.Errorf("failed to get managed cluster %s: %w", managedCluster, err)
-		}
-		if !s.isManagedClusterAvailable(mc) {
-			return fmt.Errorf("managed cluster %s is not available in the source hub", managedCluster)
-		}
+	timeout := rollbackingTimeout
+	if spec.RollbackingTimeoutMinutes > 0 {
+		timeout = time.Duration(spec.RollbackingTimeoutMinutes) * time.Minute
 	}
 
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
+		func(context.Context) (done bool, err error) {
+			clusterErrors := map[string]string{}
+			defer func() {
+				if len(clusterErrors) > 0 {
+					s.clusterErrors = clusterErrors
+				} else {
+					clear(s.clusterErrors)
+				}
+			}()
+			// awit all the cluster is available in the sources hub
+			for _, managedCluster := range spec.ManagedClusters {
+				mc := &clusterv1.ManagedCluster{}
+				err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, mc)
+				if err != nil {
+					clusterErrors[managedCluster] = err.Error()
+					return false, fmt.Errorf("failed to get managed cluster %s: %w", managedCluster, err)
+				}
+				if !s.isManagedClusterAvailable(mc) {
+					err = fmt.Errorf("managed cluster %s is not available in the source hub", managedCluster)
+					clusterErrors[managedCluster] = err.Error()
+					return false, err
+				}
+			}
+			return true, nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to rollback registering stage: %w", err)
+	}
+
+	log.Infof("successfully rolled back registering stage for clusters: %v", spec.ManagedClusters)
 	return nil
 }
 

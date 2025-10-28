@@ -43,7 +43,7 @@ var (
 	// the following timeouts are accumulated from the start of the migration
 	migratingTimeout   time.Duration = 5 * time.Minute
 	cleaningTimeout    time.Duration = 5 * time.Minute
-	rollbackingTimeout time.Duration = 5 * time.Minute
+	rollbackingTimeout time.Duration = 12 * time.Minute
 	registeringTimeout time.Duration = 12 * time.Minute
 )
 
