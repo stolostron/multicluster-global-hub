@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Global Hub cluster migration process consists of the following phases:
+The Multicluster Global Hub migration process consists of the following phases:
 - **Pending** → **Validating** → **Initializing** → **Deploying** → **Registering** → **Cleaning** → **Completed**
 
 ### When Manual Rollback is Needed
@@ -19,7 +19,7 @@ The Global Hub cluster migration process consists of the following phases:
 
 **Failure Scenario**: Network connectivity issues, ManagedServiceAccount creation failure, or bootstrap secret/KlusterletConfig configuration failure.
 
-#### 1.1 Global Hub
+#### 1.1 Multicluster Global Hub Environment
 
 Delete the ManagedServiceAccount created for the migration:
 
@@ -101,7 +101,7 @@ kubectl delete clusterrolebinding global-hub-migration-<migration-name>-registra
 
 **Failure Scenario**: Kafka broker network issues, resource application failure on target hub, or deployment confirmation timeout.
 
-#### 2.1 Global Hub
+#### 2.1 Multicluster Global Hub Environment
 
 Same as [Initializing Phase - Global Hub](#11-global-hub)
 
@@ -155,12 +155,12 @@ done
 >
 > ```bash
 > # ConfigMap name: <migration-name> (same as ManagedClusterMigration CR name)
-> # Namespace: multicluster-global-hub
+> # Default Namespace: multicluster-global-hub
 > # Key: "failure" - contains comma-separated list of failed cluster names
-> kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.failure}'
+> kubectl get configmap <migration-name> -n <multicluster-global-hub-namespace> -o jsonpath='{.data.failure}'
 > ```
 
-#### 3.1 Global Hub
+#### 3.1 Multicluster Global Hub Environment
 
 Same as [Initializing Phase - Global Hub](#11-global-hub)
 
@@ -227,7 +227,7 @@ Same as [Deploying Phase - Target Hub](#23-target-hub):
 > kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}'
 > ```
 
-#### 4.1 Global Hub
+#### 4.1 Multicluster Global Hub Environment
 
 Delete the ManagedServiceAccount:
 
@@ -257,7 +257,7 @@ kubectl delete managedcluster <cluster-name>
 ```bash
 # Step 1: Get successfully migrated clusters list from Global Hub (run this on Global Hub kubeconfig)
 # The ConfigMap only exists on Global Hub
-SUCCESS_CLUSTERS=$(kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}' --kubeconfig=<global-hub-kubeconfig>)
+SUCCESS_CLUSTERS=$(kubectl get configmap <migration-name> -n <multicluster-global-hub-namespace> -o jsonpath='{.data.success}' --kubeconfig=<global-hub-kubeconfig>)
 
 # Step 2: Run on Source Hub to delete migrated clusters (switch to Source Hub kubeconfig)
 # Convert comma-separated list to array
@@ -276,70 +276,3 @@ done
 #### 4.3 Target Hub
 
 Delete migration RBAC resources same as [Initializing Phase - Target Hub](#13-target-hub)
-
----
-
-## Validation Checklist
-
-After completing manual rollback, verify the following:
-
-### Source Hub
-- [ ] Migration annotations removed from all ManagedClusters
-- [ ] Bootstrap secret `bootstrap-<target-hub-name>` deleted
-- [ ] KlusterletConfig `migration-<target-hub-name>` deleted
-- [ ] For Registering rollback: `spec.hubAcceptsClient=true` for failed clusters
-- [ ] Clusters showing as Available in source hub
-
-### Target Hub
-- [ ] For Deploying/Registering rollback: ManagedClusters deleted
-- [ ] For Deploying/Registering rollback: KlusterletAddonConfigs deleted
-- [ ] MSA user removed from ClusterManager AutoApproveUsers
-- [ ] All migration RBAC resources deleted (ClusterRole and ClusterRoleBindings)
-
-### Global Hub
-- [ ] ManagedServiceAccount deleted
-- [ ] ManagedClusterMigration CR shows phase as "Failed" or "Completed"
-
----
-
-## Resource Reference
-
-### Key Resources and Naming Conventions
-
-| Resource Type | Name Format | Location |
-|---------------|-------------|----------|
-| ManagedServiceAccount | `<migration-name>` | Global Hub, namespace: `<target-hub-name>` |
-| Bootstrap Secret | `bootstrap-<target-hub-name>` | Source Hub, namespace: `multicluster-engine` |
-| KlusterletConfig | `migration-<target-hub-name>` | Source Hub |
-| ConfigMap (Migration Status) | `<migration-name>` | Global Hub, namespace: `multicluster-global-hub` |
-| ClusterRole (SubjectAccessReview) | `global-hub-migration-<migration-name>-sar` | Target Hub |
-| ClusterRoleBinding (SubjectAccessReview) | `global-hub-migration-<migration-name>-sar` | Target Hub |
-| ClusterRoleBinding (Registration) | `global-hub-migration-<migration-name>-registration` | Target Hub |
-
-### Migration Annotations
-
-| Annotation Key | Applied To | Purpose |
-|----------------|------------|---------|
-| `global-hub.open-cluster-management.io/migrating` | ManagedCluster (Source Hub) | Mark cluster as migrating |
-| `agent.open-cluster-management.io/klusterlet-config` | ManagedCluster (Source Hub) | Reference to KlusterletConfig |
-
-### ConfigMap Data Keys
-
-The migration status ConfigMap (`<migration-name>`) contains two keys that track cluster migration status:
-
-| Key | Purpose | Value Format |
-|-----|---------|--------------|
-| `success` | Stores clusters that successfully completed migration | Comma-separated list of cluster names |
-| `failure` | Stores clusters that failed during migration | Comma-separated list of cluster names |
-
-**Example**:
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: migration-example  # Same as ManagedClusterMigration CR name
-  namespace: multicluster-global-hub
-data:
-  success: "cluster1,cluster2,cluster3"
-  failure: "cluster4,cluster5"
-```
