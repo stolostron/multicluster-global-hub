@@ -163,7 +163,7 @@ func doHandleRowsForWatch(ctx context.Context, writer io.Writer, subscriptionLis
 	preAddedSubscriptions set.Set,
 ) {
 	db := database.GetGorm()
-	rows, err := db.Raw(subscriptionListQuery).Rows()
+	rows, err := db.WithContext(ctx).Raw(subscriptionListQuery).Rows()
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in quering subscription list: %v\n", err)
 	}
@@ -230,9 +230,10 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 	customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
 	db := database.GetGorm()
+	ctx := ginCtx.Request.Context()
 	lastSubscription := &appsv1.Subscription{}
 	var payload []byte
-	err := db.Raw(lastSubscriptionQuery).Row().Scan(&payload)
+	err := db.WithContext(ctx).Raw(lastSubscriptionQuery).Row().Scan(&payload)
 	if err != nil && err != sql.ErrNoRows {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying last subscription: %v\n", err)
@@ -248,7 +249,7 @@ func handleRows(ginCtx *gin.Context, subscriptionListQuery, lastSubscriptionQuer
 		}
 	}
 
-	rows, err := db.Raw(subscriptionListQuery).Rows()
+	rows, err := db.WithContext(ctx).Raw(subscriptionListQuery).Rows()
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, serverInternalErrorMsg)
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in querying subscriptions: %v\n", err)

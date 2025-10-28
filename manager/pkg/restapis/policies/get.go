@@ -70,7 +70,7 @@ func handlePolicyForWatch(ginCtx *gin.Context, policyID, policyQuery, policyMapp
 	ctx, cancelContext := context.WithCancel(context.Background())
 	defer cancelContext()
 
-	preUnstrPolicy, err := queryPolicyStatus(policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
+	preUnstrPolicy, err := queryPolicyStatus(ctx, policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
 	}
@@ -110,7 +110,7 @@ func handlePolicyForWatch(ginCtx *gin.Context, policyID, policyQuery, policyMapp
 func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, policyID,
 	policyQuery, policyMappingQuery, policyComplianceQuery string, preUnstrPolicy *unstructured.Unstructured,
 ) {
-	curUnstrPolicy, err := queryPolicyStatus(policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
+	curUnstrPolicy, err := queryPolicyStatus(ctx, policyID, policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, "error in getting policy status with policy ID(%s): %v", policyID, err)
 	}
@@ -138,7 +138,8 @@ func doHandlePolicyForWatch(ctx context.Context, writer gin.ResponseWriter, poli
 func handlePolicy(ginCtx *gin.Context, policyID, policyQuery, policyMappingQuery,
 	policyComplianceQuery string, customResourceColumnDefinitions []apiextensionsv1.CustomResourceColumnDefinition,
 ) {
-	unstrPolicy, err := queryPolicyStatus(policyID,
+	ctx := ginCtx.Request.Context()
+	unstrPolicy, err := queryPolicyStatus(ctx, policyID,
 		policyQuery, policyMappingQuery, policyComplianceQuery)
 	if err != nil {
 		ginCtx.String(http.StatusInternalServerError, ServerInternalErrorMsg)
@@ -172,13 +173,13 @@ func handlePolicy(ginCtx *gin.Context, policyID, policyQuery, policyMappingQuery
 	ginCtx.JSON(http.StatusOK, unstrPolicy)
 }
 
-func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
+func queryPolicyStatus(ctx context.Context, policyID, policyQuery, policyMappingQuery,
 	policyComplianceQuery string,
 ) (*unstructured.Unstructured, error) {
 	var err error
 	policy := &policyv1.Policy{}
 
-	policyMatches, err = getPolicyMatches(policyMappingQuery)
+	policyMatches, err = getPolicyMatches(ctx, policyMappingQuery)
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyMappingFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
@@ -186,7 +187,7 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 
 	db := database.GetGorm()
 	var payload []byte
-	err = db.Raw(policyQuery, policyID).Row().Scan(&payload)
+	err = db.WithContext(ctx).Raw(policyQuery, policyID).Row().Scan(&payload)
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
@@ -197,7 +198,7 @@ func queryPolicyStatus(policyID, policyQuery, policyMappingQuery,
 	}
 
 	compliancePerClusterStatuses, hasNonCompliantClusters, err := getComplianceStatus(
-		policyComplianceQuery, policyID)
+		ctx, policyComplianceQuery, policyID)
 	if err != nil {
 		_, _ = fmt.Fprintf(gin.DefaultWriter, QueryPolicyComplianceFailureFormatMsg, err)
 		return &unstructured.Unstructured{}, err
