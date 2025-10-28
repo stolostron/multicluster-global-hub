@@ -14,6 +14,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -631,6 +632,17 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 	}
 
 	for _, managedCluster := range spec.ManagedClusters {
+		// Delete managed-cluster-lease if exists, aviod the issue mentioned in https://issues.redhat.com/browse/ACM-23842
+		if err := s.client.Delete(ctx, &coordinationv1.Lease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "managed-cluster-lease",
+				Namespace: managedCluster,
+			},
+		}); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete lease for managed cluster %s: %w", managedCluster, err)
+		}
+		log.Infof("deleted lease for managed cluster %s", managedCluster)
+
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
 			if err := s.client.Get(ctx, types.NamespacedName{
