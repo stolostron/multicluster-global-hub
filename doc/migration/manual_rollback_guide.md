@@ -222,7 +222,7 @@ Same as [Deploying Phase - Target Hub](#23-target-hub):
 >
 > ```bash
 > # ConfigMap name: <migration-name> (same as ManagedClusterMigration CR name)
-> # Namespace: multicluster-global-hub
+> # Default Namespace: multicluster-global-hub
 > # Key: "success" - contains comma-separated list of successfully migrated cluster names
 > kubectl get configmap <migration-name> -n multicluster-global-hub -o jsonpath='{.data.success}'
 > ```
