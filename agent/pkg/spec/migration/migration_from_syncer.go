@@ -672,11 +672,8 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 			defer func() {
 				if len(clusterErrors) > 0 {
 					s.clusterErrors = clusterErrors
-				} else {
-					clear(s.clusterErrors)
 				}
 			}()
-			// awit all the cluster is available in the sources hub
 			for _, managedCluster := range spec.ManagedClusters {
 				mc := &clusterv1.ManagedCluster{}
 				err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, mc)
@@ -684,10 +681,11 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 					clusterErrors[managedCluster] = err.Error()
 					return false, fmt.Errorf("failed to get managed cluster %s: %w", managedCluster, err)
 				}
+				// awit all the cluster is available in the sources hub
 				if !s.isManagedClusterAvailable(mc) {
-					err = fmt.Errorf("managed cluster %s is not available in the source hub", managedCluster)
-					clusterErrors[managedCluster] = err.Error()
-					return false, err
+					log.Debugf("wait for the managed cluster %s to be available in the source hub", managedCluster)
+					clusterErrors[managedCluster] = fmt.Sprintf("mcluster %s is not available in the source hub", managedCluster)
+					return false, nil
 				}
 			}
 			return true, nil

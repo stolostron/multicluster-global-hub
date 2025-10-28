@@ -79,21 +79,6 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking)
 	}
 
-	// Check for rollback errors from source hubs
-	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
-		// Only add manual cleanup guidance for source hub rollback failures
-		condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
-		condition.Reason = ConditionReasonError
-		return false, nil
-	}
-
-	// Wait for source hub rollback completion
-	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
-		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
-		waitingHub = fromHub
-		return true, nil
-	}
-
 	// 2. Send rollback event to destination hub to clean up partial resources
 	if !GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseRollbacking, rollbackingClusters, failedStage)
@@ -108,6 +93,14 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking)
 	}
 
+	// Check for rollback errors from source hubs
+	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
+		// Only add manual cleanup guidance for source hub rollback failures
+		condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
+		condition.Reason = ConditionReasonError
+		return false, nil
+	}
+
 	// Check for rollback errors from destination hub
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
 		condition.Message = fmt.Sprintf("%s stage rollback failed on target hub %s: %s", failedStage, mcm.Spec.To, errMsg)
@@ -116,17 +109,17 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 		return false, nil
 	}
 
+	// Wait for source hub rollback completion
+	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
+		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
+		waitingHub = fromHub
+		return true, nil
+	}
+
 	// Wait for destination hub rollback completion
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		condition.Message = fmt.Sprintf("waiting for target hub %s to complete %s stage rollback", mcm.Spec.To, failedStage)
 		waitingHub = mcm.Spec.To
-		return true, nil
-	}
-
-	// wait until the cluster is available in the source hub
-	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
-		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
-		waitingHub = fromHub
 		return true, nil
 	}
 
