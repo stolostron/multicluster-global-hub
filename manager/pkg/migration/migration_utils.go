@@ -141,6 +141,7 @@ func (m *ClusterMigrationController) UpdateFailureClustersToConfigMap(ctx contex
 			}); err != nil {
 			return fmt.Errorf("failed to store clusters to ConfigMap: %w", err)
 		}
+		return nil
 	}
 
 	// failedClusters = allClusters - successClusters
