@@ -62,7 +62,9 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 	var bundle generic.GenericBundle[clusterv1.ManagedCluster]
 	err := evt.DataAs(&bundle)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal bundle - %v", err)
+		log.Warnw("failed to unmarshal managed cluster bundle", "type", enum.ShortenEventType(evt.Type()),
+			"LH", evt.Source(), "version", version, "error", err)
+		return nil
 	}
 
 	// Handle insertOrUpdate operations for Resync, Create, and Update

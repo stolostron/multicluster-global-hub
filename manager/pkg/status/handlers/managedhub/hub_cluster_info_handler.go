@@ -49,7 +49,9 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 
 	hubInfoData := &cluster.HubClusterInfo{}
 	if err := evt.DataAs(hubInfoData); err != nil {
-		return err
+		log.Warnw("failed to unmarshal bundle", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(),
+			"version", version, "error", err)
+		return nil
 	}
 
 	leafHubName := evt.Source()

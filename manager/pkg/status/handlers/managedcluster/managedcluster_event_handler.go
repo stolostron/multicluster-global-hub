@@ -75,7 +75,9 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 	// Handle batch events (existing logic)
 	managedClusterEvents := event.ManagedClusterEventBundle{}
 	if err := evt.DataAs(&managedClusterEvents); err != nil {
-		return err
+		h.log.Warnw("failed to unmarshal bundle", "type", enum.ShortenEventType(evt.Type()),
+			"LH", evt.Source(), "version", version, "error", err)
+		return nil
 	}
 
 	for _, managedClusterEvent := range managedClusterEvents {

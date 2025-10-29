@@ -63,7 +63,9 @@ func (h *localPolicySpecHandler) handleEvent(ctx context.Context, evt *cloudeven
 	var bundle generic.GenericBundle[policiesv1.Policy]
 	err := evt.DataAs(&bundle)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal bundle - %v", err)
+		log.Warnw("failed to unmarshal local policy spec event", "type", enum.ShortenEventType(evt.Type()),
+			"LH", evt.Source(), "version", version, "error", err)
+		return nil
 	}
 
 	// Handle insertOrUpdate operations for Resync, Create, and Update
