@@ -69,7 +69,9 @@ func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudeve
 	var data []T
 	e := evt.DataAs(&data)
 	if e != nil {
-		return fmt.Errorf("failed to parse the event data: %v", e)
+		h.log.Warnw("failed to parse the event data", "type", enum.ShortenEventType(evt.Type()),
+			"LH", evt.Source(), "version", version, "error", e)
+		return nil
 	}
 
 	// get the exist objects in database

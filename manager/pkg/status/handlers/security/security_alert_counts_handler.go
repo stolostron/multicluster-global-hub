@@ -49,7 +49,9 @@ func (h *securityAlertCountsHandler) handleEvent(ctx context.Context, evt *cloud
 	// Extract the data from the event:
 	wireModel := &wiremodels.SecurityAlertCounts{}
 	if err := evt.DataAs(&wireModel); err != nil {
-		return err
+		h.log.Warnw("failed to unmarshal security alert counts event", "type", enum.ShortenEventType(evt.Type()),
+			"LH", evt.Source(), "version", version, "error", err)
+		return nil
 	}
 
 	// Convert the wire representation to the database representation. In this particular case
