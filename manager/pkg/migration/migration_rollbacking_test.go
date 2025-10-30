@@ -215,22 +215,20 @@ func TestRollbacking(t *testing.T) {
 				}
 				objects = append(objects, targetHubCluster)
 
-				// Add ManagedServiceAccount addon for the "should complete rollback successfully" test
-				if tt.name == "should complete rollback successfully" {
-					managedServiceAccountAddon := &addonv1alpha1.ManagedClusterAddOn{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "managed-serviceaccount",
-							Namespace: tt.migration.Spec.To,
-						},
-						Spec: addonv1alpha1.ManagedClusterAddOnSpec{
-							InstallNamespace: "test-install-namespace",
-						},
-						Status: addonv1alpha1.ManagedClusterAddOnStatus{
-							Namespace: "test-status-namespace",
-						},
-					}
-					objects = append(objects, managedServiceAccountAddon)
+				// Add ManagedServiceAccount addon for tests that need to send rollback events
+				managedServiceAccountAddon := &addonv1alpha1.ManagedClusterAddOn{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "managed-serviceaccount",
+						Namespace: tt.migration.Spec.To,
+					},
+					Spec: addonv1alpha1.ManagedClusterAddOnSpec{
+						InstallNamespace: "test-install-namespace",
+					},
+					Status: addonv1alpha1.ManagedClusterAddOnStatus{
+						Namespace: "test-status-namespace",
+					},
 				}
+				objects = append(objects, managedServiceAccountAddon)
 			}
 
 			fakeClient := fake.NewClientBuilder().
