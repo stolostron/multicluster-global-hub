@@ -9,16 +9,19 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
@@ -48,6 +51,8 @@ const (
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 	kubectlConfigAnnotation    = "kubectl.kubernetes.io/last-applied-configuration"
 )
+
+var rollbackingTimeout = 10 * time.Minute // the rollbacking stage timeout should less than migration timeout
 
 type MigrationSourceSyncer struct {
 	client                client.Client
@@ -627,6 +632,17 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 	}
 
 	for _, managedCluster := range spec.ManagedClusters {
+		// Delete managed-cluster-lease if exists, aviod the issue mentioned in https://issues.redhat.com/browse/ACM-23842
+		if err := s.client.Delete(ctx, &coordinationv1.Lease{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "managed-cluster-lease",
+				Namespace: managedCluster,
+			},
+		}); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete lease for managed cluster %s: %w", managedCluster, err)
+		}
+		log.Infof("deleted lease for managed cluster %s", managedCluster)
+
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
 			if err := s.client.Get(ctx, types.NamespacedName{
@@ -645,6 +661,41 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 		}
 	}
 
+	timeout := rollbackingTimeout
+	if spec.RollbackingTimeoutMinutes > 0 {
+		timeout = time.Duration(spec.RollbackingTimeoutMinutes) * time.Minute
+	}
+
+	err := wait.PollUntilContextTimeout(ctx, 5*time.Second, timeout, true,
+		func(context.Context) (done bool, err error) {
+			clusterErrors := map[string]string{}
+			defer func() {
+				if len(clusterErrors) > 0 {
+					s.clusterErrors = clusterErrors
+				}
+			}()
+			for _, managedCluster := range spec.ManagedClusters {
+				mc := &clusterv1.ManagedCluster{}
+				err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, mc)
+				if err != nil {
+					clusterErrors[managedCluster] = err.Error()
+					return false, fmt.Errorf("failed to get managed cluster %s: %w", managedCluster, err)
+				}
+				// awit all the cluster is available in the sources hub
+				if !s.isManagedClusterAvailable(mc) {
+					log.Debugf("wait for the managed cluster %s to be available in the source hub", managedCluster)
+					clusterErrors[managedCluster] = fmt.Sprintf("mcluster %s is not available in the source hub", managedCluster)
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to rollback registering stage: %w", err)
+	}
+
+	log.Infof("successfully rolled back registering stage for clusters: %v", spec.ManagedClusters)
 	return nil
 }
 

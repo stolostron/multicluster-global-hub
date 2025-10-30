@@ -22,7 +22,9 @@ type MigrationSourceBundle struct {
 	PlacementName   string         `json:"placementName"`
 	ManagedClusters []string       `json:"managedClusters,omitempty"`
 	BootstrapSecret *corev1.Secret `json:"bootstrapSecret,omitempty"`
-	RollbackStage   string         `json:"rollbackStage,omitempty"` // Indicates which stage is being rolled back
+	// Indicates which stage is being rolled back
+	RollbackStage             string `json:"rollbackStage,omitempty"`
+	RollbackingTimeoutMinutes int    `json:"rollbackingTimeoutMinutes,omitempty"`
 }
 
 // MigrationTargetBundle defines the resources from migration controllers to the target cluster
