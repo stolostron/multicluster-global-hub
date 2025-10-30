@@ -53,10 +53,10 @@ spec:
     value: "slack-notify-webhook"
   - name: slack-webhook-url-secret-key
     value: "slack-webhook-url"
-  - name: slack-member-id
+  - name: slack-group-id
     # Will mention the user in the slack message when the pipeline run failed; this is not required.
     # Please make sure replace the value with component owner's slack member id.
-    value: "UUEGAV6NM" # @Chunlin
+    value: "S09JCE3DF9N"
   pipelineRef:
     resolver: git
     params:
