@@ -13,6 +13,15 @@ set -euo pipefail
 RELEASE_NAME="${RELEASE_NAME:-next}"
 OPENSHIFT_RELEASE_PATH="${OPENSHIFT_RELEASE_PATH:-/tmp/openshift-release}"
 
+# Detect OS and set sed in-place flag
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS requires -i with empty string
+  SED_INPLACE=(-i "")
+else
+  # Linux uses -i without argument
+  SED_INPLACE=(-i)
+fi
+
 echo "🚀 Starting Global Hub Release Branch Creation"
 echo "================================================"
 
@@ -123,9 +132,8 @@ NEW_CONFIG="ci-operator/config/stolostron/multicluster-global-hub/stolostron-mul
 
 # Update main branch configuration
 echo "   Updating main branch configuration..."
-sed -i.bak "s/name: \"${PREV_VERSION}\"/name: \"${VERSION}\"/" "$MAIN_CONFIG"
-sed -i.bak "s/DESTINATION_BRANCH: ${LATEST_RELEASE}/DESTINATION_BRANCH: ${NEXT_RELEASE}/" "$MAIN_CONFIG"
-rm -f "${MAIN_CONFIG}.bak"
+sed "${SED_INPLACE[@]}" "s/name: \"${PREV_VERSION}\"/name: \"${VERSION}\"/" "$MAIN_CONFIG"
+sed "${SED_INPLACE[@]}" "s/DESTINATION_BRANCH: ${LATEST_RELEASE}/DESTINATION_BRANCH: ${NEXT_RELEASE}/" "$MAIN_CONFIG"
 echo "   ✅ Updated $MAIN_CONFIG"
 
 # Create new release configuration
@@ -133,31 +141,60 @@ echo "   Creating $NEXT_RELEASE pipeline configuration..."
 cp "$LATEST_CONFIG" "$NEW_CONFIG"
 
 # Update version references in new config
-sed -i.bak "s/name: \"${PREV_VERSION}\"/name: \"${VERSION}\"/" "$NEW_CONFIG"
-sed -i.bak "s/branch: ${LATEST_RELEASE}/branch: ${NEXT_RELEASE}/" "$NEW_CONFIG"
-sed -i.bak "s/release-${PREV_VERSION_SHORT}/release-${VERSION_SHORT}/g" "$NEW_CONFIG"
-sed -i.bak "s/IMAGE_TAG: v1\.[0-9]\+\.0/IMAGE_TAG: ${GH_VERSION}/" "$NEW_CONFIG"
-rm -f "${NEW_CONFIG}.bak"
+sed "${SED_INPLACE[@]}" "s/name: \"${PREV_VERSION}\"/name: \"${VERSION}\"/" "$NEW_CONFIG"
+sed "${SED_INPLACE[@]}" "s/branch: ${LATEST_RELEASE}/branch: ${NEXT_RELEASE}/" "$NEW_CONFIG"
+sed "${SED_INPLACE[@]}" "s/release-${PREV_VERSION_SHORT}/release-${VERSION_SHORT}/g" "$NEW_CONFIG"
+sed "${SED_INPLACE[@]}" "s/IMAGE_TAG: v1\.[0-9]\+\.0/IMAGE_TAG: ${GH_VERSION}/" "$NEW_CONFIG"
 echo "   ✅ Created $NEW_CONFIG"
 
-# Step 5: Auto-generate job configurations
+# Step 5: Verify container engine and auto-generate job configurations
 echo ""
-echo "📍 Step 5: Auto-generating job configurations..."
-echo "   Running make update (this may take a few minutes)..."
+echo "📍 Step 5: Verifying container engine availability..."
 
-if docker info >/dev/null 2>&1; then
-  echo "   Using Docker as container engine..."
+# Check for Docker
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  CONTAINER_ENGINE="docker"
+  echo "   ✅ Docker is available and running"
+# Check for Podman
+elif command -v podman >/dev/null 2>&1; then
+  # Check if podman machine is running
+  if podman machine list 2>/dev/null | grep -q "Currently running"; then
+    CONTAINER_ENGINE="podman"
+    echo "   ✅ Podman is available and running"
+  else
+    echo "   ❌ Error: Podman is installed but no machine is running"
+    echo ""
+    echo "   Please start your podman machine:"
+    echo "      podman machine start"
+    echo ""
+    exit 1
+  fi
+else
+  echo "   ❌ Error: No container engine found!"
+  echo ""
+  echo "   Please ensure Docker or Podman is installed and running."
+  echo "   - Docker: Start Docker Desktop application"
+  echo "   - Podman: Ensure podman machine is running (podman machine start)"
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo "📍 Step 6: Auto-generating job configurations..."
+echo "   Running make update (this may take a few minutes)..."
+echo "   Using $CONTAINER_ENGINE as container engine..."
+
+if [ "$CONTAINER_ENGINE" = "docker" ]; then
   CONTAINER_ENGINE=docker make update
 else
-  echo "   Using Podman as container engine..."
   make update
 fi
 
 echo "   ✅ Job configurations generated"
 
-# Step 6: Commit and create PR
+# Step 7: Commit and create PR
 echo ""
-echo "📍 Step 6: Committing changes and creating PR..."
+echo "📍 Step 7: Committing changes and creating PR..."
 
 # Check if there are changes
 if git diff --quiet && git diff --cached --quiet; then

@@ -30,6 +30,14 @@ Automates the complete workflow for creating a new Multicluster Global Hub relea
 - `OPENSHIFT_RELEASE_PATH`: Local path for openshift/release repo (default: "/tmp/openshift-release")
 - `GITHUB_USER`: Auto-detected from git config
 
+## Platform Compatibility
+
+This workflow is compatible with:
+- **macOS** (ARM/Apple Silicon and Intel) - Uses `sed -i ""` syntax
+- **Linux** (x86_64) - Uses `sed -i` syntax
+
+The script automatically detects the OS and adjusts accordingly.
+
 ## Instructions
 
 ### Step 1: Detect Latest Release and Determine Next Version
@@ -147,16 +155,38 @@ sed -i "s/IMAGE_TAG: v1\.[0-9]\+\.0/IMAGE_TAG: ${GH_VERSION}/" \
   ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${NEXT_RELEASE}.yaml
 ```
 
-### Step 5: Auto-Generate Job Configurations
+### Step 5: Verify Container Engine and Auto-Generate Job Configurations
 
-Use `make update` to automatically generate presubmits and postsubmits:
+**First, verify that a container engine is available:**
 
 ```bash
-# Check if docker is running, otherwise use podman
-if docker info >/dev/null 2>&1; then
+# Check for Docker
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  CONTAINER_ENGINE="docker"
+  echo "✅ Docker is available and running"
+# Check for Podman
+elif command -v podman >/dev/null 2>&1; then
+  if podman machine list 2>/dev/null | grep -q "Currently running"; then
+    CONTAINER_ENGINE="podman"
+    echo "✅ Podman is available and running"
+  else
+    echo "❌ Error: Podman is installed but no machine is running"
+    echo "Please start your podman machine: podman machine start"
+    exit 1
+  fi
+else
+  echo "❌ Error: No container engine found!"
+  echo "Please ensure Docker or Podman is installed and running"
+  exit 1
+fi
+```
+
+**Then use `make update` to automatically generate presubmits and postsubmits:**
+
+```bash
+if [ "$CONTAINER_ENGINE" = "docker" ]; then
   CONTAINER_ENGINE=docker make update
 else
-  # Use podman (default)
   make update
 fi
 ```
