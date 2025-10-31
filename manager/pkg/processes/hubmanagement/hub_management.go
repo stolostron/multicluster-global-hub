@@ -98,6 +98,7 @@ func (h *HubManagement) Start(ctx context.Context) error {
 }
 
 func (h *HubManagement) update(ctx context.Context) error {
+	h.log.Info("update the hub status started")
 	thresholdTime := time.Now().Add(-h.activeTimeout)
 	db := database.GetGorm()
 	var expiredHubs []models.LeafHubHeartbeat
@@ -105,6 +106,7 @@ func (h *HubManagement) update(ctx context.Context) error {
 		Find(&expiredHubs).Error; err != nil {
 		return err
 	}
+	h.log.Infow("inactive the hubs", "count", len(expiredHubs), "expiredHubs", expiredHubs)
 	if err := h.inactive(ctx, expiredHubs); err != nil {
 		return fmt.Errorf("failed to inactive hubs %v", err)
 	}
@@ -114,6 +116,7 @@ func (h *HubManagement) update(ctx context.Context) error {
 		Find(&reactiveHubs).Error; err != nil {
 		return err
 	}
+	h.log.Infow("reactive the hubs", "count", len(reactiveHubs), "reactiveHubs", reactiveHubs)
 	if err := h.reactive(ctx, reactiveHubs); err != nil {
 		return fmt.Errorf("failed to reactive hubs %v", err)
 	}
