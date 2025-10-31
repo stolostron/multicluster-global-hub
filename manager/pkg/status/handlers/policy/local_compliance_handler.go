@@ -52,7 +52,7 @@ func (h *localPolicyComplianceHandler) handleEventWrapper(ctx context.Context, e
 func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	log.Infow("handler start ", "type ", enum.ShortenEventType(evt.Type()), "LH ", evt.Source(), "version ", version)
+	log.Debugw("handler start ", "type ", enum.ShortenEventType(evt.Type()), "LH ", evt.Source(), "version ", version)
 
 	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
