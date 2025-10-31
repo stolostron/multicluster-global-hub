@@ -122,6 +122,7 @@ func (h *HubManagement) update(ctx context.Context) error {
 
 func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	for _, hub := range hubs {
+		h.log.Infow("inactive the hub", "name", hub.Name)
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
 				if e := h.cleanup(hub.Name); e != nil {
@@ -179,6 +180,7 @@ func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeart
 	// resync hub resources
 	db := database.GetGorm()
 	for _, hub := range hubs {
+		h.log.Infow("reactive the hub", "name", hub.Name)
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
 				if e := h.resync(ctx, hub.Name); e != nil {
