@@ -57,7 +57,7 @@ func RegisterManagedClusterHandler(c client.Client, conflationManager *conflator
 func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+	log.Infow("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	var bundle generic.GenericBundle[clusterv1.ManagedCluster]
 	err := evt.DataAs(&bundle)
@@ -144,7 +144,7 @@ func (h *managedClusterHandler) handleEvent(ctx context.Context, evt *cloudevent
 			return fmt.Errorf("failed syncing inventory - %w", err)
 		}
 	}
-	log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+	log.Infow("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 

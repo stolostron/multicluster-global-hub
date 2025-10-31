@@ -11,8 +11,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	cectx "github.com/cloudevents/sdk-go/v2/context"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -29,8 +27,8 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "transport-config-local-cluster",
-		"test-consumer-id")
+	configMap, err := config.GetConfluentConfigMapByTransportConfig("mgh", "transport-config",
+		"test-consumer-id-2")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
@@ -84,9 +82,9 @@ func main() {
 func handleEvent(ctx context.Context, event cloudevents.Event) {
 	switch event.Type() {
 	case string(enum.ManagedClusterType):
-		processBundle[clusterv1.ManagedCluster](event)
+		fmt.Println(event)
 	case string(enum.LocalPolicySpecType):
-		processBundle[policiesv1.Policy](event)
+		fmt.Println(event)
 	case string(enum.ManagedClusterMigrationType):
 		fmt.Println(event)
 	case string(enum.HubClusterHeartbeatType):
