@@ -237,7 +237,6 @@ E2E testing:
 
 Build:
 
-
 - `REGISTRY`: Container registry (default: quay.io/stolostron)
 - `IMAGE_TAG`: Image tag (default: latest)
 - `GO_TEST`: Go test command override
