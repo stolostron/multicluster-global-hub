@@ -34,9 +34,9 @@ LATEST_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | sed 
 echo "   Latest release: $LATEST_RELEASE"
 
 if [ "$RELEASE_NAME" = "next" ]; then
-  MAJOR_MINOR=$(echo $LATEST_RELEASE | sed 's/release-//')
-  MAJOR=$(echo $MAJOR_MINOR | cut -d. -f1)
-  MINOR=$(echo $MAJOR_MINOR | cut -d. -f2)
+  MAJOR_MINOR=$(echo "$LATEST_RELEASE" | sed 's/release-//')
+  MAJOR=$(echo "$MAJOR_MINOR" | cut -d. -f1)
+  MINOR=$(echo "$MAJOR_MINOR" | cut -d. -f2)
   NEXT_MINOR=$((MINOR + 1))
   NEXT_RELEASE="release-${MAJOR}.${NEXT_MINOR}"
 else
@@ -45,13 +45,13 @@ fi
 echo "   Next release: $NEXT_RELEASE"
 
 # Calculate versions
-VERSION=$(echo $NEXT_RELEASE | sed 's/release-//')
-PREV_VERSION=$(echo $LATEST_RELEASE | sed 's/release-//')
-VERSION_SHORT=$(echo $VERSION | tr -d '.')
-PREV_VERSION_SHORT=$(echo $PREV_VERSION | tr -d '.')
+VERSION=$(echo "$NEXT_RELEASE" | sed 's/release-//')
+PREV_VERSION=$(echo "$LATEST_RELEASE" | sed 's/release-//')
+VERSION_SHORT=$(echo "$VERSION" | tr -d '.')
+PREV_VERSION_SHORT=$(echo "$PREV_VERSION" | tr -d '.')
 
 # Calculate Global Hub version
-MINOR=$(echo $VERSION | cut -d. -f2)
+MINOR=$(echo "$VERSION" | cut -d. -f2)
 GH_MINOR=$((MINOR - 9))
 GH_VERSION="v1.${GH_MINOR}.0"
 
@@ -63,17 +63,17 @@ echo "   Job Prefix: release-${VERSION_SHORT}"
 echo ""
 echo "📍 Step 2: Creating new release branch in Global Hub repository..."
 git fetch origin main:refs/remotes/origin/main >/dev/null 2>&1
-if git show-ref --verify --quiet refs/heads/$NEXT_RELEASE; then
+if git show-ref --verify --quiet "refs/heads/$NEXT_RELEASE"; then
   echo "   ⚠️  Branch $NEXT_RELEASE already exists locally"
 else
-  git branch $NEXT_RELEASE origin/main
+  git branch "$NEXT_RELEASE" origin/main
   echo "   ✅ Created branch $NEXT_RELEASE"
 fi
 
-if git ls-remote --heads origin $NEXT_RELEASE | grep -q $NEXT_RELEASE; then
+if git ls-remote --heads origin "$NEXT_RELEASE" | grep -q "$NEXT_RELEASE"; then
   echo "   ⚠️  Branch $NEXT_RELEASE already exists on remote"
 else
-  git push origin $NEXT_RELEASE
+  git push origin "$NEXT_RELEASE"
   echo "   ✅ Pushed branch $NEXT_RELEASE to remote"
 fi
 
@@ -86,7 +86,7 @@ GITHUB_USER=$(git remote -v | grep origin | head -1 | sed -E 's|.*github.com[:/]
 echo "   GitHub user: $GITHUB_USER"
 
 # Check if already forked
-if gh repo view $GITHUB_USER/release --json name >/dev/null 2>&1; then
+if gh repo view "$GITHUB_USER/release" --json name >/dev/null 2>&1; then
   echo "   ✅ Fork already exists, skipping fork step"
 else
   echo "   ⚠️  Fork not found. Please fork https://github.com/openshift/release to your account first."
@@ -106,7 +106,7 @@ else
   PARENT_DIR=$(dirname "$OPENSHIFT_RELEASE_PATH")
   REPO_NAME=$(basename "$OPENSHIFT_RELEASE_PATH")
   cd "$PARENT_DIR"
-  git clone --depth 1 https://github.com/$GITHUB_USER/release.git "$REPO_NAME"
+  git clone --depth 1 "https://github.com/$GITHUB_USER/release.git" "$REPO_NAME"
   cd "$REPO_NAME"
   git remote add upstream https://github.com/openshift/release.git
   git fetch --depth 1 upstream master
@@ -114,11 +114,11 @@ fi
 
 # Create working branch
 BRANCH_NAME="${NEXT_RELEASE}-config"
-if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
-  git checkout $BRANCH_NAME
+if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+  git checkout "$BRANCH_NAME"
   echo "   ✅ Switched to existing branch $BRANCH_NAME"
 else
-  git checkout -b $BRANCH_NAME upstream/master
+  git checkout -b "$BRANCH_NAME" upstream/master
   echo "   ✅ Created branch $BRANCH_NAME"
 fi
 
@@ -220,11 +220,11 @@ git commit -m "Add ${NEXT_RELEASE} configuration for multicluster-global-hub
 echo "   ✅ Changes committed"
 
 # Push
-git push -u origin $BRANCH_NAME
+git push -u origin "$BRANCH_NAME"
 echo "   ✅ Pushed to fork"
 
 # Create PR
-PR_URL=$(gh pr create --base master --head $GITHUB_USER:$BRANCH_NAME \
+PR_URL=$(gh pr create --base master --head "$GITHUB_USER:$BRANCH_NAME" \
   --title "Add ${NEXT_RELEASE} configuration for multicluster-global-hub" \
   --body "This PR adds ${NEXT_RELEASE} configuration for the multicluster-global-hub project.
 
