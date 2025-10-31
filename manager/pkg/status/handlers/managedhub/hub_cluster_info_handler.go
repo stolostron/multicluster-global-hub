@@ -45,7 +45,7 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 	evt *cloudevents.Event,
 ) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	log.Infow("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
 
 	hubInfoData := &cluster.HubClusterInfo{}
 	if err := evt.DataAs(hubInfoData); err != nil {
@@ -68,9 +68,9 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 	}
 
 	db := database.GetGorm()
-	err = db.Clauses(clause.OnConflict{
+	err = db.Unscoped().Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "cluster_id"}, {Name: "leaf_hub_name"}},
-		DoUpdates: clause.AssignmentColumns([]string{"payload", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"payload", "updated_at", "deleted_at"}),
 	}).Create(&models.LeafHub{
 		LeafHubName: leafHubName,
 		ClusterID:   clusterId,
@@ -81,7 +81,7 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 		return err
 	}
 
-	log.Infow("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
 	return nil
 }
 

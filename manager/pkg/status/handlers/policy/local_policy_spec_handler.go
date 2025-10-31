@@ -168,7 +168,7 @@ func (h *localPolicySpecHandler) insertOrUpdate(objs []policiesv1.Policy, leafHu
 		})
 	}
 
-	err := db.Clauses(clause.OnConflict{
+	err := db.Unscoped().Clauses(clause.OnConflict{
 		UpdateAll: true,
 	}).CreateInBatches(batchLocalPolicySpec, 100).Error
 	if err != nil {

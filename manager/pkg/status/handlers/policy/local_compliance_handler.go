@@ -174,7 +174,7 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 		return fmt.Errorf("failed to handle local compliance event - %w", err)
 	}
 
-	log.Infow("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 
