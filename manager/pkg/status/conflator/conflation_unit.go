@@ -8,6 +8,7 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
@@ -67,7 +68,8 @@ func (cu *ConflationUnit) insert(event *cloudevents.Event, eventMetadata Conflat
 	}
 
 	if !conflationElement.Predicate(eventMetadata.Version()) {
-		log.Infow("the conflationElement predication is false", "event", event)
+		log.Infow("the conflationElement predication is false")
+		utils.PrettyPrint(event)
 		return
 	}
 
