@@ -50,6 +50,14 @@ OPENSHIFT_RELEASE_PATH="$HOME/workspace/openshift-release" RELEASE_NAME="next" .
 3. **Fork**: You must have forked https://github.com/openshift/release to your account
 4. **Container engine**: Either Docker or Podman running (for `make update`)
 
+## Platform Support
+
+This skill and script are compatible with:
+- **macOS** (ARM/Apple Silicon and Intel)
+- **Linux** (x86_64)
+
+The script automatically detects the platform and uses the appropriate `sed` syntax.
+
 ## What This Skill Does
 
 1. ✅ Detects the latest release branch (e.g., release-2.15)
@@ -60,9 +68,10 @@ OPENSHIFT_RELEASE_PATH="$HOME/workspace/openshift-release" RELEASE_NAME="next" .
 6. ✅ Clones or reuses existing openshift/release repository
 7. ✅ Updates main branch CI configuration
 8. ✅ Creates new release pipeline configuration
-9. ✅ Auto-generates presubmits and postsubmits jobs
-10. ✅ Commits all changes with proper commit message
-11. ✅ Creates pull request to openshift/release
+9. ✅ **Verifies Docker/Podman availability before proceeding**
+10. ✅ Auto-generates presubmits and postsubmits jobs
+11. ✅ Commits all changes with proper commit message
+12. ✅ Creates pull request to openshift/release
 
 ## Version Mapping
 
@@ -99,17 +108,35 @@ The skill automatically calculates correct versions:
 ## Troubleshooting
 
 ### Container engine not running
-**Error**: `Cannot connect to the Docker daemon` or `podman: command not found`
 
-**Solution**: Start Docker Desktop or initialize podman:
-```bash
-# For Docker
-# Start Docker Desktop application
-
-# For Podman
-podman machine init
-podman machine start
+**Error messages you might see:**
 ```
+❌ Error: No container engine found!
+
+Please ensure Docker or Podman is installed and running.
+- Docker: Start Docker Desktop application
+- Podman: Ensure podman machine is running (podman machine start)
+```
+
+Or:
+```
+❌ Error: Podman is installed but no machine is running
+
+Please start your podman machine:
+   podman machine start
+```
+
+**Solution**:
+
+**For Docker:**
+- Start the Docker Desktop application
+- Verify it's running: `docker info`
+
+**For Podman:**
+- Start your podman machine: `podman machine start`
+- Verify it's running: `podman machine list`
+
+**Note**: This script assumes Docker or Podman is already installed and configured. It will not attempt to install or initialize container engines.
 
 ### Fork not found
 **Error**: `Fork not found`
