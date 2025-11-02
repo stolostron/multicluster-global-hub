@@ -426,7 +426,6 @@ func TestSyncInventory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := syncInventory(
-				tt.log,
 				tt.requester,
 				tt.leafHubName,
 				models.ResourceVersion{

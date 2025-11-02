@@ -344,7 +344,7 @@ func (h *managedClusterHandler) insertOrUpdate(objs []clusterv1.ManagedCluster, 
 	}
 
 	db := database.GetGorm()
-	err := db.Clauses(clause.OnConflict{
+	err := db.Unscoped().Clauses(clause.OnConflict{
 		UpdateAll: true,
 	}).CreateInBatches(batchClusters, BatchSize).Error
 	if err != nil {

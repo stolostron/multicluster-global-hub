@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/util/wait"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -18,7 +17,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
@@ -41,7 +39,6 @@ type HubStatusManager interface {
 
 // manage the leaf hub lifecycle based on the heartbeat
 type HubManagement struct {
-	log           *zap.SugaredLogger
 	producer      transport.Producer
 	probeDuration time.Duration
 	activeTimeout time.Duration
@@ -49,7 +46,6 @@ type HubManagement struct {
 
 func NewHubManagement(producer transport.Producer, probeDuration, activeTimeout time.Duration) *HubManagement {
 	return &HubManagement{
-		log:           logger.DefaultZapLogger(),
 		producer:      producer,
 		probeDuration: probeDuration,
 		activeTimeout: activeTimeout,
@@ -80,8 +76,11 @@ func (h *HubManagement) Start(ctx context.Context) error {
 	}
 
 	go func() {
-		h.log.Infow("hub management status switch frequency", "interval", h.probeDuration)
+		log.Infow("hub management status switch frequency", "interval", h.probeDuration)
 		ticker := time.NewTicker(h.probeDuration)
+		if err := h.update(ctx); err != nil {
+			log.Error(err, "failed to update the hub status on startup")
+		}
 		for {
 			select {
 			case <-ctx.Done():
@@ -89,7 +88,7 @@ func (h *HubManagement) Start(ctx context.Context) error {
 				return
 			case <-ticker.C:
 				if err := h.update(ctx); err != nil {
-					h.log.Error(err, "failed to update the hub status")
+					log.Error(err, "failed to update the hub status")
 				}
 			}
 		}
@@ -122,10 +121,11 @@ func (h *HubManagement) update(ctx context.Context) error {
 
 func (h *HubManagement) inactive(ctx context.Context, hubs []models.LeafHubHeartbeat) error {
 	for _, hub := range hubs {
+		log.Infow("inactive the hub", "name", hub.Name)
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
 				if e := h.cleanup(hub.Name); e != nil {
-					h.log.Infow("cleanup the hub resource failed, retrying...", "name", hub.Name, "err", e.Error())
+					log.Infow("cleanup the hub resource failed, retrying...", "name", hub.Name, "err", e.Error())
 					return false, nil
 				}
 				return true, nil
@@ -179,16 +179,17 @@ func (h *HubManagement) reactive(ctx context.Context, hubs []models.LeafHubHeart
 	// resync hub resources
 	db := database.GetGorm()
 	for _, hub := range hubs {
+		log.Infow("reactive the hub", "name", hub.Name)
 		err := wait.PollUntilContextTimeout(ctx, 2*time.Second, 5*time.Minute, true,
 			func(ctx context.Context) (bool, error) {
 				if e := h.resync(ctx, hub.Name); e != nil {
-					h.log.Info("resync the hub resources failed, retrying...", "name", hub.Name, "err", e.Error())
+					log.Info("resync the hub resources failed, retrying...", "name", hub.Name, "err", e.Error())
 					return false, nil
 				}
 				// reactive the batch hub status
 				e := db.Model(&models.LeafHubHeartbeat{}).Where("leaf_hub_name = ?", hub.Name).Update("status", HubActive).Error
 				if e != nil {
-					h.log.Info("fail to reactive the hub, retrying...", "name", hub.Name, "err", e.Error())
+					log.Info("fail to reactive the hub, retrying...", "name", hub.Name, "err", e.Error())
 					return false, nil
 				}
 				return true, nil

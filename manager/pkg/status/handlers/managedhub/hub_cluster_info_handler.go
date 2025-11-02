@@ -68,9 +68,9 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 	}
 
 	db := database.GetGorm()
-	err = db.Clauses(clause.OnConflict{
+	err = db.Unscoped().Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "cluster_id"}, {Name: "leaf_hub_name"}},
-		DoUpdates: clause.AssignmentColumns([]string{"payload", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"payload", "updated_at", "deleted_at"}),
 	}).Create(&models.LeafHub{
 		LeafHubName: leafHubName,
 		ClusterID:   clusterId,

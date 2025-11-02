@@ -3,13 +3,11 @@ package policy
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	set "github.com/deckarep/golang-set"
 	"github.com/go-kratos/kratos/v2/errors"
 	kesselv1betarelations "github.com/project-kessel/inventory-api/api/kessel/inventory/v1beta1/relationships"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -21,12 +19,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
-	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 type localPolicyComplianceHandler struct {
-	log           *zap.SugaredLogger
 	eventType     string
 	eventSyncMode enum.EventSyncMode
 	eventPriority conflator.ConflationPriority
@@ -35,9 +31,7 @@ type localPolicyComplianceHandler struct {
 
 func RegisterLocalPolicyComplianceHandler(conflationManager *conflator.ConflationManager) {
 	eventType := string(enum.LocalComplianceType)
-	logName := strings.ReplaceAll(eventType, enum.EventTypePrefix, "")
 	h := &localPolicyComplianceHandler{
-		log:           logger.ZapLogger(logName),
 		eventType:     eventType,
 		eventSyncMode: enum.CompleteStateMode,
 		eventPriority: conflator.LocalCompliancePriority,
@@ -58,7 +52,7 @@ func (h *localPolicyComplianceHandler) handleEventWrapper(ctx context.Context, e
 func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	h.log.Info("handler start ", "type ", evt.Type(), "LH ", evt.Source(), "version ", version)
+	log.Debugw("handler start ", "type ", enum.ShortenEventType(evt.Type()), "LH ", evt.Source(), "version ", version)
 
 	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
@@ -145,7 +139,7 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 
 		if configs.IsInventoryAPIEnabled() {
 			log.Debugf("sync to inventory api - %s", policyID)
-			err = syncInventory(h.log, h.requester, leafHub,
+			err = syncInventory(h.requester, leafHub,
 				models.ResourceVersion{
 					Key:  policyID,
 					Name: policyNamespacedName,
@@ -180,7 +174,7 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 		return fmt.Errorf("failed to handle local compliance event - %w", err)
 	}
 
-	h.log.Info("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 
@@ -191,7 +185,6 @@ func (h *localPolicyComplianceHandler) handleCompliance(ctx context.Context, evt
 // Note: we do not handle the case: when run globalhub sometimes, and the data has post
 // database then enable inventory api
 func syncInventory(
-	log *zap.SugaredLogger,
 	requester transport.Requester,
 	leafHubName string,
 	policy models.ResourceVersion,

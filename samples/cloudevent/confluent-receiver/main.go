@@ -5,19 +5,14 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
 	cectx "github.com/cloudevents/sdk-go/v2/context"
-	clusterv1 "open-cluster-management.io/api/cluster/v1"
-	policiesv1 "open-cluster-management.io/governance-policy-propagator/api/v1"
 
-	"github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/samples/config"
 )
 
@@ -29,8 +24,8 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configMap, err := config.GetConfluentConfigMapByTransportConfig(os.Getenv("KAFKA_NAMESPACE"), "transport-config-local-cluster",
-		"test-consumer-id")
+	configMap, err := config.GetConfluentConfigMapByTransportConfig("mgh", "transport-config",
+		"test-consumer-id-2")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
 	}
@@ -84,9 +79,9 @@ func main() {
 func handleEvent(ctx context.Context, event cloudevents.Event) {
 	switch event.Type() {
 	case string(enum.ManagedClusterType):
-		processBundle[clusterv1.ManagedCluster](event)
+		fmt.Println(event)
 	case string(enum.LocalPolicySpecType):
-		processBundle[policiesv1.Policy](event)
+		fmt.Println(event)
 	case string(enum.ManagedClusterMigrationType):
 		fmt.Println(event)
 	case string(enum.HubClusterHeartbeatType):
@@ -94,23 +89,4 @@ func handleEvent(ctx context.Context, event cloudevents.Event) {
 	default:
 		fmt.Println(event)
 	}
-}
-
-func processBundle[T any](event cloudevents.Event) {
-	var bundle generic.GenericBundle[T]
-	if err := event.DataAs(&bundle); err != nil {
-		log.Printf("----- error decoding event [%s] ----\n", event.Type())
-		utils.PrettyPrint(event)
-		log.Println("----- error end ----")
-		return
-	}
-
-	shortType := strings.TrimPrefix(event.Type(), enum.EventTypePrefix)
-	version := event.Extensions()["extversion"]
-
-	fmt.Printf("%s - %s: create %d, update %d, delete %d, resync %d, metadata %d\n",
-		shortType, version,
-		len(bundle.Create), len(bundle.Update), len(bundle.Delete),
-		len(bundle.Resync), len(bundle.ResyncMetadata),
-	)
 }
