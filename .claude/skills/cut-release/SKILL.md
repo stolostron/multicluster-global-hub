@@ -43,13 +43,19 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 
 **Repository**: [stolostron/multicluster-global-hub](https://github.com/stolostron/multicluster-global-hub)
 
-**What it does**:
-- Creates ACM release branch (e.g., release-2.17)
-- Updates `.tekton/` pipelinesascode configurations
-- Updates `Containerfile.*` version references
-- Creates PR to bump version in main branch for next development cycle
+**What it does** (4-part workflow):
+1. **Update main branch**: Creates new `.tekton/` configuration files for new version (e.g., globalhub-1-8) with `target_branch="main"`, updates `Containerfile.*` version labels
+2. **Create release branch**: Creates ACM release branch (e.g., release-2.17) from updated main
+3. **Create PR to main**: Creates PR to upstream main with new release configurations
+4. **Update previous release**: Updates previous release branch's `.tekton/` files to set `target_branch` to the previous release branch (e.g., globalhub-1-7 files updated to `target_branch="release-2.16"`)
 
-**Outputs**: 1 PR (version bump to main)
+**Key behavior**:
+- New `.tekton/` files (e.g., globalhub-1-8) created by **copying** old files (globalhub-1-7), not renaming
+- Old `.tekton/` files (globalhub-1-7) remain on main with `target_branch="main"`
+- Previous release branch gets updated so its files point to itself (not main)
+- Ensures continuous file naming progression: globalhub-1-6 → globalhub-1-7 → globalhub-1-8
+
+**Outputs**: 1 PR (new release configurations to main), direct pushes to release branches
 
 ### Repository 2: openshift/release (Script 02)
 

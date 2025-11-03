@@ -16,14 +16,27 @@ set -euo pipefail
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Repository information
-declare -A REPOS
-REPOS[1]="multicluster-global-hub|01-multicluster-global-hub.sh|Main repository with operator, manager, and agent"
-REPOS[2]="openshift/release|02-openshift-release.sh|OpenShift CI configuration"
-REPOS[3]="operator-bundle|03-bundle.sh|Operator bundle manifests"
-REPOS[4]="operator-catalog|04-catalog.sh|Operator catalog for OCP versions"
-REPOS[5]="glo-grafana|05-grafana.sh|Grafana dashboards"
-REPOS[6]="postgres_exporter|06-postgres-exporter.sh|Postgres exporter"
+# Repository information (Bash 3.2 compatible - using indexed arrays)
+REPO_1="multicluster-global-hub|01-multicluster-global-hub.sh|Main repository with operator, manager, and agent"
+REPO_2="openshift/release|02-openshift-release.sh|OpenShift CI configuration"
+REPO_3="operator-bundle|03-bundle.sh|Operator bundle manifests"
+REPO_4="operator-catalog|04-catalog.sh|Operator catalog for OCP versions"
+REPO_5="glo-grafana|05-grafana.sh|Grafana dashboards"
+REPO_6="postgres_exporter|06-postgres-exporter.sh|Postgres exporter"
+
+# Helper function to get repo info by number
+get_repo_info() {
+  local num=$1
+  case $num in
+    1) echo "$REPO_1" ;;
+    2) echo "$REPO_2" ;;
+    3) echo "$REPO_3" ;;
+    4) echo "$REPO_4" ;;
+    5) echo "$REPO_5" ;;
+    6) echo "$REPO_6" ;;
+    *) echo "" ;;
+  esac
+}
 
 # Parse command line argument
 MODE="${1:-interactive}"
@@ -118,8 +131,9 @@ export OPENSHIFT_RELEASE_PATH
 show_repos() {
   echo "Available repositories:"
   echo ""
-  for i in {1..6}; do
-    IFS='|' read -r name script desc <<< "${REPOS[$i]}"
+  for i in 1 2 3 4 5 6; do
+    local repo_info=$(get_repo_info "$i")
+    IFS='|' read -r name script desc <<< "$repo_info"
     printf "   [%d] %-25s %s\n" "$i" "$name" "$desc"
   done
   echo ""
@@ -128,7 +142,8 @@ show_repos() {
 # Function to run a specific script
 run_script() {
   local repo_num=$1
-  IFS='|' read -r name script desc <<< "${REPOS[$repo_num]}"
+  local repo_info=$(get_repo_info "$repo_num")
+  IFS='|' read -r name script desc <<< "$repo_info"
 
   echo ""
   echo "────────────────────────────────────────────────"
@@ -215,7 +230,8 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     COMPLETED=$((COMPLETED + 1))
   else
     FAILED=$((FAILED + 1))
-    IFS='|' read -r name _ _ <<< "${REPOS[$repo_num]}"
+    local repo_info=$(get_repo_info "$repo_num")
+    IFS='|' read -r name _ _ <<< "$repo_info"
     FAILED_REPOS+=("$name")
 
     # Ask if user wants to continue
