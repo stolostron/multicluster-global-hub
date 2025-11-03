@@ -8,13 +8,13 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "release-2.15" && (".tekton/multicluster-global-hub-manager-[!b]*.yaml".pathChanged() || "go.{mod,sum}".pathChanged() || "{pkg,manager}/***".pathChanged() || "librdkafka/***".pathChanged() || "rpms.in.yaml".pathChanged() || "rpms.lock.yaml".pathChanged())
+    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "release-2.15" && (".tekton/multicluster-global-hub-operator-[!b]*.yaml".pathChanged() || "go.{mod,sum}".pathChanged() || "{pkg,operator}/***".pathChanged())
   creationTimestamp: null
   labels:
-    appstudio.openshift.io/application: release-globalhub-1-6
-    appstudio.openshift.io/component: multicluster-global-hub-manager-globalhub-1-6
+    appstudio.openshift.io/application: release-globalhub-1-7
+    appstudio.openshift.io/component: multicluster-global-hub-operator-globalhub-1-7
     pipelines.appstudio.openshift.io/type: build
-  name: multicluster-global-hub-manager-globalhub-1-6-on-push
+  name: multicluster-global-hub-operator-globalhub-1-7-on-push
   namespace: acm-multicluster-glo-tenant
 spec:
   params:
@@ -23,7 +23,7 @@ spec:
   - name: revision
     value: '{{revision}}'
   - name: output-image
-    value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-manager-globalhub-1-6:{{revision}}
+    value: quay.io/redhat-user-workloads/acm-multicluster-glo-tenant/multicluster-global-hub-operator-globalhub-1-7:{{revision}}
   - name: build-platforms
     value:
     - linux/x86_64
@@ -31,7 +31,7 @@ spec:
     - linux/s390x
     - linux/arm64
   - name: dockerfile
-    value: manager/Containerfile.manager
+    value: operator/Containerfile.operator
   - name: path-context
     value: .
   - name: build-source-image
@@ -39,15 +39,13 @@ spec:
   - name: hermetic
     value: "true"
   - name: prefetch-input
-    value: '[ {"type": "gomod", "path": "."}, {"type": "rpm", "path": "."} ]'
-  - name: use-dev-package-managers
-    value: "true"
+    value: '[ {"type": "gomod", "path": "."} ]'
   - name: build-args
     value: ["GIT_COMMIT={{revision}}"]
   - name: send-slack-notification
     value: "true"
   - name: konflux-application-name
-    value: "release-globalhub-1-6"
+    value: "release-globalhub-1-7"
   - name: slack-webhook-url-secret-name
     # See details: https://konflux.pages.redhat.com/docs/users/patterns/slack-notifications.html
     value: "slack-notify-webhook"
@@ -67,7 +65,7 @@ spec:
       - name: pathInRepo
         value: pipelines/common.yaml
   taskRunTemplate:
-    serviceAccountName: build-pipeline-multicluster-global-hub-manager-globalhub-1-6
+    serviceAccountName: build-pipeline-multicluster-global-hub-operator-globalhub-1-7
   workspaces:
   - name: git-auth
     secret:
