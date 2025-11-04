@@ -123,7 +123,7 @@ fi
 
 # Extract previous Postgres tag info
 if [ "$BASE_BRANCH" != "main" ]; then
-  PREV_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
+  PREV_VERSION="${BASE_BRANCH#release-}"
   PREV_MINOR=$(echo "$PREV_VERSION" | cut -d. -f2)
   PREV_GH_MINOR=$((PREV_MINOR - 9))
   PREV_POSTGRES_TAG="globalhub-1-${PREV_GH_MINOR}"

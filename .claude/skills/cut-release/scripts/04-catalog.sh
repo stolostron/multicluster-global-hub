@@ -46,8 +46,9 @@ echo "   Release: $RELEASE_BRANCH / $CATALOG_BRANCH"
 echo "   OCP: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
 echo ""
 
-# Extract version for display
-CATALOG_VERSION=$(echo "$CATALOG_BRANCH" | sed 's/release-//')
+# Extract version for display (unused but kept for potential future use)
+# shellcheck disable=SC2034
+CATALOG_VERSION="${CATALOG_BRANCH#release-}"
 
 # Setup repository
 REPO_PATH="$WORK_DIR/multicluster-global-hub-operator-catalog"
@@ -130,9 +131,9 @@ fi
 
 # Extract previous catalog tag for replacements
 if [ "$BASE_BRANCH" != "main" ]; then
-  PREV_CATALOG_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
+  PREV_CATALOG_VERSION="${BASE_BRANCH#release-}"
   PREV_CATALOG_TAG="globalhub-${PREV_CATALOG_VERSION//./-}"
-  PREV_MINOR=$(echo "$PREV_CATALOG_VERSION" | sed 's/1\.//')
+  PREV_MINOR="${PREV_CATALOG_VERSION#1.}"
   # Calculate previous OCP range using same formula as main script: OCP_BASE=10, range of 5 versions
   OCP_BASE=10
   PREV_OCP_MIN=$((4*100 + OCP_BASE + PREV_MINOR))

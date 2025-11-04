@@ -121,7 +121,7 @@ fi
 
 # Extract previous Grafana tag info
 if [ "$BASE_BRANCH" != "main" ]; then
-  PREV_GRAFANA_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
+  PREV_GRAFANA_VERSION="${BASE_BRANCH#release-}"
   PREV_GRAFANA_TAG="globalhub-${PREV_GRAFANA_VERSION//./-}"
   echo "Previous Grafana tag: $PREV_GRAFANA_TAG"
 else

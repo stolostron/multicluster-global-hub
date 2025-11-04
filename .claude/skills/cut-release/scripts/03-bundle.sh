@@ -44,7 +44,7 @@ echo "   Release: $RELEASE_BRANCH / $BUNDLE_BRANCH"
 echo ""
 
 # Extract version for display
-BUNDLE_VERSION=$(echo "$BUNDLE_BRANCH" | sed 's/release-//')
+BUNDLE_VERSION="${BUNDLE_BRANCH#release-}"
 
 # Setup repository
 REPO_PATH="$WORK_DIR/multicluster-global-hub-operator-bundle"
@@ -127,8 +127,8 @@ fi
 
 # Extract previous bundle tag for replacements
 if [ "$BASE_BRANCH" != "main" ]; then
-  PREV_BUNDLE_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
-  PREV_BUNDLE_TAG="globalhub-$(echo "$PREV_BUNDLE_VERSION" | tr '.' '-')"
+  PREV_BUNDLE_VERSION="${BASE_BRANCH#release-}"
+  PREV_BUNDLE_TAG="globalhub-${PREV_BUNDLE_VERSION//./-}"
   echo "Previous bundle tag: $PREV_BUNDLE_TAG"
 else
   PREV_BUNDLE_TAG=""
@@ -272,7 +272,7 @@ BUNDLE_MANIFESTS=$(find . -name "*.clusterserviceversion.yaml" -o -name "bundle.
 if [ -n "$BUNDLE_MANIFESTS" ]; then
   echo "$BUNDLE_MANIFESTS" | while read -r file; do
     if [ -f "$file" ] && [ -n "$PREV_BUNDLE_TAG" ]; then
-      PREV_BUNDLE_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
+      PREV_BUNDLE_VERSION="${BASE_BRANCH#release-}"
       if grep -q "$PREV_BUNDLE_VERSION" "$file" 2>/dev/null; then
         echo "   Updating $file"
         sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_VERSION}/${BUNDLE_VERSION}/g" "$file"
