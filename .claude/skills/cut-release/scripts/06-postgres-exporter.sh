@@ -23,7 +23,7 @@ WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$POSTGRES_TAG" || -z "$GITHUB_USER" || -z "$CUT_MODE" ]]; then
-  echo "❌ Error: Required environment variables not set" >&2 >&2
+  echo "❌ Error: Required environment variables not set" >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, POSTGRES_TAG, GITHUB_USER, CUT_MODE"
   exit 1
@@ -149,7 +149,7 @@ if git ls-remote --heads origin "$RELEASE_BRANCH" | grep -q "$RELEASE_BRANCH"; t
   git checkout -B "$RELEASE_BRANCH" "origin/$RELEASE_BRANCH"
 else
   if [[ "$CUT_MODE" != "true" ]]; then
-    echo "❌ Error: Branch $RELEASE_BRANCH does not exist on origin" >&2 >&2
+    echo "❌ Error: Branch $RELEASE_BRANCH does not exist on origin" >&2
     echo "   Run with CUT_MODE=true to create the branch"
     exit 1
   fi
