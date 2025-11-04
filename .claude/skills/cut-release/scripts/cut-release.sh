@@ -54,7 +54,7 @@ CUT_MODE="${CUT_MODE:-false}"
 if [[ -z "${GITHUB_USER:-}" ]]; then
   GITHUB_USER=$(git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|' || echo "")
   if [[ -z "$GITHUB_USER" ]]; then
-    echo "❌ Error: Could not auto-detect GitHub user from git remote" >&2 >&2
+    echo "❌ Error: Could not auto-detect GitHub user from git remote" >&2
     echo "   Please set GITHUB_USER environment variable or run from a git repository"
     exit 1
   fi
@@ -65,7 +65,7 @@ export CUT_MODE
 
 # RELEASE_BRANCH must be explicitly specified
 if [[ -z "$RELEASE_BRANCH" ]]; then
-  echo "❌ Error: RELEASE_BRANCH environment variable is required" >&2 >&2
+  echo "❌ Error: RELEASE_BRANCH environment variable is required" >&2
   echo ""
   echo "Usage:"
   echo "   RELEASE_BRANCH=release-2.17 $0 [options]"
@@ -172,7 +172,7 @@ run_script() {
   echo ""
 
   if [[ ! -f "$SCRIPT_DIR/$script" ]]; then
-    echo "❌ Error: Script not found: $script" >&2 >&2
+    echo "❌ Error: Script not found: $script" >&2
     return 1
   fi
 

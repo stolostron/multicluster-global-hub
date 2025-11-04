@@ -16,7 +16,7 @@ set -euo pipefail
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$ACM_VERSION" || -z "$GH_VERSION" || -z "$OPENSHIFT_RELEASE_PATH" ]]; then
-  echo "❌ Error: Required environment variables not set" >&2 >&2
+  echo "❌ Error: Required environment variables not set" >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, ACM_VERSION, GH_VERSION, OPENSHIFT_RELEASE_PATH"
   exit 1
@@ -90,7 +90,7 @@ LATEST_RELEASE=$(find ci-operator/config/stolostron/multicluster-global-hub/ -na
   sort -V | tail -1)
 
 if [[ -z "$LATEST_RELEASE" ]]; then
-  echo "   ❌ Error: Could not detect previous release from openshift/release configs" >&2 >&2
+  echo "   ❌ Error: Could not detect previous release from openshift/release configs" >&2
   exit 1
 fi
 
@@ -172,7 +172,7 @@ elif command -v podman >/dev/null 2>&1; then
     CONTAINER_ENGINE="podman"
     echo "   ✅ Podman is available and running"
   else
-    echo "   ❌ Error: Podman is installed but no machine is running" >&2 >&2
+    echo "   ❌ Error: Podman is installed but no machine is running" >&2
     echo ""
     echo "   Please start your podman machine:"
     echo "      podman machine start"
@@ -180,7 +180,7 @@ elif command -v podman >/dev/null 2>&1; then
     exit 1
   fi
 else
-  echo "   ❌ Error: No container engine found!" >&2 >&2
+  echo "   ❌ Error: No container engine found!" >&2
   echo ""
   echo "   Please ensure Docker or Podman is installed and running."
   echo "   - Docker: Start Docker Desktop application"

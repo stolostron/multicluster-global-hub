@@ -20,7 +20,7 @@ WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GRAFANA_BRANCH" || -z "$GRAFANA_TAG" ]]; then
-  echo "❌ Error: Required environment variables not set" >&2 >&2
+  echo "❌ Error: Required environment variables not set" >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, GRAFANA_BRANCH, GRAFANA_TAG"
   exit 1
@@ -145,7 +145,7 @@ if git ls-remote --heads origin "$GRAFANA_BRANCH" | grep -q "$GRAFANA_BRANCH"; t
   git checkout -B "$GRAFANA_BRANCH" "origin/$GRAFANA_BRANCH"
 else
   if [[ "$CUT_MODE" != "true" ]]; then
-    echo "❌ Error: Branch $GRAFANA_BRANCH does not exist on origin" >&2 >&2
+    echo "❌ Error: Branch $GRAFANA_BRANCH does not exist on origin" >&2
     echo "   Run with CUT_MODE=true to create the branch"
     exit 1
   fi

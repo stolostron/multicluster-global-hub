@@ -30,7 +30,7 @@ FORK_URL="git@github.com:${FORK_USER}/hub-of-hubs.git"
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GH_VERSION_SHORT" || -z "$ACM_VERSION" || -z "$CUT_MODE" || -z "$GITHUB_USER" ]]; then
-  echo "❌ Error: Required environment variables not set" >&2 >&2
+  echo "❌ Error: Required environment variables not set" >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION, CUT_MODE, GITHUB_USER"
   exit 1
