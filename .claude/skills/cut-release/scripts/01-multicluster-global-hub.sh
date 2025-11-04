@@ -30,7 +30,7 @@ FORK_URL="git@github.com:${FORK_USER}/hub-of-hubs.git"
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GH_VERSION_SHORT" || -z "$ACM_VERSION" || -z "$CUT_MODE" || -z "$GITHUB_USER" ]]; then
-  echo "❌ Error: Required environment variables not set"
+  echo "❌ Error: Required environment variables not set" >&2 >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION, CUT_MODE, GITHUB_USER"
   exit 1
@@ -54,7 +54,7 @@ echo "   Mode: $([ "$CUT_MODE" = true ] && echo "CUT (create branches)" || echo 
 echo ""
 echo "Workflow:"
 echo "  1. Update main branch with new .tekton files (target_branch=main)"
-if [ "$CUT_MODE" = "true" ]; then
+if [[ "$CUT_MODE" = "true" ]]; then
   echo "  2. Create release branch from updated main (CUT MODE)"
 else
   echo "  2. Skip release branch creation (UPDATE MODE)"
@@ -69,7 +69,7 @@ echo ""
 echo "📍 Step 1: Cloning repository..."
 
 # Remove existing work directory for clean clone
-if [ -d "$WORK_DIR" ]; then
+if [[ -d "$WORK_DIR" ]]; then
   echo "   Removing existing work directory..."
   rm -rf "$WORK_DIR"
 fi
@@ -149,7 +149,7 @@ echo "📍 Step 4: Creating new .tekton/ configuration files..."
 
 TEKTON_UPDATED=false
 
-if [ ! -d ".tekton" ]; then
+if [[ ! -d ".tekton" ]]; then
   echo "   ⚠️  .tekton/ directory not found in current repository"
 else
   # Define version tags
@@ -165,7 +165,7 @@ else
       NEW_FILE=".tekton/multicluster-global-hub-${component}-${NEW_TAG}-${pipeline_type}.yaml"
 
       # Determine expected target_branch based on pipeline type
-      if [ "$pipeline_type" = "pull-request" ]; then
+      if [[ "$pipeline_type" = "pull-request" ]]; then
         EXPECTED_TARGET="main"
       else
         # push pipelines should target the release branch
@@ -173,16 +173,16 @@ else
       fi
 
       # Check if new file already exists
-      if [ -f "$NEW_FILE" ]; then
+      if [[ -f "$NEW_FILE" ]]; then
         echo "   ℹ️  Already exists: $NEW_FILE"
 
         # Check current target_branch
         CURRENT_TARGET=$(grep 'target_branch ==' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
-        if [ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]; then
+        if [[ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]]; then
           echo "   ✓ Content verified: target_branch=$EXPECTED_TARGET"
           TEKTON_UPDATED=true
-        elif [ -n "$CURRENT_TARGET" ]; then
+        elif [[ -n "$CURRENT_TARGET" ]]; then
           # Update target_branch to expected value
           echo "   ⚠️  Updating target_branch: $CURRENT_TARGET -> $EXPECTED_TARGET"
           sed "${SED_INPLACE[@]}" "s/target_branch == \"${CURRENT_TARGET}\"/target_branch == \"${EXPECTED_TARGET}\"/" "$NEW_FILE"
@@ -196,7 +196,7 @@ else
       fi
 
       # Old file exists, copy to new file
-      if [ -f "$OLD_FILE" ]; then
+      if [[ -f "$OLD_FILE" ]]; then
         # Copy old file to new file
         cp "$OLD_FILE" "$NEW_FILE"
         echo "   ✅ Created: $NEW_FILE (from $OLD_FILE)"
@@ -215,7 +215,7 @@ else
         # 4. Update target_branch to expected value
         # First get the current target_branch from the copied file
         CURRENT_TARGET=$(grep 'target_branch ==' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
-        if [ -n "$CURRENT_TARGET" ] && [ "$CURRENT_TARGET" != "$EXPECTED_TARGET" ]; then
+        if [[ -n "$CURRENT_TARGET" && "$CURRENT_TARGET" != "$EXPECTED_TARGET" ]]; then
           sed "${SED_INPLACE[@]}" "s/target_branch == \"${CURRENT_TARGET}\"/target_branch == \"${EXPECTED_TARGET}\"/" "$NEW_FILE"
         fi
 
@@ -233,7 +233,7 @@ else
     done
   done
 
-  if [ "$TEKTON_UPDATED" = true ]; then
+  if [[ "$TEKTON_UPDATED" = true ]]; then
     echo "   ✅ Tekton files updated"
   else
     echo "   ⚠️  No updates needed"
@@ -250,7 +250,7 @@ CONTAINERFILE_UPDATED=false
 for component in agent manager operator; do
   CONTAINERFILE="${component}/Containerfile.${component}"
 
-  if [ -f "$CONTAINERFILE" ]; then
+  if [[ -f "$CONTAINERFILE" ]]; then
     echo "   Processing $CONTAINERFILE..."
 
     # Check if already updated to new version (idempotent)
@@ -265,7 +265,7 @@ for component in agent manager operator; do
     else
       # Try to find any version label and report
       VERSION_LINE=$(grep "LABEL version=" "$CONTAINERFILE" 2>/dev/null || echo "")
-      if [ -n "$VERSION_LINE" ]; then
+      if [[ -n "$VERSION_LINE" ]]; then
         echo "   ⚠️  Found: $VERSION_LINE"
         echo "   ⚠️  Expected: release-${PREV_GH_VERSION_SHORT} or release-${GH_VERSION_SHORT}"
         echo "   ⚠️  Manual update may be needed"
@@ -278,7 +278,7 @@ for component in agent manager operator; do
   fi
 done
 
-if [ "$CONTAINERFILE_UPDATED" = true ]; then
+if [[ "$CONTAINERFILE_UPDATED" = true ]]; then
   echo "   ✅ Containerfile labels updated"
 else
   echo "   ⚠️  No updates needed"
@@ -328,13 +328,13 @@ if git ls-remote --heads "$UPSTREAM_REMOTE" "$RELEASE_BRANCH" | grep -q "$RELEAS
 fi
 
 # Create/checkout release branch from the PR branch (which has latest changes)
-if [ "$RELEASE_BRANCH_EXISTS" = true ]; then
+if [[ "$RELEASE_BRANCH_EXISTS" = true ]]; then
   echo "   ℹ️  Release branch already exists, skipping creation"
   echo "   Note: Release branch exists on upstream, no merge needed"
   # Just checkout to continue with other steps
   git checkout -B "$RELEASE_BRANCH" "$UPSTREAM_REMOTE/$RELEASE_BRANCH"
 else
-  if [ "$CUT_MODE" != "true" ]; then
+  if [[ "$CUT_MODE" != "true" ]]; then
     echo "   ℹ️  Release branch does not exist - skipping (UPDATE mode)"
     echo "   Note: Run with CUT_MODE=true to create the release branch"
   else
@@ -377,7 +377,7 @@ EXISTING_MAIN_PR=$(gh pr list \
   --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
 # Push PR branch to origin (your fork) - always push if there are changes
-if [ "$MAIN_CHANGES_COMMITTED" = true ]; then
+if [[ "$MAIN_CHANGES_COMMITTED" = true ]]; then
   git checkout "$MAIN_PR_BRANCH"
 
   echo "   Pushing $MAIN_PR_BRANCH to origin (${ORIGIN_USER})..."
@@ -391,9 +391,9 @@ if [ "$MAIN_CHANGES_COMMITTED" = true ]; then
     PUSH_SUCCESS=false
   fi
 
-  if [ "$PUSH_SUCCESS" = true ]; then
+  if [[ "$PUSH_SUCCESS" = true ]]; then
     # Check if PR exists
-    if [ -n "$EXISTING_MAIN_PR" ] && [ "$EXISTING_MAIN_PR" != "null|null" ]; then
+    if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "null|null" ]]; then
       MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
       MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
       echo "   ✅ PR already exists and updated (state: $MAIN_PR_STATE): $MAIN_PR_URL"
@@ -452,7 +452,7 @@ This PR adds the new release pipeline configurations to main branch while preser
 else
   echo "   ℹ️  No changes to push"
   # Still check if PR exists
-  if [ -n "$EXISTING_MAIN_PR" ] && [ "$EXISTING_MAIN_PR" != "null|null" ]; then
+  if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "null|null" ]]; then
     MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
     MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
     echo "   ℹ️  PR already exists (state: $MAIN_PR_STATE): $MAIN_PR_URL"
@@ -485,7 +485,7 @@ fi
 
 PREV_RELEASE_UPDATED=false
 
-if [ "$PREV_RELEASE_EXISTS" = true ]; then
+if [[ "$PREV_RELEASE_EXISTS" = true ]]; then
   # Checkout previous release branch
   echo "   Checking out $PREV_RELEASE_BRANCH..."
   git fetch "$UPSTREAM_REMOTE" "$PREV_RELEASE_BRANCH" >/dev/null 2>&1
@@ -500,13 +500,13 @@ if [ "$PREV_RELEASE_EXISTS" = true ]; then
     for pipeline_type in pull-request push; do
       PREV_FILE=".tekton/multicluster-global-hub-${component}-${PREV_TAG}-${pipeline_type}.yaml"
 
-      if [ -f "$PREV_FILE" ]; then
+      if [[ -f "$PREV_FILE" ]]; then
         # Check current target_branch
         CURRENT_TARGET=$(grep 'target_branch ==' "$PREV_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
-        if [ "$CURRENT_TARGET" = "$PREV_RELEASE_BRANCH" ]; then
+        if [[ "$CURRENT_TARGET" = "$PREV_RELEASE_BRANCH" ]]; then
           echo "   ℹ️  Already correct: $PREV_FILE (target_branch=$PREV_RELEASE_BRANCH)"
-        elif [ "$CURRENT_TARGET" = "main" ]; then
+        elif [[ "$CURRENT_TARGET" = "main" ]]; then
           # Update from main to release branch
           sed "${SED_INPLACE[@]}" "s/target_branch == \"main\"/target_branch == \"${PREV_RELEASE_BRANCH}\"/" "$PREV_FILE"
           git add "$PREV_FILE"
@@ -522,7 +522,7 @@ if [ "$PREV_RELEASE_EXISTS" = true ]; then
   done
 
   # Commit changes if any
-  if [ "$PREV_RELEASE_UPDATED" = true ]; then
+  if [[ "$PREV_RELEASE_UPDATED" = true ]]; then
     # Create a branch for PR to previous release
     PREV_PR_BRANCH="update-${PREV_RELEASE_BRANCH}-tekton-target"
     git checkout -b "$PREV_PR_BRANCH"
@@ -553,7 +553,7 @@ ACM: ${PREV_RELEASE_BRANCH}, Global Hub: release-${PREV_GH_VERSION_SHORT}"
       echo "   ✅ Branch pushed to origin"
 
       # Check if PR exists
-      if [ -n "$EXISTING_PREV_PR" ] && [ "$EXISTING_PREV_PR" != "null|null" ]; then
+      if [[ -n "$EXISTING_PREV_PR" && "$EXISTING_PREV_PR" != "null|null" ]]; then
         PREV_PR_STATE=$(echo "$EXISTING_PREV_PR" | cut -d'|' -f1)
         PREV_PR_URL=$(echo "$EXISTING_PREV_PR" | cut -d'|' -f2)
         echo "   ✅ PR already exists and updated (state: $PREV_PR_STATE): $PREV_PR_URL"
@@ -627,7 +627,7 @@ fi
 CURRENT_RELEASE_UPDATED=false
 CURRENT_PR_CREATED=false
 
-if [ "$CURRENT_RELEASE_EXISTS" = true ]; then
+if [[ "$CURRENT_RELEASE_EXISTS" = true ]]; then
   # Checkout current release branch
   echo "   Checking out $RELEASE_BRANCH..."
   git fetch "$UPSTREAM_REMOTE" "$RELEASE_BRANCH" >/dev/null 2>&1
@@ -643,20 +643,20 @@ if [ "$CURRENT_RELEASE_EXISTS" = true ]; then
       CURRENT_FILE=".tekton/multicluster-global-hub-${component}-${NEW_TAG}-${pipeline_type}.yaml"
 
       # Determine expected target_branch based on pipeline type
-      if [ "$pipeline_type" = "pull-request" ]; then
+      if [[ "$pipeline_type" = "pull-request" ]]; then
         EXPECTED_TARGET="main"
       else
         # push pipelines should target the release branch
         EXPECTED_TARGET="$RELEASE_BRANCH"
       fi
 
-      if [ -f "$CURRENT_FILE" ]; then
+      if [[ -f "$CURRENT_FILE" ]]; then
         # Check current target_branch
         CURRENT_TARGET=$(grep 'target_branch ==' "$CURRENT_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
-        if [ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]; then
+        if [[ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]]; then
           echo "   ℹ️  Already correct: $CURRENT_FILE (target_branch=$EXPECTED_TARGET)"
-        elif [ -n "$CURRENT_TARGET" ]; then
+        elif [[ -n "$CURRENT_TARGET" ]]; then
           # Update to expected target_branch
           sed "${SED_INPLACE[@]}" "s/target_branch == \"${CURRENT_TARGET}\"/target_branch == \"${EXPECTED_TARGET}\"/" "$CURRENT_FILE"
           git add "$CURRENT_FILE"
@@ -672,7 +672,7 @@ if [ "$CURRENT_RELEASE_EXISTS" = true ]; then
   done
 
   # Commit changes if any
-  if [ "$CURRENT_RELEASE_UPDATED" = true ]; then
+  if [[ "$CURRENT_RELEASE_UPDATED" = true ]]; then
     # Create a branch for PR to current release
     CURRENT_PR_BRANCH="update-${RELEASE_BRANCH}-tekton-target"
     git checkout -b "$CURRENT_PR_BRANCH"
@@ -705,7 +705,7 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
       echo "   ✅ Branch pushed to origin"
 
       # Check if PR exists
-      if [ -n "$EXISTING_CURRENT_PR" ] && [ "$EXISTING_CURRENT_PR" != "null|null" ]; then
+      if [[ -n "$EXISTING_CURRENT_PR" && "$EXISTING_CURRENT_PR" != "null|null" ]]; then
         CURRENT_PR_STATE=$(echo "$EXISTING_CURRENT_PR" | cut -d'|' -f1)
         CURRENT_PR_URL=$(echo "$EXISTING_CURRENT_PR" | cut -d'|' -f2)
         echo "   ✅ PR already exists and updated (state: $CURRENT_PR_STATE): $CURRENT_PR_URL"
@@ -780,7 +780,7 @@ if [[ "$TEKTON_UPDATED" = true || "$CONTAINERFILE_UPDATED" = true ]]; then
 fi
 
 if [[ "$RELEASE_BRANCH_PUSHED" = true || "$RELEASE_BRANCH_EXISTS" = true ]]; then
-  if [ "$RELEASE_BRANCH_EXISTS" = true ]; then
+  if [[ "$RELEASE_BRANCH_EXISTS" = true ]]; then
     echo "  ✓ Release branch: $RELEASE_BRANCH (already existed)"
   else
     echo "  ✓ Release branch: $RELEASE_BRANCH (created and pushed)"
@@ -788,17 +788,17 @@ if [[ "$RELEASE_BRANCH_PUSHED" = true || "$RELEASE_BRANCH_EXISTS" = true ]]; the
   COMPLETED=$((COMPLETED + 1))
 fi
 
-if [ "$MAIN_PR_CREATED" = true ]; then
+if [[ "$MAIN_PR_CREATED" = true ]]; then
   echo "  ✓ PR to main: ${MAIN_PR_URL}"
   COMPLETED=$((COMPLETED + 1))
 fi
 
-if [ "$PREV_RELEASE_UPDATED" = true ] && [ "$PREV_PR_CREATED" = true ]; then
+if [[ "$PREV_RELEASE_UPDATED" = true && "$PREV_PR_CREATED" = true ]]; then
   echo "  ✓ PR to $PREV_RELEASE_BRANCH: ${PREV_PR_URL}"
   COMPLETED=$((COMPLETED + 1))
 fi
 
-if [ "$CURRENT_RELEASE_UPDATED" = true ] && [ "$CURRENT_PR_CREATED" = true ]; then
+if [[ "$CURRENT_RELEASE_UPDATED" = true && "$CURRENT_PR_CREATED" = true ]]; then
   echo "  ✓ PR to $RELEASE_BRANCH: ${CURRENT_PR_URL}"
   COMPLETED=$((COMPLETED + 1))
 fi
@@ -810,31 +810,31 @@ if [[ "$TEKTON_UPDATED" = false || "$CONTAINERFILE_UPDATED" = false || \
   SHOW_ISSUES=true
 fi
 
-if [ "$SHOW_ISSUES" = true ]; then
+if [[ "$SHOW_ISSUES" = true ]]; then
   echo ""
   echo "⚠️  ISSUES / WARNINGS:"
 
-  if [ "$TEKTON_UPDATED" = false ]; then
+  if [[ "$TEKTON_UPDATED" = false ]]; then
     echo "  ⚠ .tekton/ files not created"
     FAILED=$((FAILED + 1))
   fi
 
-  if [ "$CONTAINERFILE_UPDATED" = false ]; then
+  if [[ "$CONTAINERFILE_UPDATED" = false ]]; then
     echo "  ⚠ Containerfile labels not updated"
     FAILED=$((FAILED + 1))
   fi
 
-  if [ "$MAIN_PR_CREATED" = false ] && [ "$MAIN_CHANGES_COMMITTED" = true ]; then
+  if [[ "$MAIN_PR_CREATED" = false && "$MAIN_CHANGES_COMMITTED" = true ]]; then
     echo "  ⚠ PR to main not created (manual creation needed)"
     FAILED=$((FAILED + 1))
   fi
 
-  if [ "$RELEASE_BRANCH_PUSHED" = false ] && [ "$RELEASE_BRANCH_EXISTS" = false ]; then
+  if [[ "$RELEASE_BRANCH_PUSHED" = false && "$RELEASE_BRANCH_EXISTS" = false ]]; then
     echo "  ⚠ Release branch not pushed (manual push needed)"
     FAILED=$((FAILED + 1))
   fi
 
-  if [ "$PREV_RELEASE_UPDATED" = false ] && [ "$PREV_RELEASE_EXISTS" = true ]; then
+  if [[ "$PREV_RELEASE_UPDATED" = false && "$PREV_RELEASE_EXISTS" = true ]]; then
     echo "  ℹ️  Previous release not updated (may already be correct)"
   fi
 fi
@@ -845,17 +845,17 @@ echo "📝 NEXT STEPS"
 echo "================================================"
 
 PR_COUNT=0
-if [ "$MAIN_PR_CREATED" = true ]; then
+if [[ "$MAIN_PR_CREATED" = true ]]; then
   PR_COUNT=$((PR_COUNT + 1))
   echo "${PR_COUNT}. Review and merge: ${MAIN_PR_URL}"
 fi
 
-if [ "$PREV_PR_CREATED" = true ]; then
+if [[ "$PREV_PR_CREATED" = true ]]; then
   PR_COUNT=$((PR_COUNT + 1))
   echo "${PR_COUNT}. Review and merge: ${PREV_PR_URL}"
 fi
 
-if [ "$CURRENT_PR_CREATED" = true ]; then
+if [[ "$CURRENT_PR_CREATED" = true ]]; then
   PR_COUNT=$((PR_COUNT + 1))
   echo "${PR_COUNT}. Review and merge: ${CURRENT_PR_URL}"
 fi
@@ -865,7 +865,7 @@ echo "After merge: Verify Konflux pipelines and builds"
 
 echo ""
 echo "================================================"
-if [ $FAILED -eq 0 ]; then
+if [[ $FAILED -eq 0 ]]; then
   echo "✅ SUCCESS ($COMPLETED tasks completed)"
 else
   echo "⚠️  COMPLETED WITH WARNINGS ($COMPLETED completed, $FAILED warnings)"

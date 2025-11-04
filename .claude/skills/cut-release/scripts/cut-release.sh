@@ -51,10 +51,10 @@ OPENSHIFT_RELEASE_PATH="${OPENSHIFT_RELEASE_PATH:-/tmp/openshift-release}"
 CUT_MODE="${CUT_MODE:-false}"
 
 # Auto-detect GitHub user from current git repo (can be overridden with GITHUB_USER env var)
-if [ -z "${GITHUB_USER:-}" ]; then
+if [[ -z "${GITHUB_USER:-}" ]]; then
   GITHUB_USER=$(git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|' || echo "")
-  if [ -z "$GITHUB_USER" ]; then
-    echo "❌ Error: Could not auto-detect GitHub user from git remote"
+  if [[ -z "$GITHUB_USER" ]]; then
+    echo "❌ Error: Could not auto-detect GitHub user from git remote" >&2 >&2
     echo "   Please set GITHUB_USER environment variable or run from a git repository"
     exit 1
   fi
@@ -64,8 +64,8 @@ export GITHUB_USER
 export CUT_MODE
 
 # RELEASE_BRANCH must be explicitly specified
-if [ -z "$RELEASE_BRANCH" ]; then
-  echo "❌ Error: RELEASE_BRANCH environment variable is required"
+if [[ -z "$RELEASE_BRANCH" ]]; then
+  echo "❌ Error: RELEASE_BRANCH environment variable is required" >&2 >&2
   echo ""
   echo "Usage:"
   echo "   RELEASE_BRANCH=release-2.17 $0 [options]"
@@ -171,8 +171,8 @@ run_script() {
   echo "   $desc"
   echo ""
 
-  if [ ! -f "$SCRIPT_DIR/$script" ]; then
-    echo "❌ Error: Script not found: $script"
+  if [[ ! -f "$SCRIPT_DIR/$script" ]]; then
+    echo "❌ Error: Script not found: $script" >&2 >&2
     return 1
   fi
 
@@ -186,7 +186,7 @@ run_script() {
     return 0
   else
     echo ""
-    echo "❌ $name failed"
+    echo "❌ $name failed" >&2
     return 1
   fi
 }
@@ -203,7 +203,7 @@ case "$MODE" in
     echo ""
     read -r -p "Selection: " selection
 
-    if [ -z "$selection" ]; then
+    if [[ -z "$selection" ]]; then
       # Update all
       REPOS_TO_UPDATE=(1 2 3 4 5 6)
       echo "Updating all repositories..."
@@ -254,7 +254,7 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     FAILED_REPOS+=("$name")
 
     # Ask if user wants to continue
-    if [ "$FAILED" -lt "$TOTAL" ]; then
+    if [[ "$FAILED" -lt "$TOTAL" ]]; then
       echo ""
       echo "⚠️  Continue with remaining repositories? (y/n)"
       read -r continue_choice
@@ -279,9 +279,9 @@ echo ""
 echo "Results:"
 echo "   Total: $TOTAL"
 echo "   ✅ Completed: $COMPLETED"
-echo "   ❌ Failed: $FAILED"
+echo "   ❌ Failed: $FAILED" >&2
 
-if [ $FAILED -gt 0 ]; then
+if [[ $FAILED -gt 0 ]]; then
   echo ""
   echo "Failed repositories:"
   for repo in "${FAILED_REPOS[@]}"; do
@@ -292,7 +292,7 @@ fi
 echo ""
 echo "================================================"
 
-if [ $FAILED -eq 0 ]; then
+if [[ $FAILED -eq 0 ]]; then
   echo "🎉 All selected repositories updated successfully!"
   echo ""
   echo "📝 Next Steps:"

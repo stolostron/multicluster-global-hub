@@ -20,7 +20,7 @@ WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GRAFANA_BRANCH" || -z "$GRAFANA_TAG" ]]; then
-  echo "❌ Error: Required environment variables not set"
+  echo "❌ Error: Required environment variables not set" >&2 >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, GRAFANA_BRANCH, GRAFANA_TAG"
   exit 1
@@ -46,15 +46,15 @@ REPO_PATH="$WORK_DIR/glo-grafana"
 mkdir -p "$WORK_DIR"
 
 # Remove existing directory for clean clone
-if [ -d "$REPO_PATH" ]; then
+if [[ -d "$REPO_PATH" ]]; then
   echo "   Removing existing directory for clean clone..."
   rm -rf "$REPO_PATH"
 fi
 
 echo "📥 Cloning $GRAFANA_REPO..."
 git clone --progress "https://github.com/$GRAFANA_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-if [ ! -d "$REPO_PATH/.git" ]; then
-  echo "❌ Failed to clone $GRAFANA_REPO"
+if [[ ! -d "$REPO_PATH/.git" ]]; then
+  echo "❌ Failed to clone $GRAFANA_REPO" >&2
   exit 1
 fi
 echo "✅ Cloned successfully"
@@ -84,7 +84,7 @@ LATEST_GRAFANA_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$
   sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -1)
 
 # Check if target branch is the same as latest
-if [ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]; then
+if [[ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]]; then
   echo "ℹ️  Target grafana branch is the latest: $GRAFANA_BRANCH"
   echo ""
   echo "   https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
@@ -93,7 +93,7 @@ if [ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]; then
   echo ""
 fi
 
-if [ -z "$LATEST_GRAFANA_RELEASE" ]; then
+if [[ -z "$LATEST_GRAFANA_RELEASE" ]]; then
   echo "⚠️  No previous grafana release branch found, using main as base"
   BASE_BRANCH="main"
 else
@@ -101,11 +101,11 @@ else
 
   # If target branch is the latest, use second-to-latest as base
   # If target branch is not the latest, use latest as base
-  if [ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]; then
+  if [[ "$LATEST_GRAFANA_RELEASE" = "$GRAFANA_BRANCH" ]]; then
     # Target is latest - get second-to-latest for base
     SECOND_TO_LATEST=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
       sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
-    if [ -n "$SECOND_TO_LATEST" ] && [ "$SECOND_TO_LATEST" != "$GRAFANA_BRANCH" ]; then
+    if [[ -n "$SECOND_TO_LATEST" && "$SECOND_TO_LATEST" != "$GRAFANA_BRANCH" ]]; then
       BASE_BRANCH="$SECOND_TO_LATEST"
       echo "Target is latest release, using previous release as base: $BASE_BRANCH"
     else
@@ -120,7 +120,7 @@ else
 fi
 
 # Extract previous Grafana tag info
-if [ "$BASE_BRANCH" != "main" ]; then
+if [[ "$BASE_BRANCH" != "main" ]]; then
   PREV_GRAFANA_VERSION="${BASE_BRANCH#release-}"
   PREV_GRAFANA_TAG="globalhub-${PREV_GRAFANA_VERSION//./-}"
   echo "Previous Grafana tag: $PREV_GRAFANA_TAG"
@@ -144,8 +144,8 @@ if git ls-remote --heads origin "$GRAFANA_BRANCH" | grep -q "$GRAFANA_BRANCH"; t
   git fetch origin "$GRAFANA_BRANCH" 2>/dev/null || true
   git checkout -B "$GRAFANA_BRANCH" "origin/$GRAFANA_BRANCH"
 else
-  if [ "$CUT_MODE" != "true" ]; then
-    echo "❌ Error: Branch $GRAFANA_BRANCH does not exist on origin"
+  if [[ "$CUT_MODE" != "true" ]]; then
+    echo "❌ Error: Branch $GRAFANA_BRANCH does not exist on origin" >&2 >&2
     echo "   Run with CUT_MODE=true to create the branch"
     exit 1
   fi
@@ -159,14 +159,14 @@ fi
 echo ""
 echo "📍 Step 1: Updating tekton pipeline files..."
 
-if [ -n "$PREV_GRAFANA_TAG" ]; then
+if [[ -n "$PREV_GRAFANA_TAG" ]]; then
   # Update pull-request pipeline
   OLD_PR_PIPELINE=".tekton/glo-grafana-${PREV_GRAFANA_TAG}-pull-request.yaml"
   NEW_PR_PIPELINE=".tekton/glo-grafana-${GRAFANA_TAG}-pull-request.yaml"
 
-  if [ "$PREV_GRAFANA_TAG" = "$GRAFANA_TAG" ]; then
+  if [[ "$PREV_GRAFANA_TAG" = "$GRAFANA_TAG" ]]; then
     # Same tag - just update in place
-    if [ -f "$NEW_PR_PIPELINE" ]; then
+    if [[ -f "$NEW_PR_PIPELINE" ]]; then
       echo "   ℹ️  Pull-request pipeline already exists with correct name"
       echo "   Updating references in $NEW_PR_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${GRAFANA_BRANCH}/g" "$NEW_PR_PIPELINE"
@@ -174,7 +174,7 @@ if [ -n "$PREV_GRAFANA_TAG" ]; then
     else
       echo "   ⚠️  Pipeline not found: $NEW_PR_PIPELINE"
     fi
-  elif [ -f "$OLD_PR_PIPELINE" ]; then
+  elif [[ -f "$OLD_PR_PIPELINE" ]]; then
     echo "   Renaming and updating pull-request pipeline..."
     git mv "$OLD_PR_PIPELINE" "$NEW_PR_PIPELINE" 2>/dev/null || cp "$OLD_PR_PIPELINE" "$NEW_PR_PIPELINE"
     sed "${SED_INPLACE[@]}" "s/${PREV_GRAFANA_TAG}/${GRAFANA_TAG}/g" "$NEW_PR_PIPELINE"
@@ -188,9 +188,9 @@ if [ -n "$PREV_GRAFANA_TAG" ]; then
   OLD_PUSH_PIPELINE=".tekton/glo-grafana-${PREV_GRAFANA_TAG}-push.yaml"
   NEW_PUSH_PIPELINE=".tekton/glo-grafana-${GRAFANA_TAG}-push.yaml"
 
-  if [ "$PREV_GRAFANA_TAG" = "$GRAFANA_TAG" ]; then
+  if [[ "$PREV_GRAFANA_TAG" = "$GRAFANA_TAG" ]]; then
     # Same tag - just update in place
-    if [ -f "$NEW_PUSH_PIPELINE" ]; then
+    if [[ -f "$NEW_PUSH_PIPELINE" ]]; then
       echo "   ℹ️  Push pipeline already exists with correct name"
       echo "   Updating references in $NEW_PUSH_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${GRAFANA_BRANCH}/g" "$NEW_PUSH_PIPELINE"
@@ -198,7 +198,7 @@ if [ -n "$PREV_GRAFANA_TAG" ]; then
     else
       echo "   ⚠️  Pipeline not found: $NEW_PUSH_PIPELINE"
     fi
-  elif [ -f "$OLD_PUSH_PIPELINE" ]; then
+  elif [[ -f "$OLD_PUSH_PIPELINE" ]]; then
     echo "   Renaming and updating push pipeline..."
     git mv "$OLD_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE" 2>/dev/null || cp "$OLD_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
     sed "${SED_INPLACE[@]}" "s/${PREV_GRAFANA_TAG}/${GRAFANA_TAG}/g" "$NEW_PUSH_PIPELINE"
@@ -238,18 +238,18 @@ fi
 echo ""
 echo "📍 Step 3: Publishing changes..."
 
-if [ "$CHANGES_COMMITTED" = false ]; then
+if [[ "$CHANGES_COMMITTED" = false ]]; then
   echo "   ℹ️  No changes to publish"
 else
   # Decision: Push directly or create PR based on CUT_MODE and branch existence
-  if [ "$CUT_MODE" = "true" ] && [ "$BRANCH_EXISTS_ON_ORIGIN" = false ]; then
+  if [[ "$CUT_MODE" = "true" && "$BRANCH_EXISTS_ON_ORIGIN" = false ]]; then
     # CUT mode + branch doesn't exist - push directly
     echo "   Pushing new branch $GRAFANA_BRANCH to origin..."
     if git push origin "$GRAFANA_BRANCH" 2>&1; then
       echo "   ✅ Branch pushed to origin: $GRAFANA_REPO/$GRAFANA_BRANCH"
       PUSHED_TO_ORIGIN=true
     else
-      echo "   ❌ Failed to push branch to origin"
+      echo "   ❌ Failed to push branch to origin" >&2
       exit 1
     fi
   else
@@ -266,7 +266,7 @@ else
       --json number,url,state \
       --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-    if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null|null" ]; then
+    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
       PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
       PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
       echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
@@ -275,7 +275,7 @@ else
       PR_BRANCH="${GRAFANA_BRANCH}-update-$(date +%s)"
       git checkout -b "$PR_BRANCH"
 
-      if [ "$FORK_EXISTS" = false ]; then
+      if [[ "$FORK_EXISTS" = false ]]; then
         echo "   ⚠️  Cannot push to fork - fork does not exist"
         echo "   Please fork ${GRAFANA_REPO} to enable PR creation"
         PR_CREATED=false
@@ -318,7 +318,7 @@ else
             PR_CREATED=false
           fi
         else
-          echo "   ❌ Failed to push PR branch"
+          echo "   ❌ Failed to push PR branch" >&2
         fi
       fi  # End of FORK_EXISTS check for PR
     fi  # End of existing PR check
@@ -334,30 +334,30 @@ echo "Release: $RELEASE_BRANCH / $GRAFANA_BRANCH"
 echo ""
 echo "✅ COMPLETED TASKS:"
 echo "  ✓ Grafana branch: $GRAFANA_BRANCH (from $BASE_BRANCH)"
-if [ "$CHANGES_COMMITTED" = true ]; then
-  if [ -n "$PREV_GRAFANA_TAG" ]; then
+if [[ "$CHANGES_COMMITTED" = true ]]; then
+  if [[ -n "$PREV_GRAFANA_TAG" ]]; then
     echo "  ✓ Renamed tekton pipelines (${PREV_GRAFANA_TAG} → ${GRAFANA_TAG})"
   else
     echo "  ✓ Updated tekton pipelines to ${GRAFANA_TAG}"
   fi
 fi
-if [ "$PUSHED_TO_ORIGIN" = true ]; then
+if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "  ✓ Pushed to origin: ${GRAFANA_REPO}/${GRAFANA_BRANCH}"
 fi
-if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
+if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "  ✓ PR to $GRAFANA_BRANCH: ${PR_URL}"
 fi
 echo ""
 echo "================================================"
 echo "📝 NEXT STEPS"
 echo "================================================"
-if [ "$PUSHED_TO_ORIGIN" = true ]; then
+if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "✅ Branch pushed to origin successfully"
   echo ""
   echo "Branch: https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
   echo ""
   echo "Verify: Tekton pipelines and grafana images"
-elif [ "$PR_CREATED" = true ]; then
+elif [[ "$PR_CREATED" = true ]]; then
   echo "1. Review and merge PR to $GRAFANA_BRANCH:"
   echo "   ${PR_URL}"
   echo ""
