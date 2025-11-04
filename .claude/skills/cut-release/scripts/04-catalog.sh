@@ -25,7 +25,7 @@ CATALOG_REPO="stolostron/multicluster-global-hub-operator-catalog"
 WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$CATALOG_BRANCH" ] || [ -z "$CATALOG_TAG" ] || [ -z "$OCP_MIN" ] || [ -z "$OCP_MAX" ] || [ -z "$GITHUB_USER" ] || [ -z "$CUT_MODE" ]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$CATALOG_BRANCH" || -z "$CATALOG_TAG" || -z "$OCP_MIN" || -z "$OCP_MAX" || -z "$GITHUB_USER" || -z "$CUT_MODE" ]]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, CATALOG_BRANCH, CATALOG_TAG, OCP_MIN, OCP_MAX, GITHUB_USER, CUT_MODE"
@@ -564,7 +564,7 @@ if [ "$PUSHED_TO_ORIGIN" = true ]; then
   echo "Branch: https://github.com/$CATALOG_REPO/tree/$CATALOG_BRANCH"
   echo ""
   echo "Verify: OCP pipelines and catalog images"
-elif [ "$PR_CREATED" = true ] || [ "$CLEANUP_PR_CREATED" = true ]; then
+elif [[ "$PR_CREATED" = true || "$CLEANUP_PR_CREATED" = true ]]; then
   PR_COUNT=0
   if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
     PR_COUNT=$((PR_COUNT + 1))
@@ -583,7 +583,7 @@ else
 fi
 echo ""
 echo "================================================"
-if [ "$PUSHED_TO_ORIGIN" = true ] || [ "$PR_CREATED" = true ]; then
+if [[ "$PUSHED_TO_ORIGIN" = true || "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES"

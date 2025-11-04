@@ -15,7 +15,7 @@ set -euo pipefail
 #   OPENSHIFT_RELEASE_PATH   - Path to openshift/release clone
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$ACM_VERSION" ] || [ -z "$GH_VERSION" ] || [ -z "$OPENSHIFT_RELEASE_PATH" ]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$ACM_VERSION" || -z "$GH_VERSION" || -z "$OPENSHIFT_RELEASE_PATH" ]]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, ACM_VERSION, GH_VERSION, OPENSHIFT_RELEASE_PATH"

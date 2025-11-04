@@ -29,7 +29,7 @@ FORK_USER="${GITHUB_USER}"
 FORK_URL="git@github.com:${FORK_USER}/hub-of-hubs.git"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$GH_VERSION_SHORT" ] || [ -z "$ACM_VERSION" ] || [ -z "$CUT_MODE" ] || [ -z "$GITHUB_USER" ]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GH_VERSION_SHORT" || -z "$ACM_VERSION" || -z "$CUT_MODE" || -z "$GITHUB_USER" ]]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION, CUT_MODE, GITHUB_USER"
@@ -774,12 +774,12 @@ FAILED=0
 
 echo "✅ COMPLETED TASKS:"
 
-if [ "$TEKTON_UPDATED" = true ] || [ "$CONTAINERFILE_UPDATED" = true ]; then
+if [[ "$TEKTON_UPDATED" = true || "$CONTAINERFILE_UPDATED" = true ]]; then
   echo "  ✓ Updated main branch configurations"
   COMPLETED=$((COMPLETED + 1))
 fi
 
-if [ "$RELEASE_BRANCH_PUSHED" = true ] || [ "$RELEASE_BRANCH_EXISTS" = true ]; then
+if [[ "$RELEASE_BRANCH_PUSHED" = true || "$RELEASE_BRANCH_EXISTS" = true ]]; then
   if [ "$RELEASE_BRANCH_EXISTS" = true ]; then
     echo "  ✓ Release branch: $RELEASE_BRANCH (already existed)"
   else
@@ -805,8 +805,8 @@ fi
 
 # Show any issues
 SHOW_ISSUES=false
-if [ "$TEKTON_UPDATED" = false ] || [ "$CONTAINERFILE_UPDATED" = false ] || \
-   [ "$MAIN_PR_CREATED" = false ] || [ "$RELEASE_BRANCH_PUSHED" = false ]; then
+if [[ "$TEKTON_UPDATED" = false || "$CONTAINERFILE_UPDATED" = false || \
+   "$MAIN_PR_CREATED" = false || "$RELEASE_BRANCH_PUSHED" = false ]]; then
   SHOW_ISSUES=true
 fi
 
