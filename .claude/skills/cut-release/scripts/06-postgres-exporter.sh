@@ -22,7 +22,7 @@ POSTGRES_REPO="stolostron/postgres_exporter"
 WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$POSTGRES_TAG" ] || [ -z "$GITHUB_USER" ] || [ -z "$CUT_MODE" ]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$POSTGRES_TAG" || -z "$GITHUB_USER" || -z "$CUT_MODE" ]]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, POSTGRES_TAG, GITHUB_USER, CUT_MODE"
@@ -371,7 +371,7 @@ else
 fi
 echo ""
 echo "================================================"
-if [ "$PUSHED_TO_ORIGIN" = true ] || [ "$PR_CREATED" = true ]; then
+if [[ "$PUSHED_TO_ORIGIN" = true || "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES"

@@ -19,7 +19,7 @@ GRAFANA_REPO="stolostron/glo-grafana"
 WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$GRAFANA_BRANCH" ] || [ -z "$GRAFANA_TAG" ]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GRAFANA_BRANCH" || -z "$GRAFANA_TAG" ]]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, GRAFANA_BRANCH, GRAFANA_TAG"
@@ -367,7 +367,7 @@ else
 fi
 echo ""
 echo "================================================"
-if [ "$PUSHED_TO_ORIGIN" = true ] || [ "$PR_CREATED" = true ]; then
+if [[ "$PUSHED_TO_ORIGIN" = true || "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES"

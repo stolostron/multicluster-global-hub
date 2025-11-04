@@ -240,7 +240,7 @@ FAILED_REPOS=()
 # Execute selected scripts
 for repo_num in "${REPOS_TO_UPDATE[@]}"; do
   # Validate repo number
-  if [ "$repo_num" -lt 1 ] || [ "$repo_num" -gt 6 ]; then
+  if [[ "$repo_num" -lt 1 || "$repo_num" -gt 6 ]]; then
     echo "⚠️  Invalid repository number: $repo_num (skipping)"
     continue
   fi

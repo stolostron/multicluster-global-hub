@@ -23,7 +23,7 @@ BUNDLE_REPO="stolostron/multicluster-global-hub-operator-bundle"
 WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$BUNDLE_BRANCH" ] || [ -z "$BUNDLE_TAG" ] || [ -z "$GITHUB_USER" ] || [ -z "$CUT_MODE" ]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$BUNDLE_BRANCH" || -z "$BUNDLE_TAG" || -z "$GITHUB_USER" || -z "$CUT_MODE" ]]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, GH_VERSION, BUNDLE_BRANCH, BUNDLE_TAG, GITHUB_USER, CUT_MODE"
@@ -568,7 +568,7 @@ if [ "$PUSHED_TO_ORIGIN" = true ]; then
   echo "Branch: https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
   echo ""
   echo "Verify: Bundle images and tekton pipelines"
-elif [ "$PR_CREATED" = true ] || [ "$CLEANUP_PR_CREATED" = true ]; then
+elif [[ "$PR_CREATED" = true || "$CLEANUP_PR_CREATED" = true ]]; then
   PR_COUNT=0
   if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
     PR_COUNT=$((PR_COUNT + 1))
@@ -587,7 +587,7 @@ else
 fi
 echo ""
 echo "================================================"
-if [ "$PUSHED_TO_ORIGIN" = true ] || [ "$PR_CREATED" = true ]; then
+if [[ "$PUSHED_TO_ORIGIN" = true || "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES"
