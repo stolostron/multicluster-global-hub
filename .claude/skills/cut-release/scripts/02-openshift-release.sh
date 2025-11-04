@@ -16,7 +16,7 @@ set -euo pipefail
 
 # Validate required environment variables
 if [[ -z "$RELEASE_BRANCH" || -z "$ACM_VERSION" || -z "$GH_VERSION" || -z "$OPENSHIFT_RELEASE_PATH" ]]; then
-  echo "❌ Error: Required environment variables not set"
+  echo "❌ Error: Required environment variables not set" >&2 >&2
   echo "   This script should be called by cut-release.sh"
   echo "   Required: RELEASE_BRANCH, ACM_VERSION, GH_VERSION, OPENSHIFT_RELEASE_PATH"
   exit 1
@@ -53,7 +53,7 @@ else
 fi
 
 # Clone or use existing
-if [ -d "$OPENSHIFT_RELEASE_PATH" ]; then
+if [[ -d "$OPENSHIFT_RELEASE_PATH" ]]; then
   echo "   ✅ Using existing clone at $OPENSHIFT_RELEASE_PATH"
   cd "$OPENSHIFT_RELEASE_PATH"
 
@@ -89,8 +89,8 @@ LATEST_RELEASE=$(find ci-operator/config/stolostron/multicluster-global-hub/ -na
   sed 's|\.yaml||' | \
   sort -V | tail -1)
 
-if [ -z "$LATEST_RELEASE" ]; then
-  echo "   ❌ Error: Could not detect previous release from openshift/release configs"
+if [[ -z "$LATEST_RELEASE" ]]; then
+  echo "   ❌ Error: Could not detect previous release from openshift/release configs" >&2 >&2
   exit 1
 fi
 
@@ -132,7 +132,7 @@ echo "   ✅ Updated $MAIN_CONFIG"
 echo "   Creating $RELEASE_BRANCH pipeline configuration..."
 
 # Idempotent: check if file exists and is already updated
-if [ -f "$NEW_CONFIG" ]; then
+if [[ -f "$NEW_CONFIG" ]]; then
   echo "   ℹ️  Configuration file already exists: $NEW_CONFIG"
   # Check if it's already been updated with the correct version
   if grep -q "branch: ${RELEASE_BRANCH}" "$NEW_CONFIG" && \
@@ -172,7 +172,7 @@ elif command -v podman >/dev/null 2>&1; then
     CONTAINER_ENGINE="podman"
     echo "   ✅ Podman is available and running"
   else
-    echo "   ❌ Error: Podman is installed but no machine is running"
+    echo "   ❌ Error: Podman is installed but no machine is running" >&2 >&2
     echo ""
     echo "   Please start your podman machine:"
     echo "      podman machine start"
@@ -180,7 +180,7 @@ elif command -v podman >/dev/null 2>&1; then
     exit 1
   fi
 else
-  echo "   ❌ Error: No container engine found!"
+  echo "   ❌ Error: No container engine found!" >&2 >&2
   echo ""
   echo "   Please ensure Docker or Podman is installed and running."
   echo "   - Docker: Start Docker Desktop application"
@@ -198,7 +198,7 @@ echo "   Using $CONTAINER_ENGINE as container engine..."
 MAKE_UPDATE_SUCCESS=false
 
 # Run make update with 2 minute timeout
-if [ "$CONTAINER_ENGINE" = "docker" ]; then
+if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
   if timeout 120 bash -c "CONTAINER_ENGINE=docker make update" 2>/dev/null; then
     MAKE_UPDATE_SUCCESS=true
     echo "   ✅ Job configurations generated"
@@ -242,8 +242,8 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
 fi
 
 # If no changes and PR already exists, we're done
-if [ "$CHANGES_EXIST" = false ]; then
-  if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null|null" ]; then
+if [[ "$CHANGES_EXIST" = false ]]; then
+  if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
     PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
     PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
     PR_CREATED=true
@@ -258,7 +258,7 @@ if [ "$CHANGES_EXIST" = false ]; then
   git add "$NEW_CONFIG"
 
   # Add job files if they exist (may not exist if make update failed)
-  if [ "$MAKE_UPDATE_SUCCESS" = true ]; then
+  if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
     git add "ci-operator/jobs/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${RELEASE_BRANCH}-presubmits.yaml" 2>/dev/null || true
     git add "ci-operator/jobs/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${RELEASE_BRANCH}-postsubmits.yaml" 2>/dev/null || true
     COMMIT_NOTE="- Auto-generate presubmits and postsubmits using make update"
@@ -291,8 +291,8 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
   fi
 
   # Check if PR exists and create/update accordingly (only if push succeeded)
-  if [ "$PUSH_SUCCESS" = true ]; then
-    if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null|null" ]; then
+  if [[ "$PUSH_SUCCESS" = true ]]; then
+    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
       PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
       PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
       echo "   ✅ PR already exists and updated (state: $PR_STATE): $PR_URL"
@@ -344,26 +344,26 @@ echo "================================================"
 echo "Release: $RELEASE_BRANCH / release-${GH_VERSION_SHORT}"
 echo ""
 echo "✅ COMPLETED TASKS:"
-if [ "$CHANGES_EXIST" = true ]; then
+if [[ "$CHANGES_EXIST" = true ]]; then
   echo "  ✓ Updated main branch config"
   echo "  ✓ Created ${RELEASE_BRANCH} config"
-  if [ "$MAKE_UPDATE_SUCCESS" = true ]; then
+  if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
     echo "  ✓ Generated job configurations"
   else
     echo "  ⚠️  Job generation skipped (timeout/error)"
   fi
 fi
-if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
+if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "  ✓ PR: ${PR_URL}"
 fi
 echo ""
 echo "================================================"
 echo "📝 NEXT STEPS"
 echo "================================================"
-if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
+if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "1. Review and merge: ${PR_URL}"
 fi
-if [ "$MAKE_UPDATE_SUCCESS" != true ]; then
+if [[ "$MAKE_UPDATE_SUCCESS" != true ]]; then
   echo ""
   echo "⚠️  make update failed - Manual steps required:"
   echo "   cd $OPENSHIFT_RELEASE_PATH && git checkout $BRANCH_NAME"
@@ -374,7 +374,7 @@ echo ""
 echo "After merge: Verify CI jobs in openshift/release"
 echo ""
 echo "================================================"
-if [ "$MAKE_UPDATE_SUCCESS" = true ] && [ "$PR_CREATED" = true ]; then
+if [[ "$MAKE_UPDATE_SUCCESS" = true && "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH WARNINGS"
