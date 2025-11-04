@@ -93,16 +93,13 @@ LATEST_CATALOG_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$
   sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -1)
 
 # Check if target branch is the same as latest
-SKIP_CATALOG_UPDATE=false
 if [ "$LATEST_CATALOG_RELEASE" = "$CATALOG_BRANCH" ]; then
-  echo "✅ Upstream catalog branch is already up to date"
+  echo "ℹ️  Target catalog branch is the latest: $CATALOG_BRANCH"
   echo ""
   echo "   https://github.com/$CATALOG_REPO/tree/$CATALOG_BRANCH"
   echo ""
-  echo "   This is already the latest catalog release."
-  echo "   Skipping catalog update, but will check for cleanup PR needs..."
+  echo "   Will verify and update if needed..."
   echo ""
-  SKIP_CATALOG_UPDATE=true
 fi
 
 if [ -z "$LATEST_CATALOG_RELEASE" ]; then
@@ -110,7 +107,25 @@ if [ -z "$LATEST_CATALOG_RELEASE" ]; then
   BASE_BRANCH="main"
 else
   echo "Latest catalog release detected: $LATEST_CATALOG_RELEASE"
-  BASE_BRANCH="$LATEST_CATALOG_RELEASE"
+
+  # If target branch is the latest, use second-to-latest as base
+  # If target branch is not the latest, use latest as base
+  if [ "$LATEST_CATALOG_RELEASE" = "$CATALOG_BRANCH" ]; then
+    # Target is latest - get second-to-latest for base
+    SECOND_TO_LATEST=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
+      sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
+    if [ -n "$SECOND_TO_LATEST" ] && [ "$SECOND_TO_LATEST" != "$CATALOG_BRANCH" ]; then
+      BASE_BRANCH="$SECOND_TO_LATEST"
+      echo "Target is latest release, using previous release as base: $BASE_BRANCH"
+    else
+      BASE_BRANCH="main"
+      echo "No previous release found, using main as base"
+    fi
+  else
+    # Target is not latest - use latest as base
+    BASE_BRANCH="$LATEST_CATALOG_RELEASE"
+    echo "Target is older than latest, using latest as base: $BASE_BRANCH"
+  fi
 fi
 
 # Extract previous catalog tag for replacements
@@ -127,9 +142,9 @@ else
   PREV_CATALOG_TAG=""
 fi
 
-# For cleanup PR, we need the real previous release (not BASE_BRANCH if skipping)
-# Find second-to-latest release for cleanup
-if [ "$SKIP_CATALOG_UPDATE" = true ]; then
+# For cleanup PR, we need to find the previous release
+# If CATALOG_BRANCH is the latest, find second-to-latest for cleanup
+if [ "$LATEST_CATALOG_RELEASE" = "$CATALOG_BRANCH" ]; then
   CLEANUP_TARGET_BRANCH=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
     sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
   if [ -n "$CLEANUP_TARGET_BRANCH" ] && [ "$CLEANUP_TARGET_BRANCH" != "$CATALOG_BRANCH" ]; then
@@ -151,27 +166,25 @@ PUSHED_TO_ORIGIN=false
 PR_CREATED=false
 PR_URL=""
 
-# Only perform catalog updates if not skipping
-if [ "$SKIP_CATALOG_UPDATE" = false ]; then
-  # Check if new release branch already exists on origin (upstream)
-  if git ls-remote --heads origin "$CATALOG_BRANCH" | grep -q "$CATALOG_BRANCH"; then
-    BRANCH_EXISTS_ON_ORIGIN=true
-    echo "ℹ️  Branch $CATALOG_BRANCH already exists on origin"
-    git fetch origin "$CATALOG_BRANCH" 2>/dev/null || true
-    git checkout -B "$CATALOG_BRANCH" "origin/$CATALOG_BRANCH"
-  else
-    if [ "$CUT_MODE" != "true" ]; then
-      echo "❌ Error: Branch $CATALOG_BRANCH does not exist on origin"
-      echo "   Run with CUT_MODE=true to create the branch"
-      exit 1
-    fi
-    echo "🌿 Creating $CATALOG_BRANCH from origin/$BASE_BRANCH..."
-    git branch -D "$CATALOG_BRANCH" 2>/dev/null || true
-    git checkout -b "$CATALOG_BRANCH" "origin/$BASE_BRANCH"
-    echo "✅ Created local branch $CATALOG_BRANCH"
+# Check if new release branch already exists on origin (upstream)
+if git ls-remote --heads origin "$CATALOG_BRANCH" | grep -q "$CATALOG_BRANCH"; then
+  BRANCH_EXISTS_ON_ORIGIN=true
+  echo "ℹ️  Branch $CATALOG_BRANCH already exists on origin"
+  git fetch origin "$CATALOG_BRANCH" 2>/dev/null || true
+  git checkout -B "$CATALOG_BRANCH" "origin/$CATALOG_BRANCH"
+else
+  if [ "$CUT_MODE" != "true" ]; then
+    echo "❌ Error: Branch $CATALOG_BRANCH does not exist on origin"
+    echo "   Run with CUT_MODE=true to create the branch"
+    exit 1
   fi
+  echo "🌿 Creating $CATALOG_BRANCH from origin/$BASE_BRANCH..."
+  git branch -D "$CATALOG_BRANCH" 2>/dev/null || true
+  git checkout -b "$CATALOG_BRANCH" "origin/$BASE_BRANCH"
+  echo "✅ Created local branch $CATALOG_BRANCH"
+fi
 
-  # Step 1: Update images-mirror-set.yaml
+# Step 1: Update images-mirror-set.yaml
 echo ""
 echo "📍 Step 1: Updating images-mirror-set.yaml..."
 
@@ -202,33 +215,38 @@ if [ -n "$PREV_CATALOG_TAG" ]; then
   NEW_OCP_VER=$((OCP_MAX%100))
   OLD_OCP_VER=$((PREV_OCP_MIN%100))
 
-  echo "   Adding OCP 4.${NEW_OCP_VER} pipelines..."
-  echo "   Removing OCP 4.${OLD_OCP_VER} pipelines..."
+  # Check if OCP range has changed
+  if [ "$PREV_OCP_MAX" != "$OCP_MAX" ]; then
+    echo "   Adding OCP 4.${NEW_OCP_VER} pipelines..."
+    echo "   Removing OCP 4.${OLD_OCP_VER} pipelines..."
 
-  # Copy and update pull-request pipeline for new OCP version
-  LATEST_PR_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}-pull-request.yaml"
-  NEW_PR_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4${NEW_OCP_VER}-${CATALOG_TAG}-pull-request.yaml"
+    # Copy and update pull-request pipeline for new OCP version
+    LATEST_PR_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}-pull-request.yaml"
+    NEW_PR_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4${NEW_OCP_VER}-${CATALOG_TAG}-pull-request.yaml"
 
-  if [ -f "$LATEST_PR_PIPELINE" ]; then
-    cp "$LATEST_PR_PIPELINE" "$NEW_PR_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PR_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/release-catalog-$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}/release-catalog-${NEW_OCP_VER}-${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
-    echo "   ✅ Created $NEW_PR_PIPELINE"
-  fi
+    if [ -f "$LATEST_PR_PIPELINE" ]; then
+      cp "$LATEST_PR_PIPELINE" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/release-catalog-$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}/release-catalog-${NEW_OCP_VER}-${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
+      echo "   ✅ Created $NEW_PR_PIPELINE"
+    fi
 
-  # Copy and update push pipeline for new OCP version
-  LATEST_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}-push.yaml"
-  NEW_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4${NEW_OCP_VER}-${CATALOG_TAG}-push.yaml"
+    # Copy and update push pipeline for new OCP version
+    LATEST_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}-push.yaml"
+    NEW_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4${NEW_OCP_VER}-${CATALOG_TAG}-push.yaml"
 
-  if [ -f "$LATEST_PUSH_PIPELINE" ]; then
-    cp "$LATEST_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PUSH_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/release-catalog-$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}/release-catalog-${NEW_OCP_VER}-${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
-    echo "   ✅ Created $NEW_PUSH_PIPELINE"
+    if [ -f "$LATEST_PUSH_PIPELINE" ]; then
+      cp "$LATEST_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/release-catalog-$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}/release-catalog-${NEW_OCP_VER}-${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
+      echo "   ✅ Created $NEW_PUSH_PIPELINE"
+    fi
+  else
+    echo "   ℹ️  OCP range unchanged (4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))), skipping add/remove"
   fi
 
   # Update existing OCP version pipelines
@@ -240,33 +258,48 @@ if [ -n "$PREV_CATALOG_TAG" ]; then
     OLD_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${ocp_ver}-${PREV_CATALOG_TAG}-push.yaml"
     NEW_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${ocp_ver}-${CATALOG_TAG}-push.yaml"
 
-    if [ -f "$OLD_PR" ]; then
-      git mv "$OLD_PR" "$NEW_PR" 2>/dev/null || cp "$OLD_PR" "$NEW_PR"
-      sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR"
-      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR"
-      echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
-    fi
+    if [ "$PREV_CATALOG_TAG" = "$CATALOG_TAG" ]; then
+      # Same tag - just update in place
+      if [ -f "$NEW_PR" ]; then
+        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR"
+        echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
+      fi
+      if [ -f "$NEW_PUSH" ]; then
+        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH"
+        echo "   ✅ Updated v4${ocp_ver} push pipeline"
+      fi
+    else
+      # Different tags - rename and update
+      if [ -f "$OLD_PR" ]; then
+        git mv "$OLD_PR" "$NEW_PR" 2>/dev/null || cp "$OLD_PR" "$NEW_PR"
+        sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR"
+        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR"
+        echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
+      fi
 
-    if [ -f "$OLD_PUSH" ]; then
-      git mv "$OLD_PUSH" "$NEW_PUSH" 2>/dev/null || cp "$OLD_PUSH" "$NEW_PUSH"
-      sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH"
-      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH"
-      echo "   ✅ Updated v4${ocp_ver} push pipeline"
+      if [ -f "$OLD_PUSH" ]; then
+        git mv "$OLD_PUSH" "$NEW_PUSH" 2>/dev/null || cp "$OLD_PUSH" "$NEW_PUSH"
+        sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH"
+        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH"
+        echo "   ✅ Updated v4${ocp_ver} push pipeline"
+      fi
     fi
   done
 
-  # Remove old OCP version pipelines
-  OLD_OCP_PR=".tekton/multicluster-global-hub-operator-catalog-v4${OLD_OCP_VER}-${PREV_CATALOG_TAG}-pull-request.yaml"
-  OLD_OCP_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${OLD_OCP_VER}-${PREV_CATALOG_TAG}-push.yaml"
+  # Remove old OCP version pipelines (only if OCP range changed)
+  if [ "$PREV_OCP_MAX" != "$OCP_MAX" ]; then
+    OLD_OCP_PR=".tekton/multicluster-global-hub-operator-catalog-v4${OLD_OCP_VER}-${PREV_CATALOG_TAG}-pull-request.yaml"
+    OLD_OCP_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${OLD_OCP_VER}-${PREV_CATALOG_TAG}-push.yaml"
 
-  if [ -f "$OLD_OCP_PR" ]; then
-    git rm "$OLD_OCP_PR" 2>/dev/null || rm "$OLD_OCP_PR"
-    echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} pull-request pipeline"
-  fi
+    if [ -f "$OLD_OCP_PR" ]; then
+      git rm "$OLD_OCP_PR" 2>/dev/null || rm "$OLD_OCP_PR"
+      echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} pull-request pipeline"
+    fi
 
-  if [ -f "$OLD_OCP_PUSH" ]; then
-    git rm "$OLD_OCP_PUSH" 2>/dev/null || rm "$OLD_OCP_PUSH"
-    echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} push pipeline"
+    if [ -f "$OLD_OCP_PUSH" ]; then
+      git rm "$OLD_OCP_PUSH" 2>/dev/null || rm "$OLD_OCP_PUSH"
+      echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} push pipeline"
+    fi
   fi
 fi
 
@@ -317,19 +350,35 @@ fi
       # Branch exists or UPDATE mode - create PR to update it
       echo "   Creating PR to update $CATALOG_BRANCH..."
 
-      PR_BRANCH="${CATALOG_BRANCH}-update-$(date +%s)"
-      git checkout -b "$PR_BRANCH"
+      # Check if PR already exists
+      echo "   Checking for existing PR to $CATALOG_BRANCH..."
+      EXISTING_PR=$(gh pr list \
+        --repo "${CATALOG_REPO}" \
+        --base "$CATALOG_BRANCH" \
+        --state open \
+        --search "Update ${CATALOG_BRANCH} catalog configuration" \
+        --json number,url,state \
+        --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-      if [ "$FORK_EXISTS" = false ]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist"
-        echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-        PR_CREATED=false
+      if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null|null" ]; then
+        PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
+        PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+        echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
+        PR_CREATED=true
       else
-        echo "   Pushing $PR_BRANCH to fork..."
-        if git push -f fork "$PR_BRANCH" 2>&1; then
-          echo "   ✅ PR branch pushed to fork"
+        PR_BRANCH="${CATALOG_BRANCH}-update-$(date +%s)"
+        git checkout -b "$PR_BRANCH"
 
-        PR_BODY="Update ${CATALOG_BRANCH} catalog configuration
+        if [ "$FORK_EXISTS" = false ]; then
+          echo "   ⚠️  Cannot push to fork - fork does not exist"
+          echo "   Please fork ${CATALOG_REPO} to enable PR creation"
+          PR_CREATED=false
+        else
+          echo "   Pushing $PR_BRANCH to fork..."
+          if git push -f fork "$PR_BRANCH" 2>&1; then
+            echo "   ✅ PR branch pushed to fork"
+
+          PR_BODY="Update ${CATALOG_BRANCH} catalog configuration
 
 ## Changes
 
@@ -346,31 +395,31 @@ fi
 - **Supported OCP**: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))
 - **Previous release**: ${BASE_BRANCH}"
 
-        PR_CREATE_OUTPUT=$(gh pr create --base "$CATALOG_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
-          --title "Update ${CATALOG_BRANCH} catalog configuration" \
-          --body "$PR_BODY" \
-          --repo "$CATALOG_REPO" 2>&1) || true
+          PR_CREATE_OUTPUT=$(gh pr create --base "$CATALOG_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
+            --title "Update ${CATALOG_BRANCH} catalog configuration" \
+            --body "$PR_BODY" \
+            --repo "$CATALOG_REPO" 2>&1) || true
 
-        if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
-          PR_URL="$PR_CREATE_OUTPUT"
-          echo "   ✅ PR created: $PR_URL"
-          PR_CREATED=true
-        elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-          PR_URL="${BASH_REMATCH[1]}"
-          echo "   ✅ PR created: $PR_URL"
-          PR_CREATED=true
-        else
-          echo "   ⚠️  Failed to create PR"
-          echo "   Reason: $PR_CREATE_OUTPUT"
-          PR_CREATED=false
-        fi
-        else
-          echo "   ❌ Failed to push PR branch"
-        fi
-      fi  # End of FORK_EXISTS check for PR
+          if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+            PR_URL="$PR_CREATE_OUTPUT"
+            echo "   ✅ PR created: $PR_URL"
+            PR_CREATED=true
+          elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+            PR_URL="${BASH_REMATCH[1]}"
+            echo "   ✅ PR created: $PR_URL"
+            PR_CREATED=true
+          else
+            echo "   ⚠️  Failed to create PR"
+            echo "   Reason: $PR_CREATE_OUTPUT"
+            PR_CREATED=false
+          fi
+          else
+            echo "   ❌ Failed to push PR branch"
+          fi
+        fi  # End of FORK_EXISTS check for PR
+      fi  # End of existing PR check
     fi
   fi
-fi  # End of SKIP_CATALOG_UPDATE check
 
 # Step 5: Create cleanup PR to remove GitHub Actions from old release
 echo ""
@@ -487,7 +536,7 @@ echo "Supported OCP: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
 echo ""
 echo "✅ COMPLETED TASKS:"
 echo "  ✓ Catalog branch: $CATALOG_BRANCH (from $BASE_BRANCH)"
-if [ "$SKIP_CATALOG_UPDATE" = false ]; then
+if [ "$CHANGES_COMMITTED" = true ]; then
   echo "  ✓ Updated images-mirror-set.yaml to ${CATALOG_TAG}"
   if [ -n "$PREV_CATALOG_TAG" ]; then
     echo "  ✓ Added OCP 4.${NEW_OCP_VER} pipelines"

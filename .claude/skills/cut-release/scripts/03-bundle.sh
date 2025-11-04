@@ -90,16 +90,13 @@ LATEST_BUNDLE_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$'
   sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -1)
 
 # Check if target branch is the same as latest
-SKIP_BUNDLE_UPDATE=false
 if [ "$LATEST_BUNDLE_RELEASE" = "$BUNDLE_BRANCH" ]; then
-  echo "✅ Upstream bundle branch is already up to date"
+  echo "ℹ️  Target bundle branch is the latest: $BUNDLE_BRANCH"
   echo ""
   echo "   https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
   echo ""
-  echo "   This is already the latest bundle release."
-  echo "   Skipping bundle update, but will check for cleanup PR needs..."
+  echo "   Will verify and update if needed..."
   echo ""
-  SKIP_BUNDLE_UPDATE=true
 fi
 
 if [ -z "$LATEST_BUNDLE_RELEASE" ]; then
@@ -107,7 +104,25 @@ if [ -z "$LATEST_BUNDLE_RELEASE" ]; then
   BASE_BRANCH="main"
 else
   echo "Latest bundle release detected: $LATEST_BUNDLE_RELEASE"
-  BASE_BRANCH="$LATEST_BUNDLE_RELEASE"
+
+  # If target branch is the latest, use second-to-latest as base
+  # If target branch is not the latest, use latest as base
+  if [ "$LATEST_BUNDLE_RELEASE" = "$BUNDLE_BRANCH" ]; then
+    # Target is latest - get second-to-latest for base
+    SECOND_TO_LATEST=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
+      sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
+    if [ -n "$SECOND_TO_LATEST" ] && [ "$SECOND_TO_LATEST" != "$BUNDLE_BRANCH" ]; then
+      BASE_BRANCH="$SECOND_TO_LATEST"
+      echo "Target is latest release, using previous release as base: $BASE_BRANCH"
+    else
+      BASE_BRANCH="main"
+      echo "No previous release found, using main as base"
+    fi
+  else
+    # Target is not latest - use latest as base
+    BASE_BRANCH="$LATEST_BUNDLE_RELEASE"
+    echo "Target is older than latest, using latest as base: $BASE_BRANCH"
+  fi
 fi
 
 # Extract previous bundle tag for replacements
@@ -119,9 +134,9 @@ else
   PREV_BUNDLE_TAG=""
 fi
 
-# For cleanup PR, we need the real previous release (not BASE_BRANCH if skipping)
-# Find second-to-latest release for cleanup
-if [ "$SKIP_BUNDLE_UPDATE" = true ]; then
+# For cleanup PR, we need to find the previous release
+# If BUNDLE_BRANCH is the latest, find second-to-latest for cleanup
+if [ "$LATEST_BUNDLE_RELEASE" = "$BUNDLE_BRANCH" ]; then
   CLEANUP_TARGET_BRANCH=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
     sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -2 | head -1)
   if [ -n "$CLEANUP_TARGET_BRANCH" ] && [ "$CLEANUP_TARGET_BRANCH" != "$BUNDLE_BRANCH" ]; then
@@ -141,33 +156,31 @@ PUSHED_TO_ORIGIN=false
 PR_CREATED=false
 PR_URL=""
 
-# Only perform bundle updates if not skipping
-if [ "$SKIP_BUNDLE_UPDATE" = false ]; then
-  # Check if new release branch already exists on origin (upstream)
-  if git ls-remote --heads origin "$BUNDLE_BRANCH" | grep -q "$BUNDLE_BRANCH"; then
-    BRANCH_EXISTS_ON_ORIGIN=true
-    echo "ℹ️  Branch $BUNDLE_BRANCH already exists on origin"
-    git fetch origin "$BUNDLE_BRANCH" 2>/dev/null || true
-    git checkout -B "$BUNDLE_BRANCH" "origin/$BUNDLE_BRANCH"
-  else
-    if [ "$CUT_MODE" != "true" ]; then
-      echo "❌ Error: Branch $BUNDLE_BRANCH does not exist on origin"
-      echo "   Run with CUT_MODE=true to create the branch"
-      exit 1
-    fi
-    echo "🌿 Creating $BUNDLE_BRANCH from origin/$BASE_BRANCH..."
-    # Delete local branch if it exists
-    git branch -D "$BUNDLE_BRANCH" 2>/dev/null || true
-    git checkout -b "$BUNDLE_BRANCH" "origin/$BASE_BRANCH"
-    echo "✅ Created local branch $BUNDLE_BRANCH"
+# Check if new release branch already exists on origin (upstream)
+if git ls-remote --heads origin "$BUNDLE_BRANCH" | grep -q "$BUNDLE_BRANCH"; then
+  BRANCH_EXISTS_ON_ORIGIN=true
+  echo "ℹ️  Branch $BUNDLE_BRANCH already exists on origin"
+  git fetch origin "$BUNDLE_BRANCH" 2>/dev/null || true
+  git checkout -B "$BUNDLE_BRANCH" "origin/$BUNDLE_BRANCH"
+else
+  if [ "$CUT_MODE" != "true" ]; then
+    echo "❌ Error: Branch $BUNDLE_BRANCH does not exist on origin"
+    echo "   Run with CUT_MODE=true to create the branch"
+    exit 1
   fi
+  echo "🌿 Creating $BUNDLE_BRANCH from origin/$BASE_BRANCH..."
+  # Delete local branch if it exists
+  git branch -D "$BUNDLE_BRANCH" 2>/dev/null || true
+  git checkout -b "$BUNDLE_BRANCH" "origin/$BASE_BRANCH"
+  echo "✅ Created local branch $BUNDLE_BRANCH"
+fi
 
-  echo ""
+echo ""
 
-  # Step 1: Update imageDigestMirrorSet (.tekton/images_digest_mirror_set.yaml)
-  echo "📍 Step 1: Updating imageDigestMirrorSet..."
+# Step 1: Update imageDigestMirrorSet (.tekton/images_digest_mirror_set.yaml)
+echo "📍 Step 1: Updating imageDigestMirrorSet..."
 
-  IDMS_FILE=".tekton/images_digest_mirror_set.yaml"
+IDMS_FILE=".tekton/images_digest_mirror_set.yaml"
 if [ -f "$IDMS_FILE" ]; then
   if [ -n "$PREV_BUNDLE_TAG" ]; then
     echo "   Updating $IDMS_FILE"
@@ -191,7 +204,17 @@ if [ -n "$PREV_BUNDLE_TAG" ]; then
   OLD_PR_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${PREV_BUNDLE_TAG}-pull-request.yaml"
   NEW_PR_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${BUNDLE_TAG}-pull-request.yaml"
 
-  if [ -f "$OLD_PR_PIPELINE" ]; then
+  if [ "$PREV_BUNDLE_TAG" = "$BUNDLE_TAG" ]; then
+    # Same tag - just update in place if needed
+    if [ -f "$NEW_PR_PIPELINE" ]; then
+      echo "   ℹ️  Pipeline already exists with correct name: $NEW_PR_PIPELINE"
+      echo "   Updating references in $NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
+      echo "   ✅ Updated $NEW_PR_PIPELINE"
+    else
+      echo "   ⚠️  Pipeline not found: $NEW_PR_PIPELINE"
+    fi
+  elif [ -f "$OLD_PR_PIPELINE" ]; then
     echo "   Renaming $OLD_PR_PIPELINE to $NEW_PR_PIPELINE"
     git mv "$OLD_PR_PIPELINE" "$NEW_PR_PIPELINE"
 
@@ -214,7 +237,17 @@ if [ -n "$PREV_BUNDLE_TAG" ]; then
   OLD_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${PREV_BUNDLE_TAG}-push.yaml"
   NEW_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${BUNDLE_TAG}-push.yaml"
 
-  if [ -f "$OLD_PUSH_PIPELINE" ]; then
+  if [ "$PREV_BUNDLE_TAG" = "$BUNDLE_TAG" ]; then
+    # Same tag - just update in place if needed
+    if [ -f "$NEW_PUSH_PIPELINE" ]; then
+      echo "   ℹ️  Pipeline already exists with correct name: $NEW_PUSH_PIPELINE"
+      echo "   Updating references in $NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
+      echo "   ✅ Updated $NEW_PUSH_PIPELINE"
+    else
+      echo "   ⚠️  Pipeline not found: $NEW_PUSH_PIPELINE"
+    fi
+  elif [ -f "$OLD_PUSH_PIPELINE" ]; then
     echo "   Renaming $OLD_PUSH_PIPELINE to $NEW_PUSH_PIPELINE"
     git mv "$OLD_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
 
@@ -319,22 +352,38 @@ fi
       # Branch exists or UPDATE mode - create PR to update it
       echo "   Creating PR to update $BUNDLE_BRANCH..."
 
-      # Create a unique branch name for the PR
-      PR_BRANCH="${BUNDLE_BRANCH}-update-$(date +%s)"
-      git checkout -b "$PR_BRANCH"
+      # Check if PR already exists
+      echo "   Checking for existing PR to $BUNDLE_BRANCH..."
+      EXISTING_PR=$(gh pr list \
+        --repo "${BUNDLE_REPO}" \
+        --base "$BUNDLE_BRANCH" \
+        --state open \
+        --search "Update ${BUNDLE_BRANCH} bundle configuration" \
+        --json number,url,state \
+        --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-      # Push PR branch to user's fork
-      if [ "$FORK_EXISTS" = false ]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist"
-        echo "   Please fork ${BUNDLE_REPO} to enable PR creation"
-        PR_CREATED=false
+      if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null|null" ]; then
+        PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
+        PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+        echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
+        PR_CREATED=true
       else
-        echo "   Pushing $PR_BRANCH to fork..."
-        if git push -f fork "$PR_BRANCH" 2>&1; then
-          echo "   ✅ PR branch pushed to fork"
+        # Create a unique branch name for the PR
+        PR_BRANCH="${BUNDLE_BRANCH}-update-$(date +%s)"
+        git checkout -b "$PR_BRANCH"
 
-        # Create PR to the release branch
-        PR_BODY="Update ${BUNDLE_BRANCH} bundle configuration
+        # Push PR branch to user's fork
+        if [ "$FORK_EXISTS" = false ]; then
+          echo "   ⚠️  Cannot push to fork - fork does not exist"
+          echo "   Please fork ${BUNDLE_REPO} to enable PR creation"
+          PR_CREATED=false
+        else
+          echo "   Pushing $PR_BRANCH to fork..."
+          if git push -f fork "$PR_BRANCH" 2>&1; then
+            echo "   ✅ PR branch pushed to fork"
+
+          # Create PR to the release branch
+          PR_BODY="Update ${BUNDLE_BRANCH} bundle configuration
 
 ## Changes
 
@@ -351,32 +400,32 @@ fi
 - **Bundle tag**: ${BUNDLE_TAG}
 - **Previous bundle**: ${BASE_BRANCH}"
 
-        PR_CREATE_OUTPUT=$(gh pr create --base "$BUNDLE_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
-          --title "Update ${BUNDLE_BRANCH} bundle configuration" \
-          --body "$PR_BODY" \
-          --repo "$BUNDLE_REPO" 2>&1) || true
+          PR_CREATE_OUTPUT=$(gh pr create --base "$BUNDLE_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
+            --title "Update ${BUNDLE_BRANCH} bundle configuration" \
+            --body "$PR_BODY" \
+            --repo "$BUNDLE_REPO" 2>&1) || true
 
-        # Check if PR was successfully created
-        if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
-          PR_URL="$PR_CREATE_OUTPUT"
-          echo "   ✅ PR created: $PR_URL"
-          PR_CREATED=true
-        elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-          PR_URL="${BASH_REMATCH[1]}"
-          echo "   ✅ PR created: $PR_URL"
-          PR_CREATED=true
-        else
-          echo "   ⚠️  Failed to create PR"
-          echo "   Reason: $PR_CREATE_OUTPUT"
-          PR_CREATED=false
-        fi
-        else
-          echo "   ❌ Failed to push PR branch"
-        fi
-      fi  # End of FORK_EXISTS check for PR
+          # Check if PR was successfully created
+          if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+            PR_URL="$PR_CREATE_OUTPUT"
+            echo "   ✅ PR created: $PR_URL"
+            PR_CREATED=true
+          elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+            PR_URL="${BASH_REMATCH[1]}"
+            echo "   ✅ PR created: $PR_URL"
+            PR_CREATED=true
+          else
+            echo "   ⚠️  Failed to create PR"
+            echo "   Reason: $PR_CREATE_OUTPUT"
+            PR_CREATED=false
+          fi
+          else
+            echo "   ❌ Failed to push PR branch"
+          fi
+        fi  # End of FORK_EXISTS check for PR
+      fi  # End of existing PR check
     fi
   fi
-fi  # End of SKIP_BUNDLE_UPDATE check
 
 # Step 8: Create cleanup PR to remove GitHub Actions from old release
 echo ""
@@ -492,7 +541,7 @@ echo "Release: $RELEASE_BRANCH / $BUNDLE_BRANCH"
 echo ""
 echo "✅ COMPLETED TASKS:"
 echo "  ✓ Bundle branch: $BUNDLE_BRANCH (from $BASE_BRANCH)"
-if [ "$SKIP_BUNDLE_UPDATE" = false ]; then
+if [ "$CHANGES_COMMITTED" = true ]; then
   echo "  ✓ Updated imageDigestMirrorSet to ${BUNDLE_TAG}"
 fi
 if [ -n "$PREV_BUNDLE_TAG" ]; then
