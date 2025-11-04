@@ -23,8 +23,17 @@ REPO_ORG="${REPO_ORG:-stolostron}"
 REPO_NAME="${REPO_NAME:-multicluster-global-hub}"
 REPO_URL="https://github.com/${REPO_ORG}/${REPO_NAME}.git"
 
+# Auto-detect fork user from current git repo (can be overridden with FORK_USER env var)
+if [ -z "${FORK_USER:-}" ]; then
+  FORK_USER=$(git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|' || echo "")
+  if [ -z "$FORK_USER" ]; then
+    echo "❌ Error: Could not auto-detect GitHub user from git remote"
+    echo "   Please set FORK_USER environment variable or run from a git repository"
+    exit 1
+  fi
+fi
+
 # Fork configuration - user's fork repository
-FORK_USER="${FORK_USER:-yanmxa}"
 FORK_URL="git@github.com:${FORK_USER}/hub-of-hubs.git"
 
 # Validate required environment variables

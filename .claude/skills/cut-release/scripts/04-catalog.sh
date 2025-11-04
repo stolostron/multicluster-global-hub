@@ -35,13 +35,10 @@ else
   SED_INPLACE=(-i)
 fi
 
-echo "🚀 Multicluster Global Hub Operator Catalog Release"
+echo "🚀 Operator Catalog Release"
 echo "================================================"
-echo "   ACM Release Branch: $RELEASE_BRANCH"
-echo "   Global Hub Version: $GH_VERSION"
-echo "   Catalog Branch: $CATALOG_BRANCH"
-echo "   Catalog Tag: $CATALOG_TAG"
-echo "   OCP Versions: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
+echo "   Release: $RELEASE_BRANCH / $CATALOG_BRANCH"
+echo "   OCP: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
 echo ""
 
 # Extract version for display
@@ -51,41 +48,38 @@ CATALOG_VERSION=$(echo "$CATALOG_BRANCH" | sed 's/release-//')
 REPO_PATH="$WORK_DIR/multicluster-global-hub-operator-catalog"
 mkdir -p "$WORK_DIR"
 
-if [ ! -d "$REPO_PATH" ]; then
-  echo "📥 Cloning $CATALOG_REPO (--depth=1 for faster clone)..."
-  if ! git clone --depth=1 --single-branch --branch main --progress "https://github.com/$CATALOG_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving" || true; then
-    echo "❌ Failed to clone $CATALOG_REPO"
-    exit 1
-  fi
-  echo "✅ Cloned successfully"
-else
-  echo "ℹ️  Using existing clone at $REPO_PATH"
+# Remove existing directory for clean clone
+if [ -d "$REPO_PATH" ]; then
+  echo "   Removing existing directory for clean clone..."
+  rm -rf "$REPO_PATH"
 fi
+
+echo "📥 Cloning $CATALOG_REPO (--depth=1 for faster clone)..."
+git clone --depth=1 --single-branch --branch main --progress "https://github.com/$CATALOG_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+if [ ! -d "$REPO_PATH/.git" ]; then
+  echo "❌ Failed to clone $CATALOG_REPO"
+  exit 1
+fi
+echo "✅ Cloned successfully"
 
 cd "$REPO_PATH"
 
-# Fetch latest changes and update to latest commit
-echo "🔄 Fetching latest changes..."
-if git fetch origin; then
-  echo "   Updating to latest commit..."
-  git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
-  git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
-  echo "   ✅ Updated to latest commit"
-else
-  echo "   ⚠️  Failed to fetch, continuing with existing state"
-fi
+# Fetch all release branches
+echo "🔄 Fetching release branches..."
+git fetch origin 'refs/heads/release-*:refs/remotes/origin/release-*' --progress 2>&1 | grep -E "Receiving|Resolving|new branch" || true
+echo "   ✅ Release branches fetched"
 
-# Find latest release branch
+# Find latest catalog release branch
 LATEST_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
   sed 's|.*origin/||' | sed 's|^[* ]*||' | sort -V | tail -1)
 
 if [ -z "$LATEST_RELEASE" ]; then
-  echo "❌ Error: No previous release branch found"
-  exit 1
+  echo "⚠️  No previous catalog release branch found, using main as base"
+  BASE_BRANCH="main"
+else
+  echo "Latest catalog release detected: $LATEST_RELEASE"
+  BASE_BRANCH="$LATEST_RELEASE"
 fi
-
-echo "Latest release detected: $LATEST_RELEASE"
-BASE_BRANCH="$LATEST_RELEASE"
 
 # Extract previous catalog info
 PREV_CATALOG_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
