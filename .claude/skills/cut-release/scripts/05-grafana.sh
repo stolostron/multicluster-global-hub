@@ -51,8 +51,8 @@ if [ -d "$REPO_PATH" ]; then
   rm -rf "$REPO_PATH"
 fi
 
-echo "📥 Cloning $GRAFANA_REPO (--depth=1 for faster clone)..."
-git clone --depth=1 --single-branch --branch main --progress "https://github.com/$GRAFANA_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+echo "📥 Cloning $GRAFANA_REPO..."
+git clone --progress "https://github.com/$GRAFANA_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
 if [ ! -d "$REPO_PATH/.git" ]; then
   echo "❌ Failed to clone $GRAFANA_REPO"
   exit 1
@@ -217,6 +217,7 @@ echo "📍 Step 2: Committing changes on $GRAFANA_BRANCH..."
 
 if git diff --quiet && git diff --cached --quiet; then
   echo "   ℹ️  No changes to commit"
+  CHANGES_COMMITTED=false
 else
   git add -A
 
@@ -228,48 +229,147 @@ else
 
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
 
-  git commit -m "$COMMIT_MSG"
+  git commit --signoff -m "$COMMIT_MSG"
   echo "   ✅ Changes committed"
+  CHANGES_COMMITTED=true
 fi
 
-# Step 3: Push release branch
+# Step 3: Push to origin or create PR
 echo ""
-echo "📍 Step 3: Pushing $GRAFANA_BRANCH branch..."
+echo "📍 Step 3: Publishing changes..."
 
-if git push -u origin "$GRAFANA_BRANCH"; then
-  echo "   ✅ Pushed branch $GRAFANA_BRANCH to remote"
+if [ "$CHANGES_COMMITTED" = false ]; then
+  echo "   ℹ️  No changes to publish"
 else
-  echo "   ❌ Failed to push branch to remote"
-  exit 1
+  # Decision: Push directly or create PR based on CUT_MODE and branch existence
+  if [ "$CUT_MODE" = "true" ] && [ "$BRANCH_EXISTS_ON_ORIGIN" = false ]; then
+    # CUT mode + branch doesn't exist - push directly
+    echo "   Pushing new branch $GRAFANA_BRANCH to origin..."
+    if git push origin "$GRAFANA_BRANCH" 2>&1; then
+      echo "   ✅ Branch pushed to origin: $GRAFANA_REPO/$GRAFANA_BRANCH"
+      PUSHED_TO_ORIGIN=true
+    else
+      echo "   ❌ Failed to push branch to origin"
+      exit 1
+    fi
+  else
+    # Branch exists or UPDATE mode - create PR to update it
+    echo "   Creating PR to update $GRAFANA_BRANCH..."
+
+    # Check if PR already exists
+    echo "   Checking for existing PR to $GRAFANA_BRANCH..."
+    EXISTING_PR=$(gh pr list \
+      --repo "${GRAFANA_REPO}" \
+      --base "$GRAFANA_BRANCH" \
+      --state open \
+      --search "Update ${GRAFANA_BRANCH} grafana configuration" \
+      --json number,url,state \
+      --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
+
+    if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null|null" ]; then
+      PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
+      PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+      echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
+      PR_CREATED=true
+    else
+      PR_BRANCH="${GRAFANA_BRANCH}-update-$(date +%s)"
+      git checkout -b "$PR_BRANCH"
+
+      if [ "$FORK_EXISTS" = false ]; then
+        echo "   ⚠️  Cannot push to fork - fork does not exist"
+        echo "   Please fork ${GRAFANA_REPO} to enable PR creation"
+        PR_CREATED=false
+      else
+        echo "   Pushing $PR_BRANCH to fork..."
+        if git push -f fork "$PR_BRANCH" 2>&1; then
+          echo "   ✅ PR branch pushed to fork"
+
+          PR_BODY="Update ${GRAFANA_BRANCH} grafana configuration
+
+## Changes
+
+- Rename and update pull-request pipeline for \`${GRAFANA_TAG}\`
+- Rename and update push pipeline for \`${GRAFANA_TAG}\`
+- Update branch references to \`${GRAFANA_BRANCH}\`
+
+## Version Mapping
+
+- **ACM**: ${RELEASE_BRANCH}
+- **Global Hub**: ${GH_VERSION}
+- **Grafana branch**: ${GRAFANA_BRANCH}
+- **Previous release**: ${BASE_BRANCH}"
+
+          PR_CREATE_OUTPUT=$(gh pr create --base "$GRAFANA_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
+            --title "Update ${GRAFANA_BRANCH} grafana configuration" \
+            --body "$PR_BODY" \
+            --repo "$GRAFANA_REPO" 2>&1) || true
+
+          if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+            PR_URL="$PR_CREATE_OUTPUT"
+            echo "   ✅ PR created: $PR_URL"
+            PR_CREATED=true
+          elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+            PR_URL="${BASH_REMATCH[1]}"
+            echo "   ✅ PR created: $PR_URL"
+            PR_CREATED=true
+          else
+            echo "   ⚠️  Failed to create PR"
+            echo "   Reason: $PR_CREATE_OUTPUT"
+            PR_CREATED=false
+          fi
+        else
+          echo "   ❌ Failed to push PR branch"
+        fi
+      fi  # End of FORK_EXISTS check for PR
+    fi  # End of existing PR check
+  fi
 fi
 
 # Summary
 echo ""
 echo "================================================"
-echo "📊 SCRIPT SUMMARY"
+echo "📊 WORKFLOW SUMMARY"
 echo "================================================"
-echo "Release: $RELEASE_BRANCH (Global Hub $GH_VERSION)"
+echo "Release: $RELEASE_BRANCH / $GRAFANA_BRANCH"
 echo ""
 echo "✅ COMPLETED TASKS:"
 echo "  ✓ Grafana branch: $GRAFANA_BRANCH (from $BASE_BRANCH)"
-if [ -n "$PREV_GRAFANA_TAG" ]; then
-  echo "  ✓ Renamed tekton pipelines: ${PREV_GRAFANA_TAG} → ${GRAFANA_TAG}"
-else
-  echo "  ✓ Updated tekton pipelines to ${GRAFANA_TAG}"
+if [ "$CHANGES_COMMITTED" = true ]; then
+  if [ -n "$PREV_GRAFANA_TAG" ]; then
+    echo "  ✓ Renamed tekton pipelines (${PREV_GRAFANA_TAG} → ${GRAFANA_TAG})"
+  else
+    echo "  ✓ Updated tekton pipelines to ${GRAFANA_TAG}"
+  fi
 fi
-echo "  ✓ Branch pushed to remote"
+if [ "$PUSHED_TO_ORIGIN" = true ]; then
+  echo "  ✓ Pushed to origin: ${GRAFANA_REPO}/${GRAFANA_BRANCH}"
+fi
+if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
+  echo "  ✓ PR to $GRAFANA_BRANCH: ${PR_URL}"
+fi
 echo ""
 echo "================================================"
-echo "📝 MANUAL ACTIONS REQUIRED"
+echo "📝 NEXT STEPS"
 echo "================================================"
-echo ""
-echo "Verify branch created:"
-echo "  https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
-echo ""
-echo "After verification:"
-echo "  - Check tekton pipelines trigger correctly"
-echo "  - Verify grafana images build successfully"
+if [ "$PUSHED_TO_ORIGIN" = true ]; then
+  echo "✅ Branch pushed to origin successfully"
+  echo ""
+  echo "Branch: https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
+  echo ""
+  echo "Verify: Tekton pipelines and grafana images"
+elif [ "$PR_CREATED" = true ]; then
+  echo "1. Review and merge PR to $GRAFANA_BRANCH:"
+  echo "   ${PR_URL}"
+  echo ""
+  echo "After merge: Verify tekton pipelines and grafana images"
+else
+  echo "Repository: https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
+fi
 echo ""
 echo "================================================"
-echo "✅ SUCCESS (3 tasks completed)"
+if [ "$PUSHED_TO_ORIGIN" = true ] || [ "$PR_CREATED" = true ]; then
+  echo "✅ SUCCESS"
+else
+  echo "⚠️  COMPLETED WITH ISSUES"
+fi
 echo "================================================"
