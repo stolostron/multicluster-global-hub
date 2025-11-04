@@ -23,24 +23,17 @@ REPO_ORG="${REPO_ORG:-stolostron}"
 REPO_NAME="${REPO_NAME:-multicluster-global-hub}"
 REPO_URL="https://github.com/${REPO_ORG}/${REPO_NAME}.git"
 
-# Auto-detect fork user from current git repo (can be overridden with FORK_USER env var)
-if [ -z "${FORK_USER:-}" ]; then
-  FORK_USER=$(git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|' || echo "")
-  if [ -z "$FORK_USER" ]; then
-    echo "❌ Error: Could not auto-detect GitHub user from git remote"
-    echo "   Please set FORK_USER environment variable or run from a git repository"
-    exit 1
-  fi
-fi
+# Use GITHUB_USER from cut-release.sh (already auto-detected)
+FORK_USER="${GITHUB_USER}"
 
 # Fork configuration - user's fork repository
 FORK_URL="git@github.com:${FORK_USER}/hub-of-hubs.git"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$GH_VERSION_SHORT" ] || [ -z "$ACM_VERSION" ]; then
+if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$GH_VERSION_SHORT" ] || [ -z "$ACM_VERSION" ] || [ -z "$CUT_MODE" ] || [ -z "$GITHUB_USER" ]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
-  echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION"
+  echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION, CUT_MODE, GITHUB_USER"
   exit 1
 fi
 
@@ -58,9 +51,15 @@ fi
 
 echo "🚀 Multicluster Global Hub Release Workflow"
 echo "================================================"
+echo "   Mode: $([ "$CUT_MODE" = true ] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
+echo ""
 echo "Workflow:"
 echo "  1. Update main branch with new .tekton files (target_branch=main)"
-echo "  2. Create release branch from updated main"
+if [ "$CUT_MODE" = "true" ]; then
+  echo "  2. Create release branch from updated main (CUT MODE)"
+else
+  echo "  2. Skip release branch creation (UPDATE MODE)"
+fi
 echo "  3. Create PR to upstream main with new release configurations"
 echo "  4. Update previous release .tekton files (target_branch=previous_release_branch)"
 echo "  5. Update current release .tekton files (target_branch=current_release_branch)"
@@ -336,9 +335,14 @@ if [ "$RELEASE_BRANCH_EXISTS" = true ]; then
   # Just checkout to continue with other steps
   git checkout -B "$RELEASE_BRANCH" "$UPSTREAM_REMOTE/$RELEASE_BRANCH"
 else
-  echo "   Creating new release branch from $MAIN_PR_BRANCH..."
-  git checkout -b "$RELEASE_BRANCH" "$MAIN_PR_BRANCH"
-  echo "   ✅ Created release branch: $RELEASE_BRANCH"
+  if [ "$CUT_MODE" != "true" ]; then
+    echo "   ℹ️  Release branch does not exist - skipping (UPDATE mode)"
+    echo "   Note: Run with CUT_MODE=true to create the release branch"
+  else
+    echo "   Creating new release branch from $MAIN_PR_BRANCH..."
+    git checkout -b "$RELEASE_BRANCH" "$MAIN_PR_BRANCH"
+    echo "   ✅ Created release branch: $RELEASE_BRANCH"
+  fi
 fi
 
 # Extract GitHub usernames from remotes

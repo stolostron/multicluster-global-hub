@@ -144,6 +144,8 @@ export GRAFANA_BRANCH
 export GRAFANA_TAG
 export POSTGRES_TAG
 export OPENSHIFT_RELEASE_PATH
+export OCP_MIN
+export OCP_MAX
 
 # Function to display repo list
 show_repos() {
