@@ -97,9 +97,9 @@ fi
 echo "   Previous release detected: $LATEST_RELEASE"
 
 # Calculate version strings for file updates
-PREV_VERSION=$(echo "$LATEST_RELEASE" | sed 's/release-//')
-VERSION_SHORT=$(echo "$ACM_VERSION" | tr -d '.')
-PREV_VERSION_SHORT=$(echo "$PREV_VERSION" | tr -d '.')
+PREV_VERSION="${LATEST_RELEASE#release-}"
+VERSION_SHORT="${ACM_VERSION/./}"
+PREV_VERSION_SHORT="${PREV_VERSION/./}"
 
 echo "   Previous: $LATEST_RELEASE"
 echo "   Current:  $RELEASE_BRANCH"

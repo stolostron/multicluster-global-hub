@@ -21,7 +21,6 @@ set -euo pipefail
 # Configuration
 REPO_ORG="${REPO_ORG:-stolostron}"
 REPO_NAME="${REPO_NAME:-multicluster-global-hub}"
-REPO_URL="https://github.com/${REPO_ORG}/${REPO_NAME}.git"
 
 # Use GITHUB_USER from cut-release.sh (already auto-detected)
 FORK_USER="${GITHUB_USER}"
@@ -296,7 +295,7 @@ if git diff --quiet && git diff --cached --quiet; then
 else
   # Stage all changes
   git add .tekton/ 2>/dev/null || true
-  git add */Containerfile.* 2>/dev/null || true
+  git add -- */Containerfile.* 2>/dev/null || true
 
   git commit --signoff -m "Add ${RELEASE_BRANCH} pipeline configurations
 
@@ -349,8 +348,6 @@ fi
 ORIGIN_USER=$(git remote get-url origin | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|')
 UPSTREAM_USER=$(git remote get-url upstream | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|')
 
-# Always use fork workflow
-USING_FORK=true
 echo "   ✅ Fork workflow: PRs from origin/${ORIGIN_USER} -> upstream/${UPSTREAM_USER}"
 echo "   ℹ️  Release branch ${RELEASE_BRANCH} managed by upstream maintainers"
 

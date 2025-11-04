@@ -29,15 +29,17 @@ REPO_6="postgres_exporter|06-postgres-exporter.sh|Postgres exporter"
 # Helper function to get repo info by number
 get_repo_info() {
   local num=$1
+  local repo_info
   case $num in
-    1) echo "$REPO_1" ;;
-    2) echo "$REPO_2" ;;
-    3) echo "$REPO_3" ;;
-    4) echo "$REPO_4" ;;
-    5) echo "$REPO_5" ;;
-    6) echo "$REPO_6" ;;
-    *) echo "" ;;
+    1) repo_info="$REPO_1" ;;
+    2) repo_info="$REPO_2" ;;
+    3) repo_info="$REPO_3" ;;
+    4) repo_info="$REPO_4" ;;
+    5) repo_info="$REPO_5" ;;
+    6) repo_info="$REPO_6" ;;
+    *) repo_info="" ;;
   esac
+  echo "$repo_info"
 }
 
 # Parse command line argument
@@ -80,8 +82,7 @@ fi
 echo "Using specified release: $RELEASE_BRANCH"
 
 # Calculate all version variables
-ACM_VERSION=$(echo "$RELEASE_BRANCH" | sed 's/release-//')
-ACM_MAJOR=$(echo "$ACM_VERSION" | cut -d. -f1)
+ACM_VERSION="${RELEASE_BRANCH#release-}"
 ACM_MINOR=$(echo "$ACM_VERSION" | cut -d. -f2)
 
 # Global Hub version calculation: v1.X.0 where X = ACM_MINOR - 9
@@ -142,7 +143,11 @@ show_repos() {
   echo "Available repositories:"
   echo ""
   for i in 1 2 3 4 5 6; do
-    local repo_info=$(get_repo_info "$i")
+    local repo_info
+    local name
+    local script
+    local desc
+    repo_info=$(get_repo_info "$i")
     IFS='|' read -r name script desc <<< "$repo_info"
     printf "   [%d] %-25s %s\n" "$i" "$name" "$desc"
   done
@@ -152,7 +157,11 @@ show_repos() {
 # Function to run a specific script
 run_script() {
   local repo_num=$1
-  local repo_info=$(get_repo_info "$repo_num")
+  local repo_info
+  local name
+  local script
+  local desc
+  repo_info=$(get_repo_info "$repo_num")
   IFS='|' read -r name script desc <<< "$repo_info"
 
   echo ""
@@ -245,7 +254,7 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     FAILED_REPOS+=("$name")
 
     # Ask if user wants to continue
-    if [ $FAILED -lt $TOTAL ]; then
+    if [ "$FAILED" -lt "$TOTAL" ]; then
       echo ""
       echo "⚠️  Continue with remaining repositories? (y/n)"
       read -r continue_choice
