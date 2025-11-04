@@ -12,6 +12,8 @@ set -euo pipefail
 #   ./cut-release.sh 1,2,3              # Update specific repositories (comma-separated)
 #
 #   RELEASE_BRANCH="release-2.17" ./cut-release.sh all  # Specify version explicitly
+#
+#   CUT_MODE=true ./cut-release.sh all  # Cut mode - create and push release branches directly to upstream
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,6 +46,20 @@ MODE="${1:-interactive}"
 # Configuration
 RELEASE_BRANCH="${RELEASE_BRANCH:-}"
 OPENSHIFT_RELEASE_PATH="${OPENSHIFT_RELEASE_PATH:-/tmp/openshift-release}"
+CUT_MODE="${CUT_MODE:-false}"
+
+# Auto-detect GitHub user from current git repo (can be overridden with GITHUB_USER env var)
+if [ -z "${GITHUB_USER:-}" ]; then
+  GITHUB_USER=$(git remote get-url origin 2>/dev/null | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|' || echo "")
+  if [ -z "$GITHUB_USER" ]; then
+    echo "❌ Error: Could not auto-detect GitHub user from git remote"
+    echo "   Please set GITHUB_USER environment variable or run from a git repository"
+    exit 1
+  fi
+fi
+
+export GITHUB_USER
+export CUT_MODE
 
 # Detect latest release if not specified
 if [ -z "$RELEASE_BRANCH" ] || [ "$RELEASE_BRANCH" = "next" ]; then
@@ -105,11 +121,13 @@ OCP_MAX=$((OCP_MIN + 4))
 echo ""
 echo "📊 Version Information"
 echo "================================================"
-echo "   ACM:        $RELEASE_BRANCH"
-echo "   Global Hub: release-$GH_VERSION_SHORT"
-echo "   Bundle:     release-$GH_VERSION_SHORT"
-echo "   Catalog:    release-$GH_VERSION_SHORT"
-echo "   OCP:        4.${OCP_MIN} - 4.${OCP_MAX}"
+echo "   Mode:        $([ "$CUT_MODE" = true ] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
+echo "   GitHub User: $GITHUB_USER"
+echo "   ACM:         $RELEASE_BRANCH"
+echo "   Global Hub:  release-$GH_VERSION_SHORT"
+echo "   Bundle:      release-$GH_VERSION_SHORT"
+echo "   Catalog:     release-$GH_VERSION_SHORT"
+echo "   OCP:         4.${OCP_MIN} - 4.${OCP_MAX}"
 echo "================================================"
 echo ""
 
@@ -230,7 +248,7 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     COMPLETED=$((COMPLETED + 1))
   else
     FAILED=$((FAILED + 1))
-    local repo_info=$(get_repo_info "$repo_num")
+    repo_info=$(get_repo_info "$repo_num")
     IFS='|' read -r name _ _ <<< "$repo_info"
     FAILED_REPOS+=("$name")
 

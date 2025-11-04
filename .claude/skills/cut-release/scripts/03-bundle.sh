@@ -3,7 +3,9 @@
 set -euo pipefail
 
 # Multicluster Global Hub Operator Bundle Release Script
-# Creates release branch and updates bundle configurations
+# Supports two modes:
+#   CUT_MODE=true:  Create and push release branch directly to upstream
+#   CUT_MODE=false: Update existing release branch via PR
 #
 # Usage:
 #   Called by cut-release.sh with environment variables pre-configured
@@ -13,16 +15,18 @@ set -euo pipefail
 #   GH_VERSION        - Global Hub version (e.g., v1.8.0)
 #   BUNDLE_BRANCH     - Bundle branch name (e.g., release-1.8)
 #   BUNDLE_TAG        - Bundle tag (e.g., globalhub-1-8)
+#   GITHUB_USER       - GitHub username for PR creation
+#   CUT_MODE          - true: create branch, false: update via PR
 
 # Configuration
 BUNDLE_REPO="stolostron/multicluster-global-hub-operator-bundle"
 WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
-if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$BUNDLE_BRANCH" ] || [ -z "$BUNDLE_TAG" ]; then
+if [ -z "$RELEASE_BRANCH" ] || [ -z "$GH_VERSION" ] || [ -z "$BUNDLE_BRANCH" ] || [ -z "$BUNDLE_TAG" ] || [ -z "$GITHUB_USER" ] || [ -z "$CUT_MODE" ]; then
   echo "❌ Error: Required environment variables not set"
   echo "   This script should be called by cut-release.sh"
-  echo "   Required: RELEASE_BRANCH, GH_VERSION, BUNDLE_BRANCH, BUNDLE_TAG"
+  echo "   Required: RELEASE_BRANCH, GH_VERSION, BUNDLE_BRANCH, BUNDLE_TAG, GITHUB_USER, CUT_MODE"
   exit 1
 fi
 
@@ -33,12 +37,10 @@ else
   SED_INPLACE=(-i)
 fi
 
-echo "🚀 Multicluster Global Hub Operator Bundle Release"
+echo "🚀 Operator Bundle Release"
 echo "================================================"
-echo "   ACM Release Branch: $RELEASE_BRANCH"
-echo "   Global Hub Version: $GH_VERSION"
-echo "   Bundle Branch: $BUNDLE_BRANCH"
-echo "   Bundle Tag: $BUNDLE_TAG"
+echo "   Mode: $([ "$CUT_MODE" = true ] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
+echo "   Release: $RELEASE_BRANCH / $BUNDLE_BRANCH"
 echo ""
 
 # Extract version for display
@@ -48,29 +50,26 @@ BUNDLE_VERSION=$(echo "$BUNDLE_BRANCH" | sed 's/release-//')
 REPO_PATH="$WORK_DIR/multicluster-global-hub-operator-bundle"
 mkdir -p "$WORK_DIR"
 
-if [ ! -d "$REPO_PATH" ]; then
-  echo "📥 Cloning $BUNDLE_REPO (--depth=1 for faster clone)..."
-  if ! git clone --depth=1 --single-branch --branch main --progress "https://github.com/$BUNDLE_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving" || true; then
-    echo "❌ Failed to clone $BUNDLE_REPO"
-    exit 1
-  fi
-  echo "✅ Cloned successfully"
-else
-  echo "ℹ️  Using existing clone at $REPO_PATH"
+# Remove existing directory for clean clone
+if [ -d "$REPO_PATH" ]; then
+  echo "   Removing existing directory for clean clone..."
+  rm -rf "$REPO_PATH"
 fi
+
+echo "📥 Cloning $BUNDLE_REPO (--depth=1 for faster clone)..."
+git clone --depth=1 --single-branch --branch main --progress "https://github.com/$BUNDLE_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+if [ ! -d "$REPO_PATH/.git" ]; then
+  echo "❌ Failed to clone $BUNDLE_REPO"
+  exit 1
+fi
+echo "✅ Cloned successfully"
 
 cd "$REPO_PATH"
 
-# Fetch latest changes and update to latest commit
-echo "🔄 Fetching latest changes..."
-if git fetch origin; then
-  echo "   Updating to latest commit..."
-  git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
-  git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
-  echo "   ✅ Updated to latest commit"
-else
-  echo "   ⚠️  Failed to fetch, continuing with existing state"
-fi
+# Fetch all release branches
+echo "🔄 Fetching release branches..."
+git fetch origin 'refs/heads/release-*:refs/remotes/origin/release-*' --progress 2>&1 | grep -E "Receiving|Resolving|new branch" || true
+echo "   ✅ Release branches fetched"
 
 # Find latest bundle release branch
 LATEST_BUNDLE_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
@@ -93,18 +92,29 @@ else
   PREV_BUNDLE_TAG=""
 fi
 
-# Check if new release branch already exists
+# Check if new release branch already exists on origin (upstream)
+BRANCH_EXISTS_ON_ORIGIN=false
 if git ls-remote --heads origin "$BUNDLE_BRANCH" | grep -q "$BUNDLE_BRANCH"; then
-  echo "ℹ️  Branch $BUNDLE_BRANCH already exists on remote"
-  git checkout "$BUNDLE_BRANCH"
+  BRANCH_EXISTS_ON_ORIGIN=true
+  echo "ℹ️  Branch $BUNDLE_BRANCH already exists on origin"
+  git fetch origin "$BUNDLE_BRANCH" 2>/dev/null || true
+  git checkout -B "$BUNDLE_BRANCH" "origin/$BUNDLE_BRANCH"
 else
+  if [ "$CUT_MODE" != "true" ]; then
+    echo "❌ Error: Branch $BUNDLE_BRANCH does not exist on origin"
+    echo "   Run with CUT_MODE=true to create the branch"
+    exit 1
+  fi
   echo "🌿 Creating $BUNDLE_BRANCH from origin/$BASE_BRANCH..."
+  # Delete local branch if it exists
+  git branch -D "$BUNDLE_BRANCH" 2>/dev/null || true
   git checkout -b "$BUNDLE_BRANCH" "origin/$BASE_BRANCH"
   echo "✅ Created local branch $BUNDLE_BRANCH"
 fi
 
-# Step 1: Update imageDigestMirrorSet (.tekton/images_digest_mirror_set.yaml)
 echo ""
+
+# Step 1: Update imageDigestMirrorSet (.tekton/images_digest_mirror_set.yaml)
 echo "📍 Step 1: Updating imageDigestMirrorSet..."
 
 IDMS_FILE=".tekton/images_digest_mirror_set.yaml"
@@ -179,6 +189,7 @@ BUNDLE_MANIFESTS=$(find . -name "*.clusterserviceversion.yaml" -o -name "bundle.
 if [ -n "$BUNDLE_MANIFESTS" ]; then
   echo "$BUNDLE_MANIFESTS" | while read -r file; do
     if [ -f "$file" ] && [ -n "$PREV_BUNDLE_TAG" ]; then
+      PREV_BUNDLE_VERSION=$(echo "$BASE_BRANCH" | sed 's/release-//')
       if grep -q "$PREV_BUNDLE_VERSION" "$file" 2>/dev/null; then
         echo "   Updating $file"
         sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_VERSION}/${BUNDLE_VERSION}/g" "$file"
@@ -216,6 +227,7 @@ echo "📍 Step 6: Committing changes on $BUNDLE_BRANCH..."
 
 if git diff --quiet && git diff --cached --quiet; then
   echo "   ℹ️  No changes to commit"
+  CHANGES_COMMITTED=false
 else
   git add -A
 
@@ -229,34 +241,50 @@ else
 
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
 
-  git commit -m "$COMMIT_MSG"
+  git commit --signoff -m "$COMMIT_MSG"
   echo "   ✅ Changes committed"
+  CHANGES_COMMITTED=true
 fi
 
-# Step 7: Push release branch
+# Step 7: Push to origin or create PR
 echo ""
-echo "📍 Step 7: Pushing $BUNDLE_BRANCH branch..."
+echo "📍 Step 7: Publishing changes..."
 
-if git push -u origin "$BUNDLE_BRANCH"; then
-  echo "   ✅ Pushed branch $BUNDLE_BRANCH to remote"
+# Initialize tracking variables
+PUSHED_TO_ORIGIN=false
+PR_CREATED=false
+PR_URL=""
+
+# Check if there are any changes
+if [ "$CHANGES_COMMITTED" = false ]; then
+  echo "   ℹ️  No changes to publish"
 else
-  echo "   ❌ Failed to push branch to remote"
-  exit 1
-fi
+  # Decision: Push directly or create PR based on CUT_MODE and branch existence
+  if [ "$CUT_MODE" = "true" ] && [ "$BRANCH_EXISTS_ON_ORIGIN" = false ]; then
+    # CUT mode + branch doesn't exist - push directly
+    echo "   Pushing new branch $BUNDLE_BRANCH to origin..."
+    if git push origin "$BUNDLE_BRANCH" 2>&1; then
+      echo "   ✅ Branch pushed to origin: $BUNDLE_REPO/$BUNDLE_BRANCH"
+      PUSHED_TO_ORIGIN=true
+    else
+      echo "   ❌ Failed to push branch to origin"
+      exit 1
+    fi
+  else
+    # Branch exists or UPDATE mode - create PR to update it
+    echo "   Creating PR to update $BUNDLE_BRANCH..."
 
-# Step 8: Create Pull Request
-echo ""
-echo "📍 Step 8: Creating Pull Request..."
+    # Create a unique branch name for the PR
+    PR_BRANCH="${BUNDLE_BRANCH}-update-$(date +%s)"
+    git checkout -b "$PR_BRANCH"
 
-# Auto-detect GitHub user
-GITHUB_USER=$(git remote -v | grep origin | head -1 | sed -E 's|.*github.com[:/]([^/]+)/.*|\1|')
-echo "   GitHub user: $GITHUB_USER"
+    # Push PR branch to user's fork
+    echo "   Pushing $PR_BRANCH to origin..."
+    if git push -f origin "$PR_BRANCH" 2>&1; then
+      echo "   ✅ PR branch pushed"
 
-# Determine base branch for PR (usually main)
-PR_BASE_BRANCH="main"
-
-# Create PR body
-PR_BODY="Update operator bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})
+      # Create PR to the release branch
+      PR_BODY="Update ${BUNDLE_BRANCH} bundle configuration
 
 ## Changes
 
@@ -268,34 +296,42 @@ PR_BODY="Update operator bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})
 
 ## Version Mapping
 
-- ACM release: \`${RELEASE_BRANCH}\`
-- Global Hub version: \`${GH_VERSION}\`
-- Bundle branch: \`${BUNDLE_BRANCH}\`
-- Bundle tag: \`${BUNDLE_TAG}\`
-- Previous bundle: \`${BASE_BRANCH}\`"
+- **ACM**: ${RELEASE_BRANCH}
+- **Global Hub**: release-${BUNDLE_VERSION}
+- **Bundle tag**: ${BUNDLE_TAG}
+- **Previous bundle**: ${BASE_BRANCH}"
 
-# Create PR
-PR_URL=$(gh pr create --base "$PR_BASE_BRANCH" --head "$GITHUB_USER:$BUNDLE_BRANCH" \
-  --title "Update bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})" \
-  --body "$PR_BODY" \
-  --repo "$BUNDLE_REPO" 2>&1) || true
+      PR_CREATE_OUTPUT=$(gh pr create --base "$BUNDLE_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
+        --title "Update ${BUNDLE_BRANCH} bundle configuration" \
+        --body "$PR_BODY" \
+        --repo "$BUNDLE_REPO" 2>&1) || true
 
-if [ -n "$PR_URL" ] && [[ ! "$PR_URL" =~ "error" ]]; then
-  echo "   ✅ Created PR: $PR_URL"
-  PR_CREATED=true
-else
-  echo "   ⚠️  Failed to create PR automatically"
-  echo "   Error: $PR_URL"
-  echo "   Please create PR manually from: $GITHUB_USER:$BUNDLE_BRANCH to $BUNDLE_REPO:$PR_BASE_BRANCH"
-  PR_CREATED=false
+      # Check if PR was successfully created
+      if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+        PR_URL="$PR_CREATE_OUTPUT"
+        echo "   ✅ PR created: $PR_URL"
+        PR_CREATED=true
+      elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+        PR_URL="${BASH_REMATCH[1]}"
+        echo "   ✅ PR created: $PR_URL"
+        PR_CREATED=true
+      else
+        echo "   ⚠️  Failed to create PR"
+        echo "   Reason: $PR_CREATE_OUTPUT"
+        PR_CREATED=false
+      fi
+    else
+      echo "   ❌ Failed to push PR branch"
+    fi
+  fi
 fi
 
 # Summary
 echo ""
 echo "================================================"
-echo "📊 SCRIPT SUMMARY"
+echo "📊 WORKFLOW SUMMARY"
 echo "================================================"
-echo "Release: $RELEASE_BRANCH (Global Hub $GH_VERSION)"
+echo "Release: $RELEASE_BRANCH / $BUNDLE_BRANCH"
 echo ""
 echo "✅ COMPLETED TASKS:"
 echo "  ✓ Bundle branch: $BUNDLE_BRANCH (from $BASE_BRANCH)"
@@ -307,37 +343,32 @@ if [ -n "$PREV_BUNDLE_TAG" ]; then
   echo "  ✓ Updated bundle image labels to ${BUNDLE_VERSION}"
   echo "  ✓ Updated konflux-patch.sh image refs"
 fi
-if [ "$PR_CREATED" = true ]; then
-  echo "  ✓ PR to main: Created"
+if [ "$PUSHED_TO_ORIGIN" = true ]; then
+  echo "  ✓ Pushed to origin: ${BUNDLE_REPO}/${BUNDLE_BRANCH}"
+fi
+if [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
+  echo "  ✓ PR: ${PR_URL}"
 fi
 echo ""
-
-if [ "$PR_CREATED" = false ]; then
-  echo "❌ FAILED TASKS:"
-  echo "  ✗ PR not created"
-  echo ""
-fi
-
 echo "================================================"
-echo "📝 MANUAL ACTIONS REQUIRED"
+echo "📝 NEXT STEPS"
 echo "================================================"
-echo ""
-if [ "$PR_CREATED" = true ]; then
-  echo "Review and merge PR:"
-  echo "  ${PR_URL}"
+if [ "$PUSHED_TO_ORIGIN" = true ]; then
+  echo "✅ Branch pushed to origin successfully"
   echo ""
-  echo "After PR merged:"
-  echo "  - Verify bundle images build correctly"
-  echo "  - Check tekton pipelines trigger"
+  echo "Branch: https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
+  echo ""
+  echo "Verify: Bundle images and tekton pipelines"
+elif [ "$PR_CREATED" = true ] && [ -n "$PR_URL" ]; then
+  echo "1. Review and merge: ${PR_URL}"
+  echo ""
+  echo "After merge: Verify bundle images and tekton pipelines"
 else
-  echo "Manual PR creation needed:"
-  echo "  - Branch: ${GITHUB_USER}:${BUNDLE_BRANCH}"
-  echo "  - Target: ${BUNDLE_REPO}:main"
-  echo "  - Repository: https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
-  echo ""
+  echo "Repository: https://github.com/$BUNDLE_REPO/tree/$BUNDLE_BRANCH"
 fi
+echo ""
 echo "================================================"
-if [ "$PR_CREATED" = true ]; then
+if [ "$PUSHED_TO_ORIGIN" = true ] || [ "$PR_CREATED" = true ]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES"
