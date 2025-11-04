@@ -4,37 +4,44 @@ Automates the complete end-to-end workflow for cutting a new Multicluster Global
 
 ## Quick Start
 
+### Important: RELEASE_BRANCH is Required
+
+**All commands MUST specify the RELEASE_BRANCH environment variable.** The skill does not auto-detect release versions.
+
 ### Using Claude Code
 
-Simply ask Claude:
+Ask Claude with explicit version:
 
 ```
-Cut a new Global Hub release
+RELEASE_BRANCH=release-2.17 cut a new Global Hub release
 ```
 
 or
 
 ```
-Cut Global Hub release for ACM 2.17
+Cut Global Hub release for ACM release-2.17 (set RELEASE_BRANCH=release-2.17)
 ```
-
-Claude will automatically invoke this skill and guide you through the process.
 
 ### Using Scripts Directly
 
+**RELEASE_BRANCH is REQUIRED for all commands:**
+
 ```bash
 # Interactive mode - choose which repos to update
-./scripts/cut-release.sh
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh
 
 # Update all repositories
-./scripts/cut-release.sh all
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 
 # Update specific repositories
-./scripts/cut-release.sh 1,2    # Only main repo and openshift/release
-./scripts/cut-release.sh 3,4,5,6  # Only bundle, catalog, grafana, postgres
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 1,2    # Only main repo and openshift/release
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 3,4,5,6  # Only bundle, catalog, grafana, postgres
 
-# Specify release version
-RELEASE_BRANCH="release-2.17" ./scripts/cut-release.sh all
+# CUT mode - create new branches and push directly
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/cut-release.sh all
+
+# UPDATE mode (default) - create PRs to update existing branches
+CUT_MODE=false RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 ```
 
 ## Version Mapping
@@ -61,14 +68,18 @@ The skill manages 6 repositories:
 **Script**: `01-multicluster-global-hub.sh`
 
 **What it does**:
-- Creates release branch (e.g., release-2.17)
+- Creates release branch (e.g., release-2.17) OR updates existing branch
 - Updates `.tekton/` pipelinesascode configurations
 - Updates `Containerfile.*` version references
-- **Creates PR** to bump version in main branch for next development cycle
+- **Creates PR** (UPDATE mode) or **pushes directly** (CUT mode)
 
 **Example**:
 ```bash
-RELEASE_BRANCH="release-2.17" ./scripts/01-multicluster-global-hub.sh
+# Update existing release
+RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/01-multicluster-global-hub.sh
+
+# Create new release
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/01-multicluster-global-hub.sh
 ```
 
 ### 2. OpenShift Release (CI Configuration)
@@ -82,86 +93,112 @@ RELEASE_BRANCH="release-2.17" ./scripts/01-multicluster-global-hub.sh
 
 **Example**:
 ```bash
-RELEASE_BRANCH="release-2.17" ./scripts/02-openshift-release.sh
+RELEASE_BRANCH=release-2.17 ./scripts/02-openshift-release.sh
 ```
 
 ### 3. Operator Bundle
 **Script**: `03-bundle.sh`
 
 **What it does**:
-- Creates bundle branch (e.g., release-1.7)
+- Creates bundle branch (e.g., release-1.8) OR updates existing branch
 - Updates `images_digest_mirror_set.yaml`
 - Renames and updates tekton pipelines
 - Updates bundle image labels
 - Updates `konflux-patch.sh`
-- **Creates PR** with all bundle changes
+- **Creates PR** (UPDATE mode) or **pushes directly** (CUT mode)
+- **Creates cleanup PR** to remove GitHub Actions from old release
 
 **Example**:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" ./scripts/03-bundle.sh
+# Update existing release
+RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/03-bundle.sh
+
+# Create new release
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/03-bundle.sh
 ```
 
 ### 4. Operator Catalog
 **Script**: `04-catalog.sh`
 
 **What it does**:
-- Creates catalog branch (e.g., release-1.7)
+- Creates catalog branch (e.g., release-1.8) OR updates existing branch
 - Updates `images-mirror-set.yaml`
-- **Adds** new OCP version pipelines (e.g., OCP 4.21)
-- **Removes** old OCP version pipelines (e.g., OCP 4.16)
-- Updates existing OCP pipelines (4.17-4.20)
-- Updates README.md
-- Updates GitHub Actions workflow
-- **Creates 2 PRs**:
-  - Main PR: New release configuration
-  - Cleanup PR: Remove GitHub Actions from old branch
+- **Adds** new OCP version pipelines (e.g., OCP 4.22)
+- **Removes** old OCP version pipelines (e.g., OCP 4.17)
+- Updates existing OCP pipelines (4.18-4.21)
+- **Creates PR** (UPDATE mode) or **pushes directly** (CUT mode)
+- **Creates cleanup PR** to remove GitHub Actions from old release
 
 **Example**:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" ./scripts/04-catalog.sh
+# Update existing release
+RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/04-catalog.sh
+
+# Create new release
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/04-catalog.sh
 ```
 
 ### 5. Glo-Grafana
 **Script**: `05-grafana.sh`
 
 **What it does**:
-- Creates grafana branch (e.g., release-1.7)
+- Creates grafana branch (e.g., release-1.8) OR updates existing branch
 - Renames and updates tekton pipelines
+- **Creates PR** (UPDATE mode) or **pushes directly** (CUT mode)
 
 **Example**:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" ./scripts/05-grafana.sh
+# Update existing release
+RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/05-grafana.sh
+
+# Create new release
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/05-grafana.sh
 ```
 
 ### 6. Postgres Exporter
 **Script**: `06-postgres-exporter.sh`
 
 **What it does**:
-- Creates postgres_exporter branch (same as ACM, e.g., release-2.17)
+- Creates postgres_exporter branch (same as ACM, e.g., release-2.17) OR updates existing branch
 - Renames and updates tekton pipelines
+- **Creates PR** (UPDATE mode) or **pushes directly** (CUT mode)
 
 **Example**:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" ./scripts/06-postgres-exporter.sh
+# Update existing release
+RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/06-postgres-exporter.sh
+
+# Create new release
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/06-postgres-exporter.sh
 ```
 
 ## Environment Variables
 
 The main orchestration script (`cut-release.sh`) calculates and exports these variables:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `RELEASE_BRANCH` | ACM release branch | `release-2.17` |
-| `ACM_VERSION` | ACM version number | `2.17` |
-| `GH_VERSION` | Global Hub version | `v1.8.0` |
-| `GH_VERSION_SHORT` | Short Global Hub version | `1.8` |
-| `BUNDLE_BRANCH` | Bundle release branch | `release-1.8` |
-| `BUNDLE_TAG` | Bundle image tag | `globalhub-1-8` |
-| `CATALOG_BRANCH` | Catalog release branch | `release-1.8` |
-| `CATALOG_TAG` | Catalog image tag | `globalhub-1-8` |
-| `GRAFANA_BRANCH` | Grafana release branch | `release-1.8` |
-| `POSTGRES_TAG` | Postgres image tag | `globalhub-1-8` |
-| `OPENSHIFT_RELEASE_PATH` | Path to openshift/release clone | `/tmp/openshift-release` |
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `RELEASE_BRANCH` | ACM release branch | `release-2.17` | **YES** - Must be explicitly set |
+| `CUT_MODE` | Operating mode (true/false) | `false` | Optional (default: false) |
+| `GITHUB_USER` | GitHub username for PRs | `yanmxa` | Optional (auto-detected from git) |
+| `ACM_VERSION` | ACM version number | `2.17` | Auto-calculated |
+| `GH_VERSION` | Global Hub version | `v1.8.0` | Auto-calculated |
+| `GH_VERSION_SHORT` | Short Global Hub version | `1.8` | Auto-calculated |
+| `BUNDLE_BRANCH` | Bundle release branch | `release-1.8` | Auto-calculated |
+| `BUNDLE_TAG` | Bundle image tag | `globalhub-1-8` | Auto-calculated |
+| `CATALOG_BRANCH` | Catalog release branch | `release-1.8` | Auto-calculated |
+| `CATALOG_TAG` | Catalog image tag | `globalhub-1-8` | Auto-calculated |
+| `GRAFANA_BRANCH` | Grafana release branch | `release-1.8` | Auto-calculated |
+| `GRAFANA_TAG` | Grafana tag | `globalhub-1-8` | Auto-calculated |
+| `POSTGRES_TAG` | Postgres image tag | `globalhub-1-8` | Auto-calculated |
+| `OCP_MIN` | Minimum OCP version number | `417` | Auto-calculated |
+| `OCP_MAX` | Maximum OCP version number | `421` | Auto-calculated |
+| `OPENSHIFT_RELEASE_PATH` | Path to openshift/release clone | `/tmp/openshift-release` | Optional |
+| `WORK_DIR` | Working directory for repos | `/tmp/globalhub-release-repos` | Optional |
+
+**Operating Modes**:
+- `CUT_MODE=true`: Create new release branches and push directly to upstream
+- `CUT_MODE=false` (default): Update existing release branches via pull requests
 
 Individual scripts can use these variables instead of calculating them.
 
@@ -186,19 +223,19 @@ Scripts automatically detect the OS and use appropriate `sed` syntax.
 ### Example 1: Full Release (All Repositories)
 
 ```bash
-$ ./scripts/cut-release.sh all
+$ RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 
-🔍 Detecting latest release branch...
-   Latest release: release-2.16
-   Next release: release-2.17
+Using specified release: release-2.17
 
 📊 Version Information
 ================================================
-   ACM Release:          release-2.17 (2.17)
-   Global Hub Version:   v1.8.0
-   Bundle Branch:        release-1.8
-   Catalog Branch:       release-1.8
-   Supported OCP:        4.17 - 4.21
+   Mode:        UPDATE (PR only)
+   GitHub User: yanmxa
+   ACM:         release-2.17
+   Global Hub:  release-1.8
+   Bundle:      release-1.8
+   Catalog:     release-1.8
+   OCP:         4.18 - 4.22
 ================================================
 
 Mode: Update all repositories
@@ -246,20 +283,43 @@ Results:
    3. Update konflux-release-data (manual)
 ```
 
-### Example 2: Update Only Specific Repositories
+### Example 2: Create New Release (CUT Mode)
 
 ```bash
-$ ./scripts/cut-release.sh 1,2
+$ CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/cut-release.sh all
+
+Using specified release: release-2.18
+
+📊 Version Information
+================================================
+   Mode:        CUT (create branches)
+   GitHub User: yanmxa
+   ACM:         release-2.18
+   Global Hub:  release-1.9
+   Bundle:      release-1.9
+   Catalog:     release-1.9
+   OCP:         4.19 - 4.23
+================================================
+
+Mode: Update all repositories
+
+... (creates new branches and pushes directly to upstream)
+```
+
+### Example 3: Update Only Specific Repositories
+
+```bash
+$ RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 1,2
 
 Mode: Update selected repositories: 1 2
 
 ... (updates only multicluster-global-hub and openshift/release)
 ```
 
-### Example 3: Interactive Mode
+### Example 4: Interactive Mode
 
 ```bash
-$ ./scripts/cut-release.sh
+$ RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh
 
 Available repositories:
 
@@ -280,16 +340,14 @@ Updating selected repositories: 3 4
 ...
 ```
 
-### Example 4: Standalone Script Execution
+### Example 5: Standalone Script Execution
 
 ```bash
-# Run only the bundle script
-$ RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" \
-  ./scripts/03-bundle.sh
+# Run only the bundle script (UPDATE mode)
+$ RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/03-bundle.sh
 
-# Run only the catalog script
-$ RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" \
-  ./scripts/04-catalog.sh
+# Run only the catalog script (CUT mode)
+$ RELEASE_BRANCH=release-2.18 CUT_MODE=true ./scripts/04-catalog.sh
 ```
 
 ## Output Files and PRs Created

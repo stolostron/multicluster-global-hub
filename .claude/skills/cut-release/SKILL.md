@@ -1,6 +1,6 @@
 ---
 name: cut-release
-description: Automate complete Multicluster Global Hub release workflow across 6 repositories including branch creation, OpenShift CI configuration, catalog OCP version management, bundle updates, and PR creation. Use when cutting new releases (e.g., release-2.16, release-2.17). Keywords: release branch, global hub, openshift/release, catalog, bundle, CI configuration, OCP versions.
+description: Automate complete Multicluster Global Hub release workflow across 6 repositories including branch creation, OpenShift CI configuration, catalog OCP version management, bundle updates, and PR creation. REQUIRES explicit RELEASE_BRANCH specification (e.g., RELEASE_BRANCH=release-2.17). Supports two modes - CUT_MODE=true (create branches) or false (update via PR). Keywords: release branch, global hub, openshift/release, catalog, bundle, CI configuration, OCP versions.
 allowed-tools: [Read, Write, Bash, Glob, Grep]
 ---
 
@@ -11,9 +11,18 @@ Automates the complete end-to-end workflow for cutting a new Multicluster Global
 ## When to Use This Skill
 
 - Cutting a new Global Hub release (e.g., release-2.16, release-2.17)
+- Updating an existing release branch with new configurations
 - Setting up complete release infrastructure across all repositories
 - Automating the entire release checklist workflow
 - Creating coordinated PRs and branches for new releases
+
+## Important Requirements
+
+**RELEASE_BRANCH must be explicitly specified** - The skill does NOT auto-detect release versions. You must provide the exact release branch name.
+
+**Two Operating Modes**:
+- `CUT_MODE=true`: Create new release branches and push directly to upstream (for initial release creation)
+- `CUT_MODE=false` (default): Update existing release branches via PR (for updating current releases)
 
 ## Version Mapping (ACM to Global Hub)
 
@@ -144,51 +153,73 @@ The skill manages releases across 6 repositories, each with its own dedicated sc
 
 ## Execution Modes
 
+**IMPORTANT**: RELEASE_BRANCH environment variable is REQUIRED for all execution modes.
+
 The main orchestration script supports three modes:
 
 ### 1. Interactive Mode (Default)
 ```bash
-./scripts/cut-release.sh
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh
 ```
 Prompts user to select which repositories to update (1-6, comma-separated, or all).
 
 ### 2. All Repositories Mode
 ```bash
-./scripts/cut-release.sh all
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 ```
 Updates all 6 repositories in sequence.
 
 ### 3. Selective Mode
 ```bash
-./scripts/cut-release.sh 1,2,3    # Update specific repos
-./scripts/cut-release.sh 3,4      # Update only bundle and catalog
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 1,2,3    # Update specific repos
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 3,4      # Update only bundle and catalog
 ```
 
-### 4. Standalone Script Execution
+### 4. CUT Mode (Create New Branches)
+```bash
+CUT_MODE=true RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
+```
+Creates new release branches and pushes directly to upstream (requires write access).
+
+### 5. UPDATE Mode (Default - Create PRs)
+```bash
+CUT_MODE=false RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
+# or simply:
+RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
+```
+Updates existing release branches by creating pull requests.
+
+### 6. Standalone Script Execution
 Each script can be run independently:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" ./scripts/03-bundle.sh
+RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" CUT_MODE=false ./scripts/03-bundle.sh
 ```
 
 ## Environment Variables
 
 The main orchestration script calculates and exports these variables for child scripts:
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `RELEASE_BRANCH` | ACM release branch | `release-2.17` |
-| `ACM_VERSION` | ACM version number | `2.17` |
-| `GH_VERSION` | Global Hub version | `v1.8.0` |
-| `GH_VERSION_SHORT` | Short Global Hub version | `1.8` |
-| `BUNDLE_BRANCH` | Bundle release branch | `release-1.8` |
-| `BUNDLE_TAG` | Bundle image tag | `globalhub-1-8` |
-| `CATALOG_BRANCH` | Catalog release branch | `release-1.8` |
-| `CATALOG_TAG` | Catalog image tag | `globalhub-1-8` |
-| `GRAFANA_BRANCH` | Grafana release branch | `release-1.8` |
-| `POSTGRES_TAG` | Postgres image tag | `globalhub-1-8` |
-| `OPENSHIFT_RELEASE_PATH` | Path to openshift/release clone | `/tmp/openshift-release` |
+| Variable | Description | Example | Required |
+|----------|-------------|---------|----------|
+| `RELEASE_BRANCH` | ACM release branch | `release-2.17` | **YES** - Must be explicitly set |
+| `CUT_MODE` | Operating mode (true/false) | `false` | Optional (default: false) |
+| `GITHUB_USER` | GitHub username for PRs | `yanmxa` | Optional (auto-detected from git) |
+| `ACM_VERSION` | ACM version number | `2.17` | Auto-calculated |
+| `GH_VERSION` | Global Hub version | `v1.8.0` | Auto-calculated |
+| `GH_VERSION_SHORT` | Short Global Hub version | `1.8` | Auto-calculated |
+| `BUNDLE_BRANCH` | Bundle release branch | `release-1.8` | Auto-calculated |
+| `BUNDLE_TAG` | Bundle image tag | `globalhub-1-8` | Auto-calculated |
+| `CATALOG_BRANCH` | Catalog release branch | `release-1.8` | Auto-calculated |
+| `CATALOG_TAG` | Catalog image tag | `globalhub-1-8` | Auto-calculated |
+| `GRAFANA_BRANCH` | Grafana release branch | `release-1.8` | Auto-calculated |
+| `GRAFANA_TAG` | Grafana tag | `globalhub-1-8` | Auto-calculated |
+| `POSTGRES_TAG` | Postgres image tag | `globalhub-1-8` | Auto-calculated |
+| `OCP_MIN` | Minimum OCP version number | `417` | Auto-calculated |
+| `OCP_MAX` | Maximum OCP version number | `421` | Auto-calculated |
+| `OPENSHIFT_RELEASE_PATH` | Path to openshift/release clone | `/tmp/openshift-release` | Optional |
+| `WORK_DIR` | Working directory for repos | `/tmp/globalhub-release-repos` | Optional |
 
-Individual scripts can be run standalone by providing these variables.
+Individual scripts can be run standalone by providing the required variables.
 
 ## Platform Compatibility
 
@@ -269,25 +300,30 @@ The orchestration script includes error handling:
 
 ## Example Usage
 
-### Auto-detect and update all repositories:
+### Update all repositories (UPDATE mode - creates PRs):
 ```bash
-./.claude/skills/cut-release/scripts/cut-release.sh all
+RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh all
 ```
 
-### Specify version explicitly:
+### Create new release branches (CUT mode - pushes directly):
 ```bash
-RELEASE_BRANCH="release-2.17" ./.claude/skills/cut-release/scripts/cut-release.sh all
+CUT_MODE=true RELEASE_BRANCH=release-2.18 ./.claude/skills/cut-release/scripts/cut-release.sh all
 ```
 
 ### Interactive selection:
 ```bash
-./.claude/skills/cut-release/scripts/cut-release.sh
+RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh
 # Then select: 3,4 (to update only bundle and catalog)
+```
+
+### Update specific repositories:
+```bash
+RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh 1,2,3
 ```
 
 ### Standalone script execution:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" ./scripts/04-catalog.sh
+RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" CUT_MODE=false ./scripts/04-catalog.sh
 ```
 
 ## Output Format

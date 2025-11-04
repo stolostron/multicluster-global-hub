@@ -6,14 +6,14 @@ set -euo pipefail
 # Orchestrates release process across all repositories
 #
 # Usage:
-#   ./cut-release.sh                    # Interactive mode - choose which repos to update
-#   ./cut-release.sh all                # Update all repositories
-#   ./cut-release.sh 1                  # Update only multicluster-global-hub
-#   ./cut-release.sh 1,2,3              # Update specific repositories (comma-separated)
+#   RELEASE_BRANCH=release-2.17 ./cut-release.sh             # Interactive mode - choose which repos to update
+#   RELEASE_BRANCH=release-2.17 ./cut-release.sh all         # Update all repositories
+#   RELEASE_BRANCH=release-2.17 ./cut-release.sh 1           # Update only multicluster-global-hub
+#   RELEASE_BRANCH=release-2.17 ./cut-release.sh 1,2,3       # Update specific repositories (comma-separated)
 #
-#   RELEASE_BRANCH="release-2.17" ./cut-release.sh all  # Specify version explicitly
+#   CUT_MODE=true RELEASE_BRANCH=release-2.17 ./cut-release.sh all  # Cut mode - create and push release branches directly to upstream
 #
-#   CUT_MODE=true ./cut-release.sh all  # Cut mode - create and push release branches directly to upstream
+# Note: RELEASE_BRANCH environment variable is REQUIRED (e.g., release-2.14, release-2.15, release-2.16, release-2.17)
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -61,33 +61,23 @@ fi
 export GITHUB_USER
 export CUT_MODE
 
-# Detect latest release if not specified
-if [ -z "$RELEASE_BRANCH" ] || [ "$RELEASE_BRANCH" = "next" ]; then
-  echo "🔍 Detecting latest release branch from upstream..."
-  echo "   Repository: https://github.com/stolostron/multicluster-global-hub"
-
-  # Fetch latest branches from upstream stolostron/multicluster-global-hub
-  LATEST_RELEASE=$(git ls-remote --heads https://github.com/stolostron/multicluster-global-hub.git | \
-    grep -E 'refs/heads/release-[0-9]+\.[0-9]+$' | \
-    sed 's|.*refs/heads/||' | sort -V | tail -1)
-
-  if [ -z "$LATEST_RELEASE" ]; then
-    echo "❌ Error: Could not detect latest release branch from upstream"
-    exit 1
-  fi
-
-  # Calculate next release
-  MAJOR_MINOR=$(echo "$LATEST_RELEASE" | sed 's/release-//')
-  MAJOR=$(echo "$MAJOR_MINOR" | cut -d. -f1)
-  MINOR=$(echo "$MAJOR_MINOR" | cut -d. -f2)
-  NEXT_MINOR=$((MINOR + 1))
-  RELEASE_BRANCH="release-${MAJOR}.${NEXT_MINOR}"
-
-  echo "   Latest release: $LATEST_RELEASE"
-  echo "   Next release: $RELEASE_BRANCH"
-else
-  echo "Using specified release: $RELEASE_BRANCH"
+# RELEASE_BRANCH must be explicitly specified
+if [ -z "$RELEASE_BRANCH" ]; then
+  echo "❌ Error: RELEASE_BRANCH environment variable is required"
+  echo ""
+  echo "Usage:"
+  echo "   RELEASE_BRANCH=release-2.17 $0 [options]"
+  echo ""
+  echo "Examples:"
+  echo "   RELEASE_BRANCH=release-2.17 $0 all          # Update all repositories"
+  echo "   RELEASE_BRANCH=release-2.17 $0 1,2,3        # Update specific repositories"
+  echo "   RELEASE_BRANCH=release-2.17 $0              # Interactive mode"
+  echo ""
+  echo "Available release branches: release-2.14, release-2.15, release-2.16, release-2.17, ..."
+  exit 1
 fi
+
+echo "Using specified release: $RELEASE_BRANCH"
 
 # Calculate all version variables
 ACM_VERSION=$(echo "$RELEASE_BRANCH" | sed 's/release-//')
