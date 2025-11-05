@@ -31,8 +31,12 @@ else
   SED_INPLACE=(-i)
 fi
 
+# Constants for repeated patterns
+readonly NULL_PR_VALUE='null|null'
+readonly SEPARATOR_LINE='================================================'
+
 echo "🚀 OpenShift Release Configuration"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "   Release: $RELEASE_BRANCH / release-${GH_VERSION_SHORT}"
 echo ""
 
@@ -48,7 +52,7 @@ echo "   GitHub user: $GITHUB_USER"
 if gh repo view "$GITHUB_USER/release" --json name >/dev/null 2>&1; then
   echo "   ✅ Fork already exists, skipping fork step"
 else
-  echo "   ⚠️  Fork not found. Please fork https://github.com/openshift/release to your account first."
+  echo "   ⚠️  Fork not found. Please fork https://github.com/openshift/release to your account first." >&2
   exit 1
 fi
 
@@ -67,7 +71,7 @@ if [[ -d "$OPENSHIFT_RELEASE_PATH" ]]; then
     git pull upstream master 2>/dev/null || git pull upstream main 2>/dev/null || true
     echo "   ✅ Updated to latest commit"
   else
-    echo "   ⚠️  Failed to update, continuing with existing state"
+    echo "   ⚠️  Failed to update, continuing with existing state" >&2
   fi
 else
   echo "   📥 Cloning to $OPENSHIFT_RELEASE_PATH (--depth=1 for faster clone)..."
@@ -139,7 +143,7 @@ if [[ -f "$NEW_CONFIG" ]]; then
      grep -q "IMAGE_TAG: ${GH_VERSION}" "$NEW_CONFIG"; then
     echo "   ✓ Configuration already up to date"
   else
-    echo "   ⚠️  File exists but needs updates, applying changes..."
+    echo "   ⚠️  File exists but needs updates, applying changes..." >&2
     # Update version references
     sed "${SED_INPLACE[@]}" "s/name: \"${PREV_VERSION}\"/name: \"${ACM_VERSION}\"/" "$NEW_CONFIG"
     sed "${SED_INPLACE[@]}" "s/branch: ${LATEST_RELEASE}/branch: ${RELEASE_BRANCH}/" "$NEW_CONFIG"
@@ -203,7 +207,7 @@ if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
     MAKE_UPDATE_SUCCESS=true
     echo "   ✅ Job configurations generated"
   else
-    echo "   ⚠️  make update timed out or failed (skipping)"
+    echo "   ⚠️  make update timed out or failed (skipping)" >&2
     echo "   ℹ️  You may need to run 'make update' manually in the PR"
   fi
 else
@@ -211,7 +215,7 @@ else
     MAKE_UPDATE_SUCCESS=true
     echo "   ✅ Job configurations generated"
   else
-    echo "   ⚠️  make update timed out or failed (skipping)"
+    echo "   ⚠️  make update timed out or failed (skipping)" >&2
     echo "   ℹ️  You may need to run 'make update' manually in the PR"
   fi
 fi
@@ -243,14 +247,14 @@ fi
 
 # If no changes and PR already exists, we're done
 if [[ "$CHANGES_EXIST" = false ]]; then
-  if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
+  if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
     PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
     PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
     PR_CREATED=true
     echo "   ℹ️  No changes needed, PR already up to date (state: $PR_STATE)"
     # Don't exit, continue to summary to show PR link
   else
-    echo "   ⚠️  No changes to commit and no PR exists"
+    echo "   ⚠️  No changes to commit and no PR exists" >&2
     # Continue to summary
   fi
   # Add files
@@ -285,14 +289,14 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
     echo "   ✅ Branch pushed to origin"
     PUSH_SUCCESS=true
   else
-    echo "   ⚠️  Failed to push branch to origin"
+    echo "   ⚠️  Failed to push branch to origin" >&2
     PUSH_SUCCESS=false
     # Don't exit, show summary with error status
   fi
 
   # Check if PR exists and create/update accordingly (only if push succeeded)
   if [[ "$PUSH_SUCCESS" = true ]]; then
-    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
+    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
       PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
       PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
       echo "   ✅ PR already exists and updated (state: $PR_STATE): $PR_URL"
@@ -328,7 +332,7 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
         echo "   ✅ PR already exists and updated: $PR_URL"
         PR_CREATED=true
       else
-        echo "   ⚠️  Failed to create PR automatically"
+        echo "   ⚠️  Failed to create PR automatically" >&2
         echo "   Reason: $PR_CREATE_OUTPUT"
         PR_CREATED=false
       fi
@@ -338,9 +342,9 @@ fi
 
 # Summary
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📊 WORKFLOW SUMMARY"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "Release: $RELEASE_BRANCH / release-${GH_VERSION_SHORT}"
 echo ""
 echo "✅ COMPLETED TASKS:"
@@ -350,22 +354,22 @@ if [[ "$CHANGES_EXIST" = true ]]; then
   if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
     echo "  ✓ Generated job configurations"
   else
-    echo "  ⚠️  Job generation skipped (timeout/error)"
+    echo "  ⚠️  Job generation skipped (timeout/error)" >&2
   fi
 fi
 if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "  ✓ PR: ${PR_URL}"
 fi
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "1. Review and merge: ${PR_URL}"
 fi
 if [[ "$MAKE_UPDATE_SUCCESS" != true ]]; then
   echo ""
-  echo "⚠️  make update failed - Manual steps required:"
+  echo "⚠️  make update failed - Manual steps required:" >&2
   echo "   cd $OPENSHIFT_RELEASE_PATH && git checkout $BRANCH_NAME"
   echo "   make update && git add ci-operator/jobs/"
   echo "   git commit --amend --no-edit && git push -f"
@@ -373,10 +377,10 @@ fi
 echo ""
 echo "After merge: Verify CI jobs in openshift/release"
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ "$MAKE_UPDATE_SUCCESS" = true && "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
-  echo "⚠️  COMPLETED WITH WARNINGS"
+  echo "⚠️  COMPLETED WITH WARNINGS" >&2
 fi
-echo "================================================"
+echo "$SEPARATOR_LINE"

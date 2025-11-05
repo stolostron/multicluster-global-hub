@@ -37,11 +37,15 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   SED_INPLACE=(-i "")
 else
   SED_INPLACE=(-i)
+
+# Constants for repeated patterns
+readonly NULL_PR_VALUE='null|null'
+readonly SEPARATOR_LINE='================================================'
 fi
 
 echo "🚀 Operator Catalog Release"
-echo "================================================"
-echo "   Mode: $([ "$CUT_MODE" = true ] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
+echo "$SEPARATOR_LINE"
+echo "   Mode: $([[ "$CUT_MODE" = true ]] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
 echo "   Release: $RELEASE_BRANCH / $CATALOG_BRANCH"
 echo "   OCP: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
 echo ""
@@ -80,7 +84,7 @@ if git ls-remote "$FORK_REPO" HEAD >/dev/null 2>&1; then
   FORK_EXISTS=true
   echo "   ✅ Fork detected: ${GITHUB_USER}/multicluster-global-hub-operator-catalog"
 else
-  echo "   ⚠️  Fork not found: ${GITHUB_USER}/multicluster-global-hub-operator-catalog"
+  echo "   ⚠️  Fork not found: ${GITHUB_USER}/multicluster-global-hub-operator-catalog" >&2
   echo "   Note: Cleanup PR will require manual creation if fork doesn't exist"
 fi
 
@@ -104,7 +108,7 @@ if [[ "$LATEST_CATALOG_RELEASE" = "$CATALOG_BRANCH" ]]; then
 fi
 
 if [[ -z "$LATEST_CATALOG_RELEASE" ]]; then
-  echo "⚠️  No previous catalog release branch found, using main as base"
+  echo "⚠️  No previous catalog release branch found, using main as base" >&2
   BASE_BRANCH="main"
 else
   echo "Latest catalog release detected: $LATEST_CATALOG_RELEASE"
@@ -205,7 +209,7 @@ if [[ -f "$IMAGES_MIRROR_FILE" && -n "$PREV_CATALOG_TAG" ]]; then
 
   echo "   ✅ Updated $IMAGES_MIRROR_FILE"
 elif [[ ! -f "$IMAGES_MIRROR_FILE" ]]; then
-  echo "   ⚠️  File not found: $IMAGES_MIRROR_FILE"
+  echo "   ⚠️  File not found: $IMAGES_MIRROR_FILE" >&2
 fi
 
 # Step 2: Update OCP pipeline files
@@ -361,7 +365,7 @@ fi
         --json number,url,state \
         --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-      if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
+      if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
         PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
         PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
         echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
@@ -371,7 +375,7 @@ fi
         git checkout -b "$PR_BRANCH"
 
         if [[ "$FORK_EXISTS" = false ]]; then
-          echo "   ⚠️  Cannot push to fork - fork does not exist"
+          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
           echo "   Please fork ${CATALOG_REPO} to enable PR creation"
           PR_CREATED=false
         else
@@ -410,7 +414,7 @@ fi
             echo "   ✅ PR created: $PR_URL"
             PR_CREATED=true
           else
-            echo "   ⚠️  Failed to create PR"
+            echo "   ⚠️  Failed to create PR" >&2
             echo "   Reason: $PR_CREATE_OUTPUT"
             PR_CREATED=false
           fi
@@ -473,7 +477,7 @@ This prevents duplicate automation on old release branch."
       --json number,url,state \
       --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-    if [[ -n "$EXISTING_CLEANUP_PR" && "$EXISTING_CLEANUP_PR" != "null|null" ]]; then
+    if [[ -n "$EXISTING_CLEANUP_PR" && "$EXISTING_CLEANUP_PR" != "$NULL_PR_VALUE" ]]; then
       CLEANUP_PR_STATE=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f1)
       CLEANUP_PR_URL=$(echo "$EXISTING_CLEANUP_PR" | cut -d'|' -f2)
       echo "   ℹ️  Cleanup PR already exists (state: $CLEANUP_PR_STATE): $CLEANUP_PR_URL"
@@ -481,7 +485,7 @@ This prevents duplicate automation on old release branch."
     else
       # Push cleanup branch to fork
       if [[ "$FORK_EXISTS" = false ]]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist"
+        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
         echo "   Please fork ${CATALOG_REPO} and run again, or create cleanup PR manually"
         CLEANUP_PR_CREATED=false
       elif git push -f fork "$CLEANUP_BRANCH" 2>&1; then
@@ -509,12 +513,12 @@ This PR removes the workflow from ${CLEANUP_TARGET_BRANCH} to prevent duplicate 
           echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
           CLEANUP_PR_CREATED=true
         else
-          echo "   ⚠️  Failed to create cleanup PR"
+          echo "   ⚠️  Failed to create cleanup PR" >&2
           echo "   Reason: $CLEANUP_PR_OUTPUT"
           CLEANUP_PR_CREATED=false
         fi
       else
-        echo "   ⚠️  Failed to push cleanup branch"
+        echo "   ⚠️  Failed to push cleanup branch" >&2
         CLEANUP_PR_CREATED=false
       fi
     fi
@@ -529,9 +533,9 @@ fi
 
 # Summary
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📊 WORKFLOW SUMMARY"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "Release: $RELEASE_BRANCH / $CATALOG_BRANCH"
 echo "Supported OCP: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
 echo ""
@@ -555,9 +559,9 @@ if [[ "$CLEANUP_PR_CREATED" = true && -n "$CLEANUP_PR_URL" ]]; then
   echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: ${CLEANUP_PR_URL}"
 fi
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "✅ Branch pushed to origin successfully"
   echo ""
@@ -582,10 +586,10 @@ else
   echo "Repository: https://github.com/$CATALOG_REPO/tree/$CATALOG_BRANCH"
 fi
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ "$PUSHED_TO_ORIGIN" = true || "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
-  echo "⚠️  COMPLETED WITH ISSUES"
+  echo "⚠️  COMPLETED WITH ISSUES" >&2
 fi
-echo "================================================"
+echo "$SEPARATOR_LINE"
