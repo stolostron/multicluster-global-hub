@@ -40,6 +40,7 @@ get_repo_info() {
     *) repo_info="" ;;
   esac
   echo "$repo_info"
+  return 0
 }
 
 # Parse command line argument
@@ -49,6 +50,9 @@ MODE="${1:-interactive}"
 RELEASE_BRANCH="${RELEASE_BRANCH:-}"
 OPENSHIFT_RELEASE_PATH="${OPENSHIFT_RELEASE_PATH:-/tmp/openshift-release}"
 CUT_MODE="${CUT_MODE:-false}"
+
+# Constants for repeated patterns
+readonly SEPARATOR_LINE='================================================'
 
 # Auto-detect GitHub user from current git repo (can be overridden with GITHUB_USER env var)
 if [[ -z "${GITHUB_USER:-}" ]]; then
@@ -111,15 +115,15 @@ OCP_MAX=$((OCP_MIN + 4))
 # Display version information
 echo ""
 echo "📊 Version Information"
-echo "================================================"
-echo "   Mode:        $([ "$CUT_MODE" = true ] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
+echo "$SEPARATOR_LINE"
+echo "   Mode:        $([[ "$CUT_MODE" = true ]] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
 echo "   GitHub User: $GITHUB_USER"
 echo "   ACM:         $RELEASE_BRANCH"
 echo "   Global Hub:  release-$GH_VERSION_SHORT"
 echo "   Bundle:      release-$GH_VERSION_SHORT"
 echo "   Catalog:     release-$GH_VERSION_SHORT"
 echo "   OCP:         4.${OCP_MIN} - 4.${OCP_MAX}"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo ""
 
 # Export version variables for child scripts
@@ -145,13 +149,13 @@ show_repos() {
   for i in 1 2 3 4 5 6; do
     local repo_info
     local name
-    local script
     local desc
     repo_info=$(get_repo_info "$i")
-    IFS='|' read -r name script desc <<< "$repo_info"
+    IFS='|' read -r name _ desc <<< "$repo_info"
     printf "   [%d] %-25s %s\n" "$i" "$name" "$desc"
   done
   echo ""
+  return 0
 }
 
 # Function to run a specific script
@@ -228,7 +232,7 @@ esac
 
 echo ""
 echo "🚀 Starting Release Workflow"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo ""
 
 # Track results
@@ -241,7 +245,7 @@ FAILED_REPOS=()
 for repo_num in "${REPOS_TO_UPDATE[@]}"; do
   # Validate repo number
   if [[ "$repo_num" -lt 1 || "$repo_num" -gt 6 ]]; then
-    echo "⚠️  Invalid repository number: $repo_num (skipping)"
+    echo "⚠️  Invalid repository number: $repo_num (skipping)" >&2
     continue
   fi
 
@@ -256,7 +260,7 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     # Ask if user wants to continue
     if [[ "$FAILED" -lt "$TOTAL" ]]; then
       echo ""
-      echo "⚠️  Continue with remaining repositories? (y/n)"
+      echo "⚠️  Continue with remaining repositories? (y/n)" >&2
       read -r continue_choice
       if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
         echo "Workflow aborted by user"
@@ -268,9 +272,9 @@ done
 
 # Final Summary
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📋 Release Workflow Summary"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo ""
 echo "Version:"
 echo "   ACM:        $RELEASE_BRANCH"
@@ -290,7 +294,7 @@ if [[ $FAILED -gt 0 ]]; then
 fi
 
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 
 if [[ $FAILED -eq 0 ]]; then
   echo "🎉 All selected repositories updated successfully!"
@@ -302,7 +306,7 @@ if [[ $FAILED -eq 0 ]]; then
   echo ""
   exit 0
 else
-  echo "⚠️  Some repositories failed to update"
+  echo "⚠️  Some repositories failed to update" >&2
   echo ""
   echo "Please review errors above and fix manually."
   echo ""

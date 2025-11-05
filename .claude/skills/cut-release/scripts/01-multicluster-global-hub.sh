@@ -48,9 +48,15 @@ else
   SED_INPLACE=(-i)
 fi
 
+# Constants for repeated patterns
+readonly TARGET_BRANCH_PATTERN='""'
+readonly TARGET_BRANCH_EXTRACT_PATTERN='s/.*target_branch == "([^"]+)".*/\1/'
+readonly NULL_PR_VALUE='null|null'
+readonly SEPARATOR_LINE='================================================'
+
 echo "🚀 Multicluster Global Hub Release Workflow"
-echo "================================================"
-echo "   Mode: $([ "$CUT_MODE" = true ] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
+echo "$SEPARATOR_LINE"
+echo "   Mode: $([[ "$CUT_MODE" = true ]] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
 echo ""
 echo "Workflow:"
 echo "  1. Update main branch with new .tekton files (target_branch=main)"
@@ -62,7 +68,7 @@ fi
 echo "  3. Create PR to upstream main with new release configurations"
 echo "  4. Update previous release .tekton files (target_branch=previous_release_branch)"
 echo "  5. Update current release .tekton files (target_branch=current_release_branch)"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 
 # Step 1: Clone repository and setup remotes
 echo ""
@@ -150,7 +156,7 @@ echo "📍 Step 4: Creating new .tekton/ configuration files..."
 TEKTON_UPDATED=false
 
 if [[ ! -d ".tekton" ]]; then
-  echo "   ⚠️  .tekton/ directory not found in current repository"
+  echo "   ⚠️  .tekton/ directory not found in current repository" >&2
 else
   # Define version tags
   PREV_TAG="globalhub-${PREV_GH_VERSION_SHORT//./-}"
@@ -177,20 +183,20 @@ else
         echo "   ℹ️  Already exists: $NEW_FILE"
 
         # Check current target_branch
-        CURRENT_TARGET=$(grep 'target_branch ==' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep '""' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
         if [[ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]]; then
           echo "   ✓ Content verified: target_branch=$EXPECTED_TARGET"
           TEKTON_UPDATED=true
         elif [[ -n "$CURRENT_TARGET" ]]; then
           # Update target_branch to expected value
-          echo "   ⚠️  Updating target_branch: $CURRENT_TARGET -> $EXPECTED_TARGET"
+          echo "   ⚠️  Updating target_branch: $CURRENT_TARGET -> $EXPECTED_TARGET" >&2
           sed "${SED_INPLACE[@]}" "s/target_branch == \"${CURRENT_TARGET}\"/target_branch == \"${EXPECTED_TARGET}\"/" "$NEW_FILE"
           git add "$NEW_FILE"
           echo "   ✅ Updated: $NEW_FILE (target_branch=$EXPECTED_TARGET)"
           TEKTON_UPDATED=true
         else
-          echo "   ⚠️  Cannot find target_branch in $NEW_FILE"
+          echo "   ⚠️  Cannot find target_branch in $NEW_FILE" >&2
         fi
         continue
       fi
@@ -214,21 +220,21 @@ else
 
         # 4. Update target_branch to expected value
         # First get the current target_branch from the copied file
-        CURRENT_TARGET=$(grep 'target_branch ==' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep '""' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
         if [[ -n "$CURRENT_TARGET" && "$CURRENT_TARGET" != "$EXPECTED_TARGET" ]]; then
           sed "${SED_INPLACE[@]}" "s/target_branch == \"${CURRENT_TARGET}\"/target_branch == \"${EXPECTED_TARGET}\"/" "$NEW_FILE"
         fi
 
         # Verify target_branch is set correctly
         if ! grep -q "target_branch == \"${EXPECTED_TARGET}\"" "$NEW_FILE"; then
-          echo "   ⚠️  Warning: target_branch not set to $EXPECTED_TARGET in $NEW_FILE"
+          echo "   ⚠️  Warning: target_branch not set to $EXPECTED_TARGET in $NEW_FILE" >&2
         fi
 
         git add "$NEW_FILE"
         echo "   ✅ Updated content in $NEW_FILE (target_branch=$EXPECTED_TARGET)"
         TEKTON_UPDATED=true
       else
-        echo "   ⚠️  Source file not found: $OLD_FILE"
+        echo "   ⚠️  Source file not found: $OLD_FILE" >&2
       fi
     done
   done
@@ -236,7 +242,7 @@ else
   if [[ "$TEKTON_UPDATED" = true ]]; then
     echo "   ✅ Tekton files updated"
   else
-    echo "   ⚠️  No updates needed"
+    echo "   ⚠️  No updates needed" >&2
   fi
 fi
 
@@ -266,22 +272,22 @@ for component in agent manager operator; do
       # Try to find any version label and report
       VERSION_LINE=$(grep "LABEL version=" "$CONTAINERFILE" 2>/dev/null || echo "")
       if [[ -n "$VERSION_LINE" ]]; then
-        echo "   ⚠️  Found: $VERSION_LINE"
-        echo "   ⚠️  Expected: release-${PREV_GH_VERSION_SHORT} or release-${GH_VERSION_SHORT}"
-        echo "   ⚠️  Manual update may be needed"
+        echo "   ⚠️  Found: $VERSION_LINE" >&2
+        echo "   ⚠️  Expected: release-${PREV_GH_VERSION_SHORT} or release-${GH_VERSION_SHORT}" >&2
+        echo "   ⚠️  Manual update may be needed" >&2
       else
         echo "   ℹ️  No version label found in $CONTAINERFILE"
       fi
     fi
   else
-    echo "   ⚠️  File not found: $CONTAINERFILE"
+    echo "   ⚠️  File not found: $CONTAINERFILE" >&2
   fi
 done
 
 if [[ "$CONTAINERFILE_UPDATED" = true ]]; then
   echo "   ✅ Containerfile labels updated"
 else
-  echo "   ⚠️  No updates needed"
+  echo "   ⚠️  No updates needed" >&2
 fi
 
 # Step 6: Commit changes for main branch PR
@@ -387,13 +393,13 @@ if [[ "$MAIN_CHANGES_COMMITTED" = true ]]; then
     echo "   ✅ Branch pushed to origin"
     PUSH_SUCCESS=true
   else
-    echo "   ⚠️  Failed to push branch to origin"
+    echo "   ⚠️  Failed to push branch to origin" >&2
     PUSH_SUCCESS=false
   fi
 
   if [[ "$PUSH_SUCCESS" = true ]]; then
     # Check if PR exists
-    if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "null|null" ]]; then
+    if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "$NULL_PR_VALUE" ]]; then
       MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
       MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
       echo "   ✅ PR already exists and updated (state: $MAIN_PR_STATE): $MAIN_PR_URL"
@@ -438,7 +444,7 @@ This PR adds the new release pipeline configurations to main branch while preser
         echo "   ✅ PR already exists and updated: $MAIN_PR_URL"
         MAIN_PR_CREATED=true
       else
-        echo "   ⚠️  Failed to create PR automatically"
+        echo "   ⚠️  Failed to create PR automatically" >&2
         echo "   Reason: $PR_CREATE_OUTPUT"
         echo "   ℹ️  You can create the PR manually at:"
         echo "      https://github.com/${REPO_ORG}/${REPO_NAME}/compare/main...${PR_HEAD}"
@@ -446,13 +452,13 @@ This PR adds the new release pipeline configurations to main branch while preser
       fi
     fi
   else
-    echo "   ⚠️  Skipping PR creation/update due to push failure"
+    echo "   ⚠️  Skipping PR creation/update due to push failure" >&2
     MAIN_PR_CREATED=false
   fi
 else
   echo "   ℹ️  No changes to push"
   # Still check if PR exists
-  if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "null|null" ]]; then
+  if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "$NULL_PR_VALUE" ]]; then
     MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
     MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
     echo "   ℹ️  PR already exists (state: $MAIN_PR_STATE): $MAIN_PR_URL"
@@ -479,7 +485,7 @@ if git ls-remote --heads "$UPSTREAM_REMOTE" "$PREV_RELEASE_BRANCH" | grep -q "$P
   PREV_RELEASE_EXISTS=true
   echo "   ✓ Previous release branch exists: $PREV_RELEASE_BRANCH"
 else
-  echo "   ⚠️  Previous release branch not found: $PREV_RELEASE_BRANCH"
+  echo "   ⚠️  Previous release branch not found: $PREV_RELEASE_BRANCH" >&2
   echo "   Skipping previous release update"
 fi
 
@@ -502,7 +508,7 @@ if [[ "$PREV_RELEASE_EXISTS" = true ]]; then
 
       if [[ -f "$PREV_FILE" ]]; then
         # Check current target_branch
-        CURRENT_TARGET=$(grep 'target_branch ==' "$PREV_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep '""' "$PREV_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
         if [[ "$CURRENT_TARGET" = "$PREV_RELEASE_BRANCH" ]]; then
           echo "   ℹ️  Already correct: $PREV_FILE (target_branch=$PREV_RELEASE_BRANCH)"
@@ -513,10 +519,10 @@ if [[ "$PREV_RELEASE_EXISTS" = true ]]; then
           echo "   ✅ Updated: $PREV_FILE (main -> ${PREV_RELEASE_BRANCH})"
           PREV_RELEASE_UPDATED=true
         else
-          echo "   ⚠️  Unexpected target_branch in $PREV_FILE: $CURRENT_TARGET"
+          echo "   ⚠️  Unexpected target_branch in $PREV_FILE: $CURRENT_TARGET" >&2
         fi
       else
-        echo "   ⚠️  File not found: $PREV_FILE"
+        echo "   ⚠️  File not found: $PREV_FILE" >&2
       fi
     done
   done
@@ -553,7 +559,7 @@ ACM: ${PREV_RELEASE_BRANCH}, Global Hub: release-${PREV_GH_VERSION_SHORT}"
       echo "   ✅ Branch pushed to origin"
 
       # Check if PR exists
-      if [[ -n "$EXISTING_PREV_PR" && "$EXISTING_PREV_PR" != "null|null" ]]; then
+      if [[ -n "$EXISTING_PREV_PR" && "$EXISTING_PREV_PR" != "$NULL_PR_VALUE" ]]; then
         PREV_PR_STATE=$(echo "$EXISTING_PREV_PR" | cut -d'|' -f1)
         PREV_PR_URL=$(echo "$EXISTING_PREV_PR" | cut -d'|' -f2)
         echo "   ✅ PR already exists and updated (state: $PREV_PR_STATE): $PREV_PR_URL"
@@ -591,13 +597,13 @@ Update pipeline target_branch for ${PREV_RELEASE_BRANCH}.
           echo "   ✅ PR already exists and updated: $PREV_PR_URL"
           PREV_PR_CREATED=true
         else
-          echo "   ⚠️  Failed to create PR for previous release"
+          echo "   ⚠️  Failed to create PR for previous release" >&2
           echo "   Reason: $PR_CREATE_OUTPUT"
           PREV_PR_CREATED=false
         fi
       fi
     else
-      echo "   ⚠️  Failed to push branch for previous release PR"
+      echo "   ⚠️  Failed to push branch for previous release PR" >&2
       PREV_PR_CREATED=false
     fi
   else
@@ -620,7 +626,7 @@ if git ls-remote --heads "$UPSTREAM_REMOTE" "$RELEASE_BRANCH" | grep -q "$RELEAS
   CURRENT_RELEASE_EXISTS=true
   echo "   ✓ Current release branch exists: $RELEASE_BRANCH"
 else
-  echo "   ⚠️  Current release branch not found: $RELEASE_BRANCH"
+  echo "   ⚠️  Current release branch not found: $RELEASE_BRANCH" >&2
   echo "   Skipping current release update"
 fi
 
@@ -652,7 +658,7 @@ if [[ "$CURRENT_RELEASE_EXISTS" = true ]]; then
 
       if [[ -f "$CURRENT_FILE" ]]; then
         # Check current target_branch
-        CURRENT_TARGET=$(grep 'target_branch ==' "$CURRENT_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep '""' "$CURRENT_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
         if [[ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]]; then
           echo "   ℹ️  Already correct: $CURRENT_FILE (target_branch=$EXPECTED_TARGET)"
@@ -663,10 +669,10 @@ if [[ "$CURRENT_RELEASE_EXISTS" = true ]]; then
           echo "   ✅ Updated: $CURRENT_FILE ($CURRENT_TARGET -> ${EXPECTED_TARGET})"
           CURRENT_RELEASE_UPDATED=true
         else
-          echo "   ⚠️  Cannot find target_branch in $CURRENT_FILE"
+          echo "   ⚠️  Cannot find target_branch in $CURRENT_FILE" >&2
         fi
       else
-        echo "   ⚠️  File not found: $CURRENT_FILE"
+        echo "   ⚠️  File not found: $CURRENT_FILE" >&2
       fi
     done
   done
@@ -705,7 +711,7 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
       echo "   ✅ Branch pushed to origin"
 
       # Check if PR exists
-      if [[ -n "$EXISTING_CURRENT_PR" && "$EXISTING_CURRENT_PR" != "null|null" ]]; then
+      if [[ -n "$EXISTING_CURRENT_PR" && "$EXISTING_CURRENT_PR" != "$NULL_PR_VALUE" ]]; then
         CURRENT_PR_STATE=$(echo "$EXISTING_CURRENT_PR" | cut -d'|' -f1)
         CURRENT_PR_URL=$(echo "$EXISTING_CURRENT_PR" | cut -d'|' -f2)
         echo "   ✅ PR already exists and updated (state: $CURRENT_PR_STATE): $CURRENT_PR_URL"
@@ -745,13 +751,13 @@ Update pipeline target_branch for ${RELEASE_BRANCH}.
           echo "   ✅ PR already exists and updated: $CURRENT_PR_URL"
           CURRENT_PR_CREATED=true
         else
-          echo "   ⚠️  Failed to create PR for current release"
+          echo "   ⚠️  Failed to create PR for current release" >&2
           echo "   Reason: $PR_CREATE_OUTPUT"
           CURRENT_PR_CREATED=false
         fi
       fi
     else
-      echo "   ⚠️  Failed to push branch for current release PR"
+      echo "   ⚠️  Failed to push branch for current release PR" >&2
       CURRENT_PR_CREATED=false
     fi
   else
@@ -762,9 +768,9 @@ fi
 
 # Summary
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📊 WORKFLOW SUMMARY"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "Release: $RELEASE_BRANCH / release-${GH_VERSION_SHORT}"
 echo ""
 
@@ -812,7 +818,7 @@ fi
 
 if [[ "$SHOW_ISSUES" = true ]]; then
   echo ""
-  echo "⚠️  ISSUES / WARNINGS:"
+  echo "⚠️  ISSUES / WARNINGS:" >&2
 
   if [[ "$TEKTON_UPDATED" = false ]]; then
     echo "  ⚠ .tekton/ files not created"
@@ -840,9 +846,9 @@ if [[ "$SHOW_ISSUES" = true ]]; then
 fi
 
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 
 PR_COUNT=0
 if [[ "$MAIN_PR_CREATED" = true ]]; then
@@ -864,10 +870,10 @@ echo ""
 echo "After merge: Verify Konflux pipelines and builds"
 
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ $FAILED -eq 0 ]]; then
   echo "✅ SUCCESS ($COMPLETED tasks completed)"
 else
-  echo "⚠️  COMPLETED WITH WARNINGS ($COMPLETED completed, $FAILED warnings)"
+  echo "⚠️  COMPLETED WITH WARNINGS ($COMPLETED completed, $FAILED warnings)" >&2
 fi
-echo "================================================"
+echo "$SEPARATOR_LINE"

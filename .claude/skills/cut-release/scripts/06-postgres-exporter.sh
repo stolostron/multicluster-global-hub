@@ -34,11 +34,15 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   SED_INPLACE=(-i "")
 else
   SED_INPLACE=(-i)
+
+# Constants for repeated patterns
+readonly NULL_PR_VALUE='null|null'
+readonly SEPARATOR_LINE='================================================'
 fi
 
 echo "🚀 Postgres Exporter Release"
-echo "================================================"
-echo "   Mode: $([ "$CUT_MODE" = true ] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
+echo "$SEPARATOR_LINE"
+echo "   Mode: $([[ "$CUT_MODE" = true ]] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
 echo "   Release: $RELEASE_BRANCH"
 echo "   Postgres Tag: $POSTGRES_TAG"
 echo ""
@@ -73,7 +77,7 @@ if git ls-remote "$FORK_REPO" HEAD >/dev/null 2>&1; then
   FORK_EXISTS=true
   echo "   ✅ Fork detected: ${GITHUB_USER}/postgres_exporter"
 else
-  echo "   ⚠️  Fork not found: ${GITHUB_USER}/postgres_exporter"
+  echo "   ⚠️  Fork not found: ${GITHUB_USER}/postgres_exporter" >&2
 fi
 
 # Fetch all release branches
@@ -96,7 +100,7 @@ if [[ "$LATEST_POSTGRES_RELEASE" = "$RELEASE_BRANCH" ]]; then
 fi
 
 if [[ -z "$LATEST_POSTGRES_RELEASE" ]]; then
-  echo "⚠️  No previous postgres release branch found, using main as base"
+  echo "⚠️  No previous postgres release branch found, using main as base" >&2
   BASE_BRANCH="main"
 else
   echo "Latest postgres release detected: $LATEST_POSTGRES_RELEASE"
@@ -176,7 +180,7 @@ if [[ -n "$PREV_POSTGRES_TAG" ]]; then
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${RELEASE_BRANCH}/g" "$NEW_PR_PIPELINE"
       echo "   ✅ Updated $NEW_PR_PIPELINE"
     else
-      echo "   ⚠️  Pipeline not found: $NEW_PR_PIPELINE"
+      echo "   ⚠️  Pipeline not found: $NEW_PR_PIPELINE" >&2
     fi
   elif [[ -f "$OLD_PR_PIPELINE" ]]; then
     echo "   Renaming and updating pull-request pipeline..."
@@ -185,7 +189,7 @@ if [[ -n "$PREV_POSTGRES_TAG" ]]; then
     sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${RELEASE_BRANCH}/g" "$NEW_PR_PIPELINE"
     echo "   ✅ Updated $NEW_PR_PIPELINE"
   else
-    echo "   ⚠️  Previous pull-request pipeline not found: $OLD_PR_PIPELINE"
+    echo "   ⚠️  Previous pull-request pipeline not found: $OLD_PR_PIPELINE" >&2
   fi
 
   # Update push pipeline
@@ -200,7 +204,7 @@ if [[ -n "$PREV_POSTGRES_TAG" ]]; then
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${RELEASE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
       echo "   ✅ Updated $NEW_PUSH_PIPELINE"
     else
-      echo "   ⚠️  Pipeline not found: $NEW_PUSH_PIPELINE"
+      echo "   ⚠️  Pipeline not found: $NEW_PUSH_PIPELINE" >&2
     fi
   elif [[ -f "$OLD_PUSH_PIPELINE" ]]; then
     echo "   Renaming and updating push pipeline..."
@@ -209,10 +213,10 @@ if [[ -n "$PREV_POSTGRES_TAG" ]]; then
     sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${RELEASE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
     echo "   ✅ Updated $NEW_PUSH_PIPELINE"
   else
-    echo "   ⚠️  Previous push pipeline not found: $OLD_PUSH_PIPELINE"
+    echo "   ⚠️  Previous push pipeline not found: $OLD_PUSH_PIPELINE" >&2
   fi
 else
-  echo "   ⚠️  No previous postgres tag found, skipping pipeline update"
+  echo "   ⚠️  No previous postgres tag found, skipping pipeline update" >&2
 fi
 
 # Step 2: Commit changes
@@ -270,7 +274,7 @@ else
       --json number,url,state \
       --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "null|null" ]]; then
+    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
       PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
       PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
       echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
@@ -280,7 +284,7 @@ else
       git checkout -b "$PR_BRANCH"
 
       if [[ "$FORK_EXISTS" = false ]]; then
-        echo "   ⚠️  Cannot push to fork - fork does not exist"
+        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
         echo "   Please fork ${POSTGRES_REPO} to enable PR creation"
         PR_CREATED=false
       else
@@ -317,7 +321,7 @@ else
             echo "   ✅ PR created: $PR_URL"
             PR_CREATED=true
           else
-            echo "   ⚠️  Failed to create PR"
+            echo "   ⚠️  Failed to create PR" >&2
             echo "   Reason: $PR_CREATE_OUTPUT"
             PR_CREATED=false
           fi
@@ -331,9 +335,9 @@ fi
 
 # Summary
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📊 WORKFLOW SUMMARY"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "Release: $RELEASE_BRANCH"
 echo ""
 echo "✅ COMPLETED TASKS:"
@@ -352,9 +356,9 @@ if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "  ✓ PR to $RELEASE_BRANCH: ${PR_URL}"
 fi
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "✅ Branch pushed to origin successfully"
   echo ""
@@ -370,10 +374,10 @@ else
   echo "Repository: https://github.com/$POSTGRES_REPO/tree/$RELEASE_BRANCH"
 fi
 echo ""
-echo "================================================"
+echo "$SEPARATOR_LINE"
 if [[ "$PUSHED_TO_ORIGIN" = true || "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
 else
-  echo "⚠️  COMPLETED WITH ISSUES"
+  echo "⚠️  COMPLETED WITH ISSUES" >&2
 fi
-echo "================================================"
+echo "$SEPARATOR_LINE"
