@@ -49,8 +49,6 @@ else
 fi
 
 # Constants for repeated patterns
-readonly TARGET_BRANCH_PATTERN='""'
-readonly TARGET_BRANCH_EXTRACT_PATTERN='s/.*target_branch == "([^"]+)".*/\1/'
 readonly NULL_PR_VALUE='null|null'
 readonly SEPARATOR_LINE='================================================'
 
@@ -183,7 +181,7 @@ else
         echo "   ℹ️  Already exists: $NEW_FILE"
 
         # Check current target_branch
-        CURRENT_TARGET=$(grep '""' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep 'target_branch ==' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
         if [[ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]]; then
           echo "   ✓ Content verified: target_branch=$EXPECTED_TARGET"
@@ -220,7 +218,7 @@ else
 
         # 4. Update target_branch to expected value
         # First get the current target_branch from the copied file
-        CURRENT_TARGET=$(grep '""' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep 'target_branch ==' "$NEW_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
         if [[ -n "$CURRENT_TARGET" && "$CURRENT_TARGET" != "$EXPECTED_TARGET" ]]; then
           sed "${SED_INPLACE[@]}" "s/target_branch == \"${CURRENT_TARGET}\"/target_branch == \"${EXPECTED_TARGET}\"/" "$NEW_FILE"
         fi
@@ -508,7 +506,7 @@ if [[ "$PREV_RELEASE_EXISTS" = true ]]; then
 
       if [[ -f "$PREV_FILE" ]]; then
         # Check current target_branch
-        CURRENT_TARGET=$(grep '""' "$PREV_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep 'target_branch ==' "$PREV_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
         if [[ "$CURRENT_TARGET" = "$PREV_RELEASE_BRANCH" ]]; then
           echo "   ℹ️  Already correct: $PREV_FILE (target_branch=$PREV_RELEASE_BRANCH)"
@@ -658,7 +656,7 @@ if [[ "$CURRENT_RELEASE_EXISTS" = true ]]; then
 
       if [[ -f "$CURRENT_FILE" ]]; then
         # Check current target_branch
-        CURRENT_TARGET=$(grep '""' "$CURRENT_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
+        CURRENT_TARGET=$(grep 'target_branch ==' "$CURRENT_FILE" | sed -E 's/.*target_branch == "([^"]+)".*/\1/' || echo "")
 
         if [[ "$CURRENT_TARGET" = "$EXPECTED_TARGET" ]]; then
           echo "   ℹ️  Already correct: $CURRENT_FILE (target_branch=$EXPECTED_TARGET)"
