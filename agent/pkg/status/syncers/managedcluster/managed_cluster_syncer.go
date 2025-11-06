@@ -33,10 +33,16 @@ func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.
 	clusterEmitter := emitters.NewObjectEmitter(
 		enum.ManagedClusterType,
 		p,
-		emitters.WithPredicateFunc(predicate.NewPredicateFuncs(validCluster)),
-		emitters.WithFilterFunc(validCluster),
+		// filter out the managed clusters that are migrating and the clusterClaim id not ready,
+		// don't filter out the managed hub clusters, it might need to be removed from the cluster inventory in the db
+		emitters.WithPredicateFunc(predicate.NewPredicateFuncs(targetFunc)),
+		emitters.WithTargetFunc(targetFunc),
+		// the cluster role might be change between managed cluster and managed hub
+		emitters.WithShouldDeleteFunc(func(object client.Object) bool {
+			return utils.HasLabel(object, constants.GHDeployModeLabelKey)
+		}),
 		emitters.WithTweakFunc(clusterTweakFunc),       // clean unnecessary fields, like managedFields
-		emitters.WithMetadataFunc(clusterMetadataFunc), // extract metadata from object, use clusterClaim id as the object id
+		emitters.WithMetadataFunc(clusterMetadataFunc), // extract metadata from object, use clusterClaimId as the object id
 	)
 
 	// 2. add the emitter to controller
@@ -60,7 +66,7 @@ func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.
 			var filtered []client.Object
 			for i := range clusters.Items {
 				obj := &clusters.Items[i]
-				if validCluster(obj) {
+				if targetFunc(obj) && !utils.HasLabel(obj, constants.GHDeployModeLabelKey) {
 					log.Infof("valid cluster: %s", obj.GetName())
 					filtered = append(filtered, obj)
 				}
@@ -74,13 +80,8 @@ func AddManagedClusterSyncer(ctx context.Context, mgr ctrl.Manager, p transport.
 	return nil
 }
 
-// validCluster will filter out:
-// 1. the managed clusters that are migrating
-// 2. the clusterClaim id not ready
-// 3. the managed cluster is managedhub
-func validCluster(object client.Object) bool {
+func targetFunc(object client.Object) bool {
 	return !utils.HasAnnotation(object, constants.ManagedClusterMigrating) &&
-		!utils.HasLabel(object, constants.GHDeployModeLabelKey) &&
 		getClusterClaimID(object) != ""
 }
 

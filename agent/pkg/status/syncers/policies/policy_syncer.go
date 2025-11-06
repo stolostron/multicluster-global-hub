@@ -109,7 +109,7 @@ func AddPolicySyncer(ctx context.Context, mgr ctrl.Manager, p transport.Producer
 		enum.LocalPolicySpecType,
 		p,
 		emitters.WithPredicateFunc(localPolicySpecPredicate),
-		emitters.WithFilterFunc(enableLocalRootPolicy),
+		emitters.WithTargetFunc(enableLocalRootPolicy),
 		emitters.WithTweakFunc(localPolicySpecTweakFunc),
 	)
 
