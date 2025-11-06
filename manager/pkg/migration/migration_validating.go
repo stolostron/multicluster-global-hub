@@ -117,7 +117,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 		return false, err
 	}
 
-	// Get migrate clusters
+	// Get migrate clusters in both hubs
 	log.Infof("validating clusters: %v", GetClusterList(string(mcm.UID)))
 	requeue, err := m.validateMigrationClusters(ctx, mcm)
 	if err != nil {
@@ -184,29 +184,35 @@ func (m *ClusterMigrationController) validateClustersInHub(
 			if err != nil {
 				return false, err
 			}
+			log.Infof("sent validating events to source hub: %s", hub)
 		case mcm.Spec.To:
 			err := m.sendEventToTargetHub(ctx, mcm, migrationv1alpha1.PhaseValidating,
 				clusterList, "")
 			if err != nil {
 				return false, err
 			}
+			log.Infof("sent validating events to target hub: %s", hub)
 		}
 
-		log.Infof("sent validating events to source hubs: %s", hub)
 		SetStarted(string(mcm.GetUID()), hub, migrationv1alpha1.PhaseValidating)
 	}
+
+	log.Infof("waiting for validating events to be finished in hub: %s", hub)
 
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), hub, migrationv1alpha1.PhaseValidating); errMsg != "" {
 		// send cluster error to events
 		m.handleErrorList(mcm, hub, migrationv1alpha1.PhaseValidating)
+		log.Infof("failed to validate clusters in hub %s, %s", hub, errMsg)
 		return false, fmt.Errorf("failed to validate clusters in hub %s, %s", hub, errMsg)
 	}
 
 	// Wait validate in source hub
 	if !GetFinished(string(mcm.GetUID()), hub, migrationv1alpha1.PhaseValidating) {
+		log.Infof("waiting for validating events to be finished in hub: %s", hub)
 		return true, nil
 	}
 
+	log.Infof("finish validating in hub: %s (uid: %s)", mcm.Name, mcm.UID)
 	return false, nil
 }
 
