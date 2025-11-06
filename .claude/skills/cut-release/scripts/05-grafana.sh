@@ -148,9 +148,9 @@ if git ls-remote --heads origin "$GRAFANA_BRANCH" | grep -q "$GRAFANA_BRANCH"; t
   git fetch origin "$GRAFANA_BRANCH" 2>/dev/null || true
   git checkout -B "$GRAFANA_BRANCH" "origin/$GRAFANA_BRANCH"
 else
-  if [[ "$CUT_MODE" != "true" ]]; then
+  if [[ "$CREATE_BRANCHES" != "true" ]]; then
     echo "❌ Error: Branch $GRAFANA_BRANCH does not exist on origin" >&2
-    echo "   Run with CUT_MODE=true to create the branch"
+    echo "   Run with CREATE_BRANCHES=true to create the branch"
     exit 1
   fi
   echo "🌿 Creating $GRAFANA_BRANCH from origin/$BASE_BRANCH..."
@@ -245,8 +245,8 @@ echo "📍 Step 3: Publishing changes..."
 if [[ "$CHANGES_COMMITTED" = false ]]; then
   echo "   ℹ️  No changes to publish"
 else
-  # Decision: Push directly or create PR based on CUT_MODE and branch existence
-  if [[ "$CUT_MODE" = "true" && "$BRANCH_EXISTS_ON_ORIGIN" = false ]]; then
+  # Decision: Push directly or create PR based on CREATE_BRANCHES and branch existence
+  if [[ "$CREATE_BRANCHES" = "true" && "$BRANCH_EXISTS_ON_ORIGIN" = false ]]; then
     # CUT mode + branch doesn't exist - push directly
     echo "   Pushing new branch $GRAFANA_BRANCH to origin..."
     if git push origin "$GRAFANA_BRANCH" 2>&1; then

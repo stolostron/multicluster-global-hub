@@ -29,10 +29,10 @@ FORK_USER="${GITHUB_USER}"
 FORK_URL="git@github.com:${FORK_USER}/hub-of-hubs.git"
 
 # Validate required environment variables
-if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GH_VERSION_SHORT" || -z "$ACM_VERSION" || -z "$CUT_MODE" || -z "$GITHUB_USER" ]]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GH_VERSION_SHORT" || -z "$ACM_VERSION" || -z "$CREATE_BRANCHES" || -z "$GITHUB_USER" ]]; then
   echo "❌ Error: Required environment variables not set" >&2
   echo "   This script should be called by cut-release.sh"
-  echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION, CUT_MODE, GITHUB_USER"
+  echo "   Required: RELEASE_BRANCH, GH_VERSION, GH_VERSION_SHORT, ACM_VERSION, CREATE_BRANCHES, GITHUB_USER"
   exit 1
 fi
 
@@ -56,11 +56,11 @@ readonly TARGET_BRANCH_EXTRACT_SED='s/.*target_branch == "([^"]+)".*/\1/'
 
 echo "🚀 Multicluster Global Hub Release Workflow"
 echo "$SEPARATOR_LINE"
-echo "   Mode: $([[ "$CUT_MODE" = true ]] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
+echo "   Mode: $([[ "$CREATE_BRANCHES" = true ]] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
 echo ""
 echo "Workflow:"
 echo "  1. Update main branch with new .tekton files (target_branch=main)"
-if [[ "$CUT_MODE" = "true" ]]; then
+if [[ "$CREATE_BRANCHES" = "true" ]]; then
   echo "  2. Create release branch from updated main (CUT MODE)"
 else
   echo "  2. Skip release branch creation (UPDATE MODE)"
@@ -340,9 +340,9 @@ if [[ "$RELEASE_BRANCH_EXISTS" = true ]]; then
   # Just checkout to continue with other steps
   git checkout -B "$RELEASE_BRANCH" "$UPSTREAM_REMOTE/$RELEASE_BRANCH"
 else
-  if [[ "$CUT_MODE" != "true" ]]; then
+  if [[ "$CREATE_BRANCHES" != "true" ]]; then
     echo "   ℹ️  Release branch does not exist - skipping (UPDATE mode)"
-    echo "   Note: Run with CUT_MODE=true to create the release branch"
+    echo "   Note: Run with CREATE_BRANCHES=true to create the release branch"
   else
     echo "   Creating new release branch from $MAIN_PR_BRANCH..."
     git checkout -b "$RELEASE_BRANCH" "$MAIN_PR_BRANCH"

@@ -37,11 +37,11 @@ RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 1,2    # Only main repo and openshift/release
 RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 3,4,5,6  # Only bundle, catalog, grafana, postgres
 
-# CUT mode - create new branches and push directly
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/cut-release.sh all
+# CREATE_BRANCHES mode - create new branches and push directly
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/cut-release.sh all
 
 # UPDATE mode (default) - create PRs to update existing branches
-CUT_MODE=false RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
+CREATE_BRANCHES=false RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 ```
 
 ## Version Mapping
@@ -76,10 +76,10 @@ The skill manages 6 repositories:
 **Example**:
 ```bash
 # Update existing release
-RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/01-multicluster-global-hub.sh
+RELEASE_BRANCH=release-2.17 CREATE_BRANCHES=false ./scripts/01-multicluster-global-hub.sh
 
 # Create new release
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/01-multicluster-global-hub.sh
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/01-multicluster-global-hub.sh
 ```
 
 ### 2. OpenShift Release (CI Configuration)
@@ -111,10 +111,10 @@ RELEASE_BRANCH=release-2.17 ./scripts/02-openshift-release.sh
 **Example**:
 ```bash
 # Update existing release
-RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/03-bundle.sh
+RELEASE_BRANCH=release-2.17 CREATE_BRANCHES=false ./scripts/03-bundle.sh
 
 # Create new release
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/03-bundle.sh
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/03-bundle.sh
 ```
 
 ### 4. Operator Catalog
@@ -132,10 +132,10 @@ CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/03-bundle.sh
 **Example**:
 ```bash
 # Update existing release
-RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/04-catalog.sh
+RELEASE_BRANCH=release-2.17 CREATE_BRANCHES=false ./scripts/04-catalog.sh
 
 # Create new release
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/04-catalog.sh
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/04-catalog.sh
 ```
 
 ### 5. Glo-Grafana
@@ -149,10 +149,10 @@ CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/04-catalog.sh
 **Example**:
 ```bash
 # Update existing release
-RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/05-grafana.sh
+RELEASE_BRANCH=release-2.17 CREATE_BRANCHES=false ./scripts/05-grafana.sh
 
 # Create new release
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/05-grafana.sh
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/05-grafana.sh
 ```
 
 ### 6. Postgres Exporter
@@ -166,10 +166,10 @@ CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/05-grafana.sh
 **Example**:
 ```bash
 # Update existing release
-RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/06-postgres-exporter.sh
+RELEASE_BRANCH=release-2.17 CREATE_BRANCHES=false ./scripts/06-postgres-exporter.sh
 
 # Create new release
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/06-postgres-exporter.sh
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/06-postgres-exporter.sh
 ```
 
 ## Environment Variables
@@ -179,7 +179,7 @@ The main orchestration script (`cut-release.sh`) calculates and exports these va
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `RELEASE_BRANCH` | ACM release branch | `release-2.17` | **YES** - Must be explicitly set |
-| `CUT_MODE` | Operating mode (true/false) | `false` | Optional (default: false) |
+| `CREATE_BRANCHES` | Operating mode (true/false) | `false` | Optional (default: false) |
 | `GITHUB_USER` | GitHub username for PRs | `yanmxa` | Optional (auto-detected from git) |
 | `ACM_VERSION` | ACM version number | `2.17` | Auto-calculated |
 | `GH_VERSION` | Global Hub version | `v1.8.0` | Auto-calculated |
@@ -197,8 +197,8 @@ The main orchestration script (`cut-release.sh`) calculates and exports these va
 | `WORK_DIR` | Working directory for repos | `/tmp/globalhub-release-repos` | Optional |
 
 **Operating Modes**:
-- `CUT_MODE=true`: Create new release branches and push directly to upstream
-- `CUT_MODE=false` (default): Update existing release branches via pull requests
+- `CREATE_BRANCHES=true`: Create new release branches and push directly to upstream
+- `CREATE_BRANCHES=false` (default): Update existing release branches via pull requests
 
 Individual scripts can use these variables instead of calculating them.
 
@@ -283,16 +283,16 @@ Results:
    3. Update konflux-release-data (manual)
 ```
 
-### Example 2: Create New Release (CUT Mode)
+### Example 2: Create New Release (CREATE_BRANCHES Mode)
 
 ```bash
-$ CUT_MODE=true RELEASE_BRANCH=release-2.18 ./scripts/cut-release.sh all
+$ CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./scripts/cut-release.sh all
 
 Using specified release: release-2.18
 
 📊 Version Information
 ================================================
-   Mode:        CUT (create branches)
+   Mode:        CREATE_BRANCHES (create branches)
    GitHub User: yanmxa
    ACM:         release-2.18
    Global Hub:  release-1.9
@@ -344,10 +344,10 @@ Updating selected repositories: 3 4
 
 ```bash
 # Run only the bundle script (UPDATE mode)
-$ RELEASE_BRANCH=release-2.17 CUT_MODE=false ./scripts/03-bundle.sh
+$ RELEASE_BRANCH=release-2.17 CREATE_BRANCHES=false ./scripts/03-bundle.sh
 
-# Run only the catalog script (CUT mode)
-$ RELEASE_BRANCH=release-2.18 CUT_MODE=true ./scripts/04-catalog.sh
+# Run only the catalog script (CREATE_BRANCHES mode)
+$ RELEASE_BRANCH=release-2.18 CREATE_BRANCHES=true ./scripts/04-catalog.sh
 ```
 
 ## Output Files and PRs Created
