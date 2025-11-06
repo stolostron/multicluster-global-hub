@@ -70,11 +70,9 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("failed to parse migrationBundle event source")
 	}
 
-	log.Infof("received migration event from hub: %s", hubClusterName)
-
 	if bundle.Resync {
+		log.Infof("status: resync migration, hub: %s", hubClusterName)
 		migration.ResetMigrationStatus(hubClusterName)
-		log.Infof("reset migration status for hub: %s", hubClusterName)
 		return nil
 	}
 
@@ -82,27 +80,27 @@ func (k *managedClusterMigrationHandler) handle(ctx context.Context, evt *cloude
 		return fmt.Errorf("the hub %s should set the migrationId", hubClusterName)
 	}
 
-	log.Infof("processing migration event - migrationId: %s, hub: %s, stage: %s",
+	log.Infof("status: migration event, id: %s, hub: %s, stage: %s",
 		bundle.MigrationId, hubClusterName, bundle.Stage)
 
 	// Store managed clusters in validating phase and it should not change
 	if bundle.Stage == migrationv1alpha1.PhaseValidating && len(bundle.ManagedClusters) > 0 {
 		migration.SetClusterList(bundle.MigrationId, bundle.ManagedClusters)
-		log.Infof("stored cluster list for migration %s: %v", bundle.MigrationId, bundle.ManagedClusters)
+		log.Infof("status: set cluster list, id: %s, clusters: %v", bundle.MigrationId, bundle.ManagedClusters)
 	}
 
 	if bundle.ErrMessage != "" {
 		migration.SetErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
 		migration.SetClusterErrorMessage(bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ClusterErrors)
-		log.Infof("migration %s failed at stage %s for hub %s: %s",
-			bundle.MigrationId, bundle.Stage, hubClusterName, bundle.ErrMessage)
+		log.Infof("status: migration failed, id: %s, hub: %s, stage: %s, error: %s",
+			bundle.MigrationId, hubClusterName, bundle.Stage, bundle.ErrMessage)
 		if len(bundle.ClusterErrors) > 0 {
-			log.Infof("cluster errors for migration %s: %v", bundle.MigrationId, bundle.ClusterErrors)
+			log.Infof("status: cluster errors, id: %s, errors: %v", bundle.MigrationId, bundle.ClusterErrors)
 		}
 	} else {
 		migration.SetFinished(bundle.MigrationId, hubClusterName, bundle.Stage)
-		log.Infof("migration %s completed stage %s successfully for hub %s",
-			bundle.MigrationId, bundle.Stage, hubClusterName)
+		log.Infof("status: migration stage completed, id: %s, hub: %s, stage: %s",
+			bundle.MigrationId, hubClusterName, bundle.Stage)
 	}
 
 	return nil
