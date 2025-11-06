@@ -29,8 +29,15 @@ type ObjectEmitter struct {
 	tweakFunc func(client.Object)
 	// Predicate used by the controller-runtime to select target objects for this emitter
 	objectPredicate predicate.Predicate
-	// Filter to process only objects matched by the predicate for this emitter
-	filter       func(client.Object) bool
+	// Target is a function to filter objects to be managed by this emitter, is also can be used distinguish
+	// different emitters or bundles
+	target func(client.Object) bool
+	// shouldDelete is a function to determine if the object should be removed from the bundle,
+	// it can be adopted into the object might be changed under certain conditions, like the following case:
+	// The cluster role might be change between managed cluster and managed hub:
+	//   - if it is a managed cluster, it should be the target object and be synced to the cluster inventory in the db
+	//   - if the cluster is a managed hub, it should should be remove from the cluster inventory in the db
+	shouldDelete func(client.Object) bool
 	metadataFunc func(client.Object) *genericbundle.ObjectMetadata
 	bundle       *genericbundle.GenericBundle[client.Object]
 	version      *eventversion.Version
@@ -52,8 +59,11 @@ func NewObjectEmitter(
 		keyFunc: func(obj client.Object) string {
 			return obj.GetNamespace() + "/" + obj.GetName()
 		},
-		filter: func(obj client.Object) bool {
+		target: func(obj client.Object) bool {
 			return true
+		},
+		shouldDelete: func(obj client.Object) bool {
+			return false
 		},
 	}
 	// apply the options
@@ -84,7 +94,11 @@ func (e *ObjectEmitter) Update(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !e.filter(obj) {
+	if e.shouldDelete(obj) {
+		return e.remove(obj)
+	}
+
+	if !e.target(obj) {
 		return nil
 	}
 
@@ -120,10 +134,16 @@ func (e *ObjectEmitter) Delete(obj client.Object) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if !e.filter(obj) {
+	if !e.target(obj) {
 		return nil
 	}
 
+	return e.remove(obj)
+}
+
+// remove will remove the object from the bundle, it is used to remove the object from the bundle when the object
+// is deleted or updated.
+func (e *ObjectEmitter) remove(obj client.Object) error {
 	tweaked, err := applyTweak(obj, e.tweakFunc)
 	if err != nil {
 		return err
@@ -197,7 +217,7 @@ func (e *ObjectEmitter) Resync(objects []client.Object) error {
 	metadataList := make([]genericbundle.ObjectMetadata, 0, len(objects))
 	for _, obj := range objects {
 
-		if !e.filter(obj) {
+		if !e.target(obj) {
 			continue
 		}
 
@@ -344,9 +364,17 @@ func WithPredicateFunc(eventFilter predicate.Predicate) EmitterOption {
 	}
 }
 
-func WithFilterFunc(filter func(client.Object) bool) EmitterOption {
+// WithTargetFunc sets the target function to filter objects to be managed by this emitter.
+func WithTargetFunc(target func(client.Object) bool) EmitterOption {
 	return func(e *ObjectEmitter) {
-		e.filter = filter
+		e.target = target
+	}
+}
+
+// WithShouldDeleteFunc sets the function to determine if the object should be deleted.
+func WithShouldDeleteFunc(shouldDeleteFunc func(client.Object) bool) EmitterOption {
+	return func(e *ObjectEmitter) {
+		e.shouldDelete = shouldDeleteFunc
 	}
 }
 
