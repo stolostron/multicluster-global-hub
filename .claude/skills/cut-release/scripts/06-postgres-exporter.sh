@@ -4,8 +4,8 @@ set -euo pipefail
 
 # Postgres Exporter Release Script
 # Supports two modes:
-#   CUT_MODE=true:  Create and push release branch directly to upstream
-#   CUT_MODE=false: Update existing release branch via PR
+#   CREATE_BRANCHES=true:  Create and push release branch directly to upstream
+#   CREATE_BRANCHES=false: Update existing release branch via PR
 #
 # Usage:
 #   Called by cut-release.sh with environment variables pre-configured
@@ -15,17 +15,17 @@ set -euo pipefail
 #   GH_VERSION        - Global Hub version (e.g., v1.8.0)
 #   POSTGRES_TAG      - Postgres tag (e.g., globalhub-1-8)
 #   GITHUB_USER       - GitHub username for PR creation
-#   CUT_MODE          - true: create branch, false: update via PR
+#   CREATE_BRANCHES          - true: create branch, false: update via PR
 
 # Configuration
 POSTGRES_REPO="stolostron/postgres_exporter"
 WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
 
 # Validate required environment variables
-if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$POSTGRES_TAG" || -z "$GITHUB_USER" || -z "$CUT_MODE" ]]; then
+if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$POSTGRES_TAG" || -z "$GITHUB_USER" || -z "$CREATE_BRANCHES" ]]; then
   echo "❌ Error: Required environment variables not set" >&2
   echo "   This script should be called by cut-release.sh"
-  echo "   Required: RELEASE_BRANCH, GH_VERSION, POSTGRES_TAG, GITHUB_USER, CUT_MODE"
+  echo "   Required: RELEASE_BRANCH, GH_VERSION, POSTGRES_TAG, GITHUB_USER, CREATE_BRANCHES"
   exit 1
 fi
 
@@ -42,7 +42,7 @@ fi
 
 echo "🚀 Postgres Exporter Release"
 echo "$SEPARATOR_LINE"
-echo "   Mode: $([[ "$CUT_MODE" = true ]] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
+echo "   Mode: $([[ "$CREATE_BRANCHES" = true ]] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
 echo "   Release: $RELEASE_BRANCH"
 echo "   Postgres Tag: $POSTGRES_TAG"
 echo ""
@@ -152,9 +152,9 @@ if git ls-remote --heads origin "$RELEASE_BRANCH" | grep -q "$RELEASE_BRANCH"; t
   git fetch origin "$RELEASE_BRANCH" 2>/dev/null || true
   git checkout -B "$RELEASE_BRANCH" "origin/$RELEASE_BRANCH"
 else
-  if [[ "$CUT_MODE" != "true" ]]; then
+  if [[ "$CREATE_BRANCHES" != "true" ]]; then
     echo "❌ Error: Branch $RELEASE_BRANCH does not exist on origin" >&2
-    echo "   Run with CUT_MODE=true to create the branch"
+    echo "   Run with CREATE_BRANCHES=true to create the branch"
     exit 1
   fi
   echo "🌿 Creating $RELEASE_BRANCH from origin/$BASE_BRANCH..."
@@ -249,8 +249,8 @@ echo "📍 Step 3: Publishing changes..."
 if [[ "$CHANGES_COMMITTED" = false ]]; then
   echo "   ℹ️  No changes to publish"
 else
-  # Decision: Push directly or create PR based on CUT_MODE and branch existence
-  if [[ "$CUT_MODE" = "true" && "$BRANCH_EXISTS_ON_ORIGIN" = false ]]; then
+  # Decision: Push directly or create PR based on CREATE_BRANCHES and branch existence
+  if [[ "$CREATE_BRANCHES" = "true" && "$BRANCH_EXISTS_ON_ORIGIN" = false ]]; then
     # CUT mode + branch doesn't exist - push directly
     echo "   Pushing new branch $RELEASE_BRANCH to origin..."
     if git push origin "$RELEASE_BRANCH" 2>&1; then

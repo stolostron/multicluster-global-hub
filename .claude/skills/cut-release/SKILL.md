@@ -1,6 +1,6 @@
 ---
 name: cut-release
-description: Automate complete Multicluster Global Hub release workflow across 6 repositories including branch creation, OpenShift CI configuration, catalog OCP version management, bundle updates, and PR creation. REQUIRES explicit RELEASE_BRANCH specification (e.g., RELEASE_BRANCH=release-2.17). Supports two modes - CUT_MODE=true (create branches) or false (update via PR). Keywords: release branch, global hub, openshift/release, catalog, bundle, CI configuration, OCP versions.
+description: Automate complete Multicluster Global Hub release workflow across 6 repositories including branch creation, OpenShift CI configuration, catalog OCP version management, bundle updates, and PR creation. REQUIRES explicit RELEASE_BRANCH specification (e.g., RELEASE_BRANCH=release-2.17). Supports two modes - CREATE_BRANCHES=true (create branches) or false (update via PR). Keywords: release branch, global hub, openshift/release, catalog, bundle, CI configuration, OCP versions.
 allowed-tools: [Read, Write, Bash, Glob, Grep]
 ---
 
@@ -21,8 +21,8 @@ Automates the complete end-to-end workflow for cutting a new Multicluster Global
 **RELEASE_BRANCH must be explicitly specified** - The skill does NOT auto-detect release versions. You must provide the exact release branch name.
 
 **Two Operating Modes**:
-- `CUT_MODE=true`: Create new release branches and push directly to upstream (for initial release creation)
-- `CUT_MODE=false` (default): Update existing release branches via PR (for updating current releases)
+- `CREATE_BRANCHES=true`: Create new release branches and push directly to upstream (for initial release creation)
+- `CREATE_BRANCHES=false` (default): Update existing release branches via PR (for updating current releases)
 
 ## Version Mapping (ACM to Global Hub)
 
@@ -175,15 +175,15 @@ RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 1,2,3    # Update specific 
 RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh 3,4      # Update only bundle and catalog
 ```
 
-### 4. CUT Mode (Create New Branches)
+### 4. CREATE_BRANCHES Mode (Create New Branches)
 ```bash
-CUT_MODE=true RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 ```
 Creates new release branches and pushes directly to upstream (requires write access).
 
 ### 5. UPDATE Mode (Default - Create PRs)
 ```bash
-CUT_MODE=false RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
+CREATE_BRANCHES=false RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 # or simply:
 RELEASE_BRANCH=release-2.17 ./scripts/cut-release.sh all
 ```
@@ -192,7 +192,7 @@ Updates existing release branches by creating pull requests.
 ### 6. Standalone Script Execution
 Each script can be run independently:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" CUT_MODE=false ./scripts/03-bundle.sh
+RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" CREATE_BRANCHES=false ./scripts/03-bundle.sh
 ```
 
 ## Environment Variables
@@ -202,7 +202,7 @@ The main orchestration script calculates and exports these variables for child s
 | Variable | Description | Example | Required |
 |----------|-------------|---------|----------|
 | `RELEASE_BRANCH` | ACM release branch | `release-2.17` | **YES** - Must be explicitly set |
-| `CUT_MODE` | Operating mode (true/false) | `false` | Optional (default: false) |
+| `CREATE_BRANCHES` | Operating mode (true/false) | `false` | Optional (default: false) |
 | `GITHUB_USER` | GitHub username for PRs | `yanmxa` | Optional (auto-detected from git) |
 | `ACM_VERSION` | ACM version number | `2.17` | Auto-calculated |
 | `GH_VERSION` | Global Hub version | `v1.8.0` | Auto-calculated |
@@ -305,9 +305,9 @@ The orchestration script includes error handling:
 RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh all
 ```
 
-### Create new release branches (CUT mode - pushes directly):
+### Create new release branches (CREATE_BRANCHES mode - pushes directly):
 ```bash
-CUT_MODE=true RELEASE_BRANCH=release-2.18 ./.claude/skills/cut-release/scripts/cut-release.sh all
+CREATE_BRANCHES=true RELEASE_BRANCH=release-2.18 ./.claude/skills/cut-release/scripts/cut-release.sh all
 ```
 
 ### Interactive selection:
@@ -323,7 +323,7 @@ RELEASE_BRANCH=release-2.17 ./.claude/skills/cut-release/scripts/cut-release.sh 
 
 ### Standalone script execution:
 ```bash
-RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" CUT_MODE=false ./scripts/04-catalog.sh
+RELEASE_BRANCH="release-2.17" GH_VERSION="v1.8.0" CREATE_BRANCHES=false ./scripts/04-catalog.sh
 ```
 
 ## Output Format

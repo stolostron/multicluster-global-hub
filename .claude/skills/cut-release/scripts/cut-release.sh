@@ -11,7 +11,7 @@ set -euo pipefail
 #   RELEASE_BRANCH=release-2.17 ./cut-release.sh 1           # Update only multicluster-global-hub
 #   RELEASE_BRANCH=release-2.17 ./cut-release.sh 1,2,3       # Update specific repositories (comma-separated)
 #
-#   CUT_MODE=true RELEASE_BRANCH=release-2.17 ./cut-release.sh all  # Cut mode - create and push release branches directly to upstream
+#   CREATE_BRANCHES=true RELEASE_BRANCH=release-2.17 ./cut-release.sh all  # CREATE_BRANCHES mode - create and push release branches directly to upstream
 #
 # Note: RELEASE_BRANCH environment variable is REQUIRED (e.g., release-2.14, release-2.15, release-2.16, release-2.17)
 
@@ -49,7 +49,7 @@ MODE="${1:-interactive}"
 # Configuration
 RELEASE_BRANCH="${RELEASE_BRANCH:-}"
 OPENSHIFT_RELEASE_PATH="${OPENSHIFT_RELEASE_PATH:-/tmp/openshift-release}"
-CUT_MODE="${CUT_MODE:-false}"
+CREATE_BRANCHES="${CREATE_BRANCHES:-false}"
 
 # Constants for repeated patterns
 readonly SEPARATOR_LINE='================================================'
@@ -65,7 +65,7 @@ if [[ -z "${GITHUB_USER:-}" ]]; then
 fi
 
 export GITHUB_USER
-export CUT_MODE
+export CREATE_BRANCHES
 
 # RELEASE_BRANCH must be explicitly specified
 if [[ -z "$RELEASE_BRANCH" ]]; then
@@ -116,7 +116,7 @@ OCP_MAX=$((OCP_MIN + 4))
 echo ""
 echo "📊 Version Information"
 echo "$SEPARATOR_LINE"
-echo "   Mode:        $([[ "$CUT_MODE" = true ]] && echo "CUT (create branches)" || echo "UPDATE (PR only)")"
+echo "   Mode:        $([[ "$CREATE_BRANCHES" = true ]] && echo "CREATE_BRANCHES (create branches)" || echo "UPDATE (PR only)")"
 echo "   GitHub User: $GITHUB_USER"
 echo "   ACM:         $RELEASE_BRANCH"
 echo "   Global Hub:  release-$GH_VERSION_SHORT"
