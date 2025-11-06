@@ -146,6 +146,13 @@ func (m *ClusterMigrationController) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
+	AddMigrationStatus(string(mcm.GetUID()))
+	defer func() {
+		if mcm.Status.Phase == migrationv1alpha1.PhaseCompleted || mcm.Status.Phase == migrationv1alpha1.PhaseFailed {
+			RemoveMigrationStatus(string(mcm.GetUID()))
+		}
+	}()
+
 	if mcm.DeletionTimestamp != nil {
 		return ctrl.Result{}, nil
 	}
