@@ -77,7 +77,6 @@ func hubPhaseKey(hub, phase string) string {
 func getMigrationStatus(migrationId string) *MigrationStatus {
 	status, ok := migrationStatuses[migrationId]
 	if !ok {
-		log.Warnf("MigrationStatus is nil for migrationId: %s", migrationId)
 		return nil
 	}
 	return status
@@ -86,6 +85,7 @@ func getMigrationStatus(migrationId string) *MigrationStatus {
 func getStageState(migrationId, hub, phase string) *StageState {
 	status := getMigrationStatus(migrationId)
 	if status == nil {
+		log.Warnf("MigrationStatus is nil for migrationId: %s, hub: %s, phase: %s", migrationId, hub, phase)
 		return nil
 	}
 	key := hubPhaseKey(hub, phase)

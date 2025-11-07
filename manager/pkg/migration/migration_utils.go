@@ -107,20 +107,10 @@ func (m *ClusterMigrationController) UpdateStatusWithRetry(ctx context.Context,
 					return err
 				}
 			}
-			m.handleStatusCache(mcm)
 			return nil
 		}
 		return nil
 	})
-}
-
-func (m *ClusterMigrationController) handleStatusCache(mcm *migrationv1alpha1.ManagedClusterMigration) {
-	if mcm.Status.Phase == migrationv1alpha1.PhasePending {
-		AddMigrationStatus(string(mcm.GetUID()))
-	}
-	if mcm.Status.Phase == migrationv1alpha1.PhaseCompleted || mcm.Status.Phase == migrationv1alpha1.PhaseFailed {
-		RemoveMigrationStatus(string(mcm.GetUID()))
-	}
 }
 
 // UpdateFailureClustersToConfigMap updates the ConfigMap with failed cluster information.
