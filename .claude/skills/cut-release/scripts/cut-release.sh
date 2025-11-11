@@ -243,6 +243,9 @@ FAILED_REPOS=()
 
 # Execute selected scripts
 for repo_num in "${REPOS_TO_UPDATE[@]}"; do
+  # Strip leading zeros (convert 02 to 2, 03 to 3, etc.)
+  repo_num=$((10#$repo_num))
+
   # Validate repo number
   if [[ "$repo_num" -lt 1 || "$repo_num" -gt 6 ]]; then
     echo "⚠️  Invalid repository number: $repo_num (skipping)" >&2

@@ -86,27 +86,33 @@ else
   git fetch --depth=1 upstream master --progress 2>&1 | grep -E "Receiving|Resolving" || true
 fi
 
-# Detect latest release from multicluster-global-hub configs
-echo "   🔍 Detecting previous release from existing configs..."
-LATEST_RELEASE=$(find ci-operator/config/stolostron/multicluster-global-hub/ -name 'stolostron-multicluster-global-hub-release-*.yaml' 2>/dev/null | \
-  sed 's|.*/stolostron-multicluster-global-hub-||' | \
-  sed 's|\.yaml||' | \
-  sort -V | tail -1)
+# Calculate previous release version (ACM_VERSION - 0.01)
+# Example: 2.16 -> 2.15, 2.17 -> 2.16
+PREV_ACM_VERSION=$(echo "$ACM_VERSION" | awk '{printf "%.2f", $1 - 0.01}')
+PREV_RELEASE_BRANCH="release-${PREV_ACM_VERSION}"
 
-if [[ -z "$LATEST_RELEASE" ]]; then
-  echo "   ❌ Error: Could not detect previous release from openshift/release configs" >&2
-  exit 1
-fi
+echo "   🔍 Calculating version mappings..."
+echo "   Previous ACM:    $PREV_RELEASE_BRANCH"
+echo "   Current ACM:     $RELEASE_BRANCH"
 
-echo "   Previous release detected: $LATEST_RELEASE"
+# Calculate Global Hub versions
+# ACM 2.15 -> Global Hub 1.6, ACM 2.16 -> Global Hub 1.7
+# Formula: GH_MINOR = ACM_MINOR - 9
+PREV_GH_MINOR=$(echo "$PREV_ACM_VERSION" | awk -F. '{print $2 - 9}')
+PREV_GH_VERSION="v1.${PREV_GH_MINOR}.0"
 
-# Calculate version strings for file updates
-PREV_VERSION="${LATEST_RELEASE#release-}"
+echo "   Previous GH:     $PREV_GH_VERSION (release-1.${PREV_GH_MINOR})"
+echo "   Current GH:      $GH_VERSION (release-${GH_VERSION_SHORT})"
+
+# Calculate image mirror task prefixes (without dots or dashes)
+# Example: release-214, release-216
 VERSION_SHORT="${ACM_VERSION/./}"
-PREV_VERSION_SHORT="${PREV_VERSION/./}"
+PREV_VERSION_SHORT="${PREV_ACM_VERSION/./}"
+IMAGE_PREFIX="release-${VERSION_SHORT}"
+PREV_IMAGE_PREFIX="release-${PREV_VERSION_SHORT}"
 
-echo "   Previous: $LATEST_RELEASE"
-echo "   Current:  $RELEASE_BRANCH"
+echo "   Previous prefix: $PREV_IMAGE_PREFIX"
+echo "   Current prefix:  $IMAGE_PREFIX"
 
 # Create working branch
 BRANCH_NAME="${RELEASE_BRANCH}-config"
@@ -123,42 +129,123 @@ echo ""
 echo "📍 Step 2: Updating CI configurations..."
 
 MAIN_CONFIG="ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-main.yaml"
-LATEST_CONFIG="ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${LATEST_RELEASE}.yaml"
+PREV_CONFIG="ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${PREV_RELEASE_BRANCH}.yaml"
 NEW_CONFIG="ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${RELEASE_BRANCH}.yaml"
+
+# Check if previous release config exists
+echo "   Checking for previous release configuration..."
+if [[ ! -f "$PREV_CONFIG" ]]; then
+  echo "" >&2
+  echo "   ❌ ERROR: Previous release config not found!" >&2
+  echo "" >&2
+  echo "   Expected file: $PREV_CONFIG" >&2
+  echo "   Current release: $RELEASE_BRANCH (Global Hub: release-${GH_VERSION_SHORT})" >&2
+  echo "   Previous release: $PREV_RELEASE_BRANCH (Global Hub: release-1.${PREV_GH_MINOR})" >&2
+  echo "" >&2
+  echo "   ⚠️  Please verify:" >&2
+  echo "   1. Is RELEASE_BRANCH=$RELEASE_BRANCH correct?" >&2
+  echo "   2. Has the previous release ($PREV_RELEASE_BRANCH) been created?" >&2
+  echo "   3. Does $PREV_CONFIG exist in the repository?" >&2
+  echo "" >&2
+  echo "   You must create the previous release configuration before creating $RELEASE_BRANCH" >&2
+  echo "" >&2
+  exit 1
+fi
+
+echo "   ✅ Found previous config: $PREV_CONFIG"
 
 # Update main branch configuration
 echo "   Updating main branch configuration..."
-sed "${SED_INPLACE[@]}" "s/name: \"${PREV_VERSION}\"/name: \"${ACM_VERSION}\"/" "$MAIN_CONFIG"
-sed "${SED_INPLACE[@]}" "s/DESTINATION_BRANCH: ${LATEST_RELEASE}/DESTINATION_BRANCH: ${RELEASE_BRANCH}/" "$MAIN_CONFIG"
+echo "      Applying version replacements to main config..."
+
+# Replace all occurrences of previous release branch pattern
+sed "${SED_INPLACE[@]}" "s/${PREV_RELEASE_BRANCH}/${RELEASE_BRANCH}/g" "$MAIN_CONFIG"
+
+# Replace all occurrences of previous ACM version (in quotes or standalone)
+sed "${SED_INPLACE[@]}" "s/\"${PREV_ACM_VERSION}\"/\"${ACM_VERSION}\"/g" "$MAIN_CONFIG"
+sed "${SED_INPLACE[@]}" "s/${PREV_ACM_VERSION}/${ACM_VERSION}/g" "$MAIN_CONFIG"
+
+# Replace image mirror task prefix if present
+sed "${SED_INPLACE[@]}" "s/${PREV_IMAGE_PREFIX}/${IMAGE_PREFIX}/g" "$MAIN_CONFIG"
+
+# Replace Global Hub version if present
+sed "${SED_INPLACE[@]}" "s/${PREV_GH_VERSION}/${GH_VERSION}/g" "$MAIN_CONFIG"
+
+echo "      ✓ Applied: ${PREV_RELEASE_BRANCH} -> ${RELEASE_BRANCH}"
+echo "      ✓ Applied: ${PREV_ACM_VERSION} -> ${ACM_VERSION}"
+echo "      ✓ Applied: ${PREV_IMAGE_PREFIX} -> ${IMAGE_PREFIX} (if present)"
+echo "      ✓ Applied: ${PREV_GH_VERSION} -> ${GH_VERSION} (if present)"
 echo "   ✅ Updated $MAIN_CONFIG"
 
-# Create new release configuration
+# Create or update new release configuration
 echo "   Creating $RELEASE_BRANCH pipeline configuration..."
 
-# Idempotent: check if file exists and is already updated
+# If target file already exists, remove it first to ensure clean copy
 if [[ -f "$NEW_CONFIG" ]]; then
-  echo "   ℹ️  Configuration file already exists: $NEW_CONFIG"
-  # Check if it's already been updated with the correct version
-  if grep -q "branch: ${RELEASE_BRANCH}" "$NEW_CONFIG" && \
-     grep -q "IMAGE_TAG: ${GH_VERSION}" "$NEW_CONFIG"; then
-    echo "   ✓ Configuration already up to date"
-  else
-    echo "   ⚠️  File exists but needs updates, applying changes..." >&2
-    # Update version references
-    sed "${SED_INPLACE[@]}" "s/name: \"${PREV_VERSION}\"/name: \"${ACM_VERSION}\"/" "$NEW_CONFIG"
-    sed "${SED_INPLACE[@]}" "s/branch: ${LATEST_RELEASE}/branch: ${RELEASE_BRANCH}/" "$NEW_CONFIG"
-    sed "${SED_INPLACE[@]}" "s/release-${PREV_VERSION_SHORT}/release-${VERSION_SHORT}/g" "$NEW_CONFIG"
-    sed "${SED_INPLACE[@]}" "s/IMAGE_TAG: v1\.[0-9]\+\.0/IMAGE_TAG: ${GH_VERSION}/" "$NEW_CONFIG"
-    echo "   ✅ Updated $NEW_CONFIG"
-  fi
+  echo "   ℹ️  Target file already exists, removing for clean copy..."
+  rm -f "$NEW_CONFIG"
+  echo "   ✓ Removed existing file"
+fi
+
+# Copy from previous release configuration
+echo "   Copying from previous release config: $PREV_CONFIG"
+cp "$PREV_CONFIG" "$NEW_CONFIG"
+echo "   ✓ Copied to: $NEW_CONFIG"
+
+# Apply all version replacements
+echo "   Applying version replacements..."
+
+# 1. Replace ACM release branch (e.g., release-2.15 -> release-2.16)
+sed "${SED_INPLACE[@]}" "s/${PREV_RELEASE_BRANCH}/${RELEASE_BRANCH}/g" "$NEW_CONFIG"
+echo "      ✓ ${PREV_RELEASE_BRANCH} -> ${RELEASE_BRANCH}"
+
+# 2. Replace ACM version string (e.g., "2.15" -> "2.16")
+sed "${SED_INPLACE[@]}" "s/\"${PREV_ACM_VERSION}\"/\"${ACM_VERSION}\"/g" "$NEW_CONFIG"
+sed "${SED_INPLACE[@]}" "s/${PREV_ACM_VERSION}/${ACM_VERSION}/g" "$NEW_CONFIG"
+echo "      ✓ ${PREV_ACM_VERSION} -> ${ACM_VERSION}"
+
+# 3. Replace image mirror task prefix pattern (e.g., release-214|release-215|release-2*- -> release-216-)
+# First, replace any pattern like release-2XX- to the new prefix
+sed "${SED_INPLACE[@]}" "s/release-2[0-9][0-9]-/${IMAGE_PREFIX}-/g" "$NEW_CONFIG"
+# Also handle the specific previous prefix
+sed "${SED_INPLACE[@]}" "s/${PREV_IMAGE_PREFIX}/${IMAGE_PREFIX}/g" "$NEW_CONFIG"
+echo "      ✓ release-2XX- -> ${IMAGE_PREFIX}-"
+
+# 4. Replace Global Hub version tag (e.g., v1.6.0 -> v1.7.0)
+sed "${SED_INPLACE[@]}" "s/${PREV_GH_VERSION}/${GH_VERSION}/g" "$NEW_CONFIG"
+echo "      ✓ ${PREV_GH_VERSION} -> ${GH_VERSION}"
+
+echo "   ✅ Created and updated $NEW_CONFIG"
+
+# Verify the replacements were successful
+echo "   Verifying replacements..."
+VERIFY_ERRORS=0
+
+if ! grep -q "branch: ${RELEASE_BRANCH}" "$NEW_CONFIG"; then
+  echo "   ⚠️  Warning: 'branch: ${RELEASE_BRANCH}' not found in config" >&2
+  VERIFY_ERRORS=$((VERIFY_ERRORS + 1))
+fi
+
+if ! grep -q "name: \"${ACM_VERSION}\"" "$NEW_CONFIG"; then
+  echo "   ⚠️  Warning: 'name: \"${ACM_VERSION}\"' not found in config" >&2
+  VERIFY_ERRORS=$((VERIFY_ERRORS + 1))
+fi
+
+if ! grep -q "${IMAGE_PREFIX}" "$NEW_CONFIG"; then
+  echo "   ⚠️  Warning: '${IMAGE_PREFIX}' prefix not found in config" >&2
+  VERIFY_ERRORS=$((VERIFY_ERRORS + 1))
+fi
+
+if ! grep -q "${GH_VERSION}" "$NEW_CONFIG"; then
+  echo "   ⚠️  Warning: '${GH_VERSION}' not found in config" >&2
+  VERIFY_ERRORS=$((VERIFY_ERRORS + 1))
+fi
+
+if [[ $VERIFY_ERRORS -eq 0 ]]; then
+  echo "   ✓ All replacements verified successfully"
 else
-  cp "$LATEST_CONFIG" "$NEW_CONFIG"
-  # Update version references in new config
-  sed "${SED_INPLACE[@]}" "s/name: \"${PREV_VERSION}\"/name: \"${ACM_VERSION}\"/" "$NEW_CONFIG"
-  sed "${SED_INPLACE[@]}" "s/branch: ${LATEST_RELEASE}/branch: ${RELEASE_BRANCH}/" "$NEW_CONFIG"
-  sed "${SED_INPLACE[@]}" "s/release-${PREV_VERSION_SHORT}/release-${VERSION_SHORT}/g" "$NEW_CONFIG"
-  sed "${SED_INPLACE[@]}" "s/IMAGE_TAG: v1\.[0-9]\+\.0/IMAGE_TAG: ${GH_VERSION}/" "$NEW_CONFIG"
-  echo "   ✅ Created $NEW_CONFIG"
+  echo "   ⚠️  Some replacements may not have been applied correctly" >&2
+  echo "   Please review the generated file: $NEW_CONFIG" >&2
 fi
 
 # Step 3: Verify container engine and auto-generate job configurations
@@ -252,11 +339,14 @@ if [[ "$CHANGES_EXIST" = false ]]; then
     PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
     PR_CREATED=true
     echo "   ℹ️  No changes needed, PR already up to date (state: $PR_STATE)"
-    # Don't exit, continue to summary to show PR link
+    echo "   ✓ PR: ${PR_URL}"
   else
     echo "   ⚠️  No changes to commit and no PR exists" >&2
-    # Continue to summary
   fi
+else
+  # We have changes to commit
+  echo "   Changes detected, preparing commit..."
+
   # Add files
   git add "$MAIN_CONFIG"
   git add "$NEW_CONFIG"
@@ -274,9 +364,9 @@ if [[ "$CHANGES_EXIST" = false ]]; then
   git commit --signoff -m "Add ${RELEASE_BRANCH} configuration for multicluster-global-hub
 
 - Update main branch to promote to ${ACM_VERSION} and fast-forward to ${RELEASE_BRANCH}
-- Create ${RELEASE_BRANCH} pipeline configuration based on ${LATEST_RELEASE}
-- Update image-mirror job prefixes to release-${VERSION_SHORT}
-- IMAGE_TAG is ${GH_VERSION}
+- Create ${RELEASE_BRANCH} pipeline configuration based on ${PREV_RELEASE_BRANCH}
+- Update image-mirror job prefixes from ${PREV_IMAGE_PREFIX} to ${IMAGE_PREFIX}
+- IMAGE_TAG updated from ${PREV_GH_VERSION} to ${GH_VERSION}
 ${COMMIT_NOTE}
 
 ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
@@ -311,14 +401,20 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
 ## Changes
 
 1. **Update main branch configuration**: Promote to ${ACM_VERSION}, fast-forward to ${RELEASE_BRANCH}
-2. **Create ${RELEASE_BRANCH} pipeline configuration**: Based on ${LATEST_RELEASE}
-3. **Auto-generate job configurations**: Using \`make update\`
+2. **Create ${RELEASE_BRANCH} pipeline configuration**: Based on ${PREV_RELEASE_BRANCH}
+3. **Version replacements applied**:
+   - Branch: \`${PREV_RELEASE_BRANCH}\` → \`${RELEASE_BRANCH}\`
+   - Version: \`${PREV_ACM_VERSION}\` → \`${ACM_VERSION}\`
+   - Image prefix: \`${PREV_IMAGE_PREFIX}\` → \`${IMAGE_PREFIX}\`
+   - Global Hub: \`${PREV_GH_VERSION}\` → \`${GH_VERSION}\`
+4. **Auto-generate job configurations**: Using \`make update\`
 
 ## Release Info
 
 - **ACM**: ${RELEASE_BRANCH}
-- **Global Hub**: release-${GH_VERSION_SHORT}
-- **Job prefix**: \`release-${VERSION_SHORT}\`" \
+- **Global Hub**: release-${GH_VERSION_SHORT} (${GH_VERSION})
+- **Previous**: ${PREV_RELEASE_BRANCH} / ${PREV_GH_VERSION}
+- **Job prefix**: \`${IMAGE_PREFIX}\`" \
         --repo openshift/release 2>&1) || true
 
       # Check if PR was successfully created or already exists
