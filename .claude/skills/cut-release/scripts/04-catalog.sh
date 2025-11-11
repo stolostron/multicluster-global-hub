@@ -548,6 +548,42 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
   fi
 fi
 
+# Step 2.5: Update catalog-template-current.json
+echo ""
+echo "📍 Step 2.5: Updating catalog-template-current.json..."
+
+CATALOG_TEMPLATE_FILE="catalog-template-current.json"
+if [[ -f "$CATALOG_TEMPLATE_FILE" && -n "$PREV_CATALOG_VERSION" ]]; then
+  echo "   Updating catalog template for Global Hub ${GH_VERSION_SHORT}"
+
+  # 1. Update defaultChannel: "release-1.6" -> "release-1.7"
+  sed "${SED_INPLACE[@]}" "s/\"defaultChannel\": \"release-${PREV_CATALOG_VERSION}\"/\"defaultChannel\": \"${CATALOG_BRANCH}\"/g" "$CATALOG_TEMPLATE_FILE"
+
+  # 2. Update operator version in entries name: v1.6.0 -> v1.7.0
+  sed "${SED_INPLACE[@]}" "s/multicluster-global-hub-operator-rh\.v${PREV_CATALOG_VERSION}\.0/multicluster-global-hub-operator-rh.v${GH_VERSION_SHORT}.0/g" "$CATALOG_TEMPLATE_FILE"
+
+  # 3. Update skipRange: ">=1.5.0 <1.6.0" -> ">=1.6.0 <1.7.0"
+  # Calculate previous version for skipRange (current - 1)
+  PREV_MINOR="${PREV_CATALOG_VERSION#1.}"
+  SKIP_PREV_MINOR=$((PREV_MINOR - 1))
+  sed "${SED_INPLACE[@]}" "s/\\\\u003e=1\.${SKIP_PREV_MINOR}\.0 \\\\u003c1\.${PREV_MINOR}\.0/\\\\u003e=1.${PREV_MINOR}.0 \\\\u003c1.${GH_VERSION_SHORT#1.}.0/g" "$CATALOG_TEMPLATE_FILE"
+
+  # 4. Update channel name: "release-1.6" -> "release-1.7"
+  sed "${SED_INPLACE[@]}" "s/\"name\": \"release-${PREV_CATALOG_VERSION}\"/\"name\": \"${CATALOG_BRANCH}\"/g" "$CATALOG_TEMPLATE_FILE"
+
+  # 5. Update bundle image reference: globalhub-1-6 -> globalhub-1-7
+  sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$CATALOG_TEMPLATE_FILE"
+
+  echo "   ✅ Updated $CATALOG_TEMPLATE_FILE"
+  echo "      - defaultChannel: release-${PREV_CATALOG_VERSION} → ${CATALOG_BRANCH}"
+  echo "      - operator version: v${PREV_CATALOG_VERSION}.0 → v${GH_VERSION_SHORT}.0"
+  echo "      - skipRange: >=1.${SKIP_PREV_MINOR}.0 <1.${PREV_MINOR}.0 → >=1.${PREV_MINOR}.0 <1.${GH_VERSION_SHORT#1.}.0"
+  echo "      - channel name: release-${PREV_CATALOG_VERSION} → ${CATALOG_BRANCH}"
+  echo "      - bundle: ${PREV_CATALOG_TAG} → ${CATALOG_TAG}"
+elif [[ ! -f "$CATALOG_TEMPLATE_FILE" ]]; then
+  echo "   ⚠️  File not found: $CATALOG_TEMPLATE_FILE" >&2
+fi
+
 # Step 3: Commit changes
 echo ""
 echo "📍 Step 3: Committing changes on $CATALOG_BRANCH..."
@@ -561,6 +597,7 @@ else
   COMMIT_MSG="Update catalog for ${CATALOG_BRANCH} (Global Hub ${GH_VERSION})
 
 - Update images-mirror-set.yaml to use ${CATALOG_TAG}
+- Update catalog-template-current.json (release channel and operator version)
 - Add OCP 4.${NEW_OCP_VER} pipelines (pull-request and push)
 - Add OCP 4.${NEW_OCP_VER} Containerfile.catalog
 - Remove OCP 4.${OLD_OCP_VER} pipelines and directory
