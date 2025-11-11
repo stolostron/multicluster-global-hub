@@ -287,12 +287,13 @@ echo "   Using $CONTAINER_ENGINE as container engine..."
 
 # Track if make update succeeded
 MAKE_UPDATE_SUCCESS=false
+MAKE_JOBS_SUCCESS=false
 
 # Run make update with 2 minute timeout
 if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
   if timeout 120 bash -c "CONTAINER_ENGINE=docker make update" 2>/dev/null; then
     MAKE_UPDATE_SUCCESS=true
-    echo "   ✅ Job configurations generated"
+    echo "   ✅ Job configurations generated (make update)"
   else
     echo "   ⚠️  make update timed out or failed (skipping)" >&2
     echo "   ℹ️  You may need to run 'make update' manually in the PR"
@@ -300,10 +301,32 @@ if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
 else
   if timeout 120 make update 2>/dev/null; then
     MAKE_UPDATE_SUCCESS=true
-    echo "   ✅ Job configurations generated"
+    echo "   ✅ Job configurations generated (make update)"
   else
     echo "   ⚠️  make update timed out or failed (skipping)" >&2
     echo "   ℹ️  You may need to run 'make update' manually in the PR"
+  fi
+fi
+
+# Run make jobs to format Prow jobs (if make update succeeded)
+if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
+  echo "   Running make jobs to format Prow jobs (timeout: 2 minutes)..."
+  if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
+    if timeout 120 bash -c "CONTAINER_ENGINE=docker make jobs" 2>/dev/null; then
+      MAKE_JOBS_SUCCESS=true
+      echo "   ✅ Prow jobs formatted (make jobs)"
+    else
+      echo "   ⚠️  make jobs timed out or failed" >&2
+      echo "   ℹ️  You may need to run 'make jobs' manually in the PR"
+    fi
+  else
+    if timeout 120 make jobs 2>/dev/null; then
+      MAKE_JOBS_SUCCESS=true
+      echo "   ✅ Prow jobs formatted (make jobs)"
+    else
+      echo "   ⚠️  make jobs timed out or failed" >&2
+      echo "   ℹ️  You may need to run 'make jobs' manually in the PR"
+    fi
   fi
 fi
 
@@ -347,21 +370,47 @@ else
   # We have changes to commit
   echo "   Changes detected, preparing commit..."
 
-  # Add files
-  git add "$MAIN_CONFIG"
-  git add "$NEW_CONFIG"
+  # Add our target config files
+  git add "$MAIN_CONFIG" 2>/dev/null || true
+  git add "$NEW_CONFIG" 2>/dev/null || true
 
-  # Add job files if they exist (may not exist if make update failed)
-  if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
-    git add "ci-operator/jobs/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${RELEASE_BRANCH}-presubmits.yaml" 2>/dev/null || true
-    git add "ci-operator/jobs/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-${RELEASE_BRANCH}-postsubmits.yaml" 2>/dev/null || true
-    COMMIT_NOTE="- Auto-generate presubmits and postsubmits using make update"
+  # Add all changes in ci-operator directory (includes all make update and make jobs changes)
+  if [[ "$MAKE_UPDATE_SUCCESS" = true || "$MAKE_JOBS_SUCCESS" = true ]]; then
+    echo "   Adding all ci-operator changes (config and jobs)..."
+    git add ci-operator/config/ 2>/dev/null || true
+    git add ci-operator/jobs/ 2>/dev/null || true
+  fi
+
+  # Build commit note based on what succeeded
+  if [[ "$MAKE_UPDATE_SUCCESS" = true && "$MAKE_JOBS_SUCCESS" = true ]]; then
+    COMMIT_NOTE="- Auto-generate presubmits and postsubmits using make update
+- Format Prow jobs using make jobs
+- Include all related CI configuration changes"
+  elif [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
+    COMMIT_NOTE="- Auto-generate presubmits and postsubmits using make update
+- ⚠️  make jobs failed - Prow jobs may need manual formatting"
   else
     COMMIT_NOTE="- Job files need to be generated manually (make update failed/timed out)"
   fi
 
-  # Commit
-  git commit --signoff -m "Add ${RELEASE_BRANCH} configuration for multicluster-global-hub
+  # Check if we have anything staged to commit
+  if git diff --cached --quiet; then
+    echo "   ⚠️  No files staged for commit after git add" >&2
+    echo "   This might mean the files are already up to date in the current branch" >&2
+
+    # Check if PR already exists
+    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
+      PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
+      PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+      PR_CREATED=true
+      echo "   ✓ Branch already up to date, PR exists: $PR_URL"
+    fi
+  else
+    # We have staged changes, proceed with commit
+    echo "   Staged changes ready for commit"
+
+    # Commit
+    git commit --signoff -m "Add ${RELEASE_BRANCH} configuration for multicluster-global-hub
 
 - Update main branch to promote to ${ACM_VERSION} and fast-forward to ${RELEASE_BRANCH}
 - Create ${RELEASE_BRANCH} pipeline configuration based on ${PREV_RELEASE_BRANCH}
@@ -371,32 +420,40 @@ ${COMMIT_NOTE}
 
 ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
 
-  echo "   ✅ Changes committed"
+    echo "   ✅ Changes committed"
 
-  # Push to fork (force push is safe for updating PRs)
-  echo "   Pushing to origin/${BRANCH_NAME}..."
-  if git push -f origin "$BRANCH_NAME" 2>&1; then
-    echo "   ✅ Branch pushed to origin"
-    PUSH_SUCCESS=true
-  else
-    echo "   ⚠️  Failed to push branch to origin" >&2
-    PUSH_SUCCESS=false
-    # Don't exit, show summary with error status
-  fi
-
-  # Check if PR exists and create/update accordingly (only if push succeeded)
-  if [[ "$PUSH_SUCCESS" = true ]]; then
-    if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
-      PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
-      PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
-      echo "   ✅ PR already exists and updated (state: $PR_STATE): $PR_URL"
-      PR_CREATED=true
+    # Push to fork (force push is safe for updating PRs)
+    echo "   Pushing to origin/${BRANCH_NAME}..."
+    if git push -f origin "$BRANCH_NAME" 2>&1; then
+      echo "   ✅ Branch pushed to origin"
+      PUSH_SUCCESS=true
     else
-      # Create new PR
-      echo "   Creating PR to openshift/release:master..."
-      PR_CREATE_OUTPUT=$(gh pr create --base master --head "$PR_HEAD" \
-        --title "Add ${RELEASE_BRANCH} configuration for multicluster-global-hub" \
-        --body "This PR adds ${RELEASE_BRANCH} configuration for the multicluster-global-hub project.
+      echo "   ⚠️  Failed to push branch to origin" >&2
+      PUSH_SUCCESS=false
+      # Don't exit, show summary with error status
+    fi
+
+    # Check if PR exists and create/update accordingly (only if push succeeded)
+    if [[ "$PUSH_SUCCESS" = true ]]; then
+      if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
+        PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
+        PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+        echo "   ✅ PR already exists and updated (state: $PR_STATE): $PR_URL"
+        PR_CREATED=true
+      else
+        # Create new PR
+        echo "   Creating PR to openshift/release:master..."
+
+        # Build PR body based on make jobs success
+        if [[ "$MAKE_JOBS_SUCCESS" = true ]]; then
+          JOBS_NOTE="4. **Auto-generate job configurations**: Using \`make update\` and \`make jobs\`"
+        else
+          JOBS_NOTE="4. **Auto-generate job configurations**: Using \`make update\` (⚠️ \`make jobs\` failed - may need manual formatting)"
+        fi
+
+        PR_CREATE_OUTPUT=$(gh pr create --base master --head "$PR_HEAD" \
+          --title "Add ${RELEASE_BRANCH} configuration for multicluster-global-hub" \
+          --body "This PR adds ${RELEASE_BRANCH} configuration for the multicluster-global-hub project.
 
 ## Changes
 
@@ -407,7 +464,7 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
    - Version: \`${PREV_ACM_VERSION}\` → \`${ACM_VERSION}\`
    - Image prefix: \`${PREV_IMAGE_PREFIX}\` → \`${IMAGE_PREFIX}\`
    - Global Hub: \`${PREV_GH_VERSION}\` → \`${GH_VERSION}\`
-4. **Auto-generate job configurations**: Using \`make update\`
+${JOBS_NOTE}
 
 ## Release Info
 
@@ -415,26 +472,27 @@ ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
 - **Global Hub**: release-${GH_VERSION_SHORT} (${GH_VERSION})
 - **Previous**: ${PREV_RELEASE_BRANCH} / ${PREV_GH_VERSION}
 - **Job prefix**: \`${IMAGE_PREFIX}\`" \
-        --repo openshift/release 2>&1) || true
+          --repo openshift/release 2>&1) || true
 
-      # Check if PR was successfully created or already exists
-      if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
-        PR_URL="$PR_CREATE_OUTPUT"
-        echo "   ✅ PR created: $PR_URL"
-        PR_CREATED=true
-      elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-        # PR already exists, extract URL from error message
-        PR_URL="${BASH_REMATCH[1]}"
-        echo "   ✅ PR already exists and updated: $PR_URL"
-        PR_CREATED=true
-      else
-        echo "   ⚠️  Failed to create PR automatically" >&2
-        echo "   Reason: $PR_CREATE_OUTPUT"
-        PR_CREATED=false
+        # Check if PR was successfully created or already exists
+        if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+          PR_URL="$PR_CREATE_OUTPUT"
+          echo "   ✅ PR created: $PR_URL"
+          PR_CREATED=true
+        elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+          # PR already exists, extract URL from error message
+          PR_URL="${BASH_REMATCH[1]}"
+          echo "   ✅ PR already exists and updated: $PR_URL"
+          PR_CREATED=true
+        else
+          echo "   ⚠️  Failed to create PR automatically" >&2
+          echo "   Reason: $PR_CREATE_OUTPUT"
+          PR_CREATED=false
+        fi
       fi
     fi
-  fi
-fi
+  fi  # End of git diff --cached --quiet else block
+fi  # End of CHANGES_EXIST else block
 
 # Summary
 echo ""
@@ -447,10 +505,14 @@ echo "✅ COMPLETED TASKS:"
 if [[ "$CHANGES_EXIST" = true ]]; then
   echo "  ✓ Updated main branch config"
   echo "  ✓ Created ${RELEASE_BRANCH} config"
-  if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
-    echo "  ✓ Generated job configurations"
+  if [[ "$MAKE_UPDATE_SUCCESS" = true && "$MAKE_JOBS_SUCCESS" = true ]]; then
+    echo "  ✓ Generated job configurations (make update)"
+    echo "  ✓ Formatted Prow jobs (make jobs)"
+  elif [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
+    echo "  ✓ Generated job configurations (make update)"
+    echo "  ⚠️  Prow jobs formatting skipped (make jobs failed)" >&2
   else
-    echo "  ⚠️  Job generation skipped (timeout/error)" >&2
+    echo "  ⚠️  Job generation skipped (make update failed)" >&2
   fi
 fi
 if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
@@ -463,19 +525,33 @@ echo "$SEPARATOR_LINE"
 if [[ "$PR_CREATED" = true && -n "$PR_URL" ]]; then
   echo "1. Review and merge: ${PR_URL}"
 fi
+
+# Show manual steps if needed
+MANUAL_STEPS_NEEDED=false
 if [[ "$MAKE_UPDATE_SUCCESS" != true ]]; then
   echo ""
   echo "⚠️  make update failed - Manual steps required:" >&2
   echo "   cd $OPENSHIFT_RELEASE_PATH && git checkout $BRANCH_NAME"
-  echo "   make update && git add ci-operator/jobs/"
+  echo "   make update && make jobs && git add ci-operator/"
   echo "   git commit --amend --no-edit && git push -f"
+  MANUAL_STEPS_NEEDED=true
+elif [[ "$MAKE_JOBS_SUCCESS" != true ]]; then
+  echo ""
+  echo "⚠️  make jobs failed - Manual formatting required:" >&2
+  echo "   cd $OPENSHIFT_RELEASE_PATH && git checkout $BRANCH_NAME"
+  echo "   make jobs && git add ci-operator/jobs/"
+  echo "   git commit --amend --no-edit && git push -f"
+  MANUAL_STEPS_NEEDED=true
 fi
+
 echo ""
 echo "After merge: Verify CI jobs in openshift/release"
 echo ""
 echo "$SEPARATOR_LINE"
-if [[ "$MAKE_UPDATE_SUCCESS" = true && "$PR_CREATED" = true ]]; then
+if [[ "$MAKE_UPDATE_SUCCESS" = true && "$MAKE_JOBS_SUCCESS" = true && "$PR_CREATED" = true ]]; then
   echo "✅ SUCCESS"
+elif [[ "$MANUAL_STEPS_NEEDED" = true ]]; then
+  echo "⚠️  COMPLETED WITH WARNINGS - MANUAL STEPS REQUIRED" >&2
 else
   echo "⚠️  COMPLETED WITH WARNINGS" >&2
 fi

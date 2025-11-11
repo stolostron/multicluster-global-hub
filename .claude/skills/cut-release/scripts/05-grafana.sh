@@ -290,27 +290,18 @@ else
       echo "   ℹ️  PR already exists: $GRAFANA_PR_URL"
       echo "   Existing branch: ${GITHUB_USER}:${EXISTING_BRANCH}"
 
-      # Check if we can update (same branch name)
-      if [[ "$EXISTING_BRANCH" != "$PR_BRANCH" ]]; then
-        # Different branch - cannot update
-        echo "   ⚠️  Existing PR uses different branch: $EXISTING_BRANCH"
-        echo "   Current branch would be: $PR_BRANCH"
-        echo "   Please close the existing PR to create a new one, or update manually"
+      # Always push updates to the existing PR's branch (even if branch name is different)
+      echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
+      if [[ "$FORK_EXISTS" = false ]]; then
+        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
+        echo "   Please fork ${GRAFANA_REPO} to enable PR creation"
         GRAFANA_PR_STATUS="exists"
+      elif git push -f fork "$GRAFANA_BRANCH:$EXISTING_BRANCH" 2>&1; then
+        echo "   ✅ PR updated with latest changes: $GRAFANA_PR_URL"
+        GRAFANA_PR_STATUS="updated"
       else
-        # Same branch - push updates
-        echo "   Pushing updates to existing PR branch..."
-        if [[ "$FORK_EXISTS" = false ]]; then
-          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-          echo "   Please fork ${GRAFANA_REPO} to enable PR creation"
-          GRAFANA_PR_STATUS="exists"
-        elif git push -f fork "$PR_BRANCH" 2>&1; then
-          echo "   ✅ PR updated with latest changes: $GRAFANA_PR_URL"
-          GRAFANA_PR_STATUS="updated"
-        else
-          echo "   ⚠️  Failed to push updates to fork" >&2
-          GRAFANA_PR_STATUS="exists"
-        fi
+        echo "   ⚠️  Failed to push updates to fork" >&2
+        GRAFANA_PR_STATUS="exists"
       fi
     else
       # No existing PR, create a new one
