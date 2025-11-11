@@ -201,23 +201,14 @@ Related: ${RELEASE_BRANCH}"
         echo "   ℹ️  PR already exists: $MAIN_PR_URL"
         echo "   Existing branch: ${GITHUB_USER}:${EXISTING_BRANCH}"
 
-        # Check if we have new changes to push
-        if [[ "$EXISTING_BRANCH" != "$MAIN_PR_BRANCH" ]]; then
-          # Different branch names - cannot update this PR
-          echo "   ⚠️  Existing PR uses different branch: $EXISTING_BRANCH"
-          echo "   Current branch would be: $MAIN_PR_BRANCH"
-          echo "   Please close the existing PR to create a new one, or update manually"
-          MAIN_PR_STATUS="exists"
+        # Always push updates to the existing PR's branch (even if branch name is different)
+        echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
+        if git push -f fork "$MAIN_PR_BRANCH:$EXISTING_BRANCH" 2>&1; then
+          echo "   ✅ PR updated with latest changes: $MAIN_PR_URL"
+          MAIN_PR_STATUS="updated"
         else
-          # Same branch - push updates
-          echo "   Pushing updates to existing PR branch..."
-          if git push -f fork "$MAIN_PR_BRANCH" 2>&1; then
-            echo "   ✅ PR updated with latest changes: $MAIN_PR_URL"
-            MAIN_PR_STATUS="updated"
-          else
-            echo "   ⚠️  Failed to push updates to fork" >&2
-            MAIN_PR_STATUS="exists"
-          fi
+          echo "   ⚠️  Failed to push updates to fork" >&2
+          MAIN_PR_STATUS="exists"
         fi
       else
         # No existing PR, create a new one
@@ -423,8 +414,9 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
 
     if [[ -f "$LATEST_PR_PIPELINE" ]]; then
       cp "$LATEST_PR_PIPELINE" "$NEW_PR_PIPELINE"
-      # Update all OCP version references (v420 -> v421, catalog-420 -> catalog-421)
+      # Update all OCP version references (v420 -> v421, v4.20 -> v4.21, catalog-420 -> catalog-421)
       sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/v4\.$((PREV_OCP_MAX%100))/v4.${NEW_OCP_VER}/g" "$NEW_PR_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/catalog-4$((PREV_OCP_MAX%100))-/catalog-4${NEW_OCP_VER}-/g" "$NEW_PR_PIPELINE"
       # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
       sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
@@ -439,8 +431,9 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
 
     if [[ -f "$LATEST_PUSH_PIPELINE" ]]; then
       cp "$LATEST_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
-      # Update all OCP version references (v420 -> v421, catalog-420 -> catalog-421)
+      # Update all OCP version references (v420 -> v421, v4.20 -> v4.21, catalog-420 -> catalog-421)
       sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/v4\.$((PREV_OCP_MAX%100))/v4.${NEW_OCP_VER}/g" "$NEW_PUSH_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/catalog-4$((PREV_OCP_MAX%100))-/catalog-4${NEW_OCP_VER}-/g" "$NEW_PUSH_PIPELINE"
       # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
       sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
@@ -587,27 +580,18 @@ fi
         echo "   ℹ️  PR already exists: $CATALOG_PR_URL"
         echo "   Existing branch: ${GITHUB_USER}:${EXISTING_BRANCH}"
 
-        # Check if we can update (same branch name)
-        if [[ "$EXISTING_BRANCH" != "$PR_BRANCH" ]]; then
-          # Different branch - cannot update
-          echo "   ⚠️  Existing PR uses different branch: $EXISTING_BRANCH"
-          echo "   Current branch would be: $PR_BRANCH"
-          echo "   Please close the existing PR to create a new one, or update manually"
+        # Always push updates to the existing PR's branch (even if branch name is different)
+        echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
+        if [[ "$FORK_EXISTS" = false ]]; then
+          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
+          echo "   Please fork ${CATALOG_REPO} to enable PR creation"
           CATALOG_PR_STATUS="exists"
+        elif git push -f fork "$CATALOG_BRANCH:$EXISTING_BRANCH" 2>&1; then
+          echo "   ✅ PR updated with latest changes: $CATALOG_PR_URL"
+          CATALOG_PR_STATUS="updated"
         else
-          # Same branch - push updates
-          echo "   Pushing updates to existing PR branch..."
-          if [[ "$FORK_EXISTS" = false ]]; then
-            echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-            echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-            CATALOG_PR_STATUS="exists"
-          elif git push -f fork "$PR_BRANCH" 2>&1; then
-            echo "   ✅ PR updated with latest changes: $CATALOG_PR_URL"
-            CATALOG_PR_STATUS="updated"
-          else
-            echo "   ⚠️  Failed to push updates to fork" >&2
-            CATALOG_PR_STATUS="exists"
-          fi
+          echo "   ⚠️  Failed to push updates to fork" >&2
+          CATALOG_PR_STATUS="exists"
         fi
       else
         # No existing PR, create a new one
@@ -727,27 +711,18 @@ This prevents duplicate automation on old release branch."
       echo "   ℹ️  Cleanup PR already exists: $CLEANUP_PR_URL"
       echo "   Existing branch: ${GITHUB_USER}:${EXISTING_BRANCH}"
 
-      # Check if we can update (same branch name)
-      if [[ "$EXISTING_BRANCH" != "$CLEANUP_BRANCH" ]]; then
-        # Different branch - cannot update
-        echo "   ⚠️  Existing cleanup PR uses different branch: $EXISTING_BRANCH"
-        echo "   Current branch would be: $CLEANUP_BRANCH"
-        echo "   Please close the existing PR to create a new one, or update manually"
+      # Always push updates to the existing PR's branch (even if branch name is different)
+      echo "   Pushing updates to existing cleanup PR branch: $EXISTING_BRANCH..."
+      if [[ "$FORK_EXISTS" = false ]]; then
+        echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
+        echo "   Please fork ${CATALOG_REPO} to enable PR creation"
         CLEANUP_PR_STATUS="exists"
+      elif git push -f fork "$CLEANUP_BRANCH:$EXISTING_BRANCH" 2>&1; then
+        echo "   ✅ Cleanup PR updated with latest changes: $CLEANUP_PR_URL"
+        CLEANUP_PR_STATUS="updated"
       else
-        # Same branch - push updates
-        echo "   Pushing updates to existing cleanup PR branch..."
-        if [[ "$FORK_EXISTS" = false ]]; then
-          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-          echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-          CLEANUP_PR_STATUS="exists"
-        elif git push -f fork "$CLEANUP_BRANCH" 2>&1; then
-          echo "   ✅ Cleanup PR updated with latest changes: $CLEANUP_PR_URL"
-          CLEANUP_PR_STATUS="updated"
-        else
-          echo "   ⚠️  Failed to push updates to fork" >&2
-          CLEANUP_PR_STATUS="exists"
-        fi
+        echo "   ⚠️  Failed to push updates to fork" >&2
+        CLEANUP_PR_STATUS="exists"
       fi
     else
       # No existing PR, create a new one
