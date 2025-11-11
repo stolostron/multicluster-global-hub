@@ -534,7 +534,14 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
       # 2. Update configs path (v4.20 -> v4.21)
       sed "${SED_INPLACE[@]}" "s|configs/v4.$((PREV_OCP_MAX%100))/|configs/v4.${NEW_OCP_VER}/|g" "$NEW_CONTAINERFILE"
 
-      # 3. Update ose-operator-registry image tag (v4.20 -> v4.21)
+      # 3. Update ose-operator-registry image tags
+      # Note: Containerfile has two FROM instructions:
+      #   - First FROM (builder): uses previous OCP version (e.g., v4.19 -> v4.20)
+      #   - Second FROM: uses current OCP version (e.g., v4.20 -> v4.21)
+      # We need to update builder's base image first (v4.19 -> v4.20)
+      BUILDER_OLD_VER=$((PREV_OCP_MAX%100 - 1))
+      sed "${SED_INPLACE[@]}" "s|ose-operator-registry-rhel9:v4.${BUILDER_OLD_VER}|ose-operator-registry-rhel9:v4.$((PREV_OCP_MAX%100))|g" "$NEW_CONTAINERFILE"
+      # Then update the main base image (v4.20 -> v4.21)
       sed "${SED_INPLACE[@]}" "s|ose-operator-registry-rhel9:v4.$((PREV_OCP_MAX%100))|ose-operator-registry-rhel9:v4.${NEW_OCP_VER}|g" "$NEW_CONTAINERFILE"
 
       git add "$NEW_CONTAINERFILE"
