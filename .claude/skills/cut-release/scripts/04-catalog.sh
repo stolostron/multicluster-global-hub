@@ -423,10 +423,13 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
 
     if [[ -f "$LATEST_PR_PIPELINE" ]]; then
       cp "$LATEST_PR_PIPELINE" "$NEW_PR_PIPELINE"
+      # Update all OCP version references (v420 -> v421, catalog-420 -> catalog-421)
       sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/catalog-4$((PREV_OCP_MAX%100))-/catalog-4${NEW_OCP_VER}-/g" "$NEW_PR_PIPELINE"
+      # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
       sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
+      # Update branch references (release-1.6 -> release-1.7)
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR_PIPELINE"
-      sed "${SED_INPLACE[@]}" "s/release-catalog-$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}/release-catalog-${NEW_OCP_VER}-${CATALOG_TAG}/g" "$NEW_PR_PIPELINE"
       echo "   ✅ Created $NEW_PR_PIPELINE"
     fi
 
@@ -436,10 +439,13 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
 
     if [[ -f "$LATEST_PUSH_PIPELINE" ]]; then
       cp "$LATEST_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
+      # Update all OCP version references (v420 -> v421, catalog-420 -> catalog-421)
       sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/catalog-4$((PREV_OCP_MAX%100))-/catalog-4${NEW_OCP_VER}-/g" "$NEW_PUSH_PIPELINE"
+      # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
       sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
+      # Update branch references (release-1.6 -> release-1.7)
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH_PIPELINE"
-      sed "${SED_INPLACE[@]}" "s/release-catalog-$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}/release-catalog-${NEW_OCP_VER}-${CATALOG_TAG}/g" "$NEW_PUSH_PIPELINE"
       echo "   ✅ Created $NEW_PUSH_PIPELINE"
     fi
   else
@@ -456,7 +462,7 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     NEW_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${ocp_ver}-${CATALOG_TAG}-push.yaml"
 
     if [[ "$PREV_CATALOG_TAG" = "$CATALOG_TAG" ]]; then
-      # Same tag - just update in place
+      # Same tag - just update branch references in place
       if [[ -f "$NEW_PR" ]]; then
         sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR"
         echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
@@ -466,17 +472,21 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
         echo "   ✅ Updated v4${ocp_ver} push pipeline"
       fi
     else
-      # Different tags - rename and update
+      # Different tags - rename and update all references
       if [[ -f "$OLD_PR" ]]; then
         git mv "$OLD_PR" "$NEW_PR" 2>/dev/null || cp "$OLD_PR" "$NEW_PR"
+        # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
         sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR"
+        # Update branch references (release-1.6 -> release-1.7)
         sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR"
         echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
       fi
 
       if [[ -f "$OLD_PUSH" ]]; then
         git mv "$OLD_PUSH" "$NEW_PUSH" 2>/dev/null || cp "$OLD_PUSH" "$NEW_PUSH"
+        # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
         sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH"
+        # Update branch references (release-1.6 -> release-1.7)
         sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH"
         echo "   ✅ Updated v4${ocp_ver} push pipeline"
       fi
