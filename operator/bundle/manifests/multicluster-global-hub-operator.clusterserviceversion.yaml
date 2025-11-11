@@ -255,7 +255,7 @@ spec:
     ```
     ## Documentation
     For documentation about installing and using the Multicluster GlobalHub Operator with Red Hat Advanced Cluster Management for
-    Kubernetes, see [Multicluser GlobalHub Documentation](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.9/html-single/multicluster_global_hub/index#doc-wrapper) in the Red Hat Advanced Cluster Management
+    Kubernetes, see [Multicluser GlobalHub Documentation](https://access.redhat.com/documentation/en-us/red_hat_advanced_cluster_management_for_kubernetes/2.15/html-single/multicluster_global_hub/index#doc-wrapper) in the Red Hat Advanced Cluster Management
     documentation.
 
     ## Support & Troubleshooting
