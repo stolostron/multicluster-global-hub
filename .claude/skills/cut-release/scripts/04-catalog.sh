@@ -501,6 +501,48 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
       echo "   ✅ Removed old OCP 4.${OLD_OCP_VER} push pipeline"
     fi
   fi
+
+  # Update Containerfile.catalog for OCP versions (only if OCP range changed)
+  if [[ "$PREV_OCP_MAX" != "$OCP_MAX" ]]; then
+    echo ""
+    echo "   Updating Containerfile.catalog files..."
+
+    # Remove old OCP version directory
+    OLD_OCP_DIR="v4.${OLD_OCP_VER}"
+    if [[ -d "$OLD_OCP_DIR" ]]; then
+      git rm -r "$OLD_OCP_DIR" 2>/dev/null || rm -rf "$OLD_OCP_DIR"
+      echo "   ✅ Removed old OCP directory: $OLD_OCP_DIR"
+    fi
+
+    # Create new OCP version directory and Containerfile.catalog
+    NEW_OCP_DIR="v4.${NEW_OCP_VER}"
+    PREV_OCP_DIR="v4.$((PREV_OCP_MAX%100))"
+    PREV_CONTAINERFILE="${PREV_OCP_DIR}/Containerfile.catalog"
+    NEW_CONTAINERFILE="${NEW_OCP_DIR}/Containerfile.catalog"
+
+    if [[ -f "$PREV_CONTAINERFILE" ]]; then
+      # Create new directory
+      mkdir -p "$NEW_OCP_DIR"
+
+      # Copy Containerfile from previous version
+      cp "$PREV_CONTAINERFILE" "$NEW_CONTAINERFILE"
+
+      # Replace version references in the new Containerfile
+      # 1. Update bundle reference (globalhub-1-6 -> globalhub-1-7)
+      sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_CONTAINERFILE"
+
+      # 2. Update configs path (v4.20 -> v4.21)
+      sed "${SED_INPLACE[@]}" "s|configs/v4.$((PREV_OCP_MAX%100))/|configs/v4.${NEW_OCP_VER}/|g" "$NEW_CONTAINERFILE"
+
+      # 3. Update ose-operator-registry image tag (v4.20 -> v4.21)
+      sed "${SED_INPLACE[@]}" "s|ose-operator-registry-rhel9:v4.$((PREV_OCP_MAX%100))|ose-operator-registry-rhel9:v4.${NEW_OCP_VER}|g" "$NEW_CONTAINERFILE"
+
+      git add "$NEW_CONTAINERFILE"
+      echo "   ✅ Created new Containerfile: $NEW_CONTAINERFILE"
+    else
+      echo "   ⚠️  Previous Containerfile not found: $PREV_CONTAINERFILE" >&2
+    fi
+  fi
 fi
 
 # Step 3: Commit changes
@@ -517,7 +559,8 @@ else
 
 - Update images-mirror-set.yaml to use ${CATALOG_TAG}
 - Add OCP 4.${NEW_OCP_VER} pipelines (pull-request and push)
-- Remove OCP 4.${OLD_OCP_VER} pipelines
+- Add OCP 4.${NEW_OCP_VER} Containerfile.catalog
+- Remove OCP 4.${OLD_OCP_VER} pipelines and directory
 - Update existing OCP 4.$((OCP_MIN%100))-4.$((OCP_MAX-1%100)) pipelines
 
 Supports OCP 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))
@@ -812,8 +855,10 @@ echo "  ✓ Catalog branch: $CATALOG_BRANCH (from $BASE_BRANCH)"
 if [[ "$CHANGES_COMMITTED" = true ]]; then
   echo "  ✓ Updated images-mirror-set.yaml to ${CATALOG_TAG}"
   if [[ -n "$PREV_CATALOG_TAG" ]]; then
-    echo "  ✓ Added OCP 4.${NEW_OCP_VER} pipelines"
-    echo "  ✓ Removed OCP 4.${OLD_OCP_VER} pipelines"
+    if [[ "$PREV_OCP_MAX" != "$OCP_MAX" ]]; then
+      echo "  ✓ Added OCP 4.${NEW_OCP_VER} pipelines and Containerfile"
+      echo "  ✓ Removed OCP 4.${OLD_OCP_VER} pipelines and directory"
+    fi
     echo "  ✓ Updated OCP 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100-1)) pipelines"
   fi
 fi
