@@ -42,7 +42,7 @@ func NewKafkaConflationCommitter(metadataFunc MetadataFunc) *ConflationCommitter
 
 func (k *ConflationCommitter) Start(ctx context.Context) error {
 	go func() {
-		ticker := time.NewTicker(time.Second * 5)
+		ticker := time.NewTicker(time.Second * 10)
 
 		defer ticker.Stop()
 
