@@ -64,21 +64,6 @@ func (k *ConflationCommitter) Start(ctx context.Context) error {
 }
 
 func (k *ConflationCommitter) commit() error {
-	// get metadata (both pending and processed)
-	transportMetadatas := k.retrieveMetadataFunc()
-
-	transportPositions := []*transport.EventPosition{}
-	for _, metadata := range transportMetadatas {
-		if metadata == nil {
-			continue
-		}
-		position := metadata.TransportPosition()
-		if position == nil {
-			continue
-		}
-		transportPositions = append(transportPositions, position)
-	}
-
 	// transPositions := metadataToCommit(transportMetadatas)
 	transPositions := k.getPositionsToCommit()
 	if len(transPositions) == 0 {
