@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -26,13 +27,10 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
-var transportID string
-
 type GenericConsumer struct {
 	assembler            *messageAssembler
 	eventChan            chan *cloudevents.Event
 	enableDatabaseOffset bool
-	clusterID            string
 
 	consumerCtx    context.Context
 	consumerCancel context.CancelFunc
@@ -91,8 +89,6 @@ func (c *GenericConsumer) KafkaConsumer() *kafka.Consumer {
 func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
 	var err error
 	var clientProtocol interface{}
-
-	c.clusterID = tranConfig.KafkaCredential.ClusterID
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
@@ -163,20 +159,25 @@ func (c *GenericConsumer) Reconnect(ctx context.Context,
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	receiveContext := cectx.WithLogger(ctx, logger.ZapLogger("cloudevents"))
 	if c.enableDatabaseOffset {
-		offsets, err := getInitOffset(c.clusterID)
+		offsets, err := getInitOffset(config.GetKafkaOwnerIdentity())
 		if err != nil {
 			return err
 		}
-		log.Infow("init consumer", "offsets", offsets)
+		log.Infow("init consumer with database offsets", "offsets", offsets)
 		if len(offsets) > 0 {
 			receiveContext = kafka_confluent.WithTopicPartitionOffsets(ctx, offsets)
 		}
 	}
-
+	// each time the consumer starts, it will only log the first message
+	receivedMessage := false
 	c.consumerCtx, c.consumerCancel = context.WithCancel(receiveContext)
 	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
-		log.Debugw("received message", "event.Source", event.Source(), "event.Type",
-			enum.ShortenEventType(event.Type()))
+		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
+
+		if !receivedMessage {
+			receivedMessage = true
+			log.Infow("received message", "topic", event.Extensions()[kafka_confluent.KafkaTopicKey], "partition", event.Extensions()[kafka_confluent.KafkaPartitionKey], "offset", event.Extensions()[kafka_confluent.KafkaOffsetKey])
+		}
 
 		chunk, isChunk := c.assembler.messageChunk(event)
 		if !isChunk {
@@ -195,6 +196,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("consumer receiver stopped with error: %w", err)
 	}
+	receivedMessage = false
 	return nil
 }
 
@@ -205,7 +207,8 @@ func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {
 	db := database.GetGorm()
 	var positions []models.Transport
-	err := db.Where("name ~ ?", "^status*").
+	// get the records updated within the last week
+	err := db.Where("updated_at > ?", time.Now().AddDate(0, 0, -7)).
 		Where("payload->>'ownerIdentity' <> ? AND payload->>'ownerIdentity' = ?", "", kafkaClusterIdentity).
 		Find(&positions).Error
 	if err != nil {
@@ -264,8 +267,4 @@ func getConfluentReceiverProtocol(transportConfig *transport.TransportInternalCo
 		return nil, nil, err
 	}
 	return consumer, protocol, nil
-}
-
-func TransportID() string {
-	return transportID
 }

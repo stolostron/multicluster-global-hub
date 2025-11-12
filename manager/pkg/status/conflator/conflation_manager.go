@@ -12,7 +12,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 // ConflationManager implements conflation units management.
@@ -62,7 +62,7 @@ func (cm *ConflationManager) Insert(evt *cloudevents.Event) {
 		return
 	}
 	// metadata
-	conflationMetadata := metadata.NewThresholdMetadata(consumer.TransportID(), 3, evt)
+	conflationMetadata := metadata.NewThresholdMetadata(config.GetKafkaOwnerIdentity(), 3, evt)
 	if conflationMetadata == nil {
 		return
 	}
@@ -76,7 +76,6 @@ func (cm *ConflationManager) GetMetadatas() []ConflationMetadata {
 	for _, cu := range cm.conflationUnits {
 		metadata = append(metadata, cu.getMetadatas()...)
 	}
-	log.Infow("manager get metadatas", "metadata", metadata)
 	return metadata
 }
 
