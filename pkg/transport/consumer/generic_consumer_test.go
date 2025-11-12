@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
@@ -51,10 +52,12 @@ func TestGetInitOffset(t *testing.T) {
 	databaseTransports := []models.Transport{}
 
 	kafkaClusterIdentity := "clusterID"
+	deprecatedTransport := generateTransport(kafkaClusterIdentity, "status.hub6", 9)
+	deprecatedTransport.UpdatedAt = time.Now().AddDate(0, 0, -8)
 	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status.hub1", 12))
 	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status.hub2", 11))
 	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "status", 9))
-	databaseTransports = append(databaseTransports, generateTransport(kafkaClusterIdentity, "spec", 9))
+	databaseTransports = append(databaseTransports, deprecatedTransport)
 	databaseTransports = append(databaseTransports, generateTransport("", "status.hub3", 8))
 	databaseTransports = append(databaseTransports, generateTransport("another", "status.hub4", 7))
 
@@ -69,8 +72,8 @@ func TestGetInitOffset(t *testing.T) {
 	count := 0
 	for _, offset := range offsets {
 		fmt.Println(*offset.Topic, offset.Partition, offset.Offset)
-		if *offset.Topic == "spec" {
-			t.Fatalf("the topic %s shouldn't be selected", "spec")
+		if *offset.Topic == deprecatedTransport.Name {
+			t.Fatalf("the topic %s shouldn't be selected", deprecatedTransport.Name)
 		}
 		count++
 	}
