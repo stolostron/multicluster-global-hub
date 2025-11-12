@@ -71,8 +71,9 @@ func (k *ConflationCommitter) commit() error {
 	}
 
 	databaseTransports := []models.Transport{}
-	for key, transPosition := range transPositions {
-		k.log.Infow("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
+	for _, transPosition := range transPositions {
+		k.log.Infow("commit offset to database", "topic@partition",
+			positionKey(transPosition.Topic, transPosition.Partition), "offset", transPosition.Offset)
 		payload, err := json.Marshal(transport.EventPosition{
 			OwnerIdentity: config.GetKafkaOwnerIdentity(),
 			Topic:         transPosition.Topic,
@@ -108,7 +109,7 @@ func (k *ConflationCommitter) commit() error {
 }
 
 func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition {
-	transportPositions := []*transport.EventPosition{}
+	transportPositionMap := make(map[string]*transport.EventPosition)
 	kafkaIdentityChanged := k.lastCommittedKafkaIdentity != config.GetKafkaOwnerIdentity()
 	for _, metadata := range k.retrieveMetadataFunc() {
 		if metadata == nil {
@@ -123,14 +124,22 @@ func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition 
 			k.committedPositions = make(map[string]int64)
 			k.lastCommittedKafkaIdentity = config.GetKafkaOwnerIdentity()
 		}
-		committedOffset, found := k.committedPositions[positionKey(position.Topic, position.Partition)]
+		key := positionKey(position.Topic, position.Partition)
+		committedOffset, found := k.committedPositions[key]
 		if found && committedOffset >= int64(position.Offset) {
 			continue
 		}
-		transportPositions = append(transportPositions, position)
-		k.committedPositions[positionKey(position.Topic, position.Partition)] = int64(position.Offset)
+		transportPositionMap[key] = position
+		k.committedPositions[key] = int64(position.Offset)
 	}
-	return transportPositions
+	if len(transportPositionMap) == 0 {
+		return nil
+	}
+	transportPositionSlice := make([]*transport.EventPosition, 0, len(transportPositionMap))
+	for _, position := range transportPositionMap {
+		transportPositionSlice = append(transportPositionSlice, position)
+	}
+	return transportPositionSlice
 }
 
 func metadataToCommit(metadataArray []ConflationMetadata) map[string]*transport.EventPosition {
