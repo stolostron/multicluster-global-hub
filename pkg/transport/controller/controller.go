@@ -282,6 +282,12 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 		return false, nil
 	}
 	c.transportConfig.KafkaCredential = kafkaConn
+	// owner identity is the cluster identity to record the offset of specific cluster
+	ownerIdentity := kafkaConn.ClusterID
+	if ownerIdentity == "" {
+		ownerIdentity = kafkaConn.ClusterID
+	}
+	config.SetKafkaOwnerIdentity(kafkaConn.ClusterID)
 	return true, nil
 }
 

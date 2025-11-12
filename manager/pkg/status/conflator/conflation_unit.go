@@ -13,6 +13,7 @@ import (
 
 // ConflationUnit abstracts the conflation of prioritized multiple bundles with dependencies between them.
 type ConflationUnit struct {
+	name                 string
 	ElementPriorityQueue []ConflationElement
 	eventTypeToPriority  map[string]ConflationPriority
 	readyQueue           *ConflationReadyQueue
@@ -26,6 +27,7 @@ func newConflationUnit(name string, readyQueue *ConflationReadyQueue,
 	registrations map[string]*ConflationRegistration, statistics *statistics.Statistics,
 ) *ConflationUnit {
 	conflationUnit := &ConflationUnit{
+		name:                 name,
 		ElementPriorityQueue: make([]ConflationElement, len(registrations)),
 		eventTypeToPriority:  make(map[string]ConflationPriority),
 		readyQueue:           readyQueue,
@@ -165,6 +167,8 @@ func (cu *ConflationUnit) getMetadatas() []ConflationMetadata {
 		}
 		metadatas = append(metadatas, element.Metadata())
 	}
+
+	log.Infow("get metadatas", "name", cu.name, "metadatas", metadatas)
 
 	return metadatas
 }
