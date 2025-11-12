@@ -209,7 +209,7 @@ func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {
 	db := database.GetGorm()
 	var positions []models.Transport
-	// get the records updated within the last week
+	// ignore the records/offset updated before 7 days
 	err := db.Where("updated_at > ?", time.Now().AddDate(0, 0, -7)).
 		Where("payload->>'ownerIdentity' <> ? AND payload->>'ownerIdentity' = ?", "", kafkaClusterIdentity).
 		Find(&positions).Error
