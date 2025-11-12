@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 )
 
 type MetadataFunc func() []ConflationMetadata
@@ -24,16 +25,18 @@ func positionKey(topic string, partition int32) string {
 }
 
 type ConflationCommitter struct {
-	log                  *zap.SugaredLogger
-	retrieveMetadataFunc MetadataFunc
-	committedPositions   map[string]int64
+	log                        *zap.SugaredLogger
+	retrieveMetadataFunc       MetadataFunc
+	committedPositions         map[string]int64 // topic@partition -> offset
+	lastCommittedKafkaIdentity string
 }
 
 func NewKafkaConflationCommitter(metadataFunc MetadataFunc) *ConflationCommitter {
 	return &ConflationCommitter{
-		log:                  logger.DefaultZapLogger(),
-		retrieveMetadataFunc: metadataFunc,
-		committedPositions:   map[string]int64{},
+		log:                        logger.DefaultZapLogger(),
+		retrieveMetadataFunc:       metadataFunc,
+		committedPositions:         map[string]int64{},
+		lastCommittedKafkaIdentity: config.GetKafkaOwnerIdentity(),
 	}
 }
 
@@ -64,19 +67,29 @@ func (k *ConflationCommitter) commit() error {
 	// get metadata (both pending and processed)
 	transportMetadatas := k.retrieveMetadataFunc()
 
-	transPositions := metadataToCommit(transportMetadatas)
+	transportPositions := []*transport.EventPosition{}
+	for _, metadata := range transportMetadatas {
+		if metadata == nil {
+			continue
+		}
+		position := metadata.TransportPosition()
+		if position == nil {
+			continue
+		}
+		transportPositions = append(transportPositions, position)
+	}
+
+	// transPositions := metadataToCommit(transportMetadatas)
+	transPositions := k.getPositionsToCommit()
+	if len(transPositions) == 0 {
+		return nil
+	}
 
 	databaseTransports := []models.Transport{}
 	for key, transPosition := range transPositions {
-		// skip request if already committed this offset
-		committedOffset, found := k.committedPositions[key]
-		if found && committedOffset >= int64(transPosition.Offset) {
-			continue
-		}
-
-		k.log.Debugw("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
+		k.log.Infow("commit offset to database", "topic@partition", key, "offset", transPosition.Offset)
 		payload, err := json.Marshal(transport.EventPosition{
-			OwnerIdentity: transPosition.OwnerIdentity,
+			OwnerIdentity: config.GetKafkaOwnerIdentity(),
 			Topic:         transPosition.Topic,
 			Partition:     transPosition.Partition,
 			Offset:        int64(transPosition.Offset),
@@ -88,7 +101,6 @@ func (k *ConflationCommitter) commit() error {
 			Name:    transPosition.Topic,
 			Payload: payload,
 		})
-		k.committedPositions[key] = int64(transPosition.Offset)
 	}
 
 	db := database.GetGorm()
@@ -108,6 +120,32 @@ func (k *ConflationCommitter) commit() error {
 		}
 	}
 	return nil
+}
+
+func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition {
+	transportPositions := []*transport.EventPosition{}
+	kafkaIdentityChanged := k.lastCommittedKafkaIdentity != config.GetKafkaOwnerIdentity()
+	for _, metadata := range k.retrieveMetadataFunc() {
+		if metadata == nil {
+			continue
+		}
+		position := metadata.TransportPosition()
+		if position == nil {
+			continue
+		}
+		if kafkaIdentityChanged {
+			// if the kafka identity is changed, clear the committed history to start from the beginning
+			k.committedPositions = make(map[string]int64)
+			k.lastCommittedKafkaIdentity = config.GetKafkaOwnerIdentity()
+		}
+		committedOffset, found := k.committedPositions[positionKey(position.Topic, position.Partition)]
+		if found && committedOffset >= int64(position.Offset) {
+			continue
+		}
+		transportPositions = append(transportPositions, position)
+		k.committedPositions[positionKey(position.Topic, position.Partition)] = int64(position.Offset)
+	}
+	return transportPositions
 }
 
 func metadataToCommit(metadataArray []ConflationMetadata) map[string]*transport.EventPosition {

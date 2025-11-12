@@ -31,7 +31,18 @@ const (
 	MaxSizeToFetch = 10 * 1024 * 1024
 )
 
-var log = logger.DefaultZapLogger()
+var (
+	log                = logger.DefaultZapLogger()
+	kafkaOwnerIdentity string
+)
+
+func SetKafkaOwnerIdentity(identity string) {
+	kafkaOwnerIdentity = identity
+}
+
+func GetKafkaOwnerIdentity() string {
+	return kafkaOwnerIdentity
+}
 
 func GetBasicConfigMap() *kafkav2.ConfigMap {
 	return &kafkav2.ConfigMap{
@@ -52,6 +63,8 @@ func SetProducerConfig(kafkaConfigMap *kafkav2.ConfigMap) {
 func SetConsumerConfig(kafkaConfigMap *kafkav2.ConfigMap, groupId string, topicMetadataRefreshInterval int) {
 	_ = kafkaConfigMap.SetKey("enable.auto.commit", "true")
 	_ = kafkaConfigMap.SetKey("auto.offset.reset", "earliest")
+	// the manager will request resync the resources from the agent in the managed hub, set this will let it
+	// skip the redundant history messages for the manager
 	_ = kafkaConfigMap.SetKey("group.id", groupId)
 	_ = kafkaConfigMap.SetKey("max.partition.fetch.bytes", MaxSizeToFetch)
 	_ = kafkaConfigMap.SetKey("fetch.message.max.bytes", MaxSizeToFetch)

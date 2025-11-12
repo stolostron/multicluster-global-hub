@@ -13,6 +13,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/consumer"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 // ConflationManager implements conflation units management.
@@ -76,6 +77,8 @@ func (cm *ConflationManager) GetMetadatas() []ConflationMetadata {
 	for _, cu := range cm.conflationUnits {
 		metadata = append(metadata, cu.getMetadatas()...)
 	}
+	log.Infow("manager get metadatas", "metadata", metadata)
+	utils.PrettyPrint(metadata)
 	return metadata
 }
 
