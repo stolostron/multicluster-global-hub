@@ -72,7 +72,7 @@ func (k *ConflationCommitter) commit() error {
 
 	databaseTransports := []models.Transport{}
 	for _, transPosition := range transPositions {
-		k.log.Infow("commit offset to database", "topic@partition",
+		k.log.Debugw("commit offset to database", "topic@partition",
 			positionKey(transPosition.Topic, transPosition.Partition), "offset", transPosition.Offset)
 		payload, err := json.Marshal(transport.EventPosition{
 			OwnerIdentity: config.GetKafkaOwnerIdentity(),
