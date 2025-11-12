@@ -176,7 +176,9 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 		if !receivedMessage {
 			receivedMessage = true
-			log.Infow("received message", "topic", event.Extensions()[kafka_confluent.KafkaTopicKey], "partition", event.Extensions()[kafka_confluent.KafkaPartitionKey], "offset", event.Extensions()[kafka_confluent.KafkaOffsetKey])
+			log.Infow("received message", "topic", event.Extensions()[kafka_confluent.KafkaTopicKey],
+				"partition", event.Extensions()[kafka_confluent.KafkaPartitionKey],
+				"offset", event.Extensions()[kafka_confluent.KafkaOffsetKey])
 		}
 
 		chunk, isChunk := c.assembler.messageChunk(event)
