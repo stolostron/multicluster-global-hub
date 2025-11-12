@@ -168,8 +168,6 @@ func (cu *ConflationUnit) getMetadatas() []ConflationMetadata {
 		metadatas = append(metadatas, element.Metadata())
 	}
 
-	log.Infow("get metadatas", "name", cu.name, "metadatas", metadatas)
-
 	return metadatas
 }
 
