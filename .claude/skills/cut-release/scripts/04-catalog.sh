@@ -416,7 +416,10 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     LATEST_PR_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}-pull-request.yaml"
     NEW_PR_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4${NEW_OCP_VER}-${CATALOG_TAG}-pull-request.yaml"
 
-    if [[ -f "$LATEST_PR_PIPELINE" ]]; then
+    if [[ -f "$NEW_PR_PIPELINE" ]]; then
+      echo "   ℹ️  Pipeline already exists: $NEW_PR_PIPELINE"
+      echo "   Skipping creation (may have been created by another PR or previous run)"
+    elif [[ -f "$LATEST_PR_PIPELINE" ]]; then
       cp "$LATEST_PR_PIPELINE" "$NEW_PR_PIPELINE"
       # Update all OCP version references (v420 -> v421, v4.20 -> v4.21, catalog-420 -> catalog-421)
       sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PR_PIPELINE"
@@ -433,7 +436,10 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     LATEST_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4$((PREV_OCP_MAX%100))-${PREV_CATALOG_TAG}-push.yaml"
     NEW_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-catalog-v4${NEW_OCP_VER}-${CATALOG_TAG}-push.yaml"
 
-    if [[ -f "$LATEST_PUSH_PIPELINE" ]]; then
+    if [[ -f "$NEW_PUSH_PIPELINE" ]]; then
+      echo "   ℹ️  Pipeline already exists: $NEW_PUSH_PIPELINE"
+      echo "   Skipping creation (may have been created by another PR or previous run)"
+    elif [[ -f "$LATEST_PUSH_PIPELINE" ]]; then
       cp "$LATEST_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
       # Update all OCP version references (v420 -> v421, v4.20 -> v4.21, catalog-420 -> catalog-421)
       sed "${SED_INPLACE[@]}" "s/v4$((PREV_OCP_MAX%100))/v4${NEW_OCP_VER}/g" "$NEW_PUSH_PIPELINE"
@@ -459,18 +465,21 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
     NEW_PUSH=".tekton/multicluster-global-hub-operator-catalog-v4${ocp_ver}-${CATALOG_TAG}-push.yaml"
 
     if [[ "$PREV_CATALOG_TAG" = "$CATALOG_TAG" ]]; then
-      # Same tag - just update branch references in place
+      # Same tag - pipeline should already exist
       if [[ -f "$NEW_PR" ]]; then
-        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PR"
-        echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
+        echo "   ℹ️  Pipeline already exists: v4${ocp_ver} pull-request"
+        echo "   Skipping modification (may have been updated by other PRs)"
       fi
       if [[ -f "$NEW_PUSH" ]]; then
-        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${CATALOG_BRANCH}/g" "$NEW_PUSH"
-        echo "   ✅ Updated v4${ocp_ver} push pipeline"
+        echo "   ℹ️  Pipeline already exists: v4${ocp_ver} push"
+        echo "   Skipping modification (may have been updated by other PRs)"
       fi
     else
-      # Different tags - rename and update all references
-      if [[ -f "$OLD_PR" ]]; then
+      # Different tags - check if new pipeline already exists first
+      if [[ -f "$NEW_PR" ]]; then
+        echo "   ℹ️  Pipeline already exists: v4${ocp_ver} pull-request"
+        echo "   Skipping modification (may have been created by another PR or previous run)"
+      elif [[ -f "$OLD_PR" ]]; then
         git mv "$OLD_PR" "$NEW_PR" 2>/dev/null || cp "$OLD_PR" "$NEW_PR"
         # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
         sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PR"
@@ -479,7 +488,10 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
         echo "   ✅ Updated v4${ocp_ver} pull-request pipeline"
       fi
 
-      if [[ -f "$OLD_PUSH" ]]; then
+      if [[ -f "$NEW_PUSH" ]]; then
+        echo "   ℹ️  Pipeline already exists: v4${ocp_ver} push"
+        echo "   Skipping modification (may have been created by another PR or previous run)"
+      elif [[ -f "$OLD_PUSH" ]]; then
         git mv "$OLD_PUSH" "$NEW_PUSH" 2>/dev/null || cp "$OLD_PUSH" "$NEW_PUSH"
         # Update catalog tag (globalhub-1-6 -> globalhub-1-7)
         sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$NEW_PUSH"
