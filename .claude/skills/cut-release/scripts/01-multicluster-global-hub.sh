@@ -341,9 +341,49 @@ else
   echo "   ⚠️  File not found: $WORKFLOW_FILE" >&2
 fi
 
-# Step 5.6: Update operator Makefile
+# Step 5.6: Update renovate.json baseBranches
 echo ""
-echo "📍 Step 5.6: Updating operator/Makefile..."
+echo "📍 Step 5.6: Updating renovate.json baseBranches..."
+
+RENOVATE_UPDATED=false
+RENOVATE_FILE="renovate.json"
+
+if [[ -f "$RENOVATE_FILE" ]]; then
+  # Calculate the branches to keep:
+  # - main (always)
+  # - previous release (PREV_RELEASE_BRANCH)
+  # - previous-1 release
+  # - previous-2 release
+  PREV_MINUS_1_ACM=$((PREV_ACM_MINOR - 1))
+  PREV_MINUS_2_ACM=$((PREV_ACM_MINOR - 2))
+
+  PREV_MINUS_1_BRANCH="release-${CURRENT_ACM_MAJOR}.${PREV_MINUS_1_ACM}"
+  PREV_MINUS_2_BRANCH="release-${CURRENT_ACM_MAJOR}.${PREV_MINUS_2_ACM}"
+
+  # New baseBranches: ["main", "release-X.Y", "release-X.Y-1", "release-X.Y-2"]
+  NEW_BASE_BRANCHES="[\"main\", \"${PREV_RELEASE_BRANCH}\", \"${PREV_MINUS_1_BRANCH}\", \"${PREV_MINUS_2_BRANCH}\"]"
+
+  echo "   Target baseBranches: $NEW_BASE_BRANCHES"
+
+  # Check current baseBranches
+  CURRENT_BASE_BRANCHES=$(grep '"baseBranches"' "$RENOVATE_FILE" | sed -E 's/.*"baseBranches": (\[.*\]).*/\1/' || echo "")
+  echo "   Current baseBranches: $CURRENT_BASE_BRANCHES"
+
+  if [[ "$CURRENT_BASE_BRANCHES" = "$NEW_BASE_BRANCHES" ]]; then
+    echo "   ℹ️  baseBranches already correct"
+  else
+    # Update baseBranches
+    sed "${SED_INPLACE[@]}" "s|\"baseBranches\": \[.*\]|\"baseBranches\": ${NEW_BASE_BRANCHES}|" "$RENOVATE_FILE"
+    echo "   ✅ Updated baseBranches to: $NEW_BASE_BRANCHES"
+    RENOVATE_UPDATED=true
+  fi
+else
+  echo "   ⚠️  File not found: $RENOVATE_FILE" >&2
+fi
+
+# Step 5.7: Update operator Makefile
+echo ""
+echo "📍 Step 5.7: Updating operator/Makefile..."
 
 MAKEFILE_UPDATED=false
 OPERATOR_MAKEFILE="operator/Makefile"
@@ -378,9 +418,9 @@ else
   echo "   ⚠️  File not found: $OPERATOR_MAKEFILE" >&2
 fi
 
-# Step 5.7: Update CSV skipRange and ACM version
+# Step 5.8: Update CSV (skipRange, ACM version, maturity)
 echo ""
-echo "📍 Step 5.7: Updating CSV skipRange and ACM version..."
+echo "📍 Step 5.8: Updating CSV (skipRange, ACM version, maturity)..."
 
 CSV_UPDATED=false
 CSV_FILE="operator/config/manifests/bases/multicluster-global-hub-operator.clusterserviceversion.yaml"
@@ -429,13 +469,37 @@ if [[ -f "$CSV_FILE" ]]; then
       echo "   ⚠️  No ACM version reference found in $CSV_FILE" >&2
     fi
   fi
+
+  # Update maturity field (Global Hub release version)
+  echo ""
+  echo "   Updating maturity field..."
+  if grep -q "maturity: release-${PREV_GH_VERSION_SHORT}" "$CSV_FILE"; then
+    sed "${SED_INPLACE[@]}" "s/maturity: release-${PREV_GH_VERSION_SHORT}/maturity: release-${GH_VERSION_SHORT}/" "$CSV_FILE"
+    echo "   ✅ Updated maturity: release-${PREV_GH_VERSION_SHORT} -> release-${GH_VERSION_SHORT}"
+    CSV_UPDATED=true
+  elif grep -q "maturity: release-${GH_VERSION_SHORT}" "$CSV_FILE"; then
+    echo "   ℹ️  Maturity already set to release-${GH_VERSION_SHORT}"
+  else
+    # Try to find any maturity value
+    CURRENT_MATURITY=$(grep "maturity:" "$CSV_FILE" | sed -E 's/.*maturity: (.*)/\1/' | head -1 || echo "")
+    if [[ -n "$CURRENT_MATURITY" ]]; then
+      echo "   ⚠️  Found unexpected maturity: $CURRENT_MATURITY" >&2
+      echo "   ⚠️  Expected: release-${PREV_GH_VERSION_SHORT} or release-${GH_VERSION_SHORT}" >&2
+      # Update anyway
+      sed "${SED_INPLACE[@]}" "s/maturity: ${CURRENT_MATURITY}/maturity: release-${GH_VERSION_SHORT}/" "$CSV_FILE"
+      echo "   ✅ Updated maturity: $CURRENT_MATURITY -> release-${GH_VERSION_SHORT}"
+      CSV_UPDATED=true
+    else
+      echo "   ⚠️  No maturity field found in $CSV_FILE" >&2
+    fi
+  fi
 else
   echo "   ⚠️  File not found: $CSV_FILE" >&2
 fi
 
-# Step 5.8: Generate operator bundle
+# Step 5.9: Generate operator bundle
 echo ""
-echo "📍 Step 5.8: Generating operator bundle..."
+echo "📍 Step 5.9: Generating operator bundle..."
 
 # Only run if Makefile or CSV was updated
 if [[ "$MAKEFILE_UPDATED" = true || "$CSV_UPDATED" = true ]]; then
@@ -485,6 +549,7 @@ else
   git add .tekton/ 2>/dev/null || true
   git add -- */Containerfile.* 2>/dev/null || true
   git add .github/workflows/ 2>/dev/null || true
+  git add renovate.json 2>/dev/null || true
   git add operator/ 2>/dev/null || true
 
   git commit --signoff -m "Add ${RELEASE_BRANCH} pipeline configurations
@@ -493,8 +558,9 @@ else
 - Remove previous release pipeline files (${PREV_TAG})
 - Update Containerfile version labels to release-${GH_VERSION_SHORT}
 - Update GitHub workflow bundle branch to release-${GH_VERSION_SHORT}
+- Update renovate.json baseBranches (maintain main + last 3 releases)
 - Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
-- Update CSV skipRange and ACM version in documentation URL
+- Update CSV (skipRange, ACM version, maturity)
 - Regenerate operator bundle
 
 ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
@@ -612,8 +678,9 @@ Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
 - Remove previous release pipeline files (\`${PREV_TAG}\`)
 - Update Containerfile version labels to \`release-${GH_VERSION_SHORT}\`
 - Update GitHub workflow bundle branch to \`release-${GH_VERSION_SHORT}\`
+- Update renovate.json baseBranches (maintain main + last 3 releases)
 - Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
-- Update CSV skipRange and ACM version in documentation URL
+- Update CSV (skipRange, ACM version, maturity)
 - Regenerate operator bundle
 
 ## Release Info
