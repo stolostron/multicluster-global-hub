@@ -37,7 +37,8 @@ if [[ -z "$RELEASE_BRANCH" || -z "$GH_VERSION" || -z "$GH_VERSION_SHORT" || -z "
 fi
 
 # Always use temporary directory for clean clone
-WORK_DIR="${WORK_DIR:-/tmp/multicluster-global-hub-release}"
+WORK_DIR="${WORK_DIR:-/tmp/globalhub-release-repos}"
+REPO_PATH="${WORK_DIR}/multicluster-global-hub-release"
 
 # Detect OS and set sed in-place flag
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -74,16 +75,17 @@ echo "$SEPARATOR_LINE"
 echo ""
 echo "📍 Step 1: Cloning repository..."
 
-# Remove existing work directory for clean clone
-if [[ -d "$WORK_DIR" ]]; then
-  echo "   Removing existing work directory..."
-  rm -rf "$WORK_DIR"
+# Create work directory and remove existing repo for clean clone
+mkdir -p "$WORK_DIR"
+if [[ -d "$REPO_PATH" ]]; then
+  echo "   Removing existing repository directory..."
+  rm -rf "$REPO_PATH"
 fi
 
 # Clone from upstream with shallow clone for speed
 echo "   Cloning ${REPO_ORG}/${REPO_NAME} (--depth=1 for faster clone)..."
-git clone --depth=1 --single-branch --branch main --progress "https://github.com/${REPO_ORG}/${REPO_NAME}.git" "$WORK_DIR" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-cd "$WORK_DIR"
+git clone --depth=1 --single-branch --branch main --progress "https://github.com/${REPO_ORG}/${REPO_NAME}.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+cd "$REPO_PATH"
 
 # Setup remotes: origin (fork) and upstream (stolostron)
 echo "   Setting up git remotes..."
@@ -99,7 +101,7 @@ UPSTREAM_URL=$(git remote get-url upstream)
 echo "   ✅ Repository cloned and configured:"
 echo "      origin (fork): $ORIGIN_URL"
 echo "      upstream: $UPSTREAM_URL"
-echo "   ✅ Repository ready at $WORK_DIR"
+echo "   ✅ Repository ready at $REPO_PATH"
 
 # Step 2: Calculate previous release version based on current release
 echo ""
@@ -241,6 +243,21 @@ else
 
   if [[ "$TEKTON_UPDATED" = true ]]; then
     echo "   ✅ Tekton files updated"
+
+    # Remove previous release pipeline files
+    echo ""
+    echo "   Removing previous release pipeline files..."
+    PREV_TAG="globalhub-${PREV_GH_VERSION_SHORT//./-}"
+
+    for component in agent manager operator; do
+      for pipeline_type in pull-request push; do
+        OLD_FILE=".tekton/multicluster-global-hub-${component}-${PREV_TAG}-${pipeline_type}.yaml"
+        if [[ -f "$OLD_FILE" ]]; then
+          git rm "$OLD_FILE" 2>/dev/null || rm -f "$OLD_FILE"
+          echo "   ✅ Removed: $OLD_FILE"
+        fi
+      done
+    done
   else
     echo "   ⚠️  No updates needed" >&2
   fi
@@ -294,12 +311,14 @@ fi
 echo ""
 echo "📍 Step 5.5: Updating operator/Makefile..."
 
+MAKEFILE_UPDATED=false
 OPERATOR_MAKEFILE="operator/Makefile"
 if [[ -f "$OPERATOR_MAKEFILE" ]]; then
   # Update VERSION
   if grep -q "VERSION ?= ${PREV_GH_VERSION_SHORT}.0-dev" "$OPERATOR_MAKEFILE"; then
     sed "${SED_INPLACE[@]}" "s/VERSION ?= ${PREV_GH_VERSION_SHORT}.0-dev/VERSION ?= ${GH_VERSION_SHORT}.0-dev/g" "$OPERATOR_MAKEFILE"
     echo "   ✅ Updated VERSION: ${PREV_GH_VERSION_SHORT}.0-dev -> ${GH_VERSION_SHORT}.0-dev"
+    MAKEFILE_UPDATED=true
   else
     echo "   ℹ️  VERSION already set or different pattern"
   fi
@@ -308,6 +327,7 @@ if [[ -f "$OPERATOR_MAKEFILE" ]]; then
   if grep -q "CHANNELS = \"release-${PREV_GH_VERSION_SHORT}\"" "$OPERATOR_MAKEFILE"; then
     sed "${SED_INPLACE[@]}" "s/CHANNELS = \"release-${PREV_GH_VERSION_SHORT}\"/CHANNELS = \"release-${GH_VERSION_SHORT}\"/g" "$OPERATOR_MAKEFILE"
     echo "   ✅ Updated CHANNELS: release-${PREV_GH_VERSION_SHORT} -> release-${GH_VERSION_SHORT}"
+    MAKEFILE_UPDATED=true
   else
     echo "   ℹ️  CHANNELS already set or different pattern"
   fi
@@ -316,6 +336,7 @@ if [[ -f "$OPERATOR_MAKEFILE" ]]; then
   if grep -q "DEFAULT_CHANNEL = \"release-${PREV_GH_VERSION_SHORT}\"" "$OPERATOR_MAKEFILE"; then
     sed "${SED_INPLACE[@]}" "s/DEFAULT_CHANNEL = \"release-${PREV_GH_VERSION_SHORT}\"/DEFAULT_CHANNEL = \"release-${GH_VERSION_SHORT}\"/g" "$OPERATOR_MAKEFILE"
     echo "   ✅ Updated DEFAULT_CHANNEL: release-${PREV_GH_VERSION_SHORT} -> release-${GH_VERSION_SHORT}"
+    MAKEFILE_UPDATED=true
   else
     echo "   ℹ️  DEFAULT_CHANNEL already set or different pattern"
   fi
@@ -327,6 +348,7 @@ fi
 echo ""
 echo "📍 Step 5.6: Updating CSV skipRange..."
 
+CSV_UPDATED=false
 CSV_FILE="operator/config/manifests/bases/multicluster-global-hub-operator.clusterserviceversion.yaml"
 if [[ -f "$CSV_FILE" ]]; then
   CURRENT_MINOR="${GH_VERSION_SHORT#*.}"
@@ -343,6 +365,7 @@ if [[ -f "$CSV_FILE" ]]; then
   if [[ "$CURRENT_SKIP_RANGE" != "$EXPECTED_SKIP_RANGE" ]]; then
     sed "${SED_INPLACE[@]}" "s/olm.skipRange: '>=[0-9.]*[0-9] <[0-9.]*[0-9]'/olm.skipRange: '${EXPECTED_SKIP_RANGE}'/g" "$CSV_FILE"
     echo "   ✅ Updated skipRange to: $EXPECTED_SKIP_RANGE"
+    CSV_UPDATED=true
   else
     echo "   ✓ skipRange already correct"
   fi
@@ -354,34 +377,39 @@ fi
 echo ""
 echo "📍 Step 5.7: Generating operator bundle..."
 
-if [[ -d "operator" ]]; then
-  cd operator
+# Only run if Makefile or CSV was updated
+if [[ "$MAKEFILE_UPDATED" = true || "$CSV_UPDATED" = true ]]; then
+  if [[ -d "operator" ]]; then
+    cd operator
 
-  echo "   Running: make generate"
-  if make generate >/dev/null 2>&1; then
-    echo "   ✅ make generate completed"
+    echo "   Running: make generate"
+    if make generate >/dev/null 2>&1; then
+      echo "   ✅ make generate completed"
+    else
+      echo "   ⚠️  make generate had warnings (may be expected)"
+    fi
+
+    echo "   Running: make fmt"
+    if make fmt >/dev/null 2>&1; then
+      echo "   ✅ make fmt completed"
+    else
+      echo "   ⚠️  make fmt had warnings (may be expected)"
+    fi
+
+    echo "   Running: make bundle"
+    if make bundle >/dev/null 2>&1; then
+      echo "   ✅ make bundle completed"
+    else
+      echo "   ⚠️  make bundle had warnings (may be expected)"
+    fi
+
+    cd ..
+    echo "   ✅ Operator bundle generated"
   else
-    echo "   ⚠️  make generate had warnings (may be expected)"
+    echo "   ⚠️  operator directory not found" >&2
   fi
-
-  echo "   Running: make fmt"
-  if make fmt >/dev/null 2>&1; then
-    echo "   ✅ make fmt completed"
-  else
-    echo "   ⚠️  make fmt had warnings (may be expected)"
-  fi
-
-  echo "   Running: make bundle"
-  if make bundle >/dev/null 2>&1; then
-    echo "   ✅ make bundle completed"
-  else
-    echo "   ⚠️  make bundle had warnings (may be expected)"
-  fi
-
-  cd ..
-  echo "   ✅ Operator bundle generated"
 else
-  echo "   ⚠️  operator directory not found" >&2
+  echo "   ℹ️  Skipping bundle generation (Makefile and CSV unchanged)"
 fi
 
 # Step 6: Commit changes for main branch PR
