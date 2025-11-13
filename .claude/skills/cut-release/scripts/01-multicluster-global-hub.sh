@@ -307,9 +307,43 @@ else
   echo "   ⚠️  No updates needed" >&2
 fi
 
-# Step 5.5: Update operator Makefile
+# Step 5.5: Update GitHub workflow files
 echo ""
-echo "📍 Step 5.5: Updating operator/Makefile..."
+echo "📍 Step 5.5: Updating GitHub workflow files..."
+
+WORKFLOW_UPDATED=false
+WORKFLOW_FILE=".github/workflows/go.yml"
+
+if [[ -f "$WORKFLOW_FILE" ]]; then
+  # Update bundle branch reference from previous to current version
+  if grep -q "multicluster-global-hub-operator-bundle.git -b release-${PREV_GH_VERSION_SHORT}" "$WORKFLOW_FILE"; then
+    sed "${SED_INPLACE[@]}" "s|multicluster-global-hub-operator-bundle.git -b release-${PREV_GH_VERSION_SHORT}|multicluster-global-hub-operator-bundle.git -b release-${GH_VERSION_SHORT}|g" "$WORKFLOW_FILE"
+    echo "   ✅ Updated bundle branch: release-${PREV_GH_VERSION_SHORT} -> release-${GH_VERSION_SHORT}"
+    WORKFLOW_UPDATED=true
+  elif grep -q "multicluster-global-hub-operator-bundle.git -b release-${GH_VERSION_SHORT}" "$WORKFLOW_FILE"; then
+    echo "   ℹ️  Bundle branch already set to release-${GH_VERSION_SHORT}"
+    WORKFLOW_UPDATED=true
+  else
+    # Try to find any bundle branch reference
+    CURRENT_BUNDLE_BRANCH=$(grep "multicluster-global-hub-operator-bundle.git -b" "$WORKFLOW_FILE" | sed -E 's/.*-b (release-[0-9.]+).*/\1/' | head -1 || echo "")
+    if [[ -n "$CURRENT_BUNDLE_BRANCH" ]]; then
+      echo "   ⚠️  Found unexpected bundle branch: $CURRENT_BUNDLE_BRANCH" >&2
+      echo "   ⚠️  Expected: release-${PREV_GH_VERSION_SHORT} or release-${GH_VERSION_SHORT}" >&2
+      # Update anyway
+      sed "${SED_INPLACE[@]}" "s|multicluster-global-hub-operator-bundle.git -b ${CURRENT_BUNDLE_BRANCH}|multicluster-global-hub-operator-bundle.git -b release-${GH_VERSION_SHORT}|g" "$WORKFLOW_FILE"
+      echo "   ✅ Updated bundle branch: $CURRENT_BUNDLE_BRANCH -> release-${GH_VERSION_SHORT}"
+      WORKFLOW_UPDATED=true
+    else
+      echo "   ⚠️  No bundle branch reference found in $WORKFLOW_FILE" >&2
+    fi
+  fi
+else
+  echo "   ⚠️  File not found: $WORKFLOW_FILE" >&2
+fi
+
+# Step 5.6: Update operator Makefile
+echo ""
+echo "📍 Step 5.6: Updating operator/Makefile..."
 
 MAKEFILE_UPDATED=false
 OPERATOR_MAKEFILE="operator/Makefile"
@@ -344,9 +378,9 @@ else
   echo "   ⚠️  File not found: $OPERATOR_MAKEFILE" >&2
 fi
 
-# Step 5.6: Update CSV skipRange
+# Step 5.7: Update CSV skipRange
 echo ""
-echo "📍 Step 5.6: Updating CSV skipRange..."
+echo "📍 Step 5.7: Updating CSV skipRange..."
 
 CSV_UPDATED=false
 CSV_FILE="operator/config/manifests/bases/multicluster-global-hub-operator.clusterserviceversion.yaml"
@@ -373,9 +407,9 @@ else
   echo "   ⚠️  File not found: $CSV_FILE" >&2
 fi
 
-# Step 5.7: Generate operator bundle
+# Step 5.8: Generate operator bundle
 echo ""
-echo "📍 Step 5.7: Generating operator bundle..."
+echo "📍 Step 5.8: Generating operator bundle..."
 
 # Only run if Makefile or CSV was updated
 if [[ "$MAKEFILE_UPDATED" = true || "$CSV_UPDATED" = true ]]; then
@@ -424,16 +458,18 @@ else
   # Stage all changes (including operator bundle generated files)
   git add .tekton/ 2>/dev/null || true
   git add -- */Containerfile.* 2>/dev/null || true
+  git add .github/workflows/ 2>/dev/null || true
   git add operator/ 2>/dev/null || true
 
   git commit --signoff -m "Add ${RELEASE_BRANCH} pipeline configurations
 
 - Add new .tekton/ pipelines for ${NEW_TAG} (target_branch=main)
+- Remove previous release pipeline files (${PREV_TAG})
 - Update Containerfile version labels to release-${GH_VERSION_SHORT}
+- Update GitHub workflow bundle branch to release-${GH_VERSION_SHORT}
 - Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
 - Update CSV skipRange to >=${PREV_GH_VERSION_SHORT}.0 <${GH_VERSION_SHORT}.0
 - Regenerate operator bundle
-- Keep existing ${PREV_TAG} pipelines for backward compatibility
 
 ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
 
@@ -537,7 +573,7 @@ if [[ "$MAIN_CHANGES_COMMITTED" = true ]]; then
         --repo "${REPO_ORG}/${REPO_NAME}" \
         --base main \
         --head "${PR_HEAD}" \
-        --title "Add ${RELEASE_BRANCH} tekton pipelines and update Containerfile versions" \
+        --title "Add ${RELEASE_BRANCH} tekton pipelines and update configurations" \
         --body "## Summary
 
 Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
@@ -547,8 +583,12 @@ Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
 - Add new .tekton/ pipeline files for \`${NEW_TAG}\`:
   - \`*-pull-request.yaml\`: \`target_branch=main\`
   - \`*-push.yaml\`: \`target_branch=${RELEASE_BRANCH}\`
+- Remove previous release pipeline files (\`${PREV_TAG}\`)
 - Update Containerfile version labels to \`release-${GH_VERSION_SHORT}\`
-- Keep existing \`${PREV_TAG}\` pipelines for backward compatibility
+- Update GitHub workflow bundle branch to \`release-${GH_VERSION_SHORT}\`
+- Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
+- Update CSV skipRange
+- Regenerate operator bundle
 
 ## Release Info
 
@@ -557,7 +597,7 @@ Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
 
 ## Note
 
-This PR adds the new release pipeline configurations to main branch while preserving the existing pipelines." 2>&1) || true
+This PR updates all necessary configurations for the new release on the main branch." 2>&1) || true
 
       # Check if PR was successfully created or already exists
       if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
