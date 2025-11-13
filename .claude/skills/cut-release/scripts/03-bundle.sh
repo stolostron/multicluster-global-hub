@@ -35,11 +35,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   SED_INPLACE=(-i "")
 else
   SED_INPLACE=(-i)
+fi
 
 # Constants for repeated patterns
 readonly NULL_PR_VALUE='null|null'
 readonly SEPARATOR_LINE='================================================'
-fi
 
 echo "🚀 Operator Bundle Release"
 echo "$SEPARATOR_LINE"
@@ -88,6 +88,76 @@ fi
 echo "🔄 Fetching release branches..."
 git fetch origin 'refs/heads/release-*:refs/remotes/origin/release-*' --progress 2>&1 | grep -E "Receiving|Resolving|new branch" || true
 echo "   ✅ Release branches fetched"
+
+# Step 0.1: Determine bundle source from multicluster-global-hub
+echo ""
+echo "📍 Step 0.1: Determining bundle source from multicluster-global-hub..."
+
+MGH_REPO_PATH="${WORK_DIR}/multicluster-global-hub-release"
+SOURCE_BUNDLE_DIR=""
+BUNDLE_SOURCE_DESCRIPTION=""
+
+# Check if MGH repository exists (script 01 must have run)
+if [[ ! -d "$MGH_REPO_PATH/.git" ]]; then
+  echo "   ❌ Error: multicluster-global-hub repository not found at $MGH_REPO_PATH" >&2
+  echo "   Script 01 must be run first to generate the operator bundle" >&2
+  exit 1
+fi
+
+cd "$MGH_REPO_PATH"
+
+# Check for PR to main branch (created by script 01)
+echo "   Checking for multicluster-global-hub PR to main branch..."
+MGH_MAIN_PR=$(gh pr list \
+  --repo "stolostron/multicluster-global-hub" \
+  --base main \
+  --state open \
+  --search "Add ${RELEASE_BRANCH} pipeline configurations" \
+  --json number,url,headRefName \
+  --jq '.[0] | select(. != null) | "\(.number)|\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
+
+if [[ -n "$MGH_MAIN_PR" && "$MGH_MAIN_PR" != "null|null|" ]]; then
+  # PR exists - use bundle from PR branch (latest updates before merge)
+  PR_NUMBER=$(echo "$MGH_MAIN_PR" | cut -d'|' -f1)
+  PR_URL=$(echo "$MGH_MAIN_PR" | cut -d'|' -f2)
+  PR_BRANCH=$(echo "$MGH_MAIN_PR" | cut -d'|' -f3)
+
+  echo "   ✅ Found PR #$PR_NUMBER to main: $PR_URL"
+  echo "   Branch: $PR_BRANCH"
+
+  # Checkout the PR branch to get the latest bundle
+  echo "   Checking out PR branch: $PR_BRANCH"
+  git fetch origin "$PR_BRANCH" 2>/dev/null || true
+  git checkout "$PR_BRANCH" 2>/dev/null || git checkout -B "$PR_BRANCH" "origin/$PR_BRANCH"
+
+  SOURCE_BUNDLE_DIR="$MGH_REPO_PATH/operator/bundle"
+  BUNDLE_SOURCE_DESCRIPTION="PR #$PR_NUMBER branch ($PR_BRANCH)"
+  echo "   ✅ Using bundle from PR branch: $PR_BRANCH"
+else
+  # No PR - use bundle from main branch (normal case after PR is merged)
+  echo "   ℹ️  No open PR to main found"
+  echo "   Using main branch (normal case after PR merge)..."
+
+  # Checkout main branch
+  git fetch origin main 2>/dev/null || true
+  git checkout -B main origin/main 2>/dev/null || true
+
+  SOURCE_BUNDLE_DIR="$MGH_REPO_PATH/operator/bundle"
+  BUNDLE_SOURCE_DESCRIPTION="main branch"
+  echo "   ✅ Using bundle from main branch"
+fi
+
+# Verify bundle directory exists
+if [[ ! -d "$SOURCE_BUNDLE_DIR" ]]; then
+  echo "   ❌ Error: Bundle directory not found at $SOURCE_BUNDLE_DIR" >&2
+  exit 1
+fi
+
+echo "   ✅ Bundle source: $BUNDLE_SOURCE_DESCRIPTION"
+echo "   📁 Path: $SOURCE_BUNDLE_DIR"
+
+# Return to bundle repo
+cd "$REPO_PATH"
 
 # Find latest bundle release branch
 LATEST_BUNDLE_RELEASE=$(git branch -r | grep -E 'origin/release-[0-9]+\.[0-9]+$' | \
@@ -181,6 +251,49 @@ fi
 
 echo ""
 
+# Step 0: Copy bundle content from multicluster-global-hub operator
+echo "📍 Step 0: Copying bundle content from multicluster-global-hub operator..."
+echo "   Source: $BUNDLE_SOURCE_DESCRIPTION"
+echo "   Path: $SOURCE_BUNDLE_DIR"
+echo "   Target: bundle/"
+
+# Backup existing bundle directory
+if [[ -d "bundle" ]]; then
+  echo "   Backing up existing bundle directory..."
+  rm -rf bundle.backup 2>/dev/null || true
+  cp -r bundle bundle.backup
+fi
+
+# Remove existing bundle content (except .git if it exists)
+echo "   Removing old bundle content..."
+rm -rf bundle/manifests bundle/metadata bundle/tests 2>/dev/null || true
+
+# Copy new bundle content
+echo "   Copying new bundle content..."
+mkdir -p bundle
+
+if [[ -d "$SOURCE_BUNDLE_DIR/manifests" ]]; then
+  cp -r "$SOURCE_BUNDLE_DIR/manifests" bundle/
+  echo "   ✅ Copied manifests/ ($(ls -1 "$SOURCE_BUNDLE_DIR/manifests" | wc -l | tr -d ' ') files)"
+fi
+
+if [[ -d "$SOURCE_BUNDLE_DIR/metadata" ]]; then
+  cp -r "$SOURCE_BUNDLE_DIR/metadata" bundle/
+  echo "   ✅ Copied metadata/"
+fi
+
+if [[ -d "$SOURCE_BUNDLE_DIR/tests" ]]; then
+  cp -r "$SOURCE_BUNDLE_DIR/tests" bundle/
+  echo "   ✅ Copied tests/"
+fi
+
+# Stage the copied files
+git add bundle/ 2>/dev/null || true
+
+echo "   ✅ Bundle content copied from $BUNDLE_SOURCE_DESCRIPTION"
+
+echo ""
+
 # Step 1: Update imageDigestMirrorSet (.tekton/images_digest_mirror_set.yaml)
 echo "📍 Step 1: Updating imageDigestMirrorSet..."
 
@@ -227,7 +340,21 @@ if [[ -n "$PREV_BUNDLE_TAG" ]]; then
     sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
     echo "   ✅ Renamed and updated $NEW_PR_PIPELINE"
   else
-    echo "   ⚠️  Old pull-request pipeline not found: $OLD_PR_PIPELINE" >&2
+    echo "   ⚠️  Old pull-request pipeline not found locally: $OLD_PR_PIPELINE" >&2
+    echo "   Attempting to fetch from origin/$BASE_BRANCH..."
+
+    # Try to fetch from previous release branch
+    if git show "origin/$BASE_BRANCH:$OLD_PR_PIPELINE" > "$NEW_PR_PIPELINE" 2>/dev/null; then
+      echo "   ✅ Copied from origin/$BASE_BRANCH:$OLD_PR_PIPELINE"
+
+      # Update references in the new file
+      sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PR_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
+      git add "$NEW_PR_PIPELINE"
+      echo "   ✅ Created and updated $NEW_PR_PIPELINE"
+    else
+      echo "   ❌ Failed to fetch pipeline from origin/$BASE_BRANCH" >&2
+    fi
   fi
 else
   echo "   ⚠️  No previous bundle tag found, skipping pipeline update" >&2
@@ -260,7 +387,21 @@ if [[ -n "$PREV_BUNDLE_TAG" ]]; then
     sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
     echo "   ✅ Renamed and updated $NEW_PUSH_PIPELINE"
   else
-    echo "   ⚠️  Old push pipeline not found: $OLD_PUSH_PIPELINE" >&2
+    echo "   ⚠️  Old push pipeline not found locally: $OLD_PUSH_PIPELINE" >&2
+    echo "   Attempting to fetch from origin/$BASE_BRANCH..."
+
+    # Try to fetch from previous release branch
+    if git show "origin/$BASE_BRANCH:$OLD_PUSH_PIPELINE" > "$NEW_PUSH_PIPELINE" 2>/dev/null; then
+      echo "   ✅ Copied from origin/$BASE_BRANCH:$OLD_PUSH_PIPELINE"
+
+      # Update references in the new file
+      sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PUSH_PIPELINE"
+      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
+      git add "$NEW_PUSH_PIPELINE"
+      echo "   ✅ Created and updated $NEW_PUSH_PIPELINE"
+    else
+      echo "   ❌ Failed to fetch pipeline from origin/$BASE_BRANCH" >&2
+    fi
   fi
 else
   echo "   ⚠️  No previous bundle tag found, skipping pipeline update" >&2
@@ -288,6 +429,44 @@ else
   echo "   ⚠️  No bundle manifest files found" >&2
 fi
 
+# Step 4.5: Update CSV skipRange
+echo ""
+echo "📍 Step 4.5: Updating CSV skipRange..."
+
+CSV_FILE=$(find . -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
+if [[ -n "$CSV_FILE" && -f "$CSV_FILE" && -n "$PREV_BUNDLE_VERSION" ]]; then
+  # Calculate the previous minor version for skipRange
+  # Current: 1.7, Previous: 1.6, skipRange should be: ">=1.6.0 <1.7.0"
+  CURRENT_MINOR="${BUNDLE_VERSION#*.}"
+  CURRENT_MINOR="${CURRENT_MINOR%%.*}"  # Extract minor version (e.g., 7 from 1.7.0)
+  PREV_MINOR=$((CURRENT_MINOR - 1))
+
+  EXPECTED_SKIP_RANGE=">=1.${PREV_MINOR}.0 <1.${CURRENT_MINOR}.0"
+
+  echo "   CSV file: $CSV_FILE"
+  echo "   Expected skipRange: '$EXPECTED_SKIP_RANGE'"
+
+  # Check current skipRange
+  CURRENT_SKIP_RANGE=$(grep "olm.skipRange:" "$CSV_FILE" | sed -E "s/.*olm.skipRange: '(.*)'/\1/")
+  echo "   Current skipRange: '$CURRENT_SKIP_RANGE'"
+
+  if [[ "$CURRENT_SKIP_RANGE" != "$EXPECTED_SKIP_RANGE" ]]; then
+    echo "   Updating skipRange..."
+    # Match the previous pattern and replace with current
+    PREV_PREV_MINOR=$((PREV_MINOR - 1))
+    sed "${SED_INPLACE[@]}" "s/olm.skipRange: '>=[0-9.]*[0-9] <[0-9.]*[0-9]'/olm.skipRange: '${EXPECTED_SKIP_RANGE}'/" "$CSV_FILE"
+    echo "   ✅ Updated skipRange to '${EXPECTED_SKIP_RANGE}'"
+  else
+    echo "   ✓ skipRange already correct"
+  fi
+else
+  if [[ -z "$CSV_FILE" ]]; then
+    echo "   ⚠️  CSV file not found" >&2
+  elif [[ -z "$PREV_BUNDLE_VERSION" ]]; then
+    echo "   ⚠️  No previous bundle version found, skipping skipRange update" >&2
+  fi
+fi
+
 # Step 5: Update konflux-patch.sh
 echo ""
 echo "📍 Step 5: Updating konflux-patch.sh..."
@@ -300,9 +479,22 @@ if [[ -f "$KONFLUX_SCRIPT" ]]; then
     echo "   To:       *-${BUNDLE_TAG}"
 
     sed "${SED_INPLACE[@]}" "s/\([a-z-]*\)-${PREV_BUNDLE_TAG}/\1-${BUNDLE_TAG}/g" "$KONFLUX_SCRIPT"
-    echo "   ✅ Updated $KONFLUX_SCRIPT"
+    echo "   ✅ Updated image references"
   else
-    echo "   ⚠️  No previous bundle tag found, skipping update" >&2
+    echo "   ⚠️  No previous bundle tag found, skipping image reference update" >&2
+  fi
+
+  # Update version replacement in konflux-patch.sh
+  if [[ -n "$PREV_BUNDLE_VERSION" ]]; then
+    echo "   Updating version replacement in $KONFLUX_SCRIPT"
+    echo "   Changing: ${PREV_BUNDLE_VERSION}.0-dev → ${PREV_BUNDLE_VERSION}.0"
+    echo "   To:       ${BUNDLE_VERSION}.0-dev → ${BUNDLE_VERSION}.0"
+
+    # Replace the sed command that changes version from X.Y.0-dev to X.Y.0
+    sed "${SED_INPLACE[@]}" "s|${PREV_BUNDLE_VERSION}.0-dev\|${PREV_BUNDLE_VERSION}.0|${BUNDLE_VERSION}.0-dev\|${BUNDLE_VERSION}.0|g" "$KONFLUX_SCRIPT"
+    echo "   ✅ Updated version replacement"
+  else
+    echo "   ⚠️  No previous bundle version found, skipping version update" >&2
   fi
 else
   echo "   ⚠️  File not found: $KONFLUX_SCRIPT" >&2
@@ -320,13 +512,18 @@ else
 
   COMMIT_MSG="Update bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})
 
+- Copy latest operator bundle from multicluster-global-hub ${BUNDLE_SOURCE_DESCRIPTION}
+  (manifests, metadata, tests)
 - Update imageDigestMirrorSet to use ${BUNDLE_TAG}
 - Rename and update pull-request pipeline for ${BUNDLE_TAG}
 - Rename and update push pipeline for ${BUNDLE_TAG}
 - Update bundle image labels to ${BUNDLE_VERSION}
+- Update CSV skipRange to '>=${PREV_BUNDLE_VERSION}.0 <${BUNDLE_VERSION}.0'
 - Update konflux-patch.sh image references to ${BUNDLE_TAG}
+- Update konflux-patch.sh version replacement to ${BUNDLE_VERSION}.0
 
-Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
+Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}
+Bundle source: ${BUNDLE_SOURCE_DESCRIPTION}"
 
   git commit --signoff -m "$COMMIT_MSG"
   echo "   ✅ Changes committed"
@@ -363,14 +560,29 @@ fi
         --base "$BUNDLE_BRANCH" \
         --state open \
         --search "Update ${BUNDLE_BRANCH} bundle configuration" \
-        --json number,url,state \
-        --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
+        --json number,url,state,headRefName \
+        --jq '.[0] | select(. != null) | "\(.state)|\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
 
       if [[ -n "$EXISTING_PR" && "$EXISTING_PR" != "$NULL_PR_VALUE" ]]; then
         PR_STATE=$(echo "$EXISTING_PR" | cut -d'|' -f1)
         PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+        EXISTING_BRANCH=$(echo "$EXISTING_PR" | cut -d'|' -f3)
         echo "   ℹ️  PR already exists (state: $PR_STATE): $PR_URL"
-        PR_CREATED=true
+        echo "   Updating existing PR branch: $EXISTING_BRANCH"
+
+        # Push updates to existing PR branch
+        if [[ "$FORK_EXISTS" = false ]]; then
+          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
+          PR_CREATED=false
+        else
+          if git push -f fork "$BUNDLE_BRANCH:$EXISTING_BRANCH" 2>&1; then
+            echo "   ✅ PR updated with latest changes"
+            PR_CREATED=true
+          else
+            echo "   ⚠️  Failed to push updates to PR" >&2
+            PR_CREATED=false
+          fi
+        fi
       else
         # Create a unique branch name for the PR
         PR_BRANCH="${BUNDLE_BRANCH}-update-$(date +%s)"
@@ -391,11 +603,14 @@ fi
 
 ## Changes
 
+- Copy latest operator bundle from multicluster-global-hub (manifests, metadata, tests)
 - Update imageDigestMirrorSet to use \`${BUNDLE_TAG}\`
 - Rename and update pull-request pipeline for \`${BUNDLE_TAG}\`
 - Rename and update push pipeline for \`${BUNDLE_TAG}\`
 - Update bundle image labels to \`${BUNDLE_VERSION}\`
+- Update CSV skipRange to \`>=${PREV_BUNDLE_VERSION}.0 <${BUNDLE_VERSION}.0\`
 - Update konflux-patch.sh image references to \`${BUNDLE_TAG}\`
+- Update konflux-patch.sh version replacement to \`${BUNDLE_VERSION}.0\`
 
 ## Version Mapping
 
@@ -546,12 +761,14 @@ echo ""
 echo "✅ COMPLETED TASKS:"
 echo "  ✓ Bundle branch: $BUNDLE_BRANCH (from $BASE_BRANCH)"
 if [[ "$CHANGES_COMMITTED" = true ]]; then
+  echo "  ✓ Copied operator bundle from: $BUNDLE_SOURCE_DESCRIPTION"
   echo "  ✓ Updated imageDigestMirrorSet to ${BUNDLE_TAG}"
 fi
 if [[ -n "$PREV_BUNDLE_TAG" ]]; then
   echo "  ✓ Renamed tekton pipelines (${PREV_BUNDLE_TAG} → ${BUNDLE_TAG})"
   echo "  ✓ Updated bundle image labels to ${BUNDLE_VERSION}"
-  echo "  ✓ Updated konflux-patch.sh image refs"
+  echo "  ✓ Updated CSV skipRange to '>=${PREV_BUNDLE_VERSION} <${BUNDLE_VERSION}'"
+  echo "  ✓ Updated konflux-patch.sh image refs and version replacement"
 fi
 if [[ "$PUSHED_TO_ORIGIN" = true ]]; then
   echo "  ✓ Pushed to origin: ${BUNDLE_REPO}/${BUNDLE_BRANCH}"
