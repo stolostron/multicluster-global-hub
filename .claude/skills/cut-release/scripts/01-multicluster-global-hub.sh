@@ -378,9 +378,9 @@ else
   echo "   ⚠️  File not found: $OPERATOR_MAKEFILE" >&2
 fi
 
-# Step 5.7: Update CSV skipRange
+# Step 5.7: Update CSV skipRange and ACM version
 echo ""
-echo "📍 Step 5.7: Updating CSV skipRange..."
+echo "📍 Step 5.7: Updating CSV skipRange and ACM version..."
 
 CSV_UPDATED=false
 CSV_FILE="operator/config/manifests/bases/multicluster-global-hub-operator.clusterserviceversion.yaml"
@@ -402,6 +402,32 @@ if [[ -f "$CSV_FILE" ]]; then
     CSV_UPDATED=true
   else
     echo "   ✓ skipRange already correct"
+  fi
+
+  # Update ACM version in documentation URL
+  PREV_ACM_VERSION="${CURRENT_ACM_MAJOR}.${PREV_ACM_MINOR}"
+
+  echo ""
+  echo "   Updating ACM version in documentation URL..."
+  if grep -q "red_hat_advanced_cluster_management_for_kubernetes/${PREV_ACM_VERSION}" "$CSV_FILE"; then
+    sed "${SED_INPLACE[@]}" "s|red_hat_advanced_cluster_management_for_kubernetes/${PREV_ACM_VERSION}|red_hat_advanced_cluster_management_for_kubernetes/${ACM_VERSION}|g" "$CSV_FILE"
+    echo "   ✅ Updated ACM version: ${PREV_ACM_VERSION} -> ${ACM_VERSION}"
+    CSV_UPDATED=true
+  elif grep -q "red_hat_advanced_cluster_management_for_kubernetes/${ACM_VERSION}" "$CSV_FILE"; then
+    echo "   ℹ️  ACM version already set to ${ACM_VERSION}"
+  else
+    # Try to find any ACM version
+    CURRENT_ACM_VER=$(grep "red_hat_advanced_cluster_management_for_kubernetes/" "$CSV_FILE" | sed -E 's|.*red_hat_advanced_cluster_management_for_kubernetes/([0-9.]+).*|\1|' | head -1 || echo "")
+    if [[ -n "$CURRENT_ACM_VER" ]]; then
+      echo "   ⚠️  Found unexpected ACM version: $CURRENT_ACM_VER" >&2
+      echo "   ⚠️  Expected: ${PREV_ACM_VERSION} or ${ACM_VERSION}" >&2
+      # Update anyway
+      sed "${SED_INPLACE[@]}" "s|red_hat_advanced_cluster_management_for_kubernetes/${CURRENT_ACM_VER}|red_hat_advanced_cluster_management_for_kubernetes/${ACM_VERSION}|g" "$CSV_FILE"
+      echo "   ✅ Updated ACM version: $CURRENT_ACM_VER -> ${ACM_VERSION}"
+      CSV_UPDATED=true
+    else
+      echo "   ⚠️  No ACM version reference found in $CSV_FILE" >&2
+    fi
   fi
 else
   echo "   ⚠️  File not found: $CSV_FILE" >&2
@@ -468,7 +494,7 @@ else
 - Update Containerfile version labels to release-${GH_VERSION_SHORT}
 - Update GitHub workflow bundle branch to release-${GH_VERSION_SHORT}
 - Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
-- Update CSV skipRange to >=${PREV_GH_VERSION_SHORT}.0 <${GH_VERSION_SHORT}.0
+- Update CSV skipRange and ACM version in documentation URL
 - Regenerate operator bundle
 
 ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
@@ -587,7 +613,7 @@ Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
 - Update Containerfile version labels to \`release-${GH_VERSION_SHORT}\`
 - Update GitHub workflow bundle branch to \`release-${GH_VERSION_SHORT}\`
 - Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
-- Update CSV skipRange
+- Update CSV skipRange and ACM version in documentation URL
 - Regenerate operator bundle
 
 ## Release Info
