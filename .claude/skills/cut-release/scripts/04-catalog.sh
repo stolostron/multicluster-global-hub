@@ -37,11 +37,11 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   SED_INPLACE=(-i "")
 else
   SED_INPLACE=(-i)
+fi
 
 # Constants for repeated patterns
 readonly NULL_PR_VALUE='null|null'
 readonly SEPARATOR_LINE='================================================'
-fi
 
 echo "🚀 Operator Catalog Release"
 echo "$SEPARATOR_LINE"
@@ -85,8 +85,12 @@ if git ls-remote "$FORK_REPO" HEAD >/dev/null 2>&1; then
   echo "   ✅ Fork detected: ${GITHUB_USER}/multicluster-global-hub-operator-catalog"
 else
   echo "   ⚠️  Fork not found: ${GITHUB_USER}/multicluster-global-hub-operator-catalog" >&2
-  echo "   Note: Cleanup PR will require manual creation if fork doesn't exist"
+  echo "   Note: Some PRs will require manual creation if fork doesn't exist"
 fi
+
+# Note: For target release branch, we push directly to upstream (private repo CI requirement)
+# For main and cleanup PRs, we still use fork if available
+echo "   ℹ️  Target release PR will use upstream branch (private repo)"
 
 # Step 0: Check and create OCP version directories on main branch
 echo ""
@@ -141,8 +145,8 @@ if [[ "$CATALOG_DIR_CREATED" = true ]]; then
       # Create directory structure
       mkdir -p "${OCP_VERSION_DIR}/catalog/multicluster-global-hub-operator-rh"
 
-      # Create empty catalog.json file
-      echo "{}" > "$FULL_CATALOG_PATH"
+      # Create empty catalog.json file (must be completely empty, not {})
+      : > "$FULL_CATALOG_PATH"
 
       echo "   ✅ Created $FULL_CATALOG_PATH"
     fi
@@ -632,7 +636,8 @@ fi
       fi
     else
       # Branch exists or UPDATE mode - create PR to update it
-      echo "   Creating PR to update $CATALOG_BRANCH..."
+      # For target release branch, push directly to upstream (private repo CI requirement)
+      echo "   Creating PR to update $CATALOG_BRANCH (using upstream branch)..."
 
       # Use fixed branch name for PR deduplication
       PR_BRANCH="${CATALOG_BRANCH}-update"
@@ -652,42 +657,51 @@ fi
         --repo "${CATALOG_REPO}" \
         --base "$CATALOG_BRANCH" \
         --state open \
-        --search "\"${PR_TITLE}\" in:title author:${GITHUB_USER}" \
-        --json number,url,headRefName \
-        --jq '.[0] | select(. != null) | "\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
+        --search "\"${PR_TITLE}\" in:title" \
+        --json number,url,headRefName,headRepositoryOwner \
+        --jq '.[0] | select(. != null) | "\(.number)|\(.url)|\(.headRefName)|\(.headRepositoryOwner.login)"' 2>/dev/null || echo "")
 
       if [[ -n "$EXISTING_PR" ]]; then
-        CATALOG_PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f1)
-        EXISTING_BRANCH=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+        PR_NUMBER=$(echo "$EXISTING_PR" | cut -d'|' -f1)
+        CATALOG_PR_URL=$(echo "$EXISTING_PR" | cut -d'|' -f2)
+        EXISTING_BRANCH=$(echo "$EXISTING_PR" | cut -d'|' -f3)
+        HEAD_REPO_OWNER=$(echo "$EXISTING_PR" | cut -d'|' -f4)
 
-        echo "   ℹ️  PR already exists: $CATALOG_PR_URL"
-        echo "   Existing branch: ${GITHUB_USER}:${EXISTING_BRANCH}"
+        echo "   ℹ️  Found existing PR #${PR_NUMBER}: $CATALOG_PR_URL"
+        echo "   Branch: ${EXISTING_BRANCH} (owner: ${HEAD_REPO_OWNER})"
 
-        # Always push updates to the existing PR's branch (even if branch name is different)
-        echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
-        if [[ "$FORK_EXISTS" = false ]]; then
-          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-          echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-          CATALOG_PR_STATUS="exists"
-        elif git push -f fork "$CATALOG_BRANCH:$EXISTING_BRANCH" 2>&1; then
-          echo "   ✅ PR updated with latest changes: $CATALOG_PR_URL"
-          CATALOG_PR_STATUS="updated"
+        # Check if PR is from fork or upstream
+        CATALOG_REPO_OWNER=$(echo "$CATALOG_REPO" | cut -d'/' -f1)
+        if [[ "$HEAD_REPO_OWNER" != "$CATALOG_REPO_OWNER" ]]; then
+          # PR is from fork, close it and create new one from upstream
+          echo "   ⚠️  Existing PR is from fork (${HEAD_REPO_OWNER})"
+          echo "   Closing old PR and creating new one from upstream..."
+
+          gh pr close "$PR_NUMBER" --repo "${CATALOG_REPO}" --comment "Closing this PR as it was created from a fork. Creating a new PR from upstream branch to fix CI issues in private repo." 2>&1 || true
+
+          # Continue to create new PR below
+          EXISTING_PR=""
         else
-          echo "   ⚠️  Failed to push updates to fork" >&2
-          CATALOG_PR_STATUS="exists"
+          # PR is from upstream, update it
+          echo "   ✅ PR is from upstream, updating existing PR..."
+          echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
+          if git push -f origin "HEAD:$EXISTING_BRANCH" 2>&1; then
+            echo "   ✅ PR updated with latest changes: $CATALOG_PR_URL"
+            CATALOG_PR_STATUS="updated"
+          else
+            echo "   ⚠️  Failed to push updates to upstream" >&2
+            CATALOG_PR_STATUS="exists"
+          fi
         fi
-      else
-        # No existing PR, create a new one
-        if [[ "$FORK_EXISTS" = false ]]; then
-          echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
-          echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-          CATALOG_PR_STATUS="failed"
-        else
-          echo "   Pushing $PR_BRANCH to fork..."
-          if git push -f fork "$PR_BRANCH" 2>&1; then
-            echo "   ✅ PR branch pushed to fork"
+      fi
 
-            PR_BODY="Update ${CATALOG_BRANCH} catalog configuration
+      if [[ -z "$EXISTING_PR" ]]; then
+        # No existing PR, create a new one
+        echo "   Pushing $PR_BRANCH to upstream..."
+        if git push -f origin "$PR_BRANCH" 2>&1; then
+          echo "   ✅ PR branch pushed to upstream"
+
+          PR_BODY="Update ${CATALOG_BRANCH} catalog configuration
 
 ## Changes
 
@@ -704,28 +718,27 @@ fi
 - **Supported OCP**: 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))
 - **Previous release**: ${BASE_BRANCH}"
 
-            PR_CREATE_OUTPUT=$(gh pr create --base "$CATALOG_BRANCH" --head "${GITHUB_USER}:$PR_BRANCH" \
-              --title "Update ${CATALOG_BRANCH} catalog configuration" \
-              --body "$PR_BODY" \
-              --repo "$CATALOG_REPO" 2>&1) || true
+          PR_CREATE_OUTPUT=$(gh pr create --base "$CATALOG_BRANCH" --head "$PR_BRANCH" \
+            --title "Update ${CATALOG_BRANCH} catalog configuration" \
+            --body "$PR_BODY" \
+            --repo "$CATALOG_REPO" 2>&1) || true
 
-            if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
-              CATALOG_PR_URL="$PR_CREATE_OUTPUT"
-              echo "   ✅ PR created: $CATALOG_PR_URL"
-              CATALOG_PR_STATUS="created"
-            elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-              CATALOG_PR_URL="${BASH_REMATCH[1]}"
-              echo "   ✅ PR created: $CATALOG_PR_URL"
-              CATALOG_PR_STATUS="created"
-            else
-              echo "   ⚠️  Failed to create PR" >&2
-              echo "   Reason: $PR_CREATE_OUTPUT"
-              CATALOG_PR_STATUS="failed"
-            fi
+          if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+            CATALOG_PR_URL="$PR_CREATE_OUTPUT"
+            echo "   ✅ PR created: $CATALOG_PR_URL"
+            CATALOG_PR_STATUS="created"
+          elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+            CATALOG_PR_URL="${BASH_REMATCH[1]}"
+            echo "   ✅ PR created: $CATALOG_PR_URL"
+            CATALOG_PR_STATUS="created"
           else
-            echo "   ❌ Failed to push PR branch" >&2
+            echo "   ⚠️  Failed to create PR" >&2
+            echo "   Reason: $PR_CREATE_OUTPUT"
             CATALOG_PR_STATUS="failed"
           fi
+        else
+          echo "   ❌ Failed to push PR branch to upstream" >&2
+          CATALOG_PR_STATUS="failed"
         fi
       fi
     fi

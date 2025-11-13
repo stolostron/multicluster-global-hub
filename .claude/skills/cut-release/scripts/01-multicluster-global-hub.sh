@@ -290,6 +290,100 @@ else
   echo "   ⚠️  No updates needed" >&2
 fi
 
+# Step 5.5: Update operator Makefile
+echo ""
+echo "📍 Step 5.5: Updating operator/Makefile..."
+
+OPERATOR_MAKEFILE="operator/Makefile"
+if [[ -f "$OPERATOR_MAKEFILE" ]]; then
+  # Update VERSION
+  if grep -q "VERSION ?= ${PREV_GH_VERSION_SHORT}.0-dev" "$OPERATOR_MAKEFILE"; then
+    sed "${SED_INPLACE[@]}" "s/VERSION ?= ${PREV_GH_VERSION_SHORT}.0-dev/VERSION ?= ${GH_VERSION_SHORT}.0-dev/g" "$OPERATOR_MAKEFILE"
+    echo "   ✅ Updated VERSION: ${PREV_GH_VERSION_SHORT}.0-dev -> ${GH_VERSION_SHORT}.0-dev"
+  else
+    echo "   ℹ️  VERSION already set or different pattern"
+  fi
+
+  # Update CHANNELS
+  if grep -q "CHANNELS = \"release-${PREV_GH_VERSION_SHORT}\"" "$OPERATOR_MAKEFILE"; then
+    sed "${SED_INPLACE[@]}" "s/CHANNELS = \"release-${PREV_GH_VERSION_SHORT}\"/CHANNELS = \"release-${GH_VERSION_SHORT}\"/g" "$OPERATOR_MAKEFILE"
+    echo "   ✅ Updated CHANNELS: release-${PREV_GH_VERSION_SHORT} -> release-${GH_VERSION_SHORT}"
+  else
+    echo "   ℹ️  CHANNELS already set or different pattern"
+  fi
+
+  # Update DEFAULT_CHANNEL
+  if grep -q "DEFAULT_CHANNEL = \"release-${PREV_GH_VERSION_SHORT}\"" "$OPERATOR_MAKEFILE"; then
+    sed "${SED_INPLACE[@]}" "s/DEFAULT_CHANNEL = \"release-${PREV_GH_VERSION_SHORT}\"/DEFAULT_CHANNEL = \"release-${GH_VERSION_SHORT}\"/g" "$OPERATOR_MAKEFILE"
+    echo "   ✅ Updated DEFAULT_CHANNEL: release-${PREV_GH_VERSION_SHORT} -> release-${GH_VERSION_SHORT}"
+  else
+    echo "   ℹ️  DEFAULT_CHANNEL already set or different pattern"
+  fi
+else
+  echo "   ⚠️  File not found: $OPERATOR_MAKEFILE" >&2
+fi
+
+# Step 5.6: Update CSV skipRange
+echo ""
+echo "📍 Step 5.6: Updating CSV skipRange..."
+
+CSV_FILE="operator/config/manifests/bases/multicluster-global-hub-operator.clusterserviceversion.yaml"
+if [[ -f "$CSV_FILE" ]]; then
+  CURRENT_MINOR="${GH_VERSION_SHORT#*.}"
+  PREV_MINOR=$((CURRENT_MINOR - 1))
+
+  EXPECTED_SKIP_RANGE=">=1.${PREV_MINOR}.0 <1.${CURRENT_MINOR}.0"
+
+  echo "   Expected skipRange: $EXPECTED_SKIP_RANGE"
+
+  # Check current skipRange
+  CURRENT_SKIP_RANGE=$(grep "olm.skipRange:" "$CSV_FILE" | sed -E "s/.*olm.skipRange: '(.*)'/\1/" || echo "")
+  echo "   Current skipRange: '$CURRENT_SKIP_RANGE'"
+
+  if [[ "$CURRENT_SKIP_RANGE" != "$EXPECTED_SKIP_RANGE" ]]; then
+    sed "${SED_INPLACE[@]}" "s/olm.skipRange: '>=[0-9.]*[0-9] <[0-9.]*[0-9]'/olm.skipRange: '${EXPECTED_SKIP_RANGE}'/g" "$CSV_FILE"
+    echo "   ✅ Updated skipRange to: $EXPECTED_SKIP_RANGE"
+  else
+    echo "   ✓ skipRange already correct"
+  fi
+else
+  echo "   ⚠️  File not found: $CSV_FILE" >&2
+fi
+
+# Step 5.7: Generate operator bundle
+echo ""
+echo "📍 Step 5.7: Generating operator bundle..."
+
+if [[ -d "operator" ]]; then
+  cd operator
+
+  echo "   Running: make generate"
+  if make generate >/dev/null 2>&1; then
+    echo "   ✅ make generate completed"
+  else
+    echo "   ⚠️  make generate had warnings (may be expected)"
+  fi
+
+  echo "   Running: make fmt"
+  if make fmt >/dev/null 2>&1; then
+    echo "   ✅ make fmt completed"
+  else
+    echo "   ⚠️  make fmt had warnings (may be expected)"
+  fi
+
+  echo "   Running: make bundle"
+  if make bundle >/dev/null 2>&1; then
+    echo "   ✅ make bundle completed"
+  else
+    echo "   ⚠️  make bundle had warnings (may be expected)"
+  fi
+
+  cd ..
+  echo "   ✅ Operator bundle generated"
+else
+  echo "   ⚠️  operator directory not found" >&2
+fi
+
 # Step 6: Commit changes for main branch PR
 echo ""
 echo "📍 Step 6: Committing changes for main branch..."
@@ -299,14 +393,18 @@ if git diff --quiet && git diff --cached --quiet; then
   echo "   ℹ️  No changes to commit"
   MAIN_CHANGES_COMMITTED=false
 else
-  # Stage all changes
+  # Stage all changes (including operator bundle generated files)
   git add .tekton/ 2>/dev/null || true
   git add -- */Containerfile.* 2>/dev/null || true
+  git add operator/ 2>/dev/null || true
 
   git commit --signoff -m "Add ${RELEASE_BRANCH} pipeline configurations
 
 - Add new .tekton/ pipelines for ${NEW_TAG} (target_branch=main)
 - Update Containerfile version labels to release-${GH_VERSION_SHORT}
+- Update operator Makefile (VERSION, CHANNELS, DEFAULT_CHANNEL)
+- Update CSV skipRange to >=${PREV_GH_VERSION_SHORT}.0 <${GH_VERSION_SHORT}.0
+- Regenerate operator bundle
 - Keep existing ${PREV_TAG} pipelines for backward compatibility
 
 ACM: ${RELEASE_BRANCH}, Global Hub: release-${GH_VERSION_SHORT}"
@@ -527,16 +625,40 @@ if [[ "$PREV_RELEASE_EXISTS" = true ]]; then
     done
   done
 
+  # Update GitHub workflow files
+  echo ""
+  echo "   Updating GitHub workflow files..."
+
+  WORKFLOWS=(".github/workflows/auto_code_review.yml" ".github/workflows/e2e.yml")
+
+  for workflow in "${WORKFLOWS[@]}"; do
+    if [[ -f "$workflow" ]]; then
+      # Check if already pointing to release branch
+      if grep -q "branches:.*- main" "$workflow" 2>/dev/null; then
+        # Update branches from "main" to the release branch
+        sed "${SED_INPLACE[@]}" "s/- main/- ${PREV_RELEASE_BRANCH}/g" "$workflow"
+        git add "$workflow"
+        echo "   ✅ Updated $workflow (main -> ${PREV_RELEASE_BRANCH})"
+        PREV_RELEASE_UPDATED=true
+      else
+        echo "   ✓ $workflow already points to correct branch"
+      fi
+    else
+      echo "   ℹ️  File not found: $workflow"
+    fi
+  done
+
   # Commit changes if any
   if [[ "$PREV_RELEASE_UPDATED" = true ]]; then
     # Create a branch for PR to previous release
     PREV_PR_BRANCH="update-${PREV_RELEASE_BRANCH}-tekton-target"
     git checkout -b "$PREV_PR_BRANCH"
 
-    git commit --signoff -m "Update ${PREV_TAG} pipelines to target ${PREV_RELEASE_BRANCH}
+    git commit --signoff -m "Update ${PREV_TAG} pipelines and workflows to target ${PREV_RELEASE_BRANCH}
 
 - Update .tekton/ target_branch from main to ${PREV_RELEASE_BRANCH}
-- Ensures pipelines trigger for the correct release branch
+- Update GitHub workflows (auto_code_review.yml, e2e.yml) to trigger on ${PREV_RELEASE_BRANCH}
+- Ensures pipelines and CI/CD trigger for the correct release branch
 
 ACM: ${PREV_RELEASE_BRANCH}, Global Hub: release-${PREV_GH_VERSION_SHORT}"
 
