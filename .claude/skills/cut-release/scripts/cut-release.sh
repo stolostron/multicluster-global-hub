@@ -14,6 +14,11 @@ set -euo pipefail
 #   CREATE_BRANCHES=true RELEASE_BRANCH=release-2.17 ./cut-release.sh all  # CREATE_BRANCHES mode - create and push release branches directly to upstream
 #
 # Note: RELEASE_BRANCH environment variable is REQUIRED (e.g., release-2.14, release-2.15, release-2.16, release-2.17)
+#
+# Dependencies:
+#   - Script 3 (operator-bundle) requires script 1 (multicluster-global-hub) to run first
+#   - Script 4 (operator-catalog) requires script 1 (multicluster-global-hub) to run first
+#   The script will automatically check and enforce these dependencies
 
 # Get the directory where this script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,6 +46,17 @@ get_repo_info() {
   esac
   echo "$repo_info"
   return 0
+}
+
+# Helper function to get dependencies for a script
+# Returns space-separated list of required script numbers
+get_dependencies() {
+  local num=$1
+  case $num in
+    3) echo "1" ;;  # Script 3 (bundle) requires script 1 (multicluster-global-hub)
+    4) echo "1" ;;  # Script 4 (catalog) requires script 1 (multicluster-global-hub)
+    *) echo "" ;;
+  esac
 }
 
 # Parse command line argument
@@ -150,10 +166,18 @@ show_repos() {
     local repo_info
     local name
     local desc
+    local deps
     repo_info=$(get_repo_info "$i")
     IFS='|' read -r name _ desc <<< "$repo_info"
-    printf "   [%d] %-25s %s\n" "$i" "$name" "$desc"
+    deps=$(get_dependencies "$i")
+    if [[ -n "$deps" ]]; then
+      printf "   [%d] %-25s %s (requires: %s)\n" "$i" "$name" "$desc" "$deps"
+    else
+      printf "   [%d] %-25s %s\n" "$i" "$name" "$desc"
+    fi
   done
+  echo ""
+  echo "Note: Scripts 3 and 4 require script 1 to run first"
   echo ""
   return 0
 }
@@ -240,6 +264,7 @@ TOTAL=${#REPOS_TO_UPDATE[@]}
 COMPLETED=0
 FAILED=0
 FAILED_REPOS=()
+EXECUTED_SCRIPTS=()
 
 # Execute selected scripts
 for repo_num in "${REPOS_TO_UPDATE[@]}"; do
@@ -252,8 +277,65 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     continue
   fi
 
+  # Check dependencies
+  dependencies=$(get_dependencies "$repo_num")
+  if [[ -n "$dependencies" ]]; then
+    missing_deps=()
+    for dep in $dependencies; do
+      # Check if dependency was executed in current run or exists from previous run
+      dep_in_current_run=false
+      for executed in "${EXECUTED_SCRIPTS[@]}"; do
+        if [[ "$executed" -eq "$dep" ]]; then
+          dep_in_current_run=true
+          break
+        fi
+      done
+
+      if [[ "$dep_in_current_run" = false ]]; then
+        # Check if dependency output exists (from previous run)
+        dep_satisfied=false
+        case $dep in
+          1)
+            # Script 1 creates multicluster-global-hub-release directory
+            if [[ -d "${WORK_DIR:-/tmp/globalhub-release-repos}/multicluster-global-hub-release/.git" ]]; then
+              dep_satisfied=true
+            fi
+            ;;
+        esac
+
+        if [[ "$dep_satisfied" = false ]]; then
+          missing_deps+=("$dep")
+        fi
+      fi
+    done
+
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+      repo_info=$(get_repo_info "$repo_num")
+      IFS='|' read -r name _ _ <<< "$repo_info"
+      echo ""
+      echo "❌ Error: Script $repo_num ($name) has unmet dependencies" >&2
+      echo "   Missing required scripts: ${missing_deps[*]}" >&2
+      echo "   Please run script ${missing_deps[*]} first, or include them in this run" >&2
+      echo ""
+      FAILED=$((FAILED + 1))
+      FAILED_REPOS+=("$name (dependency check failed)")
+
+      # Ask if user wants to continue
+      if [[ "$FAILED" -lt "$TOTAL" ]]; then
+        echo "⚠️  Continue with remaining repositories? (y/n)" >&2
+        read -r continue_choice
+        if [[ ! "$continue_choice" =~ ^[Yy]$ ]]; then
+          echo "Workflow aborted by user"
+          break
+        fi
+      fi
+      continue
+    fi
+  fi
+
   if run_script "$repo_num"; then
     COMPLETED=$((COMPLETED + 1))
+    EXECUTED_SCRIPTS+=("$repo_num")
   else
     FAILED=$((FAILED + 1))
     repo_info=$(get_repo_info "$repo_num")

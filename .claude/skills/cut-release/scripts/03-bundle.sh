@@ -322,38 +322,43 @@ if [[ -n "$PREV_BUNDLE_TAG" ]]; then
   NEW_PR_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${BUNDLE_TAG}-pull-request.yaml"
 
   if [[ "$PREV_BUNDLE_TAG" = "$BUNDLE_TAG" ]]; then
-    # Same tag - just update in place if needed
+    # Same tag - pipeline should already exist
     if [[ -f "$NEW_PR_PIPELINE" ]]; then
-      echo "   ℹ️  Pipeline already exists with correct name: $NEW_PR_PIPELINE"
-      echo "   Updating references in $NEW_PR_PIPELINE"
-      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
-      echo "   ✅ Updated $NEW_PR_PIPELINE"
+      echo "   ℹ️  Pipeline already exists: $NEW_PR_PIPELINE"
+      echo "   Skipping modification (may have been updated by other PRs)"
     else
       echo "   ⚠️  Pipeline not found: $NEW_PR_PIPELINE" >&2
     fi
-  elif [[ -f "$OLD_PR_PIPELINE" ]]; then
-    echo "   Renaming $OLD_PR_PIPELINE to $NEW_PR_PIPELINE"
-    git mv "$OLD_PR_PIPELINE" "$NEW_PR_PIPELINE"
-
-    echo "   Updating references in $NEW_PR_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PR_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
-    echo "   ✅ Renamed and updated $NEW_PR_PIPELINE"
   else
-    echo "   ⚠️  Old pull-request pipeline not found locally: $OLD_PR_PIPELINE" >&2
-    echo "   Attempting to fetch from origin/$BASE_BRANCH..."
+    # Different tag - check if new pipeline already exists
+    if [[ -f "$NEW_PR_PIPELINE" ]]; then
+      echo "   ℹ️  Pipeline already exists: $NEW_PR_PIPELINE"
+      echo "   Skipping modification (may have been created by another PR or previous run)"
+    elif [[ -f "$OLD_PR_PIPELINE" ]]; then
+      # New pipeline doesn't exist, but old one exists locally - rename it
+      echo "   Renaming $OLD_PR_PIPELINE to $NEW_PR_PIPELINE"
+      git mv "$OLD_PR_PIPELINE" "$NEW_PR_PIPELINE"
 
-    # Try to fetch from previous release branch
-    if git show "origin/$BASE_BRANCH:$OLD_PR_PIPELINE" > "$NEW_PR_PIPELINE" 2>/dev/null; then
-      echo "   ✅ Copied from origin/$BASE_BRANCH:$OLD_PR_PIPELINE"
-
-      # Update references in the new file
+      echo "   Updating references in $NEW_PR_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PR_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
-      git add "$NEW_PR_PIPELINE"
-      echo "   ✅ Created and updated $NEW_PR_PIPELINE"
+      echo "   ✅ Renamed and updated $NEW_PR_PIPELINE"
     else
-      echo "   ❌ Failed to fetch pipeline from origin/$BASE_BRANCH" >&2
+      # Neither new nor old pipeline exists locally - fetch from previous release branch
+      echo "   ℹ️  Pipeline not found locally, fetching from origin/$BASE_BRANCH..."
+
+      # Try to fetch from previous release branch
+      if git show "origin/$BASE_BRANCH:$OLD_PR_PIPELINE" > "$NEW_PR_PIPELINE" 2>/dev/null; then
+        echo "   ✅ Copied from origin/$BASE_BRANCH:$OLD_PR_PIPELINE"
+
+        # Update references in the new file
+        sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PR_PIPELINE"
+        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PR_PIPELINE"
+        git add "$NEW_PR_PIPELINE"
+        echo "   ✅ Created and updated $NEW_PR_PIPELINE"
+      else
+        echo "   ❌ Failed to fetch pipeline from origin/$BASE_BRANCH" >&2
+      fi
     fi
   fi
 else
@@ -369,38 +374,43 @@ if [[ -n "$PREV_BUNDLE_TAG" ]]; then
   NEW_PUSH_PIPELINE=".tekton/multicluster-global-hub-operator-bundle-${BUNDLE_TAG}-push.yaml"
 
   if [[ "$PREV_BUNDLE_TAG" = "$BUNDLE_TAG" ]]; then
-    # Same tag - just update in place if needed
+    # Same tag - pipeline should already exist
     if [[ -f "$NEW_PUSH_PIPELINE" ]]; then
-      echo "   ℹ️  Pipeline already exists with correct name: $NEW_PUSH_PIPELINE"
-      echo "   Updating references in $NEW_PUSH_PIPELINE"
-      sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
-      echo "   ✅ Updated $NEW_PUSH_PIPELINE"
+      echo "   ℹ️  Pipeline already exists: $NEW_PUSH_PIPELINE"
+      echo "   Skipping modification (may have been updated by other PRs)"
     else
       echo "   ⚠️  Pipeline not found: $NEW_PUSH_PIPELINE" >&2
     fi
-  elif [[ -f "$OLD_PUSH_PIPELINE" ]]; then
-    echo "   Renaming $OLD_PUSH_PIPELINE to $NEW_PUSH_PIPELINE"
-    git mv "$OLD_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
-
-    echo "   Updating references in $NEW_PUSH_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PUSH_PIPELINE"
-    sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
-    echo "   ✅ Renamed and updated $NEW_PUSH_PIPELINE"
   else
-    echo "   ⚠️  Old push pipeline not found locally: $OLD_PUSH_PIPELINE" >&2
-    echo "   Attempting to fetch from origin/$BASE_BRANCH..."
+    # Different tag - check if new pipeline already exists
+    if [[ -f "$NEW_PUSH_PIPELINE" ]]; then
+      echo "   ℹ️  Pipeline already exists: $NEW_PUSH_PIPELINE"
+      echo "   Skipping modification (may have been created by another PR or previous run)"
+    elif [[ -f "$OLD_PUSH_PIPELINE" ]]; then
+      # New pipeline doesn't exist, but old one exists locally - rename it
+      echo "   Renaming $OLD_PUSH_PIPELINE to $NEW_PUSH_PIPELINE"
+      git mv "$OLD_PUSH_PIPELINE" "$NEW_PUSH_PIPELINE"
 
-    # Try to fetch from previous release branch
-    if git show "origin/$BASE_BRANCH:$OLD_PUSH_PIPELINE" > "$NEW_PUSH_PIPELINE" 2>/dev/null; then
-      echo "   ✅ Copied from origin/$BASE_BRANCH:$OLD_PUSH_PIPELINE"
-
-      # Update references in the new file
+      echo "   Updating references in $NEW_PUSH_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PUSH_PIPELINE"
       sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
-      git add "$NEW_PUSH_PIPELINE"
-      echo "   ✅ Created and updated $NEW_PUSH_PIPELINE"
+      echo "   ✅ Renamed and updated $NEW_PUSH_PIPELINE"
     else
-      echo "   ❌ Failed to fetch pipeline from origin/$BASE_BRANCH" >&2
+      # Neither new nor old pipeline exists locally - fetch from previous release branch
+      echo "   ℹ️  Pipeline not found locally, fetching from origin/$BASE_BRANCH..."
+
+      # Try to fetch from previous release branch
+      if git show "origin/$BASE_BRANCH:$OLD_PUSH_PIPELINE" > "$NEW_PUSH_PIPELINE" 2>/dev/null; then
+        echo "   ✅ Copied from origin/$BASE_BRANCH:$OLD_PUSH_PIPELINE"
+
+        # Update references in the new file
+        sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_TAG}/${BUNDLE_TAG}/g" "$NEW_PUSH_PIPELINE"
+        sed "${SED_INPLACE[@]}" "s/${BASE_BRANCH}/${BUNDLE_BRANCH}/g" "$NEW_PUSH_PIPELINE"
+        git add "$NEW_PUSH_PIPELINE"
+        echo "   ✅ Created and updated $NEW_PUSH_PIPELINE"
+      else
+        echo "   ❌ Failed to fetch pipeline from origin/$BASE_BRANCH" >&2
+      fi
     fi
   fi
 else
@@ -503,6 +513,12 @@ fi
 # Step 6: Commit changes
 echo ""
 echo "📍 Step 6: Committing changes on $BUNDLE_BRANCH..."
+
+# Clean up bundle backup before committing
+if [[ -d "bundle.backup" ]]; then
+  echo "   Cleaning up bundle backup..."
+  rm -rf bundle.backup
+fi
 
 if git diff --quiet && git diff --cached --quiet; then
   echo "   ℹ️  No changes to commit"
