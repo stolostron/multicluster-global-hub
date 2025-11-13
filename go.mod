@@ -33,7 +33,7 @@ require (
 	github.com/project-kessel/inventory-api v0.0.0-20241010121445-cd6276d96dc8
 	github.com/project-kessel/inventory-client-go v0.0.0-20240927104800-2c124202b25f
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.63.0
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.10
 	github.com/stolostron/cluster-lifecycle-api v0.0.0-20240918064238-a5e71b599118
 	github.com/stolostron/klusterlet-addon-controller v0.0.0-20230528112800-a466a2368df4
 	github.com/stolostron/multiclusterhub-operator v0.0.0-20230829141355-4ad378ab367f
