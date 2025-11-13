@@ -110,7 +110,13 @@ func (k *ConflationCommitter) commit() error {
 
 func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition {
 	transportPositionMap := make(map[string]*transport.EventPosition)
-	kafkaIdentityChanged := k.lastCommittedKafkaIdentity != config.GetKafkaOwnerIdentity()
+	if k.lastCommittedKafkaIdentity != config.GetKafkaOwnerIdentity() {
+		// if the kafka identity is changed, clear the committed history to start from the beginning
+		k.committedPositions = make(map[string]int64)
+		k.lastCommittedKafkaIdentity = config.GetKafkaOwnerIdentity()
+		k.log.Infow("kafka identity changed, clear the committed history to start from the beginning")
+		return nil
+	}
 	for _, metadata := range k.retrieveMetadataFunc() {
 		if metadata == nil {
 			continue
@@ -118,11 +124,6 @@ func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition 
 		position := metadata.TransportPosition()
 		if position == nil {
 			continue
-		}
-		if kafkaIdentityChanged {
-			// if the kafka identity is changed, clear the committed history to start from the beginning
-			k.committedPositions = make(map[string]int64)
-			k.lastCommittedKafkaIdentity = config.GetKafkaOwnerIdentity()
 		}
 		key := positionKey(position.Topic, position.Partition)
 		committedOffset, found := k.committedPositions[key]
