@@ -208,7 +208,7 @@ func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {
 	db := database.GetGorm()
 	var positions []models.Transport
-	// TODO: clean the records/offset expired offset, maybe consider to delete the record when detach the managed hub
+	// TODO: clean the expired offset, maybe consider to delete the record when detach the managed hub
 	err := db.
 		Where("payload->>'ownerIdentity' <> ? AND payload->>'ownerIdentity' = ?", "", kafkaClusterIdentity).
 		Find(&positions).Error
