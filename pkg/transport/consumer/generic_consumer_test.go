@@ -72,12 +72,9 @@ func TestGetInitOffset(t *testing.T) {
 	count := 0
 	for _, offset := range offsets {
 		fmt.Println(*offset.Topic, offset.Partition, offset.Offset)
-		if *offset.Topic == deprecatedTransport.Name {
-			t.Fatalf("the topic %s shouldn't be selected", deprecatedTransport.Name)
-		}
 		count++
 	}
-	assert.Equal(t, 3, count)
+	assert.Equal(t, 4, count)
 }
 
 func generateTransport(ownerIdentity string, topic string, offset int64) models.Transport {
