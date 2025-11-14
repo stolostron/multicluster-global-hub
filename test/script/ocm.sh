@@ -16,7 +16,6 @@ spoken="$2"
 start_time=$(date +%s)
 
 echo -e "\r${BOLD_GREEN}[ START - $(date +"%T") ] $hub : $spoken $NC"
-set +e
 
 # init clusters
 if [ "$HUB_INIT" = true ]; then
