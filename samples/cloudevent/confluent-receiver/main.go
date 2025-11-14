@@ -24,7 +24,7 @@ func main() {
 	topic := os.Args[1]
 	ctx := context.Background()
 
-	configMap, err := config.GetConfluentConfigMapByTransportConfig("mgh", "transport-config",
+	configMap, err := config.GetConfluentConfigMapByTransportConfig("multicluster-global-hub-agent", "transport-config",
 		"test-consumer-id-2")
 	if err != nil {
 		log.Fatalf("failed to create protocol: %s", err.Error())
