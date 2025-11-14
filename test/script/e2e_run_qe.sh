@@ -12,7 +12,7 @@ GH_KUBECONFIG="${CONFIG_DIR}/global-hub"
 MH1_KUBECONFIG="${CONFIG_DIR}/hub1"
 
 if [[ $PULL_BASE_REF =~ 'release-' ]]; then
-  branchVersion=$(echo -n $branchName | awk -F '-' '{print $2}')
+  branchVersion=$(echo -n $PULL_BASE_REF | awk -F '-' '{print $2}')
   imageTag="v$branchVersion"
 else
   imageTag="latest"
