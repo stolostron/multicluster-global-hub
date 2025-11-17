@@ -562,6 +562,30 @@ if [[ -n "$PREV_CATALOG_TAG" ]]; then
       echo "   ⚠️  Previous Containerfile not found: $PREV_CONTAINERFILE" >&2
     fi
   fi
+
+  # Update existing OCP versions' Containerfile.catalog files
+  if [[ -n "$PREV_CATALOG_TAG" ]]; then
+    echo ""
+    echo "   Updating existing OCP versions' Containerfile.catalog files..."
+
+    # Update all Containerfile.catalog files in the OCP range
+    for ((ocp_ver=OCP_MIN%100; ocp_ver<=OCP_MAX%100; ocp_ver++)); do
+      OCP_DIR="v4.${ocp_ver}"
+      CONTAINERFILE="${OCP_DIR}/Containerfile.catalog"
+
+      if [[ -f "$CONTAINERFILE" ]]; then
+        # Check if file contains the previous catalog tag
+        if grep -q "$PREV_CATALOG_TAG" "$CONTAINERFILE"; then
+          # Update bundle reference: globalhub-1-6 -> globalhub-1-7
+          sed "${SED_INPLACE[@]}" "s/${PREV_CATALOG_TAG}/${CATALOG_TAG}/g" "$CONTAINERFILE"
+          git add "$CONTAINERFILE"
+          echo "   ✅ Updated bundle reference in $CONTAINERFILE: ${PREV_CATALOG_TAG} -> ${CATALOG_TAG}"
+        else
+          echo "   ℹ️  $CONTAINERFILE already has correct bundle reference"
+        fi
+      fi
+    done
+  fi
 fi
 
 # Step 2.5: Update catalog-template-current.json
@@ -618,6 +642,7 @@ else
 - Add OCP 4.${NEW_OCP_VER} Containerfile.catalog
 - Remove OCP 4.${OLD_OCP_VER} pipelines and directory
 - Update existing OCP 4.$((OCP_MIN%100))-4.$((OCP_MAX-1%100)) pipelines
+- Update all Containerfile.catalog files with new bundle reference (${PREV_CATALOG_TAG} -> ${CATALOG_TAG})
 
 Supports OCP 4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}"
@@ -721,6 +746,7 @@ fi
 - Add OCP 4.${NEW_OCP_VER} pipelines (pull-request and push)
 - Remove OCP 4.${OLD_OCP_VER} pipelines
 - Update existing OCP 4.$((OCP_MIN%100))-4.$((OCP_MAX-1%100)) pipelines
+- Update all Containerfile.catalog files with new bundle reference (\`${PREV_CATALOG_TAG}\` → \`${CATALOG_TAG}\`)
 
 ## Version Mapping
 
