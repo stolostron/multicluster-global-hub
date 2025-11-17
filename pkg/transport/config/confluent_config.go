@@ -31,7 +31,18 @@ const (
 	MaxSizeToFetch = 10 * 1024 * 1024
 )
 
-var log = logger.DefaultZapLogger()
+var (
+	log                = logger.DefaultZapLogger()
+	kafkaOwnerIdentity string
+)
+
+func SetKafkaOwnerIdentity(identity string) {
+	kafkaOwnerIdentity = identity
+}
+
+func GetKafkaOwnerIdentity() string {
+	return kafkaOwnerIdentity
+}
 
 func GetBasicConfigMap() *kafkav2.ConfigMap {
 	return &kafkav2.ConfigMap{
