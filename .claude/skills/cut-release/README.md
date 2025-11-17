@@ -436,6 +436,113 @@ After running the automated scripts, you still need to manually:
    - Check all branches were created correctly
    - Verify version numbers match expectations
 
+## Release Update Checklist
+
+### Quick Summary
+
+For **release-2.17 → Global Hub 1.8 → OCP 4.18-4.22**:
+
+| Repository | Branch | Files Updated | Key Changes |
+|------------|--------|---------------|-------------|
+| **multicluster-global-hub** | `release-2.17` | `.tekton/`, `Containerfile.*`, `.github/workflows/go.yml`, `renovate.json`, `operator/Makefile`, CSV | Create new tekton pipelines, remove old ones, update versions |
+| **openshift/release** | `master` | `ci-operator/config/`, `ci-operator/jobs/` | Add new release CI config, auto-generate jobs |
+| **operator-bundle** | `release-1.8` | `images_digest_mirror_set.yaml`, `.tekton/`, `konflux-patch.sh`, `bundle/manifests/` | Update image refs, rename pipelines |
+| **operator-catalog** | `release-1.8` | `images-mirror-set.yaml`, `v4.XX/Containerfile.catalog`, `.tekton/`, `catalog-template-current.json` | Add new OCP v4.22, remove v4.17, update all Containerfiles |
+| **glo-grafana** | `release-1.8` | `.tekton/` | Rename and update pipelines |
+| **postgres_exporter** | `release-2.17` | `.tekton/` | Rename and update pipelines |
+
+### Detailed File Changes
+
+<details>
+<summary><b>1. multicluster-global-hub</b> (PR to main)</summary>
+
+**Created**:
+- `.tekton/*-globalhub-1-8-*.yaml` (6 new pipeline files)
+
+**Removed**:
+- `.tekton/*-globalhub-1-7-*.yaml` (6 old pipeline files)
+
+**Updated**:
+- `agent/Containerfile.agent`, `manager/Containerfile.manager`, `operator/Containerfile.operator`
+  - `LABEL version="release-1.8"`
+- `.github/workflows/go.yml`
+  - Bundle branch: `release-1.7` → `release-1.8`
+- `renovate.json`
+  - `baseBranches: ["main", "release-2.16", "release-2.15", "release-2.14"]`
+- `operator/Makefile`
+  - VERSION, CHANNELS, DEFAULT_CHANNEL → `1.8`
+- `operator/config/manifests/bases/multicluster-global-hub-operator.clusterserviceversion.yaml`
+  - `olm.skipRange`, ACM docs URL, `maturity`
+- `operator/bundle/` (regenerated if needed)
+
+</details>
+
+<details>
+<summary><b>2. openshift/release</b> (PR to master)</summary>
+
+**Created**:
+- `ci-operator/config/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-release-2.17.yaml`
+- `ci-operator/jobs/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-release-2.17-presubmits.yaml` (auto-generated)
+- `ci-operator/jobs/stolostron/multicluster-global-hub/stolostron-multicluster-global-hub-release-2.17-postsubmits.yaml` (auto-generated)
+
+</details>
+
+<details>
+<summary><b>3. operator-bundle</b> (PR to release-1.8)</summary>
+
+**Updated**:
+- `images_digest_mirror_set.yaml`
+  - All image refs: `globalhub-1-7` → `globalhub-1-8`
+- `.tekton/*-globalhub-1-8-*.yaml` (renamed/updated)
+- `konflux-patch.sh`
+  - Version refs: `1.7` → `1.8`
+- `bundle/manifests/*.yaml`
+  - Channel labels: `release-1.8`
+
+</details>
+
+<details>
+<summary><b>4. operator-catalog</b> (PR to main + PR to release-1.8)</summary>
+
+**Created** (on main):
+- `v4.22/catalog/multicluster-global-hub-operator-rh/catalog.json`
+
+**Removed** (on release branch):
+- `v4.17/` directory and pipelines
+
+**Created** (on release branch):
+- `v4.22/Containerfile.catalog`
+- `.tekton/*-v422-globalhub-1-8-*.yaml` (2 new pipelines)
+
+**Updated** (on release branch):
+- `images-mirror-set.yaml`
+  - `globalhub-1-7` → `globalhub-1-8`
+- `catalog-template-current.json`
+  - Channel, version, skipRange → `1.8`
+- `v4.18/Containerfile.catalog`, `v4.19/`, `v4.20/`, `v4.21/`, `v4.22/`
+  - Bundle ref: `globalhub-1-7` → `globalhub-1-8`
+- `.tekton/*-v4{18,19,20,21}-globalhub-1-8-*.yaml` (8 updated pipelines)
+
+</details>
+
+<details>
+<summary><b>5. glo-grafana</b> (PR to release-1.8)</summary>
+
+**Updated**:
+- `.tekton/grafana-globalhub-1-8-*.yaml` (renamed/updated)
+
+</details>
+
+<details>
+<summary><b>6. postgres_exporter</b> (PR to release-2.17)</summary>
+
+**Updated**:
+- `.tekton/postgres-exporter-globalhub-1-8-*.yaml` (renamed/updated)
+
+</details>
+
+---
+
 ## Related Documentation
 
 - [RELEASE_CHECKLIST.md](../../../RELEASE_CHECKLIST.md) - Complete release checklist
