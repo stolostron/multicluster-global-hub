@@ -1,4 +1,4 @@
-# Global Hub Release Workflow (Cut Release)
+# Global Hub New Release Workflow
 
 Automates the complete end-to-end workflow for cutting a new Multicluster Global Hub release across all repositories.
 

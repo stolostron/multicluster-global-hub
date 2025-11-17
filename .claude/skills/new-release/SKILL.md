@@ -1,10 +1,10 @@
 ---
-name: cut-release
+name: new-release
 description: Automate complete Multicluster Global Hub release workflow across 6 repositories including branch creation, OpenShift CI configuration, catalog OCP version management, bundle updates, and PR creation. REQUIRES explicit RELEASE_BRANCH specification (e.g., RELEASE_BRANCH=release-2.17). Supports two modes - CREATE_BRANCHES=true (create branches) or false (update via PR). Keywords: release branch, global hub, openshift/release, catalog, bundle, CI configuration, OCP versions.
 allowed-tools: [Read, Write, Bash, Glob, Grep]
 ---
 
-# Global Hub Release Workflow (Cut Release)
+# Global Hub New Release Workflow
 
 Automates the complete end-to-end workflow for cutting a new Multicluster Global Hub release across all 6 repositories with full automation.
 
