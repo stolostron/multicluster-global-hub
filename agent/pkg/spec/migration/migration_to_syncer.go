@@ -799,19 +799,20 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle) error {
 	log.Infof("rollback deploying stage for clusters: %v", spec.ManagedClusters)
 
-	// 1. Remove ManagedClusters from target hub
-	for _, clusterName := range spec.ManagedClusters {
-		if err := s.removeManagedCluster(ctx, clusterName); err != nil {
-			log.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
-			return fmt.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
-		}
-	}
-
-	// 2. Remove KlusterletAddonConfigs from target hub
+	// 1. Remove KlusterletAddonConfigs from target hub first
+	// This must happen before removing ManagedClusters to avoid namespace deletion conflicts
 	for _, clusterName := range spec.ManagedClusters {
 		if err := s.removeKlusterletAddonConfig(ctx, clusterName); err != nil {
 			log.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
 			return fmt.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
+		}
+	}
+
+	// 2. Remove ManagedClusters from target hub
+	for _, clusterName := range spec.ManagedClusters {
+		if err := s.removeManagedCluster(ctx, clusterName); err != nil {
+			log.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
+			return fmt.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
 		}
 	}
 
