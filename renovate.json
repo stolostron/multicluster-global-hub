@@ -1,10 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "baseBranches": ["main", "release-2.15", "release-2.14", "release-2.13"],
-  "addLabels": ["ok-to-test"],
-  "schedule": ["every weekend"],
+  "baseBranchPatterns": [
+    "main",
+    "release-2.15",
+    "release-2.14",
+    "release-2.13"
+  ],
+  "addLabels": [
+    "ok-to-test"
+  ],
+  "schedule": [
+    "every weekend"
+  ],
   "timezone": "America/New_York",
-  "gomod":{
+  "gomod": {
     "packageRules": [
       {
         "matchManagers": [
