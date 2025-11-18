@@ -505,8 +505,8 @@ else
   DIFF_OUTPUT=$(git diff "origin/$BUNDLE_BRANCH" 2>/dev/null || echo "")
 
   # Filter out createdAt changes and check if there are any other changes
-  # Remove lines with createdAt changes and check if diff is empty
-  NON_CREATEDAT_CHANGES=$(echo "$DIFF_OUTPUT" | grep -E "^[-+]" | grep -v "createdAt:" | grep -v "^[-+]{3}" || echo "")
+  # Remove lines with createdAt changes and diff markers (---, +++)
+  NON_CREATEDAT_CHANGES=$(echo "$DIFF_OUTPUT" | grep -E '^[-+]' | grep -v 'createdAt:' | grep -v '^---' | grep -v '^\+\+\+' || echo "")
 
   if [[ -z "$NON_CREATEDAT_CHANGES" ]]; then
     echo "   ℹ️  Only createdAt timestamp changes detected - ignoring"
