@@ -501,7 +501,19 @@ elif git diff --quiet && git diff --cached --quiet; then
   echo "   ℹ️  No changes to commit"
   CHANGES_COMMITTED=false
 else
-  COMMIT_MSG="Update bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})
+  # Check if the only changes are createdAt timestamps (should be ignored)
+  DIFF_OUTPUT=$(git diff "origin/$BUNDLE_BRANCH" 2>/dev/null || echo "")
+
+  # Filter out createdAt changes and check if there are any other changes
+  # Remove lines with createdAt changes and check if diff is empty
+  NON_CREATEDAT_CHANGES=$(echo "$DIFF_OUTPUT" | grep -E "^[-+]" | grep -v "createdAt:" | grep -v "^[-+]{3}" || echo "")
+
+  if [[ -z "$NON_CREATEDAT_CHANGES" ]]; then
+    echo "   ℹ️  Only createdAt timestamp changes detected - ignoring"
+    git reset --hard "origin/$BUNDLE_BRANCH" 2>/dev/null || true
+    CHANGES_COMMITTED=false
+  else
+    COMMIT_MSG="Update bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})
 
 - Copy latest operator bundle from multicluster-global-hub ${BUNDLE_SOURCE_DESCRIPTION}
   (manifests, metadata, tests)
@@ -516,9 +528,10 @@ else
 Corresponds to ACM ${RELEASE_BRANCH} / Global Hub ${GH_VERSION}
 Bundle source: ${BUNDLE_SOURCE_DESCRIPTION}"
 
-  git commit --signoff -m "$COMMIT_MSG"
-  echo "   ✅ Changes committed"
-  CHANGES_COMMITTED=true
+    git commit --signoff -m "$COMMIT_MSG"
+    echo "   ✅ Changes committed"
+    CHANGES_COMMITTED=true
+  fi
 fi
 
   # Step 7: Push to origin or create PR
