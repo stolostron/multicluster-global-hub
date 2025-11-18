@@ -248,91 +248,115 @@ else
   echo "   Please review the generated file: $NEW_CONFIG" >&2
 fi
 
-# Step 3: Verify container engine and auto-generate job configurations
+# Step 3: Check if config files have substantive changes
 echo ""
-echo "📍 Step 3: Verifying container engine availability..."
+echo "📍 Step 3: Checking for substantive config changes..."
 
-# Check for Docker
-if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-  CONTAINER_ENGINE="docker"
-  echo "   ✅ Docker is available and running"
-# Check for Podman
-elif command -v podman >/dev/null 2>&1; then
-  # Check if podman machine is running
-  if podman machine list 2>/dev/null | grep -q "Currently running"; then
-    CONTAINER_ENGINE="podman"
-    echo "   ✅ Podman is available and running"
-  else
-    echo "   ❌ Error: Podman is installed but no machine is running" >&2
-    echo ""
-    echo "   Please start your podman machine:"
-    echo "      podman machine start"
-    echo ""
-    exit 1
-  fi
+# Stage config files to check for real changes
+git add "$MAIN_CONFIG" "$NEW_CONFIG" 2>/dev/null || true
+
+# Check if there are actual changes to the config files
+CONFIG_CHANGES=false
+if ! git diff --cached --quiet "$MAIN_CONFIG" "$NEW_CONFIG" 2>/dev/null; then
+  CONFIG_CHANGES=true
+  echo "   ✅ Config files have substantive changes"
+
+  # Show summary of changes
+  echo "   Changes detected in:"
+  git diff --cached --name-only "$MAIN_CONFIG" "$NEW_CONFIG" 2>/dev/null | sed 's/^/      - /'
 else
-  echo "   ❌ Error: No container engine found!" >&2
-  echo ""
-  echo "   Please ensure Docker or Podman is installed and running."
-  echo "   - Docker: Start Docker Desktop application"
-  echo "   - Podman: Ensure podman machine is running (podman machine start)"
-  echo ""
-  exit 1
+  echo "   ℹ️  No substantive changes in config files"
+  echo "   Skipping make update and make jobs"
 fi
 
-echo ""
-echo "📍 Step 4: Auto-generating job configurations..."
-echo "   Running make update (timeout: 2 minutes)..."
-echo "   Using $CONTAINER_ENGINE as container engine..."
-
-# Track if make update succeeded
+# Step 4: Auto-generate job configurations (only if config changed)
 MAKE_UPDATE_SUCCESS=false
 MAKE_JOBS_SUCCESS=false
 
-# Run make update with 2 minute timeout
-if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
-  if timeout 120 bash -c "CONTAINER_ENGINE=docker make update" 2>/dev/null; then
-    MAKE_UPDATE_SUCCESS=true
-    echo "   ✅ Job configurations generated (make update)"
+if [[ "$CONFIG_CHANGES" = true ]]; then
+  echo ""
+  echo "📍 Step 4: Verifying container engine availability..."
+
+  # Check for Docker
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    CONTAINER_ENGINE="docker"
+    echo "   ✅ Docker is available and running"
+  # Check for Podman
+  elif command -v podman >/dev/null 2>&1; then
+    # Check if podman machine is running
+    if podman machine list 2>/dev/null | grep -q "Currently running"; then
+      CONTAINER_ENGINE="podman"
+      echo "   ✅ Podman is available and running"
+    else
+      echo "   ❌ Error: Podman is installed but no machine is running" >&2
+      echo ""
+      echo "   Please start your podman machine:"
+      echo "      podman machine start"
+      echo ""
+      exit 1
+    fi
   else
-    echo "   ⚠️  make update timed out or failed (skipping)" >&2
-    echo "   ℹ️  You may need to run 'make update' manually in the PR"
+    echo "   ❌ Error: No container engine found!" >&2
+    echo ""
+    echo "   Please ensure Docker or Podman is installed and running."
+    echo "   - Docker: Start Docker Desktop application"
+    echo "   - Podman: Ensure podman machine is running (podman machine start)"
+    echo ""
+    exit 1
+  fi
+
+  echo ""
+  echo "📍 Step 5: Auto-generating job configurations..."
+  echo "   Running make update (timeout: 2 minutes)..."
+  echo "   Using $CONTAINER_ENGINE as container engine..."
+
+  # Run make update with 2 minute timeout
+  if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
+    if timeout 120 bash -c "CONTAINER_ENGINE=docker make update" 2>/dev/null; then
+      MAKE_UPDATE_SUCCESS=true
+      echo "   ✅ Job configurations generated (make update)"
+    else
+      echo "   ⚠️  make update timed out or failed (skipping)" >&2
+      echo "   ℹ️  You may need to run 'make update' manually in the PR"
+    fi
+  else
+    if timeout 120 make update 2>/dev/null; then
+      MAKE_UPDATE_SUCCESS=true
+      echo "   ✅ Job configurations generated (make update)"
+    else
+      echo "   ⚠️  make update timed out or failed (skipping)" >&2
+      echo "   ℹ️  You may need to run 'make update' manually in the PR"
+    fi
+  fi
+
+  # Run make jobs to format Prow jobs (if make update succeeded)
+  if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
+    echo "   Running make jobs to format Prow jobs (timeout: 2 minutes)..."
+    if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
+      if timeout 120 bash -c "CONTAINER_ENGINE=docker make jobs" 2>/dev/null; then
+        MAKE_JOBS_SUCCESS=true
+        echo "   ✅ Prow jobs formatted (make jobs)"
+      else
+        echo "   ⚠️  make jobs timed out or failed" >&2
+        echo "   ℹ️  You may need to run 'make jobs' manually in the PR"
+      fi
+    else
+      if timeout 120 make jobs 2>/dev/null; then
+        MAKE_JOBS_SUCCESS=true
+        echo "   ✅ Prow jobs formatted (make jobs)"
+      else
+        echo "   ⚠️  make jobs timed out or failed" >&2
+        echo "   ℹ️  You may need to run 'make jobs' manually in the PR"
+      fi
+    fi
   fi
 else
-  if timeout 120 make update 2>/dev/null; then
-    MAKE_UPDATE_SUCCESS=true
-    echo "   ✅ Job configurations generated (make update)"
-  else
-    echo "   ⚠️  make update timed out or failed (skipping)" >&2
-    echo "   ℹ️  You may need to run 'make update' manually in the PR"
-  fi
+  echo "   ℹ️  Skipping container engine check and job generation (no config changes)"
 fi
 
-# Run make jobs to format Prow jobs (if make update succeeded)
-if [[ "$MAKE_UPDATE_SUCCESS" = true ]]; then
-  echo "   Running make jobs to format Prow jobs (timeout: 2 minutes)..."
-  if [[ "$CONTAINER_ENGINE" = "docker" ]]; then
-    if timeout 120 bash -c "CONTAINER_ENGINE=docker make jobs" 2>/dev/null; then
-      MAKE_JOBS_SUCCESS=true
-      echo "   ✅ Prow jobs formatted (make jobs)"
-    else
-      echo "   ⚠️  make jobs timed out or failed" >&2
-      echo "   ℹ️  You may need to run 'make jobs' manually in the PR"
-    fi
-  else
-    if timeout 120 make jobs 2>/dev/null; then
-      MAKE_JOBS_SUCCESS=true
-      echo "   ✅ Prow jobs formatted (make jobs)"
-    else
-      echo "   ⚠️  make jobs timed out or failed" >&2
-      echo "   ℹ️  You may need to run 'make jobs' manually in the PR"
-    fi
-  fi
-fi
-
-# Step 5: Commit and create/update PR
+# Step 6: Commit and create/update PR
 echo ""
-echo "📍 Step 5: Committing changes and creating/updating PR..."
+echo "📍 Step 6: Committing changes and creating/updating PR..."
 
 # Check for existing PR
 echo "   Checking for existing PR..."

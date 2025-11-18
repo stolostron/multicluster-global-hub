@@ -257,11 +257,23 @@ echo "   Source: $BUNDLE_SOURCE_DESCRIPTION"
 echo "   Path: $SOURCE_BUNDLE_DIR"
 echo "   Target: bundle/"
 
-# Backup existing bundle directory
+# Backup existing bundle directory and preserve createdAt timestamps
+PRESERVE_CREATED_AT=false
+ORIGINAL_CREATED_AT=""
 if [[ -d "bundle" ]]; then
   echo "   Backing up existing bundle directory..."
   rm -rf bundle.backup 2>/dev/null || true
   cp -r bundle bundle.backup
+
+  # Extract createdAt from existing CSV if it exists
+  CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
+  if [[ -n "$CSV_FILE" && -f "$CSV_FILE" ]]; then
+    ORIGINAL_CREATED_AT=$(grep "createdAt:" "$CSV_FILE" | head -1 || echo "")
+    if [[ -n "$ORIGINAL_CREATED_AT" ]]; then
+      PRESERVE_CREATED_AT=true
+      echo "   ℹ️  Preserving original createdAt timestamp"
+    fi
+  fi
 fi
 
 # Remove existing bundle content (except .git if it exists)
@@ -285,6 +297,17 @@ fi
 if [[ -d "$SOURCE_BUNDLE_DIR/tests" ]]; then
   cp -r "$SOURCE_BUNDLE_DIR/tests" bundle/
   echo "   ✅ Copied tests/"
+fi
+
+# Restore original createdAt to avoid timestamp-only changes
+if [[ "$PRESERVE_CREATED_AT" = true && -n "$ORIGINAL_CREATED_AT" ]]; then
+  NEW_CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
+  if [[ -n "$NEW_CSV_FILE" && -f "$NEW_CSV_FILE" ]]; then
+    echo "   Restoring original createdAt timestamp..."
+    # Replace createdAt line with original value
+    sed "${SED_INPLACE[@]}" "s|^  createdAt:.*|${ORIGINAL_CREATED_AT}|" "$NEW_CSV_FILE"
+    echo "   ✅ Restored original createdAt (avoiding timestamp-only changes)"
+  fi
 fi
 
 # Stage the copied files
