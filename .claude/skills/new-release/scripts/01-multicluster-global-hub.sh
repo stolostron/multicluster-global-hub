@@ -636,37 +636,54 @@ EXISTING_MAIN_PR=$(gh pr list \
   --json number,url,state \
   --jq '.[0] | select(. != null) | "\(.state)|\(.url)"' 2>/dev/null || echo "")
 
-# Push PR branch to origin (your fork) - always push if there are changes
-if [[ "$MAIN_CHANGES_COMMITTED" = true ]]; then
-  git checkout "$MAIN_PR_BRANCH"
+# Check if PR branch has any differences from upstream/main before pushing
+git checkout "$MAIN_PR_BRANCH"
 
-  echo "   Pushing $MAIN_PR_BRANCH to origin (${ORIGIN_USER})..."
+# Compare PR branch with upstream/main to see if there are actual differences
+echo "   Checking if PR branch differs from upstream/main..."
+git fetch "$UPSTREAM_REMOTE" main >/dev/null 2>&1
 
-  # Push to origin (force push is safe for your own fork)
-  if git push -f origin "$MAIN_PR_BRANCH" 2>&1; then
-    echo "   ✅ Branch pushed to origin"
-    PUSH_SUCCESS=true
+if git diff --quiet "$MAIN_PR_BRANCH" "$UPSTREAM_REMOTE/main"; then
+  echo "   ℹ️  PR branch is identical to upstream/main - no PR needed"
+  MAIN_CHANGES_COMMITTED=false
+  PUSH_SUCCESS=false
+else
+  echo "   ✅ PR branch has changes compared to upstream/main"
+
+  # Push PR branch to origin (your fork) - only if there are differences
+  if [[ "$MAIN_CHANGES_COMMITTED" = true ]]; then
+    echo "   Pushing $MAIN_PR_BRANCH to origin (${ORIGIN_USER})..."
+
+    # Push to origin (force push is safe for your own fork)
+    if git push -f origin "$MAIN_PR_BRANCH" 2>&1; then
+      echo "   ✅ Branch pushed to origin"
+      PUSH_SUCCESS=true
+    else
+      echo "   ⚠️  Failed to push branch to origin" >&2
+      PUSH_SUCCESS=false
+    fi
   else
-    echo "   ⚠️  Failed to push branch to origin" >&2
+    # Should not happen, but handle gracefully
     PUSH_SUCCESS=false
   fi
+fi
 
-  if [[ "$PUSH_SUCCESS" = true ]]; then
-    # Check if PR exists
-    if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "$NULL_PR_VALUE" ]]; then
-      MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
-      MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
-      echo "   ✅ PR already exists and updated (state: $MAIN_PR_STATE): $MAIN_PR_URL"
-      MAIN_PR_CREATED=true
-    else
-      # Create new PR to main
-      echo "   Creating PR to ${REPO_ORG}:main..."
-      PR_CREATE_OUTPUT=$(gh pr create \
-        --repo "${REPO_ORG}/${REPO_NAME}" \
-        --base main \
-        --head "${PR_HEAD}" \
-        --title "Add ${RELEASE_BRANCH} tekton pipelines and update configurations" \
-        --body "## Summary
+if [[ "$PUSH_SUCCESS" = true ]]; then
+  # Check if PR exists
+  if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "$NULL_PR_VALUE" ]]; then
+    MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
+    MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
+    echo "   ✅ PR already exists and updated (state: $MAIN_PR_STATE): $MAIN_PR_URL"
+    MAIN_PR_CREATED=true
+  else
+    # Create new PR to main
+    echo "   Creating PR to ${REPO_ORG}:main..."
+    PR_CREATE_OUTPUT=$(gh pr create \
+      --repo "${REPO_ORG}/${REPO_NAME}" \
+      --base main \
+      --head "${PR_HEAD}" \
+      --title "Add ${RELEASE_BRANCH} tekton pipelines and update configurations" \
+      --body "## Summary
 
 Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
 
@@ -692,39 +709,27 @@ Add new pipeline configurations for ${RELEASE_BRANCH} to the main branch.
 
 This PR updates all necessary configurations for the new release on the main branch." 2>&1) || true
 
-      # Check if PR was successfully created or already exists
-      if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
-        MAIN_PR_URL="$PR_CREATE_OUTPUT"
-        echo "   ✅ PR created: $MAIN_PR_URL"
-        MAIN_PR_CREATED=true
-      elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
-        # PR already exists, extract URL from error message
-        MAIN_PR_URL="${BASH_REMATCH[1]}"
-        echo "   ✅ PR already exists and updated: $MAIN_PR_URL"
-        MAIN_PR_CREATED=true
-      else
-        echo "   ⚠️  Failed to create PR automatically" >&2
-        echo "   Reason: $PR_CREATE_OUTPUT"
-        echo "   ℹ️  You can create the PR manually at:"
-        echo "      https://github.com/${REPO_ORG}/${REPO_NAME}/compare/main...${PR_HEAD}"
-        MAIN_PR_CREATED=false
-      fi
+    # Check if PR was successfully created or already exists
+    if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
+      MAIN_PR_URL="$PR_CREATE_OUTPUT"
+      echo "   ✅ PR created: $MAIN_PR_URL"
+      MAIN_PR_CREATED=true
+    elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
+      # PR already exists, extract URL from error message
+      MAIN_PR_URL="${BASH_REMATCH[1]}"
+      echo "   ✅ PR already exists and updated: $MAIN_PR_URL"
+      MAIN_PR_CREATED=true
+    else
+      echo "   ⚠️  Failed to create PR automatically" >&2
+      echo "   Reason: $PR_CREATE_OUTPUT"
+      echo "   ℹ️  You can create the PR manually at:"
+      echo "      https://github.com/${REPO_ORG}/${REPO_NAME}/compare/main...${PR_HEAD}"
+      MAIN_PR_CREATED=false
     fi
-  else
-    echo "   ⚠️  Skipping PR creation/update due to push failure" >&2
-    MAIN_PR_CREATED=false
   fi
 else
-  echo "   ℹ️  No changes to push"
-  # Still check if PR exists
-  if [[ -n "$EXISTING_MAIN_PR" && "$EXISTING_MAIN_PR" != "$NULL_PR_VALUE" ]]; then
-    MAIN_PR_STATE=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f1)
-    MAIN_PR_URL=$(echo "$EXISTING_MAIN_PR" | cut -d'|' -f2)
-    echo "   ℹ️  PR already exists (state: $MAIN_PR_STATE): $MAIN_PR_URL"
-    MAIN_PR_CREATED=true
-  else
-    MAIN_PR_CREATED=false
-  fi
+  echo "   ℹ️  No changes to push - branch is up to date with main"
+  MAIN_PR_CREATED=false
 fi
 
 # Step 9: Update previous release .tekton files to point to their release branch
