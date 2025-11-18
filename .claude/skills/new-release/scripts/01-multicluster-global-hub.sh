@@ -134,22 +134,24 @@ echo "📍 Step 3: Preparing branch for PR to main..."
 git reset --hard HEAD 2>/dev/null || true
 git clean -fd 2>/dev/null || true
 
+# Fetch latest main branch from upstream
+echo "   Fetching latest main from upstream..."
+git fetch "$REMOTE" main >/dev/null 2>&1 || git fetch "$REMOTE" master >/dev/null 2>&1
+
 # Ensure we're on latest main
 git checkout main 2>/dev/null || git checkout master 2>/dev/null || true
 git reset --hard "$REMOTE/main" 2>/dev/null || git reset --hard "$REMOTE/master" 2>/dev/null || true
+echo "   ✅ Reset to latest upstream/main"
 
 # Create working branch for main PR
 MAIN_PR_BRANCH="release-${ACM_VERSION}-tekton-configs"
 echo "   Creating branch for main PR: $MAIN_PR_BRANCH"
 
-# Check if this branch already exists on remote
-if git ls-remote --heads "$REMOTE" "$MAIN_PR_BRANCH" | grep -q "$MAIN_PR_BRANCH"; then
-  echo "   Branch exists on $REMOTE, fetching latest..."
-  git fetch "$REMOTE" "$MAIN_PR_BRANCH:$MAIN_PR_BRANCH" 2>/dev/null || true
-  git checkout -B "$MAIN_PR_BRANCH" "$REMOTE/$MAIN_PR_BRANCH"
-else
-  git checkout -B "$MAIN_PR_BRANCH" "$REMOTE/main"
-fi
+# Always create PR branch from latest upstream/main (not from old PR branch)
+# This ensures we're always working with the latest codebase
+echo "   Creating $MAIN_PR_BRANCH from latest upstream/main..."
+git checkout -B "$MAIN_PR_BRANCH" "$REMOTE/main"
+echo "   ✅ Created branch from upstream/main"
 
 # Step 4: Create new .tekton/ configuration files for main branch
 echo ""
@@ -641,9 +643,9 @@ git checkout "$MAIN_PR_BRANCH"
 
 # Compare PR branch with upstream/main to see if there are actual differences
 echo "   Checking if PR branch differs from upstream/main..."
-git fetch "$UPSTREAM_REMOTE" main >/dev/null 2>&1
+# Note: We already fetched upstream/main in Step 3, so upstream/main ref is up to date
 
-if git diff --quiet "$MAIN_PR_BRANCH" "$UPSTREAM_REMOTE/main"; then
+if git diff --quiet "$MAIN_PR_BRANCH" "$REMOTE/main"; then
   echo "   ℹ️  PR branch is identical to upstream/main - no PR needed"
   MAIN_CHANGES_COMMITTED=false
   PUSH_SUCCESS=false
