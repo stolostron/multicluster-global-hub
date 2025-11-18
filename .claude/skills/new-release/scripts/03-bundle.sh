@@ -257,31 +257,15 @@ echo "   Source: $BUNDLE_SOURCE_DESCRIPTION"
 echo "   Path: $SOURCE_BUNDLE_DIR"
 echo "   Target: bundle/"
 
-# Backup existing bundle directory and preserve createdAt timestamps
-PRESERVE_CREATED_AT=false
-ORIGINAL_CREATED_AT=""
-if [[ -d "bundle" ]]; then
-  echo "   Backing up existing bundle directory..."
-  rm -rf bundle.backup 2>/dev/null || true
-  cp -r bundle bundle.backup
-
-  # Extract createdAt timestamp from existing CSV if it exists
-  CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
-  if [[ -n "$CSV_FILE" && -f "$CSV_FILE" ]]; then
-    # Extract only the timestamp value, not the entire line
-    ORIGINAL_CREATED_AT=$(grep "createdAt:" "$CSV_FILE" | sed -E 's/.*createdAt: "(.*)".*/\1/' | head -1 || echo "")
-    if [[ -n "$ORIGINAL_CREATED_AT" ]]; then
-      PRESERVE_CREATED_AT=true
-      echo "   ℹ️  Preserving original createdAt timestamp: $ORIGINAL_CREATED_AT"
-    fi
-  fi
-fi
+# IMPORTANT: Bundle content from multicluster-global-hub is the source of truth
+# We do NOT modify version, ACM version, channels, skipRange, or any other fields
+# The bundle is copied AS-IS and stays aligned with the main repo
 
 # Remove existing bundle content (except .git if it exists)
 echo "   Removing old bundle content..."
 rm -rf bundle/manifests bundle/metadata bundle/tests 2>/dev/null || true
 
-# Copy new bundle content
+# Copy new bundle content directly without any modifications
 echo "   Copying new bundle content..."
 mkdir -p bundle
 
@@ -300,22 +284,10 @@ if [[ -d "$SOURCE_BUNDLE_DIR/tests" ]]; then
   echo "   ✅ Copied tests/"
 fi
 
-# Restore original createdAt to avoid timestamp-only changes
-if [[ "$PRESERVE_CREATED_AT" = true && -n "$ORIGINAL_CREATED_AT" ]]; then
-  NEW_CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
-  if [[ -n "$NEW_CSV_FILE" && -f "$NEW_CSV_FILE" ]]; then
-    echo "   Restoring original createdAt timestamp..."
-    # Replace only the timestamp value, preserving the line format and indentation
-    # Use a simpler sed pattern that works on both Linux and macOS
-    sed "${SED_INPLACE[@]}" "s|createdAt: \"[^\"]*\"|createdAt: \"${ORIGINAL_CREATED_AT}\"|" "$NEW_CSV_FILE"
-    echo "   ✅ Restored original createdAt: $ORIGINAL_CREATED_AT (avoiding timestamp-only changes)"
-  fi
-fi
-
 # Stage the copied files
 git add bundle/ 2>/dev/null || true
 
-echo "   ✅ Bundle content copied from $BUNDLE_SOURCE_DESCRIPTION"
+echo "   ✅ Bundle content copied AS-IS from $BUNDLE_SOURCE_DESCRIPTION (no modifications)"
 
 echo ""
 
