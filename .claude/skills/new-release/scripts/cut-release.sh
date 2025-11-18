@@ -265,6 +265,9 @@ COMPLETED=0
 FAILED=0
 FAILED_REPOS=()
 EXECUTED_SCRIPTS=()
+# Track PR information for each repo
+declare -A REPO_STATUS
+declare -A REPO_PRS
 
 # Execute selected scripts
 for repo_num in "${REPOS_TO_UPDATE[@]}"; do
@@ -333,14 +336,25 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     fi
   fi
 
-  if run_script "$repo_num"; then
+  repo_info=$(get_repo_info "$repo_num")
+  IFS='|' read -r name _ _ <<< "$repo_info"
+
+  # Capture script output to extract PR URLs
+  SCRIPT_OUTPUT=$(mktemp)
+  if run_script "$repo_num" 2>&1 | tee "$SCRIPT_OUTPUT"; then
     COMPLETED=$((COMPLETED + 1))
     EXECUTED_SCRIPTS+=("$repo_num")
+    REPO_STATUS["$repo_num"]="✅ Completed"
+
+    # Extract PR URL from output (look for github.com PR links)
+    PR_URL=$(grep -oE 'https://github.com/[^/]+/[^/]+/pull/[0-9]+' "$SCRIPT_OUTPUT" | head -1 || echo "")
+    if [[ -n "$PR_URL" ]]; then
+      REPO_PRS["$repo_num"]="$PR_URL"
+    fi
   else
     FAILED=$((FAILED + 1))
-    repo_info=$(get_repo_info "$repo_num")
-    IFS='|' read -r name _ _ <<< "$repo_info"
     FAILED_REPOS+=("$name")
+    REPO_STATUS["$repo_num"]="❌ Failed"
 
     # Ask if user wants to continue
     if [[ "$FAILED" -lt "$TOTAL" ]]; then
@@ -353,6 +367,7 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
       fi
     fi
   fi
+  rm -f "$SCRIPT_OUTPUT"
 done
 
 # Final Summary
@@ -361,39 +376,119 @@ echo "$SEPARATOR_LINE"
 echo "📋 Release Workflow Summary"
 echo "$SEPARATOR_LINE"
 echo ""
-echo "Version:"
+echo "🎯 Version Information:"
 echo "   ACM:        $RELEASE_BRANCH"
 echo "   Global Hub: release-$GH_VERSION_SHORT"
+echo "   OCP:        4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100))"
 echo ""
-echo "Results:"
-echo "   Total: $TOTAL"
-echo "   ✅ Completed: $COMPLETED"
-echo "   ❌ Failed: $FAILED" >&2
+echo "📊 Execution Results: $COMPLETED/$TOTAL completed"
+echo ""
 
-if [[ $FAILED -gt 0 ]]; then
+# Detailed repository status
+echo "📦 Repository Status & Actions:"
+echo ""
+
+# Helper function to get repo info
+get_repo_display_info() {
+  local num=$1
+  case $num in
+    1) echo "multicluster-global-hub|PR to main|https://github.com/stolostron/multicluster-global-hub/pulls" ;;
+    2) echo "openshift/release|PR to master|https://github.com/openshift/release/pulls" ;;
+    3) echo "operator-bundle|PR to release-$GH_VERSION_SHORT|https://github.com/stolostron/multicluster-global-hub-operator-bundle/pulls" ;;
+    4) echo "operator-catalog|PRs to main & release|https://github.com/stolostron/multicluster-global-hub-operator-catalog/pulls" ;;
+    5) echo "glo-grafana|PR to release-$GH_VERSION_SHORT|https://github.com/stolostron/glo-grafana/pulls" ;;
+    6) echo "postgres_exporter|PR to $RELEASE_BRANCH|https://github.com/stolostron/postgres_exporter/pulls" ;;
+  esac
+}
+
+# Display each repository status
+for repo_num in $(seq 1 6); do
+  if [[ -v REPO_STATUS[$repo_num] ]]; then
+    repo_display_info=$(get_repo_display_info "$repo_num")
+    IFS='|' read -r repo_name pr_target _ <<< "$repo_display_info"
+
+    status="${REPO_STATUS[$repo_num]}"
+
+    echo "[$repo_num] $repo_name"
+    echo "    Status: $status"
+
+    if [[ "$status" == "✅ Completed" ]]; then
+      # Only show PR link if we have a specific PR URL
+      if [[ -v REPO_PRS[$repo_num] && -n "${REPO_PRS[$repo_num]}" ]]; then
+        echo "    Action: Review and merge $pr_target"
+        echo "    PR:     ${REPO_PRS[$repo_num]}"
+      else
+        echo "    Action: No PR created (may already be up to date)"
+      fi
+    else
+      echo "    Action: Check errors above and fix manually"
+    fi
+    echo ""
+  fi
+done
+
+# Summary of what to do next
+echo "$SEPARATOR_LINE"
+if [[ $FAILED -eq 0 ]]; then
+  echo "🎉 SUCCESS: All selected repositories updated!"
   echo ""
-  echo "Failed repositories:"
+  echo "📝 Next Steps Checklist:"
+  echo ""
+
+  # Count PRs to review (only show repos with actual PRs)
+  HAS_PRS=false
+  for repo_num in "${EXECUTED_SCRIPTS[@]}"; do
+    if [[ -v REPO_PRS[$repo_num] && -n "${REPO_PRS[$repo_num]}" ]]; then
+      HAS_PRS=true
+      break
+    fi
+  done
+
+  if [[ "$HAS_PRS" = true ]]; then
+    echo "1️⃣  Review and merge PRs:"
+    for repo_num in "${EXECUTED_SCRIPTS[@]}"; do
+      if [[ -v REPO_PRS[$repo_num] && -n "${REPO_PRS[$repo_num]}" ]]; then
+        repo_display_info=$(get_repo_display_info "$repo_num")
+        IFS='|' read -r repo_name pr_target _ <<< "$repo_display_info"
+        echo "    □ $repo_name - $pr_target"
+        echo "      → ${REPO_PRS[$repo_num]}"
+      fi
+    done
+    echo ""
+    echo "2️⃣  After PRs are merged:"
+    echo "    □ Verify Konflux pipelines are running"
+    echo "    □ Check that all images are built successfully"
+    echo "    □ Verify release branches are created/updated"
+    echo ""
+    echo "3️⃣  Manual tasks:"
+  else
+    echo "ℹ️  No PRs created (repositories may already be up to date)"
+    echo ""
+    echo "1️⃣  Verify deployment:"
+    echo "    □ Check Konflux pipelines are running"
+    echo "    □ Verify all images are built successfully"
+    echo "    □ Confirm release branches are created/updated"
+    echo ""
+    echo "2️⃣  Manual tasks:"
+  fi
+  echo "    □ Update konflux-release-data repository"
+  echo "    □ Notify the team about the new release"
+  echo ""
+  echo "$SEPARATOR_LINE"
+  exit 0
+else
+  echo "⚠️  WARNING: Some repositories failed"
+  echo ""
+  echo "❌ Failed repositories:"
   for repo in "${FAILED_REPOS[@]}"; do
     echo "   - $repo"
   done
-fi
-
-echo ""
-echo "$SEPARATOR_LINE"
-
-if [[ $FAILED -eq 0 ]]; then
-  echo "🎉 All selected repositories updated successfully!"
   echo ""
-  echo "📝 Next Steps:"
-  echo "   1. Review and merge created PRs"
-  echo "   2. Verify all release branches"
-  echo "   3. Update konflux-release-data (manual)"
+  echo "📝 Action required:"
+  echo "   1. Review error messages above"
+  echo "   2. Fix issues manually"
+  echo "   3. Re-run this script for failed repos only"
   echo ""
-  exit 0
-else
-  echo "⚠️  Some repositories failed to update" >&2
-  echo ""
-  echo "Please review errors above and fix manually."
-  echo ""
+  echo "$SEPARATOR_LINE"
   exit 1
 fi
