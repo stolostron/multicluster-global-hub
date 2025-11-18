@@ -442,64 +442,38 @@ else
   echo "   ⚠️  No previous bundle tag found, skipping pipeline update" >&2
 fi
 
-# Step 4: Update bundle image labels
+# Step 4: Verify bundle version (no modification needed)
 echo ""
-echo "📍 Step 4: Updating bundle image labels..."
+echo "📍 Step 4: Verifying bundle version..."
 
-# Find bundle manifests (typically in bundle/ or manifests/ directory)
-BUNDLE_MANIFESTS=$(find . -name "*.clusterserviceversion.yaml" -o -name "bundle.Dockerfile" 2>/dev/null || true)
+# Bundle was copied from multicluster-global-hub which already has the correct
+# version, ACM version, and channel. We should NOT modify these values as the
+# source is already correct and aligned with the release.
 
-if [[ -n "$BUNDLE_MANIFESTS" ]]; then
-  echo "$BUNDLE_MANIFESTS" | while read -r file; do
-    if [[ -f "$file" && -n "$PREV_BUNDLE_TAG" ]]; then
-      PREV_BUNDLE_VERSION="${BASE_BRANCH#release-}"
-      if grep -q "$PREV_BUNDLE_VERSION" "$file" 2>/dev/null; then
-        echo "   Updating $file"
-        sed "${SED_INPLACE[@]}" "s/${PREV_BUNDLE_VERSION}/${BUNDLE_VERSION}/g" "$file"
-        echo "   ✅ Updated version labels in $file"
-      fi
-    fi
-  done
+CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
+if [[ -f "$CSV_FILE" ]]; then
+  CURRENT_VERSION=$(grep "^  version:" "$CSV_FILE" | sed -E 's/.*version: (.*)/\1/' || echo "unknown")
+  CURRENT_MATURITY=$(grep "^  maturity:" "$CSV_FILE" | sed -E 's/.*maturity: (.*)/\1/' || echo "unknown")
+  echo "   Bundle version: $CURRENT_VERSION"
+  echo "   Maturity: $CURRENT_MATURITY"
+  echo "   ✅ Bundle content is from $BUNDLE_SOURCE_DESCRIPTION (already correct)"
 else
-  echo "   ⚠️  No bundle manifest files found" >&2
+  echo "   ⚠️  CSV file not found" >&2
 fi
 
-# Step 4.5: Update CSV skipRange
+# Step 4.5: Verify CSV skipRange (no modification needed)
 echo ""
-echo "📍 Step 4.5: Updating CSV skipRange..."
+echo "📍 Step 4.5: Verifying CSV skipRange..."
 
-CSV_FILE=$(find . -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
-if [[ -n "$CSV_FILE" && -f "$CSV_FILE" && -n "$PREV_BUNDLE_VERSION" ]]; then
-  # Calculate the previous minor version for skipRange
-  # Current: 1.7, Previous: 1.6, skipRange should be: ">=1.6.0 <1.7.0"
-  CURRENT_MINOR="${BUNDLE_VERSION#*.}"
-  CURRENT_MINOR="${CURRENT_MINOR%%.*}"  # Extract minor version (e.g., 7 from 1.7.0)
-  PREV_MINOR=$((CURRENT_MINOR - 1))
-
-  EXPECTED_SKIP_RANGE=">=1.${PREV_MINOR}.0 <1.${CURRENT_MINOR}.0"
-
-  echo "   CSV file: $CSV_FILE"
-  echo "   Expected skipRange: '$EXPECTED_SKIP_RANGE'"
-
-  # Check current skipRange
-  CURRENT_SKIP_RANGE=$(grep "olm.skipRange:" "$CSV_FILE" | sed -E "s/.*olm.skipRange: '(.*)'/\1/")
+# skipRange is already correct in the bundle copied from multicluster-global-hub
+CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
+if [[ -f "$CSV_FILE" ]]; then
+  # Just verify, don't modify
+  CURRENT_SKIP_RANGE=$(grep "olm.skipRange:" "$CSV_FILE" | sed -E "s/.*olm.skipRange: '(.*)'/\1/" || echo "not found")
   echo "   Current skipRange: '$CURRENT_SKIP_RANGE'"
-
-  if [[ "$CURRENT_SKIP_RANGE" != "$EXPECTED_SKIP_RANGE" ]]; then
-    echo "   Updating skipRange..."
-    # Match the previous pattern and replace with current
-    PREV_PREV_MINOR=$((PREV_MINOR - 1))
-    sed "${SED_INPLACE[@]}" "s/olm.skipRange: '>=[0-9.]*[0-9] <[0-9.]*[0-9]'/olm.skipRange: '${EXPECTED_SKIP_RANGE}'/" "$CSV_FILE"
-    echo "   ✅ Updated skipRange to '${EXPECTED_SKIP_RANGE}'"
-  else
-    echo "   ✓ skipRange already correct"
-  fi
+  echo "   ✅ skipRange is from $BUNDLE_SOURCE_DESCRIPTION (already correct)"
 else
-  if [[ -z "$CSV_FILE" ]]; then
-    echo "   ⚠️  CSV file not found" >&2
-  elif [[ -z "$PREV_BUNDLE_VERSION" ]]; then
-    echo "   ⚠️  No previous bundle version found, skipping skipRange update" >&2
-  fi
+  echo "   ⚠️  CSV file not found" >&2
 fi
 
 # Step 5: Update konflux-patch.sh
@@ -535,22 +509,30 @@ else
   echo "   ⚠️  File not found: $KONFLUX_SCRIPT" >&2
 fi
 
-# Step 6: Commit changes
+# Step 6: Check if there are actual changes before committing
 echo ""
-echo "📍 Step 6: Committing changes on $BUNDLE_BRANCH..."
+echo "📍 Step 6: Checking for changes on $BUNDLE_BRANCH..."
 
-# Clean up bundle backup before committing
+# Clean up bundle backup before checking
 if [[ -d "bundle.backup" ]]; then
   echo "   Cleaning up bundle backup..."
   rm -rf bundle.backup
 fi
 
-if git diff --quiet && git diff --cached --quiet; then
+# Stage all changes to check diff
+git add -A
+
+# Compare with origin branch to see if there are real differences
+echo "   Comparing with origin/$BUNDLE_BRANCH..."
+git fetch origin "$BUNDLE_BRANCH" >/dev/null 2>&1 || true
+
+if git diff --quiet "origin/$BUNDLE_BRANCH"; then
+  echo "   ℹ️  No changes compared to origin/$BUNDLE_BRANCH - branch is already up to date"
+  CHANGES_COMMITTED=false
+elif git diff --quiet && git diff --cached --quiet; then
   echo "   ℹ️  No changes to commit"
   CHANGES_COMMITTED=false
 else
-  git add -A
-
   COMMIT_MSG="Update bundle for ${BUNDLE_BRANCH} (Global Hub ${GH_VERSION})
 
 - Copy latest operator bundle from multicluster-global-hub ${BUNDLE_SOURCE_DESCRIPTION}
