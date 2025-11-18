@@ -265,13 +265,14 @@ if [[ -d "bundle" ]]; then
   rm -rf bundle.backup 2>/dev/null || true
   cp -r bundle bundle.backup
 
-  # Extract createdAt from existing CSV if it exists
+  # Extract createdAt timestamp from existing CSV if it exists
   CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
   if [[ -n "$CSV_FILE" && -f "$CSV_FILE" ]]; then
-    ORIGINAL_CREATED_AT=$(grep "createdAt:" "$CSV_FILE" | head -1 || echo "")
+    # Extract only the timestamp value, not the entire line
+    ORIGINAL_CREATED_AT=$(grep "createdAt:" "$CSV_FILE" | sed -E 's/.*createdAt: "(.*)".*/\1/' | head -1 || echo "")
     if [[ -n "$ORIGINAL_CREATED_AT" ]]; then
       PRESERVE_CREATED_AT=true
-      echo "   ℹ️  Preserving original createdAt timestamp"
+      echo "   ℹ️  Preserving original createdAt timestamp: $ORIGINAL_CREATED_AT"
     fi
   fi
 fi
@@ -304,9 +305,10 @@ if [[ "$PRESERVE_CREATED_AT" = true && -n "$ORIGINAL_CREATED_AT" ]]; then
   NEW_CSV_FILE=$(find bundle/manifests -name "*.clusterserviceversion.yaml" 2>/dev/null | head -1)
   if [[ -n "$NEW_CSV_FILE" && -f "$NEW_CSV_FILE" ]]; then
     echo "   Restoring original createdAt timestamp..."
-    # Replace createdAt line with original value
-    sed "${SED_INPLACE[@]}" "s|^  createdAt:.*|${ORIGINAL_CREATED_AT}|" "$NEW_CSV_FILE"
-    echo "   ✅ Restored original createdAt (avoiding timestamp-only changes)"
+    # Replace only the timestamp value, preserving the line format and indentation
+    # Use a simpler sed pattern that works on both Linux and macOS
+    sed "${SED_INPLACE[@]}" "s|createdAt: \"[^\"]*\"|createdAt: \"${ORIGINAL_CREATED_AT}\"|" "$NEW_CSV_FILE"
+    echo "   ✅ Restored original createdAt: $ORIGINAL_CREATED_AT (avoiding timestamp-only changes)"
   fi
 fi
 
