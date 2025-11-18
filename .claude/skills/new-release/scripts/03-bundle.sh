@@ -108,13 +108,15 @@ cd "$MGH_REPO_PATH"
 
 # Check for PR to main branch (created by script 01)
 echo "   Checking for multicluster-global-hub PR to main branch..."
+# Use exact title match to avoid false positives from --search
+PR_TITLE_PATTERN="Add ${RELEASE_BRANCH} "
 MGH_MAIN_PR=$(gh pr list \
   --repo "stolostron/multicluster-global-hub" \
   --base main \
   --state open \
-  --search "Add ${RELEASE_BRANCH} pipeline configurations" \
-  --json number,url,headRefName \
-  --jq '.[0] | select(. != null) | "\(.number)|\(.url)|\(.headRefName)"' 2>/dev/null || echo "")
+  --json number,url,headRefName,title \
+  --jq '.[] | select(.title | startswith("'"${PR_TITLE_PATTERN}"'")) | "\(.number)|\(.url)|\(.headRefName)"' \
+  | head -1 || echo "")
 
 if [[ -n "$MGH_MAIN_PR" && "$MGH_MAIN_PR" != "null|null|" ]]; then
   # PR exists - use bundle from PR branch (latest updates before merge)
