@@ -346,8 +346,25 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
     EXECUTED_SCRIPTS+=("$repo_num")
     REPO_STATUS["$repo_num"]="✅ Completed"
 
-    # Extract PR URL from output (look for github.com PR links)
-    PR_URL=$(grep -oE 'https://github.com/[^/]+/[^/]+/pull/[0-9]+' "$SCRIPT_OUTPUT" | head -1 || echo "")
+    # Extract PR URL from WORKFLOW SUMMARY or NEXT STEPS section (most reliable)
+    # First, try to extract from the summary sections at the end of script output
+    PR_URL=""
+
+    # Look for PR URLs in NEXT STEPS section (after "NEXT STEPS" line)
+    if [[ -z "$PR_URL" ]]; then
+      PR_URL=$(awk '/NEXT STEPS/,0' "$SCRIPT_OUTPUT" | grep -E "^(1\.|   ).*Review and merge" | grep -oE 'https://github.com/[^/]+/[^/]+/pull/[0-9]+' | head -1 || echo "")
+    fi
+
+    # Look for PR in COMPLETED TASKS section
+    if [[ -z "$PR_URL" ]]; then
+      PR_URL=$(awk '/COMPLETED TASKS/,/NEXT STEPS/' "$SCRIPT_OUTPUT" | grep -E "✓.*PR.*:" | grep -oE 'https://github.com/[^/]+/[^/]+/pull/[0-9]+' | head -1 || echo "")
+    fi
+
+    # Fallback: Look for PR creation/update messages (but only the last one in output to avoid wrong repo)
+    if [[ -z "$PR_URL" ]]; then
+      PR_URL=$(grep -E "(✅|✓).*(PR created|PR updated|PR already exists and updated):" "$SCRIPT_OUTPUT" | grep -oE 'https://github.com/[^/]+/[^/]+/pull/[0-9]+' | tail -1 || echo "")
+    fi
+
     if [[ -n "$PR_URL" ]]; then
       REPO_PRS["$repo_num"]="$PR_URL"
     fi
