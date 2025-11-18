@@ -134,13 +134,13 @@ else
   echo "   ℹ️  No open PR to main found"
   echo "   Using main branch (normal case after PR merge)..."
 
-  # Checkout main branch
-  git fetch origin main 2>/dev/null || true
-  git checkout -B main origin/main 2>/dev/null || true
+  # Checkout main branch from upstream (stolostron), not origin (user's fork)
+  git fetch upstream main 2>/dev/null || true
+  git checkout -B main upstream/main 2>/dev/null || true
 
   SOURCE_BUNDLE_DIR="$MGH_REPO_PATH/operator/bundle"
-  BUNDLE_SOURCE_DESCRIPTION="main branch"
-  echo "   ✅ Using bundle from main branch"
+  BUNDLE_SOURCE_DESCRIPTION="upstream/main branch"
+  echo "   ✅ Using bundle from upstream/main branch"
 fi
 
 # Verify bundle directory exists
