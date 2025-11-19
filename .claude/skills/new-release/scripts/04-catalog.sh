@@ -43,6 +43,15 @@ fi
 readonly NULL_PR_VALUE='null|null'
 readonly SEPARATOR_LINE='================================================'
 
+# PR status constants
+readonly PR_STATUS_NONE='none'
+readonly PR_STATUS_CREATED='created'
+readonly PR_STATUS_UPDATED='updated'
+readonly PR_STATUS_EXISTS='exists'
+readonly PR_STATUS_SKIPPED='skipped'
+readonly PR_STATUS_PUSHED='pushed'
+readonly PR_STATUS_FAILED='failed'
+
 echo "🚀 Operator Catalog Release"
 echo "$SEPARATOR_LINE"
 echo "   Mode: $([[ "$CREATE_BRANCHES" = true ]] && echo "CUT (create branch)" || echo "UPDATE (PR only)")"
@@ -58,25 +67,35 @@ CATALOG_VERSION="${CATALOG_BRANCH#release-}"
 REPO_PATH="$WORK_DIR/multicluster-global-hub-operator-catalog"
 mkdir -p "$WORK_DIR"
 
-# Remove existing directory for clean clone
-if [[ -d "$REPO_PATH" ]]; then
-  echo "   Removing existing directory for clean clone..."
-  rm -rf "$REPO_PATH"
+# Reuse existing repository or clone new one
+if [[ -d "$REPO_PATH/.git" ]]; then
+  echo "📂 Repository already exists, updating..."
+  cd "$REPO_PATH"
+
+  # Clean any local changes
+  git reset --hard HEAD >/dev/null 2>&1 || true
+  git clean -fd >/dev/null 2>&1 || true
+
+  # Fetch latest from origin
+  echo "🔄 Fetching latest changes from origin..."
+  git fetch origin --depth=1 --progress 2>&1 | grep -E "Receiving|Resolving|Fetching" || true
+  echo "   ✅ Repository updated"
+else
+  echo "📥 Cloning $CATALOG_REPO (--depth=1 for faster clone)..."
+  git clone --depth=1 --single-branch --branch main --progress "https://github.com/$CATALOG_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+  if [[ ! -d "$REPO_PATH/.git" ]]; then
+    echo "❌ Failed to clone $CATALOG_REPO" >&2
+    exit 1
+  fi
+  echo "✅ Cloned successfully"
+  cd "$REPO_PATH"
 fi
 
-echo "📥 Cloning $CATALOG_REPO (--depth=1 for faster clone)..."
-git clone --depth=1 --single-branch --branch main --progress "https://github.com/$CATALOG_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-if [[ ! -d "$REPO_PATH/.git" ]]; then
-  echo "❌ Failed to clone $CATALOG_REPO" >&2
-  exit 1
-fi
-echo "✅ Cloned successfully"
-
-cd "$REPO_PATH"
-
-# Setup user's fork remote
+# Setup user's fork remote (if not already added)
 FORK_REPO="git@github.com:${GITHUB_USER}/multicluster-global-hub-operator-catalog.git"
-git remote add fork "$FORK_REPO" 2>/dev/null || true
+if ! git remote | grep -q "^fork$"; then
+  git remote add fork "$FORK_REPO" 2>/dev/null || true
+fi
 
 # Check if fork exists
 FORK_EXISTS=false
@@ -103,7 +122,7 @@ git checkout main >/dev/null 2>&1
 CATALOG_DIR_CREATED=false
 CATALOG_JSON_PATH="catalog/multicluster-global-hub-operator-rh/catalog.json"
 MISSING_OCP_VERSIONS=()
-MAIN_PR_STATUS="none"  # none, created, updated, skipped, pushed, failed
+MAIN_PR_STATUS="$PR_STATUS_NONE"
 MAIN_PR_URL=""
 
 # Check which OCP versions are missing
@@ -172,11 +191,11 @@ Related: ${RELEASE_BRANCH}"
     echo "   Pushing changes directly to origin/main..."
     if git push origin "$MAIN_PR_BRANCH":main 2>&1; then
       echo "   ✅ Changes pushed to origin/main"
-      MAIN_PR_STATUS="pushed"
+      MAIN_PR_STATUS="$PR_STATUS_PUSHED"
     else
       echo "   ⚠️  Failed to push to origin/main" >&2
       echo "   You may need to create a PR manually for these changes"
-      MAIN_PR_STATUS="failed"
+      MAIN_PR_STATUS="$PR_STATUS_FAILED"
     fi
   else
     # UPDATE mode - create PR to upstream main
@@ -209,10 +228,10 @@ Related: ${RELEASE_BRANCH}"
         echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
         if git push -f fork "$MAIN_PR_BRANCH:$EXISTING_BRANCH" 2>&1; then
           echo "   ✅ PR updated with latest changes: $MAIN_PR_URL"
-          MAIN_PR_STATUS="updated"
+          MAIN_PR_STATUS="$PR_STATUS_UPDATED"
         else
           echo "   ⚠️  Failed to push updates to fork" >&2
-          MAIN_PR_STATUS="exists"
+          MAIN_PR_STATUS="$PR_STATUS_EXISTS"
         fi
       else
         # No existing PR, create a new one
@@ -251,11 +270,11 @@ v4.$((OCP_MAX%100))/catalog/multicluster-global-hub-operator-rh/catalog.json
 
           if [[ "$MAIN_PR_URL" =~ ^https:// ]]; then
             echo "   ✅ PR created to upstream main: $MAIN_PR_URL"
-            MAIN_PR_STATUS="created"
+            MAIN_PR_STATUS="$PR_STATUS_CREATED"
           else
             echo "   ⚠️  Failed to create PR" >&2
             echo "   Reason: $MAIN_PR_URL"
-            MAIN_PR_STATUS="failed"
+            MAIN_PR_STATUS="$PR_STATUS_FAILED"
           fi
         else
           echo "   ⚠️  Failed to push branch to fork" >&2
@@ -268,7 +287,7 @@ v4.$((OCP_MAX%100))/catalog/multicluster-global-hub-operator-rh/catalog.json
   git checkout main >/dev/null 2>&1
 else
   echo "   ✓ All required OCP version directories exist"
-  MAIN_PR_STATUS="skipped"
+  MAIN_PR_STATUS="$PR_STATUS_SKIPPED"
 fi
 
 echo ""
@@ -353,9 +372,9 @@ echo ""
 BRANCH_EXISTS_ON_ORIGIN=false
 CHANGES_COMMITTED=false
 PUSHED_TO_ORIGIN=false
-CATALOG_PR_STATUS="none"  # none, created, updated, exists, skipped, pushed
+CATALOG_PR_STATUS="$PR_STATUS_NONE"  # none, created, updated, exists, skipped, pushed
 CATALOG_PR_URL=""
-CLEANUP_PR_STATUS="none"  # none, created, updated, exists, skipped
+CLEANUP_PR_STATUS="$PR_STATUS_NONE"  # none, created, updated, exists, skipped
 CLEANUP_PR_URL=""
 
 # Check if new release branch already exists on origin (upstream)
@@ -666,7 +685,7 @@ fi
       if git push origin "$CATALOG_BRANCH" 2>&1; then
         echo "   ✅ Branch pushed to origin: $CATALOG_REPO/$CATALOG_BRANCH"
         PUSHED_TO_ORIGIN=true
-        CATALOG_PR_STATUS="pushed"
+        CATALOG_PR_STATUS="$PR_STATUS_PUSHED"
       else
         echo "   ❌ Failed to push branch to origin" >&2
         exit 1
@@ -724,10 +743,10 @@ fi
           echo "   Pushing updates to existing PR branch: $EXISTING_BRANCH..."
           if git push -f origin "HEAD:$EXISTING_BRANCH" 2>&1; then
             echo "   ✅ PR updated with latest changes: $CATALOG_PR_URL"
-            CATALOG_PR_STATUS="updated"
+            CATALOG_PR_STATUS="$PR_STATUS_UPDATED"
           else
             echo "   ⚠️  Failed to push updates to upstream" >&2
-            CATALOG_PR_STATUS="exists"
+            CATALOG_PR_STATUS="$PR_STATUS_EXISTS"
           fi
         fi
       fi
@@ -764,19 +783,19 @@ fi
           if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
             CATALOG_PR_URL="$PR_CREATE_OUTPUT"
             echo "   ✅ PR created: $CATALOG_PR_URL"
-            CATALOG_PR_STATUS="created"
+            CATALOG_PR_STATUS="$PR_STATUS_CREATED"
           elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
             CATALOG_PR_URL="${BASH_REMATCH[1]}"
             echo "   ✅ PR created: $CATALOG_PR_URL"
-            CATALOG_PR_STATUS="created"
+            CATALOG_PR_STATUS="$PR_STATUS_CREATED"
           else
             echo "   ⚠️  Failed to create PR" >&2
             echo "   Reason: $PR_CREATE_OUTPUT"
-            CATALOG_PR_STATUS="failed"
+            CATALOG_PR_STATUS="$PR_STATUS_FAILED"
           fi
         else
           echo "   ❌ Failed to push PR branch to upstream" >&2
-          CATALOG_PR_STATUS="failed"
+          CATALOG_PR_STATUS="$PR_STATUS_FAILED"
         fi
       fi
     fi
@@ -850,20 +869,20 @@ This prevents duplicate automation on old release branch."
       if [[ "$FORK_EXISTS" = false ]]; then
         echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
         echo "   Please fork ${CATALOG_REPO} to enable PR creation"
-        CLEANUP_PR_STATUS="exists"
+        CLEANUP_PR_STATUS="$PR_STATUS_EXISTS"
       elif git push -f fork "$CLEANUP_BRANCH:$EXISTING_BRANCH" 2>&1; then
         echo "   ✅ Cleanup PR updated with latest changes: $CLEANUP_PR_URL"
-        CLEANUP_PR_STATUS="updated"
+        CLEANUP_PR_STATUS="$PR_STATUS_UPDATED"
       else
         echo "   ⚠️  Failed to push updates to fork" >&2
-        CLEANUP_PR_STATUS="exists"
+        CLEANUP_PR_STATUS="$PR_STATUS_EXISTS"
       fi
     else
       # No existing PR, create a new one
       if [[ "$FORK_EXISTS" = false ]]; then
         echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
         echo "   Please fork ${CATALOG_REPO} and run again, or create cleanup PR manually"
-        CLEANUP_PR_STATUS="failed"
+        CLEANUP_PR_STATUS="$PR_STATUS_FAILED"
       elif git push -f fork "$CLEANUP_BRANCH" 2>&1; then
         echo "   ✅ Cleanup branch pushed to fork"
 
@@ -883,28 +902,28 @@ This PR removes the workflow from ${CLEANUP_TARGET_BRANCH} to prevent duplicate 
         if [[ "$CLEANUP_PR_OUTPUT" =~ ^https:// ]]; then
           CLEANUP_PR_URL="$CLEANUP_PR_OUTPUT"
           echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_STATUS="created"
+          CLEANUP_PR_STATUS="$PR_STATUS_CREATED"
         elif [[ "$CLEANUP_PR_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
           CLEANUP_PR_URL="${BASH_REMATCH[1]}"
           echo "   ✅ Cleanup PR created: $CLEANUP_PR_URL"
-          CLEANUP_PR_STATUS="created"
+          CLEANUP_PR_STATUS="$PR_STATUS_CREATED"
         else
           echo "   ⚠️  Failed to create cleanup PR" >&2
           echo "   Reason: $CLEANUP_PR_OUTPUT"
-          CLEANUP_PR_STATUS="failed"
+          CLEANUP_PR_STATUS="$PR_STATUS_FAILED"
         fi
       else
         echo "   ⚠️  Failed to push cleanup branch" >&2
-        CLEANUP_PR_STATUS="failed"
+        CLEANUP_PR_STATUS="$PR_STATUS_FAILED"
       fi
     fi
   else
     echo "   ℹ️  No GitHub Actions workflow found in $CLEANUP_TARGET_BRANCH"
-    CLEANUP_PR_STATUS="skipped"
+    CLEANUP_PR_STATUS="$PR_STATUS_SKIPPED"
   fi
 else
   echo "   ℹ️  No previous release to clean up (cleanup target is $CLEANUP_TARGET_BRANCH)"
-  CLEANUP_PR_STATUS="skipped"
+  CLEANUP_PR_STATUS="$PR_STATUS_SKIPPED"
 fi
 
 # Summary
@@ -919,25 +938,28 @@ echo "✅ COMPLETED TASKS:"
 
 # Step 0: OCP directories on main
 case "$MAIN_PR_STATUS" in
-  "skipped")
+  "$PR_STATUS_SKIPPED")
     echo "  ✓ OCP directories: All exist (4.$((OCP_MIN%100)) - 4.$((OCP_MAX%100)))"
     ;;
-  "created")
+  "$PR_STATUS_CREATED")
     echo "  ✓ OCP directories: Created missing directories (${MISSING_OCP_VERSIONS[*]})"
     echo "  ✓ Main branch PR: Created - $MAIN_PR_URL"
     ;;
-  "updated")
+  "$PR_STATUS_UPDATED")
     echo "  ✓ OCP directories: Updated missing directories (${MISSING_OCP_VERSIONS[*]})"
     echo "  ✓ Main branch PR: Updated - $MAIN_PR_URL"
     ;;
-  "exists")
+  "$PR_STATUS_EXISTS")
     echo "  ✓ OCP directories: PR already exists (no changes) - $MAIN_PR_URL"
     ;;
-  "pushed")
+  "$PR_STATUS_PUSHED")
     echo "  ✓ OCP directories: Pushed to main (${MISSING_OCP_VERSIONS[*]})"
     ;;
-  "failed")
+  "$PR_STATUS_FAILED")
     echo "  ⚠️  OCP directories: Failed to create/push" >&2
+    ;;
+  *)
+    echo "  ⚠️  OCP directories: Unknown status ($MAIN_PR_STATUS)" >&2
     ;;
 esac
 
@@ -956,33 +978,39 @@ fi
 
 # Catalog PR status
 case "$CATALOG_PR_STATUS" in
-  "pushed")
+  "$PR_STATUS_PUSHED")
     echo "  ✓ Catalog branch: Pushed to origin - ${CATALOG_REPO}/${CATALOG_BRANCH}"
     ;;
-  "created")
+  "$PR_STATUS_CREATED")
     echo "  ✓ Catalog branch PR: Created - $CATALOG_PR_URL"
     ;;
-  "updated")
+  "$PR_STATUS_UPDATED")
     echo "  ✓ Catalog branch PR: Updated - $CATALOG_PR_URL"
     ;;
-  "exists")
+  "$PR_STATUS_EXISTS")
     echo "  ✓ Catalog branch PR: Exists (no changes) - $CATALOG_PR_URL"
+    ;;
+  *)
+    echo "  ⚠️  Catalog branch: Unknown status ($CATALOG_PR_STATUS)" >&2
     ;;
 esac
 
 # Cleanup PR status
 case "$CLEANUP_PR_STATUS" in
-  "created")
+  "$PR_STATUS_CREATED")
     echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: Created - ${CLEANUP_PR_URL}"
     ;;
-  "updated")
+  "$PR_STATUS_UPDATED")
     echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: Updated - ${CLEANUP_PR_URL}"
     ;;
-  "exists")
+  "$PR_STATUS_EXISTS")
     echo "  ✓ Cleanup PR to $CLEANUP_TARGET_BRANCH: Exists (no changes) - ${CLEANUP_PR_URL}"
     ;;
-  "skipped")
+  "$PR_STATUS_SKIPPED")
     echo "  ✓ Cleanup: No GitHub Actions workflow to remove"
+    ;;
+  *)
+    echo "  ⚠️  Cleanup: Unknown status ($CLEANUP_PR_STATUS)" >&2
     ;;
 esac
 echo ""
@@ -993,24 +1021,27 @@ echo "$SEPARATOR_LINE"
 PR_COUNT=0
 
 # Step 0: Main branch PR
-if [[ "$MAIN_PR_STATUS" = "created" || "$MAIN_PR_STATUS" = "updated" || "$MAIN_PR_STATUS" = "exists" ]]; then
+if [[ "$MAIN_PR_STATUS" = "$PR_STATUS_CREATED" || "$MAIN_PR_STATUS" = "$PR_STATUS_UPDATED" || "$MAIN_PR_STATUS" = "$PR_STATUS_EXISTS" ]]; then
   PR_COUNT=$((PR_COUNT + 1))
   case "$MAIN_PR_STATUS" in
-    "created")
+    "$PR_STATUS_CREATED")
       echo "${PR_COUNT}. Review and merge PR to main (OCP directories):"
       ;;
-    "updated")
+    "$PR_STATUS_UPDATED")
       echo "${PR_COUNT}. Review updated PR to main (OCP directories):"
       ;;
-    "exists")
+    "$PR_STATUS_EXISTS")
       echo "${PR_COUNT}. Review existing PR to main (OCP directories):"
+      ;;
+    *)
+      echo "${PR_COUNT}. Review PR to main (unknown status: $MAIN_PR_STATUS):" >&2
       ;;
   esac
   echo "   ${MAIN_PR_URL}"
 fi
 
 # Catalog branch PR
-if [[ "$CATALOG_PR_STATUS" = "pushed" ]]; then
+if [[ "$CATALOG_PR_STATUS" = "$PR_STATUS_PUSHED" ]]; then
   if [[ $PR_COUNT -eq 0 ]]; then
     echo "✅ Branch pushed to origin successfully"
     echo ""
@@ -1022,34 +1053,40 @@ if [[ "$CATALOG_PR_STATUS" = "pushed" ]]; then
     echo "✅ Catalog branch pushed to origin"
     echo "   Branch: https://github.com/$CATALOG_REPO/tree/$CATALOG_BRANCH"
   fi
-elif [[ "$CATALOG_PR_STATUS" = "created" || "$CATALOG_PR_STATUS" = "updated" || "$CATALOG_PR_STATUS" = "exists" ]]; then
+elif [[ "$CATALOG_PR_STATUS" = "$PR_STATUS_CREATED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_UPDATED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_EXISTS" ]]; then
   PR_COUNT=$((PR_COUNT + 1))
   case "$CATALOG_PR_STATUS" in
-    "created")
+    "$PR_STATUS_CREATED")
       echo "${PR_COUNT}. Review and merge PR to $CATALOG_BRANCH:"
       ;;
-    "updated")
+    "$PR_STATUS_UPDATED")
       echo "${PR_COUNT}. Review updated PR to $CATALOG_BRANCH:"
       ;;
-    "exists")
+    "$PR_STATUS_EXISTS")
       echo "${PR_COUNT}. Review existing PR to $CATALOG_BRANCH:"
+      ;;
+    *)
+      echo "${PR_COUNT}. Review PR to $CATALOG_BRANCH (status: $CATALOG_PR_STATUS):"
       ;;
   esac
   echo "   ${CATALOG_PR_URL}"
 fi
 
 # Cleanup PR
-if [[ "$CLEANUP_PR_STATUS" = "created" || "$CLEANUP_PR_STATUS" = "updated" || "$CLEANUP_PR_STATUS" = "exists" ]]; then
+if [[ "$CLEANUP_PR_STATUS" = "$PR_STATUS_CREATED" || "$CLEANUP_PR_STATUS" = "$PR_STATUS_UPDATED" || "$CLEANUP_PR_STATUS" = "$PR_STATUS_EXISTS" ]]; then
   PR_COUNT=$((PR_COUNT + 1))
   case "$CLEANUP_PR_STATUS" in
-    "created")
+    "$PR_STATUS_CREATED")
       echo "${PR_COUNT}. Review and merge cleanup PR to $CLEANUP_TARGET_BRANCH:"
       ;;
-    "updated")
+    "$PR_STATUS_UPDATED")
       echo "${PR_COUNT}. Review updated cleanup PR to $CLEANUP_TARGET_BRANCH:"
       ;;
-    "exists")
+    "$PR_STATUS_EXISTS")
       echo "${PR_COUNT}. Review existing cleanup PR to $CLEANUP_TARGET_BRANCH:"
+      ;;
+    *)
+      echo "${PR_COUNT}. Review cleanup PR to $CLEANUP_TARGET_BRANCH (status: $CLEANUP_PR_STATUS):"
       ;;
   esac
   echo "   ${CLEANUP_PR_URL}"
@@ -1058,12 +1095,12 @@ fi
 if [[ $PR_COUNT -gt 0 ]]; then
   echo ""
   echo "After merge: Verify OCP pipelines and catalog images"
-elif [[ "$CATALOG_PR_STATUS" != "pushed" ]]; then
+elif [[ "$CATALOG_PR_STATUS" != "$PR_STATUS_PUSHED" ]]; then
   echo "Repository: https://github.com/$CATALOG_REPO/tree/$CATALOG_BRANCH"
 fi
 echo ""
 echo "$SEPARATOR_LINE"
-if [[ "$CATALOG_PR_STATUS" = "pushed" || "$CATALOG_PR_STATUS" = "created" || "$CATALOG_PR_STATUS" = "updated" ]]; then
+if [[ "$CATALOG_PR_STATUS" = "$PR_STATUS_PUSHED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_CREATED" || "$CATALOG_PR_STATUS" = "$PR_STATUS_UPDATED" ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES" >&2

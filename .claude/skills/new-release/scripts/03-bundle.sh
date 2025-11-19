@@ -54,25 +54,35 @@ BUNDLE_VERSION="${BUNDLE_BRANCH#release-}"
 REPO_PATH="$WORK_DIR/multicluster-global-hub-operator-bundle"
 mkdir -p "$WORK_DIR"
 
-# Remove existing directory for clean clone
-if [[ -d "$REPO_PATH" ]]; then
-  echo "   Removing existing directory for clean clone..."
-  rm -rf "$REPO_PATH"
+# Reuse existing repository or clone new one
+if [[ -d "$REPO_PATH/.git" ]]; then
+  echo "📂 Repository already exists, updating..."
+  cd "$REPO_PATH"
+
+  # Clean any local changes
+  git reset --hard HEAD >/dev/null 2>&1 || true
+  git clean -fd >/dev/null 2>&1 || true
+
+  # Fetch latest from origin
+  echo "🔄 Fetching latest changes from origin..."
+  git fetch origin --depth=1 --progress 2>&1 | grep -E "Receiving|Resolving|Fetching" || true
+  echo "   ✅ Repository updated"
+else
+  echo "📥 Cloning $BUNDLE_REPO (--depth=1 for faster clone)..."
+  git clone --depth=1 --single-branch --branch main --progress "https://github.com/$BUNDLE_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+  if [[ ! -d "$REPO_PATH/.git" ]]; then
+    echo "❌ Failed to clone $BUNDLE_REPO" >&2
+    exit 1
+  fi
+  echo "✅ Cloned successfully"
+  cd "$REPO_PATH"
 fi
 
-echo "📥 Cloning $BUNDLE_REPO (--depth=1 for faster clone)..."
-git clone --depth=1 --single-branch --branch main --progress "https://github.com/$BUNDLE_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-if [[ ! -d "$REPO_PATH/.git" ]]; then
-  echo "❌ Failed to clone $BUNDLE_REPO" >&2
-  exit 1
-fi
-echo "✅ Cloned successfully"
-
-cd "$REPO_PATH"
-
-# Setup user's fork remote
+# Setup user's fork remote (if not already added)
 FORK_REPO="git@github.com:${GITHUB_USER}/multicluster-global-hub-operator-bundle.git"
-git remote add fork "$FORK_REPO" 2>/dev/null || true
+if ! git remote | grep -q "^fork$"; then
+  git remote add fork "$FORK_REPO" 2>/dev/null || true
+fi
 
 # Check if fork exists
 FORK_EXISTS=false

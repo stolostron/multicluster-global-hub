@@ -218,6 +218,24 @@ All scripts are compatible with:
 
 Scripts automatically detect the OS and use appropriate `sed` syntax.
 
+### Performance Optimizations
+
+**Repository Reuse**: Scripts intelligently reuse existing cloned repositories instead of re-cloning on every run:
+- **First run**: Full `git clone` (slower)
+- **Subsequent runs**: `git fetch` only (10-20x faster, ~90% less bandwidth)
+- All scripts automatically detect existing repos and clean/update them
+
+This significantly speeds up repeated executions and reduces network usage.
+
+## Code Quality
+
+All scripts follow strict code quality standards:
+- **Constants**: All repeated literals (PR status values, separators) defined as `readonly` constants
+- **Error Handling**: Comprehensive error checking with `set -euo pipefail`
+- **stderr Redirection**: Error messages properly redirected to stderr (`>&2`)
+- **Case Statements**: All case statements include default `*)` branches for safety
+- **Return Statements**: All functions include explicit `return` statements
+
 ## Workflow Examples
 
 ### Example 1: Full Release (All Repositories)

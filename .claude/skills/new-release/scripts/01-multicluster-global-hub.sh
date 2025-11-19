@@ -71,37 +71,58 @@ echo "  4. Update previous release .tekton files (target_branch=previous_release
 echo "  5. Update current release .tekton files (target_branch=current_release_branch)"
 echo "$SEPARATOR_LINE"
 
-# Step 1: Clone repository and setup remotes
+# Step 1: Setup repository and remotes
 echo ""
-echo "📍 Step 1: Cloning repository..."
+echo "📍 Step 1: Setting up repository..."
 
-# Create work directory and remove existing repo for clean clone
+# Create work directory
 mkdir -p "$WORK_DIR"
-if [[ -d "$REPO_PATH" ]]; then
-  echo "   Removing existing repository directory..."
-  rm -rf "$REPO_PATH"
+
+# Reuse existing repository or clone new one
+if [[ -d "$REPO_PATH/.git" ]]; then
+  echo "   📂 Repository already exists, updating..."
+  cd "$REPO_PATH"
+
+  # Clean any local changes
+  git reset --hard HEAD >/dev/null 2>&1 || true
+  git clean -fd >/dev/null 2>&1 || true
+
+  # Fetch latest from upstream (but keep shallow history)
+  echo "   🔄 Fetching latest changes from upstream..."
+  git fetch upstream main --depth=1 --progress 2>&1 | grep -E "Receiving|Resolving|Fetching" || true
+  echo "   ✅ Repository updated"
+else
+  # Clone from upstream with shallow clone for speed
+  echo "   📥 Cloning ${REPO_ORG}/${REPO_NAME} (--depth=1 for faster clone)..."
+  git clone --depth=1 --single-branch --branch main --progress "https://github.com/${REPO_ORG}/${REPO_NAME}.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+  cd "$REPO_PATH"
+
+  # Setup remotes: origin (fork) and upstream (stolostron)
+  echo "   Setting up git remotes..."
+  # Rename the cloned remote from 'origin' to 'upstream'
+  git remote rename origin upstream
+
+  # Add user's fork as 'origin'
+  git remote add origin "$FORK_URL"
+
+  echo "   ✅ Cloned successfully"
 fi
 
-# Clone from upstream with shallow clone for speed
-echo "   Cloning ${REPO_ORG}/${REPO_NAME} (--depth=1 for faster clone)..."
-git clone --depth=1 --single-branch --branch main --progress "https://github.com/${REPO_ORG}/${REPO_NAME}.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-cd "$REPO_PATH"
-
-# Setup remotes: origin (fork) and upstream (stolostron)
-echo "   Setting up git remotes..."
-# Rename the cloned remote from 'origin' to 'upstream'
-git remote rename origin upstream
-
-# Add user's fork as 'origin'
-git remote add origin "$FORK_URL"
+# Ensure remotes are configured correctly (in case of existing repo)
+if ! git remote | grep -q "^upstream$"; then
+  git remote add upstream "https://github.com/${REPO_ORG}/${REPO_NAME}.git" 2>/dev/null || true
+fi
+if ! git remote | grep -q "^origin$"; then
+  git remote add origin "$FORK_URL" 2>/dev/null || true
+fi
 
 # Verify remote configuration
 ORIGIN_URL=$(git remote get-url origin)
 UPSTREAM_URL=$(git remote get-url upstream)
-echo "   ✅ Repository cloned and configured:"
+echo "   ✅ Repository ready:"
 echo "      origin (fork): $ORIGIN_URL"
 echo "      upstream: $UPSTREAM_URL"
-echo "   ✅ Repository ready at $REPO_PATH"
+echo "      path: $REPO_PATH"
 
 # Step 2: Calculate previous release version based on current release
 echo ""

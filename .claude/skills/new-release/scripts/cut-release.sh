@@ -57,6 +57,7 @@ get_dependencies() {
     4) echo "1" ;;  # Script 4 (catalog) requires script 1 (multicluster-global-hub)
     *) echo "" ;;
   esac
+  return 0
 }
 
 # Parse command line argument
@@ -304,6 +305,10 @@ for repo_num in "${REPOS_TO_UPDATE[@]}"; do
               dep_satisfied=true
             fi
             ;;
+          *)
+            # Unknown dependency
+            dep_satisfied=false
+            ;;
         esac
 
         if [[ "$dep_satisfied" = false ]]; then
@@ -415,7 +420,9 @@ get_repo_display_info() {
     4) echo "operator-catalog|PRs to main & release|https://github.com/stolostron/multicluster-global-hub-operator-catalog/pulls" ;;
     5) echo "glo-grafana|PR to release-$GH_VERSION_SHORT|https://github.com/stolostron/glo-grafana/pulls" ;;
     6) echo "postgres_exporter|PR to $RELEASE_BRANCH|https://github.com/stolostron/postgres_exporter/pulls" ;;
+    *) echo "unknown|unknown|unknown" ;;
   esac
+  return 0
 }
 
 # Display each repository status
@@ -494,18 +501,18 @@ if [[ $FAILED -eq 0 ]]; then
   echo "$SEPARATOR_LINE"
   exit 0
 else
-  echo "⚠️  WARNING: Some repositories failed"
-  echo ""
-  echo "❌ Failed repositories:"
+  echo "⚠️  WARNING: Some repositories failed" >&2
+  echo "" >&2
+  echo "❌ Failed repositories:" >&2
   for repo in "${FAILED_REPOS[@]}"; do
-    echo "   - $repo"
+    echo "   - $repo" >&2
   done
-  echo ""
-  echo "📝 Action required:"
-  echo "   1. Review error messages above"
-  echo "   2. Fix issues manually"
-  echo "   3. Re-run this script for failed repos only"
-  echo ""
-  echo "$SEPARATOR_LINE"
+  echo "" >&2
+  echo "📝 Action required:" >&2
+  echo "   1. Review error messages above" >&2
+  echo "   2. Fix issues manually" >&2
+  echo "   3. Re-run this script for failed repos only" >&2
+  echo "" >&2
+  echo "$SEPARATOR_LINE" >&2
   exit 1
 fi

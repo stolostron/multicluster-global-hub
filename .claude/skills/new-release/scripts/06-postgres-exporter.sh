@@ -34,11 +34,17 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
   SED_INPLACE=(-i "")
 else
   SED_INPLACE=(-i)
+fi
 
 # Constants for repeated patterns
 readonly NULL_PR_VALUE='null|null'
 readonly SEPARATOR_LINE='================================================'
-fi
+
+# PR status constants
+readonly PR_STATUS_PUSHED='pushed'
+readonly PR_STATUS_CREATED='created'
+readonly PR_STATUS_UPDATED='updated'
+readonly PR_STATUS_EXISTS='exists'
 
 echo "🚀 Postgres Exporter Release"
 echo "$SEPARATOR_LINE"
@@ -51,25 +57,35 @@ echo ""
 REPO_PATH="$WORK_DIR/postgres_exporter"
 mkdir -p "$WORK_DIR"
 
-# Remove existing directory for clean clone
-if [[ -d "$REPO_PATH" ]]; then
-  echo "   Removing existing directory for clean clone..."
-  rm -rf "$REPO_PATH"
+# Reuse existing repository or clone new one
+if [[ -d "$REPO_PATH/.git" ]]; then
+  echo "📂 Repository already exists, updating..."
+  cd "$REPO_PATH"
+
+  # Clean any local changes
+  git reset --hard HEAD >/dev/null 2>&1 || true
+  git clean -fd >/dev/null 2>&1 || true
+
+  # Fetch latest from origin
+  echo "🔄 Fetching latest changes from origin..."
+  git fetch origin --progress 2>&1 | grep -E "Receiving|Resolving|Fetching" || true
+  echo "   ✅ Repository updated"
+else
+  echo "📥 Cloning $POSTGRES_REPO..."
+  git clone --progress "https://github.com/$POSTGRES_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+  if [[ ! -d "$REPO_PATH/.git" ]]; then
+    echo "❌ Failed to clone $POSTGRES_REPO" >&2
+    exit 1
+  fi
+  echo "✅ Cloned successfully"
+  cd "$REPO_PATH"
 fi
 
-echo "📥 Cloning $POSTGRES_REPO..."
-git clone --progress "https://github.com/$POSTGRES_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-if [[ ! -d "$REPO_PATH/.git" ]]; then
-  echo "❌ Failed to clone $POSTGRES_REPO" >&2
-  exit 1
-fi
-echo "✅ Cloned successfully"
-
-cd "$REPO_PATH"
-
-# Setup user's fork remote
+# Setup user's fork remote (if not already added)
 FORK_REPO="git@github.com:${GITHUB_USER}/postgres_exporter.git"
-git remote add fork "$FORK_REPO" 2>/dev/null || true
+if ! git remote | grep -q "^fork$"; then
+  git remote add fork "$FORK_REPO" 2>/dev/null || true
+fi
 
 # Check if fork exists
 FORK_EXISTS=false
@@ -256,7 +272,7 @@ else
     if git push origin "$RELEASE_BRANCH" 2>&1; then
       echo "   ✅ Branch pushed to origin: $POSTGRES_REPO/$RELEASE_BRANCH"
       PUSHED_TO_ORIGIN=true
-      POSTGRES_PR_STATUS="pushed"
+      POSTGRES_PR_STATUS="$PR_STATUS_PUSHED"
     else
       echo "   ❌ Failed to push branch to origin" >&2
       exit 1
@@ -377,39 +393,45 @@ if [[ "$CHANGES_COMMITTED" = true ]]; then
   fi
 fi
 case "$POSTGRES_PR_STATUS" in
-  "pushed")
+  "$PR_STATUS_PUSHED")
     echo "  ✓ Pushed to origin: ${POSTGRES_REPO}/${RELEASE_BRANCH}"
     ;;
-  "created")
+  "$PR_STATUS_CREATED")
     echo "  ✓ PR to $RELEASE_BRANCH: Created - ${POSTGRES_PR_URL}"
     ;;
-  "updated")
+  "$PR_STATUS_UPDATED")
     echo "  ✓ PR to $RELEASE_BRANCH: Updated - ${POSTGRES_PR_URL}"
     ;;
-  "exists")
+  "$PR_STATUS_EXISTS")
     echo "  ✓ PR to $RELEASE_BRANCH: Exists (no changes) - ${POSTGRES_PR_URL}"
+    ;;
+  *)
+    echo "  ⚠️  Unknown PR status: $POSTGRES_PR_STATUS" >&2
     ;;
 esac
 echo ""
 echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
 echo "$SEPARATOR_LINE"
-if [[ "$POSTGRES_PR_STATUS" = "pushed" ]]; then
+if [[ "$POSTGRES_PR_STATUS" = "$PR_STATUS_PUSHED" ]]; then
   echo "✅ Branch pushed to origin successfully"
   echo ""
   echo "Branch: https://github.com/$POSTGRES_REPO/tree/$RELEASE_BRANCH"
   echo ""
   echo "Verify: Tekton pipelines and postgres exporter images"
-elif [[ "$POSTGRES_PR_STATUS" = "created" || "$POSTGRES_PR_STATUS" = "updated" || "$POSTGRES_PR_STATUS" = "exists" ]]; then
+elif [[ "$POSTGRES_PR_STATUS" = "$PR_STATUS_CREATED" || "$POSTGRES_PR_STATUS" = "$PR_STATUS_UPDATED" || "$POSTGRES_PR_STATUS" = "$PR_STATUS_EXISTS" ]]; then
   case "$POSTGRES_PR_STATUS" in
-    "created")
+    "$PR_STATUS_CREATED")
       echo "1. Review and merge PR to $RELEASE_BRANCH:"
       ;;
-    "updated")
+    "$PR_STATUS_UPDATED")
       echo "1. Review updated PR to $RELEASE_BRANCH:"
       ;;
-    "exists")
+    "$PR_STATUS_EXISTS")
       echo "1. Review existing PR to $RELEASE_BRANCH:"
+      ;;
+    *)
+      echo "1. Review PR to $RELEASE_BRANCH (status: $POSTGRES_PR_STATUS):"
       ;;
   esac
   echo "   ${POSTGRES_PR_URL}"
@@ -420,7 +442,7 @@ else
 fi
 echo ""
 echo "$SEPARATOR_LINE"
-if [[ "$POSTGRES_PR_STATUS" = "pushed" || "$POSTGRES_PR_STATUS" = "created" || "$POSTGRES_PR_STATUS" = "updated" ]]; then
+if [[ "$POSTGRES_PR_STATUS" = "$PR_STATUS_PUSHED" || "$POSTGRES_PR_STATUS" = "$PR_STATUS_CREATED" || "$POSTGRES_PR_STATUS" = "$PR_STATUS_UPDATED" ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES" >&2

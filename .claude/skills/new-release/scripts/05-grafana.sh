@@ -35,6 +35,14 @@ else
 # Constants for repeated patterns
 readonly NULL_PR_VALUE='null|null'
 readonly SEPARATOR_LINE='================================================'
+
+# PR status constants
+readonly PR_STATUS_NONE='none'
+readonly PR_STATUS_PUSHED='pushed'
+readonly PR_STATUS_CREATED='created'
+readonly PR_STATUS_UPDATED='updated'
+readonly PR_STATUS_EXISTS='exists'
+readonly PR_STATUS_FAILED='failed'
 fi
 
 echo "🚀 Glo-Grafana Release Branch Creation"
@@ -49,25 +57,35 @@ echo ""
 REPO_PATH="$WORK_DIR/glo-grafana"
 mkdir -p "$WORK_DIR"
 
-# Remove existing directory for clean clone
-if [[ -d "$REPO_PATH" ]]; then
-  echo "   Removing existing directory for clean clone..."
-  rm -rf "$REPO_PATH"
+# Reuse existing repository or clone new one
+if [[ -d "$REPO_PATH/.git" ]]; then
+  echo "📂 Repository already exists, updating..."
+  cd "$REPO_PATH"
+
+  # Clean any local changes
+  git reset --hard HEAD >/dev/null 2>&1 || true
+  git clean -fd >/dev/null 2>&1 || true
+
+  # Fetch latest from origin
+  echo "🔄 Fetching latest changes from origin..."
+  git fetch origin --progress 2>&1 | grep -E "Receiving|Resolving|Fetching" || true
+  echo "   ✅ Repository updated"
+else
+  echo "📥 Cloning $GRAFANA_REPO..."
+  git clone --progress "https://github.com/$GRAFANA_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
+  if [[ ! -d "$REPO_PATH/.git" ]]; then
+    echo "❌ Failed to clone $GRAFANA_REPO" >&2
+    exit 1
+  fi
+  echo "✅ Cloned successfully"
+  cd "$REPO_PATH"
 fi
 
-echo "📥 Cloning $GRAFANA_REPO..."
-git clone --progress "https://github.com/$GRAFANA_REPO.git" "$REPO_PATH" 2>&1 | grep -E "Receiving|Resolving|Cloning" || true
-if [[ ! -d "$REPO_PATH/.git" ]]; then
-  echo "❌ Failed to clone $GRAFANA_REPO" >&2
-  exit 1
-fi
-echo "✅ Cloned successfully"
-
-cd "$REPO_PATH"
-
-# Setup user's fork remote
+# Setup user's fork remote (if not already added)
 FORK_REPO="git@github.com:${GITHUB_USER}/glo-grafana.git"
-git remote add fork "$FORK_REPO" 2>/dev/null || true
+if ! git remote | grep -q "^fork$"; then
+  git remote add fork "$FORK_REPO" 2>/dev/null || true
+fi
 
 # Check if fork exists
 FORK_EXISTS=false
@@ -138,7 +156,7 @@ echo ""
 BRANCH_EXISTS_ON_ORIGIN=false
 CHANGES_COMMITTED=false
 PUSHED_TO_ORIGIN=false
-GRAFANA_PR_STATUS="none"  # none, created, updated, exists, skipped, pushed
+GRAFANA_PR_STATUS="$PR_STATUS_NONE"  # none, created, updated, exists, skipped, pushed
 GRAFANA_PR_URL=""
 
 # Check if new release branch already exists on origin (upstream)
@@ -252,7 +270,7 @@ else
     if git push origin "$GRAFANA_BRANCH" 2>&1; then
       echo "   ✅ Branch pushed to origin: $GRAFANA_REPO/$GRAFANA_BRANCH"
       PUSHED_TO_ORIGIN=true
-      GRAFANA_PR_STATUS="pushed"
+      GRAFANA_PR_STATUS="$PR_STATUS_PUSHED"
     else
       echo "   ❌ Failed to push branch to origin" >&2
       exit 1
@@ -295,20 +313,20 @@ else
       if [[ "$FORK_EXISTS" = false ]]; then
         echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
         echo "   Please fork ${GRAFANA_REPO} to enable PR creation"
-        GRAFANA_PR_STATUS="exists"
+        GRAFANA_PR_STATUS="$PR_STATUS_EXISTS"
       elif git push -f fork "$GRAFANA_BRANCH:$EXISTING_BRANCH" 2>&1; then
         echo "   ✅ PR updated with latest changes: $GRAFANA_PR_URL"
-        GRAFANA_PR_STATUS="updated"
+        GRAFANA_PR_STATUS="$PR_STATUS_UPDATED"
       else
         echo "   ⚠️  Failed to push updates to fork" >&2
-        GRAFANA_PR_STATUS="exists"
+        GRAFANA_PR_STATUS="$PR_STATUS_EXISTS"
       fi
     else
       # No existing PR, create a new one
       if [[ "$FORK_EXISTS" = false ]]; then
         echo "   ⚠️  Cannot push to fork - fork does not exist" >&2
         echo "   Please fork ${GRAFANA_REPO} to enable PR creation"
-        GRAFANA_PR_STATUS="failed"
+        GRAFANA_PR_STATUS="$PR_STATUS_FAILED"
       else
         echo "   Pushing $PR_BRANCH to fork..."
         if git push -f fork "$PR_BRANCH" 2>&1; then
@@ -337,19 +355,19 @@ else
           if [[ "$PR_CREATE_OUTPUT" =~ ^https:// ]]; then
             GRAFANA_PR_URL="$PR_CREATE_OUTPUT"
             echo "   ✅ PR created: $GRAFANA_PR_URL"
-            GRAFANA_PR_STATUS="created"
+            GRAFANA_PR_STATUS="$PR_STATUS_CREATED"
           elif [[ "$PR_CREATE_OUTPUT" =~ (https://github.com/[^[:space:]]+) ]]; then
             GRAFANA_PR_URL="${BASH_REMATCH[1]}"
             echo "   ✅ PR created: $GRAFANA_PR_URL"
-            GRAFANA_PR_STATUS="created"
+            GRAFANA_PR_STATUS="$PR_STATUS_CREATED"
           else
             echo "   ⚠️  Failed to create PR" >&2
             echo "   Reason: $PR_CREATE_OUTPUT"
-            GRAFANA_PR_STATUS="failed"
+            GRAFANA_PR_STATUS="$PR_STATUS_FAILED"
           fi
         else
           echo "   ❌ Failed to push PR branch" >&2
-          GRAFANA_PR_STATUS="failed"
+          GRAFANA_PR_STATUS="$PR_STATUS_FAILED"
         fi
       fi
     fi
@@ -373,39 +391,45 @@ if [[ "$CHANGES_COMMITTED" = true ]]; then
   fi
 fi
 case "$GRAFANA_PR_STATUS" in
-  "pushed")
+  "$PR_STATUS_PUSHED")
     echo "  ✓ Pushed to origin: ${GRAFANA_REPO}/${GRAFANA_BRANCH}"
     ;;
-  "created")
+  "$PR_STATUS_CREATED")
     echo "  ✓ PR to $GRAFANA_BRANCH: Created - ${GRAFANA_PR_URL}"
     ;;
-  "updated")
+  "$PR_STATUS_UPDATED")
     echo "  ✓ PR to $GRAFANA_BRANCH: Updated - ${GRAFANA_PR_URL}"
     ;;
-  "exists")
+  "$PR_STATUS_EXISTS")
     echo "  ✓ PR to $GRAFANA_BRANCH: Exists (no changes) - ${GRAFANA_PR_URL}"
+    ;;
+  *)
+    echo "  ⚠️  Unknown PR status: $GRAFANA_PR_STATUS" >&2
     ;;
 esac
 echo ""
 echo "$SEPARATOR_LINE"
 echo "📝 NEXT STEPS"
 echo "$SEPARATOR_LINE"
-if [[ "$GRAFANA_PR_STATUS" = "pushed" ]]; then
+if [[ "$GRAFANA_PR_STATUS" = "$PR_STATUS_PUSHED" ]]; then
   echo "✅ Branch pushed to origin successfully"
   echo ""
   echo "Branch: https://github.com/$GRAFANA_REPO/tree/$GRAFANA_BRANCH"
   echo ""
   echo "Verify: Tekton pipelines and grafana images"
-elif [[ "$GRAFANA_PR_STATUS" = "created" || "$GRAFANA_PR_STATUS" = "updated" || "$GRAFANA_PR_STATUS" = "exists" ]]; then
+elif [[ "$GRAFANA_PR_STATUS" = "$PR_STATUS_CREATED" || "$GRAFANA_PR_STATUS" = "$PR_STATUS_UPDATED" || "$GRAFANA_PR_STATUS" = "$PR_STATUS_EXISTS" ]]; then
   case "$GRAFANA_PR_STATUS" in
-    "created")
+    "$PR_STATUS_CREATED")
       echo "1. Review and merge PR to $GRAFANA_BRANCH:"
       ;;
-    "updated")
+    "$PR_STATUS_UPDATED")
       echo "1. Review updated PR to $GRAFANA_BRANCH:"
       ;;
-    "exists")
+    "$PR_STATUS_EXISTS")
       echo "1. Review existing PR to $GRAFANA_BRANCH:"
+      ;;
+    *)
+      echo "1. Review PR to $GRAFANA_BRANCH (status: $GRAFANA_PR_STATUS):"
       ;;
   esac
   echo "   ${GRAFANA_PR_URL}"
@@ -416,7 +440,7 @@ else
 fi
 echo ""
 echo "$SEPARATOR_LINE"
-if [[ "$GRAFANA_PR_STATUS" = "pushed" || "$GRAFANA_PR_STATUS" = "created" || "$GRAFANA_PR_STATUS" = "updated" ]]; then
+if [[ "$GRAFANA_PR_STATUS" = "$PR_STATUS_PUSHED" || "$GRAFANA_PR_STATUS" = "$PR_STATUS_CREATED" || "$GRAFANA_PR_STATUS" = "$PR_STATUS_UPDATED" ]]; then
   echo "✅ SUCCESS"
 else
   echo "⚠️  COMPLETED WITH ISSUES" >&2
