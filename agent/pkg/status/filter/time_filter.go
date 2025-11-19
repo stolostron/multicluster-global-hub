@@ -3,6 +3,7 @@ package filter
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +19,8 @@ var (
 	eventTimeCache = make(map[string]time.Time)
 	// the cache to be persist into configMap to deduplicate messages
 	lastEventTimeCache = make(map[string]time.Time)
+	// mutex to protect concurrent access to eventTimeCache and lastEventTimeCache
+	cacheMutex sync.RWMutex
 	// the interval to update the the runtime cache in the the configMap(by lastEventTimeCache)
 	CacheSyncInterval = 5 * time.Second
 	DeltaDuration     = 3 * time.Second
@@ -26,6 +29,9 @@ var (
 
 // CacheTime cache the latest time
 func CacheTime(key string, new time.Time) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
 	old, ok := eventTimeCache[key]
 	if !ok || old.Before(new) {
 		eventTimeCache[key] = new
@@ -34,6 +40,9 @@ func CacheTime(key string, new time.Time) {
 
 // Newer compares the val time with cached the time, if not exist, then return true
 func Newer(key string, val time.Time) bool {
+	cacheMutex.RLock()
+	defer cacheMutex.RUnlock()
+
 	old, ok := eventTimeCache[key]
 	if !ok {
 		return true
@@ -65,7 +74,7 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 				log.Info("cancel context")
 				return
 			case <-ticker.C:
-				err := periodicSync(ctx, c, namespace)
+				err := periodicSync(ctx, c)
 				if err != nil {
 					log.Errorf("failed to sync the configmap %v", err)
 				}
@@ -76,8 +85,9 @@ func LaunchTimeFilter(ctx context.Context, c client.Client, namespace string, to
 	return nil
 }
 
-func periodicSync(ctx context.Context, c client.Client, namespace string) error {
+func periodicSync(ctx context.Context, c client.Client) error {
 	// update the lastSentCache
+	cacheMutex.Lock()
 	update := false
 	for key, currentTime := range eventTimeCache {
 		lastTime, found := lastEventTimeCache[key]
@@ -92,6 +102,13 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 		}
 	}
 
+	// create a copy of lastEventTimeCache for syncing to avoid holding the lock during I/O
+	lastEventTimeCacheCopy := make(map[string]time.Time, len(lastEventTimeCache))
+	for key, val := range lastEventTimeCache {
+		lastEventTimeCacheCopy[key] = val
+	}
+	cacheMutex.Unlock()
+
 	// sync the lastSentCache to ConfigMap
 	if update {
 		cm, err := configs.GetSyncStateConfigMap(ctx, c)
@@ -101,7 +118,7 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 		if cm.Data == nil {
 			cm.Data = map[string]string{}
 		}
-		for key, val := range lastEventTimeCache {
+		for key, val := range lastEventTimeCacheCopy {
 			cm.Data[getConfigMapKey(key)] = val.Format(configs.AGENT_SYNC_STATE_TIME_FORMAT_VALUE)
 		}
 		err = c.Update(ctx, cm, &client.UpdateOptions{})
@@ -115,11 +132,17 @@ func periodicSync(ctx context.Context, c client.Client, namespace string) error 
 
 // RegisterTimeFilter call before the LaunchTimeFilter, it will get the init time from the configMap
 func RegisterTimeFilter(key string) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
 	eventTimeCache[key] = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 	lastEventTimeCache[key] = time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC)
 }
 
 func loadEventTimeCacheFromConfigMap(cm *corev1.ConfigMap) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
 	for configMapKey := range cm.Data {
 		val := cm.Data[configMapKey]
 
