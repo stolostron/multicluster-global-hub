@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -150,4 +151,271 @@ func TestTimeFilter(t *testing.T) {
 	assert.True(t, Newer(eventType, similiarTime))
 	CacheTime(eventType, similiarTime.Add(5*time.Second))
 	assert.False(t, Newer(eventType, similiarTime))
+}
+
+// TestConcurrentReads tests concurrent read access to the cache
+func TestConcurrentReads(t *testing.T) {
+	// Reset the cache for this test
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	// Setup test data
+	testKeys := []string{"key1", "key2", "key3", "key4", "key5"}
+	for _, key := range testKeys {
+		CacheTime(key, time.Now())
+	}
+
+	// Run concurrent reads
+	var wg sync.WaitGroup
+	numGoroutines := 50
+	numReadsPerGoroutine := 100
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < numReadsPerGoroutine; j++ {
+				for _, key := range testKeys {
+					_ = Newer(key, time.Now())
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	// If there were race conditions, this test would fail or panic
+}
+
+// TestConcurrentWrites tests concurrent write access to the cache
+func TestConcurrentWrites(t *testing.T) {
+	// Reset the cache for this test
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	// Run concurrent writes
+	var wg sync.WaitGroup
+	numGoroutines := 50
+	numWritesPerGoroutine := 100
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(goroutineID int) {
+			defer wg.Done()
+			for j := 0; j < numWritesPerGoroutine; j++ {
+				key := fmt.Sprintf("key%d", goroutineID%5)
+				CacheTime(key, time.Now())
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify that all keys were written
+	cacheMutex.RLock()
+	assert.Greater(t, len(eventTimeCache), 0, "Cache should contain entries after concurrent writes")
+	cacheMutex.RUnlock()
+}
+
+// TestConcurrentReadsAndWrites tests concurrent read and write access
+func TestConcurrentReadsAndWrites(t *testing.T) {
+	// Reset the cache for this test
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	// Setup initial data
+	testKeys := []string{"key1", "key2", "key3"}
+	for _, key := range testKeys {
+		CacheTime(key, time.Now())
+	}
+
+	var wg sync.WaitGroup
+	numGoroutines := 100
+	iterations := 100
+
+	// Start readers
+	for i := 0; i < numGoroutines/2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				for _, key := range testKeys {
+					_ = Newer(key, time.Now())
+				}
+			}
+		}()
+	}
+
+	// Start writers
+	for i := 0; i < numGoroutines/2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				for _, key := range testKeys {
+					CacheTime(key, time.Now().Add(time.Duration(j)*time.Millisecond))
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	// If there were race conditions, this test would fail or panic
+}
+
+// TestConcurrentRegisterTimeFilter tests concurrent calls to RegisterTimeFilter
+func TestConcurrentRegisterTimeFilter(t *testing.T) {
+	// Reset the cache for this test
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	var wg sync.WaitGroup
+	numGoroutines := 50
+
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			key := fmt.Sprintf("filter%d", id%5)
+			RegisterTimeFilter(key)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify that all filters were registered
+	cacheMutex.RLock()
+	assert.Greater(t, len(eventTimeCache), 0, "Cache should contain registered filters")
+	cacheMutex.RUnlock()
+}
+
+// TestConcurrentMixedOperations tests all operations happening concurrently
+func TestConcurrentMixedOperations(t *testing.T) {
+	// Reset the cache for this test
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	var wg sync.WaitGroup
+	numGoroutines := 20
+	iterations := 50
+
+	// RegisterTimeFilter operations
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				key := fmt.Sprintf("key%d", id%10)
+				RegisterTimeFilter(key)
+			}
+		}(i)
+	}
+
+	// CacheTime operations
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				key := fmt.Sprintf("key%d", id%10)
+				CacheTime(key, time.Now().Add(time.Duration(j)*time.Millisecond))
+			}
+		}(i)
+	}
+
+	// Newer operations
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				key := fmt.Sprintf("key%d", id%10)
+				_ = Newer(key, time.Now())
+			}
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Verify the cache is in a consistent state
+	cacheMutex.RLock()
+	eventCacheLen := len(eventTimeCache)
+	lastEventCacheLen := len(lastEventTimeCache)
+	cacheMutex.RUnlock()
+
+	assert.Greater(t, eventCacheLen, 0, "Event cache should have entries")
+	assert.Greater(t, lastEventCacheLen, 0, "Last event cache should have entries")
+}
+
+// TestCacheTimeWithSameKey tests that CacheTime correctly handles updates for the same key
+func TestCacheTimeWithSameKey(t *testing.T) {
+	// Reset the cache
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	key := "test-key"
+	initialTime := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	newerTime := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+	olderTime := time.Date(2023, 12, 31, 0, 0, 0, 0, time.UTC)
+
+	// Set initial time
+	CacheTime(key, initialTime)
+
+	cacheMutex.RLock()
+	cached := eventTimeCache[key]
+	cacheMutex.RUnlock()
+	assert.Equal(t, initialTime, cached)
+
+	// Update with newer time - should update
+	CacheTime(key, newerTime)
+
+	cacheMutex.RLock()
+	cached = eventTimeCache[key]
+	cacheMutex.RUnlock()
+	assert.Equal(t, newerTime, cached)
+
+	// Update with older time - should not update
+	CacheTime(key, olderTime)
+
+	cacheMutex.RLock()
+	cached = eventTimeCache[key]
+	cacheMutex.RUnlock()
+	assert.Equal(t, newerTime, cached, "Cache should not be updated with older time")
+}
+
+// TestNewerWithDeltaDuration tests the DeltaDuration tolerance in Newer function
+func TestNewerWithDeltaDuration(t *testing.T) {
+	// Reset the cache
+	cacheMutex.Lock()
+	eventTimeCache = make(map[string]time.Time)
+	lastEventTimeCache = make(map[string]time.Time)
+	cacheMutex.Unlock()
+
+	key := "test-delta"
+	baseTime := time.Now()
+
+	CacheTime(key, baseTime)
+
+	// Time within DeltaDuration should be considered newer
+	withinDelta := baseTime.Add(1 * time.Second)
+	assert.True(t, Newer(key, withinDelta), "Time within DeltaDuration should be newer")
+
+	// Time before the (cached - DeltaDuration) should not be newer
+	beforeDelta := baseTime.Add(-4 * time.Second)
+	assert.False(t, Newer(key, beforeDelta), "Time before (cached - DeltaDuration) should not be newer")
+
+	// Time exactly at DeltaDuration boundary
+	atDelta := baseTime.Add(-DeltaDuration)
+	assert.False(t, Newer(key, atDelta), "Time exactly at -DeltaDuration should not be newer")
 }
