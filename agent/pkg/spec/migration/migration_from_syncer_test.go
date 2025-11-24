@@ -19,7 +19,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
@@ -1203,6 +1205,320 @@ func TestValidateSingleCluster(t *testing.T) {
 				}
 			} else {
 				assert.Nil(t, err)
+			}
+		})
+	}
+}
+
+// TestPrepareUnstructuredResourceForMigration tests the prepareUnstructuredResourceForMigration function
+func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name             string
+		clusterName      string
+		migrateResource  MigrationResource
+		initObjects      []client.Object
+		expectedCount    int
+		expectedError    bool
+		expectedErrorMsg string
+	}{
+		{
+			name:        "Should get specific resource by name",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name: "<CLUSTER_NAME>-admin-password",
+				gvk: schema.GroupVersionKind{
+					Group:   "",
+					Version: "v1",
+					Kind:    "Secret",
+				},
+				needStatus: false,
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "cluster1-admin-password",
+						Namespace:       "cluster1",
+						ResourceVersion: "12345",
+						UID:             "test-uid",
+					},
+					Data: map[string][]byte{
+						"password": []byte("secret"),
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedError: false,
+		},
+		{
+			name:        "Should return empty when specific resource not found",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name: "<CLUSTER_NAME>-admin-password",
+				gvk: schema.GroupVersionKind{
+					Group:   "",
+					Version: "v1",
+					Kind:    "Secret",
+				},
+				needStatus: false,
+			},
+			initObjects:   []client.Object{},
+			expectedCount: 0,
+			expectedError: false,
+		},
+		{
+			name:        "Should list all resources in namespace when name not specified",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name: "",
+				gvk: schema.GroupVersionKind{
+					Group:   "",
+					Version: "v1",
+					Kind:    "ConfigMap",
+				},
+				needStatus: false,
+			},
+			initObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config1",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{"key": "value1"},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config2",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{"key": "value2"},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config3",
+						Namespace: "other-namespace",
+					},
+					Data: map[string]string{"key": "value3"},
+				},
+			},
+			expectedCount: 2,
+			expectedError: false,
+		},
+		{
+			name:        "Should filter resources by annotation key",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name:          "",
+				annotationKey: "siteconfig.open-cluster-management.io/preserve",
+				gvk: schema.GroupVersionKind{
+					Group:   "",
+					Version: "v1",
+					Kind:    "Secret",
+				},
+				needStatus: false,
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret1",
+						Namespace: "cluster1",
+						Annotations: map[string]string{
+							"siteconfig.open-cluster-management.io/preserve": "true",
+						},
+					},
+					Data: map[string][]byte{"key": []byte("value1")},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret2",
+						Namespace: "cluster1",
+					},
+					Data: map[string][]byte{"key": []byte("value2")},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "secret3",
+						Namespace: "cluster1",
+						Annotations: map[string]string{
+							"siteconfig.open-cluster-management.io/preserve": "false",
+						},
+					},
+					Data: map[string][]byte{"key": []byte("value3")},
+				},
+			},
+			expectedCount: 2, // secret1 and secret3 have the annotation key
+			expectedError: false,
+		},
+		{
+			name:        "Should return empty when no resources match annotation key",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name:          "",
+				annotationKey: "non-existent-annotation",
+				gvk: schema.GroupVersionKind{
+					Group:   "",
+					Version: "v1",
+					Kind:    "ConfigMap",
+				},
+				needStatus: false,
+			},
+			initObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config1",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{"key": "value1"},
+				},
+			},
+			expectedCount: 0,
+			expectedError: false,
+		},
+		{
+			name:        "Should clean metadata fields for migration",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name: "<CLUSTER_NAME>-admin-password",
+				gvk: schema.GroupVersionKind{
+					Group:   "",
+					Version: "v1",
+					Kind:    "Secret",
+				},
+				needStatus: false,
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "cluster1-admin-password",
+						Namespace:       "cluster1",
+						ResourceVersion: "12345",
+						Generation:      5,
+						UID:             "test-uid",
+						Finalizers:      []string{"finalizer1"},
+						Annotations: map[string]string{
+							kubectlConfigAnnotation: "kubectl-config",
+							"other-annotation":      "value",
+						},
+					},
+					Data: map[string][]byte{
+						"password": []byte("secret"),
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedError: false,
+		},
+		{
+			name:        "Should preserve status when needStatus is true",
+			clusterName: "cluster1",
+			migrateResource: MigrationResource{
+				name: "<CLUSTER_NAME>",
+				gvk: schema.GroupVersionKind{
+					Group:   "hive.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterDeployment",
+				},
+				needStatus: true,
+			},
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "hive.openshift.io/v1",
+						"kind":       "ClusterDeployment",
+						"metadata": map[string]interface{}{
+							"name":      "cluster1",
+							"namespace": "cluster1",
+							"annotations": map[string]interface{}{
+								"hive.openshift.io/reconcile-pause": "true",
+							},
+						},
+						"spec": map[string]interface{}{
+							"clusterName": "cluster1",
+						},
+						"status": map[string]interface{}{
+							"conditions": []interface{}{
+								map[string]interface{}{
+									"type":   "Ready",
+									"status": "True",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedCount: 1,
+			expectedError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			resources, err := syncer.prepareUnstructuredResourceForMigration(ctx, c.clusterName, c.migrateResource)
+
+			if c.expectedError {
+				assert.NotNil(t, err)
+				if c.expectedErrorMsg != "" {
+					assert.Contains(t, err.Error(), c.expectedErrorMsg)
+				}
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, c.expectedCount, len(resources))
+
+				// Verify resources are properly cleaned
+				for _, res := range resources {
+					// Metadata should be cleaned
+					assert.Empty(t, res.GetResourceVersion(), "ResourceVersion should be cleared")
+					assert.Empty(t, res.GetFinalizers(), "Finalizers should be cleared")
+					assert.Equal(t, int64(0), res.GetGeneration(), "Generation should be 0")
+
+					// kubectl last-applied-configuration annotation should be removed
+					annotations := res.GetAnnotations()
+					if annotations != nil {
+						_, exists := annotations[kubectlConfigAnnotation]
+						assert.False(t, exists, "kubectl last-applied-configuration should be removed")
+					}
+
+					// Check status based on needStatus
+					_, hasStatus, _ := unstructured.NestedFieldCopy(res.Object, "status")
+					if c.migrateResource.needStatus {
+						if len(c.initObjects) > 0 {
+							// If init object has status, it should be preserved
+							initObj := c.initObjects[0]
+							if unstructuredObj, ok := initObj.(*unstructured.Unstructured); ok {
+								_, initHasStatus, _ := unstructured.NestedFieldCopy(unstructuredObj.Object, "status")
+								if initHasStatus {
+									assert.True(t, hasStatus, "Status should be preserved when needStatus is true")
+								}
+							}
+						}
+					} else {
+						assert.False(t, hasStatus, "Status should be removed when needStatus is false")
+					}
+
+					// Check ClusterDeployment specific cleaning
+					if c.migrateResource.gvk.Kind == "ClusterDeployment" {
+						// hive.openshift.io/reconcile-pause annotation should be removed
+						annotations := res.GetAnnotations()
+						if annotations != nil {
+							_, hasPause := annotations["hive.openshift.io/reconcile-pause"]
+							assert.False(t, hasPause, "reconcile-pause annotation should be removed")
+						}
+					}
+				}
 			}
 		})
 	}
