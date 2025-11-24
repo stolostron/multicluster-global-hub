@@ -59,7 +59,7 @@ type MigrationResourceBundle struct {
 
 type MigrationClusterResource struct {
 	ClusterName  string                      `json:"clusterName"`
-	ResourceList []unstructured.Unstructured `json:"resourcesList"`
+	ResourceList []unstructured.Unstructured `json:"resourceList"`
 }
 
 // MaxMigrationBundleBytes defines the maximum size (in bytes) of the JSON-encoded MigrationResourceBundle.

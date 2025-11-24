@@ -125,6 +125,9 @@ func (s *LocalAgentController) IsResourceRemoved() bool {
 // +kubebuilder:rbac:groups=certificates.k8s.io,resources=certificatesigningrequests,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=managedclusters,verbs=get;create;update;delete;watch;list
 // +kubebuilder:rbac:groups=agent.open-cluster-management.io,resources=klusterletaddonconfigs,verbs=get;create;watch;list;delete;patch;update
+// +kubebuilder:rbac:groups=extensions.hive.openshift.io,resources=imageclusterinstalls;imageclusterinstalls/status,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=hive.openshift.io,resources=clusterdeployments;clusterdeployments/status,verbs=create;delete;get;list;update;watch
+// +kubebuilder:rbac:groups=metal3.io,resources=baremetalhosts;baremetalhosts/status;dataimages;dataimages/status;firmwareschemas;firmwareschemas/status;hostfirmwarecomponents;hostfirmwarecomponents/status;hostfirmwaresettings;hostfirmwaresettings/status,verbs=create;delete;get;list;update;watch
 // +kubebuilder:rbac:groups=register.open-cluster-management.io,resources=managedclusters/accept,verbs=update
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;delete;deletecollection
 
