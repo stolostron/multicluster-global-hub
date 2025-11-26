@@ -8,6 +8,14 @@ allowed-tools: [Read, Write, Bash, Glob, Grep]
 
 Automates the complete end-to-end workflow for cutting a new Multicluster Global Hub release across all 6 repositories with full automation.
 
+## Execution Instructions for Claude
+
+**CRITICAL - Synchronous Execution Required**:
+
+1. **Run Synchronously**: Execute the cut-release.sh script using the Bash tool WITHOUT the `run_in_background` parameter. The script must run synchronously to completion with a 600000ms (10 minute) timeout.
+
+2. **No BashOutput Calls**: DO NOT use the BashOutput tool. The command runs synchronously and returns complete output when finished.
+
 ## When to Use This Skill
 
 - Cutting a new Global Hub release (e.g., release-2.16, release-2.17)
