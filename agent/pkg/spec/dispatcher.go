@@ -2,6 +2,7 @@ package spec
 
 import (
 	"context"
+	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
@@ -20,6 +21,7 @@ type genericDispatcher struct {
 	consumer    transport.Consumer
 	agentConfig configs.AgentConfig
 	syncers     map[string]Syncer
+	mu          sync.RWMutex
 }
 
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config configs.AgentConfig,
@@ -42,6 +44,8 @@ func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config 
 }
 
 func (d *genericDispatcher) RegisterSyncer(messageID string, syncer Syncer) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	d.syncers[messageID] = syncer
 	d.log.Infow("dispatch syncer is registered", "messageID", messageID)
 }
@@ -80,11 +84,13 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				// d.log.Infow("event dropped due to cluster name mismatch", "clusterName", clusterName)
 				continue
 			}
+			d.mu.RLock()
 			syncer, found := d.syncers[evt.Type()]
 			if !found {
 				d.log.Debugw("dispatching to the default generic syncer", "eventType", evt.Type())
 				syncer = d.syncers[constants.GenericSpecMsgKey]
 			}
+			d.mu.RUnlock()
 			if syncer == nil || evt == nil {
 				d.log.Warnw("nil syncer or event: incompatible event will be resolved after upgrade.",
 					"syncer", syncer, "event", evt)
