@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	imagev1client "github.com/openshift/client-go/image/clientset/versioned/typed/image/v1"
@@ -86,6 +87,7 @@ type MetaController struct {
 	mgr                  manager.Manager
 	operatorConfig       *config.OperatorConfig
 	startedControllerMap map[string]config.ControllerInterface
+	controllerMutex      sync.RWMutex
 }
 
 // +kubebuilder:rbac:groups=operator.open-cluster-management.io,resources=multiclusterglobalhubs;multiclusterglobalhubagents,verbs=get;list;watch;create;update;patch;delete
@@ -139,13 +141,16 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if err != nil {
 			return ctrl.Result{}, err
 		}
+		r.controllerMutex.RLock()
 		for name, c := range r.startedControllerMap {
 			removed := c.IsResourceRemoved()
 			log.Debugf("removed resources in controller: %v, removed:%v", name, removed)
 			if !removed {
+				r.controllerMutex.RUnlock()
 				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 		}
+		r.controllerMutex.RUnlock()
 		// NOTE: Remove the clusterrole after all the component cleaned up their resources
 		err := r.pruneGlobalHubResources(ctx)
 		if err != nil {
@@ -192,7 +197,9 @@ func (r *MetaController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		startedController, reconcileErr = startController(controllerOption)
 		if reconcileErr == nil && startedController != nil {
 			log.Debugf("started controller:%v", controllerName)
+			r.controllerMutex.Lock()
 			r.startedControllerMap[controllerName] = startedController
+			r.controllerMutex.Unlock()
 		}
 	}
 
