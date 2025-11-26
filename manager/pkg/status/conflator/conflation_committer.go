@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ type ConflationCommitter struct {
 	log                        *zap.SugaredLogger
 	retrieveMetadataFunc       MetadataFunc
 	committedPositions         map[string]int64 // topic@partition -> offset
+	committedPositionsMu       sync.RWMutex
 	lastCommittedKafkaIdentity string
 }
 
@@ -109,6 +111,9 @@ func (k *ConflationCommitter) commit() error {
 }
 
 func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition {
+	k.committedPositionsMu.Lock()
+	defer k.committedPositionsMu.Unlock()
+
 	transportPositionMap := make(map[string]*transport.EventPosition)
 	if k.lastCommittedKafkaIdentity != config.GetKafkaOwnerIdentity() {
 		// if the kafka identity is changed, clear the committed history to start from the beginning
