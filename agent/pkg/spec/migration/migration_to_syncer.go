@@ -9,8 +9,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	cetypes "github.com/cloudevents/sdk-go/v2/types"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -33,6 +35,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -54,7 +57,7 @@ var (
 //  1. If cached: skip if latestMigrationTime is after event time
 //  2. If not cached: skip if event is older than 10 minutes
 func shouldSkipMigrationEvent(ctx context.Context, client client.Client, evt *cloudevents.Event) (bool, error) {
-	cached, latestMigrationTime, err := configs.GetSyncTimeState(ctx, client, configs.LatestMigrationTimeKey)
+	cached, latestMigrationTime, err := configs.GetSyncTimeState(ctx, client, migrationStateKey(evt))
 	if err != nil {
 		return false, fmt.Errorf("failed to get latest migration time from configmap: %w", err)
 	}
@@ -175,10 +178,19 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	}
 
 	// update the latest migration time into configmap to avoid duplicate processing
-	if err := configs.SetSyncTimeState(ctx, s.client, configs.LatestMigrationTimeKey); err != nil {
+	if err := configs.SetSyncTimeState(ctx, s.client, migrationStateKey(evt)); err != nil {
 		return fmt.Errorf("failed to update latest migration time: %w", err)
 	}
 	return nil
+}
+
+func migrationStateKey(evt *cloudevents.Event) string {
+	source, err := cetypes.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
+	if err != nil {
+		log.Info("failed to parse topic from event, use source as key", "error", err)
+		source = evt.Source()
+	}
+	return fmt.Sprintf("%s--%s", source, enum.ShortenEventType(string(evt.Type())))
 }
 
 // handleStage processes different migration stages using switch statement

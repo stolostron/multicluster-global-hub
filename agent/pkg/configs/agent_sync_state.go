@@ -19,8 +19,6 @@ const (
 	// use RFC3339 format to store/format the time: https://datatracker.ietf.org/doc/html/rfc3339
 	// it algin with the cloudevents time format: https://github.com/cloudevents/sdk-go/blob/main/v2/types/timestamp.go
 	AGENT_SYNC_STATE_TIME_FORMAT_VALUE = time.RFC3339Nano
-
-	LatestMigrationTimeKey = "latestMigrationTime"
 )
 
 func GetSyncStateConfigMap(ctx context.Context, c client.Client) (*corev1.ConfigMap, error) {
