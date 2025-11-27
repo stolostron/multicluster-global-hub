@@ -18,6 +18,7 @@ package acm
 
 import (
 	"context"
+	"sync"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +51,8 @@ var (
 
 type ACMResourceController struct {
 	manager.Manager
-	Resources map[string]bool
+	Resources   map[string]bool
+	resourcesMu sync.RWMutex
 }
 
 func (r *ACMResourceController) IsResourceRemoved() bool {
@@ -59,7 +61,10 @@ func (r *ACMResourceController) IsResourceRemoved() bool {
 
 func (r *ACMResourceController) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log.Debugf("reconcile acm controller: %v", req)
+
+	r.resourcesMu.Lock()
 	r.Resources[req.Name] = true
+	r.resourcesMu.Unlock()
 
 	if !r.readyToWatchACMResources() {
 		log.Debugf("ACM Resources is not ready")
@@ -81,6 +86,9 @@ func (r *ACMResourceController) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *ACMResourceController) readyToWatchACMResources() bool {
+	r.resourcesMu.RLock()
+	defer r.resourcesMu.RUnlock()
+
 	for val := range ACMResources {
 		if ready := r.Resources[val]; !ready {
 			return false
