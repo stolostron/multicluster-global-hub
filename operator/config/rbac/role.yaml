@@ -370,11 +370,37 @@ rules:
   - update
   - watch
 - apiGroups:
+  - extensions.hive.openshift.io
+  resources:
+  - imageclusterinstalls
+  - imageclusterinstalls/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - global-hub.open-cluster-management.io
   resources:
   - managedclustermigrations
   - managedclustermigrations/status
   verbs:
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - hive.openshift.io
+  resources:
+  - clusterdeployments
+  - clusterdeployments/status
+  verbs:
+  - create
   - delete
   - get
   - list
@@ -410,6 +436,21 @@ rules:
   - delete
   - get
   - list
+  - update
+  - watch
+- apiGroups:
+  - metal3.io
+  resources:
+  - baremetalhosts
+  - baremetalhosts/status
+  - hostfirmwaresettings
+  - hostfirmwaresettings/status
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
   - update
   - watch
 - apiGroups:

@@ -1089,7 +1089,10 @@ func TestDeploying(t *testing.T) {
 
 	scheme := configs.GetRuntimeScheme()
 	ctx := context.Background()
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(
+		&clusterv1.ManagedCluster{},
+		&addonv1.KlusterletAddonConfig{},
+	).Build()
 	// set agent config
 	configs.SetAgentConfig(&configs.AgentConfig{LeafHubName: "hub2"})
 	// set tranport config
