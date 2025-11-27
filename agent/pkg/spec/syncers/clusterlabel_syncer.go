@@ -31,6 +31,7 @@ type managedClusterLabelsBundleSyncer struct {
 	log                          *zap.SugaredLogger
 	latestBundle                 *specbundle.ManagedClusterLabelsSpecBundle
 	managedClusterToTimestampMap map[string]*time.Time
+	timestampMapLock             sync.RWMutex
 	workerPool                   *workers.WorkerPool
 	bundleProcessingWaitingGroup sync.WaitGroup
 	latestBundleLock             sync.Mutex
@@ -145,10 +146,15 @@ func (s *managedClusterLabelsBundleSyncer) updateManagedClusterAsync(
 func (syncer *managedClusterLabelsBundleSyncer) managedClusterMarkUpdated(
 	labelsSpec *specbundle.ManagedClusterLabelsSpec, lastProcessedTimestampPtr *time.Time,
 ) {
+	syncer.timestampMapLock.Lock()
+	defer syncer.timestampMapLock.Unlock()
 	*lastProcessedTimestampPtr = labelsSpec.UpdateTimestamp
 }
 
 func (syncer *managedClusterLabelsBundleSyncer) getManagedClusterLastProcessedTimestamp(name string) *time.Time {
+	syncer.timestampMapLock.Lock()
+	defer syncer.timestampMapLock.Unlock()
+
 	timestamp, found := syncer.managedClusterToTimestampMap[name]
 	if found {
 		return timestamp

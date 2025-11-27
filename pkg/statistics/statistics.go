@@ -38,10 +38,14 @@ type Statistics struct {
 }
 
 func (s *Statistics) Register(eventType string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	s.eventMetrics[eventType] = newEventMetrics()
 }
 
 func (s *Statistics) ReceivedEvent(evt *cloudevents.Event) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	metrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
 		return
@@ -61,6 +65,8 @@ func (s *Statistics) SetConflationReadyQueueSize(size int) {
 
 // StartConflationUnitMetrics starts conflation unit metrics of the specific event type.
 func (s *Statistics) StartConflationUnitMetrics(evt *cloudevents.Event) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	eventMetrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
 		return
@@ -70,6 +76,8 @@ func (s *Statistics) StartConflationUnitMetrics(evt *cloudevents.Event) {
 
 // StopConflationUnitMetrics stops conflation unit metrics of the specific event type.
 func (s *Statistics) StopConflationUnitMetrics(evt *cloudevents.Event, err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	eventMetrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
 		return
@@ -86,6 +94,8 @@ func (s *Statistics) IncrementNumberOfConflations() {
 
 // AddDatabaseMetrics adds database metrics of the specific event type.
 func (s *Statistics) AddDatabaseMetrics(evt *cloudevents.Event, duration time.Duration, err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 	eventMetrics, ok := s.eventMetrics[evt.Type()]
 	if !ok {
 		return
@@ -130,6 +140,7 @@ func (s *Statistics) run(ctx context.Context, duration time.Duration) {
 			storageAvg := float64(0)
 			conflationAvg := float64(0)
 
+			s.mutex.Lock()
 			for eventType, metrics := range s.eventMetrics {
 				stringBuilder.WriteString(fmt.Sprintf("[%-42s(%d) | conflation(%-42s) | storage(%-42s)] \n",
 					eventType, metrics.totalReceived,
@@ -144,11 +155,12 @@ func (s *Statistics) run(ctx context.Context, duration time.Duration) {
 					storageAvg = float64(metrics.database.totalDuration / metrics.database.successes)
 				}
 			}
-			metrics := fmt.Sprintf("{CU=%d, CUQueue=%d, idleDBW=%d, success=%d, fail=%d, CU Avg=%.0f ms, DB Avg=%.0f ms}",
+			metricsStr := fmt.Sprintf("{CU=%d, CUQueue=%d, idleDBW=%d, success=%d, fail=%d, CU Avg=%.0f ms, DB Avg=%.0f ms}",
 				s.numOfConflationUnits, s.conflationReadyQueueSize, s.numOfAvailableDBWorkers, success, fail,
 				conflationAvg, storageAvg)
+			s.mutex.Unlock()
 
-			s.log.Debug(fmt.Sprintf("%s\n%s", metrics, stringBuilder.String()))
+			s.log.Debug(fmt.Sprintf("%s\n%s", metricsStr, stringBuilder.String()))
 		}
 	}
 }
