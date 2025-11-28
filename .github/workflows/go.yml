@@ -22,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.24'
+          go-version: '1.24.9'
 
       - name: Setup gci
         run: go install github.com/daixiang0/gci@latest
