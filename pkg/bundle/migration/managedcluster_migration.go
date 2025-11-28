@@ -1,8 +1,12 @@
 package migration
 
 import (
+	"encoding/json"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 // Since Kafka persists messages in a topic, multiple migration processes running in the system might all use the
@@ -54,6 +58,72 @@ type MigrationResourceBundle struct {
 }
 
 type MigrationClusterResource struct {
-	ClusterName string                      `json:"clusterName"`
-	ResouceList []unstructured.Unstructured `json:"resourcesList"`
+	ClusterName  string                      `json:"clusterName"`
+	ResourceList []unstructured.Unstructured `json:"resourcesList"`
+}
+
+// MaxMigrationBundleBytes defines the maximum size (in bytes) of the JSON-encoded MigrationResourceBundle.
+// This limit prevents exceeding Kafka broker message size limits during migration operations.
+const MaxMigrationBundleBytes = 800 * 1024 // 800 KiB
+
+// CloudEvents extension keys for migration batch tracking
+const (
+	ExtTotalClusters = "totalclusters" // Total number of clusters to be migrated
+)
+
+var log = logger.DefaultZapLogger()
+
+// NewMigrationResourceBundle creates a new MigrationResourceBundle
+func NewMigrationResourceBundle(migrationId string) *MigrationResourceBundle {
+	return &MigrationResourceBundle{
+		MigrationId:               migrationId,
+		MigrationClusterResources: []MigrationClusterResource{},
+	}
+}
+
+// Size returns the size in bytes of the JSON-encoded MigrationResourceBundle
+func (b *MigrationResourceBundle) Size() (int, error) {
+	data, err := json.Marshal(b)
+	if err != nil {
+		return 0, err
+	}
+	return len(data), nil
+}
+
+// IsEmpty returns true if the bundle contains no cluster resources
+func (b *MigrationResourceBundle) IsEmpty() bool {
+	return len(b.MigrationClusterResources) == 0
+}
+
+// Clean clears all cluster resources from the bundle
+func (b *MigrationResourceBundle) Clean() {
+	b.MigrationClusterResources = nil
+}
+
+// AddClusterResource tries to add a cluster resource to the bundle.
+// Returns (true, nil) if added successfully.
+// Returns (true, nil) if adding would exceed size limit.
+// Returns (false, error) if there's an error or single resource is too large.
+func (b *MigrationResourceBundle) AddClusterResource(resource MigrationClusterResource) (bool, error) {
+	wasEmptyBeforeAdd := b.IsEmpty()
+
+	b.MigrationClusterResources = append(b.MigrationClusterResources, resource)
+
+	size, err := b.Size()
+	if err != nil {
+		b.MigrationClusterResources = b.MigrationClusterResources[:len(b.MigrationClusterResources)-1]
+		return false, err
+	}
+
+	if size > MaxMigrationBundleBytes {
+		if wasEmptyBeforeAdd {
+			log.Warnf("resource size for cluster %s exceeds the bundle limit: %d bytes. Please increase the Kafka message"+
+				" size limit to avoid potential data loss.", resource.ClusterName, size)
+			return true, nil
+		}
+		b.MigrationClusterResources = b.MigrationClusterResources[:len(b.MigrationClusterResources)-1]
+		return false, nil
+	}
+
+	return true, nil
 }
