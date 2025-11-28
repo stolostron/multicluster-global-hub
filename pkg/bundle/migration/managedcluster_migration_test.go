@@ -130,9 +130,8 @@ func TestAddClusterResourceBoundary(t *testing.T) {
 		}
 
 		added, err := bundle.AddClusterResource(clusterResource)
-		assert.Error(t, err)
-		assert.False(t, added)
-		assert.Contains(t, err.Error(), "exceeds bundle size limit")
+		assert.NoError(t, err)
+		assert.True(t, added)
 	})
 
 	t.Run("Adding resource that would exceed size limit when bundle is not empty", func(t *testing.T) {

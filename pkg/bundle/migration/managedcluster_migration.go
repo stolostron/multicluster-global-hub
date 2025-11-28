@@ -102,7 +102,7 @@ func (b *MigrationResourceBundle) Clean() {
 
 // AddClusterResource tries to add a cluster resource to the bundle.
 // Returns (true, nil) if added successfully.
-// Returns (false, nil) if adding would exceed size limit.
+// Returns (true, nil) if adding would exceed size limit.
 // Returns (false, error) if there's an error or single resource is too large.
 func (b *MigrationResourceBundle) AddClusterResource(resource MigrationClusterResource) (bool, error) {
 	wasEmptyBeforeAdd := b.IsEmpty()
@@ -119,7 +119,7 @@ func (b *MigrationResourceBundle) AddClusterResource(resource MigrationClusterRe
 		if wasEmptyBeforeAdd {
 			log.Warnf("resource size for cluster %s exceeds the bundle limit: %d bytes. Please increase the Kafka message"+
 				" size limit to avoid potential data loss.", resource.ClusterName, size)
-			return false, nil
+			return true, nil
 		}
 		b.MigrationClusterResources = b.MigrationClusterResources[:len(b.MigrationClusterResources)-1]
 		return false, nil
