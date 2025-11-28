@@ -2,10 +2,11 @@ package migration
 
 import (
 	"encoding/json"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
 // Since Kafka persists messages in a topic, multiple migration processes running in the system might all use the
@@ -70,6 +71,8 @@ const (
 	ExtTotalClusters = "totalclusters" // Total number of clusters to be migrated
 )
 
+var log = logger.DefaultZapLogger()
+
 // NewMigrationResourceBundle creates a new MigrationResourceBundle
 func NewMigrationResourceBundle(migrationId string) *MigrationResourceBundle {
 	return &MigrationResourceBundle{
@@ -114,8 +117,9 @@ func (b *MigrationResourceBundle) AddClusterResource(resource MigrationClusterRe
 
 	if size > MaxMigrationBundleBytes {
 		if wasEmptyBeforeAdd {
-			return false, fmt.Errorf("single cluster resource exceeds bundle size limit for cluster %s: %d bytes",
-				resource.ClusterName, size)
+			log.Warnf("resource size for cluster %s exceeds the bundle limit: %d bytes. Please increase the Kafka message"+
+				" size limit to avoid potential data loss.", resource.ClusterName, size)
+			return false, nil
 		}
 		b.MigrationClusterResources = b.MigrationClusterResources[:len(b.MigrationClusterResources)-1]
 		return false, nil
