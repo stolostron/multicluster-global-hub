@@ -84,6 +84,9 @@ type MigrationTargetSyncer struct {
 	receivedMigrationId   string
 	receivedStage         string
 	leafHubName           string
+	// Batch tracking for deploying stage
+	deployingTotalClusters     int             // Total clusters expected in deploying stage
+	deployingProcessedClusters map[string]bool // Track which clusters have been processed
 }
 
 func NewMigrationTargetSyncer(client client.Client,
@@ -123,17 +126,32 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 			Stage:       s.receivedStage,
 		}
 
+		reportStatus := true
 		if err != nil {
 			migrationStatus.ErrMessage = err.Error()
 			if len(clusterErrors) > 0 {
 				migrationStatus.ClusterErrors = clusterErrors
 			}
+		} else {
+			if s.receivedStage == migrationv1alpha1.PhaseDeploying {
+				if s.deployingTotalClusters > 0 && len(s.deployingProcessedClusters) == s.deployingTotalClusters {
+					log.Infof("deploying: all %d clusters have been processed successfully", s.deployingTotalClusters)
+					// Reset batch tracking for next migration
+					s.deployingTotalClusters = 0
+					s.deployingProcessedClusters = nil
+				} else {
+					log.Infof("deploying: not finished, skip reporting status")
+					reportStatus = false
+				}
+			}
 		}
 
-		err = ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
-			s.transportClient, migrationStatus, s.bundleVersion)
-		if err != nil {
-			log.Errorf("failed to report migration status: %v", err)
+		if reportStatus {
+			err = ReportMigrationStatus(cecontext.WithTopic(ctx, s.transportConfig.KafkaCredential.StatusTopic),
+				s.transportClient, migrationStatus, s.bundleVersion)
+			if err != nil {
+				log.Errorf("failed to report migration status: %v", err)
+			}
 		}
 	}()
 
@@ -364,21 +382,53 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 		return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
 	}
 	s.receivedMigrationId = resourceEvent.MigrationId
+
+	// Initialize or validate migration tracking
 	if s.processingMigrationId == "" {
 		s.processingMigrationId = resourceEvent.MigrationId
 		s.bundleVersion.Reset()
 	}
 
-	// only the handle the current migration event, ignore the previous ones
-	log.Debugf("get migration event: migrationId=%s", resourceEvent.MigrationId)
+	// only handle the current migration event, ignore the previous ones
 	if s.processingMigrationId != resourceEvent.MigrationId {
-		return fmt.Errorf("expected migrationId %s, but got  %s", s.processingMigrationId,
+		return fmt.Errorf("expected migrationId %s, but got %s", s.processingMigrationId,
 			resourceEvent.MigrationId)
 	}
 
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+	// Initialize batch tracking
+	if s.deployingProcessedClusters == nil {
+		totalClusters := 0
+		if val, err := cetypes.ToInteger(evt.Extensions()[migration.ExtTotalClusters]); err == nil {
+			totalClusters = int(val)
+		} else {
+			log.Errorf("deploying: failed to convert totalclusters extension to integer: %v", err)
+			return fmt.Errorf("failed to convert totalclusters extension to integer: %v", err)
+		}
+		if totalClusters == 0 {
+			log.Error("deploying: totalclusters extension is 0, expecting at least 1 cluster")
+			return fmt.Errorf("totalclusters extension is 0, expecting at least 1 cluster")
+		}
+		s.deployingTotalClusters = totalClusters
+		s.deployingProcessedClusters = make(map[string]bool)
+		log.Infof("deploying: initialized batch tracking for migration %s, expecting %d total clusters",
+			resourceEvent.MigrationId, totalClusters)
+	}
+
+	// Process the resources in this batch
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		return s.syncMigrationResources(ctx, resourceEvent)
-	})
+	}); err != nil {
+		return err
+	}
+
+	// Track processed clusters
+	for _, clusterResource := range resourceEvent.MigrationClusterResources {
+		s.deployingProcessedClusters[clusterResource.ClusterName] = true
+	}
+
+	log.Infof("deploying: processed batch with %d clusters, total processed: %d/%d",
+		len(resourceEvent.MigrationClusterResources), len(s.deployingProcessedClusters), s.deployingTotalClusters)
+	return nil
 }
 
 func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace string) error {
@@ -414,7 +464,7 @@ func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 		}
 
 		// Process each resource in the cluster
-		for _, resource := range clusterResource.ResouceList {
+		for _, resource := range clusterResource.ResourceList {
 			if err := s.syncResource(ctx, &resource); err != nil {
 				return fmt.Errorf("failed to sync resource %s/%s for cluster %s: %w",
 					resource.GetKind(), resource.GetName(), clusterName, err)

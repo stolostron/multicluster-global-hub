@@ -46,7 +46,11 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	clusters := GetClusterList(string(mcm.UID))
 
 	// 1. source hub: start and wait the confirmation
-	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
+	//    Target hub: no need to send events to trigger deploying. This handles target hub restarts where resources may
+	//                be lost, requiring the source hub to resend them.
+	if !GetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) ||
+		!GetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying) {
+		log.Infof("migration deploying to source hub: %s", fromHub)
 		err := m.sendEventToSourceHub(ctx, fromHub, mcm, migrationv1alpha1.PhaseDeploying, clusters, nil, "")
 		if err != nil {
 			condition.Message = err.Error()
@@ -55,6 +59,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 		}
 		log.Infof("deploying to source hub(%s): %s (uid: %s)", fromHub, mcm.Name, mcm.UID)
 		SetStarted(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)
+		SetStarted(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying)
 	}
 
 	errMessage := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying)

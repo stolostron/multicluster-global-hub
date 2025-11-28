@@ -6,6 +6,7 @@ package migration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -633,15 +634,23 @@ func TestGenerateKlusterletConfig(t *testing.T) {
 }
 
 type ProducerMock struct {
-	sentEvent *cloudevents.Event
+	sentEvent     *cloudevents.Event
+	SendEventFunc func(ctx context.Context, evt cloudevents.Event) error
+	ReconnectFunc func(config *transport.TransportInternalConfig, topic string) error
 }
 
 func (m *ProducerMock) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	if m.SendEventFunc != nil {
+		return m.SendEventFunc(ctx, evt)
+	}
 	m.sentEvent = &evt
 	return nil
 }
 
 func (m *ProducerMock) Reconnect(config *transport.TransportInternalConfig, topic string) error {
+	if m.ReconnectFunc != nil {
+		return m.ReconnectFunc(config, topic)
+	}
 	return nil
 }
 
@@ -1204,6 +1213,218 @@ func TestValidateSingleCluster(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 			}
+		})
+	}
+}
+
+// TestDeploying_BatchSendingIntegrity tests the automatic batch splitting and integrity verification
+// This test verifies PR #2047: when cluster resources exceed MaxMigrationBundleBytes,
+// the deploying function automatically splits them into multiple CloudEvents,
+// and we can verify the integrity by collecting all sub-lists
+func TestDeploying_BatchSendingIntegrity(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+
+	// Add required schemes
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+	if err := clientgoscheme.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clientgoscheme to scheme: %v", err)
+	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+	if err := addonv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add addonv1 to scheme: %v", err)
+	}
+	if err := mchv1.SchemeBuilder.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name               string
+		clusterCount       int
+		labelCount         int // Number of labels to add per cluster to increase size
+		expectedMinBatches int // Minimum expected CloudEvents
+	}{
+		{
+			name:               "Small cluster list - fits in single CloudEvent",
+			clusterCount:       5,
+			labelCount:         0,
+			expectedMinBatches: 1,
+		},
+		{
+			name:               "Large cluster list - requires multiple CloudEvents",
+			clusterCount:       150,
+			labelCount:         300, // Each label ~500 bytes, so ~150KB per cluster
+			expectedMinBatches: 2,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Create test objects including ManagedClusters and KlusterletAddonConfigs
+			objects := []client.Object{
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
+					},
+				},
+			}
+
+			clusterNames := make([]string, c.clusterCount)
+			for i := 0; i < c.clusterCount; i++ {
+				clusterName := "cluster-" + string(rune('a'+(i%26)))
+				if i >= 26 {
+					clusterName = clusterName + string(rune('0'+(i/26)))
+				}
+				clusterNames[i] = clusterName
+
+				// Create ManagedCluster with large labels to increase size
+				labels := make(map[string]string)
+				if c.labelCount > 0 {
+					for j := 0; j < c.labelCount; j++ {
+						labelKey := "label-" + string(rune('a'+(j%26))) + "-" + strings.Repeat("k", j%10)
+						labels[labelKey] = strings.Repeat("x", 500)
+					}
+				}
+
+				// ManagedCluster is cluster-scoped, but fake client needs namespace for Get with NamespacedName
+				// So we create it without namespace, but client.Get will use namespace=clusterName from the code
+				// We need to also create it with namespace=clusterName for fake client to find it
+				mc := &clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      clusterName,
+						Namespace: clusterName, // Workaround for fake client with NamespacedName.Get
+						Labels:    labels,
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				}
+				objects = append(objects, mc)
+
+				// Create KlusterletAddonConfig
+				objects = append(objects, &addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      clusterName,
+						Namespace: clusterName,
+					},
+					Spec: addonv1.KlusterletAddonConfigSpec{
+						ClusterName:      clusterName,
+						ClusterNamespace: clusterName,
+					},
+				})
+			}
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithStatusSubresource(objects...).
+				WithObjects(objects...).
+				Build()
+
+			// Track all sent CloudEvents
+			var sentEvents []cloudevents.Event
+			producer := &ProducerMock{
+				SendEventFunc: func(ctx context.Context, evt cloudevents.Event) error {
+					evtCopy := evt.Clone()
+					sentEvents = append(sentEvents, evtCopy)
+					return nil
+				},
+			}
+
+			transportClient := &controller.TransportClient{}
+			transportClient.SetProducer(producer)
+
+			transportConfig := &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic: "spec",
+				},
+			}
+
+			agentConfig := &configs.AgentConfig{
+				TransportConfig: transportConfig,
+				LeafHubName:     "hub1",
+			}
+			configs.SetAgentConfig(agentConfig)
+
+			syncer := NewMigrationSourceSyncer(fakeClient, nil, transportClient, agentConfig)
+			syncer.processingMigrationId = "test-migration-batch"
+
+			// Create migration event and call deploying function
+			migrationEvent := &migration.MigrationSourceBundle{
+				MigrationId:     "test-migration-batch",
+				ToHub:           "hub2",
+				Stage:           migrationv1alpha1.PhaseDeploying,
+				ManagedClusters: clusterNames,
+			}
+
+			// Call the real deploying function
+			err := syncer.deploying(ctx, migrationEvent)
+			assert.NoError(t, err, "deploying should not return error")
+
+			// Verify that CloudEvents were sent
+			assert.GreaterOrEqual(t, len(sentEvents), c.expectedMinBatches,
+				"Should send at least %d CloudEvents", c.expectedMinBatches)
+
+			t.Logf("Total CloudEvents sent: %d for %d clusters", len(sentEvents), c.clusterCount)
+
+			// Collect all clusters from all CloudEvents and verify integrity
+			receivedClusters := make(map[string]bool)
+			totalClustersReceived := 0
+
+			for i, evt := range sentEvents {
+				// Verify event type
+				assert.Equal(t, constants.MigrationTargetMsgKey, evt.Type(),
+					"CloudEvent %d should have correct type", i)
+
+				// Verify ExtTotalClusters extension
+				totalClustersExt, ok := evt.Extensions()[migration.ExtTotalClusters]
+				assert.True(t, ok, "CloudEvent %d should have ExtTotalClusters extension", i)
+				assert.Equal(t, int32(c.clusterCount), totalClustersExt.(int32),
+					"CloudEvent %d ExtTotalClusters should be %d", i, c.clusterCount)
+
+				// Parse bundle
+				var receivedBundle migration.MigrationResourceBundle
+				err := json.Unmarshal(evt.Data(), &receivedBundle)
+				assert.NoError(t, err, "CloudEvent %d should have valid bundle data", i)
+
+				// Verify migration ID
+				assert.Equal(t, "test-migration-batch", receivedBundle.MigrationId,
+					"CloudEvent %d should have correct migration ID", i)
+
+				// Verify bundle size is within limits
+				bundleSize, err := receivedBundle.Size()
+				assert.NoError(t, err)
+				assert.LessOrEqual(t, bundleSize, migration.MaxMigrationBundleBytes,
+					"CloudEvent %d bundle size should not exceed limit", i)
+
+				fmt.Printf("CloudEvent %d: %d clusters, size=%d bytes\n",
+					i, len(receivedBundle.MigrationClusterResources), bundleSize)
+
+				// Collect clusters and check for duplicates
+				for _, clusterResource := range receivedBundle.MigrationClusterResources {
+					assert.False(t, receivedClusters[clusterResource.ClusterName],
+						"Cluster %s should not be duplicated across CloudEvents", clusterResource.ClusterName)
+					receivedClusters[clusterResource.ClusterName] = true
+					totalClustersReceived++
+				}
+			}
+
+			// Verify integrity: all clusters received exactly once
+			assert.Equal(t, c.clusterCount, totalClustersReceived,
+				"Total clusters received should match expected count")
+			assert.Equal(t, c.clusterCount, len(receivedClusters),
+				"All clusters should be received exactly once (no duplicates)")
+
+			t.Logf("Integrity verified: %d clusters sent across %d CloudEvents, all received exactly once",
+				totalClustersReceived, len(sentEvents))
 		})
 	}
 }
