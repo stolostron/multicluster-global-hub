@@ -94,7 +94,6 @@ func TestNewKafkaCluster(t *testing.T) {
     "metadata": {
         "name": "kafka",
         "namespace": "multicluster-global-hub",
-        "creationTimestamp": null,
         "labels": {
             "global-hub.open-cluster-management.io/managed-by": "global-hub"
         },
@@ -165,7 +164,6 @@ func TestNewKafkaCluster(t *testing.T) {
     "metadata": {
         "name": "kafka",
         "namespace": "multicluster-global-hub",
-        "creationTimestamp": null,
         "labels": {
             "global-hub.open-cluster-management.io/managed-by": "global-hub"
         },
@@ -239,7 +237,6 @@ func TestNewKafkaCluster(t *testing.T) {
     "metadata": {
         "name": "kafka",
         "namespace": "multicluster-global-hub",
-        "creationTimestamp": null,
         "labels": {
             "global-hub.open-cluster-management.io/managed-by": "global-hub"
         },

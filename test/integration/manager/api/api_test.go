@@ -81,7 +81,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"apiVersion": "cluster.open-cluster-management.io/v1",
 	"metadata": {
 		"uid": "2aa5547c-c172-47ed-b70b-db468c84d327",
-		"creationTimestamp": null,
 		"name": "mc1",
 		"labels": {
 			"cloud": "Other",
@@ -107,7 +106,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"apiVersion": "cluster.open-cluster-management.io/v1",
 	"metadata": {
 		"uid": "18c9e13c-4488-4dcd-a5ac-1196093abbc0",
-		"creationTimestamp": null,
 		"name": "mc2",
 		"labels": {
 			"cloud": "Other",
@@ -473,7 +471,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"metadata": {
 		"name": "policy-config-audit",
 		"namespace": "default",
-		"creationTimestamp": null,
 		"annotations": {
 			"policy.open-cluster-management.io/standards": "NIST SP 800-53",
 			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
@@ -843,7 +840,6 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 	"metadata": {
 		"name": "policy-config-audit",
 		"namespace": "default",
-		"creationTimestamp": null,
 		"annotations": {
 			"policy.open-cluster-management.io/categories": "AU Audit and Accountability",
 			"policy.open-cluster-management.io/controls": "AU-3 Content of Audit Records",
@@ -1017,8 +1013,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		"apps.open-cluster-management.io/reconcile-rate": "medium"
 	  },
 	  "name": "bar-appsub",
-	  "namespace": "bar",
-	  "creationTimestamp": null
+	  "namespace": "bar"
 	},
 	"spec": {
 	  "channel": "git-application-samples-ns/git-application-samples",
@@ -1048,8 +1043,7 @@ var _ = Describe("Nonk8s API Server", Ordered, func() {
 		"apps.open-cluster-management.io/reconcile-rate": "medium"
 	  },
 	  "name": "foo-appsub",
-	  "namespace": "foo",
-	  "creationTimestamp": null
+	  "namespace": "foo"
 	},
 	"spec": {
 	  "channel": "git-application-samples-ns/git-application-samples",
