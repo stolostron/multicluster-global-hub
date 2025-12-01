@@ -28,8 +28,8 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.25.3
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
-	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
+	github.com/openshift/api v0.0.0-20251124235416-c11dd82e305c
+	github.com/openshift/client-go v0.0.0-20251125141819-b6281947c285
 	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
 	github.com/operator-framework/api v0.33.0
 	github.com/project-kessel/inventory-api v0.0.0-20241213103024-feb181fd66c1
@@ -48,7 +48,7 @@ require (
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.30.1
 	k8s.io/api v0.34.2
-	k8s.io/apiextensions-apiserver v0.33.4
+	k8s.io/apiextensions-apiserver v0.34.2
 	k8s.io/apimachinery v0.34.2
 	k8s.io/client-go v0.34.2
 	k8s.io/klog v1.0.0
@@ -68,7 +68,7 @@ require (
 )
 
 require (
-	github.com/fsnotify/fsnotify v1.8.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gonvenience/idem v0.0.2 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
@@ -216,14 +216,13 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
-	k8s.io/apiserver v0.33.4 // indirect
-	k8s.io/component-base v0.33.4 // indirect
+	k8s.io/apiserver v0.34.2 // indirect
+	k8s.io/component-base v0.34.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b // indirect
 	open-cluster-management.io/sdk-go v1.0.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
 
 replace github.com/elazarl/goproxy => github.com/elazarl/goproxy v0.0.0-20240726154733-8b0c20506380
