@@ -354,7 +354,6 @@ func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string
 	if err := r.GetClient().List(ctx, mcms, client.InNamespace(namespace)); err != nil {
 		return err
 	}
-	migrationsExist := false
 	if len(mcms.Items) > 0 {
 		for _, mcm := range mcms.Items {
 			if err := r.GetClient().Delete(ctx, &mcm, &client.DeleteOptions{}); err != nil {
@@ -362,7 +361,6 @@ func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string
 			}
 		}
 		log.Info("removing the migration resources")
-		migrationsExist = true
 	}
 
 	// Remove ServiceMonitor regardless of migration existence
@@ -377,11 +375,6 @@ func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string
 	}
 	if err := r.GetClient().Delete(ctx, mghServiceMonitor); err != nil && !errors.IsNotFound(err) {
 		return err
-	}
-
-	// If migrations were deleted, return nil to trigger another reconciliation
-	if migrationsExist {
-		return nil
 	}
 
 	return nil
