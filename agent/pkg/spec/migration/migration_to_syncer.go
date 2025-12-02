@@ -35,7 +35,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/migration"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
@@ -153,6 +152,11 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				log.Errorf("failed to report migration status: %v", err)
 			}
 		}
+
+		// update the latest migration time into configmap to avoid duplicate processing
+		if err := configs.SetSyncTimeState(ctx, s.client, migrationStateKey(evt), evt.Time()); err != nil {
+			log.Errorf("failed to update latest migration time: %w", err)
+		}
 	}()
 
 	// Handle direct deploying events from source hub (not from global hub)
@@ -195,20 +199,17 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return fmt.Errorf("failed to handle migration stage: %w", err)
 	}
 
-	// update the latest migration time into configmap to avoid duplicate processing
-	if err := configs.SetSyncTimeState(ctx, s.client, migrationStateKey(evt)); err != nil {
-		return fmt.Errorf("failed to update latest migration time: %w", err)
-	}
 	return nil
 }
 
+// use "kafkaTopic--eventSource" as key
 func migrationStateKey(evt *cloudevents.Event) string {
-	source, err := cetypes.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
+	topic, err := cetypes.ToString(evt.Extensions()[kafka_confluent.KafkaTopicKey])
 	if err != nil {
 		log.Info("failed to parse topic from event, use source as key", "error", err)
-		source = evt.Source()
+		topic = "topic"
 	}
-	return fmt.Sprintf("%s--%s", source, enum.ShortenEventType(string(evt.Type())))
+	return fmt.Sprintf("%s--%s", topic, evt.Source())
 }
 
 // handleStage processes different migration stages using switch statement

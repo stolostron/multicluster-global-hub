@@ -97,6 +97,11 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	log.Debugf("received migration event: migrationId=%s, stage=%s", migrationEvent.MigrationId, migrationEvent.Stage)
 	defer func() {
 		s.reportStatus(ctx, migrationEvent, err)
+
+		// update the latest migration time into configmap to avoid duplicate processing
+		if err := configs.SetSyncTimeState(ctx, s.client, migrationStateKey(evt), evt.Time()); err != nil {
+			log.Errorf("failed to update latest migration time: %w", err)
+		}
 	}()
 
 	err = s.handleStage(ctx, migrationEvent)
@@ -104,10 +109,6 @@ func (s *MigrationSourceSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return fmt.Errorf("failed to handle migration stage: %w", err)
 	}
 
-	// update the latest migration time into configmap to avoid duplicate processing
-	if err := configs.SetSyncTimeState(ctx, s.client, migrationStateKey(evt)); err != nil {
-		return fmt.Errorf("failed to update latest migration time: %w", err)
-	}
 	return nil
 }
 
