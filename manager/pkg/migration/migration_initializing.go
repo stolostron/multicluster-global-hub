@@ -128,11 +128,13 @@ func (m *ClusterMigrationController) initializing(ctx context.Context,
 
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseInitializing) {
 		condition.Message = fmt.Sprintf("waiting for target hub %s to complete initialization", mcm.Spec.To)
+		setRetry(mcm, migrationv1alpha1.PhaseInitializing, migrationv1alpha1.ConditionTypeInitialized, mcm.Spec.To)
 		return true, nil
 	}
 
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseInitializing) {
 		condition.Message = fmt.Sprintf("waiting for source hub %s to complete initialization", fromHub)
+		setRetry(mcm, migrationv1alpha1.PhaseInitializing, migrationv1alpha1.ConditionTypeInitialized, fromHub)
 		return true, nil
 	}
 
