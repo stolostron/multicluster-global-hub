@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -141,17 +142,26 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		// Note: controller-runtime's For() method does not trigger reconciliation for status-only updates,
 		// even with custom predicates. Therefore, we update an annotation (metadata change) to ensure
 		// the MetaController gets notified and can reconcile the transportConfig secret.
-		if mgh.Annotations == nil {
-			mgh.Annotations = make(map[string]string)
-		}
-		mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339)
-		if err := r.c.Update(ctx, mgh); err != nil {
+		// Use retry mechanism to handle optimistic concurrency conflicts
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			// Fetch the latest version of MGH to avoid conflicts
+			if err := r.c.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
+				return err
+			}
+			if mgh.Annotations == nil {
+				mgh.Annotations = make(map[string]string)
+			}
+			mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339)
+			return r.c.Update(ctx, mgh)
+		})
+		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update mgh annotation to trigger reconciliation, err:%v", err)
 		}
 
 		// Also update the component status for consistency
+		// Note: UpdateMGHComponent already uses retry.RetryOnConflict internally
 		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
-		err := config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
+		err = config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update mgh transport connection status, err:%v", err)
 		}
