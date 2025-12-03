@@ -361,6 +361,8 @@ func CheckDesiredComponent(mgh *v1alpha4.MulticlusterGlobalHub) sets.Set[string]
 	}
 	if config.WithInventory(mgh) {
 		desiredComponents.Insert(config.COMPONENTS_INVENTORY_API_NAME)
+	} else {
+		desiredComponents.Delete(config.COMPONENTS_INVENTORY_API_NAME)
 	}
 	return desiredComponents
 }

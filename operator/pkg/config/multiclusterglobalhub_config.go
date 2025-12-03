@@ -200,12 +200,6 @@ func IsAgentPaused(mgha *v1alpha1.MulticlusterGlobalHubAgent) bool {
 	return false
 }
 
-// WithInventory returns true means common inventory is deployed
-func WithInventory(mgh *v1alpha4.MulticlusterGlobalHub) bool {
-	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithInventory]
-	return ok
-}
-
 // WithStackroxIntegration returns true if the integration with Stackrox is enabled.
 func WithStackroxIntegration(mgh *v1alpha4.MulticlusterGlobalHub) bool {
 	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithStackroxIntegration]

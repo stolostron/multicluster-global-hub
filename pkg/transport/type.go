@@ -20,17 +20,6 @@ const (
 	Rest  TransportType = "rest"
 )
 
-// transport protocol
-// indicate which kind of transport protocol, only support
-type TransportProtocol int
-
-const (
-	// the kafka cluster is created by the strimzi operator, which is provisioned by global hub operator
-	StrimziTransporter TransportProtocol = iota
-	// the kafka cluster is created by customer, and the transport secret will be shared between clusters
-	SecretTransporter
-)
-
 type TransportInternalConfig struct {
 	TransportType     string
 	CommitterInterval time.Duration
