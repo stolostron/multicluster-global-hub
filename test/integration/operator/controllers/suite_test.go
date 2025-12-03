@@ -161,7 +161,7 @@ func CreateTestSecretTransport(c client.Client, namespace string) error {
 	if err != nil {
 		return err
 	}
-	trans := protocol.NewBYOTransporter(ctx, types.NamespacedName{
+	trans := protocol.EnsureBYOTransport(ctx, types.NamespacedName{
 		Namespace: namespace,
 		Name:      constants.GHTransportSecretName,
 	}, runtimeClient)

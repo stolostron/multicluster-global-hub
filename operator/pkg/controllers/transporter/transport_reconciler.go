@@ -2,9 +2,11 @@ package transporter
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,12 +39,33 @@ var (
 	log                 = logger.DefaultZapLogger()
 	isResourceRemoved   = true
 	transportReconciler *TransportReconciler
-	updateConn          bool
 )
 
 type TransportReconciler struct {
 	ctrl.Manager
-	transporter transport.Transporter
+	protocolTransport protocol.Transporter
+}
+
+func GetKafkaConfig(clusterName string) (bool, *transport.KafkaConfig, error) {
+	if transportReconciler == nil || transportReconciler.protocolTransport == nil {
+		return false, nil, fmt.Errorf("transport reconciler or protocol transport is not initialized")
+	}
+
+	ready, kafkaConfig, err := transportReconciler.protocolTransport.GetConnCredential(clusterName)
+	if err != nil {
+		return false, nil, fmt.Errorf("failed to get kafka config, err:%v", err)
+	}
+	if !ready {
+		return false, nil, nil
+	}
+	return true, kafkaConfig, nil
+}
+
+func Cleanup(clusterName string) error {
+	if transportReconciler == nil || transportReconciler.protocolTransport == nil {
+		return fmt.Errorf("transport reconciler or protocol transport is not initialized")
+	}
+	return transportReconciler.protocolTransport.Prune(clusterName)
 }
 
 func (c *TransportReconciler) IsResourceRemoved() bool {
@@ -62,7 +85,7 @@ func StartController(controllerOption config.ControllerOption) (config.Controlle
 		transportReconciler = nil
 		return nil, err
 	}
-	log.Infof("inited transport controller")
+	log.Infof("init transport controller")
 	return transportReconciler, nil
 }
 
@@ -114,108 +137,110 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 	if mgh.DeletionTimestamp != nil {
-		if config.IsBYOKafka() {
-			isResourceRemoved = true
-			config.SetTransporterConn(nil)
-			return ctrl.Result{}, nil
-		}
 		isResourceRemoved = protocol.IsResourceRemoved()
 		if !isResourceRemoved {
 			log.Info("Wait kafka resource removed")
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
-		config.SetTransporterConn(nil)
+		r.protocolTransport = nil
 		return ctrl.Result{}, nil
 	}
-	var reconcileErr error
+
+	transportComponentStatus := v1alpha4.StatusCondition{
+		Kind:    "Transport",
+		Name:    config.COMPONENTS_KAFKA_NAME,
+		Type:    config.COMPONENTS_AVAILABLE,
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  "TransportInitialized",
+		Message: "built-in kafka transport is initialized",
+	}
+
 	defer func() {
-		if !config.IsBYOKafka() {
-			return
+		if config.IsBYOKafka() {
+			transportComponentStatus.Message = "byo kafka transport is initialized, using provided secret"
+		}
+		if err != nil {
+			transportComponentStatus.Reason = config.RECONCILE_ERROR
+			transportComponentStatus.Message = err.Error()
+			transportComponentStatus.Status = config.CONDITION_STATUS_FALSE
 		}
 
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			getTransportComponentStatus(reconcileErr),
-			updateConn,
-		)
+		if mgh.Status.Components == nil {
+			mgh.Status.Components = map[string]v1alpha4.StatusCondition{}
+		}
+
+		_, ok := mgh.Status.Components[transportComponentStatus.Name]
+		if ok {
+			return
+		}
+		// initialize the transport component status, it will be updated by the kafka controller
+		mgh.Status.Components[transportComponentStatus.Name] = transportComponentStatus
+		err := r.GetClient().Status().Update(ctx, mgh)
 		if err != nil {
-			log.Errorf("failed to update mgh status, err:%v", err)
+			log.Errorf("failed to update transport component status, err:%v", err)
 		}
 	}()
 
-	reconcileErr = config.SetTransportConfig(ctx, r.GetClient(), mgh)
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
+	// initialize the protocol transport
+	err = r.initTransport(ctx, mgh)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
-	// set the transporter
-	switch config.TransporterProtocol() {
-	case transport.StrimziTransporter:
-		// initialize strimzi
-		// kafkaCluster, it will be blocking until the status is ready
-		r.transporter = protocol.NewStrimziTransporter(
+	err = r.protocolTransport.Validate()
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("the transport configuration is not set correctly, err %v", err)
+	}
+
+	err = r.protocolTransport.Initialize()
+	if err != nil {
+		log.Infof("waiting for the transport resources to be ready: %s", err.Error())
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *TransportReconciler) initTransport(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) error {
+	protocolType, err := getProtocol(ctx, r.GetClient(), mgh.Namespace)
+	if err != nil {
+		return fmt.Errorf("failed to get transport protocol, err:%v", err)
+	}
+	switch protocolType {
+	case protocol.StrimziTransport:
+		strimiziTransport := protocol.EnsureStrimziTransport(
 			r.Manager,
 			mgh,
 			protocol.WithContext(ctx),
 			protocol.WithCommunity(operatorutils.IsCommunityMode()),
 		)
-		needRequeue, err := r.transporter.EnsureKafka()
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if needRequeue {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
 		// this controller also will update the transport connection
-		err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
+		err = protocol.StartKafkaController(ctx, r.Manager)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
-	case transport.SecretTransporter:
-		r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{
-			Namespace: mgh.Namespace,
-			Name:      constants.GHTransportSecretName,
-		}, r.GetClient())
-		// all of hubs will get the same credential
-		conn, err := r.transporter.GetConnCredential("")
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		updateConn = config.SetTransporterConn(conn)
+		r.protocolTransport = strimiziTransport
+		config.SetBYOKafka(false)
+	case protocol.BYOTransport:
+		r.protocolTransport = protocol.EnsureBYOTransport(ctx, mgh, r.GetClient())
+		config.SetBYOKafka(true)
+	default:
+		return fmt.Errorf("invalid protocol type: %v", protocolType)
 	}
-	return ctrl.Result{}, nil
+	return nil
 }
 
-func getTransportComponentStatus(reconcileErr error,
-) v1alpha4.StatusCondition {
-	name := config.COMPONENTS_KAFKA_NAME
-	availableType := config.COMPONENTS_AVAILABLE
-	if reconcileErr != nil {
-		return v1alpha4.StatusCondition{
-			Kind:    "TransportConnection",
-			Name:    name,
-			Type:    availableType,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  config.RECONCILE_ERROR,
-			Message: reconcileErr.Error(),
+func getProtocol(ctx context.Context, runtimeClient client.Client, namespace string) (protocol.TransportType, error) {
+	kafkaSecret := &corev1.Secret{}
+	err := runtimeClient.Get(ctx, types.NamespacedName{
+		Name:      constants.GHTransportSecretName,
+		Namespace: namespace,
+	}, kafkaSecret)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return protocol.StrimziTransport, nil
 		}
+		return protocol.BYOTransport, err
 	}
-	if config.GetTransporterConn() == nil {
-		return v1alpha4.StatusCondition{
-			Kind:    "TransportConnection",
-			Name:    name,
-			Type:    availableType,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  "TransportConnectionNotSet",
-			Message: "Transport connection is null",
-		}
-	}
-
-	return v1alpha4.StatusCondition{
-		Kind:    "TransportConnection",
-		Name:    name,
-		Type:    availableType,
-		Status:  config.CONDITION_STATUS_TRUE,
-		Reason:  "TransportConnectionSet",
-		Message: "Use customized transport, connection has set using provided secret",
-	}
+	return protocol.BYOTransport, err
 }

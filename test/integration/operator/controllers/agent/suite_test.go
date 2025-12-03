@@ -141,7 +141,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	By("Create an external transport")
-	trans := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
+	trans := operatortrans.EnsureBYOTransport(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, runtimeClient)
@@ -248,7 +248,7 @@ func prepareBeforeTest() {
 	By("By creating secret transport")
 	err = CreateTestTransportSecret(runtimeClient, mgh.Namespace)
 	Expect(err).ToNot(HaveOccurred())
-	transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
+	transporter := operatortrans.EnsureBYOTransport(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, runtimeClient)

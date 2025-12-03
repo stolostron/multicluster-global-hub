@@ -15,7 +15,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
 var log = logger.DefaultZapLogger()
@@ -25,7 +24,7 @@ func Approve(cluster *clusterv1.ManagedCluster, addon *addonapiv1alpha1.ManagedC
 	csr *certificatesv1.CertificateSigningRequest,
 ) bool {
 	// only if use the built-in kafka or inventory, then approve the csr
-	if config.TransporterProtocol() != transport.StrimziTransporter && !config.EnableInventory() {
+	if !config.IsBYOKafka() && !config.EnableInventory() {
 		return false
 	}
 

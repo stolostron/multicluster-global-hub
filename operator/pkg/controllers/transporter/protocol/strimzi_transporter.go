@@ -99,13 +99,13 @@ type strimziTransporter struct {
 
 type KafkaOption func(*strimziTransporter)
 
-var transporter *strimziTransporter
+var strimziTransport *strimziTransporter
 
-func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
+func EnsureStrimziTransport(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterGlobalHub,
 	opts ...KafkaOption,
-) *strimziTransporter {
-	if transporter == nil {
-		transporter = &strimziTransporter{
+) Transporter {
+	if strimziTransport == nil {
+		strimziTransport = &strimziTransporter{
 			ctx:                       context.TODO(),
 			kafkaClusterName:          KafkaClusterName,
 			subName:                   DefaultKafkaSubName,
@@ -122,43 +122,42 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 
 			manager: mgr,
 		}
-		config.SetTransporter(transporter)
 		if mgh.Spec.AvailabilityConfig == operatorv1alpha4.HABasic {
-			transporter.topicPartitionReplicas = 1
+			strimziTransport.topicPartitionReplicas = 1
 		}
 	}
 
-	transporter.mgh = mgh
-	transporter.kafkaClusterNamespace = mgh.Namespace
+	strimziTransport.mgh = mgh
+	strimziTransport.kafkaClusterNamespace = mgh.Namespace
 	// apply options
 	for _, opt := range opts {
-		opt(transporter)
+		opt(strimziTransport)
 	}
 
-	if transporter.subCommunity {
-		transporter.subChannel = CommunityChannel
-		transporter.subPackageName = CommunityPackageName
-		transporter.subCatalogSourceName = CommunityCatalogSourceName
+	if strimziTransport.subCommunity {
+		strimziTransport.subChannel = CommunityChannel
+		strimziTransport.subPackageName = CommunityPackageName
+		strimziTransport.subCatalogSourceName = CommunityCatalogSourceName
 	}
 	// user could customize the catalog config
 	catalogSourceName, ok := mgh.Annotations[operatorconstants.CatalogSourceNameKey]
 	if ok && catalogSourceName != "" {
-		transporter.subCatalogSourceName = catalogSourceName
+		strimziTransport.subCatalogSourceName = catalogSourceName
 	}
 	catalogSourceNamespace, ok := mgh.Annotations[operatorconstants.CatalogSourceNamespaceKey]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subCatalogSourceNamespace = catalogSourceNamespace
+		strimziTransport.subCatalogSourceNamespace = catalogSourceNamespace
 	}
 	subscriptionChannel, ok := mgh.Annotations[operatorconstants.SubscriptionChannel]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subChannel = subscriptionChannel
+		strimziTransport.subChannel = subscriptionChannel
 	}
 	subscriptionPackageName, ok := mgh.Annotations[operatorconstants.SubscriptionPackageName]
 	if ok && catalogSourceNamespace != "" {
-		transporter.subPackageName = subscriptionPackageName
+		strimziTransport.subPackageName = subscriptionPackageName
 	}
 
-	return transporter
+	return strimziTransport
 }
 
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
@@ -202,26 +201,39 @@ func WithSubName(name string) KafkaOption {
 	}
 }
 
+func (s *strimziTransporter) Validate() error {
+	// set the topic
+	specTopic := s.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
+	statusTopic := s.mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
+	if !config.IsValidKafkaTopicName(specTopic) {
+		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
+	}
+	if !config.IsValidKafkaTopicName(statusTopic) {
+		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
+	}
+	return nil
+}
+
 // EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
-func (k *strimziTransporter) EnsureKafka() (bool, error) {
+func (k *strimziTransporter) Initialize() error {
 	log.Debug("reconcile global hub kafka transport...")
 
 	err := k.ensureSubscription(k.mgh)
 	if err != nil {
-		return true, err
+		return err
 	}
 
 	installed, err := k.isCSVInstalled()
 	if err != nil {
-		return true, err
+		return err
 	}
 	if !installed {
-		return true, nil
+		return fmt.Errorf("transport csv %s is not installed successfully", k.subName)
 	}
 
 	topicPartitionReplicas, err := k.getCurrentReplicas()
 	if err != nil {
-		return true, err
+		return err
 	}
 	k.topicPartitionReplicas = topicPartitionReplicas
 
@@ -229,15 +241,15 @@ func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	// kafka metrics, monitor, global hub kafkaTopic and kafkaUser
 	err = k.renderKafkaResources(k.mgh)
 	if err != nil {
-		return true, err
+		return err
 	}
 
 	err, _ = k.CreateUpdateKafkaCluster(k.mgh)
 	if err != nil {
-		return true, err
+		return err
 	}
 
-	return false, nil
+	return nil
 }
 
 // renderKafkaMetricsResources renders the kafka podmonitor and metrics, and kafkaUser and kafkaTopic for global hub
@@ -531,11 +543,11 @@ func (k *strimziTransporter) getClusterTopic(clusterName string) *transport.Clus
 }
 
 // the username is the kafkauser, it's the same as the secret name
-func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.KafkaConfig, error) {
+func (k *strimziTransporter) GetConnCredential(clusterName string) (bool, *transport.KafkaConfig, error) {
 	// bootstrapServer, clusterId, clusterCA
 	credential, err := k.getConnCredentialByCluster()
 	if err != nil {
-		return nil, err
+		return false, nil, err
 	}
 
 	// certificates
@@ -552,19 +564,19 @@ func (k *strimziTransporter) GetConnCredential(clusterName string) (*transport.K
 
 	// for the non local-cluster
 	if clusterName != config.GetLocalClusterName() && clusterName != constants.LocalClusterName {
-		return credential, nil
+		return true, credential, nil
 	}
 
 	// for local-cluster, need to load the client cert/key from the kafka user
 	userName := config.GetKafkaUserName(clusterName)
 	if !k.enableTLS {
 		log.Infof("the kafka cluster hasn't enable tls for user", "username", userName)
-		return credential, nil
+		return true, credential, nil
 	}
 	if err := k.loadUserCredential(userName, credential); err != nil {
-		return nil, err
+		return false, nil, err
 	}
-	return credential, nil
+	return true, credential, nil
 }
 
 func GetClusterCASecret(clusterName string) string {

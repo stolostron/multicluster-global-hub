@@ -206,7 +206,7 @@ func TestAddonInstaller(t *testing.T) {
 
 			fakeClient := fake.NewClientBuilder().WithScheme(config.GetRuntimeScheme()).WithObjects(objects...).Build()
 
-			transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
+			transporter := operatortrans.EnsureBYOTransport(ctx, types.NamespacedName{
 				Namespace: tc.mgh.Namespace,
 				Name:      constants.GHTransportSecretName,
 			}, fakeClient)

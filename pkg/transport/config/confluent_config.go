@@ -194,7 +194,7 @@ func GetKafkaCredentialBySecret(transportSecret *corev1.Secret, c client.Client)
 	return kafkaConfig, nil
 }
 
-func ParseCredentialConn(namespace string, c client.Client, conn transport.TransportCerticiate) error {
+func ParseCredentialConn(namespace string, c client.Client, conn transport.TransportCertificate) error {
 	// decode the ca cert, client key and cert
 	if conn.GetCACert() != "" {
 		bytes, err := base64.StdEncoding.DecodeString(conn.GetCACert())

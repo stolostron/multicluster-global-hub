@@ -119,7 +119,7 @@ func InitPostgresByStatefulset(ctx context.Context, mgh *globalhubv1alpha4.Multi
 					mgh.Spec.AdvancedSpec),
 				EnableMetrics:            mgh.Spec.EnableMetrics,
 				EnablePostgresMetrics:    (!config.IsBYOPostgres()) && mgh.Spec.EnableMetrics,
-				EnableInventoryAPI:       config.WithInventory(mgh),
+				EnableInventoryAPI:       config.SetInventory(mgh),
 				PostgresCustomizedConfig: []byte(customizedConfig),
 			}, nil
 		})

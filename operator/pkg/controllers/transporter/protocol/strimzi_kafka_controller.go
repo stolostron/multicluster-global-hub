@@ -7,6 +7,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"reflect"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -39,7 +40,7 @@ var manifests embed.FS
 var (
 	startedKafkaController = false
 	isResourceRemoved      = false
-	updateConn             bool
+	lastTransportConn      *transport.KafkaConfig
 )
 
 var log = logger.DefaultZapLogger()
@@ -53,12 +54,13 @@ type KafkaStatus struct {
 // KafkaController reconciles the kafka crd
 type KafkaController struct {
 	c           client.Client
-	trans       *strimziTransporter
 	kafkaStatus KafkaStatus
 }
 
 func IsResourceRemoved() bool {
-	log.Infof("KafkaController resource removed: %v", isResourceRemoved)
+	if config.IsBYOKafka() {
+		return true
+	}
 	return isResourceRemoved
 }
 
@@ -80,6 +82,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		if !config.GetGlobalhubAgentRemoved() {
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+		lastTransportConn = nil
 		return r.pruneStrimziResources(ctx)
 	}
 	isResourceRemoved = false
@@ -92,53 +95,59 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 	}
-	var reconcileErr error
+
+	// wait for the strimzi transport to be initialized
+	if strimziTransport == nil {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.c,
-			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
-			updateConn,
-		)
+		err = config.UpdateMGHComponent(ctx, r.c, r.getKafkaComponentStatus(err, r.kafkaStatus), false)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)
 		}
 	}()
-	needRequeue, err := r.trans.EnsureKafka()
+
+	err = strimziTransport.Validate()
 	if err != nil {
+		log.Errorf("failed to validate strimzi transport, err:%v", err)
 		return ctrl.Result{}, err
 	}
-	if needRequeue {
+
+	err = strimziTransport.Initialize()
+	if err != nil {
+		log.Errorf("failed to initialize strimzi transport, err:%v", err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	r.kafkaStatus, reconcileErr = r.trans.kafkaClusterReady()
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
+	r.kafkaStatus, err = strimziTransport.kafkaClusterReady()
+	if err != nil {
+		log.Errorf("failed to get kafka cluster status, err:%v", err)
+		return ctrl.Result{}, err
 	}
 	if !r.kafkaStatus.kafkaReady {
+		log.Infof("waiting for the kafka cluster to be ready, err:%s", r.kafkaStatus.kafkaMessage)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	// use the client ca to sign the csr for the managed hubs
-	if err := config.SetKafkaClientCA(r.trans.ctx, r.trans.mgh.Namespace, KafkaClusterName,
-		r.trans.manager.GetClient()); err != nil {
+	if err := config.SetKafkaClientCA(strimziTransport.ctx, strimziTransport.mgh.Namespace,
+		KafkaClusterName, strimziTransport.manager.GetClient()); err != nil {
 		return ctrl.Result{}, err
 	}
-	// update the transporter
-	config.SetTransporter(r.trans)
 	// update the transport connection, if conn is nil, requeue to let it ready
-	conn, err := getManagerTransportConn(r.trans)
+	conn, err := getManagerTransportConn(strimziTransport)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 	if conn == nil {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	updateConn = config.SetTransporterConn(conn)
 
 	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
-	if updateConn {
-		log.Infof("transport-config updating: update mgh annotation to trigger MetaController reconciliation")
-		// Update MGH annotation to trigger MetaController reconciliation
+	if !reflect.DeepEqual(conn, lastTransportConn) {
+		log.Infof("update transport conn: spec(%s), status(%s)", conn.SpecTopic, conn.StatusTopic)
+		// Update MGH annotation to trigger MetaController and ManagerReconciler reconciliation
 		// Note: controller-runtime's For() method does not trigger reconciliation for status-only updates,
 		// even with custom predicates. Therefore, we update an annotation (metadata change) to ensure
 		// the MetaController gets notified and can reconcile the transportConfig secret.
@@ -157,14 +166,7 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update mgh annotation to trigger reconciliation, err:%v", err)
 		}
-
-		// Also update the component status for consistency
-		// Note: UpdateMGHComponent already uses retry.RetryOnConflict internally
-		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
-		err = config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update mgh transport connection status, err:%v", err)
-		}
+		lastTransportConn = conn
 	}
 	return ctrl.Result{}, nil
 }
@@ -199,14 +201,13 @@ var kafkaUserPred = predicate.Funcs{
 	},
 }
 
-func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
+func StartKafkaController(ctx context.Context, mgr ctrl.Manager) error {
 	if startedKafkaController {
 		return nil
 	}
 	log.Info("start kafka controller")
 	r := &KafkaController{
-		c:     mgr.GetClient(),
-		trans: transporter.(*strimziTransporter),
+		c: mgr.GetClient(),
 	}
 
 	// even if the following controller will reconcile the transport, but it's asynchoronized
@@ -271,14 +272,14 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 			Message: kafkaClusterStatus.kafkaMessage,
 		}
 	}
-	if config.GetTransporterConn() == nil {
+	if lastTransportConn == nil {
 		return v1alpha4.StatusCondition{
 			Kind:    "TransportConnection",
 			Name:    config.COMPONENTS_KAFKA_NAME,
 			Type:    config.COMPONENTS_AVAILABLE,
 			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  "TransportConnectionNotSet",
-			Message: "Transport connection is null",
+			Reason:  "TransportConnectionNotReady",
+			Message: "Transport connection is not ready",
 		}
 	}
 	return v1alpha4.StatusCondition{
@@ -286,8 +287,8 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 		Name:    config.COMPONENTS_KAFKA_NAME,
 		Type:    config.COMPONENTS_AVAILABLE,
 		Status:  config.CONDITION_STATUS_TRUE,
-		Reason:  "TransportConnectionSet",
-		Message: "Transport connection has set",
+		Reason:  "TransportConnectionReady",
+		Message: "Transport connection is ready",
 	}
 }
 
@@ -331,7 +332,7 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 
 	kafka := &kafkav1beta2.Kafka{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.trans.kafkaClusterName,
+			Name:      strimziTransport.kafkaClusterName,
 			Namespace: utils.GetDefaultNamespace(),
 		},
 	}
@@ -362,7 +363,7 @@ func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Resul
 	kafkaSub := &subv1alpha1.Subscription{}
 	err := r.c.Get(ctx, types.NamespacedName{
 		Namespace: utils.GetDefaultNamespace(),
-		Name:      r.trans.subName,
+		Name:      strimziTransport.subName,
 	}, kafkaSub)
 	if err != nil {
 		log.Errorf("Failed to get strimzi subscription, err:%v", err)

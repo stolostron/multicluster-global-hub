@@ -234,7 +234,7 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 
 	It("should pass the strimzi transport configuration", func() {
-		trans := protocol.NewStrimziTransporter(
+		trans := protocol.EnsureStrimziTransport(
 			runtimeManager,
 			mgh,
 			protocol.WithCommunity(false),

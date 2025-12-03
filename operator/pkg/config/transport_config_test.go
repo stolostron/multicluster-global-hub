@@ -27,7 +27,7 @@ func TestIsValidKafkaTopicName(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			result := isValidKafkaTopicName(testCase.input)
+			result := IsValidKafkaTopicName(testCase.input)
 			if result != testCase.expected {
 				fmt.Println("len", len(testCase.input))
 				t.Errorf("isValidKafkaTopicName(%q) = %v; expected %v", testCase.input, result, testCase.expected)
