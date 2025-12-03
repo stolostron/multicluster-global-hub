@@ -40,7 +40,7 @@ func GetSyncStateConfigMap(ctx context.Context, c client.Client) (*corev1.Config
 }
 
 // SetSyncTimeState cache the time to the ConfigMap, update the configmap with retry on conflict
-func SetSyncTimeState(ctx context.Context, c client.Client, key string) error {
+func SetSyncTimeState(ctx context.Context, c client.Client, key string, evtTime time.Time) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		agentStateConfigMap, err := GetSyncStateConfigMap(ctx, c)
 		if err != nil {
@@ -49,7 +49,7 @@ func SetSyncTimeState(ctx context.Context, c client.Client, key string) error {
 		if agentStateConfigMap.Data == nil {
 			agentStateConfigMap.Data = make(map[string]string)
 		}
-		agentStateConfigMap.Data[key] = time.Now().Format(AGENT_SYNC_STATE_TIME_FORMAT_VALUE)
+		agentStateConfigMap.Data[key] = evtTime.Format(AGENT_SYNC_STATE_TIME_FORMAT_VALUE)
 		return c.Update(ctx, agentStateConfigMap)
 	})
 }
