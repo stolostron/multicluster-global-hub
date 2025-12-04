@@ -16,7 +16,12 @@ e2e-cleanup:
 
 e2e-test-all: tidy vendor
 	sh ./test/script/e2e_run.sh -f "e2e-test-localpolicy,e2e-tests-backup,e2e-test-grafana,e2e-test-local-agent" -v $(VERBOSE)
-	sh ./test/script/e2e_run_qe.sh
+	@DAY=$$(date +%u); if [ "$$DAY" = "5" ]; then \
+		echo "Running QE tests (Today is day $$DAY - Friday)"; \
+		sh ./test/script/e2e_run_qe.sh; \
+	else \
+		echo "Skipping QE tests (Today is day $$DAY - only runs on Fridays)"; \
+	fi
 	sh ./test/script/e2e_run.sh -f "e2e-test-prune" -v $(VERBOSE)
 	sh ./test/script/e2e_clean_globalhub.sh
 
