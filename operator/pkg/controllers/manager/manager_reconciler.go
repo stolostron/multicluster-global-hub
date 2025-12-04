@@ -361,9 +361,9 @@ func (r *ManagerReconciler) pruneResources(ctx context.Context, namespace string
 			}
 		}
 		log.Info("removing the migration resources")
-		return nil
 	}
 
+	// Remove ServiceMonitor regardless of migration existence
 	mghServiceMonitor := &promv1.ServiceMonitor{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorconstants.GHServiceMonitorName,
