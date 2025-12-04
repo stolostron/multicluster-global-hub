@@ -35,6 +35,85 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 		Expect(db.Exec("DELETE FROM status.transport").Error).NotTo(HaveOccurred())
 	})
 
+	Context("When upgrading from old format to new format", func() {
+		It("should migrate old transport records to new format", func() {
+			db := database.GetGorm()
+
+			// Insert old format records (topic name only, without @partition)
+			oldRecords := []models.Transport{
+				{
+					Name:    "old-topic-1",
+					Payload: []byte(`{"ownerIdentity":"test-owner","partition":0,"offset":100}`),
+				},
+				{
+					Name:    "old-topic-2",
+					Payload: []byte(`{"ownerIdentity":"test-owner","partition":1,"offset":200}`),
+				},
+				{
+					Name:    "old-topic-3",
+					Payload: []byte(`{"ownerIdentity":"test-owner","partition":2,"offset":300}`),
+				},
+			}
+
+			for _, record := range oldRecords {
+				err := db.Create(&record).Error
+				Expect(err).NotTo(HaveOccurred())
+			}
+
+			// Create a dummy metadata function
+			metadataFunc := func() []conflator.ConflationMetadata {
+				return []conflator.ConflationMetadata{}
+			}
+
+			// Create committer and trigger migration
+			committer = conflator.NewKafkaConflationCommitter(metadataFunc)
+			err := committer.Start(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Wait a moment for migration to complete
+			time.Sleep(1 * time.Second)
+
+			// Verify old records are gone
+			var oldCount int64
+			err = db.Model(&models.Transport{}).Where("name NOT LIKE ?", "%@%").Count(&oldCount).Error
+			Expect(err).NotTo(HaveOccurred())
+			Expect(oldCount).To(Equal(int64(0)), "old format records should be deleted")
+
+			// Verify new records exist with correct format
+			var newRecords []models.Transport
+			err = db.Find(&newRecords).Error
+			Expect(err).NotTo(HaveOccurred())
+			Expect(newRecords).To(HaveLen(3))
+
+			// Verify each new record has topic@partition format
+			expectedNames := map[string]bool{
+				"old-topic-1@0": false,
+				"old-topic-2@1": false,
+				"old-topic-3@2": false,
+			}
+
+			for _, record := range newRecords {
+				_, exists := expectedNames[record.Name]
+				Expect(exists).To(BeTrue(), "Record name should be in expected format: %s", record.Name)
+				expectedNames[record.Name] = true
+
+				// Verify payload is preserved
+				var eventPos transport.EventPosition
+				err := json.Unmarshal(record.Payload, &eventPos)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(eventPos.OwnerIdentity).To(Equal("test-owner"))
+			}
+
+			// Verify all expected records were found
+			for name, found := range expectedNames {
+				Expect(found).To(BeTrue(), "Expected record not found: %s", name)
+			}
+
+			// Clean up for next tests
+			Expect(db.Exec("DELETE FROM status.transport").Error).NotTo(HaveOccurred())
+		})
+	})
+
 	Context("When committing offsets for multiple partitions of the same topic", func() {
 		It("should successfully store offsets without duplicate key errors", func() {
 			// Create a metadata function that returns multiple partitions for the same topic
