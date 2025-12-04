@@ -85,7 +85,7 @@ func (k *ConflationCommitter) commit() error {
 			return err
 		}
 		databaseTransports = append(databaseTransports, models.Transport{
-			Name:    transPosition.Topic,
+			Name:    positionKey(transPosition.Topic, transPosition.Partition),
 			Payload: payload,
 		})
 		k.committedPositions[key] = int64(transPosition.Offset)
