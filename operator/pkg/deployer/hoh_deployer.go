@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -78,9 +79,22 @@ func (d *HoHDeployer) Deploy(unsObj *unstructured.Unstructured) error {
 		return deployFunction(unsObj, foundObj)
 	} else {
 		if !apiequality.Semantic.DeepDerivative(unsObj, foundObj) {
-			unsObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
-			unsObj.SetResourceVersion(foundObj.GetResourceVersion())
-			return d.client.Update(context.TODO(), unsObj)
+			// Retry logic to handle concurrent updates (e.g., KafkaUser) with exponential backoff
+			return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				// Get the latest version of the resource
+				latestObj := &unstructured.Unstructured{}
+				latestObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
+				if err := d.client.Get(context.TODO(), types.NamespacedName{
+					Name:      unsObj.GetName(),
+					Namespace: unsObj.GetNamespace(),
+				}, latestObj); err != nil {
+					return err
+				}
+
+				unsObj.SetGroupVersionKind(unsObj.GetObjectKind().GroupVersionKind())
+				unsObj.SetResourceVersion(latestObj.GetResourceVersion())
+				return d.client.Update(context.TODO(), unsObj)
+			})
 		}
 	}
 
