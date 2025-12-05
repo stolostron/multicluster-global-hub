@@ -209,6 +209,7 @@ func (m *ClusterMigrationController) validateClustersInHub(
 	// Wait validate in source hub
 	if !GetFinished(string(mcm.GetUID()), hub, migrationv1alpha1.PhaseValidating) {
 		log.Infof("waiting for validating events to be finished in hub: %s", hub)
+		setRetry(mcm, migrationv1alpha1.PhaseValidating, migrationv1alpha1.ConditionTypeValidated, hub)
 		return true, nil
 	}
 

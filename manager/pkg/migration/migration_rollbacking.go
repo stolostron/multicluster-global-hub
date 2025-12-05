@@ -113,6 +113,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking) {
 		condition.Message = fmt.Sprintf("waiting for source hub %s to complete %s stage rollback", fromHub, failedStage)
 		waitingHub = fromHub
+		setRetry(mcm, migrationv1alpha1.PhaseRollbacking, migrationv1alpha1.ConditionTypeRolledBack, fromHub)
 		return true, nil
 	}
 
@@ -120,6 +121,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking) {
 		condition.Message = fmt.Sprintf("waiting for target hub %s to complete %s stage rollback", mcm.Spec.To, failedStage)
 		waitingHub = mcm.Spec.To
+		setRetry(mcm, migrationv1alpha1.PhaseRollbacking, migrationv1alpha1.ConditionTypeRolledBack, mcm.Spec.To)
 		return true, nil
 	}
 

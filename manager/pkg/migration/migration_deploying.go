@@ -72,6 +72,7 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	// waiting the source hub confirmation
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseDeploying) {
 		condition.Message = fmt.Sprintf("waiting for resources to be prepared in the source hub %s", fromHub)
+		setRetry(mcm, migrationv1alpha1.PhaseDeploying, migrationv1alpha1.ConditionTypeDeployed, fromHub)
 		return true, nil
 	}
 
@@ -86,6 +87,8 @@ func (m *ClusterMigrationController) deploying(ctx context.Context,
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseDeploying) {
 		condition.Message = fmt.Sprintf("waiting for resources to be deployed into the target hub %s", mcm.Spec.To)
+		// NOTE: retry the deploying stage on the source hub, let it resend the resources to the target hub
+		setRetry(mcm, migrationv1alpha1.PhaseDeploying, migrationv1alpha1.ConditionTypeDeployed, fromHub)
 		return true, nil
 	}
 

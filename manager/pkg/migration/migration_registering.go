@@ -68,6 +68,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 
 	if !GetFinished(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRegistering) {
 		condition.Message = fmt.Sprintf("waiting for managed clusters to migrating from source hub %s", fromHub)
+		setRetry(mcm, migrationv1alpha1.PhaseRegistering, migrationv1alpha1.ConditionTypeRegistered, fromHub)
 		return true, nil
 	}
 
@@ -100,6 +101,7 @@ func (m *ClusterMigrationController) registering(ctx context.Context,
 	// waiting the resources deployed confirmation
 	if !GetFinished(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRegistering) {
 		condition.Message = fmt.Sprintf("waiting for managed clusters to register to the target hub %s", mcm.Spec.To)
+		setRetry(mcm, migrationv1alpha1.PhaseRegistering, migrationv1alpha1.ConditionTypeRegistered, mcm.Spec.To)
 		return true, nil
 	}
 
