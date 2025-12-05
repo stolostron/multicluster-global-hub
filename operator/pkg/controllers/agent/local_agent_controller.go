@@ -23,6 +23,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -47,15 +48,22 @@ func StartLocalAgentController(initOption config.ControllerOption) (config.Contr
 
 	log.Info("start local agent controller")
 
-	if config.GetTransporterConn() == nil {
-		return nil, nil
+	ready, transportConn, err := transporter.GetKafkaConfig(clusterName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get the kafka config: %w", err)
+	}
+	if !ready {
+		return nil, fmt.Errorf("the transport connection is not ready")
+	}
+	if transportConn == nil || transportConn.BootstrapServer == "" {
+		return nil, fmt.Errorf("the transport connection(%v) must not be empty", transportConn)
 	}
 
 	localAgentReconciler = &LocalAgentController{
 		Manager: initOption.Manager,
 	}
 
-	err := ctrl.NewControllerManagedBy(initOption.Manager).
+	err = ctrl.NewControllerManagedBy(initOption.Manager).
 		Named("local-agent-reconciler").
 		Watches(&v1alpha4.MulticlusterGlobalHub{},
 			&handler.EnqueueRequestForObject{}).
@@ -256,14 +264,11 @@ func (s *LocalAgentController) pruneAgentResources(ctx context.Context, namespac
 		return err
 	}
 
-	trans := config.GetTransporter()
-	if trans == nil {
-		return fmt.Errorf("failed to get the transporter")
-	}
-	err = trans.Prune(clusterName)
+	err = transporter.Cleanup(clusterName)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -275,12 +280,15 @@ func GenerateLocalAgentCredential(ctx context.Context, c client.Client, namespac
 	}
 
 	// will block until the credential is ready
-	kafkaConnection, err := config.GetTransporter().GetConnCredential(clusterName)
+	ready, kafkaConfig, err := transporter.GetKafkaConfig(clusterName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get the kafka config: %w", err)
 	}
-	log.Debugf("kafkaConnection bootstrap server: %s, cluster ID: %s", kafkaConnection.BootstrapServer, kafkaConnection.ClusterID)
-	kafkaConfigYaml, err := kafkaConnection.YamlMarshal(true)
+	if !ready {
+		return fmt.Errorf("the transport connection is not ready")
+	}
+	log.Debugf("kafkaConfig bootstrap server: %s, cluster ID: %s", kafkaConfig.BootstrapServer, kafkaConfig.ClusterID)
+	kafkaConfigYaml, err := kafkaConfig.YamlMarshal(true)
 	if err != nil {
 		return fmt.Errorf("failed to marshalling the kafka config yaml: %w", err)
 	}
