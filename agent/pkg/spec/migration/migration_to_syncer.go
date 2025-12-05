@@ -377,17 +377,24 @@ func (s *MigrationTargetSyncer) initializing(ctx context.Context,
 }
 
 func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.Event) error {
+	log.Infof("deploying: received migration event from sourceHub=%s", evt.Source())
+
 	// Extract migrationId from deploying event payload
 	resourceEvent := &migration.MigrationResourceBundle{}
 	if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr != nil {
 		return fmt.Errorf("failed to unmarshal deploying event: %w", unmarshalErr)
 	}
+
+	log.Debugf("deploying: received migrationId=%s with %d cluster resources",
+		resourceEvent.MigrationId, len(resourceEvent.MigrationClusterResources))
+
 	s.receivedMigrationId = resourceEvent.MigrationId
 
 	// Initialize or validate migration tracking
 	if s.processingMigrationId == "" {
 		s.processingMigrationId = resourceEvent.MigrationId
 		s.bundleVersion.Reset()
+		log.Infof("deploying: initialized processing migrationId=%s", s.processingMigrationId)
 	}
 
 	// only handle the current migration event, ignore the previous ones
@@ -442,7 +449,7 @@ func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, ns, func() error {
 			return nil
 		})
-		log.Infof("namespace %s is %s", ns.Name, operation)
+		log.Debugf("namespace %s is %s", ns.Name, operation)
 		return err
 	})
 	if err != nil {
@@ -454,44 +461,137 @@ func (s *MigrationTargetSyncer) ensureNamespace(ctx context.Context, namespace s
 func (s *MigrationTargetSyncer) syncMigrationResources(ctx context.Context,
 	migrationResources *migration.MigrationResourceBundle,
 ) error {
-	log.Infof("started the deploying: %s", migrationResources.MigrationId)
-	log.Debugf("migration resources %v", migrationResources)
+	log.Infof("deploying: processing %d clusters", len(migrationResources.MigrationClusterResources))
 
+	totalResources := 0
+	totalClusters := len(migrationResources.MigrationClusterResources)
 	// Process each cluster's resources
-	for _, clusterResource := range migrationResources.MigrationClusterResources {
+	for idx, clusterResource := range migrationResources.MigrationClusterResources {
 		clusterName := clusterResource.ClusterName
+		log.Infof("deploying: [%d/%d] processing cluster: %s with %d resources",
+			idx+1, totalClusters, clusterName, len(clusterResource.ResourceList))
+
+		log.Debugf("deploying: ensuring namespace exists for cluster %s", clusterName)
 		if err := s.ensureNamespace(ctx, clusterName); err != nil {
 			return err
 		}
 
 		// Process each resource in the cluster
-		for _, resource := range clusterResource.ResourceList {
+		for resIdx, resource := range clusterResource.ResourceList {
+			log.Debugf("deploying: [cluster %s] [%d/%d] syncing resource kind=%s, name=%s, namespace=%s",
+				clusterName, resIdx+1, len(clusterResource.ResourceList),
+				resource.GetKind(), resource.GetName(), resource.GetNamespace())
+
 			if err := s.syncResource(ctx, &resource); err != nil {
 				return fmt.Errorf("failed to sync resource %s/%s for cluster %s: %w",
 					resource.GetKind(), resource.GetName(), clusterName, err)
 			}
+
+			log.Debugf("deploying: [cluster %s] [%d/%d] successfully synced resource kind=%s, name=%s",
+				clusterName, resIdx+1, len(clusterResource.ResourceList),
+				resource.GetKind(), resource.GetName())
 		}
+
+		totalResources += len(clusterResource.ResourceList)
+		log.Infof("deploying: [%d/%d] completed processing cluster %s",
+			idx+1, totalClusters, clusterName)
 	}
 
-	log.Info("finished syncing migration resources")
+	log.Infof("deploying: successfully synced all %d resources across %d clusters for migrationId=%s",
+		totalResources, totalClusters, migrationResources.MigrationId)
 	return nil
 }
 
 // syncResource handles syncing individual resources from the migration bundle
 // Works directly with unstructured resources without type conversion
 func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unstructured.Unstructured) error {
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	resourceKey := fmt.Sprintf("%s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+	log.Debugf("deploying: syncResource started for resource=%s", resourceKey)
+
+	// Store the source resource data that needs to be applied
+	sourceLabels := resource.GetLabels()
+	sourceAnnotations := resource.GetAnnotations()
+
+	// Handle ConfigMap and Secret data field
+	sourceData, hasData, err := unstructured.NestedFieldCopy(resource.Object, "data")
+	if err != nil {
+		return fmt.Errorf("failed to get data from source resource: %w", err)
+	}
+
+	// Handle spec field
+	sourceSpec, hasSpec, err := unstructured.NestedFieldCopy(resource.Object, "spec")
+	if err != nil {
+		return fmt.Errorf("failed to get spec from source resource: %w", err)
+	}
+
+	// Handle status field (will be applied separately if exists)
+	sourceStatus, hasStatus, err := unstructured.NestedFieldCopy(resource.Object, "status")
+	if err != nil {
+		return fmt.Errorf("failed to get status from source resource: %w", err)
+	}
+
+	log.Debugf("deploying: creating or updating resource=%s", resourceKey)
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, resource,
 			func() error {
+				// Apply labels and annotations from source
+				if sourceLabels != nil {
+					resource.SetLabels(sourceLabels)
+				}
+				if sourceAnnotations != nil {
+					resource.SetAnnotations(sourceAnnotations)
+				}
+
+				// Apply data from source if it exists (for ConfigMap/Secret)
+				if hasData {
+					if err := unstructured.SetNestedField(resource.Object, sourceData, "data"); err != nil {
+						return fmt.Errorf("failed to set data: %w", err)
+					}
+				}
+
+				// Apply spec from source if it exists
+				if hasSpec {
+					if err := unstructured.SetNestedField(resource.Object, sourceSpec, "spec"); err != nil {
+						return fmt.Errorf("failed to set spec: %w", err)
+					}
+				}
 				return nil
 			})
-		log.Infof("%s %s is %s", resource.GetKind(), resource.GetName(), operation)
+		log.Debugf("deploying: resource=%s operation=%s", resourceKey, operation)
 		return err
 	})
 	if err != nil {
+		log.Errorf("deploying: failed to create or update resource=%s: %v", resourceKey, err)
 		return fmt.Errorf("failed to create or update %s %s: %w", resource.GetKind(), resource.GetName(), err)
 	}
 
+	// Apply status separately using Status().Update() if it exists
+	if hasStatus {
+		log.Debugf("deploying: updating status for resource=%s", resourceKey)
+		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			// Get the latest version of the resource to update status
+			latestResource := &unstructured.Unstructured{}
+			latestResource.SetGroupVersionKind(resource.GroupVersionKind())
+			if err := s.client.Get(ctx, client.ObjectKeyFromObject(resource), latestResource); err != nil {
+				return fmt.Errorf("failed to get latest resource: %w", err)
+			}
+
+			// Set the status from source
+			if err := unstructured.SetNestedField(latestResource.Object, sourceStatus, "status"); err != nil {
+				return fmt.Errorf("failed to set status: %w", err)
+			}
+
+			// Update only the status subresource
+			return s.client.Status().Update(ctx, latestResource)
+		})
+		if err != nil {
+			log.Errorf("deploying: failed to update status for resource=%s: %v", resourceKey, err)
+			return fmt.Errorf("failed to update status for %s %s: %w", resource.GetKind(), resource.GetName(), err)
+		}
+		log.Debugf("deploying: successfully updated status for resource=%s", resourceKey)
+	}
+
+	log.Debugf("deploying: syncResource completed successfully for resource=%s", resourceKey)
 	return nil
 }
 

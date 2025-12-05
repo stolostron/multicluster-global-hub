@@ -41,7 +41,7 @@ metadata:
     categories: Integration & Delivery,OpenShift Optional
     certified: "false"
     containerImage: quay.io/stolostron/multicluster-global-hub-operator:latest
-    createdAt: "2025-11-13T14:06:51Z"
+    createdAt: "2025-12-05T01:40:22Z"
     description: Manages the installation and upgrade of the Multicluster Global Hub.
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -767,6 +767,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - extensions.hive.openshift.io
+          resources:
+          - imageclusterinstalls
+          - imageclusterinstalls/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
           - global-hub.open-cluster-management.io
           resources:
           - managedclustermigrations
@@ -776,6 +788,18 @@ spec:
           - get
           - list
           - patch
+          - update
+          - watch
+        - apiGroups:
+          - hive.openshift.io
+          resources:
+          - clusterdeployments
+          - clusterdeployments/status
+          verbs:
+          - create
+          - delete
+          - get
+          - list
           - update
           - watch
         - apiGroups:
@@ -802,6 +826,26 @@ spec:
           - kafkas
           - kafkatopics
           - kafkausers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - metal3.io
+          resources:
+          - baremetalhosts
+          - baremetalhosts/status
+          - dataimages
+          - dataimages/status
+          - firmwareschemas
+          - firmwareschemas/status
+          - hostfirmwarecomponents
+          - hostfirmwarecomponents/status
+          - hostfirmwaresettings
+          - hostfirmwaresettings/status
           verbs:
           - create
           - delete
