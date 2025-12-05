@@ -13,7 +13,6 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
-	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -258,6 +257,14 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 ) error {
 	msaName := event.ManagedServiceAccountName
 	msaNamespace := event.ManagedServiceAccountInstallNamespace
+
+	// Remove pause annotations from ZTP resources
+	log.Infof("removing pause annotations from ZTP resources for %d managed clusters", len(event.ManagedClusters))
+	for _, clusterName := range event.ManagedClusters {
+		if err := RemovePauseAnnotations(ctx, s.client, clusterName); err != nil {
+			log.Warnf("failed to remove pause annotations for cluster %s: %v", clusterName, err)
+		}
+	}
 
 	// Remove MSA user from ClusterManager AutoApproveUsers list
 	if err := s.removeAutoApproveUser(ctx, msaName, msaNamespace); err != nil {
@@ -958,27 +965,31 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 }
 
 // rollbackDeploying handles rollback of deploying phase on target hub
-// This is the main rollback operation that removes addonConfig and clusters
+// This is the main rollback operation that removes all migration resources and clusters
 func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle) error {
 	log.Infof("rollback deploying stage for clusters: %v", spec.ManagedClusters)
 
-	// 1. Remove ManagedClusters from target hub
+	// 1. Remove all migration resources (including ManagedClusters and KlusterletAddonConfigs)
 	for _, clusterName := range spec.ManagedClusters {
-		if err := s.removeManagedCluster(ctx, clusterName); err != nil {
-			log.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
-			return fmt.Errorf("failed to remove managed cluster %s: %v", clusterName, err)
+		if err := s.removeMigrationResources(ctx, clusterName); err != nil {
+			log.Errorf("failed to remove migration resources for cluster %s: %v", clusterName, err)
+			return fmt.Errorf("failed to remove migration resources for cluster %s: %v", clusterName, err)
 		}
 	}
 
-	// 2. Remove KlusterletAddonConfigs from target hub
+	// 2. Remove cluster namespace
 	for _, clusterName := range spec.ManagedClusters {
-		if err := s.removeKlusterletAddonConfig(ctx, clusterName); err != nil {
-			log.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
-			return fmt.Errorf("failed to remove klusterlet addon config %s: %v", clusterName, err)
+		namespace := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: clusterName,
+			},
+		}
+		if err := deleteResourceIfExists(ctx, s.client, namespace); err != nil {
+			log.Warnf("failed to remove namespace %s: %v", clusterName, err)
 		}
 	}
 
-	// roll back initializing
+	// 3. Roll back initializing
 	if err := s.rollbackInitializing(ctx, spec); err != nil {
 		return fmt.Errorf("failed to rollback initializing stage: %v", err)
 	}
@@ -993,43 +1004,58 @@ func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *m
 	return s.rollbackDeploying(ctx, spec)
 }
 
-// removeManagedCluster removes a ManagedCluster from the target hub
-func (s *MigrationTargetSyncer) removeManagedCluster(ctx context.Context, clusterName string) error {
-	managedCluster := &clusterv1.ManagedCluster{}
-	err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, managedCluster)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Infof("managed cluster %s not found, already removed", clusterName)
-			return nil
+// removeMigrationResources removes all migration resources for a cluster based on the migrateResources list
+// Deletes all resources defined in resources.go from the cluster namespace
+func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, clusterName string) error {
+	log.Infof("removing all migration resources for cluster namespace: %s", clusterName)
+
+	// Iterate through all resources
+	for _, resource := range migrateResources {
+		// List all resources of this type in the cluster namespace
+		resourceList := &unstructured.UnstructuredList{}
+		resourceList.SetGroupVersionKind(resource.gvk)
+
+		// List all resources in the cluster namespace
+		listOpts := []client.ListOption{client.InNamespace(clusterName)}
+		if err := s.client.List(ctx, resourceList, listOpts...); err != nil {
+			log.Warnf("failed to list resources of kind %s in namespace %s: %v",
+				resource.gvk.Kind, clusterName, err)
+			continue
 		}
-		return fmt.Errorf("failed to get managed cluster %s: %w", clusterName, err)
-	}
 
-	if err := s.client.Delete(ctx, managedCluster); err != nil {
-		return fmt.Errorf("failed to delete managed cluster %s: %w", clusterName, err)
-	}
+		// Delete all listed resources
+		for _, item := range resourceList.Items {
+			itemCopy := item
 
-	log.Infof("successfully removed managed cluster: %s", clusterName)
-	return nil
-}
+			// Remove finalizers before deletion
+			if err := removeFinalizers(ctx, s.client, &itemCopy); err != nil {
+				log.Errorf("failed to remove finalizers from %s/%s of kind %s: %v",
+					itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
+				return fmt.Errorf("failed to remove finalizers from %s/%s: %w",
+					itemCopy.GetNamespace(), itemCopy.GetName(), err)
+			}
 
-// removeKlusterletAddonConfig removes a KlusterletAddonConfig from the target hub
-func (s *MigrationTargetSyncer) removeKlusterletAddonConfig(ctx context.Context, clusterName string) error {
-	addonConfig := &addonv1.KlusterletAddonConfig{}
-	err := s.client.Get(ctx, types.NamespacedName{Name: clusterName, Namespace: clusterName}, addonConfig)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Infof("klusterlet addon config %s not found, already removed", clusterName)
-			return nil
+			// Delete the resource
+			if err := s.client.Delete(ctx, &itemCopy); err != nil {
+				if !apierrors.IsNotFound(err) {
+					log.Errorf("failed to delete resource %s/%s of kind %s: %v",
+						itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
+					return fmt.Errorf("failed to delete %s/%s: %w",
+						itemCopy.GetNamespace(), itemCopy.GetName(), err)
+				}
+			}
+
+			log.Infof("successfully removed resource %s/%s of kind %s",
+				itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind)
 		}
-		return fmt.Errorf("failed to get klusterlet addon config %s: %w", clusterName, err)
+
+		if len(resourceList.Items) > 0 {
+			log.Infof("removed %d resources of kind %s from namespace %s",
+				len(resourceList.Items), resource.gvk.Kind, clusterName)
+		}
 	}
 
-	if err := s.client.Delete(ctx, addonConfig); err != nil {
-		return fmt.Errorf("failed to delete klusterlet addon config %s: %w", clusterName, err)
-	}
-
-	log.Infof("successfully removed klusterlet addon config: %s", clusterName)
+	log.Infof("completed removing all migration resources from cluster namespace: %s", clusterName)
 	return nil
 }
 
