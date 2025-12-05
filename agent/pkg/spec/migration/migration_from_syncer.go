@@ -188,6 +188,14 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 		return fmt.Errorf("failed to delete klusterletconfig: %w", err)
 	}
 
+	// Remove finalizers from ZTP resources before cleaning up managed clusters
+	log.Infof("removing finalizers from ZTP resources for %d managed clusters", len(source.ManagedClusters))
+	for _, clusterName := range source.ManagedClusters {
+		if err := RemovePauseResourcesFinalizers(ctx, s.client, clusterName); err != nil {
+			log.Warnf("failed to remove finalizers for cluster %s: %v", clusterName, err)
+		}
+	}
+
 	// Clean up managed clusters
 	log.Infof("cleaning up %d managed clusters", len(source.ManagedClusters))
 	return s.deleteClusterIfExists(ctx, source.ManagedClusters)
@@ -439,13 +447,6 @@ func (s *MigrationSourceSyncer) processResourceByType(
 			delete(annotations, KlusterletConfigAnnotation)
 		}
 		resource.SetAnnotations(annotations)
-	case "ClusterDeployment":
-		// Remove pause annotation from ClusterDeployment
-		annotations := resource.GetAnnotations()
-		if annotations != nil {
-			delete(annotations, "hive.openshift.io/reconcile-pause")
-		}
-		resource.SetAnnotations(annotations)
 	}
 }
 
@@ -518,6 +519,13 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 		}); err != nil {
 			return err
 		}
+
+		// Add pause annotation to ClusterDeployment and ImageClusterInstall
+		if err := AddPauseAnnotations(ctx, m.client, managedCluster); err != nil {
+			log.Warnf("failed to add pause annotations for cluster %s: %v", managedCluster, err)
+		}
+		log.Infof("successfully add pause annotations from cluster: %s", managedCluster)
+
 	}
 	return nil
 }
@@ -733,6 +741,12 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 		}
 
 		log.Infof("successfully removed migration annotations from managed cluster: %s", managedCluster)
+
+		// Remove pause annotation from ZTP resources
+		if err := RemovePauseAnnotations(ctx, s.client, managedCluster); err != nil {
+			log.Warnf("failed to remove pause annotations for cluster %s: %v", managedCluster, err)
+		}
+		log.Infof("successfully removed pause annotations for cluster: %s", managedCluster)
 	}
 
 	// Prepare detailed result message
