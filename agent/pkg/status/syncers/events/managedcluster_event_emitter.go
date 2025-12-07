@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +34,9 @@ func managedClusterPostSend(events []interface{}) error {
 }
 
 // managedClusterEventPredicate filters events for ManagedCluster resources
+// Handles two types of events:
+// 1. Direct ManagedCluster events (InvolvedObject.Kind == "ManagedCluster")
+// 2. Provision Job events (InvolvedObject.Kind == "Job" with "-provision" suffix)
 func managedClusterEventPredicate(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
@@ -40,37 +44,90 @@ func managedClusterEventPredicate(obj client.Object) bool {
 		return false
 	}
 
-	if evt.InvolvedObject.Kind != constants.ManagedClusterKind {
-		log.Debugw("event filtered: not a ManagedCluster event", "event", evt.Namespace+"/"+evt.Name)
-		return false
+	// Case 1: Direct ManagedCluster events
+	if evt.InvolvedObject.Kind == constants.ManagedClusterKind {
+		if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
+			log.Debugw("event filtered: duplicate ManagedCluster event",
+				"event", evt.Namespace+"/"+evt.Name,
+				"eventTime", getEventLastTime(evt).Time)
+			return false
+		}
+		return true
 	}
 
-	if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
-		log.Debugw("event filtered:", "event", evt.Namespace+"/"+evt.Name, "eventTime", getEventLastTime(evt).Time)
-		return false
+	// Case 2: Provision Job events (ManagedCluster lifecycle events)
+	if evt.InvolvedObject.Kind == "Job" {
+		jobName := evt.InvolvedObject.Name
+
+		// Must end with "-provision" suffix
+		if !strings.HasSuffix(jobName, "-provision") {
+			return false
+		}
+
+		// Must start with namespace (validates namespace == cluster name convention)
+		// Example: namespace "cluster2" with job "cluster2-0-bvpxh-provision" should match
+		//          namespace "cluster2" with job "other-abc-provision" should NOT match
+		if !strings.HasPrefix(jobName, evt.Namespace+"-") {
+			log.Debugw("event filtered: job name does not start with namespace",
+				"event", evt.Namespace+"/"+evt.Name,
+				"jobName", jobName,
+				"namespace", evt.Namespace)
+			return false
+		}
+
+		// Time filter to prevent duplicate provision events
+		if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
+			log.Debugw("event filtered: duplicate provision event",
+				"event", evt.Namespace+"/"+evt.Name,
+				"eventTime", getEventLastTime(evt).Time)
+			return false
+		}
+		return true
 	}
-	return true
+
+	// Not a ManagedCluster or provision Job event
+	return false
 }
 
 // managedClusterEventTransform transforms k8s Event to ManagedClusterEvent
+// Handles two types of events:
+// 1. Direct ManagedCluster events: clusterName = InvolvedObject.Name
+// 2. Provision Job events: clusterName = Namespace (OCM convention)
 func managedClusterEventTransform(runtimeClient client.Client, obj client.Object) interface{} {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return nil
 	}
 
-	clusterName := evt.InvolvedObject.Name
+	var clusterName string
 
-	cluster, err := getInvolveCluster(context.Background(), runtimeClient, evt)
+	// Determine cluster name based on event type
+	if evt.InvolvedObject.Kind == constants.ManagedClusterKind {
+		// Case 1: Direct ManagedCluster event
+		clusterName = evt.InvolvedObject.Name
+	} else if evt.InvolvedObject.Kind == "Job" {
+		// Case 2: Provision Job event - cluster name is the namespace
+		clusterName = evt.Namespace
+	} else {
+		// Should not happen due to predicate filtering, but handle gracefully
+		log.Errorw("unexpected event kind", "kind", evt.InvolvedObject.Kind, "event", evt.Namespace+"/"+evt.Name)
+		return nil
+	}
+
+	cluster, err := getInvolveCluster(context.Background(), runtimeClient, clusterName)
 	if err != nil {
-		log.Errorw("failed to get cluster", "cluster", clusterName, "event", evt.Namespace+"/"+evt.Name, "error", err)
+		log.Debugw("event filtered: no matching ManagedCluster",
+			"clusterName", clusterName,
+			"event", evt.Namespace+"/"+evt.Name,
+			"error", err)
 		return nil
 	}
 
 	clusterId := utils.GetClusterClaimID(cluster, string(cluster.GetUID()))
 	if clusterId == "" {
-		log.Errorw("failed to get clusterId", "cluster", clusterName, "event", evt.Namespace+"/"+evt.Name,
-			"cluster", cluster)
+		log.Errorw("failed to get clusterId",
+			"cluster", clusterName,
+			"event", evt.Namespace+"/"+evt.Name)
 		return nil
 	}
 
@@ -89,12 +146,11 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 	}
 }
 
-// getInvolveCluster gets the ManagedCluster involved in the event
-func getInvolveCluster(ctx context.Context, c client.Client, evt *corev1.Event) (*clusterv1.ManagedCluster, error) {
+// getInvolveCluster gets the ManagedCluster by cluster name
+func getInvolveCluster(ctx context.Context, c client.Client, clusterName string) (*clusterv1.ManagedCluster, error) {
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      evt.InvolvedObject.Name,
-			Namespace: evt.InvolvedObject.Namespace,
+			Name: clusterName,
 		},
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
