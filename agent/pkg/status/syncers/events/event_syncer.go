@@ -56,12 +56,21 @@ func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 		emitters.WithPostSend(clusterGroupUpgradePostSend),
 	)
 
+	provisionEventEmitter := emitters.NewEventEmitter(
+		enum.ProvisionEventType,
+		producer,
+		runtimeClient,
+		provisionEventPredicate,
+		provisionEventTransform,
+		emitters.WithPostSend(provisionPostSend),
+	)
+
 	// 2. add the emitter to controller
 	if err := generic.AddSyncCtrl(
 		mgr,
 		"event",
 		func() client.Object { return &corev1.Event{} },
-		managedClusterEventEmitter, localRootPolicyEventEmitter, clusterGroupUpgradeEventEmitter,
+		managedClusterEventEmitter, localRootPolicyEventEmitter, clusterGroupUpgradeEventEmitter, provisionEventEmitter,
 	); err != nil {
 		return err
 	}
@@ -80,6 +89,11 @@ func AddEventSyncer(ctx context.Context, mgr ctrl.Manager,
 	periodicSyncer.Register(&generic.EmitterRegistration{
 		ListFunc: func() ([]client.Object, error) { return listEvents(ctx, runtimeClient) },
 		Emitter:  clusterGroupUpgradeEventEmitter,
+	})
+
+	periodicSyncer.Register(&generic.EmitterRegistration{
+		ListFunc: func() ([]client.Object, error) { return listEvents(ctx, runtimeClient) },
+		Emitter:  provisionEventEmitter,
 	})
 
 	addEventSyncer = true
