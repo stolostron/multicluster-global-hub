@@ -52,7 +52,7 @@ require (
 	k8s.io/apimachinery v0.34.2
 	k8s.io/client-go v0.34.2
 	k8s.io/klog v1.0.0
-	k8s.io/kube-aggregator v0.32.6
+	k8s.io/kube-aggregator v0.34.2
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	open-cluster-management.io/addon-framework v1.0.1
 	open-cluster-management.io/api v1.0.0
@@ -71,6 +71,7 @@ require (
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gonvenience/idem v0.0.2 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.36.0 // indirect
 	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
