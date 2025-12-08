@@ -1,6 +1,7 @@
 package status
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"time"
@@ -18,10 +19,26 @@ import (
 
 var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 	var (
-		committer *conflator.ConflationCommitter
-		topic1    = "test-topic-1"
-		topic2    = "test-topic-2"
+		committer   *conflator.ConflationCommitter
+		testCtx     context.Context
+		testCancel  context.CancelFunc
+		topic1      = "test-topic-1"
+		topic2      = "test-topic-2"
 	)
+
+	BeforeEach(func() {
+		// Create a new context for each test to ensure proper cleanup
+		testCtx, testCancel = context.WithCancel(ctx)
+	})
+
+	AfterEach(func() {
+		// Cancel the test context to stop any running committers
+		if testCancel != nil {
+			testCancel()
+		}
+		// Wait a moment for goroutines to stop
+		time.Sleep(500 * time.Millisecond)
+	})
 
 	BeforeAll(func() {
 		// Clean up any existing transport records
@@ -67,7 +84,7 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 
 			// Create committer and trigger migration
 			committer = conflator.NewKafkaConflationCommitter(metadataFunc)
-			err := committer.Start(ctx)
+			err := committer.Start(testCtx)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Wait a moment for migration to complete
@@ -150,7 +167,7 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 			committer = conflator.NewKafkaConflationCommitter(metadataFunc)
 
 			// Trigger commit - this should not fail with duplicate key error
-			err := committer.Start(ctx)
+			err := committer.Start(testCtx)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Wait for the commit to happen (committer runs every 10 seconds)
@@ -234,7 +251,7 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 
 			// Create new committer with updated metadata
 			committer = conflator.NewKafkaConflationCommitter(metadataFunc)
-			err := committer.Start(ctx)
+			err := committer.Start(testCtx)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Wait for commit
