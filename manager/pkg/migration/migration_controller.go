@@ -11,6 +11,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,6 +47,8 @@ var (
 	rollbackingTimeout time.Duration = 12 * time.Minute
 	registeringTimeout time.Duration = 12 * time.Minute
 )
+
+const RETRY_TIMES = 3
 
 var log = logger.DefaultZapLogger()
 
@@ -310,5 +313,31 @@ func getTimeout(stage string) time.Duration {
 		return cleaningTimeout
 	default:
 		return migratingTimeout
+	}
+}
+
+func setRetry(mcm *migrationv1alpha1.ManagedClusterMigration, stage string, condType string, hubName string) {
+	currentCond := meta.FindStatusCondition(mcm.Status.Conditions, condType)
+	if currentCond == nil {
+		log.Warnf("condition %s not initialized for hub %s, stage %s", condType, hubName, stage)
+		return
+	}
+
+	stageState := getStageState(string(mcm.GetUID()), hubName, stage)
+	if stageState == nil {
+		log.Warnf("stage state not initialized for hub %s, stage %s", hubName, stage)
+		return
+	}
+
+	if !stageState.started {
+		log.Warnf("stage %s is not started(%v) for hub %s, return", stage, stageState.started, hubName)
+		return
+	}
+
+	retryInterval := getTimeout(stage) / RETRY_TIMES
+	timeSinceLastStartTime := time.Since(stageState.lastStartTime)
+	if timeSinceLastStartTime >= retryInterval {
+		stageState.started = false
+		log.Infof("retry for stage %s on hub %s after %v", stage, hubName, timeSinceLastStartTime)
 	}
 }
