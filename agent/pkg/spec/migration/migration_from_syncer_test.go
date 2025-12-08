@@ -1517,11 +1517,9 @@ func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
 						assert.False(t, hasStatus, "Status should be removed when needStatus is false")
 					}
 
-					// Check ClusterDeployment specific cleaning
-					if c.migrateResource.gvk.Kind == "ClusterDeployment" {
-						// Note: hive.openshift.io/reconcile-pause annotation is preserved during migration
-						// and removed only during rollback or cleanup on the target hub
-					}
+					// Note: For ClusterDeployment resources, the hive.openshift.io/reconcile-pause
+					// annotation is preserved during migration and removed only during rollback
+					// or cleanup on the target hub
 				}
 			}
 		})

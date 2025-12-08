@@ -188,11 +188,11 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 		return fmt.Errorf("failed to delete klusterletconfig: %w", err)
 	}
 
-	// Remove finalizers from ZTP resources before cleaning up managed clusters
-	log.Infof("removing finalizers from ZTP resources for %d managed clusters", len(source.ManagedClusters))
+	// Remove /deprovision finalizers from ZTP resources before cleaning up managed clusters
+	log.Infof("removing /deprovision finalizers from ZTP resources for %d managed clusters", len(source.ManagedClusters))
 	for _, clusterName := range source.ManagedClusters {
-		if err := RemovePauseResourcesFinalizers(ctx, s.client, clusterName); err != nil {
-			log.Warnf("failed to remove finalizers for cluster %s: %v", clusterName, err)
+		if err := RemoveDeprovisionFinalizers(ctx, s.client, clusterName); err != nil {
+			log.Warnf("failed to remove /deprovision finalizers for cluster %s: %v", clusterName, err)
 		}
 	}
 

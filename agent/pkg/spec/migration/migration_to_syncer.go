@@ -41,6 +41,7 @@ import (
 const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
 	ClusterManagerName           = "cluster-manager"
+	errMsgFailedToGet            = "failed to get %s from source resource: %w"
 )
 
 var (
@@ -522,19 +523,19 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 	// Handle ConfigMap and Secret data field
 	sourceData, hasData, err := unstructured.NestedFieldCopy(resource.Object, "data")
 	if err != nil {
-		return fmt.Errorf("failed to get data from source resource: %w", err)
+		return fmt.Errorf(errMsgFailedToGet, "data", err)
 	}
 
 	// Handle spec field
 	sourceSpec, hasSpec, err := unstructured.NestedFieldCopy(resource.Object, "spec")
 	if err != nil {
-		return fmt.Errorf("failed to get spec from source resource: %w", err)
+		return fmt.Errorf(errMsgFailedToGet, "spec", err)
 	}
 
 	// Handle status field (will be applied separately if exists)
 	sourceStatus, hasStatus, err := unstructured.NestedFieldCopy(resource.Object, "status")
 	if err != nil {
-		return fmt.Errorf("failed to get status from source resource: %w", err)
+		return fmt.Errorf(errMsgFailedToGet, "status", err)
 	}
 
 	log.Debugf("deploying: creating or updating resource=%s", resourceKey)
