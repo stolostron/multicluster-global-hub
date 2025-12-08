@@ -43,3 +43,6 @@ kubeconfig
 
 __pycache__
 output
+AGENTS.md
+openspec/*
+.claude/commands/openspec
