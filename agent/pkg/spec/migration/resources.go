@@ -71,24 +71,6 @@ var migrateResources = []MigrationResource{
 	// clusterinstance related resources
 	{
 		gvk: schema.GroupVersionKind{
-			Group:   "extensions.hive.openshift.io",
-			Version: "v1alpha1",
-			Kind:    "ImageClusterInstall",
-		},
-		needStatus: true,
-		name:       clusterNamePlaceholder,
-	},
-	{
-		gvk: schema.GroupVersionKind{
-			Group:   "hive.openshift.io",
-			Version: "v1",
-			Kind:    "ClusterDeployment",
-		},
-		needStatus: true,
-		name:       clusterNamePlaceholder,
-	},
-	{
-		gvk: schema.GroupVersionKind{
 			Group:   "metal3.io",
 			Version: "v1alpha1",
 			Kind:    "BareMetalHost",
@@ -126,5 +108,23 @@ var migrateResources = []MigrationResource{
 			Kind:    "DataImage",
 		},
 		needStatus: true,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "extensions.hive.openshift.io",
+			Version: "v1alpha1",
+			Kind:    "ImageClusterInstall",
+		},
+		needStatus: true,
+		name:       clusterNamePlaceholder,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "hive.openshift.io",
+			Version: "v1",
+			Kind:    "ClusterDeployment",
+		},
+		needStatus: true,
+		name:       clusterNamePlaceholder,
 	},
 }

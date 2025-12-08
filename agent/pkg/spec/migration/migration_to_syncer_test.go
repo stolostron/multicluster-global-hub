@@ -1420,3 +1420,190 @@ func TestDeployingBatchReceivingError(t *testing.T) {
 		assert.Contains(t, err.Error(), "expected migrationId")
 	})
 }
+
+// TestAddPauseAnnotationBeforeDeletion tests the addPauseAnnotationBeforeDeletion function
+func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name         string
+		resource     *unstructured.Unstructured
+		expectError  bool
+		errorMessage string
+	}{
+		{
+			name: "Add pause annotation to ClusterDeployment without existing annotations",
+			resource: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "hive.openshift.io/v1",
+					"kind":       "ClusterDeployment",
+					"metadata": map[string]interface{}{
+						"name":      "test-cluster",
+						"namespace": "test-namespace",
+					},
+					"spec": map[string]interface{}{
+						"clusterName": "test-cluster",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "Add pause annotation to ClusterDeployment with existing annotations",
+			resource: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "hive.openshift.io/v1",
+					"kind":       "ClusterDeployment",
+					"metadata": map[string]interface{}{
+						"name":      "test-cluster-2",
+						"namespace": "test-namespace",
+						"annotations": map[string]interface{}{
+							"existing-annotation": "value",
+						},
+					},
+					"spec": map[string]interface{}{
+						"clusterName": "test-cluster-2",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "Add pause annotation to ImageClusterInstall",
+			resource: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "extensions.hive.openshift.io/v1alpha1",
+					"kind":       "ImageClusterInstall",
+					"metadata": map[string]interface{}{
+						"name":      "test-image-cluster",
+						"namespace": "test-namespace",
+					},
+					"spec": map[string]interface{}{
+						"imageSetRef": map[string]interface{}{
+							"name": "test-imageset",
+						},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "Resource not found - should return error",
+			resource: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "hive.openshift.io/v1",
+					"kind":       "ClusterDeployment",
+					"metadata": map[string]interface{}{
+						"name":      "non-existing",
+						"namespace": "test-namespace",
+					},
+				},
+			},
+			expectError:  true,
+			errorMessage: "failed to get latest resource",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Prepare initial objects - add the resource to the fake client if it should exist
+			var initObjects []client.Object
+			if !c.expectError || c.errorMessage == "" {
+				// Create a copy of the resource to add to initial objects
+				initResource := c.resource.DeepCopy()
+				initObjects = append(initObjects, initResource)
+			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+			syncer := &MigrationTargetSyncer{
+				client: fakeClient,
+			}
+
+			err := syncer.addPauseAnnotationBeforeDeletion(ctx, c.resource)
+
+			if c.expectError {
+				assert.Error(t, err)
+				if c.errorMessage != "" {
+					assert.Contains(t, err.Error(), c.errorMessage)
+				}
+			} else {
+				assert.NoError(t, err)
+
+				// Verify pause annotation was added
+				verifyResource := &unstructured.Unstructured{}
+				verifyResource.SetGroupVersionKind(c.resource.GroupVersionKind())
+				err = fakeClient.Get(ctx, client.ObjectKeyFromObject(c.resource), verifyResource)
+				assert.NoError(t, err)
+
+				annotations := verifyResource.GetAnnotations()
+				assert.NotNil(t, annotations)
+				assert.Equal(t, "true", annotations[PauseAnnotation])
+
+				// Verify existing annotations are preserved
+				if origAnnotations := c.resource.GetAnnotations(); origAnnotations != nil {
+					for key, value := range origAnnotations {
+						if key != PauseAnnotation {
+							assert.Equal(t, value, annotations[key], "Original annotation %s should be preserved", key)
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestAddPauseAnnotationMultipleCalls tests calling addPauseAnnotationBeforeDeletion multiple times
+func TestAddPauseAnnotationMultipleCalls(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	resource := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "hive.openshift.io/v1",
+			"kind":       "ClusterDeployment",
+			"metadata": map[string]interface{}{
+				"name":      "test-cluster",
+				"namespace": "test-namespace",
+			},
+			"spec": map[string]interface{}{
+				"clusterName": "test-cluster",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(resource.DeepCopy()).Build()
+
+	syncer := &MigrationTargetSyncer{
+		client: fakeClient,
+	}
+
+	// First call should succeed
+	err := syncer.addPauseAnnotationBeforeDeletion(ctx, resource)
+	assert.NoError(t, err)
+
+	// Verify the annotation exists
+	verifyResource := &unstructured.Unstructured{}
+	verifyResource.SetGroupVersionKind(resource.GroupVersionKind())
+	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(resource), verifyResource)
+	assert.NoError(t, err)
+
+	annotations := verifyResource.GetAnnotations()
+	assert.NotNil(t, annotations)
+	assert.Equal(t, "true", annotations[PauseAnnotation])
+
+	// Second call should also succeed (idempotent)
+	err = syncer.addPauseAnnotationBeforeDeletion(ctx, resource)
+	assert.NoError(t, err)
+
+	// Verify annotation still exists and has correct value
+	verifyResource2 := &unstructured.Unstructured{}
+	verifyResource2.SetGroupVersionKind(resource.GroupVersionKind())
+	err = fakeClient.Get(ctx, client.ObjectKeyFromObject(resource), verifyResource2)
+	assert.NoError(t, err)
+
+	annotations2 := verifyResource2.GetAnnotations()
+	assert.NotNil(t, annotations2)
+	assert.Equal(t, "true", annotations2[PauseAnnotation])
+}

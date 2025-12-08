@@ -41,6 +41,7 @@ import (
 const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
 	ClusterManagerName           = "cluster-manager"
+	errMsgFailedToGet            = "failed to get %s from source resource: %w"
 )
 
 var (
@@ -257,14 +258,6 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 ) error {
 	msaName := event.ManagedServiceAccountName
 	msaNamespace := event.ManagedServiceAccountInstallNamespace
-
-	// Remove pause annotations from ZTP resources
-	log.Infof("removing pause annotations from ZTP resources for %d managed clusters", len(event.ManagedClusters))
-	for _, clusterName := range event.ManagedClusters {
-		if err := RemovePauseAnnotations(ctx, s.client, clusterName); err != nil {
-			log.Warnf("failed to remove pause annotations for cluster %s: %v", clusterName, err)
-		}
-	}
 
 	// Remove MSA user from ClusterManager AutoApproveUsers list
 	if err := s.removeAutoApproveUser(ctx, msaName, msaNamespace); err != nil {
@@ -522,19 +515,19 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 	// Handle ConfigMap and Secret data field
 	sourceData, hasData, err := unstructured.NestedFieldCopy(resource.Object, "data")
 	if err != nil {
-		return fmt.Errorf("failed to get data from source resource: %w", err)
+		return fmt.Errorf(errMsgFailedToGet, "data", err)
 	}
 
 	// Handle spec field
 	sourceSpec, hasSpec, err := unstructured.NestedFieldCopy(resource.Object, "spec")
 	if err != nil {
-		return fmt.Errorf("failed to get spec from source resource: %w", err)
+		return fmt.Errorf(errMsgFailedToGet, "spec", err)
 	}
 
 	// Handle status field (will be applied separately if exists)
 	sourceStatus, hasStatus, err := unstructured.NestedFieldCopy(resource.Object, "status")
 	if err != nil {
-		return fmt.Errorf("failed to get status from source resource: %w", err)
+		return fmt.Errorf(errMsgFailedToGet, "status", err)
 	}
 
 	log.Debugf("deploying: creating or updating resource=%s", resourceKey)
@@ -1004,6 +997,58 @@ func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *m
 	return s.rollbackDeploying(ctx, spec)
 }
 
+// addPauseAnnotationBeforeDeletion adds pause annotation to ZTP resources and verifies it was added
+func (s *MigrationTargetSyncer) addPauseAnnotationBeforeDeletion(
+	ctx context.Context, resource *unstructured.Unstructured,
+) error {
+	resourceKey := fmt.Sprintf("%s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
+	log.Infof("adding pause annotation to %s before deletion", resourceKey)
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get the latest version to avoid conflicts
+		latestResource := &unstructured.Unstructured{}
+		latestResource.SetGroupVersionKind(resource.GroupVersionKind())
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(resource), latestResource); err != nil {
+			return fmt.Errorf("failed to get latest resource: %w", err)
+		}
+
+		// Add pause annotation
+		annotations := latestResource.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		annotations[PauseAnnotation] = "true"
+		latestResource.SetAnnotations(annotations)
+
+		// Update the resource
+		if err := s.client.Update(ctx, latestResource); err != nil {
+			return err
+		}
+
+		// Copy back to the original resource for later use
+		resource.SetAnnotations(annotations)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to add pause annotation: %w", err)
+	}
+
+	// Verify the annotation was added
+	verifyResource := &unstructured.Unstructured{}
+	verifyResource.SetGroupVersionKind(resource.GroupVersionKind())
+	if err := s.client.Get(ctx, client.ObjectKeyFromObject(resource), verifyResource); err != nil {
+		return fmt.Errorf("failed to verify pause annotation: %w", err)
+	}
+
+	annotations := verifyResource.GetAnnotations()
+	if annotations == nil || annotations[PauseAnnotation] != "true" {
+		return fmt.Errorf("pause annotation verification failed for %s", resourceKey)
+	}
+
+	log.Infof("successfully added and verified pause annotation for %s", resourceKey)
+	return nil
+}
+
 // removeMigrationResources removes all migration resources for a cluster based on the migrateResources list
 // Deletes all resources defined in resources.go from the cluster namespace
 func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, clusterName string) error {
@@ -1026,6 +1071,16 @@ func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, cl
 		// Delete all listed resources
 		for _, item := range resourceList.Items {
 			itemCopy := item
+
+			// For ClusterDeployment and ImageClusterInstall, add pause annotation before deletion
+			if resource.gvk.Kind == "ClusterDeployment" || resource.gvk.Kind == "ImageClusterInstall" {
+				if err := s.addPauseAnnotationBeforeDeletion(ctx, &itemCopy); err != nil {
+					log.Errorf("failed to add pause annotation to %s/%s of kind %s: %v",
+						itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
+					return fmt.Errorf("failed to add pause annotation to %s/%s: %w",
+						itemCopy.GetNamespace(), itemCopy.GetName(), err)
+				}
+			}
 
 			// Remove finalizers before deletion
 			if err := removeFinalizers(ctx, s.client, &itemCopy); err != nil {

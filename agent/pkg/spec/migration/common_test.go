@@ -369,19 +369,19 @@ func TestRemovePauseAnnotations(t *testing.T) {
 	}
 }
 
-func TestRemovePauseResourcesFinalizers(t *testing.T) {
+func TestRemoveDeprovisionFinalizers(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 
 	cases := []struct {
-		name                string
-		clusterName         string
-		initObjects         []client.Object
-		expectedError       bool
-		shouldHaveFinalizer bool
+		name               string
+		clusterName        string
+		initObjects        []client.Object
+		expectedError      bool
+		expectedFinalizers []string
 	}{
 		{
-			name:        "Successfully remove finalizers from ClusterDeployment",
+			name:        "Successfully remove /deprovision finalizers from ClusterDeployment",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -391,7 +391,7 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 						"metadata": map[string]interface{}{
 							"name":       "cluster1",
 							"namespace":  "cluster1",
-							"finalizers": []interface{}{"finalizer1", "finalizer2"},
+							"finalizers": []interface{}{"hive.openshift.io/deprovision", "other-finalizer"},
 						},
 						"spec": map[string]interface{}{
 							"clusterName": "cluster1",
@@ -399,11 +399,11 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 					},
 				},
 			},
-			expectedError:       false,
-			shouldHaveFinalizer: false,
+			expectedError:      false,
+			expectedFinalizers: []string{"other-finalizer"},
 		},
 		{
-			name:        "Successfully remove finalizers from ImageClusterInstall",
+			name:        "Successfully remove /deprovision finalizers from ImageClusterInstall",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -413,7 +413,7 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 						"metadata": map[string]interface{}{
 							"name":       "cluster1",
 							"namespace":  "cluster1",
-							"finalizers": []interface{}{"finalizer1"},
+							"finalizers": []interface{}{"imageclusterinstall.agent-install.openshift.io/deprovision"},
 						},
 						"spec": map[string]interface{}{
 							"clusterDeploymentRef": map[string]interface{}{
@@ -423,8 +423,8 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 					},
 				},
 			},
-			expectedError:       false,
-			shouldHaveFinalizer: false,
+			expectedError:      false,
+			expectedFinalizers: []string{},
 		},
 		{
 			name:        "Skip removal when resource not found",
@@ -454,7 +454,7 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name:        "Remove finalizers from both resources",
+			name:        "Keep non-deprovision finalizers",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -464,7 +464,29 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 						"metadata": map[string]interface{}{
 							"name":       "cluster1",
 							"namespace":  "cluster1",
-							"finalizers": []interface{}{"finalizer1"},
+							"finalizers": []interface{}{"finalizer1", "finalizer2"},
+						},
+						"spec": map[string]interface{}{
+							"clusterName": "cluster1",
+						},
+					},
+				},
+			},
+			expectedError:      false,
+			expectedFinalizers: []string{"finalizer1", "finalizer2"},
+		},
+		{
+			name:        "Remove /deprovision finalizers from both resources",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "hive.openshift.io/v1",
+						"kind":       "ClusterDeployment",
+						"metadata": map[string]interface{}{
+							"name":       "cluster1",
+							"namespace":  "cluster1",
+							"finalizers": []interface{}{"hive.openshift.io/deprovision"},
 						},
 						"spec": map[string]interface{}{
 							"clusterName": "cluster1",
@@ -478,7 +500,7 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 						"metadata": map[string]interface{}{
 							"name":       "cluster1",
 							"namespace":  "cluster1",
-							"finalizers": []interface{}{"finalizer2", "finalizer3"},
+							"finalizers": []interface{}{"imageclusterinstall.agent-install.openshift.io/deprovision", "keep-this"},
 						},
 						"spec": map[string]interface{}{
 							"clusterDeploymentRef": map[string]interface{}{
@@ -488,8 +510,7 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 					},
 				},
 			},
-			expectedError:       false,
-			shouldHaveFinalizer: false,
+			expectedError: false,
 		},
 	}
 
@@ -497,14 +518,14 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
 
-			err := RemovePauseResourcesFinalizers(ctx, fakeClient, c.clusterName)
+			err := RemoveDeprovisionFinalizers(ctx, fakeClient, c.clusterName)
 
 			if c.expectedError {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
 
-				// Verify finalizers were removed if objects exist
+				// Verify only /deprovision finalizers were removed if objects exist
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -514,10 +535,8 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 					assert.Nil(t, err)
 
 					finalizers := resource.GetFinalizers()
-					if c.shouldHaveFinalizer {
-						assert.NotEmpty(t, finalizers)
-					} else {
-						assert.Empty(t, finalizers)
+					if c.expectedFinalizers != nil {
+						assert.Equal(t, c.expectedFinalizers, finalizers)
 					}
 				}
 			}
@@ -525,18 +544,37 @@ func TestRemovePauseResourcesFinalizers(t *testing.T) {
 	}
 }
 
-func TestRemoveFinalizers(t *testing.T) {
+func TestRemoveDeprovisionFinalizersHelper(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 
 	cases := []struct {
-		name                string
-		initObject          client.Object
-		expectedError       bool
-		shouldHaveFinalizer bool
+		name               string
+		initObject         client.Object
+		expectedError      bool
+		expectedFinalizers []string
 	}{
 		{
-			name: "Successfully remove finalizers from resource",
+			name: "Successfully remove only /deprovision finalizers from resource",
+			initObject: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":       "test-cm",
+						"namespace":  "test-ns",
+						"finalizers": []interface{}{"hive.openshift.io/deprovision", "keep-this-finalizer"},
+					},
+					"data": map[string]interface{}{
+						"key": "value",
+					},
+				},
+			},
+			expectedError:      false,
+			expectedFinalizers: []string{"keep-this-finalizer"},
+		},
+		{
+			name: "Keep all finalizers when none have /deprovision suffix",
 			initObject: &unstructured.Unstructured{
 				Object: map[string]interface{}{
 					"apiVersion": "v1",
@@ -551,8 +589,8 @@ func TestRemoveFinalizers(t *testing.T) {
 					},
 				},
 			},
-			expectedError:       false,
-			shouldHaveFinalizer: false,
+			expectedError:      false,
+			expectedFinalizers: []string{"finalizer1", "finalizer2"},
 		},
 		{
 			name: "Skip removal when resource has no finalizers",
@@ -569,7 +607,8 @@ func TestRemoveFinalizers(t *testing.T) {
 					},
 				},
 			},
-			expectedError: false,
+			expectedError:      false,
+			expectedFinalizers: nil,
 		},
 		{
 			name:          "Return nil when object is nil",
@@ -587,14 +626,14 @@ func TestRemoveFinalizers(t *testing.T) {
 				fakeClient = fake.NewClientBuilder().WithScheme(scheme).Build()
 			}
 
-			err := removeFinalizers(ctx, fakeClient, c.initObject)
+			err := removeDeprovisionFinalizers(ctx, fakeClient, c.initObject)
 
 			if c.expectedError {
 				assert.NotNil(t, err)
 			} else {
 				assert.Nil(t, err)
 
-				// Verify finalizers were removed if object exists
+				// Verify only /deprovision finalizers were removed if object exists
 				if c.initObject != nil {
 					resource := &unstructured.Unstructured{}
 					u := c.initObject.(*unstructured.Unstructured)
@@ -604,19 +643,15 @@ func TestRemoveFinalizers(t *testing.T) {
 					assert.Nil(t, err)
 
 					finalizers := resource.GetFinalizers()
-					if c.shouldHaveFinalizer {
-						assert.NotEmpty(t, finalizers)
-					} else {
-						assert.Empty(t, finalizers)
-					}
+					assert.Equal(t, c.expectedFinalizers, finalizers)
 				}
 			}
 		})
 	}
 }
 
-func TestPauseResources(t *testing.T) {
-	// Verify that PauseResources contains expected GVKs
+func TestZTPClusterResourceGVKs(t *testing.T) {
+	// Verify that ZTPClusterResourceGVKs contains expected GVKs
 	expectedGVKs := []schema.GroupVersionKind{
 		{
 			Group:   "hive.openshift.io",
@@ -630,12 +665,12 @@ func TestPauseResources(t *testing.T) {
 		},
 	}
 
-	assert.Equal(t, len(expectedGVKs), len(PauseResources), "PauseResources should contain expected number of GVKs")
+	assert.Equal(t, len(expectedGVKs), len(ZTPClusterResourceGVKs), "ZTPClusterResourceGVKs should contain expected number of GVKs")
 
 	for i, expected := range expectedGVKs {
-		assert.Equal(t, expected.Group, PauseResources[i].Group)
-		assert.Equal(t, expected.Version, PauseResources[i].Version)
-		assert.Equal(t, expected.Kind, PauseResources[i].Kind)
+		assert.Equal(t, expected.Group, ZTPClusterResourceGVKs[i].Group)
+		assert.Equal(t, expected.Version, ZTPClusterResourceGVKs[i].Version)
+		assert.Equal(t, expected.Kind, ZTPClusterResourceGVKs[i].Kind)
 	}
 }
 
