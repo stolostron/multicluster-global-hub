@@ -20,6 +20,36 @@ import (
 
 var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedClusterEventType))
 
+// isValidProvisionJob validates if a job name matches the provision job pattern
+// Pattern: <namespace>-<hash>-provision
+// Returns true if valid, false otherwise.
+func isValidProvisionJob(jobName, namespace string) bool {
+	// Must end with "-provision" suffix
+	const suffix = "-provision"
+	if !strings.HasSuffix(jobName, suffix) {
+		return false
+	}
+
+	// Must start with "namespace-"
+	prefix := namespace + "-"
+	if !strings.HasPrefix(jobName, prefix) {
+		return false
+	}
+
+	// Extract middle part (hash) between namespace and "-provision"
+	// Example: "cluster2-0-bvpxh-provision" -> middle = "0-bvpxh"
+	// The middle part must: start with '-' and end with '-'
+	expectedLength := len(prefix) + len(suffix)
+	if len(jobName) <= expectedLength {
+		// No room for hash between prefix and suffix
+		return false
+	}
+
+	// Verify there's actual content between prefix and suffix
+	middle := jobName[len(prefix) : len(jobName)-len(suffix)]
+	return len(middle) > 0
+}
+
 func managedClusterPostSend(events []interface{}) error {
 	for _, clusterEvent := range events {
 		evt, ok := clusterEvent.(*models.ManagedClusterEvent)
@@ -44,49 +74,38 @@ func managedClusterEventPredicate(obj client.Object) bool {
 		return false
 	}
 
-	// Case 1: Direct ManagedCluster events
-	if evt.InvolvedObject.Kind == constants.ManagedClusterKind {
-		if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
-			log.Debugw("event filtered: duplicate ManagedCluster event",
-				"event", evt.Namespace+"/"+evt.Name,
-				"eventTime", getEventLastTime(evt).Time)
-			return false
-		}
-		return true
-	}
+	// Use tagged switch to handle different event kinds (fixes staticcheck QF1003)
+	switch evt.InvolvedObject.Kind {
+	case constants.ManagedClusterKind:
+		// Direct ManagedCluster events - always accept (time filter applied later)
+		// No additional validation needed
 
-	// Case 2: Provision Job events (ManagedCluster lifecycle events)
-	if evt.InvolvedObject.Kind == "Job" {
+	case "Job":
+		// Provision Job events - validate job name pattern
 		jobName := evt.InvolvedObject.Name
-
-		// Must end with "-provision" suffix
-		if !strings.HasSuffix(jobName, "-provision") {
-			return false
-		}
-
-		// Must start with namespace (validates namespace == cluster name convention)
-		// Example: namespace "cluster2" with job "cluster2-0-bvpxh-provision" should match
-		//          namespace "cluster2" with job "other-abc-provision" should NOT match
-		if !strings.HasPrefix(jobName, evt.Namespace+"-") {
-			log.Debugw("event filtered: job name does not start with namespace",
+		if !isValidProvisionJob(jobName, evt.Namespace) {
+			log.Debugw("event filtered: invalid provision job name pattern",
 				"event", evt.Namespace+"/"+evt.Name,
 				"jobName", jobName,
 				"namespace", evt.Namespace)
 			return false
 		}
 
-		// Time filter to prevent duplicate provision events
-		if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
-			log.Debugw("event filtered: duplicate provision event",
-				"event", evt.Namespace+"/"+evt.Name,
-				"eventTime", getEventLastTime(evt).Time)
-			return false
-		}
-		return true
+	default:
+		// Not a ManagedCluster or provision Job event
+		return false
 	}
 
-	// Not a ManagedCluster or provision Job event
-	return false
+	// Unified time filter for all accepted events (applied once at the end)
+	if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
+		log.Debugw("event filtered: duplicate event",
+			"event", evt.Namespace+"/"+evt.Name,
+			"kind", evt.InvolvedObject.Kind,
+			"eventTime", getEventLastTime(evt).Time)
+		return false
+	}
+
+	return true
 }
 
 // managedClusterEventTransform transforms k8s Event to ManagedClusterEvent
@@ -101,14 +120,15 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 
 	var clusterName string
 
-	// Determine cluster name based on event type
-	if evt.InvolvedObject.Kind == constants.ManagedClusterKind {
-		// Case 1: Direct ManagedCluster event
+	// Determine cluster name based on event type (use tagged switch for consistency)
+	switch evt.InvolvedObject.Kind {
+	case constants.ManagedClusterKind:
+		// Direct ManagedCluster event
 		clusterName = evt.InvolvedObject.Name
-	} else if evt.InvolvedObject.Kind == "Job" {
-		// Case 2: Provision Job event - cluster name is the namespace
+	case "Job":
+		// Provision Job event - cluster name is the namespace
 		clusterName = evt.Namespace
-	} else {
+	default:
 		// Should not happen due to predicate filtering, but handle gracefully
 		log.Errorw("unexpected event kind", "kind", evt.InvolvedObject.Kind, "event", evt.Namespace+"/"+evt.Name)
 		return nil
