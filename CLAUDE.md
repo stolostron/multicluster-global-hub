@@ -223,7 +223,7 @@ This maintains clean separation between components. Only shared code should live
 - **Database**: GORM v1.30.x, pgx v5.7.x
 - **CloudEvents**: v2.16.x
 - **ACM/OCM**: Multiple stolostron and open-cluster-management.io dependencies
-- **Go Version**: 1.24.4
+- **Go Version**: 1.25.3
 
 ## Environment Variables
 
