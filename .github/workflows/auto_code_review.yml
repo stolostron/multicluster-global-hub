@@ -157,7 +157,9 @@ jobs:
           use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
           settings: |-
             {
-              "maxSessionTurns": 30,
+              "model": {
+                "maxSessionTurns": 30
+              },
               "mcpServers": {
                 "github": {
                   "command": "docker",
@@ -167,7 +169,7 @@ jobs:
                     "--rm",
                     "-e",
                     "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server"
+                    "ghcr.io/github/github-mcp-server:v0.18.0"
                   ],
                   "includeTools": [
                     "create_pending_pull_request_review",
