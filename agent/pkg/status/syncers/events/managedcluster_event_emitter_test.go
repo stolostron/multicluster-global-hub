@@ -10,6 +10,54 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 )
 
+func TestCustomizeProvisionJobMessage(t *testing.T) {
+	tests := []struct {
+		name            string
+		reason          string
+		originalMessage string
+		clusterName     string
+		wantMessage     string
+	}{
+		{
+			name:            "SuccessfulCreate reason",
+			reason:          "SuccessfulCreate",
+			originalMessage: "Created pod: cluster2-0-tncv5-provision-fhd94",
+			clusterName:     "cluster2",
+			wantMessage:     "Cluster cluster2 provisioning started",
+		},
+		{
+			name:            "Completed reason",
+			reason:          "Completed",
+			originalMessage: "Job completed",
+			clusterName:     "cluster2",
+			wantMessage:     "Cluster cluster2 provisioning completed successfully",
+		},
+		{
+			name:            "other reason - generic message",
+			reason:          "BackoffLimitExceeded",
+			originalMessage: "Job has reached the specified backoff limit",
+			clusterName:     "cluster2",
+			wantMessage:     "Provisioning cluster2: Job has reached the specified backoff limit",
+		},
+		{
+			name:            "other reason - DeadlineExceeded",
+			reason:          "DeadlineExceeded",
+			originalMessage: "Job was active longer than specified deadline",
+			clusterName:     "prod-cluster",
+			wantMessage:     "Provisioning prod-cluster: Job was active longer than specified deadline",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := customizeProvisionJobMessage(tt.reason, tt.originalMessage, tt.clusterName)
+			if got != tt.wantMessage {
+				t.Errorf("customizeProvisionJobMessage() = %q, want %q", got, tt.wantMessage)
+			}
+		})
+	}
+}
+
 func TestIsValidProvisionJob(t *testing.T) {
 	tests := []struct {
 		name      string

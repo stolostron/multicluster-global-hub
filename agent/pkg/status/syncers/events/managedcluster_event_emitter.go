@@ -50,6 +50,19 @@ func isValidProvisionJob(jobName, namespace string) bool {
 	return len(middle) > 0
 }
 
+// customizeProvisionJobMessage customizes the message for provision job events
+// to provide better user experience and clarity
+func customizeProvisionJobMessage(reason, originalMessage, clusterName string) string {
+	switch reason {
+	case "SuccessfulCreate":
+		return fmt.Sprintf("Cluster %s provisioning started", clusterName)
+	case "Completed":
+		return fmt.Sprintf("Cluster %s provisioning completed successfully", clusterName)
+	default:
+		return fmt.Sprintf("Provisioning %s: %s", clusterName, originalMessage)
+	}
+}
+
 func managedClusterPostSend(events []interface{}) error {
 	for _, clusterEvent := range events {
 		evt, ok := clusterEvent.(*models.ManagedClusterEvent)
@@ -135,10 +148,16 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 		return nil
 	}
 
+	// Customize message for provision job events
+	message := evt.Message
+	if evt.InvolvedObject.Kind == "Job" && isValidProvisionJob(evt.InvolvedObject.Name, evt.Namespace) {
+		message = customizeProvisionJobMessage(evt.Reason, evt.Message, clusterName)
+	}
+
 	return &models.ManagedClusterEvent{
 		EventName:           evt.Name,
 		EventNamespace:      evt.Namespace,
-		Message:             evt.Message,
+		Message:             message,
 		Reason:              evt.Reason,
 		ClusterName:         clusterName,
 		ClusterID:           clusterId,
