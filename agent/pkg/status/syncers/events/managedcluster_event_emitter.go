@@ -46,15 +46,11 @@ func isValidProvisionJobEvent(evt *corev1.Event) bool {
 	// Extract middle part (hash) between namespace and "-provision"
 	// Example: "cluster2-0-bvpxh-provision" -> middle = "0-bvpxh"
 	// The middle part must: start with '-' and end with '-'
-	expectedLength := len(prefix) + len(suffix)
-	if len(jobName) <= expectedLength {
-		// No room for hash between prefix and suffix
+	if len(jobName) <= len(prefix)+len(suffix) {
 		return false
 	}
 
-	// Verify there's actual content between prefix and suffix
-	middle := jobName[len(prefix) : len(jobName)-len(suffix)]
-	return len(middle) > 0
+	return true
 }
 
 // customizeProvisionJobMessage customizes the message for provision job events
