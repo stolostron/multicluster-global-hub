@@ -19,11 +19,11 @@ import (
 
 var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 	var (
-		committer   *conflator.ConflationCommitter
-		testCtx     context.Context
-		testCancel  context.CancelFunc
-		topic1      = "test-topic-1"
-		topic2      = "test-topic-2"
+		committer  *conflator.ConflationCommitter
+		testCtx    context.Context
+		testCancel context.CancelFunc
+		topic1     = "test-topic-1"
+		topic2     = "test-topic-2"
 	)
 
 	BeforeEach(func() {
