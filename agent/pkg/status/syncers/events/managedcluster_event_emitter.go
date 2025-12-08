@@ -76,10 +76,8 @@ func managedClusterEventPredicate(obj client.Object) bool {
 
 	// Unified time filter for all accepted events (applied once at the end)
 	if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
-		log.Debugw("event filtered: duplicate event",
-			"event", evt.Namespace+"/"+evt.Name,
-			"kind", evt.InvolvedObject.Kind,
-			"eventTime", getEventLastTime(evt).Time)
+		log.Debugw("event filtered: expired event", "event", evt.Name, "kind", evt.InvolvedObject.Kind,
+			"time", getEventLastTime(evt).Time)
 		return false
 	}
 
@@ -90,10 +88,7 @@ func managedClusterEventPredicate(obj client.Object) bool {
 	if evt.InvolvedObject.Kind == "Job" {
 		jobName := evt.InvolvedObject.Name
 		if !isValidProvisionJob(jobName, evt.Namespace) {
-			log.Debugw("event filtered: invalid provision job name pattern",
-				"event", evt.Namespace+"/"+evt.Name,
-				"jobName", jobName,
-				"namespace", evt.Namespace)
+			log.Debugw("event filtered: invalid provision job name pattern", "event", evt.Name, "jobName", jobName)
 			return false
 		}
 		return true
@@ -130,18 +125,13 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 
 	cluster, err := getInvolveCluster(context.Background(), runtimeClient, clusterName)
 	if err != nil {
-		log.Debugw("event filtered: no matching ManagedCluster",
-			"clusterName", clusterName,
-			"event", evt.Namespace+"/"+evt.Name,
-			"error", err)
+		log.Debugw("event filtered: no matching cluster", "clusterName", clusterName, "event", evt.Name, "error", err)
 		return nil
 	}
 
 	clusterId := utils.GetClusterClaimID(cluster, string(cluster.GetUID()))
 	if clusterId == "" {
-		log.Errorw("failed to get clusterId",
-			"cluster", clusterName,
-			"event", evt.Namespace+"/"+evt.Name)
+		log.Warnw("failed to get clusterId", "cluster", clusterName, "event", evt.Name)
 		return nil
 	}
 
