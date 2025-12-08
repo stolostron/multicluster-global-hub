@@ -74,28 +74,6 @@ func managedClusterEventPredicate(obj client.Object) bool {
 		return false
 	}
 
-	// Use tagged switch to handle different event kinds (fixes staticcheck QF1003)
-	switch evt.InvolvedObject.Kind {
-	case constants.ManagedClusterKind:
-		// Direct ManagedCluster events - always accept (time filter applied later)
-		// No additional validation needed
-
-	case "Job":
-		// Provision Job events - validate job name pattern
-		jobName := evt.InvolvedObject.Name
-		if !isValidProvisionJob(jobName, evt.Namespace) {
-			log.Debugw("event filtered: invalid provision job name pattern",
-				"event", evt.Namespace+"/"+evt.Name,
-				"jobName", jobName,
-				"namespace", evt.Namespace)
-			return false
-		}
-
-	default:
-		// Not a ManagedCluster or provision Job event
-		return false
-	}
-
 	// Unified time filter for all accepted events (applied once at the end)
 	if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
 		log.Debugw("event filtered: duplicate event",
@@ -105,7 +83,23 @@ func managedClusterEventPredicate(obj client.Object) bool {
 		return false
 	}
 
-	return true
+	if evt.InvolvedObject.Kind == constants.ManagedClusterKind {
+		return true
+	}
+
+	if evt.InvolvedObject.Kind == "Job" {
+		jobName := evt.InvolvedObject.Name
+		if !isValidProvisionJob(jobName, evt.Namespace) {
+			log.Debugw("event filtered: invalid provision job name pattern",
+				"event", evt.Namespace+"/"+evt.Name,
+				"jobName", jobName,
+				"namespace", evt.Namespace)
+			return false
+		}
+		return true
+	}
+
+	return false
 }
 
 // managedClusterEventTransform transforms k8s Event to ManagedClusterEvent
