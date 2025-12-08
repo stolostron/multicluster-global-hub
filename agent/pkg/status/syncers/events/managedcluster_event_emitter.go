@@ -23,7 +23,14 @@ var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedCl
 // isValidProvisionJob validates if a job name matches the provision job pattern
 // Pattern: <namespace>-<hash>-provision
 // Returns true if valid, false otherwise.
-func isValidProvisionJob(jobName, namespace string) bool {
+func isValidProvisionJobEvent(evt *corev1.Event) bool {
+	if evt.InvolvedObject.Kind != "Job" {
+		return false
+	}
+
+	namespace := evt.Namespace
+	jobName := evt.InvolvedObject.Name
+
 	// Must end with "-provision" suffix
 	const suffix = "-provision"
 	if !strings.HasSuffix(jobName, suffix) {
@@ -98,12 +105,8 @@ func managedClusterEventPredicate(obj client.Object) bool {
 		return true
 	}
 
-	if evt.InvolvedObject.Kind == "Job" {
-		jobName := evt.InvolvedObject.Name
-		if !isValidProvisionJob(jobName, evt.Namespace) {
-			log.Debugw("event filtered: invalid provision job name pattern", "event", evt.Name, "jobName", jobName)
-			return false
-		}
+	if isValidProvisionJobEvent(evt) {
+		log.Debugw("event filtered: invalid provision job name", "event", evt.Name, "jobName", evt.InvolvedObject.Name)
 		return true
 	}
 
@@ -150,7 +153,7 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 
 	// Customize message for provision job events
 	message := evt.Message
-	if evt.InvolvedObject.Kind == "Job" && isValidProvisionJob(evt.InvolvedObject.Name, evt.Namespace) {
+	if isValidProvisionJobEvent(evt) {
 		message = customizeProvisionJobMessage(evt.Reason, evt.Message, clusterName)
 	}
 

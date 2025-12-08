@@ -58,86 +58,123 @@ func TestCustomizeProvisionJobMessage(t *testing.T) {
 	}
 }
 
-func TestIsValidProvisionJob(t *testing.T) {
+func TestIsValidProvisionJobEvent(t *testing.T) {
 	tests := []struct {
 		name      string
 		jobName   string
 		namespace string
+		kind      string
 		wantValid bool
 	}{
 		{
 			name:      "valid provision job with single-part hash",
 			jobName:   "cluster2-bvpxh-provision",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: true,
 		},
 		{
 			name:      "valid provision job with multi-part hash",
 			jobName:   "cluster2-0-bvpxh-provision",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: true,
 		},
 		{
 			name:      "valid provision job with alphanumeric hash",
 			jobName:   "prod-abc123-provision",
 			namespace: "prod",
+			kind:      "Job",
 			wantValid: true,
 		},
 		{
 			name:      "valid provision job with multi-part namespace",
 			jobName:   "my-cluster-xyz789-provision",
 			namespace: "my-cluster",
+			kind:      "Job",
 			wantValid: true,
 		},
 		{
 			name:      "valid provision job with hyphenated hash",
 			jobName:   "cluster2-0-bv-pxh-provision",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: true,
 		},
 		{
 			name:      "invalid - missing provision suffix",
 			jobName:   "cluster2-0-bvpxh",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: false,
 		},
 		{
 			name:      "invalid - wrong suffix",
 			jobName:   "cluster2-0-bvpxh-deploy",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: false,
 		},
 		{
 			name:      "invalid - no hash (directly provision)",
 			jobName:   "cluster2-provision",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: false,
 		},
 		{
 			name:      "invalid - namespace mismatch",
 			jobName:   "cluster2-abc-provision",
 			namespace: "cluster3",
+			kind:      "Job",
 			wantValid: false,
 		},
 		{
 			name:      "invalid - empty job name",
 			jobName:   "",
 			namespace: "cluster2",
+			kind:      "Job",
 			wantValid: false,
 		},
 		{
 			name:      "invalid - only provision suffix",
 			jobName:   "-provision",
 			namespace: "",
+			kind:      "Job",
+			wantValid: false,
+		},
+		{
+			name:      "invalid - not a Job kind",
+			jobName:   "cluster2-abc123-provision",
+			namespace: "cluster2",
+			kind:      "Pod",
+			wantValid: false,
+		},
+		{
+			name:      "invalid - Deployment kind",
+			jobName:   "cluster2-abc123-provision",
+			namespace: "cluster2",
+			kind:      "Deployment",
 			wantValid: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isValidProvisionJob(tt.jobName, tt.namespace)
+			evt := &corev1.Event{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-event",
+					Namespace: tt.namespace,
+				},
+				InvolvedObject: corev1.ObjectReference{
+					Kind: tt.kind,
+					Name: tt.jobName,
+				},
+			}
+			got := isValidProvisionJobEvent(evt)
 			if got != tt.wantValid {
-				t.Errorf("isValidProvisionJob(%q, %q) = %v, want %v", tt.jobName, tt.namespace, got, tt.wantValid)
+				t.Errorf("isValidProvisionJobEvent(jobName=%q, namespace=%q, kind=%q) = %v, want %v",
+					tt.jobName, tt.namespace, tt.kind, got, tt.wantValid)
 			}
 		})
 	}
