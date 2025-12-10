@@ -58,7 +58,7 @@ func isValidProvisionJobEvent(evt *corev1.Event) bool {
 func customizeProvisionJobMessage(reason, originalMessage, clusterName string) string {
 	switch reason {
 	case "SuccessfulCreate":
-		return fmt.Sprintf("Cluster %s provisioning started", clusterName)
+		return fmt.Sprintf("Cluster %s provisioning has started", clusterName)
 	case "Completed":
 		return fmt.Sprintf("Cluster %s provisioning completed successfully", clusterName)
 	default:

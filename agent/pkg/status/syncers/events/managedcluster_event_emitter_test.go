@@ -23,7 +23,7 @@ func TestCustomizeProvisionJobMessage(t *testing.T) {
 			reason:          "SuccessfulCreate",
 			originalMessage: "Created pod: cluster2-0-tncv5-provision-fhd94",
 			clusterName:     "cluster2",
-			wantMessage:     "Cluster cluster2 provisioning started",
+			wantMessage:     "Cluster cluster2 provisioning has started",
 		},
 		{
 			name:            "Completed reason",
