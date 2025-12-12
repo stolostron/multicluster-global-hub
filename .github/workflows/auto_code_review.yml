@@ -155,10 +155,14 @@ jobs:
           gemini_api_key: '${{ secrets.GEMINI_API_KEY }}'
           use_vertex_ai: '${{ vars.GOOGLE_GENAI_USE_VERTEXAI }}'
           use_gemini_code_assist: '${{ vars.GOOGLE_GENAI_USE_GCA }}'
+          gemini_debug: '${{ vars.GEMINI_DEBUG }}'
           settings: |-
             {
               "model": {
                 "maxSessionTurns": 30
+              },
+              "output": {
+                "format": "json"
               },
               "mcpServers": {
                 "github": {
@@ -438,6 +442,56 @@ jobs:
 
             Remember, you are running in a VM and no one reviewing your output. Your review must be posted to GitHub using the MCP tools to create a pending review, add comments to the pending review, and submit the pending review.
 
+      - name: Process summary
+        id: process_summary
+        shell: bash
+        if: always()
+        env:
+          GEMINI_SUMMARY: ${{ steps.gemini_pr_review.outputs.summary }}
+        run: |
+          set -uo pipefail
+          echo "::group::Process summary"
+
+          # the output can have junk after the JSON structure so use jq to remove it by having it parse from { to }
+          JSON_OBJ="$(echo "$GEMINI_SUMMARY" | jq -R -s 'match("(?s)\\{.*\\}") | .string | fromjson')"
+          
+          # verify it
+          echo "$JSON_OBJ" | jq empty
+          
+          # safely output multiline string
+          DELIMITER="__GEMINI_EOF__"
+          {
+            echo "json<<${DELIMITER}"
+            echo "${JSON_OBJ}"
+            echo "${DELIMITER}"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "::endgroup::"
+
+      - name: Logs
+        if: always()
+        shell: bash
+        env:
+          GEMINI_SUMMARY: ${{ steps.gemini_pr_review.outputs.summary }}
+          GEMINI_SUMMARY_JSON: ${{ steps.process_summary.outputs.json }}
+          GEMINI_ERROR: ${{ steps.gemini_pr_review.outputs.error }}
+        run: |
+          set -uo pipefail
+          
+          # show the plain response in text
+          echo "::group::Gemini response"
+          echo "$GEMINI_SUMMARY_JSON" | jq -r .response
+          echo "::endgroup::"
+
+          # dump the entire summary
+          echo "::group::Gemini output"
+          echo "$GEMINI_SUMMARY"
+          echo "::endgroup::"
+
+          # dump the errors
+          echo "::group::Gemini errors"
+          echo "$GEMINI_ERROR"
+          echo "::endgroup::"
 
       - name: 'Post PR review failure comment'
         if: |-
