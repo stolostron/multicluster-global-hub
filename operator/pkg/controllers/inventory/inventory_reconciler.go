@@ -272,9 +272,9 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 			NodeSelector:          mgh.Spec.NodeSelector,
 			Tolerations:           mgh.Spec.Tolerations,
 			KafkaBootstrapServer:  kafkaConfig.BootstrapServer,
-			KafkaSSLCAPEM:         kafkaConfig.CACert,
-			KafkaSSLCertPEM:       kafkaConfig.ClientCert,
-			KafkaSSLKeyPEM:        kafkaConfig.ClientKey,
+			KafkaSSLCAPEM:         base64.StdEncoding.EncodeToString([]byte(kafkaConfig.CACert)),
+			KafkaSSLCertPEM:       base64.StdEncoding.EncodeToString([]byte(kafkaConfig.ClientCert)),
+			KafkaSSLKeyPEM:        base64.StdEncoding.EncodeToString([]byte(kafkaConfig.ClientKey)),
 			InventoryAPIRouteHost: fmt.Sprintf("https://%s", inventoryRoute.Spec.Host),
 		}, nil
 	})
