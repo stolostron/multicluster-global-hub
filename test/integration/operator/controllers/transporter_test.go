@@ -55,6 +55,12 @@ var _ = Describe("transporter", Ordered, func() {
 			Spec: v1alpha4.MulticlusterGlobalHubSpec{
 				EnableMetrics: true,
 				DataLayerSpec: v1alpha4.DataLayerSpec{
+					Kafka: v1alpha4.KafkaSpec{
+						KafkaTopics: v1alpha4.KafkaTopics{
+							SpecTopic:   "gh-spec",
+							StatusTopic: "gh-status.*",
+						},
+					},
 					Postgres: v1alpha4.PostgresSpec{
 						Retention: "2y",
 					},
@@ -121,6 +127,15 @@ var _ = Describe("transporter", Ordered, func() {
 		err := testutils.CreateTransportCSV(runtimeClient, ctx, "strimzi-kafka-operator", mgh.Namespace)
 		Expect(err).To(Succeed())
 
+		// Reset status topic for Strimzi mode (may have been changed by BYO test)
+		Eventually(func() error {
+			if err := runtimeClient.Get(ctx, client.ObjectKeyFromObject(mgh), mgh); err != nil {
+				return err
+			}
+			mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic = "gh-status.*"
+			return runtimeClient.Update(ctx, mgh)
+		}, 10*time.Second, 100*time.Millisecond).ShouldNot(HaveOccurred())
+
 		// update the transport protocol configuration, topic
 		err = config.SetMulticlusterGlobalHubConfig(ctx, mgh, nil, nil)
 		Expect(err).To(Succeed())
@@ -129,7 +144,7 @@ var _ = Describe("transporter", Ordered, func() {
 
 		Expect(config.TransporterProtocol()).To(Equal(transport.StrimziTransporter))
 		Expect(config.GetSpecTopic()).To(Equal("gh-spec"))
-		Expect(config.GetRawStatusTopic()).To(Equal("gh-status"))
+		Expect(config.GetRawStatusTopic()).To(Equal("gh-status.*"))
 
 		reconciler := operatortrans.NewTransportReconciler(runtimeManager)
 
@@ -225,6 +240,10 @@ var _ = Describe("transporter", Ordered, func() {
 	})
 
 	It("should pass the strimzi transport configuration", func() {
+		// Ensure transport config is set (may have been cleared by previous test)
+		err := config.SetTransportConfig(ctx, runtimeClient, mgh)
+		Expect(err).To(Succeed())
+
 		trans := protocol.NewStrimziTransporter(
 			runtimeManager,
 			mgh,
@@ -363,6 +382,11 @@ var _ = Describe("transporter", Ordered, func() {
 
 		// simulate to create a cluster named: hub1
 		clusterName := "hub1"
+
+		// Initialize transporter state (topicPartitionReplicas, etc.) before calling EnsureTopic
+		needRequeue, err := trans.EnsureKafka()
+		Expect(err).To(Succeed())
+		Expect(needRequeue).To(BeFalse())
 
 		// user - round 1
 		userName, err := trans.EnsureUser(clusterName)

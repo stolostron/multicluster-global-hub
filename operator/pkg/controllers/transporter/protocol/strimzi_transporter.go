@@ -164,17 +164,10 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 func (k *strimziTransporter) EnsureStrimziInstalled() (bool, error) {
 	err := k.ensureSubscription(k.mgh)
 	if err != nil {
-		return true, err
+		return false, err
 	}
 
-	installed, err := k.isCSVInstalled()
-	if err != nil {
-		return true, err
-	}
-	if !installed {
-		return true, nil
-	}
-	return false, nil
+	return k.isCSVInstalled()
 }
 
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
