@@ -171,7 +171,7 @@ var kafkaUserPred = predicate.Funcs{
 }
 
 func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter transport.Transporter) error {
-	if startedKafkaController {
+	if !config.IsACMResourceReady() || startedKafkaController {
 		return nil
 	}
 	log.Info("start kafka controller")
