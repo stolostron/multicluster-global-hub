@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -216,14 +217,19 @@ func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) 
 		return nil, err
 	}
 	offsetToStart := []kafka.TopicPartition{}
-	for i, pos := range positions {
+	for _, pos := range positions {
 		var kafkaPosition transport.EventPosition
 		err := json.Unmarshal(pos.Payload, &kafkaPosition)
 		if err != nil {
 			return nil, err
 		}
+		// Name is in format "topic@partition", extract the topic part
+		topic := pos.Name
+		if idx := strings.LastIndex(pos.Name, "@"); idx != -1 {
+			topic = pos.Name[:idx]
+		}
 		offsetToStart = append(offsetToStart, kafka.TopicPartition{
-			Topic:     &positions[i].Name,
+			Topic:     &topic,
 			Partition: kafkaPosition.Partition,
 			Offset:    kafka.Offset(kafkaPosition.Offset),
 		})
