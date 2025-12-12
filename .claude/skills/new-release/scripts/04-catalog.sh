@@ -643,6 +643,30 @@ elif [[ ! -f "$CATALOG_TEMPLATE_FILE" ]]; then
   echo "   ⚠️  File not found: $CATALOG_TEMPLATE_FILE" >&2
 fi
 
+# Step 2.6: Update filter_catalog.py
+echo ""
+echo "📍 Step 2.6: Updating filter_catalog.py..."
+
+FILTER_CATALOG_FILE="filter_catalog.py"
+if [[ -f "$FILTER_CATALOG_FILE" && -n "$PREV_CATALOG_VERSION" ]]; then
+  # Calculate the version before the previous version (e.g., for 1.7, prev is 1.6, skip_prev is 1.5)
+  PREV_MINOR="${PREV_CATALOG_VERSION#1.}"
+  SKIP_PREV_MINOR=$((PREV_MINOR - 1))
+
+  echo "   Updating filter_catalog.py defaultChannel"
+  echo "   Changing: release-1.${SKIP_PREV_MINOR}"
+  echo "   To:       release-${PREV_CATALOG_VERSION}"
+
+  # Update the defaultChannel in filter_catalog.py from previous-previous to previous version
+  # Example: For release-1.7, change "release-1.5" to "release-1.6"
+  sed "${SED_INPLACE[@]}" "s/\"release-1\.${SKIP_PREV_MINOR}\"/\"release-${PREV_CATALOG_VERSION}\"/g" "$FILTER_CATALOG_FILE"
+
+  echo "   ✅ Updated $FILTER_CATALOG_FILE"
+  echo "      - defaultChannel: release-1.${SKIP_PREV_MINOR} → release-${PREV_CATALOG_VERSION}"
+elif [[ ! -f "$FILTER_CATALOG_FILE" ]]; then
+  echo "   ⚠️  File not found: $FILTER_CATALOG_FILE" >&2
+fi
+
 # Step 3: Commit changes
 echo ""
 echo "📍 Step 3: Committing changes on $CATALOG_BRANCH..."
@@ -657,6 +681,7 @@ else
 
 - Update images-mirror-set.yaml to use ${CATALOG_TAG}
 - Update catalog-template-current.json (release channel and operator version)
+- Update filter_catalog.py defaultChannel to ${BASE_BRANCH}
 - Add OCP 4.${NEW_OCP_VER} pipelines (pull-request and push)
 - Add OCP 4.${NEW_OCP_VER} Containerfile.catalog
 - Remove OCP 4.${OLD_OCP_VER} pipelines and directory
@@ -762,6 +787,8 @@ fi
 ## Changes
 
 - Update images-mirror-set.yaml to use \`${CATALOG_TAG}\`
+- Update catalog-template-current.json (release channel and operator version)
+- Update filter_catalog.py defaultChannel to \`${BASE_BRANCH}\`
 - Add OCP 4.${NEW_OCP_VER} pipelines (pull-request and push)
 - Remove OCP 4.${OLD_OCP_VER} pipelines
 - Update existing OCP 4.$((OCP_MIN%100))-4.$((OCP_MAX-1%100)) pipelines
@@ -968,6 +995,8 @@ echo "  ✓ Catalog branch: $CATALOG_BRANCH (from $BASE_BRANCH)"
 if [[ "$CHANGES_COMMITTED" = true ]]; then
   echo "  ✓ Updated images-mirror-set.yaml to ${CATALOG_TAG}"
   if [[ -n "$PREV_CATALOG_TAG" ]]; then
+    echo "  ✓ Updated catalog-template-current.json"
+    echo "  ✓ Updated filter_catalog.py defaultChannel to ${BASE_BRANCH}"
     if [[ "$PREV_OCP_MAX" != "$OCP_MAX" ]]; then
       echo "  ✓ Added OCP 4.${NEW_OCP_VER} pipelines and Containerfile"
       echo "  ✓ Removed OCP 4.${OLD_OCP_VER} pipelines and directory"
