@@ -15,6 +15,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"testing"
@@ -37,6 +38,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/test/integration/utils/testpostgres"
 )
 
@@ -144,7 +146,43 @@ var _ = AfterSuite(func() {
 })
 
 func CreateTestSecretTransport(c client.Client, namespace string) error {
+	// Create dummy test certificates (base64 encoded)
+	testCACert := base64.StdEncoding.EncodeToString([]byte("test-ca-cert"))
+	testClientCert := base64.StdEncoding.EncodeToString([]byte("test-client-cert"))
+	testClientKey := base64.StdEncoding.EncodeToString([]byte("test-client-key"))
+
+	// Create kafka config with base64 encoded certs
+	kafkaConfig := &transport.KafkaConfig{
+		BootstrapServer: "localhost:test",
+		CACert:          testCACert,
+		ClientCert:      testClientCert,
+		ClientKey:       testClientKey,
+	}
+
+	// Marshal kafka config to yaml
+	kafkaYaml, err := kafkaConfig.YamlMarshal(true)
+	if err != nil {
+		return err
+	}
+
+	// Create transport-config secret
 	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportConfigSecret,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"kafka.yaml": kafkaYaml,
+		},
+		Type: corev1.SecretTypeOpaque,
+	}
+	err = c.Create(context.Background(), secret)
+	if err != nil {
+		return err
+	}
+
+	// Also create the old transport secret for backwards compatibility with BYO transporter
+	oldSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHTransportSecretName,
 			Namespace: namespace,
@@ -157,20 +195,17 @@ func CreateTestSecretTransport(c client.Client, namespace string) error {
 		},
 		Type: corev1.SecretTypeOpaque,
 	}
-	err := c.Create(context.Background(), secret)
+	err = c.Create(context.Background(), oldSecret)
 	if err != nil {
 		return err
 	}
+
 	trans := protocol.NewBYOTransporter(ctx, types.NamespacedName{
 		Namespace: namespace,
 		Name:      constants.GHTransportSecretName,
 	}, runtimeClient)
 	config.SetTransporter(trans)
-	conn, err := trans.GetConnCredential("")
-	if err != nil {
-		return err
-	}
-	config.SetTransporterConn(conn)
+
 	_, _ = trans.EnsureTopic("")
 	return nil
 }
