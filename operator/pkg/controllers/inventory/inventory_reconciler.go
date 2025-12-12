@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"reflect"
+	"time"
 
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -38,6 +39,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
+	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -59,9 +61,6 @@ func StartInventoryController(initOption config.ControllerOption) (config.Contro
 		return inventoryReconciler, nil
 	}
 	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
-		return nil, nil
-	}
-	if config.GetTransporterConn() == nil {
 		return nil, nil
 	}
 	if config.GetStorageConnection() == nil {
@@ -211,10 +210,23 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	transportConn := config.GetTransporterConn()
-	if transportConn == nil || transportConn.BootstrapServer == "" {
-		reconcileErr = fmt.Errorf("the transport connection(%v) must not be empty", transportConn)
-		return ctrl.Result{}, reconcileErr
+	if !config.IsTransportConfigReady(ctx, mgh.Namespace, r.GetClient()) {
+		log.Info("Waiting for transport-config secret to be created by transporter controller")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+
+	transportConfigSecret := &corev1.Secret{}
+	if err = r.GetClient().Get(ctx, types.NamespacedName{
+		Name:      constants.GHTransportConfigSecret,
+		Namespace: mgh.Namespace,
+	}, transportConfigSecret); err != nil {
+		log.Infof("Failed to get transport-config secret, will retry: %v", err)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	kafkaConfig, err := transportconfig.GetKafkaCredentialBySecret(transportConfigSecret, r.GetClient())
+	if err != nil {
+		log.Infof("Failed to get kafka config from transport-config secret, will retry: %v", err)
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
 	inventoryRoute := &routev1.Route{}
@@ -259,10 +271,10 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 			Namespace:             mgh.Namespace,
 			NodeSelector:          mgh.Spec.NodeSelector,
 			Tolerations:           mgh.Spec.Tolerations,
-			KafkaBootstrapServer:  transportConn.BootstrapServer,
-			KafkaSSLCAPEM:         transportConn.CACert,
-			KafkaSSLCertPEM:       transportConn.ClientCert,
-			KafkaSSLKeyPEM:        transportConn.ClientKey,
+			KafkaBootstrapServer:  kafkaConfig.BootstrapServer,
+			KafkaSSLCAPEM:         kafkaConfig.CACert,
+			KafkaSSLCertPEM:       kafkaConfig.ClientCert,
+			KafkaSSLKeyPEM:        kafkaConfig.ClientKey,
 			InventoryAPIRouteHost: fmt.Sprintf("https://%s", inventoryRoute.Spec.Host),
 		}, nil
 	})
