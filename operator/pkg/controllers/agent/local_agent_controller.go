@@ -47,7 +47,8 @@ func StartLocalAgentController(initOption config.ControllerOption) (config.Contr
 
 	log.Info("start local agent controller")
 
-	if config.GetTransporterConn() == nil {
+	if !config.IsTransportConfigReady(initOption.Ctx, initOption.MulticlusterGlobalHub.Namespace,
+		initOption.Manager.GetClient()) {
 		return nil, nil
 	}
 

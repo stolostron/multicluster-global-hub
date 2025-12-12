@@ -7,6 +7,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"reflect"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -15,17 +16,17 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	operatorutils "github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
@@ -39,7 +40,6 @@ var manifests embed.FS
 var (
 	startedKafkaController = false
 	isResourceRemoved      = false
-	updateConn             bool
 )
 
 var log = logger.DefaultZapLogger()
@@ -92,12 +92,8 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 	}
-	var reconcileErr error
 	defer func() {
-		err = config.UpdateMGHComponent(ctx, r.c,
-			r.getKafkaComponentStatus(reconcileErr, r.kafkaStatus),
-			updateConn,
-		)
+		err = config.UpdateMGHComponent(ctx, r.c, r.getKafkaComponentStatus(err, r.kafkaStatus), false)
 		if err != nil {
 			log.Errorf("failed to update mgh status, err:%v", err)
 		}
@@ -110,9 +106,9 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	r.kafkaStatus, reconcileErr = r.trans.kafkaClusterReady()
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
+	r.kafkaStatus, err = r.trans.kafkaClusterReady()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 	if !r.kafkaStatus.kafkaReady {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
@@ -131,41 +127,16 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 	if conn == nil {
+		log.Infow("waiting the kafka cluster credential to be ready...", "message", "kafka cluster credential is not ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	updateConn = config.SetTransporterConn(conn)
 
-	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
-	if updateConn {
-		log.Infof("transport-config updating: update mgh annotation to trigger MetaController reconciliation")
-		// Update MGH annotation to trigger MetaController reconciliation
-		// Note: controller-runtime's For() method does not trigger reconciliation for status-only updates,
-		// even with custom predicates. Therefore, we update an annotation (metadata change) to ensure
-		// the MetaController gets notified and can reconcile the transportConfig secret.
-		// Use retry mechanism to handle optimistic concurrency conflicts
-		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			// Fetch the latest version of MGH to avoid conflicts
-			if err := r.c.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
-				return err
-			}
-			if mgh.Annotations == nil {
-				mgh.Annotations = make(map[string]string)
-			}
-			mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339)
-			return r.c.Update(ctx, mgh)
-		})
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update mgh annotation to trigger reconciliation, err:%v", err)
-		}
-
-		// Also update the component status for consistency
-		// Note: UpdateMGHComponent already uses retry.RetryOnConflict internally
-		currentKafka := mgh.Status.Components[config.COMPONENTS_KAFKA_NAME]
-		err = config.UpdateMGHComponent(ctx, r.c, currentKafka, true)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to update mgh transport connection status, err:%v", err)
-		}
+	// Create/update transport-config secret for manager
+	if err := CreateManagerTransportSecret(ctx, mgh, conn, r.c); err != nil {
+		log.Errorf("failed to create manager transport-config secret: %v", err)
+		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -246,6 +217,10 @@ func getManagerTransportConn(trans *strimziTransporter) (
 		log.Infow("waiting the kafka user credential to be ready...", "message", err.Error())
 		return nil, nil
 	}
+
+	// consumer group id
+	conn.ConsumerGroupID = config.GetConsumerGroupID(trans.mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix,
+		constants.CloudEventGlobalHubClusterName)
 	return conn, nil
 }
 
@@ -271,7 +246,8 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 			Message: kafkaClusterStatus.kafkaMessage,
 		}
 	}
-	if config.GetTransporterConn() == nil {
+
+	if !config.IsTransportConfigReady(r.trans.ctx, r.trans.mgh.Namespace, r.c) {
 		return v1alpha4.StatusCondition{
 			Kind:    "TransportConnection",
 			Name:    config.COMPONENTS_KAFKA_NAME,
@@ -289,6 +265,83 @@ func (r *KafkaController) getKafkaComponentStatus(reconcileErr error, kafkaClust
 		Reason:  "TransportConnectionSet",
 		Message: "Transport connection has set",
 	}
+}
+
+// CreateManagerTransportSecret creates or updates the transport-config secret for manager
+func CreateManagerTransportSecret(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub,
+	kafkaConfig *transport.KafkaConfig, c client.Client,
+) error {
+	secretData := make(map[string][]byte)
+	// Build kafka config yaml
+	if kafkaConfig != nil {
+		kafkaConfigYaml, err := kafkaConfig.YamlMarshal(config.IsBYOKafka())
+		if err != nil {
+			return fmt.Errorf("failed to marshal kafka config: %w", err)
+		}
+		secretData["kafka.yaml"] = kafkaConfigYaml
+	}
+
+	// Add inventory config if enabled
+	if config.WithInventory(mgh) {
+		inventoryConn, err := certificates.GetInventoryCredential(c)
+		if err != nil {
+			log.Warnf("failed to get inventory credential: %v", err)
+		} else {
+			inventoryConfigYaml, err := inventoryConn.YamlMarshal(true)
+			if err != nil {
+				log.Warnf("failed to marshal inventory config: %v", err)
+			} else {
+				secretData["rest.yaml"] = inventoryConfigYaml
+			}
+		}
+	}
+
+	if len(secretData) == 0 {
+		return fmt.Errorf("no kafka config or inventory config to create transport-config secret")
+	}
+
+	// Create or update the secret
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.GHTransportConfigSecret,
+			Namespace: mgh.Namespace,
+			Labels: map[string]string{
+				"name": "multicluster-global-hub-manager",
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: secretData,
+	}
+
+	// Set MGH as the owner of this secret
+	if err := controllerutil.SetControllerReference(mgh, secret, c.Scheme()); err != nil {
+		return fmt.Errorf("failed to set owner reference for transport-config secret: %w", err)
+	}
+
+	return createOrUpdateSecret(ctx, secret, c)
+}
+
+// createOrUpdateSecret creates or updates a secret
+func createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, c client.Client) error {
+	existing := &corev1.Secret{}
+	err := c.Get(ctx, client.ObjectKeyFromObject(secret), existing)
+	if errors.IsNotFound(err) {
+		log.Infof("creating secret %s/%s", secret.Namespace, secret.Name)
+		return c.Create(ctx, secret)
+	} else if err != nil {
+		return err
+	}
+
+	// Update if data changed
+	if !reflect.DeepEqual(existing.Data, secret.Data) {
+		log.Infof("updating secret %s/%s", secret.Namespace, secret.Name)
+		existing.Data = secret.Data
+		existing.Labels = secret.Labels
+		existing.OwnerReferences = secret.OwnerReferences
+		return c.Update(ctx, existing)
+	}
+
+	return nil
 }
 
 func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Result, error) {

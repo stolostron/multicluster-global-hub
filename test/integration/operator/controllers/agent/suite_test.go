@@ -43,7 +43,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/addon"
 	operatortrans "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter/protocol"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -123,17 +122,6 @@ var _ = BeforeSuite(func() {
 			EnablePprof:           false,
 		},
 	}
-	config.SetTransporterConn(&transport.KafkaConfig{
-		ClusterID: "fake",
-	})
-
-	By("start the addon manager and add addon controller to manager")
-	_, err = addon.StartAddonManagerController(controllerOption)
-	Expect(err).ToNot(HaveOccurred())
-	_, err = addon.StartDefaultAgentController(controllerOption)
-	Expect(err).ToNot(HaveOccurred())
-	_, err = agent.StartLocalAgentController(controllerOption)
-	Expect(err).ToNot(HaveOccurred())
 
 	kubeClient, err := kubernetes.NewForConfig(k8sManager.GetConfig())
 	Expect(err).ToNot(HaveOccurred())
@@ -153,6 +141,14 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
 	}()
 	Expect(k8sManager.GetCache().WaitForCacheSync(ctx)).To(BeTrue())
+
+	By("start the addon manager and add addon controller to manager")
+	_, err = addon.StartAddonManagerController(controllerOption)
+	Expect(err).ToNot(HaveOccurred())
+	_, err = addon.StartDefaultAgentController(controllerOption)
+	Expect(err).ToNot(HaveOccurred())
+	_, err = agent.StartLocalAgentController(controllerOption)
+	Expect(err).ToNot(HaveOccurred())
 })
 
 var _ = AfterSuite(func() {
@@ -248,6 +244,11 @@ func prepareBeforeTest() {
 	By("By creating secret transport")
 	err = CreateTestTransportSecret(runtimeClient, mgh.Namespace)
 	Expect(err).ToNot(HaveOccurred())
+
+	By("By creating transport-config secret for addon manager readiness check")
+	err = CreateTestTransportConfigSecret(runtimeClient, mgh.Namespace)
+	Expect(err).ToNot(HaveOccurred())
+
 	transporter := operatortrans.NewBYOTransporter(ctx, types.NamespacedName{
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
@@ -299,6 +300,36 @@ func CreateTestTransportSecret(c client.Client, namespace string) error {
 				"ca.crt":           []byte("foobar"),
 				"client.crt":       []byte(""),
 				"client.key":       []byte(""),
+			},
+		})
+	}
+	return nil
+}
+
+func CreateTestTransportConfigSecret(c client.Client, namespace string) error {
+	kafkaYaml := `bootstrapServer: test-kafka.example.com
+caCert: Zm9vYmFy
+clientCert: ""
+clientKey: ""
+clusterID: test-kafka.example.com
+consumerGroupID: ""
+specTopic: gh-spec
+statusTopic: gh-status`
+
+	err := c.Get(context.TODO(), types.NamespacedName{
+		Namespace: namespace,
+		Name:      constants.GHTransportConfigSecret,
+	}, &corev1.Secret{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	} else if errors.IsNotFound(err) {
+		return c.Create(context.TODO(), &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.GHTransportConfigSecret,
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				"kafka.yaml": []byte(kafkaYaml),
 			},
 		})
 	}
