@@ -161,15 +161,6 @@ func NewStrimziTransporter(mgr ctrl.Manager, mgh *operatorv1alpha4.MulticlusterG
 	return transporter
 }
 
-func (k *strimziTransporter) EnsureStrimziInstalled() (bool, error) {
-	err := k.ensureSubscription(k.mgh)
-	if err != nil {
-		return false, err
-	}
-
-	return k.isCSVInstalled()
-}
-
 func (k *strimziTransporter) getCurrentReplicas() (int32, error) {
 	existingKafkaNodepool := &kafkav1beta2.KafkaNodePool{}
 	err := k.manager.GetClient().Get(k.ctx, types.NamespacedName{
@@ -214,6 +205,20 @@ func WithSubName(name string) KafkaOption {
 // EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
 func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	log.Debug("reconcile global hub kafka transport...")
+	err := k.ensureSubscription(k.mgh)
+	if err != nil {
+		return false, err
+	}
+
+	installed, err := k.isCSVInstalled()
+	if err != nil {
+		return false, err
+	}
+
+	if !installed {
+		return true, nil
+	}
+
 	topicPartitionReplicas, err := k.getCurrentReplicas()
 	if err != nil {
 		return true, err
