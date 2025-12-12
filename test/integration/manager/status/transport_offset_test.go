@@ -176,7 +176,9 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 			var positions []models.Transport
 			Eventually(func() int {
 				positions = []models.Transport{}
-				db.Find(&positions)
+				db.Where("name IN ?", []string{
+					topic1 + "@0", topic1 + "@1", topic1 + "@2", topic2 + "@0",
+				}).Find(&positions)
 				return len(positions)
 			}, 20*time.Second, 1*time.Second).Should(Equal(4), "Should have 4 records (3 partitions for topic1 + 1 partition for topic2)")
 

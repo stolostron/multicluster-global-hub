@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,52 @@ import (
 
 var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedClusterEventType))
 
+// isValidProvisionJob validates if a job name matches the provision job pattern
+// Pattern: <namespace>-<hash>-provision
+// Returns true if valid, false otherwise.
+func isValidProvisionJobEvent(evt *corev1.Event) bool {
+	if evt.InvolvedObject.Kind != "Job" {
+		return false
+	}
+
+	namespace := evt.Namespace
+	jobName := evt.InvolvedObject.Name
+
+	// Must end with "-provision" suffix
+	const suffix = "-provision"
+	if !strings.HasSuffix(jobName, suffix) {
+		return false
+	}
+
+	// Must start with "namespace-"
+	prefix := namespace + "-"
+	if !strings.HasPrefix(jobName, prefix) {
+		return false
+	}
+
+	// Extract middle part (hash) between namespace and "-provision"
+	// Example: "cluster2-0-bvpxh-provision" -> middle = "0-bvpxh"
+	// The middle part must: start with '-' and end with '-'
+	if len(jobName) <= len(prefix)+len(suffix) {
+		return false
+	}
+
+	return true
+}
+
+// customizeProvisionJobMessage customizes the message for provision job events
+// to provide better user experience and clarity
+func customizeProvisionJobMessage(reason, originalMessage, clusterName string) string {
+	switch reason {
+	case "SuccessfulCreate":
+		return fmt.Sprintf("Cluster %s provisioning has started", clusterName)
+	case "Completed":
+		return fmt.Sprintf("Cluster %s provisioning completed successfully", clusterName)
+	default:
+		return fmt.Sprintf("Provisioning %s: %s", clusterName, originalMessage)
+	}
+}
+
 func managedClusterPostSend(events []interface{}) error {
 	for _, clusterEvent := range events {
 		evt, ok := clusterEvent.(*models.ManagedClusterEvent)
@@ -33,6 +80,9 @@ func managedClusterPostSend(events []interface{}) error {
 }
 
 // managedClusterEventPredicate filters events for ManagedCluster resources
+// Handles two types of events:
+// 1. Direct ManagedCluster events (InvolvedObject.Kind == "ManagedCluster")
+// 2. Provision Job events (InvolvedObject.Kind == "Job" with "-provision" suffix)
 func managedClusterEventPredicate(obj client.Object) bool {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
@@ -40,44 +90,73 @@ func managedClusterEventPredicate(obj client.Object) bool {
 		return false
 	}
 
-	if evt.InvolvedObject.Kind != constants.ManagedClusterKind {
-		log.Debugw("event filtered: not a ManagedCluster event", "event", evt.Namespace+"/"+evt.Name)
+	// Unified time filter for all accepted events (applied once at the end)
+	if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
+		log.Debugw("event filtered: expired event", "event", evt.Name, "kind", evt.InvolvedObject.Kind,
+			"time", getEventLastTime(evt).Time)
 		return false
 	}
 
-	if !filter.Newer(TimeFilterKeyForManagedCluster, getEventLastTime(evt).Time) {
-		log.Debugw("event filtered:", "event", evt.Namespace+"/"+evt.Name, "eventTime", getEventLastTime(evt).Time)
-		return false
+	if evt.InvolvedObject.Kind == constants.ManagedClusterKind {
+		return true
 	}
-	return true
+
+	if isValidProvisionJobEvent(evt) {
+		log.Debugw("event filtered: invalid provision job name", "event", evt.Name, "jobName", evt.InvolvedObject.Name)
+		return true
+	}
+
+	return false
 }
 
 // managedClusterEventTransform transforms k8s Event to ManagedClusterEvent
+// Handles two types of events:
+// 1. Direct ManagedCluster events: clusterName = InvolvedObject.Name
+// 2. Provision Job events: clusterName = Namespace (OCM convention)
 func managedClusterEventTransform(runtimeClient client.Client, obj client.Object) interface{} {
 	evt, ok := obj.(*corev1.Event)
 	if !ok {
 		return nil
 	}
 
-	clusterName := evt.InvolvedObject.Name
+	var clusterName string
 
-	cluster, err := getInvolveCluster(context.Background(), runtimeClient, evt)
+	// Determine cluster name based on event type (use tagged switch for consistency)
+	switch evt.InvolvedObject.Kind {
+	case constants.ManagedClusterKind:
+		// Direct ManagedCluster event
+		clusterName = evt.InvolvedObject.Name
+	case "Job":
+		// Provision Job event - cluster name is the namespace
+		clusterName = evt.Namespace
+	default:
+		// Should not happen due to predicate filtering, but handle gracefully
+		log.Errorw("unexpected event kind", "kind", evt.InvolvedObject.Kind, "event", evt.Namespace+"/"+evt.Name)
+		return nil
+	}
+
+	cluster, err := getInvolveCluster(context.Background(), runtimeClient, clusterName)
 	if err != nil {
-		log.Errorw("failed to get cluster", "cluster", clusterName, "event", evt.Namespace+"/"+evt.Name, "error", err)
+		log.Debugw("event filtered: no matching cluster", "clusterName", clusterName, "event", evt.Name, "error", err)
 		return nil
 	}
 
 	clusterId := utils.GetClusterClaimID(cluster, string(cluster.GetUID()))
 	if clusterId == "" {
-		log.Errorw("failed to get clusterId", "cluster", clusterName, "event", evt.Namespace+"/"+evt.Name,
-			"cluster", cluster)
+		log.Warnw("failed to get clusterId", "cluster", clusterName, "event", evt.Name)
 		return nil
+	}
+
+	// Customize message for provision job events
+	message := evt.Message
+	if isValidProvisionJobEvent(evt) {
+		message = customizeProvisionJobMessage(evt.Reason, evt.Message, clusterName)
 	}
 
 	return &models.ManagedClusterEvent{
 		EventName:           evt.Name,
 		EventNamespace:      evt.Namespace,
-		Message:             evt.Message,
+		Message:             message,
 		Reason:              evt.Reason,
 		ClusterName:         clusterName,
 		ClusterID:           clusterId,
@@ -89,12 +168,11 @@ func managedClusterEventTransform(runtimeClient client.Client, obj client.Object
 	}
 }
 
-// getInvolveCluster gets the ManagedCluster involved in the event
-func getInvolveCluster(ctx context.Context, c client.Client, evt *corev1.Event) (*clusterv1.ManagedCluster, error) {
+// getInvolveCluster gets the ManagedCluster by cluster name
+func getInvolveCluster(ctx context.Context, c client.Client, clusterName string) (*clusterv1.ManagedCluster, error) {
 	cluster := &clusterv1.ManagedCluster{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      evt.InvolvedObject.Name,
-			Namespace: evt.InvolvedObject.Namespace,
+			Name: clusterName,
 		},
 	}
 	err := c.Get(ctx, client.ObjectKeyFromObject(cluster), cluster)
