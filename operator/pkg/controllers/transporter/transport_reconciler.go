@@ -150,12 +150,12 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 	// the component will be updated by the kafka controller.
 	requireUpdateComponent := true
 	cond := v1alpha4.StatusCondition{
-		Kind:    "Strimzi",
+		Kind:    "StrimziKafka",
 		Name:    config.COMPONENTS_KAFKA_NAME,
 		Type:    config.COMPONENTS_AVAILABLE,
-		Status:  config.CONDITION_STATUS_FALSE,
-		Reason:  "StrimziInstalled",
-		Message: "Strimzi has been installed",
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  "StrimziKafkaReady",
+		Message: "Strimzi Kafka is ready",
 	}
 	defer func() {
 		if !requireUpdateComponent {
@@ -163,6 +163,7 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 		}
 
 		if err != nil {
+			cond.Status = config.CONDITION_STATUS_FALSE
 			cond.Reason = config.RECONCILE_ERROR
 			cond.Message = err.Error()
 		}
@@ -180,16 +181,14 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 	)
 	r.transporter = strimziTransporter
 
-	installed, err := strimziTransporter.EnsureStrimziInstalled()
+	// reconcile for the kafka resources based on the mgh configuration
+	needRequeue, err := strimziTransporter.EnsureKafka()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if !installed {
-		cond.Reason = "StrimziNotInstalled"
-		cond.Message = "Strimzi is not installed, waiting for it to be installed"
+	if needRequeue {
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-
 	// deliver the transport resources and config secret to the kafka controller
 	// TODO: may need to wait the kafka resources to be ready before delivering the config secret
 	err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
