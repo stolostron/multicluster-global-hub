@@ -274,7 +274,7 @@ func CreateManagerTransportSecret(ctx context.Context, mgh *v1alpha4.Multicluste
 	secretData := make(map[string][]byte)
 	// Build kafka config yaml
 	if kafkaConfig != nil {
-		kafkaConfigYaml, err := kafkaConfig.YamlMarshal(config.IsBYOKafka())
+		kafkaConfigYaml, err := kafkaConfig.YamlMarshal(true)
 		if err != nil {
 			return fmt.Errorf("failed to marshal kafka config: %w", err)
 		}
