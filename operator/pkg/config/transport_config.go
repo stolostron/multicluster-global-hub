@@ -4,30 +4,22 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
+	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
 )
 
-const (
-	DEFAULT_SPEC_TOPIC          = "gh-spec"
-	DEFAULT_STATUS_TOPIC        = "gh-status.*"
-	DEFAULT_SHARED_STATUS_TOPIC = "gh-status"
-)
-
 var (
-	transporterProtocol   transport.TransportProtocol
-	transporterInstance   transport.Transporter
+	// transporterProtocol transport.TransportProtocol
+	// transporterInstance   transport.Transporter
 	transporterConn       *transport.KafkaConfig
 	enableInventory       = false
 	isBYOKafka            = false
@@ -41,32 +33,32 @@ var (
 	inventoryClientCACert []byte
 )
 
-func SetTransporterConn(conn *transport.KafkaConfig) bool {
-	log.Debug("set Transporter Conn")
-	if conn == nil {
-		transporterConn = nil
-		return true
-	}
-	if !reflect.DeepEqual(conn, transporterConn) {
-		transporterConn = conn
-		log.Debug("update Transporter Conn")
-		return true
-	}
-	return false
-}
+// func SetTransporterConn(conn *transport.KafkaConfig) bool {
+// 	log.Debug("set Transporter Conn")
+// 	if conn == nil {
+// 		transporterConn = nil
+// 		return true
+// 	}
+// 	if !reflect.DeepEqual(conn, transporterConn) {
+// 		transporterConn = conn
+// 		log.Debug("update Transporter Conn")
+// 		return true
+// 	}
+// 	return false
+// }
 
-func GetTransporterConn() *transport.KafkaConfig {
-	log.Debugf("Get Transporter Conn: %v", transporterConn != nil)
-	return transporterConn
-}
+// func GetTransporterConn() *transport.KafkaConfig {
+// 	log.Debugf("Get Transporter Conn: %v", transporterConn != nil)
+// 	return transporterConn
+// }
 
-func SetTransporter(p transport.Transporter) {
-	transporterInstance = p
-}
+// func SetTransporter(p transport.Transporter) {
+// 	transporterInstance = p
+// }
 
-func GetTransporter() transport.Transporter {
-	return transporterInstance
-}
+// func GetTransporter() transport.Transporter {
+// 	return transporterInstance
+// }
 
 func GetKafkaResourceReady() bool {
 	return kafkaResourceReady
@@ -93,50 +85,9 @@ func GetKafkaStorageSize(mgh *v1alpha4.MulticlusterGlobalHub) string {
 	return defaultKafkaStorageSize
 }
 
-// SetTransportConfig sets the kafka type, protocol and topics
-func SetTransportConfig(ctx context.Context, runtimeClient client.Client, mgh *v1alpha4.MulticlusterGlobalHub) error {
-	// set the transport type
-	if err := SetKafkaType(ctx, runtimeClient, mgh.Namespace); err != nil {
-		return err
-	}
-
-	// set the inventory
-	enableInventory = WithInventory(mgh)
-
-	// set the topic
-	specTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic
-	statusTopic = mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic
-	if !isValidKafkaTopicName(specTopic) {
-		return fmt.Errorf("the specTopic is invalid: %s", specTopic)
-	}
-	if !isValidKafkaTopicName(statusTopic) {
-		return fmt.Errorf("the specTopic is invalid: %s", statusTopic)
-	}
-
-	// BYO Case:
-	// 1. change the default status topic from 'gh-status.*' to 'gh-status'
-	// 2. ensure the status topic must not contain '*'
-	if isBYOKafka {
-		if statusTopic == DEFAULT_STATUS_TOPIC {
-			mgh.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic = DEFAULT_SHARED_STATUS_TOPIC
-			statusTopic = DEFAULT_SHARED_STATUS_TOPIC
-
-			if err := runtimeClient.Update(ctx, mgh); err != nil {
-				return fmt.Errorf("failed to update the topic from %s to %s, err:%v",
-					DEFAULT_STATUS_TOPIC, DEFAULT_SHARED_STATUS_TOPIC, err)
-			}
-		}
-
-		if strings.Contains(statusTopic, "*") {
-			return fmt.Errorf("status topic(%s) must not contain '*'", statusTopic)
-		}
-	}
-	return nil
-}
-
-// isValidKafkaTopicName validates the Kafka topic name based on common rules.
+// IsValidKafkaTopicName validates the Kafka topic name based on common rules.
 // ref: https://github.com/apache/kafka/blob/3.9/clients/src/main/java/org/apache/kafka/common/internals/Topic.java
-func isValidKafkaTopicName(name string) bool {
+func IsValidKafkaTopicName(name string) bool {
 	// Kafka topic name must be between 1 and 255 characters.
 	if len(name) < 1 || len(name) >= 255 {
 		return false
@@ -175,26 +126,6 @@ func ManagerStatusTopic() string {
 	return statusTopic
 }
 
-// SetKafkaType will assert whether it's a BYO case and also set the related transport protocol
-func SetKafkaType(ctx context.Context, runtimeClient client.Client, namespace string) error {
-	kafkaSecret := &corev1.Secret{}
-	err := runtimeClient.Get(ctx, types.NamespacedName{
-		Name:      constants.GHTransportSecretName,
-		Namespace: namespace,
-	}, kafkaSecret)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			transporterProtocol = transport.StrimziTransporter
-			isBYOKafka = false
-			return nil
-		}
-		return err
-	}
-	transporterProtocol = transport.SecretTransporter
-	isBYOKafka = true
-	return nil
-}
-
 func SetBYOKafka(byoKafka bool) {
 	isBYOKafka = byoKafka
 }
@@ -203,9 +134,9 @@ func IsBYOKafka() bool {
 	return isBYOKafka
 }
 
-func TransporterProtocol() transport.TransportProtocol {
-	return transporterProtocol
-}
+// func TransporterProtocol() transport.TransportProtocol {
+// 	return transporterProtocol
+// }
 
 // GetKafkaClientCA the raw([]byte) of client ca key and ca cert
 func GetKafkaClientCA() ([]byte, []byte) {
@@ -277,9 +208,19 @@ func EnableInventory() bool {
 	return enableInventory
 }
 
+func WithInventory(mgh *v1alpha4.MulticlusterGlobalHub) bool {
+	_, ok := mgh.GetAnnotations()[operatorconstants.AnnotationMGHWithInventory]
+	if ok {
+		enableInventory = true
+	} else {
+		enableInventory = false
+	}
+	return enableInventory
+}
+
 // GetTransportConfigClientName gives the client name based on the cluster name, it could be kafkauser or inventory name
 func GetTransportConfigClientName(clusterName string) string {
-	if TransporterProtocol() == transport.StrimziTransporter {
+	if !IsBYOKafka() {
 		return GetKafkaUserName(clusterName)
 	}
 	return ""

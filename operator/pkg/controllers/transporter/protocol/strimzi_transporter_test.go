@@ -37,7 +37,7 @@ func TestNewStrimziTransporter(t *testing.T) {
 		},
 	}
 
-	trans := NewStrimziTransporter(
+	trans := EnsureStrimziTransport(
 		nil,
 		mgh,
 		WithCommunity(true),
@@ -298,7 +298,7 @@ func TestNewKafkaCluster(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			transporter := NewStrimziTransporter(nil, tt.mgh)
+			transporter := EnsureStrimziTransport(nil, tt.mgh)
 			transporter.topicPartitionReplicas = tt.replica
 			cluster := transporter.newKafkaCluster(tt.mgh)
 			clusterBytes, _ := json.Marshal(cluster)

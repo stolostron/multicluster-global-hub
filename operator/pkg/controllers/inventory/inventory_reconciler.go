@@ -33,6 +33,7 @@ import (
 	certctrl "github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/inventory/manifests"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -59,9 +60,6 @@ func StartInventoryController(initOption config.ControllerOption) (config.Contro
 		return inventoryReconciler, nil
 	}
 	if !config.WithInventory(initOption.MulticlusterGlobalHub) {
-		return nil, nil
-	}
-	if config.GetTransporterConn() == nil {
 		return nil, nil
 	}
 	if config.GetStorageConnection() == nil {
@@ -211,7 +209,15 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	transportConn := config.GetTransporterConn()
+	ready, transportConn, err := transporter.GetKafkaConfig(constants.CloudEventGlobalHubClusterName)
+	if err != nil {
+		reconcileErr = fmt.Errorf("failed to get the kafka config: %w", err)
+		return ctrl.Result{}, reconcileErr
+	}
+	if !ready {
+		reconcileErr = fmt.Errorf("the transport connection is not ready")
+		return ctrl.Result{}, reconcileErr
+	}
 	if transportConn == nil || transportConn.BootstrapServer == "" {
 		reconcileErr = fmt.Errorf("the transport connection(%v) must not be empty", transportConn)
 		return ctrl.Result{}, reconcileErr

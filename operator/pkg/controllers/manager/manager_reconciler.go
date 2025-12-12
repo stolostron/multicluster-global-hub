@@ -34,6 +34,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/transporter"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/renderer"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
@@ -96,9 +97,6 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	}
 	log.Info("start manager controller")
 
-	if config.GetTransporterConn() == nil {
-		return nil, nil
-	}
 	if config.GetStorageConnection() == nil {
 		return nil, nil
 	}
@@ -256,12 +254,18 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		replicas = 2
 	}
 
-	kafkaConfig := config.GetTransporterConn()
-	if kafkaConfig == nil || kafkaConfig.BootstrapServer == "" {
-		log.Debug("Wait kafka connection created")
+	ready, kafkaConfig, err := transporter.GetKafkaConfig(constants.CloudEventGlobalHubClusterName)
+	if err != nil {
+		reconcileErr = fmt.Errorf("failed to get the kafka config: %w", err)
+		return ctrl.Result{}, reconcileErr
+	}
+	if !ready {
+		log.Debug("waiting the transport connection to be ready")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	kafkaConfig.ConsumerGroupID = config.GetManagerConsumerGroupID(mgh)
+
+	log.Infof("update transport secret: spec(%s), status(%s", kafkaConfig.SpecTopic, kafkaConfig.StatusTopic)
 
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
