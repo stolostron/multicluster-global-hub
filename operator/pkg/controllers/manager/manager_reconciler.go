@@ -262,6 +262,7 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	kafkaConfig.ConsumerGroupID = config.GetManagerConsumerGroupID(mgh)
+	log.Infof("update transport secret: spec(%s), status(%s)", kafkaConfig.SpecTopic, kafkaConfig.StatusTopic)
 
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
@@ -301,7 +302,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		}
 	}
 
-	log.Infof("transport-config updating: manager controller reconcile the transportConfig secret")
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),

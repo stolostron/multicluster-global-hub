@@ -137,21 +137,20 @@ func (r *KafkaController) Reconcile(ctx context.Context, request ctrl.Request) (
 
 	// update the kafka component status timestamp to trigger the mgh controller to reconcile the transportConfig secret
 	if updateConn {
-		log.Infof("transport-config updating: update mgh annotation to trigger MetaController reconciliation")
-		// Update MGH annotation to trigger MetaController reconciliation
+		log.Infof("update transport conn: spec(%s), status(%s)", conn.SpecTopic, conn.StatusTopic)
+		// Update MGH annotation to trigger MetaController and ManagerReconciler reconciliation
 		// Note: controller-runtime's For() method does not trigger reconciliation for status-only updates,
 		// even with custom predicates. Therefore, we update an annotation (metadata change) to ensure
-		// the MetaController gets notified and can reconcile the transportConfig secret.
-		// Use retry mechanism to handle optimistic concurrency conflicts
+		// the MetaController and ManagerReconciler gets notified and can reconcile the transportConfig secret.
+		// Using RFC3339Nano format to ensure the timestamp is unique even for updates within the same second.
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			// Fetch the latest version of MGH to avoid conflicts
 			if err := r.c.Get(ctx, config.GetMGHNamespacedName(), mgh); err != nil {
 				return err
 			}
 			if mgh.Annotations == nil {
 				mgh.Annotations = make(map[string]string)
 			}
-			mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339)
+			mgh.Annotations[operatorconstants.AnnotationMGHTransportUpdate] = time.Now().Format(time.RFC3339Nano)
 			return r.c.Update(ctx, mgh)
 		})
 		if err != nil {
@@ -212,7 +211,33 @@ func StartKafkaController(ctx context.Context, mgr ctrl.Manager, transporter tra
 	// even if the following controller will reconcile the transport, but it's asynchoronized
 	err := ctrl.NewControllerManagedBy(mgr).
 		Named("strimzi_controller").
-		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(config.MGHPred)).
+		For(&v1alpha4.MulticlusterGlobalHub{}, builder.WithPredicates(predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool {
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				old, ok := e.ObjectOld.(*v1alpha4.MulticlusterGlobalHub)
+				if !ok {
+					return false
+				}
+				new, ok := e.ObjectNew.(*v1alpha4.MulticlusterGlobalHub)
+				if !ok {
+					return false
+				}
+				if old.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic != new.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic ||
+					old.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic != new.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic {
+					log.Infof("update transport topics: spec(%s -> %s) status(%s -> %s)",
+						old.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic,
+						new.Spec.DataLayerSpec.Kafka.KafkaTopics.SpecTopic,
+						old.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic,
+						new.Spec.DataLayerSpec.Kafka.KafkaTopics.StatusTopic)
+				}
+				return true
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return true
+			},
+		})).
 		Watches(&kafkav1beta2.Kafka{},
 			&handler.EnqueueRequestForObject{}, builder.WithPredicates(kafkaPred)).
 		Watches(&kafkav1beta2.KafkaUser{},
