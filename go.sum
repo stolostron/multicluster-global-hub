@@ -1486,8 +1486,8 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/chzyer/test v0.0.0-20210722231415-061457976a23/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/chzyer/test v1.0.0/go.mod h1:2JlltgoNkt4TW/z9V/IzDdFaMTM2JPIi26O1pF38GC8=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20251125184210-ee1cae0e0f5d h1:zVoaYyK/Tpwcg0wNTT5vCmg9+NjXdW7KPDIdg+6kHzM=
-github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20251125184210-ee1cae0e0f5d/go.mod h1:Yfya9IJ/9mQ9eUmC5xwMS4XsGxS51oqh0EqNsCx8bzc=
+github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20251210153038-ea9f1fbf2bd9 h1:j+/kniB+T7IYhHTltujSpk7q6HyNZQ8P9zpZqkL/Mlg=
+github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2 v2.0.0-20251210153038-ea9f1fbf2bd9/go.mod h1:DZx5hJeor1pxEFeyT3hYYX8nkioWTEZ/SSNu/x+0gjo=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2 h1:dl2xbFLV2FGd3OBNC6ncSN9l+gPNEP0DYE+1yKVV5DQ=
 github.com/cloudevents/sdk-go/protocol/kafka_sarama/v2 v2.15.2/go.mod h1:jXfl9I1Q78+4zdYGTjHNQcrbNtJL63jpzSgVE2rE79U=
 github.com/cloudevents/sdk-go/v2 v2.16.2 h1:ZYDFrYke4FD+jM8TZTJJO6JhKHzOQl2oqpFK1D+NnQM=
