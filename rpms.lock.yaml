@@ -39,13 +39,13 @@ arches:
     name: glibc-devel
     evr: 2.34-231.el9_7.2
     sourcerpm: glibc-2.34-231.el9_7.2.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/k/kernel-headers-5.14.0-611.11.1.el9_7.aarch64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/k/kernel-headers-5.14.0-611.13.1.el9_7.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
-    size: 2949005
-    checksum: sha256:52fa6c55d23ea04ab1c2c553189b5e0c5144f03f15aa6f8a0367b41fdac639c5
+    size: 2952325
+    checksum: sha256:849dd02144b0fc4ef8e81f744500e4b201e73f5ceb77563135a1f0ec483ed327
     name: kernel-headers
-    evr: 5.14.0-611.11.1.el9_7
-    sourcerpm: kernel-5.14.0-611.11.1.el9_7.src.rpm
+    evr: 5.14.0-611.13.1.el9_7
+    sourcerpm: kernel-5.14.0-611.13.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/aarch64/appstream/os/Packages/l/libasan-11.5.0-11.el9.aarch64.rpm
     repoid: ubi-9-for-aarch64-appstream-rpms
     size: 408716
@@ -911,13 +911,13 @@ arches:
     name: glibc-devel
     evr: 2.34-231.el9_7.2
     sourcerpm: glibc-2.34-231.el9_7.2.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/k/kernel-headers-5.14.0-611.11.1.el9_7.ppc64le.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/k/kernel-headers-5.14.0-611.13.1.el9_7.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
-    size: 2970697
-    checksum: sha256:a868f49df4fd6b2a613568677728ac5f97670bc1d086a6186b77f8f9823cf65f
+    size: 2974013
+    checksum: sha256:ab7bb499c0b022aeb49657ee9c7b1af91d2e0ba4727920143292ed7251868158
     name: kernel-headers
-    evr: 5.14.0-611.11.1.el9_7
-    sourcerpm: kernel-5.14.0-611.11.1.el9_7.src.rpm
+    evr: 5.14.0-611.13.1.el9_7
+    sourcerpm: kernel-5.14.0-611.13.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/ppc64le/appstream/os/Packages/l/libasan-11.5.0-11.el9.ppc64le.rpm
     repoid: ubi-9-for-ppc64le-appstream-rpms
     size: 440457
@@ -1797,13 +1797,13 @@ arches:
     name: glibc-headers
     evr: 2.34-231.el9_7.2
     sourcerpm: glibc-2.34-231.el9_7.2.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/k/kernel-headers-5.14.0-611.11.1.el9_7.s390x.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/k/kernel-headers-5.14.0-611.13.1.el9_7.s390x.rpm
     repoid: ubi-9-for-s390x-appstream-rpms
-    size: 2979241
-    checksum: sha256:7540f24158e85f4d0d76cb170b3baadc6cb9d30cfda8d07dba9ca075e4ad2203
+    size: 2982553
+    checksum: sha256:86384f830fe349a5c2990358fe65a52d4269a02917c420e67752997858d24c4f
     name: kernel-headers
-    evr: 5.14.0-611.11.1.el9_7
-    sourcerpm: kernel-5.14.0-611.11.1.el9_7.src.rpm
+    evr: 5.14.0-611.13.1.el9_7
+    sourcerpm: kernel-5.14.0-611.13.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/s390x/appstream/os/Packages/l/libasan-11.5.0-11.el9.s390x.rpm
     repoid: ubi-9-for-s390x-appstream-rpms
     size: 412655
@@ -2676,13 +2676,13 @@ arches:
     name: glibc-headers
     evr: 2.34-231.el9_7.2
     sourcerpm: glibc-2.34-231.el9_7.2.src.rpm
-  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-611.11.1.el9_7.x86_64.rpm
+  - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/k/kernel-headers-5.14.0-611.13.1.el9_7.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
-    size: 2988057
-    checksum: sha256:55d22b98fe2fd0646dd7832b4355bf95d5949d62f3196328592d3597b1e843da
+    size: 2991381
+    checksum: sha256:c144c57a9804a2a98f6f34f0769e0cfadfedd9d1f9a7b1e5ad0e548b108355ff
     name: kernel-headers
-    evr: 5.14.0-611.11.1.el9_7
-    sourcerpm: kernel-5.14.0-611.11.1.el9_7.src.rpm
+    evr: 5.14.0-611.13.1.el9_7
+    sourcerpm: kernel-5.14.0-611.13.1.el9_7.src.rpm
   - url: https://cdn-ubi.redhat.com/content/public/ubi/dist/ubi9/9/x86_64/appstream/os/Packages/l/libmpc-1.2.1-4.el9.x86_64.rpm
     repoid: ubi-9-for-x86_64-appstream-rpms
     size: 66075
