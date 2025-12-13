@@ -26,8 +26,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/homeport/dyff v1.10.2
 	github.com/lib/pq v1.10.9
-	github.com/onsi/ginkgo/v2 v2.25.1
-	github.com/onsi/gomega v1.38.2
+	github.com/onsi/ginkgo/v2 v2.25.3
+	github.com/onsi/gomega v1.38.3
 	github.com/openshift/api v0.0.0-20250220103441-744790f2cff7
 	github.com/openshift/client-go v0.0.0-20250131180035-f7ec47e2d87a
 	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
