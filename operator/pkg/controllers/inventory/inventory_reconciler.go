@@ -39,7 +39,6 @@ import (
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/utils"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
-	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	commonutils "github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
@@ -223,9 +222,9 @@ func (r *InventoryReconciler) Reconcile(ctx context.Context,
 		log.Infof("Failed to get transport-config secret, will retry: %v", err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	kafkaConfig, err := transportconfig.GetKafkaCredentialBySecret(transportConfigSecret, r.GetClient())
+	kafkaConfig, err := config.ParseTransportSecret(transportConfigSecret, r.GetClient())
 	if err != nil {
-		log.Infof("Failed to get kafka config from transport-config secret, will retry: %v", err)
+		log.Infof("Failed to parse kafka config from transport-config secret, will retry: %v", err)
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
