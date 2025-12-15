@@ -27,7 +27,7 @@ require (
 	github.com/homeport/dyff v1.10.2
 	github.com/lib/pq v1.10.9
 	github.com/onsi/ginkgo/v2 v2.25.3
-	github.com/onsi/gomega v1.38.2
+	github.com/onsi/gomega v1.38.3
 	github.com/openshift/api v0.0.0-20251124235416-c11dd82e305c
 	github.com/openshift/client-go v0.0.0-20251125141819-b6281947c285
 	github.com/openshift/library-go v0.0.0-20250228164547-bad2d1bf3a37
