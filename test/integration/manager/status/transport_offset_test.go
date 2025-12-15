@@ -207,8 +207,12 @@ var _ = Describe("TransportOffsetPersistence", Ordered, func() {
 			// Verify that the topic name can be extracted from the Name field
 			db := database.GetGorm()
 			var positions []models.Transport
-			err := db.Find(&positions).Error
+			// Query only the records created by the previous test to avoid interference from other tests
+			err := db.Where("name IN ?", []string{
+				topic1 + "@0", topic1 + "@1", topic1 + "@2", topic2 + "@0",
+			}).Find(&positions).Error
 			Expect(err).NotTo(HaveOccurred())
+			Expect(positions).To(HaveLen(4), "Should have 4 records from the previous test")
 
 			for _, pos := range positions {
 				// Name should be in format "topic@partition"
