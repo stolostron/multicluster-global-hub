@@ -63,6 +63,7 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		BootstrapServer: "localhost:3031",
 		StatusTopic:     "event",
 		SpecTopic:       "spec",
+		ConsumerGroupID: "test",
 		ClusterID:       "123",
 		CACert:          base64.StdEncoding.EncodeToString([]byte("11")),
 		ClientCert:      base64.StdEncoding.EncodeToString([]byte("12")),
@@ -129,6 +130,7 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
 			Name: "controllerName",
 		}),
+		disableConsumer: true,
 	}
 
 	ctx := context.TODO()
