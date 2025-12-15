@@ -51,7 +51,7 @@ type Transporter interface {
 	GetConnCredential(clusterName string) (*KafkaConfig, error)
 }
 
-type TransportCerticiate interface {
+type TransportCertificate interface {
 	GetCACert() string
 	SetCACert(string)
 	GetClientCert() string

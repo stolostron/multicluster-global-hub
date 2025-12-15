@@ -8,14 +8,15 @@ import (
 
 	"github.com/IBM/sarama"
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
-	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
-	transportconfig "github.com/stolostron/multicluster-global-hub/pkg/transport/config"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	operatorconfig "github.com/stolostron/multicluster-global-hub/operator/pkg/config"
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
+	"github.com/stolostron/multicluster-global-hub/pkg/utils"
 )
 
 func GetSaramaConfig() (string, *sarama.Config, error) {
@@ -156,7 +157,7 @@ func GetSaramaConfigByClient(namespace string, c client.Client) (string, *sarama
 	if err != nil {
 		return "", nil, err
 	}
-	conn, err := transportconfig.GetKafkaCredentialBySecret(transportConfig, c)
+	conn, err := utils.GetKafkaCredentialBySecret(transportConfig, c)
 	if err != nil {
 		return "", nil, err
 	}

@@ -1,9 +1,7 @@
 package config
 
 import (
-	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -11,9 +9,7 @@ import (
 
 	kafkav2 "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/kustomize/kyaml/yaml"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -135,7 +131,7 @@ func GetConfluentConfigMap(kafkaConfig *transport.KafkaInternalConfig, producer 
 func GetConfluentConfigMapByConfig(transportConfig *corev1.Secret, c client.Client, consumerGroupID string) (
 	*kafkav2.ConfigMap, error,
 ) {
-	conn, err := GetKafkaCredentialBySecret(transportConfig, c)
+	conn, err := utils.GetKafkaCredentialBySecret(transportConfig, c)
 	if err != nil {
 		return nil, err
 	}
@@ -172,83 +168,6 @@ func GetConfluentConfigMapByKafkaCredential(conn *transport.KafkaConfig,
 		return nil, err
 	}
 	return kafkaConfigMap, nil
-}
-
-func GetKafkaCredentialBySecret(transportSecret *corev1.Secret, c client.Client) (
-	*transport.KafkaConfig, error,
-) {
-	kafkaConfigBytes, ok := transportSecret.Data["kafka.yaml"]
-	if !ok {
-		return nil, fmt.Errorf("must set the `kafka.yaml` in the transport secret(%s)", transportSecret.Name)
-	}
-
-	kafkaConfig := &transport.KafkaConfig{}
-	if err := yaml.Unmarshal(kafkaConfigBytes, kafkaConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal kafka config to transport credentail: %w", err)
-	}
-
-	err := ParseCredentialConn(transportSecret.Namespace, c, kafkaConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse the cert credentail: %w", err)
-	}
-	return kafkaConfig, nil
-}
-
-func ParseCredentialConn(namespace string, c client.Client, conn transport.TransportCerticiate) error {
-	// decode the ca cert, client key and cert
-	if conn.GetCACert() != "" {
-		bytes, err := base64.StdEncoding.DecodeString(conn.GetCACert())
-		if err != nil {
-			return err
-		}
-		conn.SetCACert(string(bytes))
-	}
-	if conn.GetClientCert() != "" {
-		bytes, err := base64.StdEncoding.DecodeString(conn.GetClientCert())
-		if err != nil {
-			return err
-		}
-		conn.SetClientCert(string(bytes))
-	}
-	if conn.GetClientKey() != "" {
-		bytes, err := base64.StdEncoding.DecodeString(conn.GetClientKey())
-		if err != nil {
-			return err
-		}
-		conn.SetClientKey(string(bytes))
-	}
-
-	// load the ca cert from secret
-	if conn.GetCASecretName() != "" {
-		caSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      conn.GetCASecretName(),
-			},
-		}
-		if err := c.Get(context.Background(), client.ObjectKeyFromObject(caSecret), caSecret); err != nil {
-			return err
-		}
-		conn.SetCACert(string(caSecret.Data["ca.crt"]))
-	}
-	// load the client key and cert from secret
-	if conn.GetClientSecretName() != "" {
-		clientSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace,
-				Name:      conn.GetClientSecretName(),
-			},
-		}
-		if err := c.Get(context.Background(), client.ObjectKeyFromObject(clientSecret), clientSecret); err != nil {
-			return fmt.Errorf("failed to get the client cert: %w", err)
-		}
-		conn.SetClientCert(string(clientSecret.Data["tls.crt"]))
-		conn.SetClientKey(string(clientSecret.Data["tls.key"]))
-		if conn.GetClientCert() == "" || conn.GetClientKey() == "" {
-			return fmt.Errorf("the client cert or key must not be empty: %s", conn.GetClientSecretName())
-		}
-	}
-	return nil
 }
 
 // GetKafkaUserName gives a kafkaUser name based on the cluster name, it's also the CN of the certificate
