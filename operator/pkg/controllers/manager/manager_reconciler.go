@@ -206,6 +206,10 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 	isResourceRemoved = false
 	var reconcileErr error
 	defer func() {
+		// Skip status update if MGH was deleted during reconciliation
+		if mgh == nil {
+			return
+		}
 		err = config.UpdateMGHComponent(ctx, r.GetClient(),
 			config.GetComponentStatusWithReconcileError(ctx, r.GetClient(),
 				mgh.Namespace, config.COMPONENTS_MANAGER_NAME, reconcileErr),
