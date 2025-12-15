@@ -86,7 +86,33 @@
           "open-cluster-management.io{/,}**"
         ],
         "groupName": "All open-cluster-management/stolostron packages"
+      },
+      {
+        "matchManagers": [
+          "gomod"
+        ],
+        "matchPackageNames": [
+          "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
+        ],
+        "schedule": ["* 0-3 1 */2 *"]
       }
     ]
+  },
+  "git-submodules": {
+    "enabled": true,
+    "schedule": ["* 0-3 1 */2 *"]
+  },
+  "rpm-lockfile": {
+    "lockFileMaintenance": {
+      "enabled": true,
+      "schedule": ["* 0-3 1 * *"]
+    }
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "recreateWhen": "always",
+    "rebaseWhen": "behind-base-branch",
+    "branchTopic": "lock-file-maintenance",
+    "schedule": ["* 0-3 1 * *"]
   }
 }
