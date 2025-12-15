@@ -94,6 +94,13 @@ func (k *ConflationCommitter) migrateTransportTable() error {
 	var oldRecordNames []string
 
 	for _, oldRecord := range oldRecords {
+		// Skip records with empty topic name
+		if oldRecord.Name == "" {
+			k.log.Warnw("skipping record with empty topic name")
+			oldRecordNames = append(oldRecordNames, oldRecord.Name)
+			continue
+		}
+
 		// Extract partition from payload
 		var eventPos transport.EventPosition
 		if err := json.Unmarshal(oldRecord.Payload, &eventPos); err != nil {
@@ -201,6 +208,10 @@ func (k *ConflationCommitter) getPositionsToCommit() []*transport.EventPosition 
 		if position == nil {
 			continue
 		}
+		// Skip positions without a valid topic (e.g., from channel transport in tests)
+		if position.Topic == "" {
+			continue
+		}
 		key := positionKey(position.Topic, position.Partition)
 		committedOffset, found := k.committedPositions[key]
 		if found && committedOffset >= int64(position.Offset) {
@@ -231,6 +242,9 @@ func metadataToCommit(metadataArray []ConflationMetadata) map[string]*transport.
 
 		// metadata := bundleStatus.GetTransportMetadata()
 		position := metadata.TransportPosition()
+		if position == nil || position.Topic == "" {
+			continue
+		}
 		key := positionKey(position.Topic, position.Partition)
 
 		if !metadata.Processed() {
