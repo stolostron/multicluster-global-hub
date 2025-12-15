@@ -228,8 +228,8 @@ func (r *TransportReconciler) reconcileBYOKafka(ctx context.Context, mgh *v1alph
 		Namespace: mgh.Namespace,
 		Name:      constants.GHTransportSecretName,
 	}, r.GetClient())
-	// all of hubs will get the same credential
-	conn, err := r.transporter.GetConnCredential("")
+	// get the credential for the global hub cluster
+	conn, err := r.transporter.GetConnCredential(constants.CloudEventGlobalHubClusterName)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
