@@ -95,6 +95,14 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			PodNamespace: testMSANamespace, // Set PodNamespace for configmap operations
 		})
 
+		// Delete any existing configmap to ensure clean state before each test suite
+		_ = runtimeClient.Delete(ctx, &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
+				Namespace: testMSANamespace,
+			},
+		})
+
 		_, err := configs.GetSyncStateConfigMap(ctx, runtimeClient)
 		Expect(err).Should(Succeed())
 	})
@@ -106,11 +114,11 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			&operatorv1.ClusterManager{ObjectMeta: metav1.ObjectMeta{Name: "cluster-manager"}},
 			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testClusterName}},
 		}
-		// delete the configmap
+		// delete the configmap using the test's namespace (not global config which may have changed)
 		_ = runtimeClient.Delete(testCtx, &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
-				Namespace: configs.GetAgentConfig().PodNamespace,
+				Namespace: testMSANamespace,
 			},
 		})
 		for _, resource := range resources {
