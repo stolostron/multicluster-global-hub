@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -222,6 +223,15 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 			}
 			resourcesList = append(resourcesList, resources...)
 		}
+
+		// collect referenced secrets and configmaps from BareMetalHost, ClusterDeployment, and ImageClusterInstall
+		referencedResources, err := s.collectReferencedResources(ctx, managedCluster, resourcesList)
+		if err != nil {
+			return fmt.Errorf("failed to collect referenced resources for cluster %s: %w", managedCluster, err)
+		}
+
+		// The referencedResources should be add before resourcesList
+		resourcesList = append(referencedResources, resourcesList...)
 
 		clusterResource := migration.MigrationClusterResource{
 			ClusterName:  managedCluster,
@@ -654,6 +664,7 @@ func (s *MigrationSourceSyncer) cleanObjectMetadata(obj client.Object) {
 	obj.SetSelfLink("")
 	obj.SetResourceVersion("")
 	obj.SetGeneration(0)
+	obj.SetUID("")
 }
 
 // rollbacking handles rollback operations for different stages
@@ -1082,4 +1093,214 @@ func (s *MigrationSourceSyncer) isManagedClusterAvailable(mc *clusterv1.ManagedC
 		}
 	}
 	return false
+}
+
+// collectReferencedResources collects secrets and configmaps
+// referenced by BareMetalHost, ClusterDeployment, and ImageClusterInstall resources
+func (s *MigrationSourceSyncer) collectReferencedResources(
+	ctx context.Context,
+	clusterName string,
+	resourcesList []unstructured.Unstructured,
+) ([]unstructured.Unstructured, error) {
+	var referencedResources []unstructured.Unstructured
+	secretNames := make(map[string]bool)    // Track unique secret names
+	configMapNames := make(map[string]bool) // Track unique configmap names
+
+	for _, resource := range resourcesList {
+		kind := resource.GetKind()
+
+		switch kind {
+		case "BareMetalHost":
+			if err := s.collectBareMetalHostSecrets(
+				ctx, clusterName, &resource, secretNames, &referencedResources); err != nil {
+				log.Warnf("failed to collect secrets for BareMetalHost %s: %v", resource.GetName(), err)
+			}
+		case "ClusterDeployment":
+			if err := s.collectClusterDeploymentSecrets(
+				ctx, clusterName, &resource, secretNames, &referencedResources); err != nil {
+				log.Warnf("failed to collect secrets for ClusterDeployment %s: %v", resource.GetName(), err)
+			}
+		case "ImageClusterInstall":
+			if err := s.collectImageClusterInstallConfigMaps(
+				ctx, clusterName, &resource, configMapNames, &referencedResources); err != nil {
+				log.Warnf("failed to collect configmaps for ImageClusterInstall %s: %v", resource.GetName(), err)
+			}
+		}
+	}
+
+	return referencedResources, nil
+}
+
+// collectBareMetalHostSecrets collects BMC credentials secret referenced by BareMetalHost
+func (s *MigrationSourceSyncer) collectBareMetalHostSecrets(
+	ctx context.Context,
+	clusterName string,
+	resource *unstructured.Unstructured,
+	secretNames map[string]bool,
+	referencedResources *[]unstructured.Unstructured,
+) error {
+	credentialsName, found, err := unstructured.NestedString(resource.Object, "spec", "bmc", "credentialsName")
+	if err != nil {
+		return fmt.Errorf("failed to get credentialsName: %w", err)
+	}
+	if !found || credentialsName == "" {
+		return nil
+	}
+
+	if secretNames[credentialsName] {
+		return nil
+	}
+
+	secret, err := s.getSecret(ctx, clusterName, credentialsName)
+	if err != nil {
+		return fmt.Errorf("failed to get BMC credentials secret %s: %w", credentialsName, err)
+	}
+	if secret != nil {
+		*referencedResources = append(*referencedResources, *secret)
+		secretNames[credentialsName] = true
+		log.Infof("collected BMC credentials secret %s for BareMetalHost %s",
+			credentialsName, resource.GetName())
+	}
+
+	return nil
+}
+
+// collectClusterDeploymentSecrets collects pull secret referenced by ClusterDeployment
+func (s *MigrationSourceSyncer) collectClusterDeploymentSecrets(
+	ctx context.Context,
+	clusterName string,
+	resource *unstructured.Unstructured,
+	secretNames map[string]bool,
+	referencedResources *[]unstructured.Unstructured,
+) error {
+	pullSecretName, found, err := unstructured.NestedString(
+		resource.Object, "spec", "provisioning", "pullSecretRef", "name")
+	if err != nil {
+		return fmt.Errorf("failed to get pullSecretRef: %w", err)
+	}
+	if !found || pullSecretName == "" {
+		return nil
+	}
+
+	if secretNames[pullSecretName] {
+		return nil
+	}
+
+	secret, err := s.getSecret(ctx, clusterName, pullSecretName)
+	if err != nil {
+		return fmt.Errorf("failed to get pull secret %s: %w", pullSecretName, err)
+	}
+	if secret != nil {
+		*referencedResources = append(*referencedResources, *secret)
+		secretNames[pullSecretName] = true
+		log.Infof("collected pull secret %s for ClusterDeployment %s",
+			pullSecretName, resource.GetName())
+	}
+
+	return nil
+}
+
+// collectImageClusterInstallConfigMaps collects extra manifest configmaps referenced by ImageClusterInstall
+func (s *MigrationSourceSyncer) collectImageClusterInstallConfigMaps(
+	ctx context.Context,
+	clusterName string,
+	resource *unstructured.Unstructured,
+	configMapNames map[string]bool,
+	referencedResources *[]unstructured.Unstructured,
+) error {
+	extraManifestsRefs, found, err := unstructured.NestedSlice(resource.Object, "spec", "extraManifestsRefs")
+	if err != nil {
+		return fmt.Errorf("failed to get extraManifestsRefs: %w", err)
+	}
+	if !found || len(extraManifestsRefs) == 0 {
+		return nil
+	}
+
+	for _, ref := range extraManifestsRefs {
+		refMap, ok := ref.(map[string]interface{})
+		if !ok {
+			log.Warnf("invalid extraManifestsRef format in ImageClusterInstall %s", resource.GetName())
+			continue
+		}
+		configMapName, ok := refMap["name"].(string)
+		if !ok || configMapName == "" {
+			log.Warnf("missing or invalid name in extraManifestsRef in ImageClusterInstall %s", resource.GetName())
+			continue
+		}
+
+		if configMapNames[configMapName] {
+			continue
+		}
+
+		configMap, err := s.getConfigMap(ctx, clusterName, configMapName)
+		if err != nil {
+			log.Warnf("failed to get configmap %s for ImageClusterInstall %s: %v",
+				configMapName, resource.GetName(), err)
+			continue
+		}
+		if configMap != nil {
+			*referencedResources = append(*referencedResources, *configMap)
+			configMapNames[configMapName] = true
+			log.Infof("collected configmap %s for ImageClusterInstall %s",
+				configMapName, resource.GetName())
+		}
+	}
+
+	return nil
+}
+
+// getSecret retrieves a secret from the cluster namespace and prepares it for migration
+func (s *MigrationSourceSyncer) getSecret(
+	ctx context.Context, namespace, secretName string,
+) (*unstructured.Unstructured, error) {
+	secret := &unstructured.Unstructured{}
+	secret.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Secret",
+	})
+
+	if err := s.client.Get(ctx, types.NamespacedName{
+		Name:      secretName,
+		Namespace: namespace,
+	}, secret); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Debugf("secret %s not found in namespace %s", secretName, namespace)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get secret %s: %w", secretName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(secret)
+
+	return secret, nil
+}
+
+// getConfigMap retrieves a configmap from the cluster namespace and prepares it for migration
+func (s *MigrationSourceSyncer) getConfigMap(
+	ctx context.Context, namespace, configMapName string,
+) (*unstructured.Unstructured, error) {
+	configMap := &unstructured.Unstructured{}
+	configMap.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ConfigMap",
+	})
+
+	if err := s.client.Get(ctx, types.NamespacedName{
+		Name:      configMapName,
+		Namespace: namespace,
+	}, configMap); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Debugf("configmap %s not found in namespace %s", configMapName, namespace)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get configmap %s: %w", configMapName, err)
+	}
+
+	// Clean metadata for migration
+	s.cleanObjectMetadata(configMap)
+
+	return configMap, nil
 }
