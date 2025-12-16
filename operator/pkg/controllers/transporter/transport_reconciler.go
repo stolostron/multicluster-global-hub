@@ -145,34 +145,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
 	ctrl.Result, error,
 ) {
-	var err error
-	// it only requires to update the component for the strimzi installation, after the strimzi is installed,
-	// the component will be updated by the kafka controller.
-	requireUpdateComponent := true
-	cond := v1alpha4.StatusCondition{
-		Kind:    "StrimziKafka",
-		Name:    config.COMPONENTS_KAFKA_NAME,
-		Type:    config.COMPONENTS_AVAILABLE,
-		Status:  config.CONDITION_STATUS_TRUE,
-		Reason:  "StrimziKafkaReady",
-		Message: "Strimzi Kafka is ready",
-	}
-	defer func() {
-		if !requireUpdateComponent {
-			return
-		}
-
-		if err != nil {
-			cond.Status = config.CONDITION_STATUS_FALSE
-			cond.Reason = config.RECONCILE_ERROR
-			cond.Message = err.Error()
-		}
-		err = config.UpdateMGHComponent(ctx, r.GetClient(), cond, true)
-		if err != nil {
-			log.Errorf("failed to update mgh status, err:%v", err)
-		}
-	}()
-
 	strimziTransporter := protocol.NewStrimziTransporter(
 		r.Manager,
 		mgh,
@@ -195,7 +167,6 @@ func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	requireUpdateComponent = false
 	return ctrl.Result{}, nil
 }
 
