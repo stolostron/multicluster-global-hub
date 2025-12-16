@@ -7,7 +7,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"reflect"
 	"time"
 
 	kafkav1beta2 "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
@@ -305,43 +304,19 @@ func CreateManagerTransportSecret(ctx context.Context, mgh *v1alpha4.Multicluste
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.GHTransportConfigSecret,
 			Namespace: mgh.Namespace,
-			Labels: map[string]string{
-				"name": "multicluster-global-hub-manager",
-			},
 		},
-		Type: corev1.SecretTypeOpaque,
-		Data: secretData,
 	}
 
-	// Set MGH as the owner of this secret
-	if err := controllerutil.SetControllerReference(mgh, secret, c.Scheme()); err != nil {
-		return fmt.Errorf("failed to set owner reference for transport-config secret: %w", err)
-	}
-
-	return createOrUpdateSecret(ctx, secret, c)
-}
-
-// createOrUpdateSecret creates or updates a secret
-func createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, c client.Client) error {
-	existing := &corev1.Secret{}
-	err := c.Get(ctx, client.ObjectKeyFromObject(secret), existing)
-	if errors.IsNotFound(err) {
-		log.Infof("creating secret %s/%s", secret.Namespace, secret.Name)
-		return c.Create(ctx, secret)
-	} else if err != nil {
-		return err
-	}
-
-	// Update if data changed
-	if !reflect.DeepEqual(existing.Data, secret.Data) {
-		log.Infof("updating secret %s/%s", secret.Namespace, secret.Name)
-		existing.Data = secret.Data
-		existing.Labels = secret.Labels
-		existing.OwnerReferences = secret.OwnerReferences
-		return c.Update(ctx, existing)
-	}
-
-	return nil
+	_, err := controllerutil.CreateOrUpdate(ctx, c, secret, func() error {
+		secret.Type = corev1.SecretTypeOpaque
+		secret.Data = secretData
+		secret.Labels = map[string]string{
+			"name": "multicluster-global-hub-manager",
+		}
+		// Set MGH as the owner of this secret
+		return controllerutil.SetControllerReference(mgh, secret, c.Scheme())
+	})
+	return err
 }
 
 func (r *KafkaController) pruneStrimziResources(ctx context.Context) (ctrl.Result, error) {
