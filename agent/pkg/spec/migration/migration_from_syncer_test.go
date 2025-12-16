@@ -1517,17 +1517,635 @@ func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
 						assert.False(t, hasStatus, "Status should be removed when needStatus is false")
 					}
 
-					// Check ClusterDeployment specific cleaning
-					if c.migrateResource.gvk.Kind == "ClusterDeployment" {
-						// hive.openshift.io/reconcile-pause annotation should be removed
-						annotations := res.GetAnnotations()
-						if annotations != nil {
-							_, hasPause := annotations["hive.openshift.io/reconcile-pause"]
-							assert.False(t, hasPause, "reconcile-pause annotation should be removed")
-						}
-					}
+					// Note: For ClusterDeployment resources, the hive.openshift.io/reconcile-pause
+					// annotation is preserved during migration and removed only during rollback
+					// or cleanup on the target hub
 				}
 			}
 		})
 	}
+}
+
+func TestCollectReferencedResources(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name                    string
+		clusterName             string
+		resourcesList           []unstructured.Unstructured
+		initObjects             []client.Object
+		expectedSecretsCount    int
+		expectedConfigMapsCount int
+		expectedSecretNames     []string
+		expectedConfigMapNames  []string
+	}{
+		{
+			name:        "Should collect BMC credentials secret from BareMetalHost",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createBareMetalHost("bmh1", "cluster1", "bmc-secret-1"),
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bmc-secret-1",
+						Namespace: "cluster1",
+					},
+					Data: map[string][]byte{
+						"username": []byte("admin"),
+						"password": []byte("password123"),
+					},
+				},
+			},
+			expectedSecretsCount:    1,
+			expectedConfigMapsCount: 0,
+			expectedSecretNames:     []string{"bmc-secret-1"},
+		},
+		{
+			name:        "Should collect pull secret from ClusterDeployment",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createClusterDeployment("cluster1", "cluster1", "pull-secret-1"),
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pull-secret-1",
+						Namespace: "cluster1",
+					},
+					Type: corev1.SecretTypeDockerConfigJson,
+					Data: map[string][]byte{
+						".dockerconfigjson": []byte(`{"auths":{}}`),
+					},
+				},
+			},
+			expectedSecretsCount:    1,
+			expectedConfigMapsCount: 0,
+			expectedSecretNames:     []string{"pull-secret-1"},
+		},
+		{
+			name:        "Should collect configmaps from ImageClusterInstall",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createImageClusterInstall("ici1", "cluster1", []string{"extra-manifest-1", "extra-manifest-2"}),
+			},
+			initObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "extra-manifest-1",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{
+						"manifest.yaml": "apiVersion: v1\nkind: ConfigMap",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "extra-manifest-2",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{
+						"manifest.yaml": "apiVersion: v1\nkind: Service",
+					},
+				},
+			},
+			expectedSecretsCount:    0,
+			expectedConfigMapsCount: 2,
+			expectedConfigMapNames:  []string{"extra-manifest-1", "extra-manifest-2"},
+		},
+		{
+			name:        "Should collect multiple resource types together",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createBareMetalHost("bmh1", "cluster1", "bmc-secret"),
+				createClusterDeployment("cluster1", "cluster1", "pull-secret"),
+				createImageClusterInstall("ici1", "cluster1", []string{"extra-manifest"}),
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "bmc-secret",
+						Namespace: "cluster1",
+					},
+					Data: map[string][]byte{"username": []byte("admin")},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "pull-secret",
+						Namespace: "cluster1",
+					},
+					Data: map[string][]byte{".dockerconfigjson": []byte("{}")},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "extra-manifest",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{"manifest.yaml": "test"},
+				},
+			},
+			expectedSecretsCount:    2,
+			expectedConfigMapsCount: 1,
+			expectedSecretNames:     []string{"bmc-secret", "pull-secret"},
+			expectedConfigMapNames:  []string{"extra-manifest"},
+		},
+		{
+			name:        "Should deduplicate secrets with same name",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createBareMetalHost("bmh1", "cluster1", "shared-secret"),
+				createBareMetalHost("bmh2", "cluster1", "shared-secret"),
+			},
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "shared-secret",
+						Namespace: "cluster1",
+					},
+					Data: map[string][]byte{"username": []byte("admin")},
+				},
+			},
+			expectedSecretsCount:    1,
+			expectedConfigMapsCount: 0,
+			expectedSecretNames:     []string{"shared-secret"},
+		},
+		{
+			name:        "Should handle missing secrets gracefully",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createBareMetalHost("bmh1", "cluster1", "non-existent-secret"),
+			},
+			initObjects:             []client.Object{},
+			expectedSecretsCount:    0,
+			expectedConfigMapsCount: 0,
+		},
+		{
+			name:        "Should handle empty extraManifestsRefs",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createImageClusterInstall("ici1", "cluster1", []string{}),
+			},
+			initObjects:             []client.Object{},
+			expectedSecretsCount:    0,
+			expectedConfigMapsCount: 0,
+		},
+		{
+			name:        "Should handle resources without references",
+			clusterName: "cluster1",
+			resourcesList: []unstructured.Unstructured{
+				createBareMetalHostWithoutCredentials("bmh1", "cluster1"),
+				createClusterDeploymentWithoutPullSecret("cluster1", "cluster1"),
+			},
+			initObjects:             []client.Object{},
+			expectedSecretsCount:    0,
+			expectedConfigMapsCount: 0,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			referencedResources, err := syncer.collectReferencedResources(ctx, c.clusterName, c.resourcesList)
+
+			assert.NoError(t, err)
+
+			secretCount := 0
+			configMapCount := 0
+			secretNames := []string{}
+			configMapNames := []string{}
+
+			for _, res := range referencedResources {
+				switch res.GetKind() {
+				case "Secret":
+					secretCount++
+					secretNames = append(secretNames, res.GetName())
+				case "ConfigMap":
+					configMapCount++
+					configMapNames = append(configMapNames, res.GetName())
+				}
+			}
+
+			assert.Equal(t, c.expectedSecretsCount, secretCount, "Secret count mismatch")
+			assert.Equal(t, c.expectedConfigMapsCount, configMapCount, "ConfigMap count mismatch")
+
+			if c.expectedSecretNames != nil {
+				assert.ElementsMatch(t, c.expectedSecretNames, secretNames, "Secret names mismatch")
+			}
+			if c.expectedConfigMapNames != nil {
+				assert.ElementsMatch(t, c.expectedConfigMapNames, configMapNames, "ConfigMap names mismatch")
+			}
+		})
+	}
+}
+
+// TestCollectReferencedResourcesOrder tests that referenced resources appear before main resources
+func TestCollectReferencedResourcesOrder(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	clusterName := "cluster1"
+
+	// Create test resources in the order they would be collected
+	mainResources := []unstructured.Unstructured{
+		createBareMetalHost("bmh1", clusterName, "bmc-secret"),
+		createClusterDeployment(clusterName, clusterName, "pull-secret"),
+	}
+
+	initObjects := []client.Object{
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bmc-secret",
+				Namespace: clusterName,
+			},
+			Data: map[string][]byte{"username": []byte("admin")},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pull-secret",
+				Namespace: clusterName,
+			},
+			Data: map[string][]byte{".dockerconfigjson": []byte("{}")},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+	syncer := &MigrationSourceSyncer{
+		client: fakeClient,
+	}
+
+	// Collect referenced resources
+	referencedResources, err := syncer.collectReferencedResources(ctx, clusterName, mainResources)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(referencedResources), "Should collect 2 secrets")
+
+	// Simulate what deploying() does: append referenced resources before main resources
+	finalResourcesList := append(referencedResources, mainResources...)
+
+	// Verify order: secrets first, then main resources
+	assert.Equal(t, 4, len(finalResourcesList), "Should have 2 secrets + 2 main resources")
+
+	// First two should be secrets
+	assert.Equal(t, "Secret", finalResourcesList[0].GetKind(), "First resource should be Secret")
+	assert.Equal(t, "Secret", finalResourcesList[1].GetKind(), "Second resource should be Secret")
+
+	// Last two should be main resources
+	assert.Equal(t, "BareMetalHost", finalResourcesList[2].GetKind(), "Third resource should be BareMetalHost")
+	assert.Equal(t, "ClusterDeployment", finalResourcesList[3].GetKind(), "Fourth resource should be ClusterDeployment")
+
+	// Verify secret names are in the list (order may vary)
+	secretNames := []string{}
+	for i := 0; i < 2; i++ {
+		secretNames = append(secretNames, finalResourcesList[i].GetName())
+	}
+	assert.ElementsMatch(t, []string{"bmc-secret", "pull-secret"}, secretNames, "Should have both secrets")
+}
+
+// TestGetSecret tests the getSecret function
+func TestGetSecret(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name         string
+		namespace    string
+		secretName   string
+		initObjects  []client.Object
+		expectNil    bool
+		expectError  bool
+		validateFunc func(*testing.T, *unstructured.Unstructured)
+	}{
+		{
+			name:       "Should retrieve and convert secret successfully",
+			namespace:  "cluster1",
+			secretName: "test-secret",
+			initObjects: []client.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "test-secret",
+						Namespace:       "cluster1",
+						ResourceVersion: "12345",
+						UID:             "test-uid",
+						Labels: map[string]string{
+							"app": "test",
+						},
+						Annotations: map[string]string{
+							"description": "test secret",
+						},
+					},
+					Type: corev1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"username": []byte("admin"),
+						"password": []byte("secret123"),
+					},
+				},
+			},
+			expectNil:   false,
+			expectError: false,
+			validateFunc: func(t *testing.T, secret *unstructured.Unstructured) {
+				assert.Equal(t, "Secret", secret.GetKind())
+				assert.Equal(t, "v1", secret.GetAPIVersion())
+				assert.Equal(t, "test-secret", secret.GetName())
+				assert.Equal(t, "cluster1", secret.GetNamespace())
+				assert.Equal(t, "test", secret.GetLabels()["app"])
+				assert.Equal(t, "test secret", secret.GetAnnotations()["description"])
+
+				// Verify metadata is cleaned (no ResourceVersion, UID, etc.)
+				assert.Empty(t, secret.GetResourceVersion())
+				assert.Empty(t, secret.GetUID())
+				assert.Empty(t, secret.GetFinalizers())
+				assert.Empty(t, secret.GetOwnerReferences())
+
+				// Verify data exists
+				data := secret.Object["data"]
+				assert.NotNil(t, data, "data field should exist")
+
+				// Verify type exists
+				secretType := secret.Object["type"]
+				assert.NotNil(t, secretType, "type field should exist")
+			},
+		},
+		{
+			name:        "Should return nil for non-existent secret",
+			namespace:   "cluster1",
+			secretName:  "non-existent",
+			initObjects: []client.Object{},
+			expectNil:   true,
+			expectError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			secret, err := syncer.getSecret(ctx, c.namespace, c.secretName)
+
+			if c.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if c.expectNil {
+				assert.Nil(t, secret)
+			} else {
+				assert.NotNil(t, secret)
+				if c.validateFunc != nil {
+					c.validateFunc(t, secret)
+				}
+			}
+		})
+	}
+}
+
+// TestGetConfigMap tests the getConfigMap function
+func TestGetConfigMap(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name          string
+		namespace     string
+		configMapName string
+		initObjects   []client.Object
+		expectNil     bool
+		expectError   bool
+		validateFunc  func(*testing.T, *unstructured.Unstructured)
+	}{
+		{
+			name:          "Should retrieve and convert configmap with data successfully",
+			namespace:     "cluster1",
+			configMapName: "test-configmap",
+			initObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            "test-configmap",
+						Namespace:       "cluster1",
+						ResourceVersion: "12345",
+						UID:             "test-uid",
+						Labels: map[string]string{
+							"app": "test",
+						},
+						Annotations: map[string]string{
+							"description": "test configmap",
+						},
+					},
+					Data: map[string]string{
+						"config.yaml": "key: value",
+						"script.sh":   "#!/bin/bash\necho hello",
+					},
+				},
+			},
+			expectNil:   false,
+			expectError: false,
+			validateFunc: func(t *testing.T, cm *unstructured.Unstructured) {
+				assert.Equal(t, "ConfigMap", cm.GetKind())
+				assert.Equal(t, "v1", cm.GetAPIVersion())
+				assert.Equal(t, "test-configmap", cm.GetName())
+				assert.Equal(t, "cluster1", cm.GetNamespace())
+				assert.Equal(t, "test", cm.GetLabels()["app"])
+				assert.Equal(t, "test configmap", cm.GetAnnotations()["description"])
+
+				// Verify metadata is cleaned
+				assert.Empty(t, cm.GetResourceVersion())
+				assert.Empty(t, cm.GetUID())
+				assert.Empty(t, cm.GetFinalizers())
+				assert.Empty(t, cm.GetOwnerReferences())
+
+				// Verify data exists
+				data := cm.Object["data"]
+				assert.NotNil(t, data, "data field should exist")
+			},
+		},
+		{
+			name:          "Should retrieve configmap with binaryData successfully",
+			namespace:     "cluster1",
+			configMapName: "binary-configmap",
+			initObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "binary-configmap",
+						Namespace: "cluster1",
+					},
+					BinaryData: map[string][]byte{
+						"binary.dat": {0x00, 0x01, 0x02, 0x03},
+					},
+				},
+			},
+			expectNil:   false,
+			expectError: false,
+			validateFunc: func(t *testing.T, cm *unstructured.Unstructured) {
+				assert.Equal(t, "ConfigMap", cm.GetKind())
+
+				// Verify binaryData exists
+				binaryData := cm.Object["binaryData"]
+				assert.NotNil(t, binaryData, "binaryData field should exist")
+			},
+		},
+		{
+			name:          "Should retrieve configmap with both data and binaryData",
+			namespace:     "cluster1",
+			configMapName: "mixed-configmap",
+			initObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mixed-configmap",
+						Namespace: "cluster1",
+					},
+					Data: map[string]string{
+						"text.txt": "hello",
+					},
+					BinaryData: map[string][]byte{
+						"binary.dat": {0xFF, 0xFE},
+					},
+				},
+			},
+			expectNil:   false,
+			expectError: false,
+			validateFunc: func(t *testing.T, cm *unstructured.Unstructured) {
+				assert.Equal(t, "ConfigMap", cm.GetKind())
+
+				// Verify data exists
+				data := cm.Object["data"]
+				assert.NotNil(t, data, "data field should exist")
+
+				// Verify binaryData exists
+				binaryData := cm.Object["binaryData"]
+				assert.NotNil(t, binaryData, "binaryData field should exist")
+			},
+		},
+		{
+			name:          "Should return nil for non-existent configmap",
+			namespace:     "cluster1",
+			configMapName: "non-existent",
+			initObjects:   []client.Object{},
+			expectNil:     true,
+			expectError:   false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			configMap, err := syncer.getConfigMap(ctx, c.namespace, c.configMapName)
+
+			if c.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			if c.expectNil {
+				assert.Nil(t, configMap)
+			} else {
+				assert.NotNil(t, configMap)
+				if c.validateFunc != nil {
+					c.validateFunc(t, configMap)
+				}
+			}
+		})
+	}
+}
+
+// Helper functions to create test resources
+
+func createBareMetalHost(name, namespace, credentialsName string) unstructured.Unstructured {
+	bmh := &unstructured.Unstructured{}
+	bmh.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "metal3.io",
+		Version: "v1alpha1",
+		Kind:    "BareMetalHost",
+	})
+	bmh.SetName(name)
+	bmh.SetNamespace(namespace)
+	_ = unstructured.SetNestedField(bmh.Object, credentialsName, "spec", "bmc", "credentialsName")
+	return *bmh
+}
+
+func createBareMetalHostWithoutCredentials(name, namespace string) unstructured.Unstructured {
+	bmh := &unstructured.Unstructured{}
+	bmh.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "metal3.io",
+		Version: "v1alpha1",
+		Kind:    "BareMetalHost",
+	})
+	bmh.SetName(name)
+	bmh.SetNamespace(namespace)
+	return *bmh
+}
+
+func createClusterDeployment(name, namespace, pullSecretName string) unstructured.Unstructured {
+	cd := &unstructured.Unstructured{}
+	cd.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "hive.openshift.io",
+		Version: "v1",
+		Kind:    "ClusterDeployment",
+	})
+	cd.SetName(name)
+	cd.SetNamespace(namespace)
+	_ = unstructured.SetNestedField(cd.Object, pullSecretName, "spec", "provisioning", "pullSecretRef", "name")
+	return *cd
+}
+
+func createClusterDeploymentWithoutPullSecret(name, namespace string) unstructured.Unstructured {
+	cd := &unstructured.Unstructured{}
+	cd.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "hive.openshift.io",
+		Version: "v1",
+		Kind:    "ClusterDeployment",
+	})
+	cd.SetName(name)
+	cd.SetNamespace(namespace)
+	return *cd
+}
+
+func createImageClusterInstall(name, namespace string, configMapNames []string) unstructured.Unstructured {
+	ici := &unstructured.Unstructured{}
+	ici.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "extensions.hive.openshift.io",
+		Version: "v1alpha1",
+		Kind:    "ImageClusterInstall",
+	})
+	ici.SetName(name)
+	ici.SetNamespace(namespace)
+
+	if len(configMapNames) > 0 {
+		refs := make([]interface{}, len(configMapNames))
+		for i, cmName := range configMapNames {
+			refs[i] = map[string]interface{}{
+				"name": cmName,
+			}
+		}
+		_ = unstructured.SetNestedSlice(ici.Object, refs, "spec", "extraManifestsRefs")
+	}
+
+	return *ici
 }
