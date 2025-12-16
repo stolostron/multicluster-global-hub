@@ -1,6 +1,8 @@
 package utils
 
-import "github.com/confluentinc/confluent-kafka-go/v2/kafka"
+import (
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+)
 
 // FilterSensitiveKafkaConfig filters out sensitive data from Kafka ConfigMap for safe logging.
 // It replaces SSL certificate and key values with "[REDACTED]" to prevent exposure of

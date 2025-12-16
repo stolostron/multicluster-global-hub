@@ -205,16 +205,16 @@ func WithSubName(name string) KafkaOption {
 // EnsureKafka the kafka subscription, cluster, metrics, global hub user and topic
 func (k *strimziTransporter) EnsureKafka() (bool, error) {
 	log.Debug("reconcile global hub kafka transport...")
-
 	err := k.ensureSubscription(k.mgh)
 	if err != nil {
-		return true, err
+		return false, err
 	}
 
 	installed, err := k.isCSVInstalled()
 	if err != nil {
-		return true, err
+		return false, err
 	}
+
 	if !installed {
 		return true, nil
 	}

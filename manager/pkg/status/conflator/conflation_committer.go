@@ -231,6 +231,9 @@ func metadataToCommit(metadataArray []ConflationMetadata) map[string]*transport.
 
 		// metadata := bundleStatus.GetTransportMetadata()
 		position := metadata.TransportPosition()
+		if position == nil || position.Topic == "" {
+			continue
+		}
 		key := positionKey(position.Topic, position.Partition)
 
 		if !metadata.Processed() {

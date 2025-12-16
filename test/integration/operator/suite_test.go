@@ -166,11 +166,6 @@ func CreateTestSecretTransport(c client.Client, namespace string) error {
 		Name:      constants.GHTransportSecretName,
 	}, runtimeClient)
 	config.SetTransporter(trans)
-	conn, err := trans.GetConnCredential("")
-	if err != nil {
-		return err
-	}
-	config.SetTransporterConn(conn)
 	_, _ = trans.EnsureTopic("")
 	return nil
 }

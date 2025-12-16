@@ -31,7 +31,6 @@ import (
 
 	migrationv1alpha1 "github.com/stolostron/multicluster-global-hub/operator/api/migration/v1alpha1"
 	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
-	"github.com/stolostron/multicluster-global-hub/operator/pkg/certificates"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	operatorconstants "github.com/stolostron/multicluster-global-hub/operator/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/deployer"
@@ -96,9 +95,6 @@ func StartController(initOption config.ControllerOption) (config.ControllerInter
 	}
 	log.Info("start manager controller")
 
-	if config.GetTransporterConn() == nil {
-		return nil, nil
-	}
 	if config.GetStorageConnection() == nil {
 		return nil, nil
 	}
@@ -260,12 +256,11 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		replicas = 2
 	}
 
-	kafkaConfig := config.GetTransporterConn()
-	if kafkaConfig == nil || kafkaConfig.BootstrapServer == "" {
-		log.Debug("Wait kafka connection created")
+	// Wait for transport-config secret to be created by transporter controller
+	if !config.IsTransportConfigReady(ctx, mgh.Namespace, r.GetClient()) {
+		log.Info("Waiting for transport-config secret to be created by transporter controller")
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
-	kafkaConfig.ConsumerGroupID = config.GetManagerConsumerGroupID(mgh)
 
 	storageConn := config.GetStorageConnection()
 	if storageConn == nil || !config.GetDatabaseReady() {
@@ -287,25 +282,9 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 		return ctrl.Result{}, reconcileErr
 	}
 
-	kafkaConfigYaml, err := kafkaConfig.YamlMarshal(true)
-	if err != nil {
-		reconcileErr = fmt.Errorf("failed to marshall kafka connetion for config: %w", err)
-		return ctrl.Result{}, reconcileErr
-	}
-	var inventoryConfigYaml []byte
-	if config.WithInventory(mgh) {
-		inventoryConn, reconcileErr := certificates.GetInventoryCredential(r.GetClient())
-		if reconcileErr != nil {
-			return ctrl.Result{}, reconcileErr
-		}
-		inventoryConfigYaml, err = inventoryConn.YamlMarshal(true)
-		if err != nil {
-			reconcileErr = fmt.Errorf("failed to marshalling the inventory config yaml: %w", err)
-			return ctrl.Result{}, reconcileErr
-		}
-	}
-
-	log.Infof("transport-config updating: manager controller reconcile the transportConfig secret")
+	// Note: transport-config secret is now created by transporter controller
+	// We only render manager deployment and other resources here
+	log.Debug("Rendering manager resources (transport-config is managed by transporter controller)")
 	managerObjects, err := hohRenderer.Render("manifests", "", func(profile string) (interface{}, error) {
 		return ManagerVariables{
 			Image:              config.GetImage(config.GlobalHubManagerImageKey),
@@ -320,8 +299,6 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			TransportType:             string(transport.Kafka),
 			TransportConfigSecret:     constants.GHTransportConfigSecret,
 			StorageConfigSecret:       constants.GHStorageConfigSecret,
-			KafkaConfigYaml:           base64.StdEncoding.EncodeToString(kafkaConfigYaml),
-			InventoryConfigYaml:       base64.StdEncoding.EncodeToString(inventoryConfigYaml),
 			Namespace:                 mgh.Namespace,
 			LeaseDuration:             strconv.Itoa(electionConfig.LeaseDuration),
 			RenewDeadline:             strconv.Itoa(electionConfig.RenewDeadline),
@@ -475,8 +452,6 @@ type ManagerVariables struct {
 	PostgresCACert            string
 	TransportConfigSecret     string
 	StorageConfigSecret       string
-	KafkaConfigYaml           string
-	InventoryConfigYaml       string
 	TransportType             string
 	Namespace                 string
 	LeaseDuration             string

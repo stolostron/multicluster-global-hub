@@ -14,7 +14,6 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/stolostron/multicluster-global-hub/operator/api/operator/v1alpha4"
 	"github.com/stolostron/multicluster-global-hub/operator/pkg/config"
 	agentcert "github.com/stolostron/multicluster-global-hub/operator/pkg/controllers/agent/certificates"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
@@ -45,11 +44,13 @@ func (r *AddonManagerController) IsResourceRemoved() bool {
 	return true
 }
 
-func ReadyToEnableAddonManager(mgh *v1alpha4.MulticlusterGlobalHub) bool {
+func ReadyToEnableAddonManager(initOption config.ControllerOption) bool {
 	if !config.IsACMResourceReady() {
 		return false
 	}
-	if config.GetTransporterConn() == nil {
+	mgh := initOption.MulticlusterGlobalHub
+	c := initOption.Manager.GetClient()
+	if !config.IsTransportConfigReady(context.Background(), mgh.Namespace, c) {
 		return false
 	}
 	if !meta.IsStatusConditionTrue(mgh.Status.Conditions, config.CONDITION_TYPE_GLOBALHUB_READY) {
@@ -64,7 +65,7 @@ func StartAddonManagerController(initOption config.ControllerOption) (config.Con
 	}
 	log.Info("start addon manager controller")
 
-	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
+	if !ReadyToEnableAddonManager(initOption) {
 		return nil, nil
 	}
 	if err := StartGlobalHubAddonManager(initOption.Ctx, initOption.Manager.GetConfig(),

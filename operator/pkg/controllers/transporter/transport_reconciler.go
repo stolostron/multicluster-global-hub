@@ -37,7 +37,6 @@ var (
 	log                 = logger.DefaultZapLogger()
 	isResourceRemoved   = true
 	transportReconciler *TransportReconciler
-	updateConn          bool
 )
 
 type TransportReconciler struct {
@@ -116,7 +115,6 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if mgh.DeletionTimestamp != nil {
 		if config.IsBYOKafka() {
 			isResourceRemoved = true
-			config.SetTransporterConn(nil)
 			return ctrl.Result{}, nil
 		}
 		isResourceRemoved = protocol.IsResourceRemoved()
@@ -124,98 +122,94 @@ func (r *TransportReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			log.Info("Wait kafka resource removed")
 			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 		}
-		config.SetTransporterConn(nil)
 		return ctrl.Result{}, nil
 	}
-	var reconcileErr error
-	defer func() {
-		if !config.IsBYOKafka() {
-			return
-		}
 
-		err = config.UpdateMGHComponent(ctx, r.GetClient(),
-			getTransportComponentStatus(reconcileErr),
-			updateConn,
-		)
-		if err != nil {
-			log.Errorf("failed to update mgh status, err:%v", err)
-		}
-	}()
-
-	reconcileErr = config.SetTransportConfig(ctx, r.GetClient(), mgh)
-	if reconcileErr != nil {
-		return ctrl.Result{}, reconcileErr
+	if err = config.SetTransportConfig(ctx, r.GetClient(), mgh); err != nil {
+		log.Errorf("failed to set transport config: %v", err)
+		return ctrl.Result{}, err
 	}
 
 	// set the transporter
 	switch config.TransporterProtocol() {
 	case transport.StrimziTransporter:
-		// initialize strimzi
-		// kafkaCluster, it will be blocking until the status is ready
-		r.transporter = protocol.NewStrimziTransporter(
-			r.Manager,
-			mgh,
-			protocol.WithContext(ctx),
-			protocol.WithCommunity(operatorutils.IsCommunityMode()),
-		)
-		needRequeue, err := r.transporter.EnsureKafka()
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if needRequeue {
-			return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-		// this controller also will update the transport connection
-		err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+		return r.reconcileStrimziKafka(ctx, mgh)
 	case transport.SecretTransporter:
-		r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{
-			Namespace: mgh.Namespace,
-			Name:      constants.GHTransportSecretName,
-		}, r.GetClient())
-		// all of hubs will get the same credential
-		conn, err := r.transporter.GetConnCredential("")
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		updateConn = config.SetTransporterConn(conn)
+		return r.reconcileBYOKafka(ctx, mgh)
 	}
 	return ctrl.Result{}, nil
 }
 
-func getTransportComponentStatus(reconcileErr error,
-) v1alpha4.StatusCondition {
-	name := config.COMPONENTS_KAFKA_NAME
-	availableType := config.COMPONENTS_AVAILABLE
-	if reconcileErr != nil {
-		return v1alpha4.StatusCondition{
-			Kind:    "TransportConnection",
-			Name:    name,
-			Type:    availableType,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  config.RECONCILE_ERROR,
-			Message: reconcileErr.Error(),
-		}
-	}
-	if config.GetTransporterConn() == nil {
-		return v1alpha4.StatusCondition{
-			Kind:    "TransportConnection",
-			Name:    name,
-			Type:    availableType,
-			Status:  config.CONDITION_STATUS_FALSE,
-			Reason:  "TransportConnectionNotSet",
-			Message: "Transport connection is null",
-		}
-	}
+// reconcileStrimziKafka reconciles the strimzi kafka resources, it will create the kafka cluster and
+// start the kafka controller.
+func (r *TransportReconciler) reconcileStrimziKafka(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
+	ctrl.Result, error,
+) {
+	strimziTransporter := protocol.NewStrimziTransporter(
+		r.Manager,
+		mgh,
+		protocol.WithContext(ctx),
+		protocol.WithCommunity(operatorutils.IsCommunityMode()),
+	)
+	r.transporter = strimziTransporter
 
-	return v1alpha4.StatusCondition{
-		Kind:    "TransportConnection",
-		Name:    name,
-		Type:    availableType,
-		Status:  config.CONDITION_STATUS_TRUE,
-		Reason:  "TransportConnectionSet",
-		Message: "Use customized transport, connection has set using provided secret",
+	// reconcile for the kafka resources based on the mgh configuration
+	needRequeue, err := strimziTransporter.EnsureKafka()
+	if err != nil {
+		return ctrl.Result{}, err
 	}
+	if needRequeue {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	// deliver the transport resources and config secret to the kafka controller
+	// TODO: may need to wait the kafka resources to be ready before delivering the config secret
+	err = protocol.StartKafkaController(ctx, r.Manager, r.transporter)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+// reconcileBYOKafka reconciles the byo kafka resources, it will create the transport-config secret for manager.
+func (r *TransportReconciler) reconcileBYOKafka(ctx context.Context, mgh *v1alpha4.MulticlusterGlobalHub) (
+	ctrl.Result, error,
+) {
+	var err error
+	cond := v1alpha4.StatusCondition{
+		Kind:    "TransportConnection",
+		Name:    config.COMPONENTS_KAFKA_NAME,
+		Type:    config.COMPONENTS_AVAILABLE,
+		Status:  config.CONDITION_STATUS_TRUE,
+		Reason:  "TransportConnectionReady",
+		Message: "Use customized credentials, the transport-config secret has been created",
+	}
+	defer func() {
+		if err != nil {
+			cond.Status = config.CONDITION_STATUS_FALSE
+			cond.Reason = config.RECONCILE_ERROR
+			cond.Message = err.Error()
+		}
+		err = config.UpdateMGHComponent(ctx, r.GetClient(), cond, true)
+		if err != nil {
+			log.Errorf("failed to update mgh status, err:%v", err)
+		}
+	}()
+
+	r.transporter = protocol.NewBYOTransporter(ctx, types.NamespacedName{
+		Namespace: mgh.Namespace,
+		Name:      constants.GHTransportSecretName,
+	}, r.GetClient())
+	// get the credential for the global hub cluster
+	conn, err := r.transporter.GetConnCredential(constants.CloudEventGlobalHubClusterName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	err = protocol.CreateManagerTransportSecret(ctx, mgh, conn, r.GetClient())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }

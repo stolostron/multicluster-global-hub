@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -28,7 +27,6 @@ const (
 var (
 	transporterProtocol   transport.TransportProtocol
 	transporterInstance   transport.Transporter
-	transporterConn       *transport.KafkaConfig
 	enableInventory       = false
 	isBYOKafka            = false
 	specTopic             = ""
@@ -40,25 +38,6 @@ var (
 	inventoryClientCAKey  []byte
 	inventoryClientCACert []byte
 )
-
-func SetTransporterConn(conn *transport.KafkaConfig) bool {
-	log.Debug("set Transporter Conn")
-	if conn == nil {
-		transporterConn = nil
-		return true
-	}
-	if !reflect.DeepEqual(conn, transporterConn) {
-		transporterConn = conn
-		log.Debug("update Transporter Conn")
-		return true
-	}
-	return false
-}
-
-func GetTransporterConn() *transport.KafkaConfig {
-	log.Debugf("Get Transporter Conn: %v", transporterConn != nil)
-	return transporterConn
-}
 
 func SetTransporter(p transport.Transporter) {
 	transporterInstance = p
@@ -298,6 +277,15 @@ func GetConsumerGroupID(prefix, clusterName string) string {
 	return strings.ReplaceAll(consumerGroupID, "-", "_")
 }
 
-func GetManagerConsumerGroupID(mgh *v1alpha4.MulticlusterGlobalHub) string {
-	return GetConsumerGroupID(mgh.Spec.DataLayerSpec.Kafka.ConsumerGroupPrefix, constants.CloudEventGlobalHubClusterName)
+func IsTransportConfigReady(ctx context.Context, namespace string, c client.Client) bool {
+	secret := &corev1.Secret{}
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      constants.GHTransportConfigSecret,
+		Namespace: namespace,
+	}, secret)
+	if err != nil {
+		return false
+	}
+	// Check if secret has required data
+	return len(secret.Data) > 0
 }

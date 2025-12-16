@@ -162,7 +162,14 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	// Only invoke the callback if all required transport components are initialized
+	// In manager mode (!disableConsumer), we need both producer and consumer
+	// If consumer is not ready yet, requeue and wait
 	if c.transportCallback != nil {
+		if !c.disableConsumer && c.transportClient.consumer == nil {
+			log.Infof("consumer is not ready yet, requeue to wait for consumer initialization")
+			return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
+		}
 		if err := c.transportCallback(c.transportClient); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to invoke the callback function: %w", err)
 		}
@@ -261,7 +268,7 @@ func (c *TransportCtrl) ReconcileRequester(ctx context.Context) error {
 // credential is updated, It also create/update the consumer if not in the standalone mode
 func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *corev1.Secret) (bool, error) {
 	// load the kafka connection credential based on the transport type. kafka, multiple
-	kafkaConn, err := config.GetKafkaCredentialBySecret(secret, c.runtimeClient)
+	kafkaConn, err := utils.GetKafkaCredentialBySecret(secret, c.runtimeClient)
 	if err != nil {
 		return false, err
 	}

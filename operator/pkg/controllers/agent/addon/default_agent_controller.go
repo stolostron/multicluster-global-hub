@@ -70,7 +70,7 @@ func StartDefaultAgentController(initOption config.ControllerOption) (config.Con
 	}
 	log.Info("start default agent controller")
 
-	if !ReadyToEnableAddonManager(initOption.MulticlusterGlobalHub) {
+	if !ReadyToEnableAddonManager(initOption) {
 		return nil, nil
 	}
 	defaultAgentController = NewDefaultAgentController(initOption.Manager.GetClient())
