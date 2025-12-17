@@ -457,8 +457,8 @@ func (s *MigrationSourceSyncer) processResourceByType(
 			delete(annotations, KlusterletConfigAnnotation)
 		}
 		resource.SetAnnotations(annotations)
-	case "ClusterDeployment":
-		// Remove pause annotation from ClusterDeployment
+	case "ClusterDeployment", "ImageClusterInstall":
+		// Remove pause annotation from ClusterDeployment and ImageClusterInstall
 		annotations := resource.GetAnnotations()
 		if annotations != nil {
 			delete(annotations, PauseAnnotation)
