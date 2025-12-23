@@ -2,6 +2,7 @@ package emitters
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/stolostron/multicluster-global-hub/agent/pkg/configs"
+	genericbundle "github.com/stolostron/multicluster-global-hub/pkg/bundle/generic"
 	eventversion "github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -82,11 +84,69 @@ func (e *EventEmitter) Update(obj client.Object) error {
 	}
 
 	event := e.transform(e.runtimeClient, obj)
-	if event != nil {
-		e.events = append(e.events, toSlice(event)...)
-		e.version.Incr()
+	if event == nil {
+		return nil
 	}
+
+	newEvents := toSlice(event)
+	for _, evt := range newEvents {
+		added, err := e.addEvent(evt)
+		if err != nil {
+			return err
+		}
+		if !added {
+			// Bundle is full, send current bundle and retry
+			log.Infow("Update: bundle is full, sending current bundle before adding new event", "count", len(e.events))
+			if err := e.sendEvents(false); err != nil {
+				return err
+			}
+			// Re-add the event
+			added, err = e.addEvent(evt)
+			if err != nil {
+				return fmt.Errorf("failed to re-add event after sending: %w", err)
+			}
+			if !added {
+				return fmt.Errorf("failed to add event to empty bundle")
+			}
+		}
+	}
+	e.version.Incr()
 	return nil
+}
+
+// addEvent adds an event to the bundle, sending current bundle first if size limit would be exceeded.
+// Returns (true, nil) if event was added successfully.
+// Returns (false, nil) if bundle is full and was sent, caller should retry adding the event.
+// Returns (false, error) if an error occurred.
+func (e *EventEmitter) addEvent(event interface{}) (bool, error) {
+	wasEmptyBeforeAdd := len(e.events) == 0
+	e.events = append(e.events, event)
+
+	size, err := e.bundleSize()
+	if err != nil {
+		e.events = e.events[:len(e.events)-1]
+		return false, fmt.Errorf("failed to calculate bundle size: %w", err)
+	}
+
+	if size > genericbundle.MaxBundleBytes {
+		e.events = e.events[:len(e.events)-1]
+
+		if wasEmptyBeforeAdd {
+			return false, fmt.Errorf("single event exceeds bundle size limit: %d bytes", size)
+		}
+
+		return false, nil
+	}
+	return true, nil
+}
+
+// bundleSize returns the JSON-encoded size of current events in bytes
+func (e *EventEmitter) bundleSize() (int, error) {
+	data, err := json.Marshal(e.events)
+	if err != nil {
+		return 0, err
+	}
+	return len(data), nil
 }
 
 func (e *EventEmitter) Delete(obj client.Object) error {
@@ -99,15 +159,37 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 	defer e.mu.Unlock()
 
 	for _, obj := range objects {
-		if e.filter(obj) {
-			event := e.transform(e.runtimeClient, obj)
-			if event != nil {
-				e.events = append(e.events, toSlice(event)...)
+		if !e.filter(obj) {
+			continue
+		}
+		event := e.transform(e.runtimeClient, obj)
+		if event == nil {
+			continue
+		}
+		for _, evt := range toSlice(event) {
+			added, err := e.addEvent(evt)
+			if err != nil {
+				return fmt.Errorf("failed to add event during resync: %w", err)
+			}
+			if !added {
+				// Bundle is full, send current bundle and retry
+				log.Infow("Resync bundle is full, sending current bundle before adding new event", "count", len(e.events))
+				if err := e.sendEvents(false); err != nil {
+					return err
+				}
+				// Re-add the event
+				added, err = e.addEvent(evt)
+				if err != nil {
+					return fmt.Errorf("failed to re-add event during resync: %w", err)
+				}
+				if !added {
+					return fmt.Errorf("failed to add event to empty bundle during resync")
+				}
 			}
 		}
 	}
 
-	if err := e.sendEvents(); err != nil {
+	if err := e.sendEvents(false); err != nil {
 		return fmt.Errorf("failed to send events after resync: %w", err)
 	}
 	return nil
@@ -116,14 +198,17 @@ func (e *EventEmitter) Resync(objects []client.Object) error {
 func (e *EventEmitter) Send() error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	if err := e.sendEvents(); err != nil {
+	if err := e.sendEvents(true); err != nil {
 		log.Errorw("failed to send events", "error", err)
 		return err
 	}
+
+	e.version.Next()
 	return nil
 }
 
-func (e *EventEmitter) sendEvents() error {
+// sendEvents sends the current events as a CloudEvent. and clears the events after sending.
+func (e *EventEmitter) sendEvents(withPostSend bool) error {
 	if len(e.events) == 0 {
 		return nil
 	}
@@ -140,7 +225,7 @@ func (e *EventEmitter) sendEvents() error {
 		return err
 	}
 
-	if e.postSend != nil {
+	if withPostSend && e.postSend != nil {
 		if err := e.postSend(e.events); err != nil {
 			log.Errorw("postSend callback failed", "error", err)
 			// Don't return error as events were already sent successfully
@@ -149,7 +234,6 @@ func (e *EventEmitter) sendEvents() error {
 
 	// Clear events after successful send and postSend
 	e.events = e.events[:0]
-	e.version.Next()
 
 	log.Debugw("after send events", "events", e.events, "version", e.version.String())
 	return nil
