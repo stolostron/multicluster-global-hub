@@ -114,11 +114,20 @@ func (e *EventEmitter) Update(obj client.Object) error {
 	return nil
 }
 
-// addEvent adds an event to the bundle, sending current bundle first if size limit would be exceeded.
+// addEvent adds an event to the bundle.
+// In batch mode: checks bundle size and returns false if size limit exceeded (caller should send and retry).
+// In single mode: directly adds event without size checking (events are sent individually anyway).
 // Returns (true, nil) if event was added successfully.
-// Returns (false, nil) if bundle is full and was sent, caller should retry adding the event.
+// Returns (false, nil) if bundle is full and needs to be sent first (batch mode only).
 // Returns (false, error) if an error occurred.
 func (e *EventEmitter) addEvent(event interface{}) (bool, error) {
+	// In single mode, events are sent individually, so no bundle size checking needed
+	if configs.GetAgentConfig().EventMode == string(constants.EventSendModeSingle) {
+		e.events = append(e.events, event)
+		return true, nil
+	}
+
+	// Batch mode: check bundle size before adding
 	wasEmptyBeforeAdd := len(e.events) == 0
 	e.events = append(e.events, event)
 

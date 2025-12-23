@@ -305,3 +305,70 @@ func TestEventEmitter_BundleSizeLimit(t *testing.T) {
 	}
 	t.Logf("Successfully sent %d bundles due to size limit enforcement", len(producer.events))
 }
+
+func TestEventEmitter_SingleMode_NoSizeChecking(t *testing.T) {
+	// Verify that single mode does NOT enforce bundle size limits
+	// Events accumulate and are sent individually regardless of total size
+	testConfig := &configs.AgentConfig{
+		LeafHubName: "test-hub",
+		EventMode:   string(constants.EventSendModeSingle),
+	}
+	configs.SetAgentConfig(testConfig)
+
+	producer := &MockEventProducer{}
+
+	// Create large events (100KB each)
+	largeMessage := make([]byte, 100*1024)
+	for i := range largeMessage {
+		largeMessage[i] = 'x'
+	}
+	largeMessageStr := string(largeMessage)
+
+	emitter := NewEventEmitter(
+		enum.LocalRootPolicyEventType,
+		producer,
+		nil,
+		func(obj client.Object) bool { return true },
+		func(runtimeClient client.Client, obj client.Object) interface{} {
+			return event.RootPolicyEvent{
+				BaseEvent: event.BaseEvent{
+					EventName: obj.GetName(),
+					Message:   largeMessageStr,
+				},
+				PolicyID: "test-policy",
+			}
+		},
+	)
+
+	// Add 10 large events (10 * 100KB = ~1MB total)
+	// In single mode, these should all accumulate without triggering auto-send
+	for i := 0; i < 10; i++ {
+		testEvent := &corev1.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test-event-" + string(rune('0'+i)),
+			},
+		}
+		err := emitter.Update(testEvent)
+		if err != nil {
+			t.Fatalf("Update %d failed: %v", i, err)
+		}
+	}
+
+	// Before calling Send(), no events should have been sent
+	if len(producer.events) != 0 {
+		t.Fatalf("Expected 0 events before Send() in single mode, got %d", len(producer.events))
+	}
+
+	// Now send - should send 10 individual CloudEvents
+	err := emitter.Send()
+	if err != nil {
+		t.Fatalf("Send failed: %v", err)
+	}
+
+	// Should have sent exactly 10 individual events (one per event)
+	if len(producer.events) != 10 {
+		t.Fatalf("Expected 10 individual events in single mode, got %d", len(producer.events))
+	}
+
+	t.Logf("Successfully sent %d individual events in single mode without size checking", len(producer.events))
+}
