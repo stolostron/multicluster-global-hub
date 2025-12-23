@@ -372,3 +372,55 @@ func TestEventEmitter_SingleMode_NoSizeChecking(t *testing.T) {
 
 	t.Logf("Successfully sent %d individual events in single mode without size checking", len(producer.events))
 }
+
+func TestEventEmitter_SingleEventExceedsLimit(t *testing.T) {
+	// Test that a single event exceeding the bundle size limit is properly rejected
+	testConfig := &configs.AgentConfig{
+		LeafHubName: "test-hub",
+		EventMode:   string(constants.EventSendModeBatch),
+	}
+	configs.SetAgentConfig(testConfig)
+
+	producer := &MockEventProducer{}
+
+	// Create an extremely large event that exceeds 800KB limit by itself
+	hugeMessage := make([]byte, 900*1024) // 900KB - exceeds 800KB limit
+	for i := range hugeMessage {
+		hugeMessage[i] = 'x'
+	}
+	hugeMessageStr := string(hugeMessage)
+
+	emitter := NewEventEmitter(
+		enum.LocalRootPolicyEventType,
+		producer,
+		nil,
+		func(obj client.Object) bool { return true },
+		func(runtimeClient client.Client, obj client.Object) interface{} {
+			return event.RootPolicyEvent{
+				BaseEvent: event.BaseEvent{
+					EventName: obj.GetName(),
+					Message:   hugeMessageStr, // 900KB message
+				},
+				PolicyID: "test-policy",
+			}
+		},
+	)
+
+	// Try to add a single huge event - should fail with specific error
+	testEvent := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "huge-event",
+		},
+	}
+
+	err := emitter.Update(testEvent)
+	if err == nil {
+		t.Fatal("Expected error for single event exceeding bundle size limit, got nil")
+	}
+
+	if !contains(err.Error(), "single event exceeds bundle size limit") {
+		t.Fatalf("Expected 'single event exceeds bundle size limit' error, got: %v", err)
+	}
+
+	t.Logf("Correctly rejected single event exceeding limit: %v", err)
+}
