@@ -130,8 +130,8 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		if updated {
-			// the consumer should reconcile when the credential is updated
+		if updated || c.transportClient.consumer == nil {
+			// reconcile consumer when credential is updated or consumer needs reinitialization
 			if !c.disableConsumer {
 				if err := c.ReconcileConsumer(ctx); err != nil {
 					log.Warnf("consumer error: %v", err)
@@ -222,10 +222,13 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		go func() {
 			log.Infof("start consumer: %s", consumerGroupID)
 			if err = receiver.Start(ctx); err != nil {
-				log.Warnf("stop the consumer(%s): %v", consumerGroupID, err)
+				log.Warnf("consumer(%s) stopped with error: %v", consumerGroupID, err)
 			}
-			// request and reset state(credential) to start a new one, error when starting
-			log.Infof("consumer failed to start, requeue to start again: %s", consumerGroupID)
+			// clear consumer reference so next reconcile will recreate it
+			c.mutex.Lock()
+			c.transportClient.consumer = nil
+			c.mutex.Unlock()
+			log.Infof("consumer stopped, requeue to reinitialize consumer: %s", consumerGroupID)
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}()
 	} else {
