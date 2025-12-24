@@ -1475,7 +1475,14 @@ func TestPrepareUnstructuredResourceForMigration(t *testing.T) {
 				client: fakeClient,
 			}
 
-			resources, err := syncer.prepareUnstructuredResourceForMigration(ctx, c.clusterName, c.migrateResource)
+			resources, err := prepareUnstructuredResourceForMigration(
+				ctx, fakeClient, c.clusterName, c.migrateResource)
+
+			// Clean resources after collection
+			for i := range resources {
+				cleanResourceForMigration(&resources[i], c.migrateResource,
+					syncer.cleanObjectMetadata, syncer.processResourceByType)
+			}
 
 			if c.expectedError {
 				assert.NotNil(t, err)

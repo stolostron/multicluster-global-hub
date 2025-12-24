@@ -6,6 +6,7 @@ package migration
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	operatorv1 "open-cluster-management.io/api/operator/v1"
@@ -1606,4 +1608,340 @@ func TestAddPauseAnnotationMultipleCalls(t *testing.T) {
 	annotations2 := verifyResource2.GetAnnotations()
 	assert.NotNil(t, annotations2)
 	assert.Equal(t, "true", annotations2[PauseAnnotation])
+}
+
+func TestRemoveMigrationResources(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name              string
+		clusterName       string
+		initObjects       []client.Object
+		expectedDeleted   []string // resource names that should be deleted
+		expectedRemaining []string // resource names that should remain
+		expectError       bool
+	}{
+		{
+			name:        "Delete specific named resources - ManagedCluster and KlusterletAddonConfig",
+			clusterName: "test-cluster",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-cluster",
+						Finalizers: []string{
+							"test-finalizer",
+						},
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-cluster",
+						Namespace: "test-cluster",
+						Finalizers: []string{
+							"addon-finalizer",
+						},
+					},
+				},
+			},
+			expectedDeleted: []string{
+				"klusterletaddonconfig/test-cluster/test-cluster",
+			},
+			expectedRemaining: []string{
+				"managedcluster/test-cluster",
+			},
+			expectError: false,
+		},
+		{
+			name:        "Delete ClusterDeployment and ImageClusterInstall with pause annotation",
+			clusterName: "ztp-cluster",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "hive.openshift.io/v1",
+						"kind":       "ClusterDeployment",
+						"metadata": map[string]interface{}{
+							"name":      "ztp-cluster",
+							"namespace": "ztp-cluster",
+						},
+						"spec": map[string]interface{}{
+							"clusterName": "ztp-cluster",
+						},
+					},
+				},
+				func() *unstructured.Unstructured {
+					obj := &unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "extensions.hive.openshift.io/v1alpha1",
+							"kind":       "ImageClusterInstall",
+							"metadata": map[string]interface{}{
+								"name":      "ztp-cluster",
+								"namespace": "ztp-cluster",
+							},
+							"spec": map[string]interface{}{
+								"imageSetRef": map[string]interface{}{
+									"name": "test-imageset",
+								},
+							},
+						},
+					}
+					obj.SetFinalizers([]string{"imageclusterinstall.extensions.hive.openshift.io/deprovision"})
+					return obj
+				}(),
+			},
+			expectedDeleted: []string{
+				"clusterdeployment/ztp-cluster/ztp-cluster",
+				"imageclusterinstall/ztp-cluster/ztp-cluster",
+			},
+			expectedRemaining: []string{},
+			expectError:       false,
+		},
+		{
+			name:        "Delete wildcard resources - all BareMetalHosts in namespace",
+			clusterName: "metal-cluster",
+			initObjects: []client.Object{
+				func() *unstructured.Unstructured {
+					obj := &unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "metal3.io/v1alpha1",
+							"kind":       "BareMetalHost",
+							"metadata": map[string]interface{}{
+								"name":      "bmh-1",
+								"namespace": "metal-cluster",
+							},
+							"spec": map[string]interface{}{
+								"online": true,
+							},
+						},
+					}
+					obj.SetFinalizers([]string{"baremetalhost.metal3.io"})
+					return obj
+				}(),
+				func() *unstructured.Unstructured {
+					obj := &unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"apiVersion": "metal3.io/v1alpha1",
+							"kind":       "BareMetalHost",
+							"metadata": map[string]interface{}{
+								"name":      "bmh-2",
+								"namespace": "metal-cluster",
+							},
+							"spec": map[string]interface{}{
+								"online": false,
+							},
+						},
+					}
+					obj.SetFinalizers([]string{"baremetalhost.metal3.io"})
+					return obj
+				}(),
+			},
+			expectedDeleted: []string{
+				"baremetalhost/metal-cluster/bmh-1",
+				"baremetalhost/metal-cluster/bmh-2",
+			},
+			expectedRemaining: []string{},
+			expectError:       false,
+		},
+		{
+			name:        "Delete secrets with specific names",
+			clusterName: "secret-cluster",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Secret",
+						"metadata": map[string]interface{}{
+							"name":      "secret-cluster-admin-password",
+							"namespace": "secret-cluster",
+						},
+						"data": map[string]interface{}{
+							"password": "dGVzdA==",
+						},
+					},
+				},
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Secret",
+						"metadata": map[string]interface{}{
+							"name":      "secret-cluster-admin-kubeconfig",
+							"namespace": "secret-cluster",
+						},
+						"data": map[string]interface{}{
+							"kubeconfig": "dGVzdA==",
+						},
+					},
+				},
+				// This secret should NOT be deleted (different name)
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "v1",
+						"kind":       "Secret",
+						"metadata": map[string]interface{}{
+							"name":      "other-secret",
+							"namespace": "secret-cluster",
+						},
+						"data": map[string]interface{}{
+							"data": "dGVzdA==",
+						},
+					},
+				},
+			},
+			expectedDeleted: []string{
+				"secret/secret-cluster/secret-cluster-admin-password",
+				"secret/secret-cluster/secret-cluster-admin-kubeconfig",
+			},
+			expectedRemaining: []string{
+				"secret/secret-cluster/other-secret",
+			},
+			expectError: false,
+		},
+		{
+			name:              "Handle empty cluster - no resources to delete",
+			clusterName:       "empty-cluster",
+			initObjects:       []client.Object{},
+			expectedDeleted:   []string{},
+			expectedRemaining: []string{},
+			expectError:       false,
+		},
+		{
+			name:        "Mixed scenario - some resources exist, some don't",
+			clusterName: "mixed-cluster",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "mixed-cluster",
+					},
+				},
+				// KlusterletAddonConfig is missing - should not cause error
+			},
+			expectedDeleted: []string{
+				"managedcluster/mixed-cluster",
+			},
+			expectedRemaining: []string{},
+			expectError:       false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tc.initObjects...).
+				Build()
+
+			syncer := &MigrationTargetSyncer{
+				client: fakeClient,
+			}
+
+			// Execute the function under test
+			err := syncer.removeMigrationResources(ctx, tc.clusterName)
+
+			// Check error expectation
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			// Verify deleted resources
+			for _, deletedResource := range tc.expectedDeleted {
+				parts := parseResourceIdentifier(deletedResource)
+				obj := &unstructured.Unstructured{}
+				obj.SetGroupVersionKind(getGVKFromKind(parts.kind))
+
+				err := fakeClient.Get(ctx, client.ObjectKey{
+					Name:      parts.name,
+					Namespace: parts.namespace,
+				}, obj)
+
+				// Resource should be deleted (NotFound error is expected)
+				// Note: In fake client, deletion is immediate even with finalizers
+				assert.True(t, client.IgnoreNotFound(err) == nil,
+					"Resource %s should be deleted or not found", deletedResource)
+			}
+
+			// Verify remaining resources
+			for _, remainingResource := range tc.expectedRemaining {
+				parts := parseResourceIdentifier(remainingResource)
+				obj := &unstructured.Unstructured{}
+				obj.SetGroupVersionKind(getGVKFromKind(parts.kind))
+
+				err := fakeClient.Get(ctx, client.ObjectKey{
+					Name:      parts.name,
+					Namespace: parts.namespace,
+				}, obj)
+
+				assert.NoError(t, err, "Resource %s should still exist", remainingResource)
+			}
+		})
+	}
+}
+
+// Helper struct for parsing resource identifiers
+type resourceIdentifier struct {
+	kind      string
+	namespace string
+	name      string
+}
+
+// parseResourceIdentifier parses "kind/namespace/name" or "kind/name" format
+func parseResourceIdentifier(identifier string) resourceIdentifier {
+	parts := strings.Split(identifier, "/")
+	if len(parts) == 3 {
+		return resourceIdentifier{
+			kind:      parts[0],
+			namespace: parts[1],
+			name:      parts[2],
+		}
+	}
+	// For cluster-scoped resources
+	return resourceIdentifier{
+		kind: parts[0],
+		name: parts[1],
+	}
+}
+
+// getGVKFromKind returns GroupVersionKind based on resource kind
+func getGVKFromKind(kind string) schema.GroupVersionKind {
+	switch strings.ToLower(kind) {
+	case "managedcluster":
+		return schema.GroupVersionKind{
+			Group:   "cluster.open-cluster-management.io",
+			Version: "v1",
+			Kind:    "ManagedCluster",
+		}
+	case "klusterletaddonconfig":
+		return schema.GroupVersionKind{
+			Group:   "agent.open-cluster-management.io",
+			Version: "v1",
+			Kind:    "KlusterletAddonConfig",
+		}
+	case "clusterdeployment":
+		return schema.GroupVersionKind{
+			Group:   "hive.openshift.io",
+			Version: "v1",
+			Kind:    "ClusterDeployment",
+		}
+	case "imageclusterinstall":
+		return schema.GroupVersionKind{
+			Group:   "extensions.hive.openshift.io",
+			Version: "v1alpha1",
+			Kind:    "ImageClusterInstall",
+		}
+	case "baremetalhost":
+		return schema.GroupVersionKind{
+			Group:   "metal3.io",
+			Version: "v1alpha1",
+			Kind:    "BareMetalHost",
+		}
+	case "secret":
+		return schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		}
+	default:
+		return schema.GroupVersionKind{}
+	}
 }

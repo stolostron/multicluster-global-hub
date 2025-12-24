@@ -220,3 +220,157 @@ func removeFinalizersWithFilter(ctx context.Context, c client.Client, obj client
 		return c.Update(ctx, obj)
 	})
 }
+
+// filterByAnnotationKey filters resources that have the specified annotation key
+func filterByAnnotationKey(items []unstructured.Unstructured, annotationKey string) []unstructured.Unstructured {
+	filteredItems := make([]unstructured.Unstructured, 0)
+	for _, item := range items {
+		if hasAnnotationKey(&item, annotationKey) {
+			filteredItems = append(filteredItems, item)
+		}
+	}
+	return filteredItems
+}
+
+// hasAnnotationKey checks if a resource has the specified annotation key
+func hasAnnotationKey(item *unstructured.Unstructured, annotationKey string) bool {
+	annotations := item.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	_, exists := annotations[annotationKey]
+	return exists
+}
+
+// prepareUnstructuredResourceForMigration prepares an unstructured resource for migration by cleaning metadata
+// The resource name and namespace should match the managed cluster name
+func prepareUnstructuredResourceForMigration(
+	ctx context.Context,
+	c client.Client,
+	clusterName string,
+	migrateResource MigrationResource,
+) ([]unstructured.Unstructured, error) {
+	var resources []unstructured.Unstructured
+
+	if migrateResource.name != "" {
+		// Replace <CLUSTER_NAME> placeholder with actual cluster name
+		resourceName := strings.ReplaceAll(migrateResource.name, "<CLUSTER_NAME>", clusterName)
+
+		// Get specific resource by name
+		resource := &unstructured.Unstructured{}
+		resource.SetGroupVersionKind(migrateResource.gvk)
+		if err := c.Get(ctx, types.NamespacedName{
+			Name:      resourceName,
+			Namespace: clusterName,
+		}, resource); err != nil {
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+				return resources, nil
+			}
+			return nil, fmt.Errorf("failed to get %v %s: %w", migrateResource.gvk, clusterName, err)
+		}
+		resources = append(resources, *resource)
+	} else {
+		listedResources, err := listAndFilterResources(ctx, c, clusterName, migrateResource)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, listedResources...)
+	}
+
+	return resources, nil
+}
+
+// listAndFilterResources lists all resources in a namespace and optionally filters by annotation key
+func listAndFilterResources(
+	ctx context.Context,
+	c client.Client,
+	clusterName string,
+	migrateResource MigrationResource,
+) ([]unstructured.Unstructured, error) {
+	// List all resources in the cluster namespace
+	resourceList := &unstructured.UnstructuredList{}
+	resourceList.SetGroupVersionKind(migrateResource.gvk)
+
+	if err := c.List(ctx, resourceList, client.InNamespace(clusterName)); err != nil {
+		if meta.IsNoMatchError(err) {
+			log.Warnf("resource kind not registered: GVK=%s, Namespace=%s, error=%v",
+				migrateResource.gvk.String(), clusterName, err)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to list %v in namespace %s: %w", migrateResource.gvk, clusterName, err)
+	}
+
+	// Filter by annotation key if specified
+	if migrateResource.annotationKey != "" {
+		resourceList.Items = filterByAnnotationKey(resourceList.Items, migrateResource.annotationKey)
+		log.Debugf("filtered %d resources with annotation key %s in namespace %s",
+			len(resourceList.Items), migrateResource.annotationKey, clusterName)
+	}
+
+	// If no resources found, return empty array
+	if len(resourceList.Items) == 0 {
+		log.Warnf("no resources found: GVK=%s, Namespace=%s, AnnotationKey=%s",
+			migrateResource.gvk.String(), clusterName, migrateResource.annotationKey)
+		return nil, nil
+	}
+
+	log.Debugf("found %d resources of type %s in namespace %s",
+		len(resourceList.Items), migrateResource.gvk.String(), clusterName)
+	return resourceList.Items, nil
+}
+
+// collectMigrationResources collects and prepares all migration resources for a managed cluster
+func collectMigrationResources(
+	ctx context.Context,
+	c client.Client,
+	managedCluster string,
+	migrateResources []MigrationResource,
+	cleanObjectMetadataFn func(client.Object),
+	processResourceByTypeFn func(*unstructured.Unstructured, MigrationResource),
+) ([]unstructured.Unstructured, error) {
+	var resourcesList []unstructured.Unstructured
+
+	// collect all defined migration resources
+	for _, migrateResource := range migrateResources {
+		resources, err := prepareUnstructuredResourceForMigration(
+			ctx, c, managedCluster, migrateResource)
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare %s %s for migration: %w", migrateResource.gvk.Kind, managedCluster, err)
+		}
+
+		for i := range resources {
+			cleanResourceForMigration(&resources[i], migrateResource, cleanObjectMetadataFn, processResourceByTypeFn)
+		}
+
+		resourcesList = append(resourcesList, resources...)
+	}
+
+	return resourcesList, nil
+}
+
+// cleanResourceForMigration cleans up a resource for migration
+func cleanResourceForMigration(
+	resource *unstructured.Unstructured,
+	migrateResource MigrationResource,
+	cleanObjectMetadataFn func(client.Object),
+	processResourceByTypeFn func(*unstructured.Unstructured, MigrationResource),
+) {
+	// Clean metadata for migration
+	cleanObjectMetadataFn(resource)
+
+	// Apply resource-specific processing based on resource type
+	processResourceByTypeFn(resource, migrateResource)
+
+	// Clean status field based on needStatus configuration
+	if !migrateResource.needStatus {
+		// Remove status field if not needed for migration
+		unstructured.RemoveNestedField(resource.Object, "status")
+	}
+
+	// Remove any kubectl last-applied-configuration annotations
+	annotations := resource.GetAnnotations()
+	if annotations != nil {
+		delete(annotations, "kubectl.kubernetes.io/last-applied-configuration")
+		resource.SetAnnotations(annotations)
+	}
+}
