@@ -309,6 +309,17 @@ rules:
 - apiGroups:
   - cluster.open-cluster-management.io
   resources:
+  - managedclusters/accept
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
   - managedclusters/finalizers
   - placementdecisions
   - placementdecisions/finalizers
