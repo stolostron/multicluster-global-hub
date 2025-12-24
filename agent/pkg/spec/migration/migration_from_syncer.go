@@ -13,6 +13,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
+	apiconstants "github.com/stolostron/cluster-lifecycle-api/constants"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -619,6 +620,15 @@ func (m *MigrationSourceSyncer) registering(
 			if !mc.Spec.HubAcceptsClient {
 				return nil
 			}
+			// disable auto import for the managed cluster, refer to the code in managedcluster-import-controller
+			// https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/controller/autoimport/
+			// autoimport_controller.go#L97
+			annotations := mc.GetAnnotations()
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[apiconstants.DisableAutoImportAnnotation] = ""
+			mc.SetAnnotations(annotations)
 			mc.Spec.HubAcceptsClient = false
 			return m.client.Update(ctx, mc)
 		})
@@ -826,6 +836,12 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 			}
 			if mc.Spec.HubAcceptsClient {
 				return nil
+			}
+			// remove the disable auto import annotation which is set during the registering stage
+			annotations := mc.GetAnnotations()
+			if annotations != nil {
+				delete(annotations, apiconstants.DisableAutoImportAnnotation)
+				mc.SetAnnotations(annotations)
 			}
 			mc.Spec.HubAcceptsClient = true
 			return s.client.Update(ctx, mc)
