@@ -13,6 +13,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
+	apiconstants "github.com/stolostron/cluster-lifecycle-api/constants"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -997,12 +998,12 @@ func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *m
 	return s.rollbackDeploying(ctx, spec)
 }
 
-// addPauseAnnotationBeforeDeletion adds pause annotation to ZTP resources and verifies it was added
-func (s *MigrationTargetSyncer) addPauseAnnotationBeforeDeletion(
-	ctx context.Context, resource *unstructured.Unstructured,
+// addAnnotationBeforeDeletion adds pause annotation to ZTP resources and verifies it was added
+func (s *MigrationTargetSyncer) addAnnotationBeforeDeletion(
+	ctx context.Context, resource *unstructured.Unstructured, key, value string,
 ) error {
 	resourceKey := fmt.Sprintf("%s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
-	log.Infof("adding pause annotation to %s before deletion", resourceKey)
+	log.Infof("adding %s annotation to %s before deletion", key, resourceKey)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Get the latest version to avoid conflicts
@@ -1017,7 +1018,7 @@ func (s *MigrationTargetSyncer) addPauseAnnotationBeforeDeletion(
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
-		annotations[PauseAnnotation] = "true"
+		annotations[key] = value
 		latestResource.SetAnnotations(annotations)
 
 		// Update the resource
@@ -1030,19 +1031,19 @@ func (s *MigrationTargetSyncer) addPauseAnnotationBeforeDeletion(
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to add pause annotation: %w", err)
+		return fmt.Errorf("failed to add %s annotation: %w", key, err)
 	}
 
 	// Verify the annotation was added
 	verifyResource := &unstructured.Unstructured{}
 	verifyResource.SetGroupVersionKind(resource.GroupVersionKind())
 	if err := s.client.Get(ctx, client.ObjectKeyFromObject(resource), verifyResource); err != nil {
-		return fmt.Errorf("failed to verify pause annotation: %w", err)
+		return fmt.Errorf("failed to verify %s annotation: %w", key, err)
 	}
 
 	annotations := verifyResource.GetAnnotations()
-	if annotations == nil || annotations[PauseAnnotation] != "true" {
-		return fmt.Errorf("pause annotation verification failed for %s", resourceKey)
+	if annotations == nil || annotations[key] != value {
+		return fmt.Errorf("%s annotation verification failed for %s", key, resourceKey)
 	}
 
 	log.Infof("successfully added and verified pause annotation for %s", resourceKey)
@@ -1072,9 +1073,20 @@ func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, cl
 		for _, item := range resourceList.Items {
 			itemCopy := item
 
+			// Add auto-import disable annotation before deletion
+			if resource.gvk.Kind == "ManagedCluster" {
+				err := s.addAnnotationBeforeDeletion(ctx, &itemCopy, apiconstants.DisableAutoImportAnnotation, "")
+				if err != nil {
+					log.Errorf("failed to add auto-import disable annotation to %s/%s of kind %s: %v",
+						itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
+					return fmt.Errorf("failed to add auto-import disable annotation to %s/%s: %w",
+						itemCopy.GetNamespace(), itemCopy.GetName(), err)
+				}
+			}
+
 			// For ClusterDeployment and ImageClusterInstall, add pause annotation before deletion
 			if resource.gvk.Kind == "ClusterDeployment" || resource.gvk.Kind == "ImageClusterInstall" {
-				if err := s.addPauseAnnotationBeforeDeletion(ctx, &itemCopy); err != nil {
+				if err := s.addAnnotationBeforeDeletion(ctx, &itemCopy, PauseAnnotation, "true"); err != nil {
 					log.Errorf("failed to add pause annotation to %s/%s of kind %s: %v",
 						itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
 					return fmt.Errorf("failed to add pause annotation to %s/%s: %w",

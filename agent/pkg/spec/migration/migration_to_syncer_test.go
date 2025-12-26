@@ -1521,7 +1521,7 @@ func TestAddPauseAnnotationBeforeDeletion(t *testing.T) {
 				client: fakeClient,
 			}
 
-			err := syncer.addPauseAnnotationBeforeDeletion(ctx, c.resource)
+			err := syncer.addAnnotationBeforeDeletion(ctx, c.resource, PauseAnnotation, "true")
 
 			if c.expectError {
 				assert.Error(t, err)
@@ -1580,7 +1580,7 @@ func TestAddPauseAnnotationMultipleCalls(t *testing.T) {
 	}
 
 	// First call should succeed
-	err := syncer.addPauseAnnotationBeforeDeletion(ctx, resource)
+	err := syncer.addAnnotationBeforeDeletion(ctx, resource, PauseAnnotation, "true")
 	assert.NoError(t, err)
 
 	// Verify the annotation exists
@@ -1594,7 +1594,7 @@ func TestAddPauseAnnotationMultipleCalls(t *testing.T) {
 	assert.Equal(t, "true", annotations[PauseAnnotation])
 
 	// Second call should also succeed (idempotent)
-	err = syncer.addPauseAnnotationBeforeDeletion(ctx, resource)
+	err = syncer.addAnnotationBeforeDeletion(ctx, resource, PauseAnnotation, "true")
 	assert.NoError(t, err)
 
 	// Verify annotation still exists and has correct value
