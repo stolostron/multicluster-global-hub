@@ -389,6 +389,11 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 			}
 			currentAnnotations[KlusterletConfigAnnotation] = klusterletConfig.GetName()
 			currentAnnotations[constants.ManagedClusterMigrating] = ""
+			// Disable auto-import to prevent the controller from generating kubeconfigs from both the source and
+			// target hubs, which could override the kubeconfigs used for switching hubs.
+			// code reference: https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/controller/
+			// autoimport/autoimport_controller.go#L97
+			currentAnnotations[apiconstants.DisableAutoImportAnnotation] = ""
 			mc.SetAnnotations(currentAnnotations)
 
 			err := m.client.Update(ctx, mc)
@@ -482,15 +487,7 @@ func (m *MigrationSourceSyncer) registering(
 			if !mc.Spec.HubAcceptsClient {
 				return nil
 			}
-			// disable auto import for the managed cluster, refer to the code in managedcluster-import-controller
-			// https://github.com/stolostron/managedcluster-import-controller/blob/main/pkg/controller/autoimport/
-			// autoimport_controller.go#L97
-			annotations := mc.GetAnnotations()
-			if annotations == nil {
-				annotations = make(map[string]string)
-			}
-			annotations[apiconstants.DisableAutoImportAnnotation] = ""
-			mc.SetAnnotations(annotations)
+
 			mc.Spec.HubAcceptsClient = false
 			return m.client.Update(ctx, mc)
 		})
@@ -621,6 +618,7 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 			}
 			delete(annotations, constants.ManagedClusterMigrating)
 			delete(annotations, KlusterletConfigAnnotation)
+			delete(annotations, apiconstants.DisableAutoImportAnnotation)
 			lastestCluster.SetAnnotations(annotations)
 			return s.client.Update(ctx, lastestCluster)
 		})
@@ -698,12 +696,6 @@ func (s *MigrationSourceSyncer) rollbackRegistering(ctx context.Context, spec *m
 			}
 			if mc.Spec.HubAcceptsClient {
 				return nil
-			}
-			// remove the disable auto import annotation which is set during the registering stage
-			annotations := mc.GetAnnotations()
-			if annotations != nil {
-				delete(annotations, apiconstants.DisableAutoImportAnnotation)
-				mc.SetAnnotations(annotations)
 			}
 			mc.Spec.HubAcceptsClient = true
 			return s.client.Update(ctx, mc)
