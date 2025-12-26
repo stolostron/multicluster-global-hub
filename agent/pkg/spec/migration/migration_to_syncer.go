@@ -13,6 +13,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cecontext "github.com/cloudevents/sdk-go/v2/context"
 	cetypes "github.com/cloudevents/sdk-go/v2/types"
+	apiconstants "github.com/stolostron/cluster-lifecycle-api/constants"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -258,6 +259,29 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 ) error {
 	msaName := event.ManagedServiceAccountName
 	msaNamespace := event.ManagedServiceAccountInstallNamespace
+
+	// Clean up the auto-import disable annotation from the managed clusters
+	for _, clusterName := range event.ManagedClusters {
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			mc := &clusterv1.ManagedCluster{}
+			err := s.client.Get(ctx, types.NamespacedName{Name: clusterName}, mc)
+			if err != nil {
+				return err
+			}
+			annotations := mc.GetAnnotations()
+			_, ok := annotations[apiconstants.DisableAutoImportAnnotation]
+			if !ok {
+				return nil
+			}
+			delete(annotations, apiconstants.DisableAutoImportAnnotation)
+			mc.SetAnnotations(annotations)
+			return s.client.Update(ctx, mc)
+		})
+		if err != nil {
+			return fmt.Errorf("failed to remove auto-import disable annotation from cluster %s: %v",
+				clusterName, err)
+		}
+	}
 
 	// Remove MSA user from ClusterManager AutoApproveUsers list
 	if err := s.removeAutoApproveUser(ctx, msaName, msaNamespace); err != nil {
