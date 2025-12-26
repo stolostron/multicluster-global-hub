@@ -320,6 +320,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - observability.open-cluster-management.io
+  resources:
+  - observabilityaddons
+  verbs:
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
   - work.open-cluster-management.io
   resources:
   - manifestworks
