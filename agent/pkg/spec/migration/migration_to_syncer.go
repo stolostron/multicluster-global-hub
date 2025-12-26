@@ -977,7 +977,7 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 				Name: clusterName,
 			},
 		}
-		if err := deleteResourceIfExists(ctx, s.client, namespace); err != nil {
+		if err := deleteResourceIfExists(ctx, s.client, namespace, false); err != nil {
 			log.Warnf("failed to remove namespace %s: %v", clusterName, err)
 		}
 	}
@@ -1051,66 +1051,64 @@ func (s *MigrationTargetSyncer) addPauseAnnotationBeforeDeletion(
 
 // removeMigrationResources removes all migration resources for a cluster based on the migrateResources list
 // Deletes all resources defined in resources.go from the cluster namespace
+// Uses collectMigrationResources to collect resources consistently
 func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, clusterName string) error {
 	log.Infof("removing all migration resources for cluster namespace: %s", clusterName)
 
-	// Iterate through all resources
-	for _, resource := range migrateResources {
-		// List all resources of this type in the cluster namespace
-		resourceList := &unstructured.UnstructuredList{}
-		resourceList.SetGroupVersionKind(resource.gvk)
-
-		// List all resources in the cluster namespace
-		listOpts := []client.ListOption{client.InNamespace(clusterName)}
-		if err := s.client.List(ctx, resourceList, listOpts...); err != nil {
-			log.Warnf("failed to list resources of kind %s in namespace %s: %v",
-				resource.gvk.Kind, clusterName, err)
-			continue
-		}
-
-		// Delete all listed resources
-		for _, item := range resourceList.Items {
-			itemCopy := item
-
-			// For ClusterDeployment and ImageClusterInstall, add pause annotation before deletion
-			if resource.gvk.Kind == "ClusterDeployment" || resource.gvk.Kind == "ImageClusterInstall" {
-				if err := s.addPauseAnnotationBeforeDeletion(ctx, &itemCopy); err != nil {
-					log.Errorf("failed to add pause annotation to %s/%s of kind %s: %v",
-						itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
-					return fmt.Errorf("failed to add pause annotation to %s/%s: %w",
-						itemCopy.GetNamespace(), itemCopy.GetName(), err)
-				}
-			}
-
-			// Remove finalizers before deletion
-			if err := removeFinalizers(ctx, s.client, &itemCopy); err != nil {
-				log.Errorf("failed to remove finalizers from %s/%s of kind %s: %v",
-					itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
-				return fmt.Errorf("failed to remove finalizers from %s/%s: %w",
-					itemCopy.GetNamespace(), itemCopy.GetName(), err)
-			}
-
-			// Delete the resource
-			if err := s.client.Delete(ctx, &itemCopy); err != nil {
-				if !apierrors.IsNotFound(err) {
-					log.Errorf("failed to delete resource %s/%s of kind %s: %v",
-						itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind, err)
-					return fmt.Errorf("failed to delete %s/%s: %w",
-						itemCopy.GetNamespace(), itemCopy.GetName(), err)
-				}
-			}
-
-			log.Infof("successfully removed resource %s/%s of kind %s",
-				itemCopy.GetNamespace(), itemCopy.GetName(), resource.gvk.Kind)
-		}
-
-		if len(resourceList.Items) > 0 {
-			log.Infof("removed %d resources of kind %s from namespace %s",
-				len(resourceList.Items), resource.gvk.Kind, clusterName)
-		}
+	// Collect all migration resources for this cluster
+	// Use no-op functions for cleaning since we're just deleting the resources
+	resources, err := collectMigrationResources(
+		ctx, s.client, clusterName, migrateResources,
+		func(obj client.Object) {}, // no-op clean function
+		func(resource *unstructured.Unstructured, migrateResource MigrationResource) {}, // no-op process function
+	)
+	if err != nil {
+		return fmt.Errorf("failed to collect migration resources for deletion: %w", err)
 	}
 
-	log.Infof("completed removing all migration resources from cluster namespace: %s", clusterName)
+	if len(resources) == 0 {
+		log.Infof("no migration resources found in cluster namespace: %s", clusterName)
+		return nil
+	}
+
+	log.Infof("found %d total migration resources to delete in namespace %s", len(resources), clusterName)
+
+	// Delete all collected resources
+	for _, obj := range resources {
+		objCopy := obj
+
+		// For ClusterDeployment and ImageClusterInstall,
+		// add pause annotation and remove deprovision finalizers before deletion
+		if objCopy.GetKind() == "ClusterDeployment" || objCopy.GetKind() == "ImageClusterInstall" {
+			if err := s.addPauseAnnotationBeforeDeletion(ctx, &objCopy); err != nil {
+				log.Errorf("failed to add pause annotation to %s/%s of kind %s: %v",
+					objCopy.GetNamespace(), objCopy.GetName(), objCopy.GetKind(), err)
+				return fmt.Errorf("failed to add pause annotation to %s/%s: %w",
+					objCopy.GetNamespace(), objCopy.GetName(), err)
+			}
+
+			// Remove deprovision finalizers to prevent blocking deletion
+			if err := removeDeprovisionFinalizers(ctx, s.client, &objCopy); err != nil {
+				log.Errorf("failed to remove deprovision finalizers from %s/%s of kind %s: %v",
+					objCopy.GetNamespace(), objCopy.GetName(), objCopy.GetKind(), err)
+				return fmt.Errorf("failed to remove deprovision finalizers from %s/%s: %w",
+					objCopy.GetNamespace(), objCopy.GetName(), err)
+			}
+		}
+
+		if err := s.client.Delete(ctx, &objCopy); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete resource: %w", err)
+			}
+			log.Debugf("resource %s/%s not found during deletion, may have been already deleted",
+				obj.GetNamespace(), obj.GetName())
+		}
+
+		log.Infof("successfully removed resource %s/%s of kind %s",
+			objCopy.GetNamespace(), objCopy.GetName(), objCopy.GetKind())
+	}
+
+	log.Infof("completed removing all %d migration resources from cluster namespace: %s", len(resources), clusterName)
 	return nil
 }
 
@@ -1123,7 +1121,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 			Name: clusterRoleName,
 		},
 	}
-	if err := deleteResourceIfExists(ctx, s.client, clusterRole); err != nil {
+	if err := deleteResourceIfExists(ctx, s.client, clusterRole, false); err != nil {
 		log.Errorf("failed to delete cluster role %s: %v", clusterRoleName, err)
 		return err
 	}
@@ -1135,7 +1133,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 			Name: sarClusterRoleBindingName,
 		},
 	}
-	if err := deleteResourceIfExists(ctx, s.client, sarClusterRoleBinding); err != nil {
+	if err := deleteResourceIfExists(ctx, s.client, sarClusterRoleBinding, false); err != nil {
 		log.Errorf("failed to delete subjectaccessreviews cluster role binding %s: %v", sarClusterRoleBindingName, err)
 		return err
 	}
@@ -1147,7 +1145,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 			Name: registrationClusterRoleBindingName,
 		},
 	}
-	if err := deleteResourceIfExists(ctx, s.client, registrationClusterRoleBinding); err != nil {
+	if err := deleteResourceIfExists(ctx, s.client, registrationClusterRoleBinding, false); err != nil {
 		log.Errorf("failed to delete agent registration cluster role binding %s: %v", registrationClusterRoleBindingName, err)
 		return err
 	}
@@ -1178,7 +1176,8 @@ func (s *MigrationTargetSyncer) checkClusterManifestWork(ctx context.Context, cl
 }
 
 // deleteResourceIfExists deletes a resource if it exists, ignoring NotFound errors
-func deleteResourceIfExists(ctx context.Context, c client.Client, obj client.Object) error {
+// If forceDelete is true, removes all finalizers before deletion
+func deleteResourceIfExists(ctx context.Context, c client.Client, obj client.Object, forceDelete bool) error {
 	if obj == nil {
 		return nil
 	}
@@ -1191,9 +1190,21 @@ func deleteResourceIfExists(ctx context.Context, c client.Client, obj client.Obj
 		return fmt.Errorf("failed to get resource: %w", err)
 	}
 
+	// Remove finalizers if forceDelete is enabled
+	if forceDelete && len(obj.GetFinalizers()) != 0 {
+		if err := removeFinalizers(ctx, c, obj); err != nil {
+			log.Errorf("failed to remove finalizers from %s/%s: %v", obj.GetNamespace(), obj.GetName(), err)
+			return fmt.Errorf("failed to remove finalizers: %w", err)
+		}
+	}
+
 	log.Infof("deleting resource %s/%s", obj.GetNamespace(), obj.GetName())
 	if err := c.Delete(ctx, obj); err != nil {
-		return fmt.Errorf("failed to delete resource: %w", err)
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete resource: %w", err)
+		}
+		log.Debugf("resource %s/%s not found during deletion, may have been already deleted",
+			obj.GetNamespace(), obj.GetName())
 	}
 
 	return nil

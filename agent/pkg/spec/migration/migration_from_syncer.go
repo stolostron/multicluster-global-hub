@@ -18,7 +18,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -176,7 +175,7 @@ func (s *MigrationSourceSyncer) executeStage(ctx context.Context, source *migrat
 
 func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.MigrationSourceBundle) error {
 	// Delete bootstrap secret
-	if err := deleteResourceIfExists(ctx, s.client, source.BootstrapSecret); err != nil {
+	if err := deleteResourceIfExists(ctx, s.client, source.BootstrapSecret, false); err != nil {
 		return fmt.Errorf("failed to delete bootstrap secret: %w", err)
 	}
 
@@ -186,7 +185,7 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 			Name: klusterletConfigNamePrefix + source.ToHub,
 		},
 	}
-	if err := deleteResourceIfExists(ctx, s.client, klusterletConfig); err != nil {
+	if err := deleteResourceIfExists(ctx, s.client, klusterletConfig, false); err != nil {
 		return fmt.Errorf("failed to delete klusterletconfig: %w", err)
 	}
 
@@ -214,15 +213,10 @@ func (s *MigrationSourceSyncer) deploying(ctx context.Context, source *migration
 	// collect clusters and klusterletAddonConfig for migration
 	for _, managedCluster := range source.ManagedClusters {
 		// Prepare resources for this cluster
-		var resourcesList []unstructured.Unstructured
-
-		// collect all defined migration resources
-		for _, migrateResource := range migrateResources {
-			resources, err := s.prepareUnstructuredResourceForMigration(ctx, managedCluster, migrateResource)
-			if err != nil {
-				return fmt.Errorf("failed to prepare %s %s for migration: %w", migrateResource.gvk.Kind, managedCluster, err)
-			}
-			resourcesList = append(resourcesList, resources...)
+		resourcesList, err := collectMigrationResources(
+			ctx, s.client, managedCluster, migrateResources, s.cleanObjectMetadata, s.processResourceByType)
+		if err != nil {
+			return err
 		}
 
 		// collect referenced secrets and configmaps from BareMetalHost, ClusterDeployment, and ImageClusterInstall
@@ -308,137 +302,6 @@ func (s *MigrationSourceSyncer) sendMigrationBundle(
 		fromHub, toHub, len(bundle.MigrationClusterResources), totalClusters, len(payloadBytes))
 
 	return nil
-}
-
-// prepareUnstructuredResourceForMigration prepares an unstructured resource for migration by cleaning metadata
-// The resource name and namespace should match the managed cluster name
-func (s *MigrationSourceSyncer) prepareUnstructuredResourceForMigration(
-	ctx context.Context,
-	clusterName string,
-	migrateResource MigrationResource,
-) ([]unstructured.Unstructured, error) {
-	var resources []unstructured.Unstructured
-
-	if migrateResource.name != "" {
-		// Replace <CLUSTER_NAME> placeholder with actual cluster name
-		resourceName := strings.ReplaceAll(migrateResource.name, "<CLUSTER_NAME>", clusterName)
-
-		// Get specific resource by name
-		resource := &unstructured.Unstructured{}
-		resource.SetGroupVersionKind(migrateResource.gvk)
-		if err := s.client.Get(ctx, types.NamespacedName{
-			Name:      resourceName,
-			Namespace: clusterName,
-		}, resource); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				log.Warnf("resource not found or kind not registered: GVK=%s, Name=%s, Namespace=%s, error=%v",
-					migrateResource.gvk.String(), resourceName, clusterName, err)
-				return resources, nil
-			}
-			return nil, fmt.Errorf("failed to get %v %s: %w", migrateResource.gvk, clusterName, err)
-		}
-		resources = append(resources, *resource)
-	} else {
-		listedResources, err := s.listAndFilterResources(ctx, clusterName, migrateResource)
-		if err != nil {
-			return nil, err
-		}
-		resources = append(resources, listedResources...)
-	}
-
-	// Process each resource
-	for i := range resources {
-		s.cleanResourceForMigration(&resources[i], migrateResource)
-	}
-
-	return resources, nil
-}
-
-// listAndFilterResources lists all resources in a namespace and optionally filters by annotation key
-func (s *MigrationSourceSyncer) listAndFilterResources(
-	ctx context.Context,
-	clusterName string,
-	migrateResource MigrationResource,
-) ([]unstructured.Unstructured, error) {
-	// List all resources in the cluster namespace
-	resourceList := &unstructured.UnstructuredList{}
-	resourceList.SetGroupVersionKind(migrateResource.gvk)
-
-	if err := s.client.List(ctx, resourceList, client.InNamespace(clusterName)); err != nil {
-		if meta.IsNoMatchError(err) {
-			log.Warnf("resource kind not registered: GVK=%s, Namespace=%s, error=%v",
-				migrateResource.gvk.String(), clusterName, err)
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to list %v in namespace %s: %w", migrateResource.gvk, clusterName, err)
-	}
-
-	// Filter by annotation key if specified
-	if migrateResource.annotationKey != "" {
-		resourceList.Items = s.filterByAnnotationKey(resourceList.Items, migrateResource.annotationKey)
-		log.Infof("filtered %d resources with annotation key %s in namespace %s",
-			len(resourceList.Items), migrateResource.annotationKey, clusterName)
-	}
-
-	// If no resources found, return empty array
-	if len(resourceList.Items) == 0 {
-		log.Warnf("no resources found: GVK=%s, Namespace=%s, AnnotationKey=%s",
-			migrateResource.gvk.String(), clusterName, migrateResource.annotationKey)
-		return nil, nil
-	}
-
-	log.Infof("found %d resources of type %s in namespace %s",
-		len(resourceList.Items), migrateResource.gvk.String(), clusterName)
-	return resourceList.Items, nil
-}
-
-// filterByAnnotationKey filters resources that have the specified annotation key
-func (s *MigrationSourceSyncer) filterByAnnotationKey(
-	items []unstructured.Unstructured,
-	annotationKey string,
-) []unstructured.Unstructured {
-	filteredItems := make([]unstructured.Unstructured, 0)
-	for _, item := range items {
-		if s.hasAnnotationKey(&item, annotationKey) {
-			filteredItems = append(filteredItems, item)
-		}
-	}
-	return filteredItems
-}
-
-// hasAnnotationKey checks if a resource has the specified annotation key
-func (s *MigrationSourceSyncer) hasAnnotationKey(item *unstructured.Unstructured, annotationKey string) bool {
-	annotations := item.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-	_, exists := annotations[annotationKey]
-	return exists
-}
-
-// cleanResourceForMigration cleans up a resource for migration
-func (s *MigrationSourceSyncer) cleanResourceForMigration(
-	resource *unstructured.Unstructured,
-	migrateResource MigrationResource,
-) {
-	// Clean metadata for migration
-	s.cleanObjectMetadata(resource)
-
-	// Apply resource-specific processing based on resource type
-	s.processResourceByType(resource, migrateResource)
-
-	// Clean status field based on needStatus configuration
-	if !migrateResource.needStatus {
-		// Remove status field if not needed for migration
-		unstructured.RemoveNestedField(resource.Object, "status")
-	}
-
-	// Remove any kubectl last-applied-configuration annotations
-	annotations := resource.GetAnnotations()
-	if annotations != nil {
-		delete(annotations, kubectlConfigAnnotation)
-		resource.SetAnnotations(annotations)
-	}
 }
 
 // processResourceByType applies resource-specific processing based on resource type
@@ -608,8 +471,7 @@ func (m *MigrationSourceSyncer) registering(
 	managedClusters := migratingEvt.ManagedClusters
 	// set the hub accept client into false to trigger the re-registering
 	for _, managedCluster := range managedClusters {
-
-		log.Infof("updating managed cluster %s to set HubAcceptsClient as false", managedCluster)
+		log.Debugf("updating managed cluster %s to set HubAcceptsClient as false", managedCluster)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 			mc := &clusterv1.ManagedCluster{}
 			if err := m.client.Get(ctx, types.NamespacedName{
@@ -702,7 +564,7 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 	// 1. Clean up bootstrap secret if it exists
 	if migrationSourceHubEvent.BootstrapSecret != nil {
 		log.Infof("cleaning up bootstrap secret: %s", migrationSourceHubEvent.BootstrapSecret.Name)
-		if err := deleteResourceIfExists(ctx, s.client, migrationSourceHubEvent.BootstrapSecret); err != nil {
+		if err := deleteResourceIfExists(ctx, s.client, migrationSourceHubEvent.BootstrapSecret, false); err != nil {
 			return fmt.Errorf("failed to delete bootstrap secret %s: %v", migrationSourceHubEvent.BootstrapSecret.Name, err)
 		}
 		log.Infof("successfully deleted bootstrap secret: %s", migrationSourceHubEvent.BootstrapSecret.Name)
@@ -715,7 +577,7 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 		},
 	}
 	log.Infof("cleaning up KlusterletConfig: %s", klusterletConfig.Name)
-	if err := deleteResourceIfExists(ctx, s.client, klusterletConfig); err != nil {
+	if err := deleteResourceIfExists(ctx, s.client, klusterletConfig, false); err != nil {
 		return fmt.Errorf("failed to delete KlusterletConfig %s: %v", klusterletConfig.Name, err)
 	}
 	log.Infof("successfully deleted KlusterletConfig: %s", klusterletConfig.Name)
