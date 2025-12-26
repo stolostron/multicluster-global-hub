@@ -480,6 +480,15 @@ rules:
   - get
   - update
 - apiGroups:
+  - observability.open-cluster-management.io
+  resources:
+  - observabilityaddons
+  verbs:
+  - delete
+  - get
+  - list
+  - update
+- apiGroups:
   - operator.open-cluster-management.io
   resources:
   - clustermanagers
