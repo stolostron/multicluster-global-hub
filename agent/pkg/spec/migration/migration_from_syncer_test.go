@@ -2118,7 +2118,7 @@ func createClusterDeployment(name, namespace, pullSecretName string) unstructure
 	})
 	cd.SetName(name)
 	cd.SetNamespace(namespace)
-	_ = unstructured.SetNestedField(cd.Object, pullSecretName, "spec", "provisioning", "pullSecretRef", "name")
+	_ = unstructured.SetNestedField(cd.Object, pullSecretName, "spec", "pullSecretRef", "name")
 	return *cd
 }
 

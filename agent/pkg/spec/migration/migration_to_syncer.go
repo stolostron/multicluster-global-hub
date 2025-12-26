@@ -508,89 +508,59 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 	resourceKey := fmt.Sprintf("%s/%s/%s", resource.GetKind(), resource.GetNamespace(), resource.GetName())
 	log.Debugf("deploying: syncResource started for resource=%s", resourceKey)
 
-	// Store the source resource data that needs to be applied
-	sourceLabels := resource.GetLabels()
-	sourceAnnotations := resource.GetAnnotations()
-
-	// Handle ConfigMap and Secret data field
-	sourceData, hasData, err := unstructured.NestedFieldCopy(resource.Object, "data")
-	if err != nil {
-		return fmt.Errorf(errMsgFailedToGet, "data", err)
-	}
-
-	// Handle spec field
-	sourceSpec, hasSpec, err := unstructured.NestedFieldCopy(resource.Object, "spec")
-	if err != nil {
-		return fmt.Errorf(errMsgFailedToGet, "spec", err)
-	}
-
 	// Handle status field (will be applied separately if exists)
 	sourceStatus, hasStatus, err := unstructured.NestedFieldCopy(resource.Object, "status")
 	if err != nil {
 		return fmt.Errorf(errMsgFailedToGet, "status", err)
 	}
 
-	log.Debugf("deploying: creating or updating resource=%s", resourceKey)
+	// Step 1: Get resource to check if it exists
+	existingResource := &unstructured.Unstructured{}
+	existingResource.SetGroupVersionKind(resource.GroupVersionKind())
+	err = s.client.Get(ctx, client.ObjectKeyFromObject(resource), existingResource)
+
+	// Step 2: If resource doesn't exist, create it
+	if apierrors.IsNotFound(err) {
+		log.Debugf("deploying: creating resource=%s", resourceKey)
+		if err := s.client.Create(ctx, resource); err != nil {
+			log.Errorf("deploying: failed to create resource=%s: %v", resourceKey, err)
+			return fmt.Errorf("failed to create %s %s: %w", resource.GetKind(), resource.GetName(), err)
+		}
+		log.Debugf("deploying: successfully created resource=%s", resourceKey)
+	} else if err != nil {
+		log.Errorf("deploying: failed to get resource=%s: %v", resourceKey, err)
+		return fmt.Errorf("failed to get %s %s: %w", resource.GetKind(), resource.GetName(), err)
+	}
+
+	// Step 3: Check if resource has status
+	if !hasStatus {
+		// Step 3.1: No status, directly return
+		log.Debugf("deploying: resource=%s has no status, completed", resourceKey)
+		return nil
+	}
+
+	// Step 3.2: Has status, update it using RetryOnConflict
+	log.Debugf("deploying: updating status for resource=%s", resourceKey)
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		operation, err := controllerutil.CreateOrUpdate(ctx, s.client, resource,
-			func() error {
-				// Apply labels and annotations from source
-				if sourceLabels != nil {
-					resource.SetLabels(sourceLabels)
-				}
-				if sourceAnnotations != nil {
-					resource.SetAnnotations(sourceAnnotations)
-				}
+		// Get the latest version of the resource to update status
+		latestResource := &unstructured.Unstructured{}
+		latestResource.SetGroupVersionKind(resource.GroupVersionKind())
+		if err := s.client.Get(ctx, client.ObjectKeyFromObject(resource), latestResource); err != nil {
+			return fmt.Errorf("failed to get latest resource: %w", err)
+		}
 
-				// Apply data from source if it exists (for ConfigMap/Secret)
-				if hasData {
-					if err := unstructured.SetNestedField(resource.Object, sourceData, "data"); err != nil {
-						return fmt.Errorf("failed to set data: %w", err)
-					}
-				}
+		// Set the status from source
+		if err := unstructured.SetNestedField(latestResource.Object, sourceStatus, "status"); err != nil {
+			return fmt.Errorf("failed to set status: %w", err)
+		}
 
-				// Apply spec from source if it exists
-				if hasSpec {
-					if err := unstructured.SetNestedField(resource.Object, sourceSpec, "spec"); err != nil {
-						return fmt.Errorf("failed to set spec: %w", err)
-					}
-				}
-				return nil
-			})
-		log.Debugf("deploying: resource=%s operation=%s", resourceKey, operation)
-		return err
+		// Update only the status subresource
+		return s.client.Status().Update(ctx, latestResource)
 	})
 	if err != nil {
-		log.Errorf("deploying: failed to create or update resource=%s: %v", resourceKey, err)
-		return fmt.Errorf("failed to create or update %s %s: %w", resource.GetKind(), resource.GetName(), err)
+		log.Errorf("deploying: failed to update status for resource=%s: %v", resourceKey, err)
+		return fmt.Errorf("failed to update status for %s %s: %w", resource.GetKind(), resource.GetName(), err)
 	}
-
-	// Apply status separately using Status().Update() if it exists
-	if hasStatus {
-		log.Debugf("deploying: updating status for resource=%s", resourceKey)
-		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			// Get the latest version of the resource to update status
-			latestResource := &unstructured.Unstructured{}
-			latestResource.SetGroupVersionKind(resource.GroupVersionKind())
-			if err := s.client.Get(ctx, client.ObjectKeyFromObject(resource), latestResource); err != nil {
-				return fmt.Errorf("failed to get latest resource: %w", err)
-			}
-
-			// Set the status from source
-			if err := unstructured.SetNestedField(latestResource.Object, sourceStatus, "status"); err != nil {
-				return fmt.Errorf("failed to set status: %w", err)
-			}
-
-			// Update only the status subresource
-			return s.client.Status().Update(ctx, latestResource)
-		})
-		if err != nil {
-			log.Errorf("deploying: failed to update status for resource=%s: %v", resourceKey, err)
-			return fmt.Errorf("failed to update status for %s %s: %w", resource.GetKind(), resource.GetName(), err)
-		}
-		log.Debugf("deploying: successfully updated status for resource=%s", resourceKey)
-	}
-
 	log.Debugf("deploying: syncResource completed successfully for resource=%s", resourceKey)
 	return nil
 }
