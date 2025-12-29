@@ -973,6 +973,97 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "Cleaning: verify DisableAutoImportAnnotation is removed from managed clusters",
+			receivedMigrationEventBundle: migration.MigrationTargetBundle{
+				MigrationId:                           "020340324302432049234023040320",
+				Stage:                                 migrationv1alpha1.PhaseCleaning,
+				ManagedServiceAccountName:             "test",
+				ManagedServiceAccountInstallNamespace: "test",
+				ManagedClusters:                       []string{"cluster1", "cluster2"},
+			},
+			expectedError: nil,
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						Annotations: map[string]string{
+							"import.open-cluster-management.io/disable-auto-import": "",
+							"other-annotation": "value",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+				},
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster2",
+						Annotations: map[string]string{
+							"import.open-cluster-management.io/disable-auto-import": "",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient: true,
+					},
+				},
+				&operatorv1.ClusterManager{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					Spec: operatorv1.ClusterManagerSpec{
+						RegistrationImagePullSpec: "test",
+						WorkImagePullSpec:         "test",
+					},
+				},
+				&rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleName("test"),
+					},
+					Rules: []rbacv1.PolicyRule{
+						{
+							APIGroups: []string{"authorization.k8s.io"},
+							Resources: []string{"subjectaccessreviews"},
+							Verbs:     []string{"create"},
+						},
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetAgentRegistrationClusterRoleBindingName("test"),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     "open-cluster-management:managedcluster:bootstrap:agent-registration",
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+				&rbacv1.ClusterRoleBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: GetSubjectAccessReviewClusterRoleBindingName("test"),
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							Kind:      "ServiceAccount",
+							Name:      "test",
+							Namespace: "test",
+						},
+					},
+					RoleRef: rbacv1.RoleRef{
+						Kind:     "ClusterRole",
+						Name:     GetSubjectAccessReviewClusterRoleName("test"),
+						APIGroup: "rbac.authorization.k8s.io",
+					},
+				},
+			},
+		},
 	}
 
 	for _, c := range cases {
@@ -1016,6 +1107,23 @@ func TestMigrationDestinationHubSyncer(t *testing.T) {
 				assert.Nil(t, err)
 			} else {
 				assert.EqualError(t, err, c.expectedError.Error())
+			}
+
+			// For cleaning stage test, verify DisableAutoImportAnnotation is removed
+			if c.name == "Cleaning: verify DisableAutoImportAnnotation is removed from managed clusters" {
+				for _, clusterName := range c.receivedMigrationEventBundle.ManagedClusters {
+					mc := &clusterv1.ManagedCluster{}
+					err := fakeClient.Get(ctx, types.NamespacedName{Name: clusterName}, mc)
+					assert.Nil(t, err)
+					annotations := mc.GetAnnotations()
+					_, hasDisableAutoImport := annotations["import.open-cluster-management.io/disable-auto-import"]
+					assert.False(t, hasDisableAutoImport, "DisableAutoImportAnnotation should be removed from cluster %s", clusterName)
+
+					// Verify other annotations are preserved
+					if clusterName == "cluster1" {
+						assert.Equal(t, "value", annotations["other-annotation"], "Other annotations should be preserved")
+					}
+				}
 			}
 		})
 	}

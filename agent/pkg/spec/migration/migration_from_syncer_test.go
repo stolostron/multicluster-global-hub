@@ -11,6 +11,7 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	apiconstants "github.com/stolostron/cluster-lifecycle-api/constants"
 	klusterletv1alpha1 "github.com/stolostron/cluster-lifecycle-api/klusterletconfig/v1alpha1"
 	addonv1 "github.com/stolostron/klusterlet-addon-controller/pkg/apis/agent/v1"
 	mchv1 "github.com/stolostron/multiclusterhub-operator/api/v1"
@@ -455,6 +456,130 @@ func TestMigrationSourceHubSyncer(t *testing.T) {
 				evt.SetExtension(eventversion.ExtVersion, "0.1")
 				return &evt
 			}(),
+			expectedObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "cluster1",
+						Annotations: map[string]string{},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+		},
+		{
+			name: "Initializing: verify DisableAutoImportAnnotation is added during initializing stage",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+				&addonv1.KlusterletAddonConfig{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cluster1",
+						Namespace: "cluster1",
+					},
+				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: "cluster1",
+						UID:       "020340324302432049234023040320",
+					},
+					Data: map[string]string{"hello": "world"},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-secret",
+						Namespace: "cluster1",
+						UID:       "020340324302432049234023040321",
+					},
+					StringData: map[string]string{"test": "secret"},
+				},
+			},
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
+				MigrationId: currentSyncerMigrationId,
+				ToHub:       "hub2",
+				Stage:       migrationv1alpha1.PhaseInitializing,
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
+				},
+				ManagedClusters: []string{"cluster1"},
+			},
+			expectedProduceEvent: nil,
+			expectedObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						Annotations: map[string]string{
+							constants.ManagedClusterMigrating:        "",
+							KlusterletConfigAnnotation:               klusterletConfigNamePrefix + "hub2",
+							apiconstants.DisableAutoImportAnnotation: "",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+			},
+		},
+		{
+			name: "Rollback initializing: verify DisableAutoImportAnnotation is removed during rollback",
+			initObjects: []client.Object{
+				&clusterv1.ManagedCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster1",
+						Annotations: map[string]string{
+							constants.ManagedClusterMigrating:        "global-hub.open-cluster-management.io/migrating",
+							KlusterletConfigAnnotation:               "migration-hub2",
+							apiconstants.DisableAutoImportAnnotation: "",
+						},
+					},
+					Spec: clusterv1.ManagedClusterSpec{
+						HubAcceptsClient:     true,
+						LeaseDurationSeconds: 60,
+					},
+				},
+				&mchv1.MultiClusterHub{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "multiclusterhub",
+					},
+					Spec: mchv1.MultiClusterHubSpec{},
+					Status: mchv1.MultiClusterHubStatus{
+						CurrentVersion: "2.14.0",
+					},
+				},
+			},
+			receivedMigrationEventBundle: migration.MigrationSourceBundle{
+				MigrationId:     currentSyncerMigrationId,
+				ToHub:           "hub2",
+				Stage:           migrationv1alpha1.PhaseRollbacking,
+				RollbackStage:   migrationv1alpha1.PhaseInitializing,
+				ManagedClusters: []string{"cluster1"},
+				BootstrapSecret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: bootstrapSecretNamePrefix + "hub2", Namespace: "multicluster-engine"},
+					Type:       corev1.SecretTypeOpaque,
+					StringData: map[string]string{"test": "secret"},
+				},
+			},
+			expectedProduceEvent: nil,
 			expectedObjects: []client.Object{
 				&clusterv1.ManagedCluster{
 					ObjectMeta: metav1.ObjectMeta{
