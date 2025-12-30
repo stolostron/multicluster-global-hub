@@ -586,7 +586,11 @@ func (s *MigrationTargetSyncer) syncResource(ctx context.Context, resource *unst
 	})
 	if err != nil {
 		log.Errorf("deploying: failed to create or update resource=%s: %v", resourceKey, err)
-		return fmt.Errorf("failed to create or update %s %s: %w", resource.GetKind(), resource.GetName(), err)
+
+		// Skip Invalid error.
+		if !apierrors.IsInvalid(err) {
+			return fmt.Errorf("failed to create or update %s %s: %w", resource.GetKind(), resource.GetName(), err)
+		}
 	}
 
 	// Apply status separately using Status().Update() if it exists
