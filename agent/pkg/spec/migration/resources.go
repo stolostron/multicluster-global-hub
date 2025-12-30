@@ -103,14 +103,6 @@ var migrateResources = []MigrationResource{
 	},
 	{
 		gvk: schema.GroupVersionKind{
-			Group:   "metal3.io",
-			Version: "v1alpha1",
-			Kind:    "DataImage",
-		},
-		needStatus: true,
-	},
-	{
-		gvk: schema.GroupVersionKind{
 			Group:   "extensions.hive.openshift.io",
 			Version: "v1alpha1",
 			Kind:    "ImageClusterInstall",
