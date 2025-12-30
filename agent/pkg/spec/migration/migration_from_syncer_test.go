@@ -6,6 +6,7 @@ package migration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -2280,4 +2281,756 @@ func createImageClusterInstall(name, namespace string, configMapNames []string) 
 	}
 
 	return *ici
+}
+
+// TestDeleteObservabilityAddon tests the deleteObservabilityAddon function
+func TestDeleteObservabilityAddon(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name          string
+		clusterName   string
+		initObjects   []client.Object
+		expectedError bool
+		expectDeleted bool
+	}{
+		{
+			name:        "Should successfully delete ObservabilityAddon with finalizers",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should successfully delete ObservabilityAddon without finalizers",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", nil),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should successfully delete multiple ObservabilityAddons",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon-1", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}),
+				createObservabilityAddon("observability-addon-2", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+					"other-finalizer",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:          "Should handle no ObservabilityAddons in namespace",
+			clusterName:   "cluster1",
+			initObjects:   []client.Object{},
+			expectedError: false,
+			expectDeleted: false,
+		},
+		{
+			name:        "Should only delete ObservabilityAddons in specified namespace",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon-1", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}),
+				createObservabilityAddon("observability-addon-2", "cluster2", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle ObservabilityAddon with multiple finalizers",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+					"finalizer1",
+					"finalizer2",
+					"finalizer3",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// Create fake client with objects
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			// Call deleteObservabilityAddon
+			err := syncer.deleteObservabilityAddon(ctx, c.clusterName)
+
+			// Verify error expectation
+			if c.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify ObservabilityAddon resources are deleted
+			observabilityAddonList := &unstructured.UnstructuredList{}
+			observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "observability.open-cluster-management.io",
+				Version: "v1beta1",
+				Kind:    "ObservabilityAddon",
+			})
+
+			err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace(c.clusterName))
+			assert.NoError(t, err)
+
+			if c.expectDeleted {
+				// All ObservabilityAddons in the namespace should be deleted
+				assert.Equal(t, 0, len(observabilityAddonList.Items),
+					"All ObservabilityAddons should be deleted from namespace %s", c.clusterName)
+			}
+
+			// Verify that ObservabilityAddons in other namespaces are not affected
+			if c.clusterName == "cluster1" {
+				otherNamespaceList := &unstructured.UnstructuredList{}
+				otherNamespaceList.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "observability.open-cluster-management.io",
+					Version: "v1beta1",
+					Kind:    "ObservabilityAddon",
+				})
+				err = fakeClient.List(ctx, otherNamespaceList, client.InNamespace("cluster2"))
+				assert.NoError(t, err)
+
+				// Count how many ObservabilityAddons were expected in cluster2
+				expectedInCluster2 := 0
+				for _, obj := range c.initObjects {
+					if obj.GetNamespace() == "cluster2" {
+						expectedInCluster2++
+					}
+				}
+
+				assert.Equal(t, expectedInCluster2, len(otherNamespaceList.Items),
+					"ObservabilityAddons in other namespaces should not be affected")
+			}
+		})
+	}
+}
+
+// TestDeleteObservabilityAddon_CRDNotRegistered tests the case when ObservabilityAddon CRD is not registered
+func TestDeleteObservabilityAddon_CRDNotRegistered(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	// Don't register ObservabilityAddon CRD to the scheme
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	syncer := &MigrationSourceSyncer{
+		client: fakeClient,
+	}
+
+	// Should not return error when CRD is not registered (NoMatchError)
+	err := syncer.deleteObservabilityAddon(ctx, "cluster1")
+	assert.NoError(t, err, "Should not return error when ObservabilityAddon CRD is not registered")
+}
+
+// TestDeleteObservabilityAddon_EdgeCases tests additional edge cases and scenarios
+func TestDeleteObservabilityAddon_EdgeCases(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name                 string
+		clusterName          string
+		initObjects          []client.Object
+		expectedError        bool
+		expectDeleted        bool
+		validateDeletion     bool
+		expectFinalizersGone bool
+	}{
+		{
+			name:        "Should handle ObservabilityAddon already marked for deletion",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddonWithDeletionTimestamp("observability-addon", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}),
+			},
+			expectedError:        false,
+			expectDeleted:        true,
+			expectFinalizersGone: true,
+		},
+		{
+			name:        "Should handle empty finalizer list",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle ObservabilityAddon with only one finalizer",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{
+					"single-finalizer",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle ObservabilityAddon with very long finalizer names",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{
+					"very.long.finalizer.name.that.exceeds.normal.length.expectations.for.testing.purposes.only",
+					"another.extremely.long.finalizer.name.to.test.edge.cases.and.ensure.proper.handling",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle cluster namespace with special characters",
+			clusterName: "cluster-with-dashes-123",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster-with-dashes-123", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle multiple ObservabilityAddons with different names",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon-primary", "cluster1", []string{
+					"finalizer-1",
+				}),
+				createObservabilityAddon("observability-addon-secondary", "cluster1", []string{
+					"finalizer-2",
+				}),
+				createObservabilityAddon("observability-addon-tertiary", "cluster1", []string{
+					"finalizer-3",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle ObservabilityAddon with duplicate finalizers",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{
+					"duplicate-finalizer",
+					"duplicate-finalizer",
+					"unique-finalizer",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:        "Should handle ObservabilityAddon with mixed finalizer types",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("observability-addon", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+					"foregroundDeletion",
+					"custom.finalizer.io/cleanup",
+					"kubernetes.io/finalizer",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+		{
+			name:          "Should successfully handle completely empty namespace",
+			clusterName:   "empty-namespace",
+			initObjects:   []client.Object{},
+			expectedError: false,
+			expectDeleted: false,
+		},
+		{
+			name:        "Should handle ObservabilityAddon with additional metadata",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddonWithMetadata("observability-addon", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+				}, map[string]string{
+					"app":     "observability",
+					"version": "v1.0.0",
+				}, map[string]string{
+					"description": "test addon",
+					"owner":       "team-a",
+				}),
+			},
+			expectedError: false,
+			expectDeleted: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			err := syncer.deleteObservabilityAddon(ctx, c.clusterName)
+
+			if c.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			// Verify deletion
+			observabilityAddonList := &unstructured.UnstructuredList{}
+			observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+				Group:   "observability.open-cluster-management.io",
+				Version: "v1beta1",
+				Kind:    "ObservabilityAddon",
+			})
+
+			err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace(c.clusterName))
+			assert.NoError(t, err)
+
+			if c.expectDeleted {
+				assert.Equal(t, 0, len(observabilityAddonList.Items),
+					"All ObservabilityAddons should be deleted from namespace %s", c.clusterName)
+			}
+
+			// Additional validation for finalizers if needed
+			if c.expectFinalizersGone && len(observabilityAddonList.Items) > 0 {
+				for _, addon := range observabilityAddonList.Items {
+					assert.Empty(t, addon.GetFinalizers(),
+						"Finalizers should be removed from ObservabilityAddon %s", addon.GetName())
+				}
+			}
+		})
+	}
+}
+
+// TestDeleteObservabilityAddon_ConcurrentDeletion tests handling of multiple ObservabilityAddons deletion
+func TestDeleteObservabilityAddon_ConcurrentDeletion(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	// Create 10 ObservabilityAddons to simulate a larger scale deletion
+	initObjects := make([]client.Object, 10)
+	for i := 0; i < 10; i++ {
+		initObjects[i] = createObservabilityAddon(
+			fmt.Sprintf("observability-addon-%d", i),
+			"cluster1",
+			[]string{
+				"observability.open-cluster-management.io/addon-cleanup",
+				fmt.Sprintf("custom-finalizer-%d", i),
+			},
+		)
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+	syncer := &MigrationSourceSyncer{
+		client: fakeClient,
+	}
+
+	err := syncer.deleteObservabilityAddon(ctx, "cluster1")
+	assert.NoError(t, err)
+
+	// Verify all ObservabilityAddons are deleted
+	observabilityAddonList := &unstructured.UnstructuredList{}
+	observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "observability.open-cluster-management.io",
+		Version: "v1beta1",
+		Kind:    "ObservabilityAddon",
+	})
+
+	err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace("cluster1"))
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(observabilityAddonList.Items), "All 10 ObservabilityAddons should be deleted")
+}
+
+// TestDeleteObservabilityAddon_NamespaceIsolation tests that deletion only affects target namespace
+func TestDeleteObservabilityAddon_NamespaceIsolation(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	// Create ObservabilityAddons in multiple namespaces
+	initObjects := []client.Object{
+		// Target namespace
+		createObservabilityAddon("obs-addon-1", "target-cluster", []string{"finalizer-1"}),
+		createObservabilityAddon("obs-addon-2", "target-cluster", []string{"finalizer-2"}),
+		// Other namespaces
+		createObservabilityAddon("obs-addon-3", "other-cluster-1", []string{"finalizer-3"}),
+		createObservabilityAddon("obs-addon-4", "other-cluster-2", []string{"finalizer-4"}),
+		createObservabilityAddon("obs-addon-5", "other-cluster-3", []string{"finalizer-5"}),
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(initObjects...).Build()
+
+	syncer := &MigrationSourceSyncer{
+		client: fakeClient,
+	}
+
+	// Delete only from target-cluster
+	err := syncer.deleteObservabilityAddon(ctx, "target-cluster")
+	assert.NoError(t, err)
+
+	// Verify target namespace is clean
+	targetList := &unstructured.UnstructuredList{}
+	targetList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "observability.open-cluster-management.io",
+		Version: "v1beta1",
+		Kind:    "ObservabilityAddon",
+	})
+	err = fakeClient.List(ctx, targetList, client.InNamespace("target-cluster"))
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(targetList.Items), "Target namespace should be clean")
+
+	// Verify other namespaces are untouched
+	otherNamespaces := []string{"other-cluster-1", "other-cluster-2", "other-cluster-3"}
+	for _, ns := range otherNamespaces {
+		otherList := &unstructured.UnstructuredList{}
+		otherList.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "observability.open-cluster-management.io",
+			Version: "v1beta1",
+			Kind:    "ObservabilityAddon",
+		})
+		err = fakeClient.List(ctx, otherList, client.InNamespace(ns))
+		assert.NoError(t, err)
+		assert.Equal(t, 1, len(otherList.Items),
+			"Namespace %s should still have its ObservabilityAddon", ns)
+	}
+}
+
+// TestDeleteObservabilityAddon_FinalizerRemoval tests that finalizers are properly removed
+func TestDeleteObservabilityAddon_FinalizerRemoval(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	cases := []struct {
+		name          string
+		clusterName   string
+		initObjects   []client.Object
+		expectedError bool
+	}{
+		{
+			name:        "Should remove all types of finalizers",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("obs-addon", "cluster1", []string{
+					"observability.open-cluster-management.io/addon-cleanup",
+					"kubernetes.io/finalizer",
+					"custom.finalizer.io/cleanup",
+				}),
+			},
+			expectedError: false,
+		},
+		{
+			name:        "Should handle addon with empty finalizer array",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("obs-addon", "cluster1", []string{}),
+			},
+			expectedError: false,
+		},
+		{
+			name:        "Should handle addon without finalizers field",
+			clusterName: "cluster1",
+			initObjects: []client.Object{
+				createObservabilityAddon("obs-addon", "cluster1", nil),
+			},
+			expectedError: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(c.initObjects...).Build()
+
+			syncer := &MigrationSourceSyncer{
+				client: fakeClient,
+			}
+
+			err := syncer.deleteObservabilityAddon(ctx, c.clusterName)
+
+			if c.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// Verify all ObservabilityAddons are deleted (even with finalizers)
+				observabilityAddonList := &unstructured.UnstructuredList{}
+				observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "observability.open-cluster-management.io",
+					Version: "v1beta1",
+					Kind:    "ObservabilityAddon",
+				})
+
+				err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace(c.clusterName))
+				assert.NoError(t, err)
+				assert.Equal(t, 0, len(observabilityAddonList.Items),
+					"All ObservabilityAddons should be deleted from namespace %s", c.clusterName)
+			}
+		})
+	}
+}
+
+// TestDeleteObservabilityAddon_ListError tests error handling when listing ObservabilityAddons
+func TestDeleteObservabilityAddon_ListError(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	// Test with NoMatchError (CRD not registered)
+	t.Run("Should handle NoMatchError gracefully", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		syncer := &MigrationSourceSyncer{
+			client: fakeClient,
+		}
+
+		// Should not return error when CRD is not registered
+		err := syncer.deleteObservabilityAddon(ctx, "cluster1")
+		assert.NoError(t, err, "Should not return error when ObservabilityAddon CRD is not registered")
+	})
+
+	// Test with empty result
+	t.Run("Should handle empty namespace without error", func(t *testing.T) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		syncer := &MigrationSourceSyncer{
+			client: fakeClient,
+		}
+
+		err := syncer.deleteObservabilityAddon(ctx, "empty-cluster")
+		assert.NoError(t, err)
+	})
+}
+
+// TestDeleteObservabilityAddon_DeleteSequence tests the deletion sequence
+func TestDeleteObservabilityAddon_DeleteSequence(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	t.Run("Should delete addon then remove finalizers", func(t *testing.T) {
+		addon := createObservabilityAddon("obs-addon", "cluster1", []string{
+			"observability.open-cluster-management.io/addon-cleanup",
+		})
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(addon).Build()
+
+		syncer := &MigrationSourceSyncer{
+			client: fakeClient,
+		}
+
+		// Execute deletion
+		err := syncer.deleteObservabilityAddon(ctx, "cluster1")
+		assert.NoError(t, err)
+
+		// Verify the addon is fully deleted
+		observabilityAddonList := &unstructured.UnstructuredList{}
+		observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "observability.open-cluster-management.io",
+			Version: "v1beta1",
+			Kind:    "ObservabilityAddon",
+		})
+
+		err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace("cluster1"))
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(observabilityAddonList.Items),
+			"ObservabilityAddon should be completely deleted")
+	})
+}
+
+// TestDeleteObservabilityAddon_ResourceWithStatus tests deletion of addon with status
+func TestDeleteObservabilityAddon_ResourceWithStatus(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+
+	t.Run("Should delete addon with status field", func(t *testing.T) {
+		addon := createObservabilityAddon("obs-addon", "cluster1", []string{"finalizer-1"})
+		// Add status field
+		_ = unstructured.SetNestedField(addon.Object, "Ready", "status", "phase")
+		_ = unstructured.SetNestedField(addon.Object, true, "status", "observedGeneration")
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(addon).Build()
+
+		syncer := &MigrationSourceSyncer{
+			client: fakeClient,
+		}
+
+		err := syncer.deleteObservabilityAddon(ctx, "cluster1")
+		assert.NoError(t, err)
+
+		// Verify deletion
+		observabilityAddonList := &unstructured.UnstructuredList{}
+		observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "observability.open-cluster-management.io",
+			Version: "v1beta1",
+			Kind:    "ObservabilityAddon",
+		})
+
+		err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace("cluster1"))
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(observabilityAddonList.Items))
+	})
+}
+
+// TestDeleteObservabilityAddon_CleaningPhaseIntegration tests deleteObservabilityAddon within cleaning phase
+func TestDeleteObservabilityAddon_CleaningPhaseIntegration(t *testing.T) {
+	ctx := context.Background()
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add corev1 to scheme: %v", err)
+	}
+	if err := clusterv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add clusterv1 to scheme: %v", err)
+	}
+	if err := mchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("Failed to add mchv1 to scheme: %v", err)
+	}
+
+	t.Run("Should delete ObservabilityAddon during cleaning phase", func(t *testing.T) {
+		managedCluster := &clusterv1.ManagedCluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cluster1",
+			},
+			Spec: clusterv1.ManagedClusterSpec{
+				HubAcceptsClient:     false, // Set to false so it will be deleted
+				LeaseDurationSeconds: 60,
+			},
+		}
+
+		mch := &mchv1.MultiClusterHub{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "multiclusterhub",
+			},
+			Status: mchv1.MultiClusterHubStatus{
+				CurrentVersion: "2.14.0",
+			},
+		}
+
+		// Create ObservabilityAddon that should be deleted
+		observabilityAddon := createObservabilityAddon("observability-addon", "cluster1", []string{
+			"observability.open-cluster-management.io/addon-cleanup",
+		})
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithStatusSubresource(managedCluster).
+			WithObjects(managedCluster, mch, observabilityAddon).
+			Build()
+
+		syncer := &MigrationSourceSyncer{
+			client: fakeClient,
+		}
+
+		// Call deleteObservabilityAddon directly
+		err := syncer.deleteObservabilityAddon(ctx, "cluster1")
+		assert.NoError(t, err)
+
+		// Verify ObservabilityAddon is deleted
+		observabilityAddonList := &unstructured.UnstructuredList{}
+		observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "observability.open-cluster-management.io",
+			Version: "v1beta1",
+			Kind:    "ObservabilityAddon",
+		})
+
+		err = fakeClient.List(ctx, observabilityAddonList, client.InNamespace("cluster1"))
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(observabilityAddonList.Items),
+			"ObservabilityAddon should be deleted in cleaning phase")
+	})
+}
+
+// createObservabilityAddon creates an ObservabilityAddon resource for testing
+func createObservabilityAddon(name, namespace string, finalizers []string) *unstructured.Unstructured {
+	addon := &unstructured.Unstructured{}
+	addon.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "observability.open-cluster-management.io",
+		Version: "v1beta1",
+		Kind:    "ObservabilityAddon",
+	})
+	addon.SetName(name)
+	addon.SetNamespace(namespace)
+	if finalizers != nil {
+		addon.SetFinalizers(finalizers)
+	}
+
+	// Set some typical fields for an ObservabilityAddon
+	_ = unstructured.SetNestedField(addon.Object, true, "spec", "enableMetrics")
+	_ = unstructured.SetNestedField(addon.Object, int64(30), "spec", "interval")
+
+	return addon
+}
+
+// createObservabilityAddonWithDeletionTimestamp creates an ObservabilityAddon with deletionTimestamp set
+func createObservabilityAddonWithDeletionTimestamp(name, namespace string, finalizers []string) *unstructured.Unstructured {
+	addon := createObservabilityAddon(name, namespace, finalizers)
+
+	// Set deletionTimestamp to simulate a resource marked for deletion
+	now := metav1.Now()
+	addon.SetDeletionTimestamp(&now)
+
+	return addon
+}
+
+// createObservabilityAddonWithMetadata creates an ObservabilityAddon with custom labels and annotations
+func createObservabilityAddonWithMetadata(name, namespace string, finalizers []string,
+	labels map[string]string, annotations map[string]string,
+) *unstructured.Unstructured {
+	addon := createObservabilityAddon(name, namespace, finalizers)
+
+	if labels != nil {
+		addon.SetLabels(labels)
+	}
+
+	if annotations != nil {
+		addon.SetAnnotations(annotations)
+	}
+
+	return addon
 }

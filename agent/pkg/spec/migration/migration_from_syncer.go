@@ -18,6 +18,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -189,9 +190,15 @@ func (s *MigrationSourceSyncer) cleaning(ctx context.Context, source *migration.
 		return fmt.Errorf("failed to delete klusterletconfig: %w", err)
 	}
 
-	// Remove /deprovision finalizers from ZTP resources before cleaning up managed clusters
-	log.Infof("removing /deprovision finalizers from ZTP resources for %d managed clusters", len(source.ManagedClusters))
+	/// Forcefully delete ObservabilityAddon and remove /deprovision finalizers from ZTP resources
+	// before cleaning up managed clusters
+	log.Infof("cleaning ObservabilityAddon and ZTP resources for %d managed clusters", len(source.ManagedClusters))
 	for _, clusterName := range source.ManagedClusters {
+		// Migration sets hubAccept to false in source cluster, so cluster deletion will not delete addons
+		// We need to forcefully delete ObservabilityAddon resources
+		if err := s.deleteObservabilityAddon(ctx, clusterName); err != nil {
+			log.Warnf("failed to delete ObservabilityAddon for cluster %s: %v", clusterName, err)
+		}
 		if err := RemoveDeprovisionFinalizers(ctx, s.client, clusterName); err != nil {
 			log.Warnf("failed to remove /deprovision finalizers for cluster %s: %v", clusterName, err)
 		}
@@ -826,6 +833,54 @@ func ResyncMigrationEvent(ctx context.Context, transportClient transport.Transpo
 			Resync: true,
 		}, eventversion.NewVersion(),
 	)
+}
+
+// deleteObservabilityAddon forcefully deletes ObservabilityAddon resources in the cluster namespace
+// It removes all finalizers before deletion to ensure the resource can be deleted
+func (s *MigrationSourceSyncer) deleteObservabilityAddon(ctx context.Context, clusterName string) error {
+	// List all ObservabilityAddon resources in the cluster namespace
+	observabilityAddonList := &unstructured.UnstructuredList{}
+	observabilityAddonList.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "observability.open-cluster-management.io",
+		Version: "v1beta1",
+		Kind:    "ObservabilityAddon",
+	})
+
+	if err := s.client.List(ctx, observabilityAddonList, client.InNamespace(clusterName)); err != nil {
+		if meta.IsNoMatchError(err) {
+			log.Debugf("ObservabilityAddon CRD not registered, skipping deletion for cluster %s", clusterName)
+			return nil
+		}
+		if apierrors.IsNotFound(err) {
+			log.Debugf("no ObservabilityAddon found in namespace %s", clusterName)
+			return nil
+		}
+		return fmt.Errorf("failed to list ObservabilityAddon in namespace %s: %w", clusterName, err)
+	}
+
+	// Forcefully delete each ObservabilityAddon resource
+	// Delete first (sets deletionTimestamp), then remove finalizers to allow deletion to complete
+	for i := range observabilityAddonList.Items {
+		addon := &observabilityAddonList.Items[i]
+		log.Infof("forcefully deleting ObservabilityAddon %s/%s", addon.GetNamespace(), addon.GetName())
+
+		// Step 1: Delete the resource (this sets deletionTimestamp if not already set)
+		if err := s.client.Delete(ctx, addon); err != nil {
+			if !apierrors.IsNotFound(err) {
+				log.Warnf("failed to delete ObservabilityAddon %s/%s: %v", addon.GetNamespace(), addon.GetName(), err)
+			}
+		}
+
+		// Step 2: Remove all finalizers to allow the deletion to complete
+		if err := removeFinalizers(ctx, s.client, addon); err != nil {
+			return fmt.Errorf("failed to remove finalizers from ObservabilityAddon %s/%s: %w",
+				addon.GetNamespace(), addon.GetName(), err)
+		}
+
+		log.Infof("successfully deleted ObservabilityAddon %s/%s", addon.GetNamespace(), addon.GetName())
+	}
+
+	return nil
 }
 
 // validating handles the validating phase - get clusters from placement decisions and validate them
