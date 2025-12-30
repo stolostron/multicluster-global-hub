@@ -441,8 +441,6 @@ rules:
   resources:
   - baremetalhosts
   - baremetalhosts/status
-  - dataimages
-  - dataimages/status
   - firmwareschemas
   - firmwareschemas/status
   - hostfirmwarecomponents
