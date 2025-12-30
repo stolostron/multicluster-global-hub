@@ -1099,7 +1099,7 @@ func (s *MigrationSourceSyncer) collectClusterDeploymentSecrets(
 	referencedResources *[]unstructured.Unstructured,
 ) error {
 	pullSecretName, found, err := unstructured.NestedString(
-		resource.Object, "spec", "provisioning", "pullSecretRef", "name")
+		resource.Object, "spec", "pullSecretRef", "name")
 	if err != nil {
 		return fmt.Errorf("failed to get pullSecretRef: %w", err)
 	}

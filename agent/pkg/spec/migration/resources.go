@@ -38,6 +38,24 @@ var migrateResources = []MigrationResource{
 		name:       clusterNamePlaceholder + "-admin-kubeconfig",
 		needStatus: false,
 	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
+		name:       clusterNamePlaceholder + "-metadata-json",
+		needStatus: false,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
+		name:       clusterNamePlaceholder + "-seed-reconfiguration",
+		needStatus: false,
+	},
 	// Should sync NetworkSecret, it is created with annotation <siteconfig.open-cluster-management.io/sync-wave: "1">
 	// https://github.com/stolostron/siteconfig/blob/50303ea9/internal/templates/image-based-installer/template.go#L158
 	{
