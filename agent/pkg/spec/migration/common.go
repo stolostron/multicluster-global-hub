@@ -30,17 +30,12 @@ const (
 var ztpLog = logger.DefaultZapLogger()
 
 // ZTPClusterResourceGVKs defines the specific ZTP cluster resource types
-// (ClusterDeployment and ImageClusterInstall) that need pause annotation during migration
+// ClusterDeployment that need pause annotation during migration
 var ZTPClusterResourceGVKs = []schema.GroupVersionKind{
 	{
 		Group:   "hive.openshift.io",
 		Version: "v1",
 		Kind:    "ClusterDeployment",
-	},
-	{
-		Group:   "extensions.hive.openshift.io",
-		Version: "v1alpha1",
-		Kind:    "ImageClusterInstall",
 	},
 }
 

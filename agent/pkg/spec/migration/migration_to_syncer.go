@@ -1105,9 +1105,9 @@ func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, cl
 	for _, obj := range resources {
 		objCopy := obj
 
-		// For ClusterDeployment and ImageClusterInstall,
+		// For ClusterDeployment,
 		// add pause annotation and remove deprovision finalizers before deletion
-		if objCopy.GetKind() == "ClusterDeployment" || objCopy.GetKind() == "ImageClusterInstall" {
+		if objCopy.GetKind() == "ClusterDeployment" {
 			if err := s.addPauseAnnotationBeforeDeletion(ctx, &objCopy); err != nil {
 				log.Errorf("failed to add pause annotation to %s/%s of kind %s: %v",
 					objCopy.GetNamespace(), objCopy.GetName(), objCopy.GetKind(), err)

@@ -50,7 +50,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 			},
 		},
 		{
-			name:        "Successfully add pause annotation to ImageClusterInstall",
+			name:        "Skip adding pause annotation to ImageClusterInstall (not in ZTPClusterResourceGVKs)",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -70,9 +70,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 				},
 			},
 			expectedError: false,
-			expectedValue: map[string]string{
-				PauseAnnotation: "true",
-			},
+			expectedValue: nil, // No annotation should be added since ImageClusterInstall is not in the list
 		},
 		{
 			name:        "Successfully add pause annotation to resource with existing annotations",
@@ -109,7 +107,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name:        "Add pause annotation to both ClusterDeployment and ImageClusterInstall",
+			name:        "Add pause annotation to ClusterDeployment but not ImageClusterInstall",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -159,7 +157,7 @@ func TestAddPauseAnnotations(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 
-				// Verify annotations were added if objects exist
+				// Verify annotations were added only to resources in ZTPClusterResourceGVKs
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -169,9 +167,24 @@ func TestAddPauseAnnotations(t *testing.T) {
 					assert.Nil(t, err)
 
 					annotations := resource.GetAnnotations()
-					if c.expectedValue != nil {
+					// Only check expected annotations for resources in ZTPClusterResourceGVKs
+					isInZTPList := false
+					for _, gvk := range ZTPClusterResourceGVKs {
+						if gvk == u.GroupVersionKind() {
+							isInZTPList = true
+							break
+						}
+					}
+
+					if isInZTPList && c.expectedValue != nil {
 						for key, expectedVal := range c.expectedValue {
 							assert.Equal(t, expectedVal, annotations[key])
+						}
+					} else if !isInZTPList && c.expectedValue != nil {
+						// For resources not in ZTPClusterResourceGVKs, annotation should not be added
+						if annotations != nil {
+							_, hasKey := annotations[PauseAnnotation]
+							assert.False(t, hasKey, "Annotation should not be added to %s", u.GetKind())
 						}
 					}
 				}
@@ -216,7 +229,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 			shouldHaveKey: false,
 		},
 		{
-			name:        "Successfully remove pause annotation from ImageClusterInstall",
+			name:        "Skip removal of pause annotation from ImageClusterInstall (not in ZTPClusterResourceGVKs)",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -239,7 +252,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 				},
 			},
 			expectedError: false,
-			shouldHaveKey: false,
+			shouldHaveKey: true, // Annotation should remain since ImageClusterInstall is not in the list
 		},
 		{
 			name:        "Successfully remove pause annotation while keeping other annotations",
@@ -295,7 +308,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			name:        "Remove pause annotation from both resources",
+			name:        "Remove pause annotation from ClusterDeployment but not ImageClusterInstall",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -334,7 +347,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 				},
 			},
 			expectedError: false,
-			shouldHaveKey: false,
+			shouldHaveKey: false, // Will be checked per-resource based on ZTPClusterResourceGVKs
 		},
 	}
 
@@ -349,7 +362,7 @@ func TestRemovePauseAnnotations(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 
-				// Verify annotations were removed if objects exist
+				// Verify annotations were removed only from resources in ZTPClusterResourceGVKs
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -358,10 +371,30 @@ func TestRemovePauseAnnotations(t *testing.T) {
 					err := fakeClient.Get(ctx, client.ObjectKeyFromObject(u), resource)
 					assert.Nil(t, err)
 
+					// Check if resource is in ZTPClusterResourceGVKs
+					isInZTPList := false
+					for _, gvk := range ZTPClusterResourceGVKs {
+						if gvk == u.GroupVersionKind() {
+							isInZTPList = true
+							break
+						}
+					}
+
 					annotations := resource.GetAnnotations()
 					if annotations != nil {
 						_, hasKey := annotations[PauseAnnotation]
-						assert.Equal(t, c.shouldHaveKey, hasKey)
+						if isInZTPList {
+							// For resources in ZTPClusterResourceGVKs, annotation should be removed
+							assert.Equal(t, c.shouldHaveKey, hasKey)
+						} else {
+							// For resources not in ZTPClusterResourceGVKs, annotation should remain
+							// Check original object to see if it had the annotation
+							origAnnotations := obj.(*unstructured.Unstructured).GetAnnotations()
+							if origAnnotations != nil {
+								_, origHasKey := origAnnotations[PauseAnnotation]
+								assert.Equal(t, origHasKey, hasKey, "Annotation state should not change for %s", u.GetKind())
+							}
+						}
 					}
 				}
 			}
@@ -403,7 +436,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 			expectedFinalizers: []string{"other-finalizer"},
 		},
 		{
-			name:        "Successfully remove /deprovision finalizers from ImageClusterInstall",
+			name:        "Skip removal of /deprovision finalizers from ImageClusterInstall (not in ZTPClusterResourceGVKs)",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -424,7 +457,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 				},
 			},
 			expectedError:      false,
-			expectedFinalizers: []string{},
+			expectedFinalizers: []string{"imageclusterinstall.agent-install.openshift.io/deprovision"}, // Should remain since not in the list
 		},
 		{
 			name:        "Skip removal when resource not found",
@@ -476,7 +509,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 			expectedFinalizers: []string{"finalizer1", "finalizer2"},
 		},
 		{
-			name:        "Remove /deprovision finalizers from both resources",
+			name:        "Remove /deprovision finalizers from ClusterDeployment but not ImageClusterInstall",
 			clusterName: "cluster1",
 			initObjects: []client.Object{
 				&unstructured.Unstructured{
@@ -510,7 +543,8 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 					},
 				},
 			},
-			expectedError: false,
+			expectedError:      false,
+			expectedFinalizers: nil, // Will be checked per-resource based on ZTPClusterResourceGVKs
 		},
 	}
 
@@ -525,7 +559,7 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 			} else {
 				assert.Nil(t, err)
 
-				// Verify only /deprovision finalizers were removed if objects exist
+				// Verify only /deprovision finalizers were removed from resources in ZTPClusterResourceGVKs
 				for _, obj := range c.initObjects {
 					u := obj.(*unstructured.Unstructured)
 					resource := &unstructured.Unstructured{}
@@ -534,9 +568,33 @@ func TestRemoveDeprovisionFinalizers(t *testing.T) {
 					err := fakeClient.Get(ctx, client.ObjectKeyFromObject(u), resource)
 					assert.Nil(t, err)
 
+					// Check if resource is in ZTPClusterResourceGVKs
+					isInZTPList := false
+					for _, gvk := range ZTPClusterResourceGVKs {
+						if gvk == u.GroupVersionKind() {
+							isInZTPList = true
+							break
+						}
+					}
+
 					finalizers := resource.GetFinalizers()
 					if c.expectedFinalizers != nil {
-						assert.Equal(t, c.expectedFinalizers, finalizers)
+						// For test cases with single resource type, use expectedFinalizers
+						if len(c.initObjects) == 1 {
+							assert.Equal(t, c.expectedFinalizers, finalizers)
+						}
+					} else {
+						// For test cases with multiple resources, check based on ZTPClusterResourceGVKs
+						if isInZTPList {
+							// For resources in ZTPClusterResourceGVKs, /deprovision finalizers should be removed
+							for _, f := range finalizers {
+								assert.NotContains(t, f, "/deprovision", "Resource in ZTPClusterResourceGVKs should not have /deprovision finalizer")
+							}
+						} else {
+							// For resources not in ZTPClusterResourceGVKs, finalizers should remain unchanged
+							origFinalizers := obj.(*unstructured.Unstructured).GetFinalizers()
+							assert.Equal(t, origFinalizers, finalizers, "Finalizers should not change for %s", u.GetKind())
+						}
 					}
 				}
 			}
@@ -652,16 +710,12 @@ func TestRemoveDeprovisionFinalizersHelper(t *testing.T) {
 
 func TestZTPClusterResourceGVKs(t *testing.T) {
 	// Verify that ZTPClusterResourceGVKs contains expected GVKs
+	// Note: ImageClusterInstall was removed from this list
 	expectedGVKs := []schema.GroupVersionKind{
 		{
 			Group:   "hive.openshift.io",
 			Version: "v1",
 			Kind:    "ClusterDeployment",
-		},
-		{
-			Group:   "extensions.hive.openshift.io",
-			Version: "v1alpha1",
-			Kind:    "ImageClusterInstall",
 		},
 	}
 
