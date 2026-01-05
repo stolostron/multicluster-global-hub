@@ -328,8 +328,8 @@ func (s *MigrationSourceSyncer) processResourceByType(
 			delete(annotations, KlusterletConfigAnnotation)
 		}
 		resource.SetAnnotations(annotations)
-	case "ClusterDeployment", "ImageClusterInstall":
-		// Remove pause annotation from ClusterDeployment and ImageClusterInstall
+	case "ClusterDeployment":
+		// Remove pause annotation from ClusterDeployment
 		annotations := resource.GetAnnotations()
 		if annotations != nil {
 			delete(annotations, PauseAnnotation)
@@ -413,7 +413,7 @@ func (m *MigrationSourceSyncer) initializing(ctx context.Context, source *migrat
 			return err
 		}
 
-		// Add pause annotation to ClusterDeployment and ImageClusterInstall
+		// Add pause annotation to ClusterDeployment
 		if err := AddPauseAnnotations(ctx, m.client, managedCluster); err != nil {
 			log.Warnf("failed to add pause annotations for cluster %s: %v", managedCluster, err)
 		}
