@@ -88,6 +88,16 @@ func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	task.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
 	task.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
 	s.scheduler.StartAsync()
+
+	// Always run data-retention job on startup to ensure partition tables exist
+	// This is critical to handle operator restarts that occur near month boundaries
+	log.Info("running data-retention job on startup to ensure partition tables exist")
+	if err := s.scheduler.RunByTag(task.RetentionTaskName); err != nil {
+		log.Errorw("failed to run data-retention job on startup", "error", err)
+		// Don't return error here, allow scheduler to continue
+	}
+
+	// Run other configured launch jobs
 	if err := s.ExecJobs(); err != nil {
 		return err
 	}
