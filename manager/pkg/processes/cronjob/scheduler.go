@@ -65,14 +65,22 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	}
 	log.Infow("set SyncLocalCompliance job", "scheduleAt", complianceHistoryJob.ScheduledAtTime())
 
-	dataRetentionJob, err := scheduler.
-		Every(1).Month(1, 15, 28).At("00:00").
+	dataRetentionJob1, err := scheduler.
+		Every(1).Month(1, 15).At("00:00").
 		Tag(task.RetentionTaskName).
 		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 	if err != nil {
 		return err
 	}
-	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
+	dataRetentionJob2, err := scheduler.
+		Every(1).MonthLastDay().At("00:00").
+		Tag(task.RetentionTaskName).
+		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
+	if err != nil {
+		return err
+	}
+	log.Info("set DataRetention job", "scheduleAt1", dataRetentionJob1.ScheduledAtTime(),
+		"scheduleAt2", dataRetentionJob2.ScheduledAtTime())
 
 	// register the metrics before starting the jobs
 	task.RegisterMetrics()
@@ -88,6 +96,16 @@ func (s *GlobalHubJobScheduler) Start(ctx context.Context) error {
 	task.GlobalHubCronJobGaugeVec.WithLabelValues(task.RetentionTaskName).Set(0)
 	task.GlobalHubCronJobGaugeVec.WithLabelValues(task.LocalComplianceTaskName).Set(0)
 	s.scheduler.StartAsync()
+
+	// Always run data-retention job on startup to ensure partition tables exist
+	// This is critical to handle operator restarts that occur near month boundaries
+	log.Info("running data-retention job on startup to ensure partition tables exist")
+	if err := s.scheduler.RunByTag(task.RetentionTaskName); err != nil {
+		log.Errorw("failed to run data-retention job on startup", "error", err)
+		// Don't return error here, allow scheduler to continue
+	}
+
+	// Run other configured launch jobs
 	if err := s.ExecJobs(); err != nil {
 		return err
 	}

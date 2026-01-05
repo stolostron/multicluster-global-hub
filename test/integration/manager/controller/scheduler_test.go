@@ -28,7 +28,11 @@ var _ = Describe("scheduler", func() {
 			task.LocalComplianceHistory, ctx)
 		Expect(err).To(Succeed())
 
-		_, err = scheduler.Every(1).Month(1, 15, 28).At("00:00").Tag(task.RetentionTaskName).
+		_, err = scheduler.Every(1).Month(1, 15).At("00:00").Tag(task.RetentionTaskName).
+			DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
+		Expect(err).To(Succeed())
+
+		_, err = scheduler.Every(1).MonthLastDay().At("00:00").Tag(task.RetentionTaskName).
 			DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 		Expect(err).To(Succeed())
 
