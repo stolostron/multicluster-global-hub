@@ -63,7 +63,7 @@ func RegisterGenericHandler[T metav1.Object](conflationManager *conflator.Confla
 
 func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[version.ExtVersion]
-	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	leafHubName := evt.Source()
 	var data []T
@@ -121,7 +121,7 @@ func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudeve
 		return err
 	}
 
-	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 

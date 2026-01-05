@@ -10,6 +10,7 @@ import (
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 )
 
@@ -148,12 +149,12 @@ func (worker *Worker) fullBundleHandle(ctx context.Context, job *conflator.Confl
 	if err != nil {
 		log.Error(err, "fails to process the DB job", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
-			"type", job.Event.Type(),
+			"type", enum.ShortenEventType(job.Event.Type()),
 			"version", job.Metadata.Version())
 	} else {
 		log.Debugw("handle the DB job successfully", "LF", job.Event.Source(),
 			"WorkerID", worker.workerID,
-			"type", job.Event.Type(),
+			"type", enum.ShortenEventType(job.Event.Type()),
 			"version", job.Metadata.Version())
 	}
 }

@@ -44,7 +44,7 @@ func RegisterSecurityAlertCountsHandler(conflationManager *conflator.ConflationM
 func (h *securityAlertCountsHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	// Extract the data from the event:
 	wireModel := &wiremodels.SecurityAlertCounts{}
@@ -76,6 +76,6 @@ func (h *securityAlertCountsHandler) handleEvent(ctx context.Context, evt *cloud
 		return err
 	}
 
-	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }

@@ -45,7 +45,7 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 	evt *cloudevents.Event,
 ) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	hubInfoData := &cluster.HubClusterInfo{}
 	if err := evt.DataAs(hubInfoData); err != nil {
@@ -81,7 +81,7 @@ func (h *hubClusterInfoHandler) handleEvent(ctx context.Context,
 		return err
 	}
 
-	log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 

@@ -49,7 +49,7 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 	leafHub := evt.Source()
 	table := database.StatusSchema + "." + database.MinimalComplianceTable
 
-	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	data := make([]grc.MinimalCompliance, 0)
 	if err := evt.DataAs(&data); err != nil {
@@ -109,6 +109,6 @@ func (h *policyMiniComplianceHandler) handleEvent(ctx context.Context, evt *clou
 		}
 	}
 
-	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }

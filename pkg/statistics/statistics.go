@@ -10,6 +10,7 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/enum"
 	"github.com/stolostron/multicluster-global-hub/pkg/logger"
 )
 
@@ -143,7 +144,7 @@ func (s *Statistics) run(ctx context.Context, duration time.Duration) {
 			s.mutex.Lock()
 			for eventType, metrics := range s.eventMetrics {
 				stringBuilder.WriteString(fmt.Sprintf("[%-42s(%d) | conflation(%-42s) | storage(%-42s)] \n",
-					eventType, metrics.totalReceived,
+					enum.ShortenEventType(eventType), metrics.totalReceived,
 					metrics.conflationUnit.toString(),
 					metrics.database.toString()))
 				success += metrics.totalReceived
