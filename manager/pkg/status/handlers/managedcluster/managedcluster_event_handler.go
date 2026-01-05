@@ -67,7 +67,8 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 				return fmt.Errorf("failed handling single managed cluster event - %w", err)
 			}
 
-			h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+			h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()),
+				"LH", evt.Source(), "version", version)
 			return nil
 		}
 	}

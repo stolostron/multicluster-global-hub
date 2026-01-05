@@ -117,7 +117,8 @@ func (h *localRootPolicyEventHandler) handleEvent(ctx context.Context, evt *clou
 		if err != nil {
 			return fmt.Errorf("failed handling single root policy event - %w", err)
 		}
-		h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+		h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(),
+			"version", version)
 		return nil
 	}
 

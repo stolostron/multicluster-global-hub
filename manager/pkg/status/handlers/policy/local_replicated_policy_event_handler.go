@@ -78,7 +78,8 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 
 	isSingleEvent, err := handleSingleEvent(evt, h.convertEventToModel)
 	if isSingleEvent {
-		h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
+		h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(),
+			"version", version)
 		if err != nil {
 			return fmt.Errorf("failed handling single replicated policy event - %w", err)
 		}
