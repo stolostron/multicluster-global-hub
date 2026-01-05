@@ -65,14 +65,22 @@ func AddSchedulerToManager(ctx context.Context, mgr ctrl.Manager,
 	}
 	log.Infow("set SyncLocalCompliance job", "scheduleAt", complianceHistoryJob.ScheduledAtTime())
 
-	dataRetentionJob, err := scheduler.
-		Every(1).Month(1, 15, 28).At("00:00").
+	dataRetentionJob1, err := scheduler.
+		Every(1).Month(1, 15).At("00:00").
 		Tag(task.RetentionTaskName).
 		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 	if err != nil {
 		return err
 	}
-	log.Info("set DataRetention job", "scheduleAt", dataRetentionJob.ScheduledAtTime())
+	dataRetentionJob2, err := scheduler.
+		Every(1).MonthLastDay().At("00:00").
+		Tag(task.RetentionTaskName).
+		DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
+	if err != nil {
+		return err
+	}
+	log.Info("set DataRetention job", "scheduleAt1", dataRetentionJob1.ScheduledAtTime(),
+		"scheduleAt2", dataRetentionJob2.ScheduledAtTime())
 
 	// register the metrics before starting the jobs
 	task.RegisterMetrics()

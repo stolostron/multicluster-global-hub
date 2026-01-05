@@ -114,20 +114,19 @@ func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
 
 // ensurePartitionExists ensures a partition table exists for the given month
 // This is idempotent and safe to call multiple times
-func ensurePartitionExists(tableName string, monthTime time.Time) error {
+func ensurePartitionExists(tableName string, createTime time.Time) error {
 	db := database.GetGorm()
 
-	startTime := time.Date(monthTime.Year(), monthTime.Month(), 1, 0, 0, 0, 0, monthTime.Location())
+	startTime := time.Date(createTime.Year(), createTime.Month(), 1, 0, 0, 0, 0, createTime.Location())
 	endTime := startTime.AddDate(0, 1, 0)
-	partitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(PartitionDateFormat))
+	createPartitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(PartitionDateFormat))
 
 	creationSql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
-		partitionTableName, tableName, startTime.Format(DateFormat), endTime.Format(DateFormat))
+		createPartitionTableName, tableName, startTime.Format(DateFormat), endTime.Format(DateFormat))
 	if result := db.Exec(creationSql); result.Error != nil {
-		return fmt.Errorf("failed to ensure partition table %s exists: %w", partitionTableName, result.Error)
+		return fmt.Errorf("failed to ensure partition table %s exists: %w", createPartitionTableName, result.Error)
 	}
-	retentionLog.Info("ensured partition table exists", "table", partitionTableName, "start",
-		startTime.Format(DateFormat),
+	retentionLog.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(DateFormat),
 		"end", endTime.Format(DateFormat))
 	return nil
 }
@@ -136,17 +135,10 @@ func updatePartitionTables(tableName string, createTime, deleteTime time.Time) e
 	db := database.GetGorm()
 
 	// create the partition tables for the next month
-	startTime := time.Date(createTime.Year(), createTime.Month(), 1, 0, 0, 0, 0, createTime.Location())
-	endTime := startTime.AddDate(0, 1, 0)
-	createPartitionTableName := fmt.Sprintf("%s_%s", tableName, startTime.Format(PartitionDateFormat))
-
-	creationSql := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s PARTITION OF %s FOR VALUES FROM ('%s') TO ('%s')",
-		createPartitionTableName, tableName, startTime.Format(DateFormat), endTime.Format(DateFormat))
-	if result := db.Exec(creationSql); result.Error != nil {
-		return fmt.Errorf("failed to create partition table %s: %w", tableName, result.Error)
+	err := ensurePartitionExists(tableName, createTime)
+	if err != nil {
+		return fmt.Errorf("failed to create partition table %s: %w", tableName, err)
 	}
-	retentionLog.Info("create partition table", "table", createPartitionTableName, "start", startTime.Format(DateFormat),
-		"end", endTime.Format(DateFormat))
 
 	// delete the partition tables that are expired
 	deletePartitionTableName := fmt.Sprintf("%s_%s", tableName, deleteTime.Format(PartitionDateFormat))
