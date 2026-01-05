@@ -46,7 +46,7 @@ func RegisterManagedClusterEventHandler(conflationManager *conflator.ConflationM
 func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHubName := evt.Source()
-	h.log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	db := database.GetGorm()
 
 	// Check if this is a single event mode
@@ -67,7 +67,8 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 				return fmt.Errorf("failed handling single managed cluster event - %w", err)
 			}
 
-			h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+			h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()),
+				"LH", evt.Source(), "version", version)
 			return nil
 		}
 	}
@@ -97,6 +98,6 @@ func (h *managedClusterEventHandler) handleEvent(ctx context.Context, evt *cloud
 		return fmt.Errorf("failed handling leaf hub LocalPolicyStatusEvent event - %w", err)
 	}
 
-	h.log.Debugw("handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw("handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }

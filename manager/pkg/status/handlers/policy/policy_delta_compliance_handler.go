@@ -51,7 +51,7 @@ func RegisterPolicyDeltaComplianceHandler(conflationManager *conflator.Conflatio
 func (h *policyDeltaComplianceHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	data := grc.ComplianceBundle{}
 	if err := evt.DataAs(&data); err != nil {
@@ -98,7 +98,7 @@ func (h *policyDeltaComplianceHandler) handleEvent(ctx context.Context, evt *clo
 		return fmt.Errorf("failed to handle delta compliance bundle - %w", err)
 	}
 
-	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }
 

@@ -74,11 +74,12 @@ func (h *localReplicatedPolicyEventHandler) convertEventToModel(policyStatusEven
 
 func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt *cloudevents.Event) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
-	h.log.Debugw(startMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(startMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	isSingleEvent, err := handleSingleEvent(evt, h.convertEventToModel)
 	if isSingleEvent {
-		h.log.Debugw("single event handler finished", "type", evt.Type(), "LH", evt.Source(), "version", version)
+		h.log.Debugw("single event handler finished", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(),
+			"version", version)
 		if err != nil {
 			return fmt.Errorf("failed handling single replicated policy event - %w", err)
 		}
@@ -124,6 +125,6 @@ func (h *localReplicatedPolicyEventHandler) handleEvent(ctx context.Context, evt
 		return fmt.Errorf("failed handling leaf hub LocalPolicyStatusEvent event - %w", err)
 	}
 
-	h.log.Debugw(finishMessage, "type", evt.Type(), "LH", evt.Source(), "version", version)
+	h.log.Debugw(finishMessage, "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 	return nil
 }

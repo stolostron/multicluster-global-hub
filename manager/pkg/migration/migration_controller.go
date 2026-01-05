@@ -319,7 +319,7 @@ func getTimeout(stage string) time.Duration {
 func setRetry(mcm *migrationv1alpha1.ManagedClusterMigration, stage string, condType string, hubName string) {
 	currentCond := meta.FindStatusCondition(mcm.Status.Conditions, condType)
 	if currentCond == nil {
-		log.Warnf("condition %s not initialized for hub %s, stage %s", condType, hubName, stage)
+		log.Infof("condition %s not initialized for hub %s, stage %s", condType, hubName, stage)
 		return
 	}
 

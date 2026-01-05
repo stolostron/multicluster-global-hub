@@ -61,7 +61,7 @@ func (h *localPolicyCompleteHandler) handleCompleteCompliance(log *zap.SugaredLo
 ) error {
 	version := evt.Extensions()[eventversion.ExtVersion]
 	leafHub := evt.Source()
-	log.Debugw("handler start", "type", evt.Type(), "LH", evt.Source(), "version", version)
+	log.Debugw("handler start", "type", enum.ShortenEventType(evt.Type()), "LH", evt.Source(), "version", version)
 
 	db := database.GetGorm()
 
