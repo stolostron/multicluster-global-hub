@@ -50,6 +50,29 @@ var (
 	registeringTimeout = 10 * time.Minute // the registering stage timeout should less than migration timeout
 )
 
+// formatErrorMessages returns a formatted string of error messages from the errors map.
+// If there are more than maxErrors, it shows the first maxErrors and indicates how many remain.
+func formatErrorMessages(errors map[string]string, maxErrors int) string {
+	if len(errors) == 0 {
+		return ""
+	}
+
+	count := 0
+	var result []string
+	for key, msg := range errors {
+		if count >= maxErrors {
+			break
+		}
+		result = append(result, fmt.Sprintf("%s: %s", key, msg))
+		count++
+	}
+
+	if len(errors) > maxErrors {
+		return fmt.Sprintf("%v and %d more, get more details in events", result, len(errors)-maxErrors)
+	}
+	return fmt.Sprintf("%v", result)
+}
+
 // shouldSkipMigrationEvent checks if a migration event should be skipped based on cached migration time
 // Returns true if the event should be skipped, false otherwise
 //
@@ -286,22 +309,35 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 			return s.client.Update(ctx, mc)
 		})
 		if err != nil {
-			return fmt.Errorf("failed to remove auto-import disable annotation from cluster %s: %v",
-				clusterName, err)
+			errMsg := fmt.Sprintf("failed to remove auto-import disable annotation: %v", err)
+			log.Errorf("cluster %s: %s", clusterName, errMsg)
+			clusterErrors[clusterName] = errMsg
+			// Continue to next cluster instead of returning
 		}
 	}
 
 	// Remove MSA user from ClusterManager AutoApproveUsers list
 	if err := s.removeAutoApproveUser(ctx, msaName, msaNamespace); err != nil {
-		log.Errorf("failed to remove auto approve user from ClusterManager: %v", err)
-		return err
+		errMsg := fmt.Sprintf("failed to remove auto approve user from ClusterManager: %v", err)
+		log.Errorf("%s", errMsg)
+		clusterErrors[s.leafHubName+"/ClusterManager"] = errMsg
+		// Continue to RBAC cleanup instead of returning
 	}
 
 	// Clean up RBAC resources created for migration
 	if err := s.cleanupMigrationRBAC(ctx, msaName); err != nil {
-		log.Errorf("failed to cleanup migration RBAC resources: %v", err)
-		return err
+		errMsg := fmt.Sprintf("failed to cleanup migration RBAC resources: %v", err)
+		log.Errorf("%s", errMsg)
+		clusterErrors[s.leafHubName+"/RBAC"] = errMsg
 	}
+
+	// Return aggregated errors if any occurred
+	if len(clusterErrors) > 0 {
+		log.Warnf("cleaning stage completed with %d error(s)", len(clusterErrors))
+		return fmt.Errorf("cleaning failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+	}
+
+	log.Infof("successfully completed cleaning stage")
 	return nil
 }
 
@@ -340,7 +376,7 @@ func (s *MigrationTargetSyncer) validateManagedClusters(
 	}
 
 	if len(clusterErrors) > 0 {
-		return fmt.Errorf("%v clusters validation failed, get more details in events", len(clusterErrors))
+		return fmt.Errorf("%v clusters validation failed: %s", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
 	}
 
 	return nil
@@ -377,8 +413,8 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to wait for %d managed clusters to be ready, get more details in events: %w",
-			len(clusterErrors), err)
+		return fmt.Errorf("failed to wait for %d managed clusters to be ready: %s: %w",
+			len(clusterErrors), formatErrorMessages(clusterErrors, 3), err)
 	}
 	log.Infof("all %d managed clusters are ready for migration", len(event.ManagedClusters))
 	return nil
@@ -957,18 +993,18 @@ func (s *MigrationTargetSyncer) rollbacking(ctx context.Context,
 	log.Infof("performing rollback for stage: %s", target.RollbackStage)
 	switch target.RollbackStage {
 	case migrationv1alpha1.PhaseInitializing:
-		return s.rollbackInitializing(ctx, target)
+		return s.rollbackInitializing(ctx, target, clusterErrors)
 	case migrationv1alpha1.PhaseDeploying:
-		return s.rollbackDeploying(ctx, target)
+		return s.rollbackDeploying(ctx, target, clusterErrors)
 	case migrationv1alpha1.PhaseRegistering:
-		return s.rollbackRegistering(ctx, target)
+		return s.rollbackRegistering(ctx, target, clusterErrors)
 	default:
 		return fmt.Errorf("no specific rollback action needed for stage: %s", target.RollbackStage)
 	}
 }
 
 // rollbackInitializing handles rollback of initializing phase on target hub
-func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *migration.MigrationTargetBundle) error {
+func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *migration.MigrationTargetBundle, clusterErrors map[string]string) error {
 	// For initializing rollback on target hub, we need to:
 	// 1. Remove the managed service account user from ClusterManager AutoApproveUsers list
 	// 2. Clean up RBAC resources created for the managed service account
@@ -978,29 +1014,44 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 		return nil
 	}
 
-	// Whether to set the autoapprove feature gate available?
-
 	// Remove MSA user from ClusterManager AutoApproveUsers list
 	if err := s.removeAutoApproveUser(ctx, spec.ManagedServiceAccountName,
 		spec.ManagedServiceAccountInstallNamespace); err != nil {
-		log.Errorf("failed to remove auto approve user from ClusterManager: %v", err)
-		return err
+		errMsg := fmt.Sprintf("failed to remove auto approve user from ClusterManager: %v", err)
+		log.Errorf("%s", errMsg)
+		clusterErrors[s.leafHubName+"/ClusterManager"] = errMsg
+		// Continue to RBAC cleanup instead of returning
 	}
 
-	// Clean up RBAC resources
-	return s.cleanupMigrationRBAC(ctx, spec.ManagedServiceAccountName)
+	// Clean up RBAC resources (this function already handles its own errors)
+	if err := s.cleanupMigrationRBAC(ctx, spec.ManagedServiceAccountName); err != nil {
+		errMsg := fmt.Sprintf("failed to cleanup RBAC resources: %v", err)
+		log.Errorf("%s", errMsg)
+		clusterErrors[s.leafHubName+"/RBAC"] = errMsg
+	}
+
+	// Return aggregated errors if any occurred
+	if len(clusterErrors) > 0 {
+		log.Warnf("initializing rollback completed with %d error(s)", len(clusterErrors))
+		return fmt.Errorf("rollback initializing failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+	}
+
+	log.Infof("successfully completed initializing rollback for managed service account: %s", spec.ManagedServiceAccountName)
+	return nil
 }
 
 // rollbackDeploying handles rollback of deploying phase on target hub
 // This is the main rollback operation that removes all migration resources and clusters
-func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle) error {
+func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *migration.MigrationTargetBundle, clusterErrors map[string]string) error {
 	log.Infof("rollback deploying stage for clusters: %v", spec.ManagedClusters)
 
 	// 1. Remove all migration resources (including ManagedClusters and KlusterletAddonConfigs)
 	for _, clusterName := range spec.ManagedClusters {
 		if err := s.removeMigrationResources(ctx, clusterName); err != nil {
-			log.Errorf("failed to remove migration resources for cluster %s: %v", clusterName, err)
-			return fmt.Errorf("failed to remove migration resources for cluster %s: %v", clusterName, err)
+			errMsg := fmt.Sprintf("failed to remove migration resources: %v", err)
+			log.Errorf("cluster %s: %s", clusterName, errMsg)
+			clusterErrors[clusterName] = errMsg
+			// Continue to next cluster instead of returning
 		}
 	}
 
@@ -1012,23 +1063,39 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 			},
 		}
 		if err := deleteResourceIfExists(ctx, s.client, namespace, false); err != nil {
-			log.Warnf("failed to remove namespace %s: %v", clusterName, err)
+			errMsg := fmt.Sprintf("failed to remove namespace: %v", err)
+			log.Warnf("cluster %s: %s", clusterName, errMsg)
+			// Append to existing error or create new entry
+			if existing, ok := clusterErrors[clusterName]; ok {
+				clusterErrors[clusterName] = fmt.Sprintf("%s; %s", existing, errMsg)
+			} else {
+				clusterErrors[clusterName] = errMsg
+			}
 		}
 	}
 
-	// 3. Roll back initializing
-	if err := s.rollbackInitializing(ctx, spec); err != nil {
-		return fmt.Errorf("failed to rollback initializing stage: %v", err)
+	// 3. Roll back initializing (continue even if this fails)
+	// Note: rollbackInitializing already adds detailed errors to clusterErrors map,
+	// so we only log the error here without adding it again to avoid duplication
+	if err := s.rollbackInitializing(ctx, spec, clusterErrors); err != nil {
+		log.Errorf("failed to rollback initializing stage: %v", err)
 	}
 
-	log.Info("completed deploying stage rollback")
+	// 4. Aggregate and report errors
+	if len(clusterErrors) > 0 {
+		log.Infof("Please follow Global Hub documentation to clean up garbage resources manually")
+		return fmt.Errorf("rollback completed with %d error(s): %s. "+
+			"Please follow Global Hub documentation to clean up garbage resources manually", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+	}
+
+	log.Info("completed deploying stage rollback successfully")
 	return nil
 }
 
 // rollbackRegistering handles rollback of registering phase on target hub
-func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *migration.MigrationTargetBundle) error {
+func (s *MigrationTargetSyncer) rollbackRegistering(ctx context.Context, spec *migration.MigrationTargetBundle, clusterErrors map[string]string) error {
 	log.Infof("rollback registering stage for clusters: %v", spec.ManagedClusters)
-	return s.rollbackDeploying(ctx, spec)
+	return s.rollbackDeploying(ctx, spec, clusterErrors)
 }
 
 // addPauseAnnotationBeforeDeletion adds pause annotation to ZTP resources and verifies it was added
@@ -1148,6 +1215,8 @@ func (s *MigrationTargetSyncer) removeMigrationResources(ctx context.Context, cl
 
 // cleanupMigrationRBAC removes RBAC resources created for the managed service account
 func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, managedServiceAccountName string) error {
+	errorCache := make(map[string]string)
+
 	// Remove ClusterRole for SubjectAccessReview: global-hub-migration-<msa-name>-sar
 	clusterRoleName := GetSubjectAccessReviewClusterRoleName(managedServiceAccountName)
 	clusterRole := &rbacv1.ClusterRole{
@@ -1156,8 +1225,10 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 		},
 	}
 	if err := deleteResourceIfExists(ctx, s.client, clusterRole, false); err != nil {
-		log.Errorf("failed to delete cluster role %s: %v", clusterRoleName, err)
-		return err
+		errMsg := fmt.Sprintf("failed to delete cluster role: %v", err)
+		log.Errorf("%s %s", clusterRoleName, errMsg)
+		errorCache[clusterRoleName] = errMsg
+		// Continue to next resource instead of returning
 	}
 
 	// Remove ClusterRoleBinding for SubjectAccessReview: global-hub-migration-<msa-name>-sar
@@ -1168,8 +1239,10 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 		},
 	}
 	if err := deleteResourceIfExists(ctx, s.client, sarClusterRoleBinding, false); err != nil {
-		log.Errorf("failed to delete subjectaccessreviews cluster role binding %s: %v", sarClusterRoleBindingName, err)
-		return err
+		errMsg := fmt.Sprintf("failed to delete subjectaccessreviews cluster role binding: %v", err)
+		log.Errorf("%s %s", sarClusterRoleBindingName, errMsg)
+		errorCache[sarClusterRoleBindingName] = errMsg
+		// Continue to next resource instead of returning
 	}
 
 	// Remove ClusterRoleBinding for Agent Registration: global-hub-migration-<msa-name>-registration
@@ -1180,10 +1253,19 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 		},
 	}
 	if err := deleteResourceIfExists(ctx, s.client, registrationClusterRoleBinding, false); err != nil {
-		log.Errorf("failed to delete agent registration cluster role binding %s: %v", registrationClusterRoleBindingName, err)
-		return err
+		errMsg := fmt.Sprintf("failed to delete agent registration cluster role binding: %v", err)
+		log.Errorf("%s %s", registrationClusterRoleBindingName, errMsg)
+		errorCache[registrationClusterRoleBindingName] = errMsg
+		// Continue instead of returning
 	}
 
+	// Return aggregated errors if any occurred
+	if len(errorCache) > 0 {
+		log.Warnf("RBAC cleanup completed with %d error(s)", len(errorCache))
+		return fmt.Errorf("failed to cleanup %d RBAC resource(s): %s", len(errorCache), formatErrorMessages(errorCache, 3))
+	}
+
+	log.Infof("successfully cleaned up all RBAC resources for managed service account: %s", managedServiceAccountName)
 	return nil
 }
 
