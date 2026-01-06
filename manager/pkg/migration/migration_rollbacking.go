@@ -95,6 +95,7 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// Check for rollback errors from source hubs
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), fromHub, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
+		m.handleErrorList(mcm, fromHub, migrationv1alpha1.PhaseRollbacking)
 		// Only add manual cleanup guidance for source hub rollback failures
 		condition.Message = m.manuallyRollbackMsg(failedStage, fromHub, errMsg)
 		condition.Reason = ConditionReasonError
@@ -103,6 +104,8 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 	// Check for rollback errors from destination hub
 	if errMsg := GetErrorMessage(string(mcm.GetUID()), mcm.Spec.To, migrationv1alpha1.PhaseRollbacking); errMsg != "" {
+		m.handleErrorList(mcm, mcm.Spec.To, migrationv1alpha1.PhaseRollbacking)
+
 		condition.Message = fmt.Sprintf("%s stage rollback failed on target hub %s: %s", failedStage, mcm.Spec.To, errMsg)
 		condition.Reason = ConditionReasonError
 		condition.Status = metav1.ConditionFalse
@@ -145,9 +148,11 @@ func (m *ClusterMigrationController) rollbacking(ctx context.Context,
 
 func (m *ClusterMigrationController) manuallyRollbackMsg(failedStage, fromHub, errMsg string) string {
 	return fmt.Sprintf("%s stage rollback failed on hub %s: %s. "+
-		"Manual intervention required: please ensure annotations (%s and %s) are removed from the managed clusters",
+		"Manual intervention required: please ensure annotations (%s and %s) are removed from the managed clusters, "+
+		"and remove annotation %s from clusterdeployment",
 		failedStage, fromHub, errMsg, constants.ManagedClusterMigrating,
-		"agent.open-cluster-management.io/klusterlet-config")
+		"agent.open-cluster-management.io/klusterlet-config",
+		"hive.openshift.io/reconcile-pause")
 }
 
 // handleRollbackStatus updates the migration status for rollback phase

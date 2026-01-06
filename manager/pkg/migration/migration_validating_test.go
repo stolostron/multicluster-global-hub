@@ -695,7 +695,7 @@ func TestHandleErrorList(t *testing.T) {
 			expectedEventCount: 0,
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
-				SetClusterErrorMessage(migrationId, hub, phase, errors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
 			},
 			cleanupClusterErrors: func() {
 				RemoveMigrationStatus("test-uid-2")
@@ -720,7 +720,7 @@ func TestHandleErrorList(t *testing.T) {
 			expectedEventReason: "ValidationFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
-				SetClusterErrorMessage(migrationId, hub, phase, errors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
 			},
 			cleanupClusterErrors: func() {
 				RemoveMigrationStatus("test-uid-3")
@@ -747,7 +747,7 @@ func TestHandleErrorList(t *testing.T) {
 			expectedEventReason: "ValidationFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
-				SetClusterErrorMessage(migrationId, hub, phase, errors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
 			},
 			cleanupClusterErrors: func() {
 				RemoveMigrationStatus("test-uid-4")
@@ -773,7 +773,7 @@ func TestHandleErrorList(t *testing.T) {
 			expectedEventReason: "ValidationFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
-				SetClusterErrorMessage(migrationId, hub, phase, errors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
 			},
 			cleanupClusterErrors: func() {
 				RemoveMigrationStatus("test-uid-5")
@@ -799,7 +799,7 @@ func TestHandleErrorList(t *testing.T) {
 			expectedEventReason: "ValidationFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
-				SetClusterErrorMessage(migrationId, hub, phase, errors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
 			},
 			cleanupClusterErrors: func() {
 				RemoveMigrationStatus("test-uid-6")

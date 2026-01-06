@@ -486,7 +486,7 @@ func TestGetReadyClusters(t *testing.T) {
 					"cluster2": "connection failed",
 					"cluster4": "auth error",
 				}
-				SetClusterErrorMessage(migrationId, hub, phase, clusterErrors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, clusterErrors)
 			},
 			expectedReadyClusters: []string{"cluster1", "cluster3"},
 		},
@@ -503,7 +503,7 @@ func TestGetReadyClusters(t *testing.T) {
 					"cluster1": "connection failed",
 					"cluster2": "auth error",
 				}
-				SetClusterErrorMessage(migrationId, hub, phase, clusterErrors)
+				SetClusterErrorDetailMap(migrationId, hub, phase, clusterErrors)
 			},
 			expectedReadyClusters: []string{},
 		},
@@ -522,12 +522,12 @@ func TestGetReadyClusters(t *testing.T) {
 				hub1Errors := map[string]string{
 					"cluster1": "connection failed",
 				}
-				SetClusterErrorMessage(migrationId, "hub1", "initializing", hub1Errors)
+				SetClusterErrorDetailMap(migrationId, "hub1", "initializing", hub1Errors)
 				// Add errors for hub2-deploying
 				hub2Errors := map[string]string{
 					"cluster3": "deploy failed",
 				}
-				SetClusterErrorMessage(migrationId, "hub2", "deploying", hub2Errors)
+				SetClusterErrorDetailMap(migrationId, "hub2", "deploying", hub2Errors)
 			},
 			expectedReadyClusters: []string{"cluster1", "cluster2"},
 		},
