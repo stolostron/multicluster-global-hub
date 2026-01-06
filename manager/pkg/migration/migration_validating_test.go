@@ -717,7 +717,7 @@ func TestHandleErrorList(t *testing.T) {
 			},
 			expectedEventCount:  1,
 			expectedEventType:   corev1.EventTypeWarning,
-			expectedEventReason: "ValidationFailed",
+			expectedEventReason: "ValidatingFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
 				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
@@ -744,7 +744,7 @@ func TestHandleErrorList(t *testing.T) {
 			},
 			expectedEventCount:  3,
 			expectedEventType:   corev1.EventTypeWarning,
-			expectedEventReason: "ValidationFailed",
+			expectedEventReason: "ValidatingFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
 				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
@@ -770,7 +770,7 @@ func TestHandleErrorList(t *testing.T) {
 			},
 			expectedEventCount:  2,
 			expectedEventType:   corev1.EventTypeWarning,
-			expectedEventReason: "ValidationFailed",
+			expectedEventReason: "InitializingFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
 				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
@@ -796,7 +796,7 @@ func TestHandleErrorList(t *testing.T) {
 			},
 			expectedEventCount:  2,
 			expectedEventType:   corev1.EventTypeWarning,
-			expectedEventReason: "ValidationFailed",
+			expectedEventReason: "ValidatingFailed",
 			setupClusterErrors: func(migrationId, hub, phase string, errors map[string]string) {
 				AddMigrationStatus(migrationId)
 				SetClusterErrorDetailMap(migrationId, hub, phase, errors)
