@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-co-op/gocron"
@@ -42,9 +43,15 @@ var (
 		"event.managed_clusters",
 	}
 	retentionLog = logger.ZapLogger(RetentionTaskName)
+
+	// dataRetentionMu prevents concurrent execution of DataRetention job
+	dataRetentionMu sync.Mutex
 )
 
 func DataRetention(ctx context.Context, retentionMonth int, job gocron.Job) {
+	dataRetentionMu.Lock()
+	defer dataRetentionMu.Unlock()
+
 	now := time.Now()
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
