@@ -94,6 +94,7 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 			log.Errorf("failed to update the %s condition: %v", condition.Type, err)
 		}
 	}()
+	condition.Message = "Waiting to validate source and target hub clusters"
 
 	// verify fromHub
 	log.Infof("validating from hub: %s", mcm.Spec.From)
@@ -119,12 +120,11 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 	// Get migrate clusters in both hubs
 	log.Infof("validating clusters: %v", GetClusterList(string(mcm.UID)))
-	requeue, err := m.validateMigrationClusters(ctx, mcm)
+	requeue, err := m.validateMigrationClusters(ctx, mcm, &condition)
 	if err != nil {
 		return false, err
 	}
 	if requeue {
-		condition.Message = "Waiting to validate migration clusters"
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = ConditionReasonWaiting
 		nextPhase = migrationv1alpha1.PhaseValidating
@@ -137,7 +137,10 @@ func (m *ClusterMigrationController) validating(ctx context.Context,
 
 func (m *ClusterMigrationController) validateMigrationClusters(
 	ctx context.Context, mcm *migrationv1alpha1.ManagedClusterMigration,
+	condition *metav1.Condition,
 ) (bool, error) {
+	condition.Message = fmt.Sprintf("Waiting to validate clusters from source hub: %s", mcm.Spec.From)
+
 	// validate clusters from source hub
 	requeue, err := m.validateClustersInHub(ctx, mcm, mcm.Spec.From)
 	if err != nil {
@@ -152,6 +155,7 @@ func (m *ClusterMigrationController) validateMigrationClusters(
 		log.Errorf("failed to store clusters to ConfigMap: %w", err)
 		return false, err
 	}
+	condition.Message = fmt.Sprintf("Waiting to validate clusters from target hub: %s", mcm.Spec.To)
 
 	// validate clusters from target hub
 	requeue, err = m.validateClustersInHub(ctx, mcm, mcm.Spec.To)
