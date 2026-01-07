@@ -237,6 +237,27 @@ func hasAnnotationKey(item *unstructured.Unstructured, annotationKey string) boo
 	return exists
 }
 
+// filterByLabelKey filters resources that have the specified label key
+func filterByLabelKey(items []unstructured.Unstructured, labelKey string) []unstructured.Unstructured {
+	filteredItems := make([]unstructured.Unstructured, 0)
+	for _, item := range items {
+		if hasLabelKey(&item, labelKey) {
+			filteredItems = append(filteredItems, item)
+		}
+	}
+	return filteredItems
+}
+
+// hasLabelKey checks if a resource has the specified label key
+func hasLabelKey(item *unstructured.Unstructured, labelKey string) bool {
+	labels := item.GetLabels()
+	if labels == nil {
+		return false
+	}
+	_, exists := labels[labelKey]
+	return exists
+}
+
 // prepareUnstructuredResourceForMigration prepares an unstructured resource for migration by cleaning metadata
 // The resource name and namespace should match the managed cluster name
 func prepareUnstructuredResourceForMigration(
@@ -275,7 +296,7 @@ func prepareUnstructuredResourceForMigration(
 	return resources, nil
 }
 
-// listAndFilterResources lists all resources in a namespace and optionally filters by annotation key
+// listAndFilterResources lists all resources in a namespace and optionally filters by annotation key or label key
 func listAndFilterResources(
 	ctx context.Context,
 	c client.Client,
@@ -302,10 +323,17 @@ func listAndFilterResources(
 			len(resourceList.Items), migrateResource.annotationKey, clusterName)
 	}
 
+	// Filter by label key if specified
+	if migrateResource.labelKey != "" {
+		resourceList.Items = filterByLabelKey(resourceList.Items, migrateResource.labelKey)
+		log.Debugf("filtered %d resources with label key %s in namespace %s",
+			len(resourceList.Items), migrateResource.labelKey, clusterName)
+	}
+
 	// If no resources found, return empty array
 	if len(resourceList.Items) == 0 {
-		log.Warnf("no resources found: GVK=%s, Namespace=%s, AnnotationKey=%s",
-			migrateResource.gvk.String(), clusterName, migrateResource.annotationKey)
+		log.Warnf("no resources found: GVK=%s, Namespace=%s, AnnotationKey=%s, LabelKey=%s",
+			migrateResource.gvk.String(), clusterName, migrateResource.annotationKey, migrateResource.labelKey)
 		return nil, nil
 	}
 

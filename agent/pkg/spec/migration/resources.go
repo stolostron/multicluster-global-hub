@@ -7,9 +7,13 @@ const clusterNamePlaceholder = "<CLUSTER_NAME>"
 type MigrationResource struct {
 	// if the name is not set, will migrate all resources in cluster namespace
 	name string
+
 	// if annotationKey is set, should sync all resources with annotationKey
 	annotationKey string
-	gvk           schema.GroupVersionKind
+	// if labelKey is set, should sync all resources with labelKey
+	labelKey string
+
+	gvk schema.GroupVersionKind
 	// Need to sync the resource status or not
 	needStatus bool
 }
@@ -66,6 +70,26 @@ var migrateResources = []MigrationResource{
 		},
 		annotationKey: "siteconfig.open-cluster-management.io/sync-wave",
 		needStatus:    false,
+	},
+	// These secrets and configmap are used by resintallation for siteconfig,
+	// details see: https://github.com/stolostron/siteconfig/tree/main/docs/reinstallation
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Secret",
+		},
+		labelKey:   "siteconfig.open-cluster-management.io/preserve",
+		needStatus: false,
+	},
+	{
+		gvk: schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "ConfigMap",
+		},
+		labelKey:   "siteconfig.open-cluster-management.io/preserve",
+		needStatus: false,
 	},
 	// managedclusters and addons
 	{
