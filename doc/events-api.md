@@ -369,6 +369,79 @@ The events are Kubernetes events. We collect the cluster life cycle events, incl
 The events support two send modes which are indicated by the `sendmode` extension in CloudEvents:
 - **batch**: Multiple related events are grouped into an array in the `data` field. This is useful for sending several events that occur in quick succession together.
 - **single**: Each event is sent individually with the `data` field containing a single event object instead of an array.
+#### Provision
+The events are related to cluster provisioning. These events track the lifecycle of cluster creation jobs. The cluster provisioning lifecycle includes the following stages:
+1. **SuccessfulCreate**: The provisioning job has been created and started
+2. **Completed**: The provisioning job has completed successfully
+
+Example showing provisioning events:
+```
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: a1b2c3d4-5678-90ab-cdef-1234567890ab
+  time: 2026-01-05T09:47:32Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 1.0
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 100
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: batch
+Data,
+  [
+    {
+      "eventNamespace": "clc-aws1096",
+      "eventName": "clc-aws1096-0-mr47d-provision.1887ccb3f49aec76",
+      "clusterName": "clc-aws1096",
+      "clusterId": "ab8b24e9-088c-4654-a60a-64b7d72922b9",
+      "leafHubName": "local-cluster",
+      "message": "Cluster clc-aws1096 provisioning has started",
+      "reason": "SuccessfulCreate",
+      "reportingController": "job-controller",
+      "reportingInstance": "",
+      "type": "Normal",
+      "createdAt": "2026-01-05T09:47:32Z"
+    }
+  ]
+```
+
+When the provisioning completes:
+```
+Context Attributes,
+  specversion: 1.0
+  type: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  source: hub1
+  id: b2c3d4e5-6789-01bc-def2-234567890abc
+  time: 2026-01-05T10:32:59Z
+  datacontenttype: application/json
+Extensions,
+  extversion: 1.1
+  kafkamessagekey: io.open-cluster-management.operator.multiclusterglobalhubs.event.managedcluster
+  kafkaoffset: 101
+  kafkapartition: 0
+  kafkatopic: gh-status.hub1
+  sendmode: batch
+Data,
+  [
+    {
+      "eventNamespace": "clc-aws1096",
+      "eventName": "clc-aws1096-0-mr47d-provision.1887cf2f121b62bb",
+      "clusterName": "clc-aws1096",
+      "clusterId": "ab8b24e9-088c-4654-a60a-64b7d72922b9",
+      "leafHubName": "local-cluster",
+      "message": "Cluster clc-aws1096 provisioning completed successfully",
+      "reason": "Completed",
+      "reportingController": "job-controller",
+      "reportingInstance": "",
+      "type": "Normal",
+      "createdAt": "2026-01-05T10:32:59Z"
+    }
+  ]
+```
+
 #### Import
 The events are related to cluster import. The cluster import lifecycle includes the following stages:
 1. **WaitForImporting**: The cluster is waiting to be imported

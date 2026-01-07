@@ -20,8 +20,10 @@ import (
 
 var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedClusterEventType))
 
-// isValidProvisionJob validates if a job name matches the provision job pattern
-// Pattern: <namespace>-<hash>-provision
+// isValidProvisionJobEvent validates if a job name matches a cluster lifecycle job pattern
+// Supported provision job patterns:
+// - ACM console: <namespace>-<hash>-provision
+// - ClusterInstance: <namespace>-imageset
 // Returns true if valid, false otherwise.
 func isValidProvisionJobEvent(evt *corev1.Event) bool {
 	if evt.InvolvedObject.Kind != "Job" {
@@ -31,26 +33,17 @@ func isValidProvisionJobEvent(evt *corev1.Event) bool {
 	namespace := evt.Namespace
 	jobName := evt.InvolvedObject.Name
 
-	// Must end with "-provision" suffix
-	const suffix = "-provision"
-	if !strings.HasSuffix(jobName, suffix) {
-		return false
+	// Check for imageset job pattern: <namespace>-imageset, e.g. cluster2-imageset
+	if jobName == namespace+"-imageset" {
+		return true
 	}
 
-	// Must start with "namespace-"
-	prefix := namespace + "-"
-	if !strings.HasPrefix(jobName, prefix) {
-		return false
+	// Check for provision job pattern: <namespace>-<hash>-provision, e.g. cluster2-0-bvpxh-provision
+	if strings.HasSuffix(jobName, "-provision") && strings.HasPrefix(jobName, namespace+"-") {
+		return true
 	}
 
-	// Extract middle part (hash) between namespace and "-provision"
-	// Example: "cluster2-0-bvpxh-provision" -> middle = "0-bvpxh"
-	// The middle part must: start with '-' and end with '-'
-	if len(jobName) <= len(prefix)+len(suffix) {
-		return false
-	}
-
-	return true
+	return false
 }
 
 // customizeProvisionJobMessage customizes the message for provision job events
@@ -62,7 +55,7 @@ func customizeProvisionJobMessage(reason, originalMessage, clusterName string) s
 	case "Completed":
 		return fmt.Sprintf("Cluster %s provisioning completed successfully", clusterName)
 	default:
-		return fmt.Sprintf("Provisioning %s: %s", clusterName, originalMessage)
+		return fmt.Sprintf("Cluster %s provisioning with message: %s", clusterName, originalMessage)
 	}
 }
 
@@ -102,7 +95,6 @@ func managedClusterEventPredicate(obj client.Object) bool {
 	}
 
 	if isValidProvisionJobEvent(evt) {
-		log.Debugw("event filtered: invalid provision job name", "event", evt.Name, "jobName", evt.InvolvedObject.Name)
 		return true
 	}
 
