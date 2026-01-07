@@ -55,7 +55,7 @@ func customizeProvisionJobMessage(reason, originalMessage, clusterName string) s
 	case "Completed":
 		return fmt.Sprintf("Cluster %s provisioning completed successfully", clusterName)
 	default:
-		return fmt.Sprintf("Cluster %s provisioning with message: %s", clusterName, originalMessage)
+		return fmt.Sprintf("Cluster %s provisioning: %s", clusterName, originalMessage)
 	}
 }
 
