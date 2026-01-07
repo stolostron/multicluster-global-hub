@@ -494,6 +494,15 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			err := runtimeClient.Create(testCtx, clusterRole)
 			Expect(err).NotTo(HaveOccurred())
 
+			// Wait for cache to sync - the runtimeClient is a cached client from mgr.GetClient()
+			Eventually(func() bool {
+				cr := &rbacv1.ClusterRole{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: migrationsyncer.GetSubjectAccessReviewClusterRoleName(testMSAName),
+				}, cr)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+
 			clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
@@ -513,6 +522,15 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			}
 			err = runtimeClient.Create(testCtx, clusterRoleBinding)
 			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for cache to sync
+			Eventually(func() bool {
+				crb := &rbacv1.ClusterRoleBinding{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{
+					Name: migrationsyncer.GetAgentRegistrationClusterRoleBindingName(testMSAName),
+				}, crb)
+				return err == nil
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("should rollback initializing stage successfully", func() {
