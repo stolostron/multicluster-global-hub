@@ -45,6 +45,10 @@ type GenericConsumer struct {
 	// respond to topic changes for the global hub manager only.
 	// the global hub manager consumes from topics created dynamically when importing the managed cluster.
 	topicMetadataRefreshInterval int
+
+	// onStopped is called when the consumer's Start goroutine exits.
+	// This allows the controller to trigger a reconnect.
+	onStopped func()
 }
 
 type GenericConsumeOption func(*GenericConsumer) error
@@ -59,6 +63,15 @@ func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
 func SetTopicMetadataRefreshInterval(interval int) GenericConsumeOption {
 	return func(c *GenericConsumer) error {
 		c.topicMetadataRefreshInterval = interval
+		return nil
+	}
+}
+
+// SetOnStopped sets a callback that is invoked when the consumer's Start goroutine exits.
+// This allows the controller to trigger a reconnect when the consumer stops.
+func SetOnStopped(onStopped func()) GenericConsumeOption {
+	return func(c *GenericConsumer) error {
+		c.onStopped = onStopped
 		return nil
 	}
 }
@@ -152,6 +165,9 @@ func (c *GenericConsumer) Reconnect(ctx context.Context,
 			log.Warnf("stop the consumer(%s): %v", consumerGroupId, err)
 		}
 		log.Infof("consumer stopped: %s", consumerGroupId)
+		if c.onStopped != nil {
+			c.onStopped()
+		}
 	}()
 	return nil
 }

@@ -52,6 +52,9 @@ type TransportCtrl struct {
 	// if it's true, then the controller is in the manager, otherwise it's in the agent.
 	inManager       bool
 	disableConsumer bool
+	// consumer is running in a goroutine, use it to check if the consumer is required to be reconciled
+	// if it's false, then the consumer is not running or stopped, need to reconnect it
+	consumerStarted bool
 }
 
 type TransportClient struct {
@@ -96,6 +99,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		extraSecretNames:  make([]string, 2),
 		inManager:         inManager,
 		disableConsumer:   false,
+		consumerStarted:   false,
 	}
 }
 
@@ -130,7 +134,7 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		if updated || c.transportClient.consumer == nil {
+		if updated || c.transportClient.consumer == nil || !c.consumerStarted {
 			// reconcile consumer when credential is updated or consumer needs reinitialization
 			if !c.disableConsumer {
 				if err := c.ReconcileConsumer(ctx); err != nil {
@@ -219,31 +223,29 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	}
 
 	consumerGroupID := c.transportConfig.KafkaCredential.ConsumerGroupID
+
 	// create/update the consumer with the kafka transport
 	if c.transportClient.consumer == nil {
+		// Add onStopped callback to trigger requeue when consumer stops
+		// This ensures the same consumer instance is reused (preserving eventChan for dispatcher)
+		options = append(options, consumer.SetOnStopped(func() {
+			log.Infof("consumer stopped, requeue to reconnect consumer: %s", consumerGroupID)
+			c.consumerStarted = false
+			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
+		}))
 		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics, options...)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
 		c.transportClient.consumer = receiver
-		go func() {
-			log.Infof("start consumer: %s", consumerGroupID)
-			if err = receiver.Start(ctx); err != nil {
-				log.Warnf("consumer(%s) stopped with error: %v", consumerGroupID, err)
-			}
-			// clear consumer reference so next reconcile will recreate it
-			c.mutex.Lock()
-			c.transportClient.consumer = nil
-			c.mutex.Unlock()
-			log.Infof("consumer stopped, requeue to reinitialize consumer: %s", consumerGroupID)
-			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
-		}()
-	} else {
-		err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig, c.consumerTopics)
-		if err != nil {
-			return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
-		}
 	}
+	// Start or reconnect the consumer - Reconnect handles starting the goroutine
+	// and will call onStopped when the consumer stops
+	err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig, c.consumerTopics)
+	if err != nil {
+		return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
+	}
+	c.consumerStarted = true
 	return nil
 }
 
