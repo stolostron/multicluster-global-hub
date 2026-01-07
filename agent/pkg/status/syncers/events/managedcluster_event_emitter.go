@@ -22,8 +22,8 @@ var TimeFilterKeyForManagedCluster = enum.ShortenEventType(string(enum.ManagedCl
 
 // isValidProvisionJobEvent validates if a job name matches a cluster lifecycle job pattern
 // Supported provision job patterns:
-// - ACM console: <namespace>-<hash>-provision
-// - ClusterInstance: <namespace>-imageset
+// - Cloud provision by the cluster api(e.g. aws cluster api): <namespace>-<hash>-provision
+// - Baremetal host provision by the clusterinstance: <namespace>-imageset
 // Returns true if valid, false otherwise.
 func isValidProvisionJobEvent(evt *corev1.Event) bool {
 	if evt.InvolvedObject.Kind != "Job" {
