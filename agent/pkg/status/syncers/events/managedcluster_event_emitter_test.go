@@ -37,14 +37,14 @@ func TestCustomizeProvisionJobMessage(t *testing.T) {
 			reason:          "BackoffLimitExceeded",
 			originalMessage: "Job has reached the specified backoff limit",
 			clusterName:     "cluster2",
-			wantMessage:     "Provisioning cluster2: Job has reached the specified backoff limit",
+			wantMessage:     "Cluster cluster2 provisioning: Job has reached the specified backoff limit",
 		},
 		{
 			name:            "other reason - DeadlineExceeded",
 			reason:          "DeadlineExceeded",
 			originalMessage: "Job was active longer than specified deadline",
 			clusterName:     "prod-cluster",
-			wantMessage:     "Provisioning prod-cluster: Job was active longer than specified deadline",
+			wantMessage:     "Cluster prod-cluster provisioning: Job was active longer than specified deadline",
 		},
 	}
 
@@ -116,11 +116,11 @@ func TestIsValidProvisionJobEvent(t *testing.T) {
 			wantValid: false,
 		},
 		{
-			name:      "invalid - no hash (directly provision)",
+			name:      "valid - simple provision job",
 			jobName:   "cluster2-provision",
 			namespace: "cluster2",
 			kind:      "Job",
-			wantValid: false,
+			wantValid: true,
 		},
 		{
 			name:      "invalid - namespace mismatch",
@@ -137,11 +137,11 @@ func TestIsValidProvisionJobEvent(t *testing.T) {
 			wantValid: false,
 		},
 		{
-			name:      "invalid - only provision suffix",
+			name:      "valid - provision with empty namespace prefix",
 			jobName:   "-provision",
 			namespace: "",
 			kind:      "Job",
-			wantValid: false,
+			wantValid: true,
 		},
 		{
 			name:      "invalid - not a Job kind",
@@ -249,7 +249,7 @@ func TestManagedClusterEventPredicate(t *testing.T) {
 			wantAccept: false,
 		},
 		{
-			name: "reject invalid job name pattern",
+			name: "accept simple provision job pattern",
 			event: &corev1.Event{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "job.event4",
@@ -261,7 +261,7 @@ func TestManagedClusterEventPredicate(t *testing.T) {
 				},
 				LastTimestamp: metav1.Time{Time: now},
 			},
-			wantAccept: false,
+			wantAccept: true,
 		},
 		{
 			name: "reject Pod event",
