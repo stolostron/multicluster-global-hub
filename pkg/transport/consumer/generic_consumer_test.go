@@ -89,3 +89,72 @@ func generateTransport(ownerIdentity string, topic string, offset int64) models.
 		Payload: payload,
 	}
 }
+
+func TestSetOnStoppedOption(t *testing.T) {
+	// Test that SetOnStopped option correctly sets the callback
+	callbackCalled := false
+	onStoppedCallback := func() {
+		callbackCalled = true
+	}
+
+	// Create a GenericConsumer and apply the SetOnStopped option
+	consumer := &GenericConsumer{}
+	opt := SetOnStopped(onStoppedCallback)
+	err := opt(consumer)
+	assert.Nil(t, err)
+
+	// Verify the callback is set
+	assert.NotNil(t, consumer.onStopped)
+
+	// Call the callback and verify it executes
+	consumer.onStopped()
+	assert.True(t, callbackCalled, "onStopped callback should have been called")
+}
+
+func TestSetOnStoppedWithNilCallback(t *testing.T) {
+	// Test that SetOnStopped handles nil callback
+	consumer := &GenericConsumer{}
+	opt := SetOnStopped(nil)
+	err := opt(consumer)
+	assert.Nil(t, err)
+	assert.Nil(t, consumer.onStopped)
+}
+
+func TestGenericConsumerOptionsApplied(t *testing.T) {
+	mockKafkaCluster, err := kafka.NewMockCluster(1)
+	if err != nil {
+		t.Errorf("failed to init mock kafka cluster - %v", err)
+	}
+
+	callbackInvoked := false
+	transportConfig := &transport.TransportInternalConfig{
+		TransportType: "kafka",
+		KafkaCredential: &transport.KafkaConfig{
+			BootstrapServer: mockKafkaCluster.BootstrapServers(),
+			SpecTopic:       "test-topic",
+			ConsumerGroupID: "test-consumer",
+		},
+	}
+
+	options := []GenericConsumeOption{
+		SetTopicMetadataRefreshInterval(60000),
+		SetOnStopped(func() {
+			callbackInvoked = true
+		}),
+	}
+
+	consumer, err := NewGenericConsumer(transportConfig, []string{transportConfig.KafkaCredential.SpecTopic}, options...)
+	if err != nil && !strings.Contains(err.Error(), "client has run out of available brokers") {
+		t.Errorf("failed to generate consumer - %v", err)
+	}
+
+	// If consumer was created successfully, verify options were applied
+	if consumer != nil {
+		assert.Equal(t, 60000, consumer.topicMetadataRefreshInterval)
+		assert.NotNil(t, consumer.onStopped)
+
+		// Call onStopped and verify it works
+		consumer.onStopped()
+		assert.True(t, callbackInvoked, "onStopped callback should have been invoked")
+	}
+}

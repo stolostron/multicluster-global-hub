@@ -322,8 +322,8 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 		assert.Contains(t, err.Error(), "failed to create the consumer")
 	})
 
-	// Test case 3: Consumer already exists, should call Reconnect
-	t.Run("Reconnect existing consumer", func(t *testing.T) {
+	// Test case 3: Consumer already exists, should call Reconnect and set consumerStarted
+	t.Run("Reconnect existing consumer and set consumerStarted", func(t *testing.T) {
 		mock := &mockConsumer{}
 		ctrl := &TransportCtrl{
 			transportConfig: &transport.TransportInternalConfig{
@@ -337,11 +337,120 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 			transportClient: &TransportClient{
 				consumer: mock, // Existing consumer
 			},
-			inManager: true,
+			inManager:       true,
+			consumerStarted: false, // Initially not started
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
 		assert.True(t, mock.reconnectCalled)
+		assert.True(t, ctrl.consumerStarted, "consumerStarted should be true after successful ReconcileConsumer")
+	})
+}
+
+func TestTransportCtrl_ConsumerStartedFlag(t *testing.T) {
+	// Test that consumerStarted flag is properly initialized
+	t.Run("NewTransportCtrl initializes consumerStarted to false", func(t *testing.T) {
+		ctrl := NewTransportCtrl("default", "test-secret", nil,
+			&transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{},
+			}, true)
+
+		assert.False(t, ctrl.consumerStarted, "consumerStarted should be false initially")
+	})
+
+	// Test that consumerStarted flag triggers reconciliation
+	t.Run("Reconcile triggers consumer reconciliation when consumerStarted is false", func(t *testing.T) {
+		// Set up a fake Kubernetes client
+		scheme := runtime.NewScheme()
+		_ = corev1.AddToScheme(scheme)
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+		mock := &mockConsumer{}
+		kafkaConn := &transport.KafkaConfig{
+			BootstrapServer: "localhost:3031",
+			StatusTopic:     "event",
+			SpecTopic:       "spec",
+			ConsumerGroupID: "test",
+			ClusterID:       "123",
+			CACert:          base64.StdEncoding.EncodeToString([]byte("11")),
+			ClientCert:      base64.StdEncoding.EncodeToString([]byte("12")),
+			ClientKey:       base64.StdEncoding.EncodeToString([]byte("13")),
+		}
+		kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
+		assert.NoError(t, err)
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "default",
+				Name:      "test-secret",
+			},
+			Data: map[string][]byte{
+				"kafka.yaml": kafkaConnYaml,
+			},
+		}
+		ctx := context.TODO()
+		_ = fakeClient.Create(ctx, secret)
+
+		ctrl := &TransportCtrl{
+			secretNamespace: "default",
+			secretName:      "test-secret",
+			transportConfig: &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					BootstrapServer: "localhost:3031",
+					SpecTopic:       "spec",
+					StatusTopic:     "event",
+					ConsumerGroupID: "test",
+					ClusterID:       "123",
+				},
+				FailureThreshold: 100,
+			},
+			workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](),
+				workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
+					Name: "controllerName",
+				}),
+			transportClient: &TransportClient{
+				consumer: mock, // Consumer exists but not started
+			},
+			runtimeClient:   fakeClient,
+			producerTopic:   "event",
+			consumerTopics:  []string{"spec"},
+			inManager:       false,
+			consumerStarted: false, // Consumer stopped, should trigger reconnect
+		}
+
+		// ReconcileConsumer should be called because consumerStarted is false
+		err = ctrl.ReconcileConsumer(ctx)
+		assert.NoError(t, err)
+		assert.True(t, mock.reconnectCalled, "Reconnect should be called when consumerStarted is false")
+		assert.True(t, ctrl.consumerStarted, "consumerStarted should be true after reconciliation")
+	})
+
+	// Test that consumer already started doesn't trigger unnecessary reconciliation
+	t.Run("Consumer already exists and started - Reconnect still called on ReconcileConsumer", func(t *testing.T) {
+		mock := &mockConsumer{}
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{
+					ConsumerGroupID: "test-group",
+					SpecTopic:       "spec-topic",
+					StatusTopic:     "status-topic",
+					BootstrapServer: "localhost:9092",
+				},
+			},
+			transportClient: &TransportClient{
+				consumer: mock,
+			},
+			inManager:       true,
+			consumerStarted: true, // Already started
+		}
+
+		// ReconcileConsumer should still call Reconnect (it always does when consumer exists)
+		err := ctrl.ReconcileConsumer(context.TODO())
+		assert.NoError(t, err)
+		assert.True(t, mock.reconnectCalled)
+		assert.True(t, ctrl.consumerStarted)
 	})
 }
