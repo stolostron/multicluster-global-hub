@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -96,14 +97,14 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := syncer.Sync(ctx, evt); err != nil {
-					return err
+			// Async call - don't block dispatcher for long-running syncers (e.g., migration)
+			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer) {
+				if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					return syncer.Sync(ctx, evt)
+				}); err != nil {
+					d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 				}
-				return nil
-			}); err != nil {
-				d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
-			}
+			}(ctx, evt, syncer)
 		}
 	}
 }
