@@ -7,6 +7,7 @@ on:
     types:
       - 'opened'
       - 'reopened'
+      - 'synchronize'
   issue_comment:
     types:
       - 'created'
@@ -176,12 +177,13 @@ jobs:
                     "--rm",
                     "-e",
                     "GITHUB_PERSONAL_ACCESS_TOKEN",
-                    "ghcr.io/github/github-mcp-server:v0.18.0"
+                    "ghcr.io/github/github-mcp-server:${{ vars.GH_MCP_VERSION || 'v0.18.0' }}"
                   ],
                   "includeTools": [
                     "create_pending_pull_request_review",
                     "add_comment_to_pending_review",
-                    "submit_pending_pull_request_review"
+                    "submit_pending_pull_request_review",
+                    "pull_request_read"
                   ],
                   "env": {
                     "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
