@@ -23,10 +23,10 @@ func TestGenerateConsumer(t *testing.T) {
 		t.Errorf("failed to generate consumer - %v", err)
 	}
 	if consumer == nil {
-		t.Error("consumer should not be nil")
+		t.Fatal("consumer should not be nil")
 	}
 	if consumer.eventChan == nil {
-		t.Error("eventChan should be initialized")
+		t.Fatal("eventChan should be initialized")
 	}
 }
 

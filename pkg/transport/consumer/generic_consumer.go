@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -41,8 +40,6 @@ type GenericConsumer struct {
 
 	// cached transport for reconnection
 	transportConfig *transport.TransportInternalConfig
-
-	mutex sync.Mutex
 
 	// topicMetadataRefreshInterval reflects the topic.metadata.refresh.interval.ms and
 	// metadata.max.age.ms settings in the consumer config.
