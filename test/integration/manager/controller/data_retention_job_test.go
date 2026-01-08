@@ -26,7 +26,10 @@ var _ = Describe("data retention job", Ordered, func() {
 
 	now := time.Now()
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	retentionMonth := 18
+	// Use 12 months retention to avoid race condition with scheduler_test which uses 18 months.
+	// This ensures our test's "expired" partitions (13 months ago) won't be deleted by
+	// the scheduler's data-retention job (which only deletes partitions >18 months old).
+	retentionMonth := 12
 
 	minTime := currentMonth.AddDate(0, -retentionMonth, 0)
 	expirationTime := minTime.AddDate(0, -1, 0)
