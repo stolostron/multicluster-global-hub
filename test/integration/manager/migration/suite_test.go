@@ -122,18 +122,19 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	consumer, err := genericconsumer.NewGenericConsumer(transportConfig,
-		[]string{transportConfig.KafkaCredential.SpecTopic})
+	transportConfigChan := make(chan *transport.TransportInternalConfig)
+	consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
 	Expect(err).NotTo(HaveOccurred())
 	go func() {
 		if err := consumer.Start(ctx); err != nil {
 			logf.Log.Error(err, "error to start the chan consumer")
 		}
 	}()
+	go func() {
+		transportConfigChan <- transportConfig
+	}()
 	// use the dispatcher to consume events from transport
 	go fakeDispatch(ctx, consumer)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(err).NotTo(HaveOccurred())
 
 	err = migration.AddMigrationToManager(mgr, genericProducer, managerConfig)
 	Expect(err).NotTo(HaveOccurred())

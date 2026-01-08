@@ -218,16 +218,21 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 		// mock the consumer in manager
 		transConfig.EnableDatabaseOffset = false
 		transConfig.KafkaCredential.StatusTopic = topic
-		consumer, err := genericconsumer.NewGenericConsumer(transConfig, []string{topic})
+		transportConfigChan := make(chan *transport.TransportInternalConfig)
+		consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
 		if err != nil {
 			return trans, err
 		}
+		// Make a copy of the config for this topic
+		topicConfig := *transConfig
 		go func() {
 			if err := consumer.Start(ctx); err != nil {
 				logf.Log.Error(err, "error to start the chan consumer")
 			}
 		}()
-		Expect(err).NotTo(HaveOccurred())
+		go func() {
+			transportConfigChan <- &topicConfig
+		}()
 
 		// mock the producer in agent
 		producer, err := genericproducer.NewGenericProducer(transConfig, topic, nil)

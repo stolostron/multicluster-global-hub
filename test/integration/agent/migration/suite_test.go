@@ -93,12 +93,13 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	specConsumer, err = consumer.NewGenericConsumer(
-		agentConfig.TransportConfig,
-		[]string{agentConfig.TransportConfig.KafkaCredential.SpecTopic},
-	)
-	Expect(mgr.Add(specConsumer)).To(Succeed())
+	transportConfigChan := make(chan *transport.TransportInternalConfig)
+	specConsumer, err = consumer.NewGenericConsumer(transportConfigChan, false, false)
 	Expect(err).NotTo(HaveOccurred())
+	go func() {
+		transportConfigChan <- agentConfig.TransportConfig
+	}()
+	Expect(mgr.Add(specConsumer)).To(Succeed())
 
 	transportClient = &controller.TransportClient{}
 	// transportClient.SetConsumer(genericConsumer)

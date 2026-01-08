@@ -23,7 +23,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/configs"
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/statistics"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -110,11 +109,13 @@ var _ = BeforeSuite(func() {
 		managerConfig.TransportConfig.KafkaCredential.StatusTopic, nil)
 	Expect(err).NotTo(HaveOccurred())
 
-	consumer, err := genericconsumer.NewGenericConsumer(managerConfig.TransportConfig,
-		[]string{managerConfig.TransportConfig.KafkaCredential.StatusTopic},
-		[]genericconsumer.GenericConsumeOption{genericconsumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval)}...,
-	)
+	transportConfigChan := make(chan *transport.TransportInternalConfig)
+	// isManager=true automatically sets TopicMetadataRefreshInterval
+	consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, true, false)
 	Expect(err).NotTo(HaveOccurred())
+	go func() {
+		transportConfigChan <- managerConfig.TransportConfig
+	}()
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
 	By("Add controllers to manager")

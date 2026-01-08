@@ -81,10 +81,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	runtimeClient = mgr.GetClient()
 
-	genericConsumer, err = genericconsumer.NewGenericConsumer(
-		agentConfig.TransportConfig,
-		[]string{agentConfig.TransportConfig.KafkaCredential.StatusTopic},
-	)
+	transportConfigChan := make(chan *transport.TransportInternalConfig)
+	genericConsumer, err = genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -92,7 +90,9 @@ var _ = BeforeSuite(func() {
 			logf.Log.Error(err, "error to start the chan consumer")
 		}
 	}()
-	Expect(err).NotTo(HaveOccurred())
+	go func() {
+		transportConfigChan <- agentConfig.TransportConfig
+	}()
 
 	genericProducer, err = genericproducer.NewGenericProducer(
 		agentConfig.TransportConfig,
