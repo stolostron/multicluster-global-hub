@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -18,6 +19,7 @@ import (
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
+	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/models"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -28,14 +30,17 @@ import (
 )
 
 type GenericConsumer struct {
-	assembler            *messageAssembler
-	eventChan            chan *cloudevents.Event
+	transportConfigChan  chan *transport.TransportInternalConfig
 	enableDatabaseOffset bool
+	isManager            bool
 
-	consumerCtx    context.Context
-	consumerCancel context.CancelFunc
-	client         cloudevents.Client
-	kafkaConsumer  *kafka.Consumer
+	// internal variables
+	eventChan chan *cloudevents.Event
+	errChan   chan error
+	assembler *messageAssembler
+
+	// cached transport for reconnection
+	transportConfig *transport.TransportInternalConfig
 
 	mutex sync.Mutex
 
@@ -45,71 +50,97 @@ type GenericConsumer struct {
 	// respond to topic changes for the global hub manager only.
 	// the global hub manager consumes from topics created dynamically when importing the managed cluster.
 	topicMetadataRefreshInterval int
-
-	// onStopped is called when the consumer's Start goroutine exits.
-	// This allows the controller to trigger a reconnect.
-	onStopped func()
 }
 
-type GenericConsumeOption func(*GenericConsumer) error
-
-func EnableDatabaseOffset(enableOffset bool) GenericConsumeOption {
-	return func(c *GenericConsumer) error {
-		c.enableDatabaseOffset = enableOffset
-		return nil
-	}
-}
-
-func SetTopicMetadataRefreshInterval(interval int) GenericConsumeOption {
-	return func(c *GenericConsumer) error {
-		c.topicMetadataRefreshInterval = interval
-		return nil
-	}
-}
-
-// SetOnStopped sets a callback that is invoked when the consumer's Start goroutine exits.
-// This allows the controller to trigger a reconnect when the consumer stops.
-func SetOnStopped(onStopped func()) GenericConsumeOption {
-	return func(c *GenericConsumer) error {
-		c.onStopped = onStopped
-		return nil
-	}
-}
-
-func NewGenericConsumer(tranConfig *transport.TransportInternalConfig, topics []string,
-	opts ...GenericConsumeOption,
+func NewGenericConsumer(transportConfigChan chan *transport.TransportInternalConfig,
+	isManager bool, enableDatabaseOffset bool,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
-		eventChan:            make(chan *cloudevents.Event),
-		assembler:            newMessageAssembler(),
-		enableDatabaseOffset: tranConfig.EnableDatabaseOffset,
+		transportConfigChan:  transportConfigChan,
+		isManager:            isManager,
+		enableDatabaseOffset: enableDatabaseOffset,
+
+		eventChan: make(chan *cloudevents.Event),
+		errChan:   make(chan error),
+		assembler: newMessageAssembler(),
 	}
-	// Apply options BEFORE initializing client
-	if err := c.applyOptions(opts...); err != nil {
-		return nil, err
-	}
-	if err := c.initClient(tranConfig, topics); err != nil {
-		return nil, err
+	if isManager {
+		c.topicMetadataRefreshInterval = constants.TopicMetadataRefreshInterval
 	}
 	return c, nil
 }
 
-func (c *GenericConsumer) KafkaConsumer() *kafka.Consumer {
-	return c.kafkaConsumer
+// Start runs the consumer loop independently from the reconcile loop.
+// It reconnects when receiving updated transport config via the transportConfigChan.
+func (c *GenericConsumer) Start(ctx context.Context) error {
+	var consumerCtx context.Context
+	var consumerCancel context.CancelFunc
+	for {
+		select {
+		case <-ctx.Done():
+			if consumerCancel != nil {
+				consumerCancel()
+			}
+			log.Infof("context done, stop the consumer")
+			return nil
+
+		case tranConfig := <-c.transportConfigChan:
+			// 1. cancel the previous consumer receiver if exists
+			if consumerCancel != nil {
+				consumerCancel()
+			}
+
+			// 2. init the cloudevents client with the new transport config
+			client, err := c.initClient(tranConfig)
+			if err != nil {
+				log.Errorf("failed to init the client: %v", err)
+				return err
+			}
+
+			// 3. cache the transport config for potential reconnection on error
+			c.transportConfig = tranConfig
+
+			// 4. create new context and start receiving events in a goroutine
+			consumerCtx, consumerCancel = context.WithCancel(ctx)
+			go func() {
+				consumerGroupId := tranConfig.KafkaCredential.ConsumerGroupID
+				log.Infof("start receiving events: %s", consumerGroupId)
+				if err := c.receive(client, consumerCtx); err != nil {
+					log.Warnf("receiver stopped with error(%s): %v", consumerGroupId, err)
+					c.errChan <- err
+				}
+				log.Infof("stop receiving events: %s", consumerGroupId)
+			}()
+
+		case <-c.errChan:
+			// receiver encountered an error, trigger reconnection with cached config
+			if c.transportConfig != nil {
+				c.transportConfigChan <- c.transportConfig
+			} else {
+				log.Warnf("no transport config cached, retry in 5 seconds")
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}
 }
 
 // initClient will init the consumer identity, clientProtocol, client
-func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig, topics []string) error {
+func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConfig) (cloudevents.Client, error) {
+	topics := []string{tranConfig.KafkaCredential.SpecTopic}
+	if c.isManager {
+		topics = []string{tranConfig.KafkaCredential.StatusTopic}
+	}
+
 	var err error
 	var clientProtocol interface{}
 
 	switch tranConfig.TransportType {
 	case string(transport.Kafka):
 		log.Info("transport consumer with cloudevents-kafka receiver")
-		c.kafkaConsumer, clientProtocol, err = getConfluentReceiverProtocol(tranConfig,
+		_, clientProtocol, err = getConfluentReceiverProtocol(tranConfig,
 			topics, c.topicMetadataRefreshInterval)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	case string(transport.Chan):
 		log.Info("transport consumer with go chan receiver")
@@ -122,57 +153,18 @@ func (c *GenericConsumer) initClient(tranConfig *transport.TransportInternalConf
 		}
 		clientProtocol = tranConfig.Extends[topic]
 	default:
-		return fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
+		return nil, fmt.Errorf("transport-type - %s is not a valid option", tranConfig.TransportType)
 	}
 
-	c.client, err = cloudevents.NewClient(clientProtocol, client.WithPollGoroutines(1))
+	client, err := cloudevents.NewClient(clientProtocol, client.WithPollGoroutines(1))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return client, nil
 }
 
-func (c *GenericConsumer) applyOptions(opts ...GenericConsumeOption) error {
-	for _, fn := range opts {
-		if err := fn(c); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *GenericConsumer) Reconnect(ctx context.Context,
-	tranConfig *transport.TransportInternalConfig, topics []string,
-) error {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	err := c.initClient(tranConfig, topics)
-	if err != nil {
-		return err
-	}
-
-	// close the previous consumer
-	if c.consumerCancel != nil {
-		c.consumerCancel()
-	}
-	c.consumerCtx, c.consumerCancel = context.WithCancel(ctx)
-	consumerGroupId := tranConfig.KafkaCredential.ConsumerGroupID
-	go func() {
-		log.Infof("reconnect consumer: %s", consumerGroupId)
-		if err := c.Start(c.consumerCtx); err != nil {
-			log.Warnf("stop the consumer(%s): %v", consumerGroupId, err)
-		}
-		log.Infof("consumer stopped: %s", consumerGroupId)
-		if c.onStopped != nil {
-			c.onStopped()
-		}
-	}()
-	return nil
-}
-
-func (c *GenericConsumer) Start(ctx context.Context) error {
+func (c *GenericConsumer) receive(client cloudevents.Client, ctx context.Context) error {
 	receiveContext := cectx.WithLogger(ctx, logger.ZapLogger("cloudevents"))
 	if c.enableDatabaseOffset {
 		offsets, err := getInitOffset(config.GetKafkaOwnerIdentity())
@@ -186,11 +178,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 	}
 	// each time the consumer starts, it will only log the first message
 	receivedMessage := false
-	// Note: Do NOT reassign c.consumerCtx/c.consumerCancel here.
-	// They are managed by Reconnect() to avoid race conditions where
-	// a new Reconnect call cancels the wrong context.
-	// Use receiveContext which includes logger and offset configuration.
-	err := c.client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
+	err := client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
 
 		if !receivedMessage {

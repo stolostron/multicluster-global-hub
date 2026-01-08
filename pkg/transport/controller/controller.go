@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -43,20 +42,17 @@ type TransportCtrl struct {
 	// the use the producer and consumer to activate the callback, once it executed successful, then clear it.
 	transportCallback TransportCallback
 	transportClient   *TransportClient
+	// the channel is used to send the transport config to the consumer
+	transportConfigChan chan *transport.TransportInternalConfig
 
 	// producerTopic is current topic which is used to create a producer
 	producerTopic string
-	// consumerTopics is current topics which are used to create a consumer
-	consumerTopics []string
-	mutex          sync.Mutex
+
+	mutex sync.Mutex
 	// inManager is used to check if the controller is in the manager.
 	// if it's true, then the controller is in the manager, otherwise it's in the agent.
 	inManager       bool
 	disableConsumer bool
-	// consumer is running in a goroutine, use it to check if the consumer is required to be reconciled
-	// if it's false, then the consumer is not running or stopped, need to reconnect it
-	// Use atomic.Bool to prevent race condition between controller goroutine and consumer goroutine
-	consumerRunning atomic.Bool
 }
 
 type TransportClient struct {
@@ -93,15 +89,15 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 	transportConfig *transport.TransportInternalConfig, inManager bool,
 ) *TransportCtrl {
 	return &TransportCtrl{
-		secretNamespace:   namespace,
-		secretName:        name,
-		transportCallback: callback,
-		transportClient:   &TransportClient{},
-		transportConfig:   transportConfig,
-		extraSecretNames:  make([]string, 2),
-		inManager:         inManager,
-		disableConsumer:   false,
-		// consumerRunning defaults to false (zero value of atomic.Bool)
+		secretNamespace:     namespace,
+		secretName:          name,
+		transportCallback:   callback,
+		transportClient:     &TransportClient{},
+		transportConfig:     transportConfig,
+		extraSecretNames:    make([]string, 2),
+		disableConsumer:     false,
+		transportConfigChan: make(chan *transport.TransportInternalConfig),
+		inManager:           inManager,
 	}
 }
 
@@ -135,14 +131,9 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		if updated || c.transportClient.consumer == nil || !c.consumerRunning.Load() {
-			// reconcile consumer when credential is updated or consumer needs reinitialization
-			if !c.disableConsumer {
-				if err := c.ReconcileConsumer(ctx); err != nil {
-					log.Warnf("consumer error: %v", err)
-					return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-				}
+		if updated {
+			if err := c.ReconcileConsumer(ctx); err != nil {
+				return ctrl.Result{}, err
 			}
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err
@@ -207,47 +198,36 @@ func (c *TransportCtrl) ReconcileProducer() error {
 	return nil
 }
 
-// ReconcileConsumer, transport config is changed, then create/update the consumer
+// ReconcileConsumer creates the consumer if not exists, and sends the updated transport config
+// to trigger reconnection when kafka credentials change.
 func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
-	// if the consumer groupId is empty, then it's means the agent is in the standalone mode, don't create the consumer
+	if c.disableConsumer {
+		return nil
+	}
+
+	// skip if consumer group id is empty (standalone mode)
 	if c.transportConfig.KafkaCredential.ConsumerGroupID == "" {
 		log.Infof("skip initializing consumer, consumer group id is not set")
 		return nil
 	}
 
-	options := []consumer.GenericConsumeOption{}
-	// set consumerTopics to status or spec topic based on running in manager or not
-	if c.inManager {
-		c.consumerTopics = []string{c.transportConfig.KafkaCredential.StatusTopic}
-		options = append(options, consumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval))
-	} else {
-		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
-	}
-
-	consumerGroupID := c.transportConfig.KafkaCredential.ConsumerGroupID
-
-	// create/update the consumer with the kafka transport
+	// create consumer if not exists, it runs in a separate goroutine
 	if c.transportClient.consumer == nil {
-		// Add onStopped callback to trigger requeue when consumer stops
-		// This ensures the same consumer instance is reused (preserving eventChan for dispatcher)
-		options = append(options, consumer.SetOnStopped(func() {
-			log.Infof("consumer stopped, requeue to reconnect consumer: %s", consumerGroupID)
-			c.consumerRunning.Store(false)
-			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
-		}))
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics, options...)
+		genericConsumer, err := consumer.NewGenericConsumer(c.transportConfigChan, c.inManager,
+			c.transportConfig.EnableDatabaseOffset)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
-		c.transportClient.consumer = receiver
+		go func() {
+			if err := genericConsumer.Start(ctx); err != nil {
+				log.Errorf("consumer stopped with error: %v", err)
+			}
+		}()
+		c.transportClient.consumer = genericConsumer
 	}
-	// Start or reconnect the consumer - Reconnect handles starting the goroutine
-	// and will call onStopped when the consumer stops
-	err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig, c.consumerTopics)
-	if err != nil {
-		return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
-	}
-	c.consumerRunning.Store(true)
+
+	// send updated config to consumer to trigger reconnection
+	c.transportConfigChan <- c.transportConfig
 	return nil
 }
 
