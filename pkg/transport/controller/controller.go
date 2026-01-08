@@ -54,7 +54,7 @@ type TransportCtrl struct {
 	disableConsumer bool
 	// consumer is running in a goroutine, use it to check if the consumer is required to be reconciled
 	// if it's false, then the consumer is not running or stopped, need to reconnect it
-	consumerStarted bool
+	consumerRunning bool
 }
 
 type TransportClient struct {
@@ -99,7 +99,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		extraSecretNames:  make([]string, 2),
 		inManager:         inManager,
 		disableConsumer:   false,
-		consumerStarted:   false,
+		consumerRunning:   false,
 	}
 }
 
@@ -134,7 +134,7 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		if updated || c.transportClient.consumer == nil || !c.consumerStarted {
+		if updated || c.transportClient.consumer == nil || !c.consumerRunning {
 			// reconcile consumer when credential is updated or consumer needs reinitialization
 			if !c.disableConsumer {
 				if err := c.ReconcileConsumer(ctx); err != nil {
@@ -230,7 +230,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		// This ensures the same consumer instance is reused (preserving eventChan for dispatcher)
 		options = append(options, consumer.SetOnStopped(func() {
 			log.Infof("consumer stopped, requeue to reconnect consumer: %s", consumerGroupID)
-			c.consumerStarted = false
+			c.consumerRunning = false
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}))
 		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics, options...)
@@ -245,7 +245,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
 	}
-	c.consumerStarted = true
+	c.consumerRunning = true
 	return nil
 }
 
