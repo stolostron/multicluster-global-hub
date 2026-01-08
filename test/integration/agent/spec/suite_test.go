@@ -49,6 +49,7 @@ var _ = BeforeSuite(func() {
 		TransportConfig: &transport.TransportInternalConfig{
 			TransportType: string(transport.Chan),
 			KafkaCredential: &transport.KafkaConfig{
+				SpecTopic:       "spec",
 				StatusTopic:     "status",
 				ConsumerGroupID: "agent",
 			},
@@ -96,7 +97,7 @@ var _ = BeforeSuite(func() {
 
 	genericProducer, err = genericproducer.NewGenericProducer(
 		agentConfig.TransportConfig,
-		agentConfig.TransportConfig.KafkaCredential.StatusTopic,
+		agentConfig.TransportConfig.KafkaCredential.SpecTopic,
 		nil,
 	)
 	Expect(err).NotTo(HaveOccurred())
