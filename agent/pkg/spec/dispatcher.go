@@ -23,6 +23,7 @@ type genericDispatcher struct {
 	agentConfig configs.AgentConfig
 	syncers     map[string]Syncer
 	mu          sync.RWMutex
+	wg          sync.WaitGroup // Track in-flight syncer goroutines for graceful shutdown
 }
 
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config configs.AgentConfig,
@@ -67,6 +68,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			d.wg.Wait() // Wait for in-flight syncers before returning
 			return
 		case evt := <-d.consumer.EventChan():
 			d.log.Debugf("get event: %v", evt.Type())
@@ -98,7 +100,9 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 				continue
 			}
 			// Async call - don't block dispatcher for long-running syncers (e.g., migration)
+			d.wg.Add(1)
 			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer) {
+				defer d.wg.Done()
 				if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 					return syncer.Sync(ctx, evt)
 				}); err != nil {
