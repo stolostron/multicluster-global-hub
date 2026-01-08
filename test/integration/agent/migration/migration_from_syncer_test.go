@@ -371,6 +371,19 @@ var _ = Describe("MigrationFromSyncer", Ordered, func() {
 
 			err = runtimeClient.Update(testCtx, cluster)
 			Expect(err).NotTo(HaveOccurred())
+
+			// Wait for cache to sync - the runtimeClient is a cached client from mgr.GetClient()
+			// and writes go to API server while reads come from cache, causing race conditions
+			Eventually(func() bool {
+				freshCluster := &clusterv1.ManagedCluster{}
+				err := runtimeClient.Get(testCtx, types.NamespacedName{Name: testClusterName}, freshCluster)
+				if err != nil {
+					return false
+				}
+				_, hasMigrating := freshCluster.Annotations[constants.ManagedClusterMigrating]
+				_, hasKlusterletConfig := freshCluster.Annotations["agent.open-cluster-management.io/klusterlet-config"]
+				return hasMigrating && hasKlusterletConfig
+			}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		It("should rollback initializing stage successfully", func() {

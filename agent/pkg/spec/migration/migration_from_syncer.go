@@ -610,24 +610,29 @@ func (s *MigrationSourceSyncer) rollbackInitializing(ctx context.Context,
 		// Check if migration annotations exist
 		_, hasMigrating := annotations[constants.ManagedClusterMigrating]
 		_, hasKlusterletConfig := annotations[KlusterletConfigAnnotation]
+		_, hasDisableAutoImport := annotations[apiconstants.DisableAutoImportAnnotation]
 
-		if !hasMigrating && !hasKlusterletConfig {
+		if !hasMigrating && !hasKlusterletConfig && !hasDisableAutoImport {
 			log.Infof("no migration annotations found on managed cluster %s, skipping cleanup", managedCluster)
 			continue
 		}
 
 		// Remove migration-related annotations
 		err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			lastestCluster := &clusterv1.ManagedCluster{}
-			err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, lastestCluster)
+			latestCluster := &clusterv1.ManagedCluster{}
+			err := s.client.Get(ctx, types.NamespacedName{Name: managedCluster}, latestCluster)
 			if err != nil {
 				return err
 			}
-			delete(annotations, constants.ManagedClusterMigrating)
-			delete(annotations, KlusterletConfigAnnotation)
-			delete(annotations, apiconstants.DisableAutoImportAnnotation)
-			lastestCluster.SetAnnotations(annotations)
-			return s.client.Update(ctx, lastestCluster)
+			latestAnnotations := latestCluster.GetAnnotations()
+			if latestAnnotations == nil {
+				return nil // No annotations to remove
+			}
+			delete(latestAnnotations, constants.ManagedClusterMigrating)
+			delete(latestAnnotations, KlusterletConfigAnnotation)
+			delete(latestAnnotations, apiconstants.DisableAutoImportAnnotation)
+			latestCluster.SetAnnotations(latestAnnotations)
+			return s.client.Update(ctx, latestCluster)
 		})
 		if err != nil {
 			s.clusterErrors[managedCluster] = fmt.Sprintf("failed to remove annotations from cluster %s: %v",
