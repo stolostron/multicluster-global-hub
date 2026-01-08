@@ -169,6 +169,17 @@ var _ = Describe("data retention job", Ordered, func() {
 
 	It("the data retention should log the job execution", func() {
 		db := database.GetGorm()
+
+		By("Clear existing logs to avoid interference from other tests")
+		db.Exec("DELETE FROM history.data_retention_job_log")
+
+		By("Run data retention job to generate fresh logs")
+		s := gocron.NewScheduler(time.UTC)
+		_, err := s.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, retentionMonth)
+		Expect(err).ToNot(HaveOccurred())
+		s.StartAsync()
+		defer s.Clear()
+
 		logs := []models.DataRetentionJobLog{}
 
 		Eventually(func() error {
