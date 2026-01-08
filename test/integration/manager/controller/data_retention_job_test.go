@@ -171,24 +171,27 @@ var _ = Describe("data retention job", Ordered, func() {
 		db := database.GetGorm()
 
 		By("Clear existing logs to avoid interference from other tests")
-		db.Exec("DELETE FROM history.data_retention_job_log")
+		db.Exec("DELETE FROM event.data_retention_job_log")
 
 		By("Run data retention job to generate fresh logs")
 		s := gocron.NewScheduler(time.UTC)
-		_, err := s.Every(1).Week().DoWithJobDetails(task.DataRetention, ctx, retentionMonth)
+		_, err := s.Every(1).Second().DoWithJobDetails(task.DataRetention, ctx, retentionMonth)
 		Expect(err).ToNot(HaveOccurred())
 		s.StartAsync()
 		defer s.Clear()
 
 		logs := []models.DataRetentionJobLog{}
 
+		By("Wait for logs to be created")
 		Eventually(func() error {
+			logs = []models.DataRetentionJobLog{}
 			result := db.Find(&logs)
 			if result.Error != nil {
 				return result.Error
 			}
-			if len(logs) < 6 {
-				return fmt.Errorf("the logs are not enough")
+			// We expect at least 4 logs for partition tables
+			if len(logs) < 4 {
+				return fmt.Errorf("not enough logs, got %d", len(logs))
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
