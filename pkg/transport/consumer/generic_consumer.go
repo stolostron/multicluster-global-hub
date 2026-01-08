@@ -181,13 +181,16 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 		}
 		log.Infow("init consumer with database offsets", "offsets", offsets)
 		if len(offsets) > 0 {
-			receiveContext = kafka_confluent.WithTopicPartitionOffsets(ctx, offsets)
+			receiveContext = kafka_confluent.WithTopicPartitionOffsets(receiveContext, offsets)
 		}
 	}
 	// each time the consumer starts, it will only log the first message
 	receivedMessage := false
-	c.consumerCtx, c.consumerCancel = context.WithCancel(receiveContext)
-	err := c.client.StartReceiver(c.consumerCtx, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
+	// Note: Do NOT reassign c.consumerCtx/c.consumerCancel here.
+	// They are managed by Reconnect() to avoid race conditions where
+	// a new Reconnect call cancels the wrong context.
+	// Use receiveContext which includes logger and offset configuration.
+	err := c.client.StartReceiver(receiveContext, func(ctx context.Context, event cloudevents.Event) ceprotocol.Result {
 		log.Debugw("received message", "event.Source", event.Source(), "event.Type", enum.ShortenEventType(event.Type()))
 
 		if !receivedMessage {
