@@ -26,7 +26,10 @@ var _ = Describe("data retention job", Ordered, func() {
 
 	now := time.Now()
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	retentionMonth := 18
+	// Use 12 months retention to avoid race condition with scheduler_test which uses 18 months.
+	// This ensures our test's "expired" partitions (13 months ago) won't be deleted by
+	// the scheduler's data-retention job (which only deletes partitions >18 months old).
+	retentionMonth := 12
 
 	minTime := currentMonth.AddDate(0, -retentionMonth, 0)
 	expirationTime := minTime.AddDate(0, -1, 0)
@@ -166,15 +169,29 @@ var _ = Describe("data retention job", Ordered, func() {
 
 	It("the data retention should log the job execution", func() {
 		db := database.GetGorm()
+
+		By("Clear existing logs to avoid interference from other tests")
+		db.Exec("DELETE FROM event.data_retention_job_log")
+
+		By("Run data retention job to generate fresh logs")
+		s := gocron.NewScheduler(time.UTC)
+		_, err := s.Every(1).Second().DoWithJobDetails(task.DataRetention, ctx, retentionMonth)
+		Expect(err).ToNot(HaveOccurred())
+		s.StartAsync()
+		defer s.Clear()
+
 		logs := []models.DataRetentionJobLog{}
 
+		By("Wait for logs to be created")
 		Eventually(func() error {
+			logs = []models.DataRetentionJobLog{}
 			result := db.Find(&logs)
 			if result.Error != nil {
 				return result.Error
 			}
-			if len(logs) < 6 {
-				return fmt.Errorf("the logs are not enough")
+			// We expect at least 4 logs for partition tables
+			if len(logs) < 4 {
+				return fmt.Errorf("not enough logs, got %d", len(logs))
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

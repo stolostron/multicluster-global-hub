@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -22,6 +23,7 @@ type genericDispatcher struct {
 	agentConfig configs.AgentConfig
 	syncers     map[string]Syncer
 	mu          sync.RWMutex
+	wg          sync.WaitGroup // Track in-flight syncer goroutines for graceful shutdown
 }
 
 func AddGenericDispatcher(mgr ctrl.Manager, consumer transport.Consumer, config configs.AgentConfig,
@@ -66,6 +68,7 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
+			d.wg.Wait() // Wait for in-flight syncers before returning
 			return
 		case evt := <-d.consumer.EventChan():
 			d.log.Debugf("get event: %v", evt.Type())
@@ -96,14 +99,16 @@ func (d *genericDispatcher) dispatch(ctx context.Context) {
 					"syncer", syncer, "event", evt)
 				continue
 			}
-			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				if err := syncer.Sync(ctx, evt); err != nil {
-					return err
+			// Async call - don't block dispatcher for long-running syncers (e.g., migration)
+			d.wg.Add(1)
+			go func(ctx context.Context, evt *cloudevents.Event, syncer Syncer) {
+				defer d.wg.Done()
+				if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+					return syncer.Sync(ctx, evt)
+				}); err != nil {
+					d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
 				}
-				return nil
-			}); err != nil {
-				d.log.Errorw("sync failed", "type", evt.Type(), "error", err)
-			}
+			}(ctx, evt, syncer)
 		}
 	}
 }

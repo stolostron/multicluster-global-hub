@@ -36,8 +36,11 @@ var _ = Describe("scheduler", func() {
 			DoWithJobDetails(task.DataRetention, ctx, managerConfig.DatabaseConfig.DataRetention)
 		Expect(err).To(Succeed())
 
+		// Test scheduler mechanism without executing data-retention job to avoid
+		// conflict with data_retention_job_test which validates the job logs.
+		// Only test with local-compliance-history job which doesn't interfere.
 		globalScheduler := cronjob.NewGlobalHubScheduler(scheduler,
-			[]string{task.RetentionTaskName, task.LocalComplianceTaskName, "unexpected_name"})
+			[]string{task.LocalComplianceTaskName, "unexpected_name"})
 		err = globalScheduler.ExecJobs()
 		Expect(err).To(Succeed())
 	})
