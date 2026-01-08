@@ -51,10 +51,10 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			callbackInvoked = true
 			return nil
 		},
-		transportClient: &TransportClient{},
-		runtimeClient:   fakeClient,
-		producerTopic:   "event",
-		consumerTopics:  []string{"spec"},
+		transportClient:     &TransportClient{},
+		runtimeClient:       fakeClient,
+		producerTopic:       "event",
+		transportConfigChan: make(chan *transport.TransportInternalConfig),
 	}
 
 	ctx := context.TODO()
@@ -261,18 +261,10 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 }
 
 // Mock consumer for testing
-type mockConsumer struct {
-	reconnectCalled bool
-	reconnectErr    error
-}
+type mockConsumer struct{}
 
 func (mc *mockConsumer) Start(ctx context.Context) error {
 	return nil
-}
-
-func (mc *mockConsumer) Reconnect(ctx context.Context, cfg *transport.TransportInternalConfig, topics []string) error {
-	mc.reconnectCalled = true
-	return mc.reconnectErr
 }
 
 func (mc *mockConsumer) EventChan() chan *cloudevents.Event {
@@ -292,8 +284,9 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 					StatusTopic:     "status-topic",
 				},
 			},
-			transportClient: &TransportClient{},
-			inManager:       false,
+			transportClient:     &TransportClient{},
+			transportConfigChan: make(chan *transport.TransportInternalConfig),
+			inManager:           false,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
@@ -301,136 +294,10 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 		assert.Nil(t, ctrl.transportClient.consumer)
 	})
 
-	// Test case 2: Valid consumer group ID but no valid kafka config (should fail gracefully)
-	t.Run("Handle invalid kafka config", func(t *testing.T) {
-		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					// Missing bootstrap server and other required fields
-				},
-			},
-			transportClient: &TransportClient{},
-			inManager:       false,
-		}
-
-		err := ctrl.ReconcileConsumer(ctx)
-		// Should return an error because the kafka config is invalid
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create the consumer")
-	})
-
-	// Test case 3: Consumer already exists, should call Reconnect and set consumerRunning
-	t.Run("Reconnect existing consumer and set consumerRunning", func(t *testing.T) {
+	// Test case 2: Consumer already exists, should send config to channel
+	t.Run("Consumer exists - send config to channel", func(t *testing.T) {
 		mock := &mockConsumer{}
-		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					BootstrapServer: "localhost:9092", // Add required field
-				},
-			},
-			transportClient: &TransportClient{
-				consumer: mock, // Existing consumer
-			},
-			inManager: true,
-			// consumerRunning defaults to false (zero value of atomic.Bool)
-		}
-
-		err := ctrl.ReconcileConsumer(ctx)
-		assert.NoError(t, err)
-		assert.True(t, mock.reconnectCalled)
-		assert.True(t, ctrl.consumerRunning.Load(), "consumerRunning should be true after successful ReconcileConsumer")
-	})
-}
-
-func TestTransportCtrl_ConsumerStartedFlag(t *testing.T) {
-	// Test that consumerRunning flag is properly initialized
-	t.Run("NewTransportCtrl initializes consumerRunning to false", func(t *testing.T) {
-		ctrl := NewTransportCtrl("default", "test-secret", nil,
-			&transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{},
-			}, true)
-
-		assert.False(t, ctrl.consumerRunning.Load(), "consumerRunning should be false initially")
-	})
-
-	// Test that consumerRunning flag triggers reconciliation
-	t.Run("Reconcile triggers consumer reconciliation when consumerRunning is false", func(t *testing.T) {
-		// Set up a fake Kubernetes client
-		scheme := runtime.NewScheme()
-		_ = corev1.AddToScheme(scheme)
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-
-		mock := &mockConsumer{}
-		kafkaConn := &transport.KafkaConfig{
-			BootstrapServer: "localhost:3031",
-			StatusTopic:     "event",
-			SpecTopic:       "spec",
-			ConsumerGroupID: "test",
-			ClusterID:       "123",
-			CACert:          base64.StdEncoding.EncodeToString([]byte("11")),
-			ClientCert:      base64.StdEncoding.EncodeToString([]byte("12")),
-			ClientKey:       base64.StdEncoding.EncodeToString([]byte("13")),
-		}
-		kafkaConnYaml, err := kafkaConn.YamlMarshal(false)
-		assert.NoError(t, err)
-
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "default",
-				Name:      "test-secret",
-			},
-			Data: map[string][]byte{
-				"kafka.yaml": kafkaConnYaml,
-			},
-		}
-		ctx := context.TODO()
-		_ = fakeClient.Create(ctx, secret)
-
-		ctrl := &TransportCtrl{
-			secretNamespace: "default",
-			secretName:      "test-secret",
-			transportConfig: &transport.TransportInternalConfig{
-				TransportType: string(transport.Chan),
-				KafkaCredential: &transport.KafkaConfig{
-					BootstrapServer: "localhost:3031",
-					SpecTopic:       "spec",
-					StatusTopic:     "event",
-					ConsumerGroupID: "test",
-					ClusterID:       "123",
-				},
-				FailureThreshold: 100,
-			},
-			workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(
-				workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](),
-				workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-					Name: "controllerName",
-				}),
-			transportClient: &TransportClient{
-				consumer: mock, // Consumer exists but not started
-			},
-			runtimeClient:  fakeClient,
-			producerTopic:  "event",
-			consumerTopics: []string{"spec"},
-			inManager:      false,
-			// consumerRunning defaults to false (zero value of atomic.Bool)
-		}
-
-		// ReconcileConsumer should be called because consumerRunning is false
-		err = ctrl.ReconcileConsumer(ctx)
-		assert.NoError(t, err)
-		assert.True(t, mock.reconnectCalled, "Reconnect should be called when consumerRunning is false")
-		assert.True(t, ctrl.consumerRunning.Load(), "consumerRunning should be true after reconciliation")
-	})
-
-	// Test that consumer already started doesn't trigger unnecessary reconciliation
-	t.Run("Consumer already exists and started - Reconnect still called on ReconcileConsumer", func(t *testing.T) {
-		mock := &mockConsumer{}
+		configChan := make(chan *transport.TransportInternalConfig, 1) // buffered to avoid blocking
 		ctrl := &TransportCtrl{
 			transportConfig: &transport.TransportInternalConfig{
 				KafkaCredential: &transport.KafkaConfig{
@@ -441,16 +308,21 @@ func TestTransportCtrl_ConsumerStartedFlag(t *testing.T) {
 				},
 			},
 			transportClient: &TransportClient{
-				consumer: mock,
+				consumer: mock, // Existing consumer
 			},
-			inManager: true,
+			transportConfigChan: configChan,
+			inManager:           true,
 		}
-		ctrl.consumerRunning.Store(true) // Already started
 
-		// ReconcileConsumer should still call Reconnect (it always does when consumer exists)
-		err := ctrl.ReconcileConsumer(context.TODO())
+		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
-		assert.True(t, mock.reconnectCalled)
-		assert.True(t, ctrl.consumerRunning.Load())
+
+		// Verify config was sent to channel
+		select {
+		case cfg := <-configChan:
+			assert.Equal(t, "test-group", cfg.KafkaCredential.ConsumerGroupID)
+		default:
+			t.Error("Expected config to be sent to channel")
+		}
 	})
 }

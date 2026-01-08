@@ -3,11 +3,9 @@ package consumer
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm/clause"
 
@@ -18,25 +16,18 @@ import (
 )
 
 func TestGenerateConsumer(t *testing.T) {
-	mockKafkaCluster, err := kafka.NewMockCluster(1)
-	if err != nil {
-		t.Errorf("failed to init mock kafka cluster - %v", err)
-	}
-	transportConfig := &transport.TransportInternalConfig{
-		TransportType: "kafka",
-		KafkaCredential: &transport.KafkaConfig{
-			BootstrapServer: mockKafkaCluster.BootstrapServers(),
-			SpecTopic:       "test-topic",
-			ConsumerGroupID: "test-consumer",
-		},
-	}
+	transportConfigChan := make(chan *transport.TransportInternalConfig)
 
-	_, err = NewGenericConsumer(transportConfig, true)
-	if err != nil && !strings.Contains(err.Error(), "client has run out of available brokers") {
+	consumer, err := NewGenericConsumer(transportConfigChan, true, false)
+	if err != nil {
 		t.Errorf("failed to generate consumer - %v", err)
 	}
-	// cannot get the kafka.ConfigMap from a Kafka consumer after it's created
-	// The confluent-kafka-go library doesn't expose the configuration used to create the consumer.
+	if consumer == nil {
+		t.Error("consumer should not be nil")
+	}
+	if consumer.eventChan == nil {
+		t.Error("eventChan should be initialized")
+	}
 }
 
 func TestGetInitOffset(t *testing.T) {
