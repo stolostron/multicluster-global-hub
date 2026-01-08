@@ -337,14 +337,14 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 			transportClient: &TransportClient{
 				consumer: mock, // Existing consumer
 			},
-			inManager:       true,
-			consumerRunning: false, // Initially not started
+			inManager: true,
+			// consumerRunning defaults to false (zero value of atomic.Bool)
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
 		assert.True(t, mock.reconnectCalled)
-		assert.True(t, ctrl.consumerRunning, "consumerRunning should be true after successful ReconcileConsumer")
+		assert.True(t, ctrl.consumerRunning.Load(), "consumerRunning should be true after successful ReconcileConsumer")
 	})
 }
 
@@ -356,7 +356,7 @@ func TestTransportCtrl_ConsumerStartedFlag(t *testing.T) {
 				KafkaCredential: &transport.KafkaConfig{},
 			}, true)
 
-		assert.False(t, ctrl.consumerRunning, "consumerRunning should be false initially")
+		assert.False(t, ctrl.consumerRunning.Load(), "consumerRunning should be false initially")
 	})
 
 	// Test that consumerRunning flag triggers reconciliation
@@ -414,18 +414,18 @@ func TestTransportCtrl_ConsumerStartedFlag(t *testing.T) {
 			transportClient: &TransportClient{
 				consumer: mock, // Consumer exists but not started
 			},
-			runtimeClient:   fakeClient,
-			producerTopic:   "event",
-			consumerTopics:  []string{"spec"},
-			inManager:       false,
-			consumerRunning: false, // Consumer stopped, should trigger reconnect
+			runtimeClient:  fakeClient,
+			producerTopic:  "event",
+			consumerTopics: []string{"spec"},
+			inManager:      false,
+			// consumerRunning defaults to false (zero value of atomic.Bool)
 		}
 
 		// ReconcileConsumer should be called because consumerRunning is false
 		err = ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
 		assert.True(t, mock.reconnectCalled, "Reconnect should be called when consumerRunning is false")
-		assert.True(t, ctrl.consumerRunning, "consumerRunning should be true after reconciliation")
+		assert.True(t, ctrl.consumerRunning.Load(), "consumerRunning should be true after reconciliation")
 	})
 
 	// Test that consumer already started doesn't trigger unnecessary reconciliation
@@ -443,14 +443,14 @@ func TestTransportCtrl_ConsumerStartedFlag(t *testing.T) {
 			transportClient: &TransportClient{
 				consumer: mock,
 			},
-			inManager:       true,
-			consumerRunning: true, // Already started
+			inManager: true,
 		}
+		ctrl.consumerRunning.Store(true) // Already started
 
 		// ReconcileConsumer should still call Reconnect (it always does when consumer exists)
 		err := ctrl.ReconcileConsumer(context.TODO())
 		assert.NoError(t, err)
 		assert.True(t, mock.reconnectCalled)
-		assert.True(t, ctrl.consumerRunning)
+		assert.True(t, ctrl.consumerRunning.Load())
 	})
 }

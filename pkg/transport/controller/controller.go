@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -54,7 +55,8 @@ type TransportCtrl struct {
 	disableConsumer bool
 	// consumer is running in a goroutine, use it to check if the consumer is required to be reconciled
 	// if it's false, then the consumer is not running or stopped, need to reconnect it
-	consumerRunning bool
+	// Use atomic.Bool to prevent race condition between controller goroutine and consumer goroutine
+	consumerRunning atomic.Bool
 }
 
 type TransportClient struct {
@@ -99,7 +101,7 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		extraSecretNames:  make([]string, 2),
 		inManager:         inManager,
 		disableConsumer:   false,
-		consumerRunning:   false,
+		// consumerRunning defaults to false (zero value of atomic.Bool)
 	}
 }
 
@@ -134,7 +136,7 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 
-		if updated || c.transportClient.consumer == nil || !c.consumerRunning {
+		if updated || c.transportClient.consumer == nil || !c.consumerRunning.Load() {
 			// reconcile consumer when credential is updated or consumer needs reinitialization
 			if !c.disableConsumer {
 				if err := c.ReconcileConsumer(ctx); err != nil {
@@ -230,7 +232,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		// This ensures the same consumer instance is reused (preserving eventChan for dispatcher)
 		options = append(options, consumer.SetOnStopped(func() {
 			log.Infof("consumer stopped, requeue to reconnect consumer: %s", consumerGroupID)
-			c.consumerRunning = false
+			c.consumerRunning.Store(false)
 			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
 		}))
 		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics, options...)
@@ -245,7 +247,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
 	}
-	c.consumerRunning = true
+	c.consumerRunning.Store(true)
 	return nil
 }
 
