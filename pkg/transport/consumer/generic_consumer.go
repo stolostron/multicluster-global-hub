@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -90,8 +89,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			// 2. init the cloudevents client with the new transport config
 			client, err := c.initClient(tranConfig)
 			if err != nil {
-				log.Errorf("failed to init the client: %v", err)
-				return err
+				// panic to trigger graceful shutdown via controller-runtime manager
+				panic(fmt.Sprintf("failed to init the transport client: %v", err))
 			}
 
 			// 3. cache the transport config for potential reconnection on error
@@ -105,18 +104,12 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 				if err := c.receive(client, consumerCtx); err != nil {
 					log.Warnf("receiver stopped with error(%s): %v", consumerGroupId, err)
 					c.errChan <- err
+					// backoff retry to the reconnect channel
+					c.transportConfigChan <- c.transportConfig
+
 				}
 				log.Infof("stop receiving events: %s", consumerGroupId)
 			}()
-
-		case <-c.errChan:
-			// receiver encountered an error, trigger reconnection with cached config
-			if c.transportConfig != nil {
-				c.transportConfigChan <- c.transportConfig
-			} else {
-				log.Warnf("no transport config cached, retry in 5 seconds")
-				time.Sleep(5 * time.Second)
-			}
 		}
 	}
 }
