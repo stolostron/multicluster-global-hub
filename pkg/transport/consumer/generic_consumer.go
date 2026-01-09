@@ -140,21 +140,27 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 			// 3. create new context and start receiving events in a goroutine
 			consumerCtx, consumerCancel = context.WithCancel(ctx)
-			go func() {
+			go func(ctx context.Context) {
 				consumerGroupId := c.transportConfig.KafkaCredential.ConsumerGroupID
 				log.Infof("start receiving events: %s", consumerGroupId)
 				startTime := time.Now()
-				if err := c.receive(client, consumerCtx); err != nil {
+				if err := c.receive(client, ctx); err != nil {
 					log.Warnf("receiver stopped with error(%s): %v", consumerGroupId, err)
 				}
 				log.Infof("stop receiving events: %s", consumerGroupId)
 
+				// only reconnect if receiver exited unexpectedly (not cancelled by new signal)
+				if ctx.Err() == context.Canceled {
+					log.Infof("receiver cancelled, skip reconnection")
+					return
+				}
+
 				// backoff before reconnect to avoid rapid retry loops
 				backoff := c.getBackoffDuration(startTime)
-				time.Sleep(backoff)
 				log.Infof("reconnecting in %v", backoff)
+				time.Sleep(backoff)
 				c.signalChan <- struct{}{}
-			}()
+			}(consumerCtx)
 		}
 	}
 }
