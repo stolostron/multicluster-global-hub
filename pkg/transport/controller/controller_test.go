@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/util/workqueue"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,9 +42,6 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			},
 			FailureThreshold: 100,
 		},
-		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-			Name: "controllerName",
-		}),
 		transportCallback: func(transportClient transport.TransportClient) error {
 			callbackInvoked = true
 			return nil
@@ -127,9 +122,6 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
-		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-			Name: "controllerName",
-		}),
 		disableConsumer: true,
 	}
 

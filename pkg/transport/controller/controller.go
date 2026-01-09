@@ -9,11 +9,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -36,7 +34,6 @@ type TransportCtrl struct {
 	secretNamespace  string
 	secretName       string
 	extraSecretNames []string
-	workqueue        workqueue.TypedRateLimitingInterface[ctrl.Request]
 	transportConfig  *transport.TransportInternalConfig
 
 	// the use the producer and consumer to activate the callback, once it executed successful, then clear it.
@@ -357,16 +354,27 @@ func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	c.runtimeClient = mgr.GetClient()
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			return c.credentialSecret(e.Object.GetName())
+			name := e.Object.GetName()
+			ns := e.Object.GetNamespace()
+			matched := c.credentialSecret(name)
+			log.Debugf("CreateFunc: secret %s/%s, matched=%v, secretName=%s, extraSecretNames=%v",
+				ns, name, matched, c.secretName, c.extraSecretNames)
+			return matched
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if !c.credentialSecret(e.ObjectNew.GetName()) {
+			name := e.ObjectNew.GetName()
+			ns := e.ObjectNew.GetNamespace()
+			if !c.credentialSecret(name) {
+				log.Debugf("UpdateFunc: secret %s/%s filtered out, secretName=%s, extraSecretNames=%v",
+					ns, name, c.secretName, c.extraSecretNames)
 				return false
 			}
 			newSecret := e.ObjectNew.(*corev1.Secret)
 			oldSecret := e.ObjectOld.(*corev1.Secret)
 			// only enqueue the obj when secret data changed
-			return !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
+			dataChanged := !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
+			log.Debugf("UpdateFunc: secret %s/%s matched, dataChanged=%v", ns, name, dataChanged)
+			return dataChanged
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
@@ -374,16 +382,7 @@ func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, builder.WithPredicates(secretPred)).
-		WithOptions(
-			controller.TypedOptions[ctrl.Request]{
-				NewQueue: func(controllerName string, rateLimiter workqueue.TypedRateLimiter[ctrl.Request]) workqueue.TypedRateLimitingInterface[ctrl.Request] {
-					c.workqueue = workqueue.NewTypedRateLimitingQueueWithConfig(rateLimiter, workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-						Name: controllerName,
-					})
-					return c.workqueue
-				},
-			},
-		).Complete(c)
+		Complete(c)
 }
 
 func (c *TransportCtrl) credentialSecret(name string) bool {
