@@ -7,7 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
+	"sync"
+	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -16,6 +19,7 @@ import (
 	ceprotocol "github.com/cloudevents/sdk-go/v2/protocol"
 	"github.com/cloudevents/sdk-go/v2/protocol/gochan"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
@@ -27,18 +31,25 @@ import (
 	"github.com/stolostron/multicluster-global-hub/pkg/transport/utils"
 )
 
+const (
+	defaultStableThreshold = 1 * time.Minute
+)
+
 type GenericConsumer struct {
-	transportConfigChan  chan *transport.TransportInternalConfig
+	// signalChan receives signal to trigger consumer connection using current transportConfig
+	signalChan chan struct{}
+	// transportConfig is a reference to the transport config, managed by the controller
+	transportConfig      *transport.TransportInternalConfig
 	enableDatabaseOffset bool
 	isManager            bool
 
 	// internal variables
 	eventChan chan *cloudevents.Event
-	errChan   chan error
 	assembler *messageAssembler
 
-	// cached transport for reconnection
-	transportConfig *transport.TransportInternalConfig
+	// backoff for reconnection with exponential backoff and reset
+	backoffMu sync.Mutex
+	backoff   wait.Backoff
 
 	// topicMetadataRefreshInterval reflects the topic.metadata.refresh.interval.ms and
 	// metadata.max.age.ms settings in the consumer config.
@@ -48,17 +59,21 @@ type GenericConsumer struct {
 	topicMetadataRefreshInterval int
 }
 
-func NewGenericConsumer(transportConfigChan chan *transport.TransportInternalConfig,
-	isManager bool, enableDatabaseOffset bool,
+func NewGenericConsumer(
+	signalChan chan struct{},
+	transportConfig *transport.TransportInternalConfig,
+	isManager bool,
+	enableDatabaseOffset bool,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
-		transportConfigChan:  transportConfigChan,
+		signalChan:           signalChan,
+		transportConfig:      transportConfig,
 		isManager:            isManager,
 		enableDatabaseOffset: enableDatabaseOffset,
 
 		eventChan: make(chan *cloudevents.Event),
-		errChan:   make(chan error),
 		assembler: newMessageAssembler(),
+		backoff:   newBackoff(),
 	}
 	if isManager {
 		c.topicMetadataRefreshInterval = constants.TopicMetadataRefreshInterval
@@ -66,8 +81,38 @@ func NewGenericConsumer(transportConfigChan chan *transport.TransportInternalCon
 	return c, nil
 }
 
+// newBackoff creates a new backoff configuration
+func newBackoff() wait.Backoff {
+	return wait.Backoff{
+		Duration: 1 * time.Second,
+		Factor:   2.0,
+		Jitter:   0.1,
+		Steps:    math.MaxInt32,
+		Cap:      30 * time.Second,
+	}
+}
+
+// resetBackoff resets the backoff to initial state
+func (c *GenericConsumer) resetBackoff() {
+	c.backoffMu.Lock()
+	defer c.backoffMu.Unlock()
+	c.backoff = newBackoff()
+}
+
+// getBackoffDuration returns the current backoff duration using wait.Backoff.Step()
+func (c *GenericConsumer) getBackoffDuration(lastTime time.Time) time.Duration {
+	c.backoffMu.Lock()
+	defer c.backoffMu.Unlock()
+	// if connection was stable (ran > threshold), reset backoff
+	if time.Since(lastTime) > defaultStableThreshold {
+		log.Infof("connection was stable, resetting backoff")
+		c.resetBackoff()
+	}
+	return c.backoff.Step()
+}
+
 // Start runs the consumer loop independently from the reconcile loop.
-// It reconnects when receiving updated transport config via the transportConfigChan.
+// It reconnects when receiving signal via the signalChan.
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	var consumerCtx context.Context
 	var consumerCancel context.CancelFunc
@@ -80,35 +125,35 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			log.Infof("context done, stop the consumer")
 			return nil
 
-		case tranConfig := <-c.transportConfigChan:
+		case <-c.signalChan:
 			// 1. cancel the previous consumer receiver if exists
 			if consumerCancel != nil {
 				consumerCancel()
 			}
 
-			// 2. init the cloudevents client with the new transport config
-			client, err := c.initClient(tranConfig)
+			// 2. init the cloudevents client with the current transport config
+			client, err := c.initClient(c.transportConfig)
 			if err != nil {
 				// panic to trigger graceful shutdown via controller-runtime manager
 				panic(fmt.Sprintf("failed to init the transport client: %v", err))
 			}
 
-			// 3. cache the transport config for potential reconnection on error
-			c.transportConfig = tranConfig
-
-			// 4. create new context and start receiving events in a goroutine
+			// 3. create new context and start receiving events in a goroutine
 			consumerCtx, consumerCancel = context.WithCancel(ctx)
 			go func() {
-				consumerGroupId := tranConfig.KafkaCredential.ConsumerGroupID
+				consumerGroupId := c.transportConfig.KafkaCredential.ConsumerGroupID
 				log.Infof("start receiving events: %s", consumerGroupId)
+				startTime := time.Now()
 				if err := c.receive(client, consumerCtx); err != nil {
 					log.Warnf("receiver stopped with error(%s): %v", consumerGroupId, err)
-					c.errChan <- err
-					// backoff retry to the reconnect channel
-					c.transportConfigChan <- c.transportConfig
-
 				}
 				log.Infof("stop receiving events: %s", consumerGroupId)
+
+				// backoff before reconnect to avoid rapid retry loops
+				backoff := c.getBackoffDuration(startTime)
+				log.Infof("reconnecting in %v", backoff)
+				time.Sleep(backoff)
+				c.signalChan <- struct{}{}
 			}()
 		}
 	}

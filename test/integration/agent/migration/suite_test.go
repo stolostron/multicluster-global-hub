@@ -93,11 +93,11 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	transportConfigChan := make(chan *transport.TransportInternalConfig)
-	specConsumer, err = consumer.NewGenericConsumer(transportConfigChan, false, false)
+	signalChan := make(chan struct{}, 1)
+	specConsumer, err = consumer.NewGenericConsumer(signalChan, agentConfig.TransportConfig, false, false)
 	Expect(err).NotTo(HaveOccurred())
 	go func() {
-		transportConfigChan <- agentConfig.TransportConfig
+		signalChan <- struct{}{}
 	}()
 	Expect(mgr.Add(specConsumer)).To(Succeed())
 

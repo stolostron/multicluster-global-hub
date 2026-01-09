@@ -122,8 +122,8 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).NotTo(HaveOccurred())
 
-	transportConfigChan := make(chan *transport.TransportInternalConfig)
-	consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
+	signalChan := make(chan struct{}, 1)
+	consumer, err := genericconsumer.NewGenericConsumer(signalChan, transportConfig, false, false)
 	Expect(err).NotTo(HaveOccurred())
 	go func() {
 		if err := consumer.Start(ctx); err != nil {
@@ -131,7 +131,7 @@ var _ = BeforeSuite(func() {
 		}
 	}()
 	go func() {
-		transportConfigChan <- transportConfig
+		signalChan <- struct{}{}
 	}()
 	// use the dispatcher to consume events from transport
 	go fakeDispatch(ctx, consumer)

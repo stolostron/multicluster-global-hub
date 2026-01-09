@@ -16,9 +16,14 @@ import (
 )
 
 func TestGenerateConsumer(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig)
+	signalChan := make(chan struct{}, 1)
+	transportConfig := &transport.TransportInternalConfig{
+		KafkaCredential: &transport.KafkaConfig{
+			ConsumerGroupID: "test-group",
+		},
+	}
 
-	consumer, err := NewGenericConsumer(transportConfigChan, true, false)
+	consumer, err := NewGenericConsumer(signalChan, transportConfig, true, false)
 	if err != nil {
 		t.Errorf("failed to generate consumer - %v", err)
 	}

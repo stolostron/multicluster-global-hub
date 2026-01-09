@@ -39,8 +39,8 @@ type TransportCtrl struct {
 	// the use the producer and consumer to activate the callback, once it executed successful, then clear it.
 	transportCallback TransportCallback
 	transportClient   *TransportClient
-	// the channel is used to send the transport config to the consumer
-	transportConfigChan chan *transport.TransportInternalConfig
+	// signalChan is used to send signal to the consumer to trigger connection
+	signalChan chan struct{}
 
 	// producerTopic is current topic which is used to create a producer
 	producerTopic string
@@ -86,15 +86,15 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 	transportConfig *transport.TransportInternalConfig, inManager bool,
 ) *TransportCtrl {
 	return &TransportCtrl{
-		secretNamespace:     namespace,
-		secretName:          name,
-		transportCallback:   callback,
-		transportClient:     &TransportClient{},
-		transportConfig:     transportConfig,
-		extraSecretNames:    make([]string, 2),
-		disableConsumer:     false,
-		transportConfigChan: make(chan *transport.TransportInternalConfig),
-		inManager:           inManager,
+		secretNamespace:   namespace,
+		secretName:        name,
+		transportCallback: callback,
+		transportClient:   &TransportClient{},
+		transportConfig:   transportConfig,
+		extraSecretNames:  make([]string, 2),
+		disableConsumer:   false,
+		signalChan:        make(chan struct{}, 1),
+		inManager:         inManager,
 	}
 }
 
@@ -210,21 +210,17 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 
 	// create consumer if not exists, it runs in a separate goroutine
 	if c.transportClient.consumer == nil {
-		genericConsumer, err := consumer.NewGenericConsumer(c.transportConfigChan, c.inManager,
-			c.transportConfig.EnableDatabaseOffset)
+		genericConsumer, err := consumer.NewGenericConsumer(
+			c.signalChan, c.transportConfig, c.inManager, c.transportConfig.EnableDatabaseOffset)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
-		go func() {
-			if err := genericConsumer.Start(ctx); err != nil {
-				log.Errorf("consumer stopped with error: %v", err)
-			}
-		}()
+		go func() { _ = genericConsumer.Start(ctx) }()
 		c.transportClient.consumer = genericConsumer
 	}
 
-	// send updated config to consumer to trigger reconnection
-	c.transportConfigChan <- c.transportConfig
+	// send signal to consumer to trigger connection
+	c.signalChan <- struct{}{}
 	return nil
 }
 

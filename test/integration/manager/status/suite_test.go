@@ -109,12 +109,12 @@ var _ = BeforeSuite(func() {
 		managerConfig.TransportConfig.KafkaCredential.StatusTopic, nil)
 	Expect(err).NotTo(HaveOccurred())
 
-	transportConfigChan := make(chan *transport.TransportInternalConfig)
+	signalChan := make(chan struct{}, 1)
 	// isManager=true automatically sets TopicMetadataRefreshInterval
-	consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, true, false)
+	consumer, err := genericconsumer.NewGenericConsumer(signalChan, managerConfig.TransportConfig, true, false)
 	Expect(err).NotTo(HaveOccurred())
 	go func() {
-		transportConfigChan <- managerConfig.TransportConfig
+		signalChan <- struct{}{}
 	}()
 	Expect(mgr.Add(consumer)).Should(Succeed())
 
