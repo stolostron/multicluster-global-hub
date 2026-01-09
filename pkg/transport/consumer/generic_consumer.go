@@ -151,8 +151,8 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 				// backoff before reconnect to avoid rapid retry loops
 				backoff := c.getBackoffDuration(startTime)
-				log.Infof("reconnecting in %v", backoff)
 				time.Sleep(backoff)
+				log.Infof("reconnecting in %v", backoff)
 				c.signalChan <- struct{}{}
 			}()
 		}
