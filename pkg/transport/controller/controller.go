@@ -129,6 +129,7 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		if updated {
+			log.Infof("kafka credential is updated, reconciling consumer and producer")
 			if err := c.ReconcileConsumer(ctx); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -256,11 +257,11 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	if err != nil {
 		return false, err
 	}
-	// update the watching secret lits
-	if kafkaConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
+	// update the watching secret list
+	if kafkaConn.CASecretName != "" && !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.CASecretName)
 	}
-	if kafkaConn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, kafkaConn.ClientSecretName) {
+	if kafkaConn.ClientSecretName != "" && !utils.ContainsString(c.extraSecretNames, kafkaConn.ClientSecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.ClientSecretName)
 	}
 
@@ -329,11 +330,11 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 		return updated, err
 	}
 
-	// update the watching secret lits
-	if restfulConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, restfulConn.CASecretName) {
+	// update the watching secret list
+	if restfulConn.CASecretName != "" && !utils.ContainsString(c.extraSecretNames, restfulConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, restfulConn.CASecretName)
 	}
-	if restfulConn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, restfulConn.ClientSecretName) {
+	if restfulConn.ClientSecretName != "" && !utils.ContainsString(c.extraSecretNames, restfulConn.ClientSecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, restfulConn.ClientSecretName)
 	}
 
