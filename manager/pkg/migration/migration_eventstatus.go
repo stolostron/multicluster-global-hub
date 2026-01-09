@@ -123,7 +123,7 @@ func SetClusterList(migrationId string, managedClusters []string) {
 	currentMigrationClusterList[migrationId] = managedClusters
 }
 
-func SetClusterErrorMessage(migrationId string, hub, phase string, clusterErrors map[string]string) {
+func SetClusterErrorDetailMap(migrationId string, hub, phase string, clusterErrors map[string]string) {
 	mu.Lock()
 	defer mu.Unlock()
 	if p := getStageState(migrationId, hub, phase); p != nil {
