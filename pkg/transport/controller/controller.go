@@ -354,27 +354,16 @@ func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	c.runtimeClient = mgr.GetClient()
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			name := e.Object.GetName()
-			ns := e.Object.GetNamespace()
-			matched := c.credentialSecret(name)
-			log.Debugf("CreateFunc: secret %s/%s, matched=%v, secretName=%s, extraSecretNames=%v",
-				ns, name, matched, c.secretName, c.extraSecretNames)
-			return matched
+			return c.credentialSecret(e.Object.GetName())
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			name := e.ObjectNew.GetName()
-			ns := e.ObjectNew.GetNamespace()
-			if !c.credentialSecret(name) {
-				log.Debugf("UpdateFunc: secret %s/%s filtered out, secretName=%s, extraSecretNames=%v",
-					ns, name, c.secretName, c.extraSecretNames)
+			if !c.credentialSecret(e.ObjectNew.GetName()) {
 				return false
 			}
 			newSecret := e.ObjectNew.(*corev1.Secret)
 			oldSecret := e.ObjectOld.(*corev1.Secret)
 			// only enqueue the obj when secret data changed
-			dataChanged := !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
-			log.Debugf("UpdateFunc: secret %s/%s matched, dataChanged=%v", ns, name, dataChanged)
-			return dataChanged
+			return !reflect.DeepEqual(newSecret.Data, oldSecret.Data)
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
 			return false
