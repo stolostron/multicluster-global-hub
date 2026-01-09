@@ -41,14 +41,12 @@ func TestFormatErrorMessages(t *testing.T) {
 	cases := []struct {
 		name           string
 		errors         map[string]string
-		maxErrors      int
 		expectedOutput string
 		shouldContain  []string
 	}{
 		{
 			name:           "Empty error map",
 			errors:         map[string]string{},
-			maxErrors:      3,
 			expectedOutput: "",
 		},
 		{
@@ -56,7 +54,6 @@ func TestFormatErrorMessages(t *testing.T) {
 			errors: map[string]string{
 				"cluster1": "connection timeout",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"cluster1: connection timeout",
 			},
@@ -67,7 +64,6 @@ func TestFormatErrorMessages(t *testing.T) {
 				"cluster1": "connection timeout",
 				"cluster2": "authentication failed",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"cluster1: connection timeout",
 				"cluster2: authentication failed",
@@ -80,7 +76,6 @@ func TestFormatErrorMessages(t *testing.T) {
 				"cluster2": "authentication failed",
 				"cluster3": "resource not found",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"cluster1: connection timeout",
 				"cluster2: authentication failed",
@@ -96,7 +91,6 @@ func TestFormatErrorMessages(t *testing.T) {
 				"cluster4": "permission denied",
 				"cluster5": "network unreachable",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"and 2 more",
 				"get more details in events",
@@ -110,34 +104,8 @@ func TestFormatErrorMessages(t *testing.T) {
 				"cluster3": "error3",
 				"cluster4": "error4",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"and 1 more",
-				"get more details in events",
-			},
-		},
-		{
-			name: "Max errors is 1 with multiple errors",
-			errors: map[string]string{
-				"cluster1": "error1",
-				"cluster2": "error2",
-				"cluster3": "error3",
-			},
-			maxErrors: 1,
-			shouldContain: []string{
-				"and 2 more",
-				"get more details in events",
-			},
-		},
-		{
-			name: "Max errors is 0 with errors (edge case)",
-			errors: map[string]string{
-				"cluster1": "error1",
-				"cluster2": "error2",
-			},
-			maxErrors: 0,
-			shouldContain: []string{
-				"and 2 more",
 				"get more details in events",
 			},
 		},
@@ -147,7 +115,6 @@ func TestFormatErrorMessages(t *testing.T) {
 				"cluster1": "failed to connect to cluster due to network timeout after multiple retries",
 				"cluster2": "authentication failed: invalid credentials or expired token",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"cluster1: failed to connect to cluster due to network timeout after multiple retries",
 				"cluster2: authentication failed: invalid credentials or expired token",
@@ -159,7 +126,6 @@ func TestFormatErrorMessages(t *testing.T) {
 				"cluster1": "error: failed with code 500",
 				"cluster2": "connection refused [errno 111]",
 			},
-			maxErrors: 3,
 			shouldContain: []string{
 				"cluster1: error: failed with code 500",
 				"cluster2: connection refused [errno 111]",
@@ -169,7 +135,7 @@ func TestFormatErrorMessages(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			result := formatErrorMessages(c.errors, c.maxErrors)
+			result := formatErrorMessages(c.errors)
 
 			if c.expectedOutput != "" {
 				assert.Equal(t, c.expectedOutput, result)
@@ -187,9 +153,9 @@ func TestFormatErrorMessages(t *testing.T) {
 				assert.NotEmpty(t, result, "Result should not be empty when errors exist")
 			}
 
-			// Verify that when errors exceed maxErrors, the count is correct
-			if len(c.errors) > c.maxErrors {
-				expectedRemaining := len(c.errors) - c.maxErrors
+			// Verify that when errors exceed maxErrorsToShow, the count is correct
+			if len(c.errors) > maxErrorsToShow {
+				expectedRemaining := len(c.errors) - maxErrorsToShow
 				assert.Contains(t, result, fmt.Sprintf("and %d more", expectedRemaining))
 			}
 		})
@@ -205,16 +171,15 @@ func TestFormatErrorMessagesNonDeterministic(t *testing.T) {
 		"cluster4": "error4",
 		"cluster5": "error5",
 	}
-	maxErrors := 3
 
 	// Run the function multiple times to ensure it's stable
 	// Even though map iteration order is non-deterministic, the function should:
-	// 1. Always return exactly maxErrors entries
+	// 1. Always return exactly maxErrorsToShow entries
 	// 2. Always indicate the correct number of remaining errors
 	for i := 0; i < 10; i++ {
-		result := formatErrorMessages(errors, maxErrors)
+		result := formatErrorMessages(errors)
 
-		// Should always contain exactly maxErrors entries
+		// Should always contain exactly maxErrorsToShow entries
 		// We can't check which specific errors are included due to map iteration
 		// But we can verify the "and X more" message is correct
 		assert.Contains(t, result, "and 2 more", "Should always indicate 2 more errors")
@@ -232,18 +197,18 @@ func TestFormatErrorMessagesUsageInCleaningStage(t *testing.T) {
 		"hub1/RBAC":           "failed to cleanup migration RBAC resources: permission denied",
 	}
 
-	result := formatErrorMessages(clusterErrors, 3)
+	result := formatErrorMessages(clusterErrors)
 
 	// Verify the result contains the error count and hint message
 	assert.NotEmpty(t, result)
 	assert.Contains(t, result, "and 1 more")
 	assert.Contains(t, result, "get more details in events")
 
-	// At least 3 errors should be shown (the limit)
+	// At least maxErrorsToShow errors should be shown (the limit)
 	// We can't verify exact errors due to map iteration, but we can count colons
 	// Each error has format "key: value", so counting ": " gives us the number of errors shown
 	errorCount := len(strings.Split(result, ": ")) - 1 // -1 because split creates one extra element
-	assert.GreaterOrEqual(t, errorCount, 3, "Should show at least maxErrors entries")
+	assert.GreaterOrEqual(t, errorCount, maxErrorsToShow, "Should show at least maxErrorsToShow entries")
 }
 
 // go test -run ^TestMigrationToSyncer$ github.com/stolostron/multicluster-global-hub/agent/pkg/spec/syncers -v

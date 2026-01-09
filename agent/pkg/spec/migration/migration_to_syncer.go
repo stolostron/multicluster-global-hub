@@ -43,6 +43,7 @@ const (
 	KlusterletManifestWorkSuffix = "-klusterlet"
 	ClusterManagerName           = "cluster-manager"
 	errMsgFailedToGet            = "failed to get %s from source resource: %w"
+	maxErrorsToShow              = 3
 )
 
 var (
@@ -51,8 +52,8 @@ var (
 )
 
 // formatErrorMessages returns a formatted string of error messages from the errors map.
-// If there are more than maxErrors, it shows the first maxErrors and indicates how many remain.
-func formatErrorMessages(errors map[string]string, maxErrors int) string {
+// If there are more than maxErrorsToShow, it shows the first maxErrorsToShow and indicates how many remain.
+func formatErrorMessages(errors map[string]string) string {
 	if len(errors) == 0 {
 		return ""
 	}
@@ -60,15 +61,15 @@ func formatErrorMessages(errors map[string]string, maxErrors int) string {
 	count := 0
 	var result []string
 	for key, msg := range errors {
-		if count >= maxErrors {
+		if count >= maxErrorsToShow {
 			break
 		}
 		result = append(result, fmt.Sprintf("%s: %s", key, msg))
 		count++
 	}
 
-	if len(errors) > maxErrors {
-		return fmt.Sprintf("%v and %d more, get more details in events", result, len(errors)-maxErrors)
+	if len(errors) > maxErrorsToShow {
+		return fmt.Sprintf("%v and %d more, get more details in events", result, len(errors)-maxErrorsToShow)
 	}
 	return fmt.Sprintf("%v", result)
 }
@@ -326,7 +327,7 @@ func (s *MigrationTargetSyncer) cleaning(ctx context.Context,
 	// Return aggregated errors if any occurred
 	if len(clusterErrors) > 0 {
 		log.Warnf("cleaning stage completed with %d error(s)", len(clusterErrors))
-		return fmt.Errorf("cleaning failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+		return fmt.Errorf("cleaning failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors))
 	}
 
 	log.Infof("successfully completed cleaning stage")
@@ -368,7 +369,7 @@ func (s *MigrationTargetSyncer) validateManagedClusters(
 	}
 
 	if len(clusterErrors) > 0 {
-		return fmt.Errorf("%v clusters validation failed: %s", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+		return fmt.Errorf("%v clusters validation failed: %s", len(clusterErrors), formatErrorMessages(clusterErrors))
 	}
 
 	return nil
@@ -406,7 +407,7 @@ func (s *MigrationTargetSyncer) registering(ctx context.Context,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to wait for %d managed clusters to be ready: %s: %w",
-			len(clusterErrors), formatErrorMessages(clusterErrors, 3), err)
+			len(clusterErrors), formatErrorMessages(clusterErrors), err)
 	}
 	log.Infof("all %d managed clusters are ready for migration", len(event.ManagedClusters))
 	return nil
@@ -1027,7 +1028,7 @@ func (s *MigrationTargetSyncer) rollbackInitializing(ctx context.Context, spec *
 	// Return aggregated errors if any occurred
 	if len(clusterErrors) > 0 {
 		log.Warnf("initializing rollback completed with %d error(s)", len(clusterErrors))
-		return fmt.Errorf("rollback initializing failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+		return fmt.Errorf("rollback initializing failed with %d error(s): %s", len(clusterErrors), formatErrorMessages(clusterErrors))
 	}
 
 	log.Infof("successfully completed initializing rollback for managed service account: %s", spec.ManagedServiceAccountName)
@@ -1079,7 +1080,7 @@ func (s *MigrationTargetSyncer) rollbackDeploying(ctx context.Context, spec *mig
 	if len(clusterErrors) > 0 {
 		log.Infof("Please follow Global Hub documentation to clean up garbage resources manually")
 		return fmt.Errorf("rollback completed with %d error(s): %s. "+
-			"Please follow Global Hub documentation to clean up garbage resources manually", len(clusterErrors), formatErrorMessages(clusterErrors, 3))
+			"Please follow Global Hub documentation to clean up garbage resources manually", len(clusterErrors), formatErrorMessages(clusterErrors))
 	}
 
 	log.Info("completed deploying stage rollback successfully")
@@ -1256,7 +1257,7 @@ func (s *MigrationTargetSyncer) cleanupMigrationRBAC(ctx context.Context, manage
 	// Return aggregated errors if any occurred
 	if len(errorCache) > 0 {
 		log.Warnf("RBAC cleanup completed with %d error(s)", len(errorCache))
-		return fmt.Errorf("failed to cleanup %d RBAC resource(s): %s", len(errorCache), formatErrorMessages(errorCache, 3))
+		return fmt.Errorf("failed to cleanup %d RBAC resource(s): %s", len(errorCache), formatErrorMessages(errorCache))
 	}
 
 	log.Infof("successfully cleaned up all RBAC resources for managed service account: %s", managedServiceAccountName)
