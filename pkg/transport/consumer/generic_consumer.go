@@ -136,7 +136,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 				log.Infof("start receiving events: %s", consumerGroupId)
 				startTime := time.Now()
 				if err := c.receive(client, ctx); err != nil {
-					log.Warnf("receiver stopped with error(%s): %v", consumerGroupId, err)
+					log.Infof("receiver cancelled, skip reconnect (consumerGroupId=%s)", consumerGroupId)
 				}
 				log.Infof("stop receiving events: %s", consumerGroupId)
 
@@ -148,7 +148,7 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 				// backoff before reconnect to avoid rapid retry loops
 				backoff := c.getBackoffDuration(startTime)
-				log.Infof("reconnect in %v for the current group id: %s", backoff, consumerGroupId)
+				log.Infof("receiver exited unexpectedly, reconnect in %v (consumerGroupId=%s)", backoff, consumerGroupId)
 				time.Sleep(backoff)
 				// resend the current config to trigger reconnection
 				c.transportConfigChan <- config
