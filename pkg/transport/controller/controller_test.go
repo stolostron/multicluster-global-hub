@@ -3,20 +3,29 @@ package controller
 import (
 	"context"
 	"encoding/base64"
+	"net/http"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-logr/logr"
+	inventoryclient "github.com/project-kessel/inventory-client-go/v1beta1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/util/workqueue"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -29,6 +38,13 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	_ = corev1.AddToScheme(scheme)
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	ctx := context.TODO()
+
+	// Create mock manager
+	mockMgr := &mockManager{
+		client: fakeClient,
+		ctx:    ctx,
+	}
 
 	callbackInvoked := false
 
@@ -44,20 +60,15 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			},
 			FailureThreshold: 100,
 		},
-		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-			Name: "controllerName",
-		}),
 		transportCallback: func(transportClient transport.TransportClient) error {
 			callbackInvoked = true
 			return nil
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
+		manager:         mockMgr,
 		producerTopic:   "event",
-		consumerTopics:  []string{"spec"},
 	}
-
-	ctx := context.TODO()
 
 	kafkaConn := &transport.KafkaConfig{
 		BootstrapServer: "localhost:3031",
@@ -127,9 +138,6 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
-		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-			Name: "controllerName",
-		}),
 		disableConsumer: true,
 	}
 
@@ -262,22 +270,60 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 
 // Mock consumer for testing
 type mockConsumer struct {
-	reconnectCalled bool
-	reconnectErr    error
+	configChan chan *transport.TransportInternalConfig
+}
+
+func newMockConsumer() *mockConsumer {
+	return &mockConsumer{
+		configChan: make(chan *transport.TransportInternalConfig, 1),
+	}
 }
 
 func (mc *mockConsumer) Start(ctx context.Context) error {
 	return nil
 }
 
-func (mc *mockConsumer) Reconnect(ctx context.Context, cfg *transport.TransportInternalConfig, topics []string) error {
-	mc.reconnectCalled = true
-	return mc.reconnectErr
-}
-
 func (mc *mockConsumer) EventChan() chan *cloudevents.Event {
 	return make(chan *cloudevents.Event)
 }
+
+func (mc *mockConsumer) ConfigChan() chan *transport.TransportInternalConfig {
+	return mc.configChan
+}
+
+// mockManager implements a minimal manager.Manager for testing
+type mockManager struct {
+	client client.Client
+	ctx    context.Context
+}
+
+func (m *mockManager) Add(runnable manager.Runnable) error {
+	// Start the runnable in a goroutine like the real manager does
+	go func() {
+		_ = runnable.Start(m.ctx)
+	}()
+	return nil
+}
+
+func (m *mockManager) GetClient() client.Client                                 { return m.client }
+func (m *mockManager) GetScheme() *runtime.Scheme                               { return nil }
+func (m *mockManager) GetFieldIndexer() client.FieldIndexer                     { return nil }
+func (m *mockManager) GetCache() cache.Cache                                    { return nil }
+func (m *mockManager) GetEventRecorderFor(name string) record.EventRecorder     { return nil }
+func (m *mockManager) GetRESTMapper() meta.RESTMapper                           { return nil }
+func (m *mockManager) GetAPIReader() client.Reader                              { return nil }
+func (m *mockManager) Start(ctx context.Context) error                          { return nil }
+func (m *mockManager) GetWebhookServer() webhook.Server                         { return nil }
+func (m *mockManager) GetLogger() logr.Logger                                   { return logr.Discard() }
+func (m *mockManager) GetControllerOptions() config.Controller                  { return config.Controller{} }
+func (m *mockManager) Elected() <-chan struct{}                                 { return nil }
+func (m *mockManager) AddHealthzCheck(name string, check healthz.Checker) error { return nil }
+func (m *mockManager) AddReadyzCheck(name string, check healthz.Checker) error  { return nil }
+func (m *mockManager) GetHTTPClient() *http.Client                              { return nil }
+func (m *mockManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error {
+	return nil
+}
+func (m *mockManager) GetConfig() *rest.Config { return nil }
 
 func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 	ctx := context.TODO()
@@ -301,39 +347,19 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 		assert.Nil(t, ctrl.transportClient.consumer)
 	})
 
-	// Test case 2: Valid consumer group ID but no valid kafka config (should fail gracefully)
-	t.Run("Handle invalid kafka config", func(t *testing.T) {
-		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					// Missing bootstrap server and other required fields
-				},
+	// Test case 2: Consumer already exists, should send config to channel
+	t.Run("Consumer exists - send config to channel", func(t *testing.T) {
+		mock := newMockConsumer()
+		transportConfig := &transport.TransportInternalConfig{
+			KafkaCredential: &transport.KafkaConfig{
+				ConsumerGroupID: "test-group",
+				SpecTopic:       "spec-topic",
+				StatusTopic:     "status-topic",
+				BootstrapServer: "localhost:9092",
 			},
-			transportClient: &TransportClient{},
-			inManager:       false,
 		}
-
-		err := ctrl.ReconcileConsumer(ctx)
-		// Should return an error because the kafka config is invalid
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create the consumer")
-	})
-
-	// Test case 3: Consumer already exists, should call Reconnect
-	t.Run("Reconnect existing consumer", func(t *testing.T) {
-		mock := &mockConsumer{}
 		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					BootstrapServer: "localhost:9092", // Add required field
-				},
-			},
+			transportConfig: transportConfig,
 			transportClient: &TransportClient{
 				consumer: mock, // Existing consumer
 			},
@@ -342,6 +368,207 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 
 		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
-		assert.True(t, mock.reconnectCalled)
+
+		// Verify config was sent to consumer's channel
+		select {
+		case receivedConfig := <-mock.ConfigChan():
+			assert.Equal(t, transportConfig, receivedConfig)
+		default:
+			t.Error("Expected config to be sent to channel")
+		}
+	})
+
+	// Test case 3: Consumer disabled, should skip
+	t.Run("Skip when consumer is disabled", func(t *testing.T) {
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				KafkaCredential: &transport.KafkaConfig{
+					ConsumerGroupID: "test-group",
+					SpecTopic:       "spec-topic",
+					StatusTopic:     "status-topic",
+				},
+			},
+			transportClient: &TransportClient{},
+			disableConsumer: true,
+		}
+
+		err := ctrl.ReconcileConsumer(ctx)
+		assert.NoError(t, err)
+		assert.Nil(t, ctrl.transportClient.consumer)
+	})
+}
+
+func TestNewTransportCtrl(t *testing.T) {
+	callback := func(tc transport.TransportClient) error {
+		return nil
+	}
+	config := &transport.TransportInternalConfig{
+		TransportType: string(transport.Chan),
+	}
+
+	ctrl := NewTransportCtrl("test-ns", "test-secret", callback, config, true)
+
+	assert.NotNil(t, ctrl)
+	assert.Equal(t, "test-ns", ctrl.secretNamespace)
+	assert.Equal(t, "test-secret", ctrl.secretName)
+	assert.NotNil(t, ctrl.transportCallback)
+	assert.NotNil(t, ctrl.transportClient)
+	assert.Equal(t, config, ctrl.transportConfig)
+	assert.Equal(t, true, ctrl.inManager)
+	assert.Equal(t, false, ctrl.disableConsumer)
+}
+
+func TestDisableConsumer(t *testing.T) {
+	ctrl := NewTransportCtrl("test-ns", "test-secret", nil, &transport.TransportInternalConfig{}, false)
+
+	assert.False(t, ctrl.disableConsumer)
+
+	ctrl.DisableConsumer()
+
+	assert.True(t, ctrl.disableConsumer)
+}
+
+func TestCredentialSecret(t *testing.T) {
+	ctrl := &TransportCtrl{
+		secretName:       "main-secret",
+		extraSecretNames: []string{"extra-secret-1", "extra-secret-2"},
+	}
+
+	t.Run("returns true for main secret", func(t *testing.T) {
+		assert.True(t, ctrl.credentialSecret("main-secret"))
+	})
+
+	t.Run("returns true for extra secrets", func(t *testing.T) {
+		assert.True(t, ctrl.credentialSecret("extra-secret-1"))
+		assert.True(t, ctrl.credentialSecret("extra-secret-2"))
+	})
+
+	t.Run("returns false for unknown secret", func(t *testing.T) {
+		assert.False(t, ctrl.credentialSecret("unknown-secret"))
+	})
+
+	t.Run("returns false when extra secrets is empty", func(t *testing.T) {
+		ctrlNoExtra := &TransportCtrl{
+			secretName:       "main-secret",
+			extraSecretNames: []string{},
+		}
+		assert.False(t, ctrlNoExtra.credentialSecret("unknown-secret"))
+	})
+}
+
+func TestTransportClientGettersSetters(t *testing.T) {
+	tc := &TransportClient{}
+
+	t.Run("producer getter/setter", func(t *testing.T) {
+		assert.Nil(t, tc.GetProducer())
+
+		mockProducer := &mockProducerImpl{}
+		tc.SetProducer(mockProducer)
+
+		assert.Equal(t, mockProducer, tc.GetProducer())
+	})
+
+	t.Run("consumer getter/setter", func(t *testing.T) {
+		assert.Nil(t, tc.GetConsumer())
+
+		mockCons := newMockConsumer()
+		tc.SetConsumer(mockCons)
+
+		assert.Equal(t, mockCons, tc.GetConsumer())
+	})
+
+	t.Run("requester getter/setter", func(t *testing.T) {
+		assert.Nil(t, tc.GetRequester())
+
+		mockReq := &mockRequester{}
+		tc.SetRequester(mockReq)
+
+		assert.Equal(t, mockReq, tc.GetRequester())
+	})
+}
+
+// Mock producer for testing
+type mockProducerImpl struct{}
+
+func (mp *mockProducerImpl) SendEvent(ctx context.Context, evt cloudevents.Event) error {
+	return nil
+}
+
+func (mp *mockProducerImpl) Reconnect(config *transport.TransportInternalConfig, topic string) error {
+	return nil
+}
+
+// Mock requester for testing
+type mockRequester struct{}
+
+func (mr *mockRequester) RefreshClient(ctx context.Context, restfulConn *transport.RestfulConfig) error {
+	return nil
+}
+
+func (mr *mockRequester) GetHttpClient() *inventoryclient.InventoryHttpClient {
+	return nil
+}
+
+func TestReconcileProducer(t *testing.T) {
+	t.Run("create producer for manager", func(t *testing.T) {
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec-topic",
+					StatusTopic: "status-topic",
+				},
+				Extends: make(map[string]any),
+			},
+			transportClient: &TransportClient{},
+			inManager:       true,
+		}
+
+		err := ctrl.ReconcileProducer()
+		assert.NoError(t, err)
+		assert.NotNil(t, ctrl.transportClient.producer)
+		assert.Equal(t, "spec-topic", ctrl.producerTopic)
+	})
+
+	t.Run("create producer for agent", func(t *testing.T) {
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec-topic",
+					StatusTopic: "status-topic",
+				},
+				Extends: make(map[string]any),
+			},
+			transportClient: &TransportClient{},
+			inManager:       false,
+		}
+
+		err := ctrl.ReconcileProducer()
+		assert.NoError(t, err)
+		assert.NotNil(t, ctrl.transportClient.producer)
+		assert.Equal(t, "status-topic", ctrl.producerTopic)
+	})
+
+	t.Run("reconnect existing producer", func(t *testing.T) {
+		mockProd := &mockProducerImpl{}
+		ctrl := &TransportCtrl{
+			transportConfig: &transport.TransportInternalConfig{
+				TransportType: string(transport.Chan),
+				KafkaCredential: &transport.KafkaConfig{
+					SpecTopic:   "spec-topic",
+					StatusTopic: "status-topic",
+				},
+				Extends: make(map[string]any),
+			},
+			transportClient: &TransportClient{
+				producer: mockProd,
+			},
+			inManager: true,
+		}
+
+		err := ctrl.ReconcileProducer()
+		assert.NoError(t, err)
+		assert.Equal(t, "spec-topic", ctrl.producerTopic)
 	})
 }

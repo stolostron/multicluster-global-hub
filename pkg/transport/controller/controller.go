@@ -9,11 +9,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -33,10 +31,10 @@ type TransportCallback func(transportClient transport.TransportClient) error
 
 type TransportCtrl struct {
 	runtimeClient    client.Client
+	manager          ctrl.Manager
 	secretNamespace  string
 	secretName       string
 	extraSecretNames []string
-	workqueue        workqueue.TypedRateLimitingInterface[ctrl.Request]
 	transportConfig  *transport.TransportInternalConfig
 
 	// the use the producer and consumer to activate the callback, once it executed successful, then clear it.
@@ -45,9 +43,8 @@ type TransportCtrl struct {
 
 	// producerTopic is current topic which is used to create a producer
 	producerTopic string
-	// consumerTopics is current topics which are used to create a consumer
-	consumerTopics []string
-	mutex          sync.Mutex
+
+	mutex sync.Mutex
 	// inManager is used to check if the controller is in the manager.
 	// if it's true, then the controller is in the manager, otherwise it's in the agent.
 	inManager       bool
@@ -94,8 +91,8 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 		transportClient:   &TransportClient{},
 		transportConfig:   transportConfig,
 		extraSecretNames:  make([]string, 2),
-		inManager:         inManager,
 		disableConsumer:   false,
+		inManager:         inManager,
 	}
 }
 
@@ -129,14 +126,10 @@ func (c *TransportCtrl) Reconcile(ctx context.Context, request ctrl.Request) (ct
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-
-		if updated || c.transportClient.consumer == nil {
-			// reconcile consumer when credential is updated or consumer needs reinitialization
-			if !c.disableConsumer {
-				if err := c.ReconcileConsumer(ctx); err != nil {
-					log.Warnf("consumer error: %v", err)
-					return ctrl.Result{Requeue: true, RequeueAfter: 5 * time.Second}, nil
-				}
+		if updated {
+			log.Infof("kafka credential is updated, reconciling consumer and producer")
+			if err := c.ReconcileConsumer(ctx); err != nil {
+				return ctrl.Result{}, err
 			}
 			if err := c.ReconcileProducer(); err != nil {
 				return ctrl.Result{}, err
@@ -201,49 +194,34 @@ func (c *TransportCtrl) ReconcileProducer() error {
 	return nil
 }
 
-// ReconcileConsumer, transport config is changed, then create/update the consumer
+// ReconcileConsumer creates the consumer if not exists, and sends the updated transport config
+// to trigger reconnection when kafka credentials change.
 func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
-	// if the consumer groupId is empty, then it's means the agent is in the standalone mode, don't create the consumer
+	if c.disableConsumer {
+		return nil
+	}
+
+	// skip if consumer group id is empty (standalone mode)
 	if c.transportConfig.KafkaCredential.ConsumerGroupID == "" {
 		log.Infof("skip initializing consumer, consumer group id is not set")
 		return nil
 	}
 
-	options := []consumer.GenericConsumeOption{}
-	// set consumerTopics to status or spec topic based on running in manager or not
-	if c.inManager {
-		c.consumerTopics = []string{c.transportConfig.KafkaCredential.StatusTopic}
-		options = append(options, consumer.SetTopicMetadataRefreshInterval(constants.TopicMetadataRefreshInterval))
-	} else {
-		c.consumerTopics = []string{c.transportConfig.KafkaCredential.SpecTopic}
-	}
-
-	consumerGroupID := c.transportConfig.KafkaCredential.ConsumerGroupID
-	// create/update the consumer with the kafka transport
+	// create consumer if not exists, add it to manager for lifecycle management
 	if c.transportClient.consumer == nil {
-		receiver, err := consumer.NewGenericConsumer(c.transportConfig, c.consumerTopics, options...)
+		genericConsumer, err := consumer.NewGenericConsumer(c.inManager, c.transportConfig.EnableDatabaseOffset)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
-		c.transportClient.consumer = receiver
-		go func() {
-			log.Infof("start consumer: %s", consumerGroupID)
-			if err = receiver.Start(ctx); err != nil {
-				log.Warnf("consumer(%s) stopped with error: %v", consumerGroupID, err)
-			}
-			// clear consumer reference so next reconcile will recreate it
-			c.mutex.Lock()
-			c.transportClient.consumer = nil
-			c.mutex.Unlock()
-			log.Infof("consumer stopped, requeue to reinitialize consumer: %s", consumerGroupID)
-			c.workqueue.AddAfter(ctrl.Request{}, 10*time.Second)
-		}()
-	} else {
-		err := c.transportClient.consumer.Reconnect(ctx, c.transportConfig, c.consumerTopics)
-		if err != nil {
-			return fmt.Errorf("failed to reconnect the consumer(%s): %v", consumerGroupID, err)
+		// add consumer to manager so it can trigger graceful shutdown on error
+		if err := c.manager.Add(genericConsumer); err != nil {
+			return fmt.Errorf("failed to add consumer to manager: %w", err)
 		}
+		c.transportClient.consumer = genericConsumer
 	}
+
+	// send transport config to consumer to trigger connection
+	c.transportClient.consumer.ConfigChan() <- c.transportConfig
 	return nil
 }
 
@@ -279,11 +257,11 @@ func (c *TransportCtrl) ReconcileKafkaCredential(ctx context.Context, secret *co
 	if err != nil {
 		return false, err
 	}
-	// update the watching secret lits
-	if kafkaConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
+	// update the watching secret list
+	if kafkaConn.CASecretName != "" && !utils.ContainsString(c.extraSecretNames, kafkaConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.CASecretName)
 	}
-	if kafkaConn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, kafkaConn.ClientSecretName) {
+	if kafkaConn.ClientSecretName != "" && !utils.ContainsString(c.extraSecretNames, kafkaConn.ClientSecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, kafkaConn.ClientSecretName)
 	}
 
@@ -352,11 +330,11 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 		return updated, err
 	}
 
-	// update the watching secret lits
-	if restfulConn.CASecretName != "" || !utils.ContainsString(c.extraSecretNames, restfulConn.CASecretName) {
+	// update the watching secret list
+	if restfulConn.CASecretName != "" && !utils.ContainsString(c.extraSecretNames, restfulConn.CASecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, restfulConn.CASecretName)
 	}
-	if restfulConn.ClientSecretName != "" || utils.ContainsString(c.extraSecretNames, restfulConn.ClientSecretName) {
+	if restfulConn.ClientSecretName != "" && !utils.ContainsString(c.extraSecretNames, restfulConn.ClientSecretName) {
 		c.extraSecretNames = append(c.extraSecretNames, restfulConn.ClientSecretName)
 	}
 
@@ -370,6 +348,7 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 
 // SetupWithManager sets up the controller with the Manager.
 func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
+	c.manager = mgr
 	c.runtimeClient = mgr.GetClient()
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
@@ -390,16 +369,7 @@ func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, builder.WithPredicates(secretPred)).
-		WithOptions(
-			controller.TypedOptions[ctrl.Request]{
-				NewQueue: func(controllerName string, rateLimiter workqueue.TypedRateLimiter[ctrl.Request]) workqueue.TypedRateLimitingInterface[ctrl.Request] {
-					c.workqueue = workqueue.NewTypedRateLimitingQueueWithConfig(rateLimiter, workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-						Name: controllerName,
-					})
-					return c.workqueue
-				},
-			},
-		).Complete(c)
+		Complete(c)
 }
 
 func (c *TransportCtrl) credentialSecret(name string) bool {
