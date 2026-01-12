@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"sync"
 	"time"
 
 	kafka_confluent "github.com/cloudevents/sdk-go/protocol/kafka_confluent/v2"
@@ -48,9 +47,9 @@ type GenericConsumer struct {
 	eventChan chan *cloudevents.Event
 	assembler *messageAssembler
 
-	// backoff for reconnection with exponential backoff and reset
-	backoffMu sync.Mutex
-	backoff   wait.Backoff
+	// backoff for reconnection with exponential backoff
+	// Note: Only accessed from Start() goroutine, no mutex needed
+	backoff wait.Backoff
 
 	// topicMetadataRefreshInterval reflects the topic.metadata.refresh.interval.ms and
 	// metadata.max.age.ms settings in the consumer config.
@@ -91,17 +90,15 @@ func newBackoff() wait.Backoff {
 	}
 }
 
-// resetBackoff resets the backoff to initial state
+// resetBackoff resets the backoff to initial state.
+// Note: Not thread-safe. Only call from tests or within getBackoffDuration (which holds the lock).
 func (c *GenericConsumer) resetBackoff() {
-	c.backoffMu.Lock()
-	defer c.backoffMu.Unlock()
 	c.backoff = newBackoff()
 }
 
 // getBackoffDuration returns the current backoff duration using wait.Backoff.Step()
+// Note: Only called from Start() goroutine, no synchronization needed.
 func (c *GenericConsumer) getBackoffDuration(lastTime time.Time) time.Duration {
-	c.backoffMu.Lock()
-	defer c.backoffMu.Unlock()
 	// if connection was stable (ran > threshold), reset backoff
 	if time.Since(lastTime) > defaultStableThreshold {
 		log.Infof("connection was stable, resetting backoff")
