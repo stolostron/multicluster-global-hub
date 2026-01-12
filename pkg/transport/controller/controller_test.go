@@ -12,8 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/util/workqueue"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,17 +42,14 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			},
 			FailureThreshold: 100,
 		},
-		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-			Name: "controllerName",
-		}),
 		transportCallback: func(transportClient transport.TransportClient) error {
 			callbackInvoked = true
 			return nil
 		},
-		transportClient: &TransportClient{},
-		runtimeClient:   fakeClient,
-		producerTopic:   "event",
-		consumerTopics:  []string{"spec"},
+		transportClient:     &TransportClient{},
+		runtimeClient:       fakeClient,
+		producerTopic:       "event",
+		transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
 	}
 
 	ctx := context.TODO()
@@ -127,9 +122,6 @@ func TestInventorySecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient: &TransportClient{},
 		runtimeClient:   fakeClient,
-		workqueue: workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request](), workqueue.TypedRateLimitingQueueConfig[ctrl.Request]{
-			Name: "controllerName",
-		}),
 		disableConsumer: true,
 	}
 
@@ -261,18 +253,10 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 }
 
 // Mock consumer for testing
-type mockConsumer struct {
-	reconnectCalled bool
-	reconnectErr    error
-}
+type mockConsumer struct{}
 
 func (mc *mockConsumer) Start(ctx context.Context) error {
 	return nil
-}
-
-func (mc *mockConsumer) Reconnect(ctx context.Context, cfg *transport.TransportInternalConfig, topics []string) error {
-	mc.reconnectCalled = true
-	return mc.reconnectErr
 }
 
 func (mc *mockConsumer) EventChan() chan *cloudevents.Event {
@@ -292,8 +276,9 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 					StatusTopic:     "status-topic",
 				},
 			},
-			transportClient: &TransportClient{},
-			inManager:       false,
+			transportClient:     &TransportClient{},
+			transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
+			inManager:           false,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
@@ -301,47 +286,36 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 		assert.Nil(t, ctrl.transportClient.consumer)
 	})
 
-	// Test case 2: Valid consumer group ID but no valid kafka config (should fail gracefully)
-	t.Run("Handle invalid kafka config", func(t *testing.T) {
-		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					// Missing bootstrap server and other required fields
-				},
-			},
-			transportClient: &TransportClient{},
-			inManager:       false,
-		}
-
-		err := ctrl.ReconcileConsumer(ctx)
-		// Should return an error because the kafka config is invalid
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to create the consumer")
-	})
-
-	// Test case 3: Consumer already exists, should call Reconnect
-	t.Run("Reconnect existing consumer", func(t *testing.T) {
+	// Test case 2: Consumer already exists, should send config to channel
+	t.Run("Consumer exists - send config to channel", func(t *testing.T) {
 		mock := &mockConsumer{}
-		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					BootstrapServer: "localhost:9092", // Add required field
-				},
+		transportConfigChan := make(chan *transport.TransportInternalConfig, 1) // buffered to avoid blocking
+		transportConfig := &transport.TransportInternalConfig{
+			KafkaCredential: &transport.KafkaConfig{
+				ConsumerGroupID: "test-group",
+				SpecTopic:       "spec-topic",
+				StatusTopic:     "status-topic",
+				BootstrapServer: "localhost:9092",
 			},
+		}
+		ctrl := &TransportCtrl{
+			transportConfig: transportConfig,
 			transportClient: &TransportClient{
 				consumer: mock, // Existing consumer
 			},
-			inManager: true,
+			transportConfigChan: transportConfigChan,
+			inManager:           true,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
-		assert.True(t, mock.reconnectCalled)
+
+		// Verify config was sent to channel
+		select {
+		case receivedConfig := <-transportConfigChan:
+			assert.Equal(t, transportConfig, receivedConfig)
+		default:
+			t.Error("Expected config to be sent to channel")
+		}
 	})
 }

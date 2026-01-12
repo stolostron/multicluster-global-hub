@@ -103,8 +103,27 @@ var _ = Describe("MigrationToSyncer", Ordered, func() {
 			},
 		})
 
+		// Wait for delete to propagate through cache before creating new configmap
+		Eventually(func() bool {
+			cm := &corev1.ConfigMap{}
+			err := runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
+				Namespace: testMSANamespace,
+			}, cm)
+			return apierrors.IsNotFound(err)
+		}, 5*time.Second, 100*time.Millisecond).Should(BeTrue())
+
 		_, err := configs.GetSyncStateConfigMap(ctx, runtimeClient)
 		Expect(err).Should(Succeed())
+
+		// Wait for the configmap to be visible in the cache before running tests
+		Eventually(func() error {
+			cm := &corev1.ConfigMap{}
+			return runtimeClient.Get(ctx, types.NamespacedName{
+				Name:      configs.AGENT_SYNC_STATE_CONFIG_MAP_NAME,
+				Namespace: testMSANamespace,
+			}, cm)
+		}, 5*time.Second, 100*time.Millisecond).Should(Succeed())
 	})
 
 	AfterAll(func() {
