@@ -28,13 +28,16 @@ func TestAssembler(t *testing.T) {
 	assert.Nil(t, err)
 	genericProducer.SetDataLimit(5)
 
-	genericConsumer, err := consumer.NewGenericConsumer(transportConfig,
-		[]string{transportConfig.KafkaCredential.SpecTopic})
+	genericConsumer, err := consumer.NewGenericConsumer(false, false)
 	assert.Nil(t, err)
+
 	go func() {
 		err = genericConsumer.Start(context.TODO())
 		assert.Nil(t, err)
 	}()
+
+	// Send config to consumer to trigger initialization
+	genericConsumer.ConfigChan() <- transportConfig
 
 	e := cloudevents.NewEvent()
 	e.SetID(uuid.New().String())
