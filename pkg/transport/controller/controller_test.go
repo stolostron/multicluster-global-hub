@@ -3,18 +3,28 @@ package controller
 import (
 	"context"
 	"encoding/base64"
+	"net/http"
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/transport"
@@ -27,6 +37,13 @@ func TestSecretCtrlReconcile(t *testing.T) {
 	_ = corev1.AddToScheme(scheme)
 
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+	ctx := context.TODO()
+
+	// Create mock manager
+	mockMgr := &mockManager{
+		client: fakeClient,
+		ctx:    ctx,
+	}
 
 	callbackInvoked := false
 
@@ -48,11 +65,10 @@ func TestSecretCtrlReconcile(t *testing.T) {
 		},
 		transportClient:     &TransportClient{},
 		runtimeClient:       fakeClient,
+		manager:             mockMgr,
 		producerTopic:       "event",
 		transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
 	}
-
-	ctx := context.TODO()
 
 	kafkaConn := &transport.KafkaConfig{
 		BootstrapServer: "localhost:3031",
@@ -262,6 +278,40 @@ func (mc *mockConsumer) Start(ctx context.Context) error {
 func (mc *mockConsumer) EventChan() chan *cloudevents.Event {
 	return make(chan *cloudevents.Event)
 }
+
+// mockManager implements a minimal manager.Manager for testing
+type mockManager struct {
+	client client.Client
+	ctx    context.Context
+}
+
+func (m *mockManager) Add(runnable manager.Runnable) error {
+	// Start the runnable in a goroutine like the real manager does
+	go func() {
+		_ = runnable.Start(m.ctx)
+	}()
+	return nil
+}
+
+func (m *mockManager) GetClient() client.Client                                 { return m.client }
+func (m *mockManager) GetScheme() *runtime.Scheme                               { return nil }
+func (m *mockManager) GetFieldIndexer() client.FieldIndexer                     { return nil }
+func (m *mockManager) GetCache() cache.Cache                                    { return nil }
+func (m *mockManager) GetEventRecorderFor(name string) record.EventRecorder     { return nil }
+func (m *mockManager) GetRESTMapper() meta.RESTMapper                           { return nil }
+func (m *mockManager) GetAPIReader() client.Reader                              { return nil }
+func (m *mockManager) Start(ctx context.Context) error                          { return nil }
+func (m *mockManager) GetWebhookServer() webhook.Server                         { return nil }
+func (m *mockManager) GetLogger() logr.Logger                                   { return logr.Discard() }
+func (m *mockManager) GetControllerOptions() config.Controller                  { return config.Controller{} }
+func (m *mockManager) Elected() <-chan struct{}                                 { return nil }
+func (m *mockManager) AddHealthzCheck(name string, check healthz.Checker) error { return nil }
+func (m *mockManager) AddReadyzCheck(name string, check healthz.Checker) error  { return nil }
+func (m *mockManager) GetHTTPClient() *http.Client                              { return nil }
+func (m *mockManager) AddMetricsServerExtraHandler(path string, handler http.Handler) error {
+	return nil
+}
+func (m *mockManager) GetConfig() *rest.Config { return nil }
 
 func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 	ctx := context.TODO()

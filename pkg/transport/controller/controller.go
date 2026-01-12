@@ -31,6 +31,7 @@ type TransportCallback func(transportClient transport.TransportClient) error
 
 type TransportCtrl struct {
 	runtimeClient    client.Client
+	manager          ctrl.Manager
 	secretNamespace  string
 	secretName       string
 	extraSecretNames []string
@@ -210,14 +211,17 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		return nil
 	}
 
-	// create consumer if not exists, it runs in a separate goroutine
+	// create consumer if not exists, add it to manager for lifecycle management
 	if c.transportClient.consumer == nil {
 		genericConsumer, err := consumer.NewGenericConsumer(
 			c.transportConfigChan, c.inManager, c.transportConfig.EnableDatabaseOffset)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
-		go func() { _ = genericConsumer.Start(ctx) }()
+		// add consumer to manager so it can trigger graceful shutdown on error
+		if err := c.manager.Add(genericConsumer); err != nil {
+			return fmt.Errorf("failed to add consumer to manager: %w", err)
+		}
 		c.transportClient.consumer = genericConsumer
 	}
 
@@ -349,6 +353,7 @@ func (c *TransportCtrl) ReconcileRestfulCredential(ctx context.Context, secret *
 
 // SetupWithManager sets up the controller with the Manager.
 func (c *TransportCtrl) SetupWithManager(mgr ctrl.Manager) error {
+	c.manager = mgr
 	c.runtimeClient = mgr.GetClient()
 	secretPred := predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
