@@ -17,9 +17,7 @@ import (
 )
 
 func TestGenerateConsumer(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-
-	consumer, err := NewGenericConsumer(transportConfigChan, true, false)
+	consumer, err := NewGenericConsumer(true, false)
 	if err != nil {
 		t.Errorf("failed to generate consumer - %v", err)
 	}
@@ -88,8 +86,7 @@ func TestNewBackoff(t *testing.T) {
 }
 
 func TestResetBackoff(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-	consumer, err := NewGenericConsumer(transportConfigChan, true, false)
+	consumer, err := NewGenericConsumer(true, false)
 	assert.NoError(t, err)
 
 	// Step the backoff multiple times to increase duration
@@ -105,8 +102,7 @@ func TestResetBackoff(t *testing.T) {
 }
 
 func TestGetBackoffDuration(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-	consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+	consumer, err := NewGenericConsumer(false, false)
 	assert.NoError(t, err)
 
 	t.Run("exponential backoff increases duration", func(t *testing.T) {
@@ -164,10 +160,8 @@ func TestGetBackoffDuration(t *testing.T) {
 }
 
 func TestNewGenericConsumerForAgent(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-
 	// Test creating consumer for agent (isManager=false)
-	consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+	consumer, err := NewGenericConsumer(false, false)
 	assert.NoError(t, err)
 	assert.NotNil(t, consumer)
 	assert.NotNil(t, consumer.eventChan)
@@ -177,10 +171,8 @@ func TestNewGenericConsumerForAgent(t *testing.T) {
 }
 
 func TestNewGenericConsumerForManager(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-
 	// Test creating consumer for manager (isManager=true)
-	consumer, err := NewGenericConsumer(transportConfigChan, true, true)
+	consumer, err := NewGenericConsumer(true, true)
 	assert.NoError(t, err)
 	assert.NotNil(t, consumer)
 	assert.Equal(t, true, consumer.isManager)
@@ -189,9 +181,7 @@ func TestNewGenericConsumerForManager(t *testing.T) {
 }
 
 func TestEventChan(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-
-	consumer, err := NewGenericConsumer(transportConfigChan, true, false)
+	consumer, err := NewGenericConsumer(true, false)
 	assert.NoError(t, err)
 
 	// EventChan should return the same channel
@@ -201,10 +191,8 @@ func TestEventChan(t *testing.T) {
 }
 
 func TestInitClientWithChanTransport(t *testing.T) {
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-
 	t.Run("init client for agent with Chan transport", func(t *testing.T) {
-		consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+		consumer, err := NewGenericConsumer(false, false)
 		assert.NoError(t, err)
 
 		config := &transport.TransportInternalConfig{
@@ -224,7 +212,7 @@ func TestInitClientWithChanTransport(t *testing.T) {
 	})
 
 	t.Run("init client for manager with Chan transport", func(t *testing.T) {
-		consumer, err := NewGenericConsumer(transportConfigChan, true, false)
+		consumer, err := NewGenericConsumer(true, false)
 		assert.NoError(t, err)
 
 		config := &transport.TransportInternalConfig{
@@ -244,7 +232,7 @@ func TestInitClientWithChanTransport(t *testing.T) {
 	})
 
 	t.Run("init client with nil Extends creates new map", func(t *testing.T) {
-		consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+		consumer, err := NewGenericConsumer(false, false)
 		assert.NoError(t, err)
 
 		config := &transport.TransportInternalConfig{
@@ -263,7 +251,7 @@ func TestInitClientWithChanTransport(t *testing.T) {
 	})
 
 	t.Run("init client with invalid transport type", func(t *testing.T) {
-		consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+		consumer, err := NewGenericConsumer(false, false)
 		assert.NoError(t, err)
 
 		config := &transport.TransportInternalConfig{
@@ -283,8 +271,7 @@ func TestInitClientWithChanTransport(t *testing.T) {
 
 func TestStartWithChanTransport(t *testing.T) {
 	t.Run("start with context cancellation", func(t *testing.T) {
-		transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-		consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+		consumer, err := NewGenericConsumer(false, false)
 		assert.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -306,8 +293,7 @@ func TestStartWithChanTransport(t *testing.T) {
 	})
 
 	t.Run("start with invalid transport type returns error", func(t *testing.T) {
-		transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-		consumer, err := NewGenericConsumer(transportConfigChan, false, false)
+		consumer, err := NewGenericConsumer(false, false)
 		assert.NoError(t, err)
 
 		config := &transport.TransportInternalConfig{
@@ -326,8 +312,8 @@ func TestStartWithChanTransport(t *testing.T) {
 			startErr <- consumer.Start(ctx)
 		}()
 
-		// Send invalid config
-		transportConfigChan <- config
+		// Send invalid config via consumer's ConfigChan
+		consumer.ConfigChan() <- config
 
 		select {
 		case err := <-startErr:

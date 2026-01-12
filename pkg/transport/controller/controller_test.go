@@ -64,11 +64,10 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			callbackInvoked = true
 			return nil
 		},
-		transportClient:     &TransportClient{},
-		runtimeClient:       fakeClient,
-		manager:             mockMgr,
-		producerTopic:       "event",
-		transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
+		transportClient: &TransportClient{},
+		runtimeClient:   fakeClient,
+		manager:         mockMgr,
+		producerTopic:   "event",
 	}
 
 	kafkaConn := &transport.KafkaConfig{
@@ -270,7 +269,15 @@ func TestTransportCtrl_ResyncKafkaClientSecret(t *testing.T) {
 }
 
 // Mock consumer for testing
-type mockConsumer struct{}
+type mockConsumer struct {
+	configChan chan *transport.TransportInternalConfig
+}
+
+func newMockConsumer() *mockConsumer {
+	return &mockConsumer{
+		configChan: make(chan *transport.TransportInternalConfig, 1),
+	}
+}
 
 func (mc *mockConsumer) Start(ctx context.Context) error {
 	return nil
@@ -278,6 +285,10 @@ func (mc *mockConsumer) Start(ctx context.Context) error {
 
 func (mc *mockConsumer) EventChan() chan *cloudevents.Event {
 	return make(chan *cloudevents.Event)
+}
+
+func (mc *mockConsumer) ConfigChan() chan *transport.TransportInternalConfig {
+	return mc.configChan
 }
 
 // mockManager implements a minimal manager.Manager for testing
@@ -327,9 +338,8 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 					StatusTopic:     "status-topic",
 				},
 			},
-			transportClient:     &TransportClient{},
-			transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
-			inManager:           false,
+			transportClient: &TransportClient{},
+			inManager:       false,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
@@ -339,8 +349,7 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 
 	// Test case 2: Consumer already exists, should send config to channel
 	t.Run("Consumer exists - send config to channel", func(t *testing.T) {
-		mock := &mockConsumer{}
-		transportConfigChan := make(chan *transport.TransportInternalConfig, 1) // buffered to avoid blocking
+		mock := newMockConsumer()
 		transportConfig := &transport.TransportInternalConfig{
 			KafkaCredential: &transport.KafkaConfig{
 				ConsumerGroupID: "test-group",
@@ -354,16 +363,15 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 			transportClient: &TransportClient{
 				consumer: mock, // Existing consumer
 			},
-			transportConfigChan: transportConfigChan,
-			inManager:           true,
+			inManager: true,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
 
-		// Verify config was sent to channel
+		// Verify config was sent to consumer's channel
 		select {
-		case receivedConfig := <-transportConfigChan:
+		case receivedConfig := <-mock.ConfigChan():
 			assert.Equal(t, transportConfig, receivedConfig)
 		default:
 			t.Error("Expected config to be sent to channel")
@@ -380,9 +388,8 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 					StatusTopic:     "status-topic",
 				},
 			},
-			transportClient:     &TransportClient{},
-			transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
-			disableConsumer:     true,
+			transportClient: &TransportClient{},
+			disableConsumer: true,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
@@ -407,7 +414,6 @@ func TestNewTransportCtrl(t *testing.T) {
 	assert.NotNil(t, ctrl.transportCallback)
 	assert.NotNil(t, ctrl.transportClient)
 	assert.Equal(t, config, ctrl.transportConfig)
-	assert.NotNil(t, ctrl.transportConfigChan)
 	assert.Equal(t, true, ctrl.inManager)
 	assert.Equal(t, false, ctrl.disableConsumer)
 }
@@ -465,7 +471,7 @@ func TestTransportClientGettersSetters(t *testing.T) {
 	t.Run("consumer getter/setter", func(t *testing.T) {
 		assert.Nil(t, tc.GetConsumer())
 
-		mockCons := &mockConsumer{}
+		mockCons := newMockConsumer()
 		tc.SetConsumer(mockCons)
 
 		assert.Equal(t, mockCons, tc.GetConsumer())

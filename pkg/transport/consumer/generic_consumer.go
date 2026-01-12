@@ -37,9 +37,7 @@ const (
 type GenericConsumer struct {
 	// transportConfigChan receives transport config to trigger consumer reconnection.
 	// This avoids race conditions by passing config explicitly instead of sharing a pointer.
-	transportConfigChan chan *transport.TransportInternalConfig
-	// transportConfig is the currently active transport config
-	transportConfig      *transport.TransportInternalConfig
+	transportConfigChan  chan *transport.TransportInternalConfig
 	enableDatabaseOffset bool
 	isManager            bool
 
@@ -59,13 +57,9 @@ type GenericConsumer struct {
 	topicMetadataRefreshInterval int
 }
 
-func NewGenericConsumer(
-	transportConfigChan chan *transport.TransportInternalConfig,
-	isManager bool,
-	enableDatabaseOffset bool,
-) (*GenericConsumer, error) {
+func NewGenericConsumer(isManager bool, enableDatabaseOffset bool) (*GenericConsumer, error) {
 	c := &GenericConsumer{
-		transportConfigChan:  transportConfigChan,
+		transportConfigChan:  make(chan *transport.TransportInternalConfig, 1),
 		isManager:            isManager,
 		enableDatabaseOffset: enableDatabaseOffset,
 
@@ -122,21 +116,18 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			log.Infof("context done, stop the consumer")
 			return nil
 
-		case newConfig := <-c.transportConfigChan:
+		case transportConfig := <-c.transportConfigChan:
 			// 1. cancel the previous consumer receiver if exists
 			if consumerCancel != nil {
 				consumerCancel()
 			}
 
 			// 2. init the cloudevents client with the new transport config
-			client, err := c.initClient(newConfig)
+			client, err := c.initClient(transportConfig)
 			if err != nil {
 				// return error to trigger graceful shutdown via controller-runtime manager
 				return fmt.Errorf("failed to init transport client: %w", err)
 			}
-
-			// 3. only update transportConfig after successful initialization
-			c.transportConfig = newConfig
 
 			// 4. create new context and start receiving events in a goroutine
 			consumerCtx, consumerCancel = context.WithCancel(ctx)
@@ -151,17 +142,17 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 
 				// only reconnect if receiver exited unexpectedly (not cancelled by new signal)
 				if ctx.Err() == context.Canceled {
-					log.Infof("receiver cancelled, skip reconnection")
+					log.Infof("receiver cancelled, skip reconnection for the current group id: %s", consumerGroupId)
 					return
 				}
 
 				// backoff before reconnect to avoid rapid retry loops
 				backoff := c.getBackoffDuration(startTime)
-				log.Infof("reconnecting in %v", backoff)
+				log.Infof("reconnect in %v for the current group id: %s", backoff, consumerGroupId)
 				time.Sleep(backoff)
 				// resend the current config to trigger reconnection
 				c.transportConfigChan <- config
-			}(consumerCtx, newConfig)
+			}(consumerCtx, transportConfig)
 		}
 	}
 }
@@ -253,6 +244,10 @@ func (c *GenericConsumer) receive(client cloudevents.Client, ctx context.Context
 
 func (c *GenericConsumer) EventChan() chan *cloudevents.Event {
 	return c.eventChan
+}
+
+func (c *GenericConsumer) ConfigChan() chan *transport.TransportInternalConfig {
+	return c.transportConfigChan
 }
 
 func getInitOffset(kafkaClusterIdentity string) ([]kafka.TopicPartition, error) {

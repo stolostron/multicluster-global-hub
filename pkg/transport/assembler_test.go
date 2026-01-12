@@ -28,9 +28,7 @@ func TestAssembler(t *testing.T) {
 	assert.Nil(t, err)
 	genericProducer.SetDataLimit(5)
 
-	// Create config channel for consumer
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-	genericConsumer, err := consumer.NewGenericConsumer(transportConfigChan, false, false)
+	genericConsumer, err := consumer.NewGenericConsumer(false, false)
 	assert.Nil(t, err)
 
 	go func() {
@@ -39,7 +37,7 @@ func TestAssembler(t *testing.T) {
 	}()
 
 	// Send config to consumer to trigger initialization
-	transportConfigChan <- transportConfig
+	genericConsumer.ConfigChan() <- transportConfig
 
 	e := cloudevents.NewEvent()
 	e.SetID(uuid.New().String())

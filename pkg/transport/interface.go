@@ -32,6 +32,7 @@ type Consumer interface {
 	// start the transport to consume message
 	Start(ctx context.Context) error
 	EventChan() chan *cloudevents.Event
+	ConfigChan() chan *TransportInternalConfig
 }
 
 // Transporter used to innitialize the infras, it has different implementation/protocol:

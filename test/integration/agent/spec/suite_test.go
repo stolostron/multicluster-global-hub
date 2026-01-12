@@ -82,8 +82,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	runtimeClient = mgr.GetClient()
 
-	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
-	genericConsumer, err = genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
+	genericConsumer, err = genericconsumer.NewGenericConsumer(false, false)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -92,7 +91,7 @@ var _ = BeforeSuite(func() {
 		}
 	}()
 	go func() {
-		transportConfigChan <- agentConfig.TransportConfig
+		genericConsumer.ConfigChan() <- agentConfig.TransportConfig
 	}()
 
 	genericProducer, err = genericproducer.NewGenericProducer(
