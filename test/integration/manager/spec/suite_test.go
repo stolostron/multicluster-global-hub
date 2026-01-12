@@ -127,11 +127,11 @@ var _ = BeforeSuite(func() {
 	producer, err = genericproducer.NewGenericProducer(managerConfig.TransportConfig,
 		managerConfig.TransportConfig.KafkaCredential.SpecTopic, nil)
 	Expect(err).NotTo(HaveOccurred())
-	signalChan := make(chan struct{}, 1)
-	consumer, err := genericconsumer.NewGenericConsumer(signalChan, managerConfig.TransportConfig, false, false)
+	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
+	consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
 	Expect(err).NotTo(HaveOccurred())
 	go func() {
-		signalChan <- struct{}{}
+		transportConfigChan <- managerConfig.TransportConfig
 	}()
 	// use the dispatcher to consume events from transport
 	agentDispatcher, err = agentspec.AddGenericDispatcher(mgr, consumer,

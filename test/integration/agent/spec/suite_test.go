@@ -82,8 +82,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	runtimeClient = mgr.GetClient()
 
-	signalChan := make(chan struct{}, 1)
-	genericConsumer, err = genericconsumer.NewGenericConsumer(signalChan, agentConfig.TransportConfig, false, false)
+	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
+	genericConsumer, err = genericconsumer.NewGenericConsumer(transportConfigChan, false, false)
 	Expect(err).NotTo(HaveOccurred())
 
 	go func() {
@@ -92,7 +92,7 @@ var _ = BeforeSuite(func() {
 		}
 	}()
 	go func() {
-		signalChan <- struct{}{}
+		transportConfigChan <- agentConfig.TransportConfig
 	}()
 
 	genericProducer, err = genericproducer.NewGenericProducer(

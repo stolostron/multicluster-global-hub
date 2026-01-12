@@ -36,9 +36,10 @@ const (
 )
 
 type GenericConsumer struct {
-	// signalChan receives signal to trigger consumer connection using current transportConfig
-	signalChan chan struct{}
-	// transportConfig is a reference to the transport config, managed by the controller
+	// transportConfigChan receives transport config to trigger consumer reconnection.
+	// This avoids race conditions by passing config explicitly instead of sharing a pointer.
+	transportConfigChan chan *transport.TransportInternalConfig
+	// transportConfig is the currently active transport config
 	transportConfig      *transport.TransportInternalConfig
 	enableDatabaseOffset bool
 	isManager            bool
@@ -60,14 +61,12 @@ type GenericConsumer struct {
 }
 
 func NewGenericConsumer(
-	signalChan chan struct{},
-	transportConfig *transport.TransportInternalConfig,
+	transportConfigChan chan *transport.TransportInternalConfig,
 	isManager bool,
 	enableDatabaseOffset bool,
 ) (*GenericConsumer, error) {
 	c := &GenericConsumer{
-		signalChan:           signalChan,
-		transportConfig:      transportConfig,
+		transportConfigChan:  transportConfigChan,
 		isManager:            isManager,
 		enableDatabaseOffset: enableDatabaseOffset,
 
@@ -112,7 +111,8 @@ func (c *GenericConsumer) getBackoffDuration(lastTime time.Time) time.Duration {
 }
 
 // Start runs the consumer loop independently from the reconcile loop.
-// It reconnects when receiving signal via the signalChan.
+// It reconnects when receiving new transport config via the transportConfigChan.
+// Returns error to trigger graceful shutdown if client initialization fails.
 func (c *GenericConsumer) Start(ctx context.Context) error {
 	var consumerCtx context.Context
 	var consumerCancel context.CancelFunc
@@ -125,23 +125,26 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 			log.Infof("context done, stop the consumer")
 			return nil
 
-		case <-c.signalChan:
+		case newConfig := <-c.transportConfigChan:
 			// 1. cancel the previous consumer receiver if exists
 			if consumerCancel != nil {
 				consumerCancel()
 			}
 
-			// 2. init the cloudevents client with the current transport config
-			client, err := c.initClient(c.transportConfig)
+			// 2. init the cloudevents client with the new transport config
+			client, err := c.initClient(newConfig)
 			if err != nil {
-				// panic to trigger graceful shutdown via controller-runtime manager
-				panic(fmt.Sprintf("failed to init the transport client: %v", err))
+				// return error to trigger graceful shutdown via controller-runtime manager
+				return fmt.Errorf("failed to init transport client: %w", err)
 			}
 
-			// 3. create new context and start receiving events in a goroutine
+			// 3. only update transportConfig after successful initialization
+			c.transportConfig = newConfig
+
+			// 4. create new context and start receiving events in a goroutine
 			consumerCtx, consumerCancel = context.WithCancel(ctx)
-			go func(ctx context.Context) {
-				consumerGroupId := c.transportConfig.KafkaCredential.ConsumerGroupID
+			go func(ctx context.Context, config *transport.TransportInternalConfig) {
+				consumerGroupId := config.KafkaCredential.ConsumerGroupID
 				log.Infof("start receiving events: %s", consumerGroupId)
 				startTime := time.Now()
 				if err := c.receive(client, ctx); err != nil {
@@ -159,8 +162,9 @@ func (c *GenericConsumer) Start(ctx context.Context) error {
 				backoff := c.getBackoffDuration(startTime)
 				log.Infof("reconnecting in %v", backoff)
 				time.Sleep(backoff)
-				c.signalChan <- struct{}{}
-			}(consumerCtx)
+				// resend the current config to trigger reconnection
+				c.transportConfigChan <- config
+			}(consumerCtx, newConfig)
 		}
 	}
 }

@@ -46,10 +46,10 @@ func TestSecretCtrlReconcile(t *testing.T) {
 			callbackInvoked = true
 			return nil
 		},
-		transportClient: &TransportClient{},
-		runtimeClient:   fakeClient,
-		producerTopic:   "event",
-		signalChan:      make(chan struct{}, 1),
+		transportClient:     &TransportClient{},
+		runtimeClient:       fakeClient,
+		producerTopic:       "event",
+		transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
 	}
 
 	ctx := context.TODO()
@@ -276,9 +276,9 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 					StatusTopic:     "status-topic",
 				},
 			},
-			transportClient: &TransportClient{},
-			signalChan:      make(chan struct{}, 1),
-			inManager:       false,
+			transportClient:     &TransportClient{},
+			transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
+			inManager:           false,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
@@ -286,35 +286,36 @@ func TestTransportCtrl_ReconcileConsumer(t *testing.T) {
 		assert.Nil(t, ctrl.transportClient.consumer)
 	})
 
-	// Test case 2: Consumer already exists, should send signal to channel
-	t.Run("Consumer exists - send signal to channel", func(t *testing.T) {
+	// Test case 2: Consumer already exists, should send config to channel
+	t.Run("Consumer exists - send config to channel", func(t *testing.T) {
 		mock := &mockConsumer{}
-		signalChan := make(chan struct{}, 1) // buffered to avoid blocking
-		ctrl := &TransportCtrl{
-			transportConfig: &transport.TransportInternalConfig{
-				KafkaCredential: &transport.KafkaConfig{
-					ConsumerGroupID: "test-group",
-					SpecTopic:       "spec-topic",
-					StatusTopic:     "status-topic",
-					BootstrapServer: "localhost:9092",
-				},
+		transportConfigChan := make(chan *transport.TransportInternalConfig, 1) // buffered to avoid blocking
+		transportConfig := &transport.TransportInternalConfig{
+			KafkaCredential: &transport.KafkaConfig{
+				ConsumerGroupID: "test-group",
+				SpecTopic:       "spec-topic",
+				StatusTopic:     "status-topic",
+				BootstrapServer: "localhost:9092",
 			},
+		}
+		ctrl := &TransportCtrl{
+			transportConfig: transportConfig,
 			transportClient: &TransportClient{
 				consumer: mock, // Existing consumer
 			},
-			signalChan: signalChan,
-			inManager:  true,
+			transportConfigChan: transportConfigChan,
+			inManager:           true,
 		}
 
 		err := ctrl.ReconcileConsumer(ctx)
 		assert.NoError(t, err)
 
-		// Verify signal was sent to channel
+		// Verify config was sent to channel
 		select {
-		case <-signalChan:
-			// signal received as expected
+		case receivedConfig := <-transportConfigChan:
+			assert.Equal(t, transportConfig, receivedConfig)
 		default:
-			t.Error("Expected signal to be sent to channel")
+			t.Error("Expected config to be sent to channel")
 		}
 	})
 }

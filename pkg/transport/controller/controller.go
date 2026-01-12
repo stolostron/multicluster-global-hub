@@ -39,8 +39,9 @@ type TransportCtrl struct {
 	// the use the producer and consumer to activate the callback, once it executed successful, then clear it.
 	transportCallback TransportCallback
 	transportClient   *TransportClient
-	// signalChan is used to send signal to the consumer to trigger connection
-	signalChan chan struct{}
+	// transportConfigChan sends transport config to the consumer to trigger reconnection.
+	// This avoids race conditions by passing config explicitly instead of sharing a pointer.
+	transportConfigChan chan *transport.TransportInternalConfig
 
 	// producerTopic is current topic which is used to create a producer
 	producerTopic string
@@ -86,15 +87,15 @@ func NewTransportCtrl(namespace, name string, callback TransportCallback,
 	transportConfig *transport.TransportInternalConfig, inManager bool,
 ) *TransportCtrl {
 	return &TransportCtrl{
-		secretNamespace:   namespace,
-		secretName:        name,
-		transportCallback: callback,
-		transportClient:   &TransportClient{},
-		transportConfig:   transportConfig,
-		extraSecretNames:  make([]string, 2),
-		disableConsumer:   false,
-		signalChan:        make(chan struct{}, 1),
-		inManager:         inManager,
+		secretNamespace:     namespace,
+		secretName:          name,
+		transportCallback:   callback,
+		transportClient:     &TransportClient{},
+		transportConfig:     transportConfig,
+		extraSecretNames:    make([]string, 2),
+		disableConsumer:     false,
+		transportConfigChan: make(chan *transport.TransportInternalConfig, 1),
+		inManager:           inManager,
 	}
 }
 
@@ -212,7 +213,7 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 	// create consumer if not exists, it runs in a separate goroutine
 	if c.transportClient.consumer == nil {
 		genericConsumer, err := consumer.NewGenericConsumer(
-			c.signalChan, c.transportConfig, c.inManager, c.transportConfig.EnableDatabaseOffset)
+			c.transportConfigChan, c.inManager, c.transportConfig.EnableDatabaseOffset)
 		if err != nil {
 			return fmt.Errorf("failed to create the consumer: %w", err)
 		}
@@ -220,8 +221,8 @@ func (c *TransportCtrl) ReconcileConsumer(ctx context.Context) error {
 		c.transportClient.consumer = genericConsumer
 	}
 
-	// send signal to consumer to trigger connection
-	c.signalChan <- struct{}{}
+	// send transport config to consumer to trigger connection
+	c.transportConfigChan <- c.transportConfig
 	return nil
 }
 

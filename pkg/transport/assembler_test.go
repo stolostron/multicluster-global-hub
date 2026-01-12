@@ -28,9 +28,9 @@ func TestAssembler(t *testing.T) {
 	assert.Nil(t, err)
 	genericProducer.SetDataLimit(5)
 
-	// Create signal channel for consumer
-	signalChan := make(chan struct{}, 1)
-	genericConsumer, err := consumer.NewGenericConsumer(signalChan, transportConfig, false, false)
+	// Create config channel for consumer
+	transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
+	genericConsumer, err := consumer.NewGenericConsumer(transportConfigChan, false, false)
 	assert.Nil(t, err)
 
 	go func() {
@@ -38,8 +38,8 @@ func TestAssembler(t *testing.T) {
 		assert.Nil(t, err)
 	}()
 
-	// Send signal to consumer to trigger initialization
-	signalChan <- struct{}{}
+	// Send config to consumer to trigger initialization
+	transportConfigChan <- transportConfig
 
 	e := cloudevents.NewEvent()
 	e.SetID(uuid.New().String())

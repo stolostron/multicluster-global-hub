@@ -232,8 +232,8 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 				StatusTopic: topic, // use the current topic
 			},
 		}
-		signalChan := make(chan struct{}, 1)
-		consumer, err := genericconsumer.NewGenericConsumer(signalChan, topicConfig, true, false)
+		transportConfigChan := make(chan *transport.TransportInternalConfig, 1)
+		consumer, err := genericconsumer.NewGenericConsumer(transportConfigChan, true, false)
 		if err != nil {
 			return trans, err
 		}
@@ -243,7 +243,7 @@ func NewChanTransport(mgr ctrl.Manager, transConfig *transport.TransportInternal
 			}
 		}()
 		go func() {
-			signalChan <- struct{}{}
+			transportConfigChan <- topicConfig
 		}()
 
 		trans.consumers[topic] = consumer
