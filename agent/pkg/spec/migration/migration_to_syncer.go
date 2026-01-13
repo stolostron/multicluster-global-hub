@@ -81,8 +81,6 @@ type MigrationTargetSyncer struct {
 	transportConfig       *transport.TransportInternalConfig
 	bundleVersion         *eventversion.Version
 	processingMigrationId string
-	receivedMigrationId   string
-	receivedStage         string
 	leafHubName           string
 	// Batch tracking for deploying stage
 	deployingTotalClusters     int             // Total clusters expected in deploying stage
@@ -114,16 +112,21 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 		return nil
 	}
 
+	// Use local variables instead of instance fields to avoid race conditions
+	// when processing concurrent events (dispatcher uses async goroutines)
+	var receivedMigrationId string
+	var receivedStage string
+
 	clusterErrors := map[string]string{}
 	defer func() {
-		if s.receivedStage == "" || s.receivedMigrationId == "" {
-			log.Warnf("stage(%s) or migrationId(%s) is empty ", s.receivedStage, s.receivedMigrationId)
+		if receivedStage == "" || receivedMigrationId == "" {
+			log.Warnf("stage(%s) or migrationId(%s) is empty ", receivedStage, receivedMigrationId)
 			return
 		}
 
 		migrationStatus := &migration.MigrationStatusBundle{
-			MigrationId: s.receivedMigrationId,
-			Stage:       s.receivedStage,
+			MigrationId: receivedMigrationId,
+			Stage:       receivedStage,
 		}
 
 		reportStatus := true
@@ -133,7 +136,7 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 				migrationStatus.ClusterErrors = clusterErrors
 			}
 		} else {
-			if s.receivedStage == migrationv1alpha1.PhaseDeploying {
+			if receivedStage == migrationv1alpha1.PhaseDeploying {
 				if s.deployingTotalClusters > 0 && len(s.deployingProcessedClusters) == s.deployingTotalClusters {
 					log.Infof("deploying: all %d clusters have been processed successfully", s.deployingTotalClusters)
 					// Reset batch tracking for next migration
@@ -162,7 +165,12 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 
 	// Handle direct deploying events from source hub (not from global hub)
 	if evt.Source() != constants.CloudEventGlobalHubClusterName {
-		s.receivedStage = migrationv1alpha1.PhaseDeploying
+		receivedStage = migrationv1alpha1.PhaseDeploying
+		// Extract migrationId from deploying event for status reporting
+		resourceEvent := &migration.MigrationResourceBundle{}
+		if unmarshalErr := json.Unmarshal(evt.Data(), resourceEvent); unmarshalErr == nil {
+			receivedMigrationId = resourceEvent.MigrationId
+		}
 		err = s.deploying(ctx, evt)
 		if err != nil {
 			return fmt.Errorf("failed to handle deploying event: %w", err)
@@ -180,8 +188,8 @@ func (s *MigrationTargetSyncer) Sync(ctx context.Context, evt *cloudevents.Event
 	if event.MigrationId == "" {
 		return fmt.Errorf("migrationId is required but not provided in event")
 	}
-	s.receivedMigrationId = event.MigrationId
-	s.receivedStage = event.Stage
+	receivedMigrationId = event.MigrationId
+	receivedStage = event.Stage
 
 	// Set current migration ID and reset bundle version for initializing stage or rollbacking to initializing
 	if s.processingMigrationId == "" ||
@@ -411,8 +419,6 @@ func (s *MigrationTargetSyncer) deploying(ctx context.Context, evt *cloudevents.
 
 	log.Debugf("deploying: received migrationId=%s with %d cluster resources",
 		resourceEvent.MigrationId, len(resourceEvent.MigrationClusterResources))
-
-	s.receivedMigrationId = resourceEvent.MigrationId
 
 	// Initialize or validate migration tracking
 	if s.processingMigrationId == "" {
