@@ -53,6 +53,13 @@ const (
 	// Annotations
 	KlusterletConfigAnnotation = "agent.open-cluster-management.io/klusterlet-config"
 	kubectlConfigAnnotation    = "kubectl.kubernetes.io/last-applied-configuration"
+
+	// VeleroRestoreNameLabel is used to mark ImageClusterInstall resources as restored by velero.
+	// This label is required to prevent the image-based-install-operator from reconciling the resource.
+	// Reference: https://github.com/openshift/image-based-install-operator/blob/main/controllers/imageclusterinstall_controller.go#L118
+	VeleroRestoreNameLabel = "velero.io/restore-name"
+
+	GlobalHubRestoreName = "globalhub"
 )
 
 var rollbackingTimeout = 10 * time.Minute // the rollbacking stage timeout should less than migration timeout
@@ -402,6 +409,16 @@ func (s *MigrationSourceSyncer) processResourceByType(
 			delete(annotations, Metal3PauseAnnotation)
 		}
 		resource.SetAnnotations(annotations)
+	case "ImageClusterInstall":
+		// Add velero restore label if not present
+		labels := resource.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		if _, exists := labels[VeleroRestoreNameLabel]; !exists {
+			labels[VeleroRestoreNameLabel] = GlobalHubRestoreName
+		}
+		resource.SetLabels(labels)
 	}
 }
 

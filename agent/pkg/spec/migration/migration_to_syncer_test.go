@@ -2009,6 +2009,188 @@ func parseResourceIdentifier(identifier string) resourceIdentifier {
 	}
 }
 
+// TestRemoveVeleroRestoreLabelFromImageClusterInstall tests the removeVeleroRestoreLabelFromImageClusterInstall function
+func TestRemoveVeleroRestoreLabelFromImageClusterInstall(t *testing.T) {
+	scheme := configs.GetRuntimeScheme()
+	ctx := context.Background()
+
+	cases := []struct {
+		name           string
+		clusterName    string
+		initObjects    []client.Object
+		expectError    bool
+		expectRemoved  bool // whether the label should be removed
+		expectedLabels map[string]string
+	}{
+		{
+			name:        "Remove velero restore label with globalhub value",
+			clusterName: "test-cluster",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "extensions.hive.openshift.io/v1alpha1",
+						"kind":       "ImageClusterInstall",
+						"metadata": map[string]interface{}{
+							"name":      "test-cluster",
+							"namespace": "test-cluster",
+							"labels": map[string]interface{}{
+								VeleroRestoreNameLabel: GlobalHubRestoreName,
+								"other-label":          "value",
+							},
+						},
+						"spec": map[string]interface{}{
+							"imageSetRef": map[string]interface{}{
+								"name": "test-imageset",
+							},
+						},
+					},
+				},
+			},
+			expectError:   false,
+			expectRemoved: true,
+			expectedLabels: map[string]string{
+				"other-label": "value",
+			},
+		},
+		{
+			name:        "Do not remove velero restore label with different value",
+			clusterName: "test-cluster",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "extensions.hive.openshift.io/v1alpha1",
+						"kind":       "ImageClusterInstall",
+						"metadata": map[string]interface{}{
+							"name":      "test-cluster",
+							"namespace": "test-cluster",
+							"labels": map[string]interface{}{
+								VeleroRestoreNameLabel: "other-restore-name",
+								"other-label":          "value",
+							},
+						},
+						"spec": map[string]interface{}{
+							"imageSetRef": map[string]interface{}{
+								"name": "test-imageset",
+							},
+						},
+					},
+				},
+			},
+			expectError:   false,
+			expectRemoved: false,
+			expectedLabels: map[string]string{
+				VeleroRestoreNameLabel: "other-restore-name",
+				"other-label":          "value",
+			},
+		},
+		{
+			name:        "ImageClusterInstall without velero restore label",
+			clusterName: "test-cluster",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "extensions.hive.openshift.io/v1alpha1",
+						"kind":       "ImageClusterInstall",
+						"metadata": map[string]interface{}{
+							"name":      "test-cluster",
+							"namespace": "test-cluster",
+							"labels": map[string]interface{}{
+								"other-label": "value",
+							},
+						},
+						"spec": map[string]interface{}{
+							"imageSetRef": map[string]interface{}{
+								"name": "test-imageset",
+							},
+						},
+					},
+				},
+			},
+			expectError:   false,
+			expectRemoved: false,
+			expectedLabels: map[string]string{
+				"other-label": "value",
+			},
+		},
+		{
+			name:        "ImageClusterInstall without any labels",
+			clusterName: "test-cluster",
+			initObjects: []client.Object{
+				&unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"apiVersion": "extensions.hive.openshift.io/v1alpha1",
+						"kind":       "ImageClusterInstall",
+						"metadata": map[string]interface{}{
+							"name":      "test-cluster",
+							"namespace": "test-cluster",
+						},
+						"spec": map[string]interface{}{
+							"imageSetRef": map[string]interface{}{
+								"name": "test-imageset",
+							},
+						},
+					},
+				},
+			},
+			expectError:    false,
+			expectRemoved:  false,
+			expectedLabels: nil,
+		},
+		{
+			name:           "ImageClusterInstall not found - should not return error",
+			clusterName:    "non-existing-cluster",
+			initObjects:    []client.Object{},
+			expectError:    false,
+			expectRemoved:  false,
+			expectedLabels: nil,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tc.initObjects...).
+				Build()
+
+			syncer := &MigrationTargetSyncer{
+				client: fakeClient,
+			}
+
+			err := syncer.removeVeleroRestoreLabelFromImageClusterInstall(ctx, tc.clusterName)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			// Only verify if there were init objects
+			if len(tc.initObjects) > 0 {
+				// Verify the labels on the ImageClusterInstall
+				ici := &unstructured.Unstructured{}
+				ici.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "extensions.hive.openshift.io",
+					Version: "v1alpha1",
+					Kind:    "ImageClusterInstall",
+				})
+				err = fakeClient.Get(ctx, types.NamespacedName{
+					Name:      tc.clusterName,
+					Namespace: tc.clusterName,
+				}, ici)
+				assert.NoError(t, err)
+
+				labels := ici.GetLabels()
+				if tc.expectedLabels == nil {
+					assert.True(t, len(labels) == 0 || labels == nil)
+				} else {
+					assert.Equal(t, tc.expectedLabels, labels)
+				}
+			}
+		})
+	}
+}
+
 // getGVKFromKind returns GroupVersionKind based on resource kind
 func getGVKFromKind(kind string) schema.GroupVersionKind {
 	switch strings.ToLower(kind) {
