@@ -12,7 +12,6 @@ import (
 
 	"github.com/stolostron/multicluster-global-hub/manager/pkg/status/conflator"
 	"github.com/stolostron/multicluster-global-hub/pkg/bundle/version"
-	"github.com/stolostron/multicluster-global-hub/pkg/constants"
 	"github.com/stolostron/multicluster-global-hub/pkg/database"
 	"github.com/stolostron/multicluster-global-hub/pkg/database/dao"
 	"github.com/stolostron/multicluster-global-hub/pkg/enum"
@@ -126,10 +125,5 @@ func (h *genericObjectHandler[T]) handleEvent(ctx context.Context, evt *cloudeve
 }
 
 func getGenericObjectUID(resourceObject metav1.Object) string {
-	if originOwnerReference, found := resourceObject.GetAnnotations()[constants.OriginOwnerReferenceAnnotation]; found {
-		// safe if GetAnnotations() returns nil
-		return originOwnerReference
-	}
-
 	return string(resourceObject.GetUID())
 }

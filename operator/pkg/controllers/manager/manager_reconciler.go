@@ -304,13 +304,11 @@ func (r *ManagerReconciler) Reconcile(ctx context.Context,
 			RenewDeadline:             strconv.Itoa(electionConfig.RenewDeadline),
 			RetryPeriod:               strconv.Itoa(electionConfig.RetryPeriod),
 			SchedulerInterval:         config.GetSchedulerInterval(mgh),
-			SkipAuth:                  config.SkipAuth(mgh),
 			LaunchJobNames:            config.GetLaunchJobNames(mgh),
 			NodeSelector:              mgh.Spec.NodeSelector,
 			Tolerations:               mgh.Spec.Tolerations,
 			RetentionMonth:            months,
 			StatisticLogInterval:      config.GetStatisticLogInterval(),
-			EnableGlobalResource:      r.operatorConfig.GlobalResourceEnabled,
 			EnableInventoryAPI:        config.WithInventory(mgh),
 			EnablePprof:               r.operatorConfig.EnablePprof,
 			Resources:                 utils.GetResources(operatorconstants.Manager, mgh.Spec.AdvancedSpec),
@@ -458,13 +456,11 @@ type ManagerVariables struct {
 	RenewDeadline             string
 	RetryPeriod               string
 	SchedulerInterval         string
-	SkipAuth                  bool
 	LaunchJobNames            string
 	NodeSelector              map[string]string
 	Tolerations               []corev1.Toleration
 	RetentionMonth            int
 	StatisticLogInterval      string
-	EnableGlobalResource      bool
 	EnableInventoryAPI        bool
 	EnablePprof               bool
 	Resources                 *corev1.ResourceRequirements
